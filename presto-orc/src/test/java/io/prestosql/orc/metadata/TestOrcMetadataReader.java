@@ -151,13 +151,13 @@ public class TestOrcMetadataReader
             .add(EM_SPACE_SURROUNDED_BY_CONTINUATION_BYTE)
             .build();
 
-    static final List<Slice> ALL_UTF8_SEQUENCES = ImmutableList.<Slice>builder()
+    private static final List<Slice> ALL_UTF8_SEQUENCES = ImmutableList.<Slice>builder()
             .addAll(VALID_UTF8_SEQUENCES)
             .addAll(INVALID_UTF8_SEQUENCES)
             .build();
 
     private static final int REPLACEMENT_CHARACTER_CODE_POINT = 0xFFFD;
-    static final List<Integer> TEST_CODE_POINTS = ImmutableList.<Integer>builder()
+    private static final List<Integer> TEST_CODE_POINTS = ImmutableList.<Integer>builder()
             .add(0)
             .add((int) 'a')
             .add(0xC0)
@@ -352,7 +352,7 @@ public class TestOrcMetadataReader
         }
     }
 
-    static Slice concatSlice(Slice... slices)
+    private static Slice concatSlice(Slice... slices)
     {
         int totalLength = Arrays.stream(slices)
                 .mapToInt(Slice::length)

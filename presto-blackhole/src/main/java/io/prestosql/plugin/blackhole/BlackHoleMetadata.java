@@ -14,11 +14,13 @@
 package io.prestosql.plugin.blackhole;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
@@ -28,15 +30,18 @@ import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.ComputedStatistics;
+import io.prestosql.spi.statistics.DoubleRange;
+import io.prestosql.spi.statistics.Estimate;
+import io.prestosql.spi.statistics.TableStatistics;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -52,6 +57,7 @@ import static io.prestosql.plugin.blackhole.BlackHoleConnector.PAGES_PER_SPLIT_P
 import static io.prestosql.plugin.blackhole.BlackHoleConnector.PAGE_PROCESSING_DELAY;
 import static io.prestosql.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
 import static io.prestosql.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
+import static io.prestosql.plugin.blackhole.BlackHolePageSourceProvider.isNumericType;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static java.lang.String.format;
@@ -65,7 +71,7 @@ public class BlackHoleMetadata
     public static final String SCHEMA_NAME = "default";
 
     private final List<String> schemas = new ArrayList<>();
-    private final Map<String, BlackHoleTableHandle> tables = new ConcurrentHashMap<>();
+    private final Map<SchemaTableName, BlackHoleTableHandle> tables = new ConcurrentHashMap<>();
 
     public BlackHoleMetadata()
     {
@@ -79,7 +85,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
         if (schemas.contains(schemaName)) {
             throw new PrestoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
@@ -88,9 +94,21 @@ public class BlackHoleMetadata
     }
 
     @Override
+    public Optional<PrestoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
+    {
+        return ImmutableMap.of();
+    }
+
+    @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        return tables.get(tableName.getTableName());
+        return tables.get(tableName);
     }
 
     @Override
@@ -104,7 +122,7 @@ public class BlackHoleMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         return tables.values().stream()
-                .filter(table -> !schemaName.isPresent() || table.getSchemaName().equals(schemaName.get()))
+                .filter(table -> schemaName.isEmpty() || table.getSchemaName().equals(schemaName.get()))
                 .map(BlackHoleTableHandle::toSchemaTableName)
                 .collect(toList());
     }
@@ -133,10 +151,32 @@ public class BlackHoleMetadata
     }
 
     @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    {
+        BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
+        TableStatistics.Builder tableStats = TableStatistics.builder();
+
+        double rows = (double) table.getSplitCount() * table.getPagesPerSplit() * table.getRowsPerPage();
+        tableStats.setRowCount(Estimate.of(rows));
+
+        for (BlackHoleColumnHandle column : table.getColumnHandles()) {
+            ColumnStatistics.Builder stats = ColumnStatistics.builder()
+                    .setDistinctValuesCount(Estimate.of(1))
+                    .setNullsFraction(Estimate.of(0));
+            if (isNumericType(column.getColumnType())) {
+                stats.setRange(new DoubleRange(0, 0));
+            }
+            tableStats.setColumnStatistics(column, stats.build());
+        }
+
+        return tableStats.build();
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         BlackHoleTableHandle blackHoleTableHandle = (BlackHoleTableHandle) tableHandle;
-        tables.remove(blackHoleTableHandle.getTableName());
+        tables.remove(blackHoleTableHandle.toSchemaTableName());
     }
 
     @Override
@@ -152,8 +192,8 @@ public class BlackHoleMetadata
                 oldTableHandle.getRowsPerPage(),
                 oldTableHandle.getFieldsLength(),
                 oldTableHandle.getPageProcessingDelay());
-        tables.remove(oldTableHandle.getTableName());
-        tables.put(newTableName.getTableName(), newTableHandle);
+        tables.remove(oldTableHandle.toSchemaTableName());
+        tables.put(newTableName, newTableHandle);
     }
 
     @Override
@@ -166,6 +206,7 @@ public class BlackHoleMetadata
     @Override
     public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession connectorSession, ConnectorTableMetadata tableMetadata)
     {
+        @SuppressWarnings("unchecked")
         List<String> distributeColumns = (List<String>) tableMetadata.getProperties().get(DISTRIBUTED_ON);
         if (distributeColumns.isEmpty()) {
             return Optional.empty();
@@ -225,12 +266,12 @@ public class BlackHoleMetadata
     {
         BlackHoleOutputTableHandle blackHoleOutputTableHandle = (BlackHoleOutputTableHandle) tableHandle;
         BlackHoleTableHandle table = blackHoleOutputTableHandle.getTable();
-        tables.put(table.getTableName(), table);
+        tables.put(table.toSchemaTableName(), table);
         return Optional.empty();
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
     {
         BlackHoleTableHandle handle = (BlackHoleTableHandle) tableHandle;
         return new BlackHoleInsertTableHandle(handle.getPageProcessingDelay());
@@ -243,26 +284,15 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
-            ConnectorSession session,
-            ConnectorTableHandle handle,
-            Constraint<ColumnHandle> constraint,
-            Optional<Set<ColumnHandle>> desiredColumns)
+    public boolean usesLegacyTableLayouts()
     {
-        BlackHoleTableHandle blackHoleHandle = (BlackHoleTableHandle) handle;
-        BlackHoleTableLayoutHandle layoutHandle = new BlackHoleTableLayoutHandle(
-                blackHoleHandle.getSplitCount(),
-                blackHoleHandle.getPagesPerSplit(),
-                blackHoleHandle.getRowsPerPage(),
-                blackHoleHandle.getFieldsLength(),
-                blackHoleHandle.getPageProcessingDelay());
-        return ImmutableList.of(new ConnectorTableLayoutResult(getTableLayout(session, layoutHandle), constraint.getSummary()));
+        return false;
     }
 
     @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
-        return new ConnectorTableLayout(handle);
+        return new ConnectorTableProperties();
     }
 
     private void checkSchemaExists(String schemaName)

@@ -33,6 +33,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,6 +43,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
@@ -52,6 +55,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -74,7 +78,7 @@ public class TestProxyServer
         Files.write(sharedSecretFile, sharedSecret);
 
         Logging.initialize();
-        server = new TestingPrestoServer();
+        server = TestingPrestoServer.create();
         server.installPlugin(new TpchPlugin());
         server.createCatalog("tpch", "tpch");
         server.installPlugin(new BlackHolePlugin());
@@ -85,7 +89,7 @@ public class TestProxyServer
                 new TestingNodeModule("test"),
                 new TestingHttpServerModule(),
                 new JsonModule(),
-                new JaxrsModule(true),
+                new JaxrsModule(),
                 new TestingJmxModule(),
                 new ProxyModule());
 
@@ -107,7 +111,7 @@ public class TestProxyServer
 
     @AfterClass(alwaysRun = true)
     public void tearDownServer()
-            throws Exception
+            throws IOException
     {
         server.close();
         lifeCycleManager.stop();
@@ -139,6 +143,26 @@ public class TestProxyServer
             }
             assertEquals(count, 15000);
             assertEquals(sum, (count / 2) * (1 + count));
+        }
+    }
+
+    @Test
+    public void testSetSession()
+            throws Exception
+    {
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement()) {
+            statement.executeUpdate("SET SESSION query_max_run_time = '13s'");
+            statement.executeUpdate("SET SESSION query_max_cpu_time = '42s'");
+            Map<String, String> map = new HashMap<>();
+            try (ResultSet rs = statement.executeQuery("SHOW SESSION")) {
+                while (rs.next()) {
+                    map.put(rs.getString(1), rs.getString(2));
+                }
+            }
+            assertThat(map)
+                    .containsEntry("query_max_run_time", "13s")
+                    .containsEntry("query_max_cpu_time", "42s");
         }
     }
 

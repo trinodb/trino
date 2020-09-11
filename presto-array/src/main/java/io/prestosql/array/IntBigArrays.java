@@ -18,7 +18,7 @@ import static io.prestosql.array.BigArrays.SEGMENT_SIZE;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna
-public class IntBigArrays
+public final class IntBigArrays
 {
     private static final int SEGMENT_MASK = SEGMENT_SIZE - 1;
     private static final int SMALL = 7;

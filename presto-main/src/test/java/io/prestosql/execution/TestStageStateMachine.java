@@ -51,7 +51,12 @@ public class TestStageStateMachine
     private static final StageId STAGE_ID = new StageId("query", 0);
     private static final URI LOCATION = URI.create("fake://fake-stage");
     private static final PlanFragment PLAN_FRAGMENT = createValuesPlan();
-    private static final SQLException FAILED_CAUSE = new SQLException("FAILED");
+    private static final SQLException FAILED_CAUSE;
+
+    static {
+        FAILED_CAUSE = new SQLException("FAILED");
+        FAILED_CAUSE.setStackTrace(new StackTraceElement[0]);
+    }
 
     private final ExecutorService executor = newCachedThreadPool();
 
@@ -76,6 +81,9 @@ public class TestStageStateMachine
         assertTrue(stateMachine.transitionToRunning());
         assertState(stateMachine, StageState.RUNNING);
 
+        assertTrue(stateMachine.transitionToFlushing());
+        assertState(stateMachine, StageState.FLUSHING);
+
         assertTrue(stateMachine.transitionToFinished());
         assertState(stateMachine, StageState.FINISHED);
     }
@@ -93,6 +101,10 @@ public class TestStageStateMachine
         stateMachine = createStageStateMachine();
         assertTrue(stateMachine.transitionToRunning());
         assertState(stateMachine, StageState.RUNNING);
+
+        stateMachine = createStageStateMachine();
+        assertTrue(stateMachine.transitionToFlushing());
+        assertState(stateMachine, StageState.FLUSHING);
 
         stateMachine = createStageStateMachine();
         assertTrue(stateMachine.transitionToFinished());
@@ -131,6 +143,11 @@ public class TestStageStateMachine
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToScheduling();
+        assertTrue(stateMachine.transitionToFlushing());
+        assertState(stateMachine, StageState.FLUSHING);
+
+        stateMachine = createStageStateMachine();
+        stateMachine.transitionToScheduling();
         assertTrue(stateMachine.transitionToFinished());
         assertState(stateMachine, StageState.FINISHED);
 
@@ -165,6 +182,9 @@ public class TestStageStateMachine
 
         assertTrue(stateMachine.transitionToRunning());
         assertState(stateMachine, StageState.RUNNING);
+
+        assertTrue(stateMachine.transitionToFlushing());
+        assertState(stateMachine, StageState.FLUSHING);
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToScheduled();
@@ -203,6 +223,11 @@ public class TestStageStateMachine
         assertFalse(stateMachine.transitionToRunning());
         assertState(stateMachine, StageState.RUNNING);
 
+        assertTrue(stateMachine.transitionToFlushing());
+        assertState(stateMachine, StageState.FLUSHING);
+
+        stateMachine = createStageStateMachine();
+        stateMachine.transitionToRunning();
         assertTrue(stateMachine.transitionToFinished());
         assertState(stateMachine, StageState.FINISHED);
 
@@ -218,6 +243,46 @@ public class TestStageStateMachine
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToRunning();
+        assertTrue(stateMachine.transitionToCanceled());
+        assertState(stateMachine, StageState.CANCELED);
+    }
+
+    @Test
+    public void testFlushing()
+    {
+        StageStateMachine stateMachine = createStageStateMachine();
+        assertTrue(stateMachine.transitionToFlushing());
+        assertState(stateMachine, StageState.FLUSHING);
+
+        assertFalse(stateMachine.transitionToScheduling());
+        assertState(stateMachine, StageState.FLUSHING);
+
+        assertFalse(stateMachine.transitionToScheduled());
+        assertState(stateMachine, StageState.FLUSHING);
+
+        assertFalse(stateMachine.transitionToRunning());
+        assertState(stateMachine, StageState.FLUSHING);
+
+        assertFalse(stateMachine.transitionToFlushing());
+        assertState(stateMachine, StageState.FLUSHING);
+
+        stateMachine = createStageStateMachine();
+        stateMachine.transitionToFlushing();
+        assertTrue(stateMachine.transitionToFinished());
+        assertState(stateMachine, StageState.FINISHED);
+
+        stateMachine = createStageStateMachine();
+        stateMachine.transitionToFlushing();
+        assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
+        assertState(stateMachine, StageState.FAILED);
+
+        stateMachine = createStageStateMachine();
+        stateMachine.transitionToFlushing();
+        assertTrue(stateMachine.transitionToAborted());
+        assertState(stateMachine, StageState.ABORTED);
+
+        stateMachine = createStageStateMachine();
+        stateMachine.transitionToFlushing();
         assertTrue(stateMachine.transitionToCanceled());
         assertState(stateMachine, StageState.CANCELED);
     }
@@ -273,6 +338,9 @@ public class TestStageStateMachine
         assertFalse(stateMachine.transitionToRunning());
         assertState(stateMachine, expectedState);
 
+        assertFalse(stateMachine.transitionToFlushing());
+        assertState(stateMachine, expectedState);
+
         assertFalse(stateMachine.transitionToFinished());
         assertState(stateMachine, expectedState);
 
@@ -290,12 +358,10 @@ public class TestStageStateMachine
     private static void assertState(StageStateMachine stateMachine, StageState expectedState)
     {
         assertEquals(stateMachine.getStageId(), STAGE_ID);
-        assertEquals(stateMachine.getLocation(), LOCATION);
         assertSame(stateMachine.getSession(), TEST_SESSION);
 
         StageInfo stageInfo = stateMachine.getStageInfo(ImmutableList::of);
         assertEquals(stageInfo.getStageId(), STAGE_ID);
-        assertEquals(stageInfo.getSelf(), LOCATION);
         assertEquals(stageInfo.getSubStages(), ImmutableList.of());
         assertEquals(stageInfo.getTasks(), ImmutableList.of());
         assertEquals(stageInfo.getTypes(), ImmutableList.of(VARCHAR));
@@ -316,7 +382,7 @@ public class TestStageStateMachine
 
     private StageStateMachine createStageStateMachine()
     {
-        return new StageStateMachine(STAGE_ID, LOCATION, TEST_SESSION, PLAN_FRAGMENT, executor, new SplitSchedulerStats());
+        return new StageStateMachine(STAGE_ID, TEST_SESSION, PLAN_FRAGMENT, ImmutableMap.of(), executor, new SplitSchedulerStats());
     }
 
     private static PlanFragment createValuesPlan()

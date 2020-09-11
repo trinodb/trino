@@ -15,14 +15,15 @@ package io.prestosql.metadata;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import io.airlift.json.JsonModule;
-import io.prestosql.connector.ConnectorId;
 import io.prestosql.connector.system.SystemTableHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -35,12 +36,11 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestSystemTableHandle
 {
-    private static final ConnectorId CONNECTOR_ID = new ConnectorId("system_connector_id");
     private static final Map<String, Object> SCHEMA_AS_MAP = ImmutableMap.of(
             "@type", "$system",
-            "connectorId", CONNECTOR_ID.toString(),
             "schemaName", "system_schema",
-            "tableName", "system_table");
+            "tableName", "system_table",
+            "constraint", ImmutableMap.of("columnDomains", ImmutableList.of()));
 
     private ObjectMapper objectMapper;
 
@@ -56,7 +56,7 @@ public class TestSystemTableHandle
     public void testSystemSerialize()
             throws Exception
     {
-        SystemTableHandle internalHandle = new SystemTableHandle(CONNECTOR_ID, "system_schema", "system_table");
+        SystemTableHandle internalHandle = new SystemTableHandle("system_schema", "system_table", TupleDomain.all());
 
         assertTrue(objectMapper.canSerialize(SystemTableHandle.class));
         String json = objectMapper.writeValueAsString(internalHandle);
@@ -73,14 +73,13 @@ public class TestSystemTableHandle
         assertEquals(tableHandle.getClass(), SystemTableHandle.class);
         SystemTableHandle systemHandle = (SystemTableHandle) tableHandle;
 
-        assertEquals(systemHandle.getConnectorId(), CONNECTOR_ID);
         assertEquals(systemHandle.getSchemaTableName(), new SchemaTableName("system_schema", "system_table"));
     }
 
     private void testJsonEquals(String json, Map<String, Object> expectedMap)
             throws Exception
     {
-        Map<String, Object> jsonMap = objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+        Map<String, Object> jsonMap = objectMapper.readValue(json, new TypeReference<>() {});
         assertEqualsIgnoreOrder(jsonMap.entrySet(), expectedMap.entrySet());
     }
 }

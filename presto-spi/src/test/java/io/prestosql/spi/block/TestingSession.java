@@ -18,6 +18,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.type.TimeZoneKey;
 
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -44,7 +45,7 @@ public final class TestingSession
         @Override
         public ConnectorIdentity getIdentity()
         {
-            return new ConnectorIdentity("user", Optional.empty(), Optional.empty());
+            return ConnectorIdentity.ofUser("user");
         }
 
         @Override
@@ -60,21 +61,15 @@ public final class TestingSession
         }
 
         @Override
-        public long getStartTime()
+        public Instant getStart()
         {
-            return 0;
+            return Instant.ofEpochMilli(0);
         }
 
         @Override
         public Optional<String> getTraceToken()
         {
             return Optional.empty();
-        }
-
-        @Override
-        public boolean isLegacyTimestamp()
-        {
-            return true;
         }
 
         @Override

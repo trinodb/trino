@@ -136,7 +136,7 @@ public final class Reflection
      * calling this method in a tight loop can create significant GC pressure and significantly
      * increase application pause time.
      */
-    public static MethodHandle constructorMethodHandle(StandardErrorCode errorCode, Constructor constructor)
+    public static MethodHandle constructorMethodHandle(StandardErrorCode errorCode, Constructor<?> constructor)
     {
         try {
             return MethodHandles.lookup().unreflectConstructor(constructor);

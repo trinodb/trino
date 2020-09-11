@@ -14,9 +14,13 @@
 package io.prestosql.plugin.raptor.legacy;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -30,31 +34,33 @@ import static java.util.Objects.requireNonNull;
 public final class RaptorTableHandle
         implements ConnectorTableHandle
 {
-    private final String connectorId;
     private final String schemaName;
     private final String tableName;
     private final long tableId;
-    private final OptionalLong distributionId;
+    private final Optional<Long> distributionId;
     private final Optional<String> distributionName;
     private final OptionalInt bucketCount;
     private final boolean organized;
     private final OptionalLong transactionId;
+    private final TupleDomain<RaptorColumnHandle> constraint;
+    private final Optional<List<String>> bucketAssignments;
     private final boolean delete;
 
     @JsonCreator
     public RaptorTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableId") long tableId,
-            @JsonProperty("distributionId") OptionalLong distributionId,
+            @JsonProperty("distributionId") Optional<Long> distributionId,
             @JsonProperty("distributionName") Optional<String> distributionName,
             @JsonProperty("bucketCount") OptionalInt bucketCount,
             @JsonProperty("organized") boolean organized,
             @JsonProperty("transactionId") OptionalLong transactionId,
+            @JsonProperty("constraint") TupleDomain<RaptorColumnHandle> constraint,
+            // this field will not be in the JSON, but keep it here to avoid duplicating the constructor
+            @JsonProperty("bucketAssignments") Optional<List<String>> bucketAssignments,
             @JsonProperty("delete") boolean delete)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
 
@@ -67,18 +73,14 @@ public final class RaptorTableHandle
         this.organized = organized;
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
 
+        this.constraint = requireNonNull(constraint, "constraint is null");
+        this.bucketAssignments = requireNonNull(bucketAssignments, "bucketAssignments is null").map(ImmutableList::copyOf);
         this.delete = delete;
     }
 
     public boolean isBucketed()
     {
         return this.distributionId.isPresent();
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -100,7 +102,7 @@ public final class RaptorTableHandle
     }
 
     @JsonProperty
-    public OptionalLong getDistributionId()
+    public Optional<Long> getDistributionId()
     {
         return distributionId;
     }
@@ -124,6 +126,12 @@ public final class RaptorTableHandle
     }
 
     @JsonProperty
+    public TupleDomain<RaptorColumnHandle> getConstraint()
+    {
+        return constraint;
+    }
+
+    @JsonProperty
     public OptionalLong getTransactionId()
     {
         return transactionId;
@@ -135,16 +143,22 @@ public final class RaptorTableHandle
         return delete;
     }
 
+    @JsonIgnore
+    public Optional<List<String>> getBucketAssignments()
+    {
+        return bucketAssignments;
+    }
+
     @Override
     public String toString()
     {
-        return connectorId + ":" + schemaName + ":" + tableName + ":" + tableId;
+        return schemaName + ":" + tableName + ":" + tableId;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, tableId);
+        return Objects.hash(schemaName, tableName, tableId, distributionId, distributionName, bucketCount, organized, transactionId, constraint, bucketAssignments, delete);
     }
 
     @Override
@@ -159,6 +173,20 @@ public final class RaptorTableHandle
         RaptorTableHandle other = (RaptorTableHandle) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName) &&
-                Objects.equals(this.tableId, other.tableId);
+                Objects.equals(this.tableId, other.tableId) &&
+                Objects.equals(this.distributionId, other.distributionId) &&
+                Objects.equals(this.distributionName, other.distributionName) &&
+                Objects.equals(this.bucketCount, other.bucketCount) &&
+                this.organized == other.organized &&
+                Objects.equals(this.transactionId, other.transactionId) &&
+                Objects.equals(this.constraint, other.constraint) &&
+                Objects.equals(this.bucketAssignments, other.bucketAssignments) &&
+                this.delete == other.delete;
+    }
+
+    @JsonIgnore
+    public Optional<RaptorPartitioningHandle> getPartitioningHandle()
+    {
+        return distributionId.map(id -> new RaptorPartitioningHandle(id, bucketAssignments.get()));
     }
 }

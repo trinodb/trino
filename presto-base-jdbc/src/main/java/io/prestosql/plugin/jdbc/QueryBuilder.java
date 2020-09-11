@@ -16,6 +16,7 @@ package io.prestosql.plugin.jdbc;
 import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -29,11 +30,12 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -42,11 +44,13 @@ import static java.util.stream.Collectors.joining;
 
 public class QueryBuilder
 {
+    private static final Logger log = Logger.get(QueryBuilder.class);
+
     // not all databases support booleans, so use 1=1 and 1=0 instead
     private static final String ALWAYS_TRUE = "1=1";
     private static final String ALWAYS_FALSE = "1=0";
 
-    private final String quote;
+    private final JdbcClient client;
 
     private static class TypeAndValue
     {
@@ -77,48 +81,28 @@ public class QueryBuilder
         }
     }
 
-    public QueryBuilder(String quote)
+    public QueryBuilder(JdbcClient client)
     {
-        this.quote = requireNonNull(quote, "quote is null");
+        this.client = requireNonNull(client, "jdbcClient is null");
     }
 
     public PreparedStatement buildSql(
-            JdbcClient client,
             ConnectorSession session,
             Connection connection,
-            String catalog,
-            String schema,
-            String table,
+            RemoteTableName remoteTableName,
+            Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
             TupleDomain<ColumnHandle> tupleDomain,
-            Optional<String> additionalPredicate)
+            Optional<String> additionalPredicate,
+            Function<String, String> sqlFunction)
             throws SQLException
     {
-        StringBuilder sql = new StringBuilder();
-
-        String columnNames = columns.stream()
-                .map(JdbcColumnHandle::getColumnName)
-                .map(this::quote)
-                .collect(joining(", "));
-
-        sql.append("SELECT ");
-        sql.append(columnNames);
-        if (columns.isEmpty()) {
-            sql.append("null");
-        }
-
-        sql.append(" FROM ");
-        if (!isNullOrEmpty(catalog)) {
-            sql.append(quote(catalog)).append('.');
-        }
-        if (!isNullOrEmpty(schema)) {
-            sql.append(quote(schema)).append('.');
-        }
-        sql.append(quote(table));
+        String sql = "SELECT " + getProjection(columns);
+        sql += " FROM " + getRelation(remoteTableName);
 
         List<TypeAndValue> accumulator = new ArrayList<>();
 
-        List<String> clauses = toConjuncts(client, session, columns, tupleDomain, accumulator);
+        List<String> clauses = toConjuncts(client, session, connection, tupleDomain, accumulator);
         if (additionalPredicate.isPresent()) {
             clauses = ImmutableList.<String>builder()
                     .addAll(clauses)
@@ -126,17 +110,20 @@ public class QueryBuilder
                     .build();
         }
         if (!clauses.isEmpty()) {
-            sql.append(" WHERE ")
-                    .append(Joiner.on(" AND ").join(clauses));
+            sql += " WHERE " + Joiner.on(" AND ").join(clauses);
         }
 
-        PreparedStatement statement = client.getPreparedStatement(connection, sql.toString());
+        sql += getGroupBy(groupingSets);
+
+        String query = sqlFunction.apply(sql);
+        log.debug("Preparing query: %s", query);
+        PreparedStatement statement = client.getPreparedStatement(connection, query);
 
         for (int i = 0; i < accumulator.size(); i++) {
             TypeAndValue typeAndValue = accumulator.get(i);
             int parameterIndex = i + 1;
             Type type = typeAndValue.getType();
-            WriteFunction writeFunction = client.toPrestoType(session, typeAndValue.getTypeHandle())
+            WriteFunction writeFunction = client.toPrestoType(session, connection, typeAndValue.getTypeHandle())
                     .orElseThrow(() -> new VerifyException(format("Unsupported type %s with handle %s", type, typeAndValue.getTypeHandle())))
                     .getWriteFunction();
             Class<?> javaType = type.getJavaType();
@@ -154,43 +141,62 @@ public class QueryBuilder
                 ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, (Slice) value);
             }
             else {
-                throw new VerifyException(format("Unexpected type %s with java type %s", type, javaType.getName()));
+                ((ObjectWriteFunction) writeFunction).set(statement, parameterIndex, value);
             }
         }
 
         return statement;
     }
 
-    private static Domain pushDownDomain(JdbcClient client, ConnectorSession session, JdbcColumnHandle column, Domain domain)
+    protected String getRelation(RemoteTableName remoteTableName)
     {
-        return client.toPrestoType(session, column.getJdbcTypeHandle())
-                .orElseThrow(() -> new IllegalStateException(format("Unsupported type %s with handle %s", column.getColumnType(), column.getJdbcTypeHandle())))
-                .getPushdownConverter().apply(domain);
+        return client.quoted(remoteTableName);
     }
 
-    private List<String> toConjuncts(JdbcClient client, ConnectorSession session, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
+    protected String getProjection(List<JdbcColumnHandle> columns)
     {
+        if (columns.isEmpty()) {
+            return "1";
+        }
+        return columns.stream()
+                .map(jdbcColumnHandle -> format("%s AS %s", jdbcColumnHandle.toSqlExpression(client::quoted), client.quoted(jdbcColumnHandle.getColumnName())))
+                .collect(joining(", "));
+    }
+
+    private static Domain pushDownDomain(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain)
+    {
+        return client.toPrestoType(session, connection, column.getJdbcTypeHandle())
+                .orElseThrow(() -> new IllegalStateException(format("Unsupported type %s with handle %s", column.getColumnType(), column.getJdbcTypeHandle())))
+                .getPredicatePushdownController().apply(domain).getPushedDown();
+    }
+
+    private List<String> toConjuncts(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            TupleDomain<ColumnHandle> tupleDomain,
+            List<TypeAndValue> accumulator)
+    {
+        if (tupleDomain.isNone()) {
+            return ImmutableList.of(ALWAYS_FALSE);
+        }
         ImmutableList.Builder<String> builder = ImmutableList.builder();
-        for (JdbcColumnHandle column : columns) {
-            Domain domain = tupleDomain.getDomains().get().get(column);
-            if (domain != null) {
-                domain = pushDownDomain(client, session, column, domain);
-                builder.add(toPredicate(column.getColumnName(), domain, column, accumulator));
-            }
+        for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
+            JdbcColumnHandle column = ((JdbcColumnHandle) entry.getKey());
+            Domain domain = pushDownDomain(client, session, connection, column, entry.getValue());
+            builder.add(toPredicate(column, domain, accumulator));
         }
         return builder.build();
     }
 
-    private String toPredicate(String columnName, Domain domain, JdbcColumnHandle column, List<TypeAndValue> accumulator)
+    private String toPredicate(JdbcColumnHandle column, Domain domain, List<TypeAndValue> accumulator)
     {
-        checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
-
         if (domain.getValues().isNone()) {
-            return domain.isNullAllowed() ? quote(columnName) + " IS NULL" : ALWAYS_FALSE;
+            return domain.isNullAllowed() ? client.quoted(column.getColumnName()) + " IS NULL" : ALWAYS_FALSE;
         }
 
         if (domain.getValues().isAll()) {
-            return domain.isNullAllowed() ? ALWAYS_TRUE : quote(columnName) + " IS NOT NULL";
+            return domain.isNullAllowed() ? ALWAYS_TRUE : client.quoted(column.getColumnName()) + " IS NOT NULL";
         }
 
         List<String> disjuncts = new ArrayList<>();
@@ -205,10 +211,10 @@ public class QueryBuilder
                 if (!range.getLow().isLowerUnbounded()) {
                     switch (range.getLow().getBound()) {
                         case ABOVE:
-                            rangeConjuncts.add(toPredicate(columnName, ">", range.getLow().getValue(), column, accumulator));
+                            rangeConjuncts.add(toPredicate(column, ">", range.getLow().getValue(), accumulator));
                             break;
                         case EXACTLY:
-                            rangeConjuncts.add(toPredicate(columnName, ">=", range.getLow().getValue(), column, accumulator));
+                            rangeConjuncts.add(toPredicate(column, ">=", range.getLow().getValue(), accumulator));
                             break;
                         case BELOW:
                             throw new IllegalArgumentException("Low marker should never use BELOW bound");
@@ -221,10 +227,10 @@ public class QueryBuilder
                         case ABOVE:
                             throw new IllegalArgumentException("High marker should never use ABOVE bound");
                         case EXACTLY:
-                            rangeConjuncts.add(toPredicate(columnName, "<=", range.getHigh().getValue(), column, accumulator));
+                            rangeConjuncts.add(toPredicate(column, "<=", range.getHigh().getValue(), accumulator));
                             break;
                         case BELOW:
-                            rangeConjuncts.add(toPredicate(columnName, "<", range.getHigh().getValue(), column, accumulator));
+                            rangeConjuncts.add(toPredicate(column, "<", range.getHigh().getValue(), accumulator));
                             break;
                         default:
                             throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
@@ -238,35 +244,61 @@ public class QueryBuilder
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues), column, accumulator));
+            disjuncts.add(toPredicate(column, "=", getOnlyElement(singleValues), accumulator));
         }
         else if (singleValues.size() > 1) {
             for (Object value : singleValues) {
                 bindValue(value, column, accumulator);
             }
             String values = Joiner.on(",").join(nCopies(singleValues.size(), "?"));
-            disjuncts.add(quote(columnName) + " IN (" + values + ")");
+            disjuncts.add(client.quoted(column.getColumnName()) + " IN (" + values + ")");
         }
 
         // Add nullability disjuncts
         checkState(!disjuncts.isEmpty());
         if (domain.isNullAllowed()) {
-            disjuncts.add(quote(columnName) + " IS NULL");
+            disjuncts.add(client.quoted(column.getColumnName()) + " IS NULL");
         }
 
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
 
-    private String toPredicate(String columnName, String operator, Object value, JdbcColumnHandle column, List<TypeAndValue> accumulator)
+    private String toPredicate(JdbcColumnHandle column, String operator, Object value, List<TypeAndValue> accumulator)
     {
         bindValue(value, column, accumulator);
-        return quote(columnName) + " " + operator + " ?";
+        return toPredicate(column, operator);
     }
 
-    private String quote(String name)
+    protected String toPredicate(JdbcColumnHandle column, String operator)
     {
-        name = name.replace(quote, quote + quote);
-        return quote + name + quote;
+        return client.quoted(column.getColumnName()) + " " + operator + " ?";
+    }
+
+    private String getGroupBy(Optional<List<List<JdbcColumnHandle>>> groupingSets)
+    {
+        if (groupingSets.isEmpty()) {
+            return "";
+        }
+
+        verify(!groupingSets.get().isEmpty());
+        if (groupingSets.get().size() == 1) {
+            List<JdbcColumnHandle> groupingSet = getOnlyElement(groupingSets.get());
+            if (groupingSet.isEmpty()) {
+                // global aggregation
+                return "";
+            }
+            return " GROUP BY " + groupingSet.stream()
+                    .map(JdbcColumnHandle::getColumnName)
+                    .map(client::quoted)
+                    .collect(joining(", "));
+        }
+        return " GROUP BY GROUPING SETS " +
+                groupingSets.get().stream()
+                        .map(groupingSet -> groupingSet.stream()
+                                .map(JdbcColumnHandle::getColumnName)
+                                .map(client::quoted)
+                                .collect(joining(", ", "(", ")")))
+                        .collect(joining(", ", "(", ")"));
     }
 
     private static void bindValue(Object value, JdbcColumnHandle column, List<TypeAndValue> accumulator)

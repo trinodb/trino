@@ -16,18 +16,21 @@ package io.prestosql.plugin.hive.metastore;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.plugin.hive.HiveStorageFormat;
+import io.prestosql.spi.PrestoException;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class StorageFormat
 {
-    public static final StorageFormat VIEW_STORAGE_FORMAT = StorageFormat.createNullable(null, null, null);
+    public static final StorageFormat VIEW_STORAGE_FORMAT = createNullable(null, null, null);
 
     private final String serDe;
     private final String inputFormat;
@@ -43,7 +46,7 @@ public class StorageFormat
     public String getSerDe()
     {
         if (serDe == null) {
-            throw new IllegalStateException("serDe should not be accessed from a null StorageFormat");
+            throw new PrestoException(HIVE_INVALID_METADATA, "SerDe is not present in StorageFormat");
         }
         return serDe;
     }
@@ -51,7 +54,7 @@ public class StorageFormat
     public String getInputFormat()
     {
         if (inputFormat == null) {
-            throw new IllegalStateException("inputFormat should not be accessed from a null StorageFormat");
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "InputFormat is not present in StorageFormat");
         }
         return inputFormat;
     }
@@ -59,7 +62,7 @@ public class StorageFormat
     public String getOutputFormat()
     {
         if (outputFormat == null) {
-            throw new IllegalStateException("outputFormat should not be accessed from a null StorageFormat");
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "OutputFormat is not present in StorageFormat");
         }
         return outputFormat;
     }

@@ -28,11 +28,12 @@ import java.util.Set;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.metadata.ResolvedFunction.extractFunctionName;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 
-public class SpatialJoinUtils
+public final class SpatialJoinUtils
 {
     public static final String ST_CONTAINS = "st_contains";
     public static final String ST_WITHIN = "st_within";
@@ -60,9 +61,10 @@ public class SpatialJoinUtils
 
     private static boolean isSupportedSpatialFunction(FunctionCall functionCall)
     {
-        String functionName = functionCall.getName().toString();
-        return functionName.equalsIgnoreCase(ST_CONTAINS) || functionName.equalsIgnoreCase(ST_WITHIN)
-                || functionName.equalsIgnoreCase(ST_INTERSECTS);
+        String functionName = extractFunctionName(functionCall.getName());
+        return functionName.equalsIgnoreCase(ST_CONTAINS) ||
+                functionName.equalsIgnoreCase(ST_WITHIN) ||
+                functionName.equalsIgnoreCase(ST_INTERSECTS);
     }
 
     /**
@@ -101,7 +103,7 @@ public class SpatialJoinUtils
     private static boolean isSTDistance(Expression expression)
     {
         if (expression instanceof FunctionCall) {
-            return ((FunctionCall) expression).getName().toString().equalsIgnoreCase(ST_DISTANCE);
+            return extractFunctionName(((FunctionCall) expression).getName()).equalsIgnoreCase(ST_DISTANCE);
         }
 
         return false;

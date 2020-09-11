@@ -23,12 +23,9 @@ import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
@@ -50,7 +47,7 @@ public final class ArraySortFunction
     @TypeParameter("E")
     @SqlType("array(E)")
     public Block sort(
-            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle lessThanFunction,
+            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"E", "E"}) MethodHandle lessThanFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block block)
     {
@@ -62,26 +59,21 @@ public final class ArraySortFunction
             positions.set(i, i);
         }
 
-        Collections.sort(positions.subList(0, arrayLength), new Comparator<Integer>()
-        {
-            @Override
-            public int compare(Integer p1, Integer p2)
-            {
-                boolean nullLeft = block.isNull(p1);
-                boolean nullRight = block.isNull(p2);
-                if (nullLeft && nullRight) {
-                    return 0;
-                }
-                if (nullLeft) {
-                    return 1;
-                }
-                if (nullRight) {
-                    return -1;
-                }
-
-                //TODO: This could be quite slow, it should use parametric equals
-                return type.compareTo(block, p1, block, p2);
+        positions.subList(0, arrayLength).sort((p1, p2) -> {
+            boolean nullLeft = block.isNull(p1);
+            boolean nullRight = block.isNull(p2);
+            if (nullLeft && nullRight) {
+                return 0;
             }
+            if (nullLeft) {
+                return 1;
+            }
+            if (nullRight) {
+                return -1;
+            }
+
+            //TODO: This could be quite slow, it should use parametric equals
+            return type.compareTo(block, p1, block, p2);
         });
 
         if (pageBuilder.isFull()) {

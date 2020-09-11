@@ -109,3 +109,40 @@ Presto query::
     SELECT student, score
     FROM tests
     CROSS JOIN UNNEST(scores) AS t (score);
+
+Caution with datediff
+---------------------
+
+The Hive ``datediff`` function returns the difference between the two dates in
+days and is declared as:
+
+.. code-block:: none
+
+    datediff(string enddate, string startdate)  -> integer
+
+The equivalent Presto function :ref:`date_diff<datetime-interval-functions>`
+uses a reverse order for the two date parameters and requires a unit. This has
+to be taken into account when migrating:
+
+Hive query::
+
+    datediff(enddate, startdate)
+
+Presto query::
+
+    date_diff('day', startdate, enddate)
+
+Overwriting data on insert
+--------------------------
+
+By default, ``INSERT`` queries are not allowed to overwrite existing data. You
+can use the catalog session property ``insert_existing_partitions_behavior`` to
+allow overwrites. Prepend the name of the catalog using the Hive connector, for
+example ``hdfs``, and set the property in the session before you run the insert
+query::
+
+    SET SESSION hdfs.insert_existing_partitions_behavior = 'OVERWRITE';
+    INSERT INTO hdfs.schema.table ...
+
+The resulting behavior is equivalent to using `INSERT OVERWRITE
+<https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML>`_ in Hive.

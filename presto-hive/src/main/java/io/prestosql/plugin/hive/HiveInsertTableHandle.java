@@ -30,7 +30,6 @@ public class HiveInsertTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("inputColumns") List<HiveColumnHandle> inputColumns,
-            @JsonProperty("filePrefix") String filePrefix,
             @JsonProperty("pageSinkMetadata") HivePageSinkMetadata pageSinkMetadata,
             @JsonProperty("locationHandle") LocationHandle locationHandle,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
@@ -41,11 +40,11 @@ public class HiveInsertTableHandle
                 schemaName,
                 tableName,
                 inputColumns,
-                filePrefix,
                 pageSinkMetadata,
                 locationHandle,
                 bucketProperty,
                 tableStorageFormat,
-                partitionStorageFormat);
+                partitionStorageFormat,
+                false);
     }
 }

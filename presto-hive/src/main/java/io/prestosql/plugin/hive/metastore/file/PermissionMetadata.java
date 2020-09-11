@@ -15,9 +15,9 @@ package io.prestosql.plugin.hive.metastore.file;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
-import io.prestosql.spi.security.PrestoPrincipal;
 
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
@@ -26,20 +26,17 @@ public class PermissionMetadata
 {
     private final HivePrivilege permission;
     private final boolean grantOption;
+    private final HivePrincipal grantee;
 
     @JsonCreator
     public PermissionMetadata(
             @JsonProperty("permission") HivePrivilege permission,
-            @JsonProperty("grantOption") boolean grantOption)
+            @JsonProperty("grantOption") boolean grantOption,
+            @JsonProperty("grantee") HivePrincipal grantee)
     {
         this.permission = requireNonNull(permission, "permission is null");
-        this.grantOption = requireNonNull(grantOption, "grantOption is null");
-    }
-
-    public PermissionMetadata(HivePrivilegeInfo privilegeInfo)
-    {
-        this.permission = privilegeInfo.getHivePrivilege();
-        this.grantOption = privilegeInfo.isGrantOption();
+        this.grantOption = grantOption;
+        this.grantee = requireNonNull(grantee, "grantee is null");
     }
 
     @JsonProperty
@@ -54,8 +51,14 @@ public class PermissionMetadata
         return grantOption;
     }
 
+    @JsonProperty
+    public HivePrincipal getGrantee()
+    {
+        return grantee;
+    }
+
     public HivePrivilegeInfo toHivePrivilegeInfo()
     {
-        return new HivePrivilegeInfo(permission, grantOption, new PrestoPrincipal(USER, "admin"), new PrestoPrincipal(USER, "admin"));
+        return new HivePrivilegeInfo(permission, grantOption, new HivePrincipal(USER, "admin"), grantee);
     }
 }

@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
@@ -31,9 +32,9 @@ public class OperatorNotFoundException
 {
     private final OperatorType operatorType;
     private final TypeSignature returnType;
-    private final List<TypeSignature> argumentTypes;
+    private final List<Type> argumentTypes;
 
-    public OperatorNotFoundException(OperatorType operatorType, List<? extends TypeSignature> argumentTypes)
+    public OperatorNotFoundException(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
         super(OPERATOR_NOT_FOUND, formatErrorMessage(operatorType, argumentTypes, Optional.empty()));
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
@@ -41,7 +42,7 @@ public class OperatorNotFoundException
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 
-    public OperatorNotFoundException(OperatorType operatorType, List<? extends TypeSignature> argumentTypes, TypeSignature returnType)
+    public OperatorNotFoundException(OperatorType operatorType, List<? extends Type> argumentTypes, TypeSignature returnType)
     {
         super(OPERATOR_NOT_FOUND, formatErrorMessage(operatorType, argumentTypes, Optional.of(returnType)));
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
@@ -49,19 +50,35 @@ public class OperatorNotFoundException
         this.returnType = requireNonNull(returnType, "returnType is null");
     }
 
-    private static String formatErrorMessage(OperatorType operatorType, List<? extends TypeSignature> argumentTypes, Optional<TypeSignature> returnType)
+    private static String formatErrorMessage(OperatorType operatorType, List<? extends Type> argumentTypes, Optional<TypeSignature> returnType)
     {
-        String operatorString;
         switch (operatorType) {
-            case BETWEEN:
-                return format("Cannot check if %s is BETWEEN %s and %s", argumentTypes.get(0), argumentTypes.get(1), argumentTypes.get(2));
+            case ADD:
+            case SUBTRACT:
+            case MULTIPLY:
+            case DIVIDE:
+            case MODULUS:
+            case EQUAL:
+            case NOT_EQUAL:
+            case LESS_THAN:
+            case LESS_THAN_OR_EQUAL:
+            case GREATER_THAN:
+            case GREATER_THAN_OR_EQUAL:
+                return format("Cannot apply operator: %s %s %s", argumentTypes.get(0), operatorType.getOperator(), argumentTypes.get(1));
+            case NEGATION:
+                return format("Cannot negate %s", argumentTypes.get(0));
+            case IS_DISTINCT_FROM:
+                return format("Cannot check if %s is distinct from %s", argumentTypes.get(0), argumentTypes.get(1));
             case CAST:
-                operatorString = format("%s%s", operatorType.getOperator(), returnType.map(value -> " to " + value).orElse(""));
-                break;
-            default:
-                operatorString = format("'%s'%s", operatorType.getOperator(), returnType.map(value -> ":" + value).orElse(""));
+                return format("Cannot cast %s to %s", argumentTypes.get(0), returnType.orElseThrow());
+            case SUBSCRIPT:
+                return format("Cannot use %s for subscript of %s", argumentTypes.get(1), argumentTypes.get(0));
         }
-        return format("%s cannot be applied to %s", operatorString, Joiner.on(", ").join(argumentTypes));
+        return format(
+                "Operator '%s'%s cannot be applied to %s",
+                operatorType.getOperator(),
+                returnType.map(value -> ":" + value).orElse(""),
+                Joiner.on(", ").join(argumentTypes));
     }
 
     public OperatorType getOperatorType()
@@ -74,7 +91,7 @@ public class OperatorNotFoundException
         return returnType;
     }
 
-    public List<TypeSignature> getArgumentTypes()
+    public List<Type> getArgumentTypes()
     {
         return argumentTypes;
     }

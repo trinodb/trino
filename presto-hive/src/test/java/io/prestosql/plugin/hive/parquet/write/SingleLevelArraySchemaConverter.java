@@ -39,39 +39,37 @@ import java.util.Locale;
  * and modified to test Array Schema without wrapping anonymous group "bag".
  * Backward-compatibility rules described in spec https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists
  */
-public class SingleLevelArraySchemaConverter
+public final class SingleLevelArraySchemaConverter
 {
-    private SingleLevelArraySchemaConverter()
-    {
-    }
+    private SingleLevelArraySchemaConverter() {}
 
-    public static MessageType convert(final List<String> columnNames, final List<TypeInfo> columnTypes)
+    public static MessageType convert(List<String> columnNames, List<TypeInfo> columnTypes)
     {
         return new MessageType("hive_schema", convertTypes(columnNames, columnTypes));
     }
 
-    private static Type[] convertTypes(final List<String> columnNames, final List<TypeInfo> columnTypes)
+    private static Type[] convertTypes(List<String> columnNames, List<TypeInfo> columnTypes)
     {
         if (columnNames.size() != columnTypes.size()) {
             throw new IllegalStateException("Mismatched Hive columns and types. Hive columns names" +
                     " found : " + columnNames + " . And Hive types found : " + columnTypes);
         }
-        final Type[] types = new Type[columnNames.size()];
+        Type[] types = new Type[columnNames.size()];
         for (int i = 0; i < columnNames.size(); ++i) {
             types[i] = convertType(columnNames.get(i), columnTypes.get(i));
         }
         return types;
     }
 
-    private static Type convertType(final String name, final TypeInfo typeInfo)
+    private static Type convertType(String name, TypeInfo typeInfo)
     {
         return convertType(name, typeInfo, Repetition.OPTIONAL);
     }
 
-    private static Type convertType(final String name, final TypeInfo typeInfo,
-            final Repetition repetition)
+    private static Type convertType(String name, TypeInfo typeInfo,
+            Repetition repetition)
     {
-        if (typeInfo.getCategory().equals(Category.PRIMITIVE)) {
+        if (typeInfo.getCategory() == Category.PRIMITIVE) {
             if (typeInfo.equals(TypeInfoFactory.stringTypeInfo)) {
                 return Types.primitive(PrimitiveTypeName.BINARY, repetition).as(OriginalType.UTF8)
                         .named(name);
@@ -142,16 +140,16 @@ public class SingleLevelArraySchemaConverter
                 throw new IllegalArgumentException("Unknown type: " + typeInfo);
             }
         }
-        else if (typeInfo.getCategory().equals(Category.LIST)) {
+        else if (typeInfo.getCategory() == Category.LIST) {
             return convertArrayType(name, (ListTypeInfo) typeInfo, repetition);
         }
-        else if (typeInfo.getCategory().equals(Category.STRUCT)) {
+        else if (typeInfo.getCategory() == Category.STRUCT) {
             return convertStructType(name, (StructTypeInfo) typeInfo, repetition);
         }
-        else if (typeInfo.getCategory().equals(Category.MAP)) {
+        else if (typeInfo.getCategory() == Category.MAP) {
             return convertMapType(name, (MapTypeInfo) typeInfo, repetition);
         }
-        else if (typeInfo.getCategory().equals(Category.UNION)) {
+        else if (typeInfo.getCategory() == Category.UNION) {
             throw new UnsupportedOperationException("Union type not implemented");
         }
         else {
@@ -160,33 +158,33 @@ public class SingleLevelArraySchemaConverter
     }
 
     // 1 anonymous element "array_element"
-    private static GroupType convertArrayType(final String name, final ListTypeInfo typeInfo, final Repetition repetition)
+    private static GroupType convertArrayType(String name, ListTypeInfo typeInfo, Repetition repetition)
     {
-        final TypeInfo subType = typeInfo.getListElementTypeInfo();
+        TypeInfo subType = typeInfo.getListElementTypeInfo();
         return listWrapper(name, OriginalType.LIST, convertType("array", subType, Repetition.REPEATED), repetition);
     }
 
     // An optional group containing multiple elements
-    private static GroupType convertStructType(final String name, final StructTypeInfo typeInfo, final Repetition repetition)
+    private static GroupType convertStructType(String name, StructTypeInfo typeInfo, Repetition repetition)
     {
-        final List<String> columnNames = typeInfo.getAllStructFieldNames();
-        final List<TypeInfo> columnTypes = typeInfo.getAllStructFieldTypeInfos();
+        List<String> columnNames = typeInfo.getAllStructFieldNames();
+        List<TypeInfo> columnTypes = typeInfo.getAllStructFieldTypeInfos();
         return new GroupType(repetition, name, convertTypes(columnNames, columnTypes));
     }
 
     // An optional group containing a repeated anonymous group "map", containing
     // 2 elements: "key", "value"
-    private static GroupType convertMapType(final String name, final MapTypeInfo typeInfo, final Repetition repetition)
+    private static GroupType convertMapType(String name, MapTypeInfo typeInfo, Repetition repetition)
     {
-        final Type keyType = convertType(ParquetHiveSerDe.MAP_KEY.toString(),
+        Type keyType = convertType(ParquetHiveSerDe.MAP_KEY.toString(),
                 typeInfo.getMapKeyTypeInfo(), Repetition.REQUIRED);
-        final Type valueType = convertType(ParquetHiveSerDe.MAP_VALUE.toString(),
+        Type valueType = convertType(ParquetHiveSerDe.MAP_VALUE.toString(),
                 typeInfo.getMapValueTypeInfo());
         return ConversionPatterns.mapType(repetition, name, keyType, valueType);
     }
 
-    private static GroupType listWrapper(final String name, final OriginalType originalType,
-            final Type elementType, final Repetition repetition)
+    private static GroupType listWrapper(String name, OriginalType originalType,
+            Type elementType, Repetition repetition)
     {
         return new GroupType(repetition, name, originalType, elementType);
     }

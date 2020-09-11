@@ -20,10 +20,12 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.http.client.HttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.execution.buffer.PageCodecMarker;
 import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.operator.HttpPageBufferClient.ClientCallback;
 import io.prestosql.operator.WorkProcessor.ProcessState;
+import io.prestosql.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -48,15 +50,16 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
-import static io.prestosql.execution.buffer.PageCompression.UNCOMPRESSED;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class ExchangeClient
         implements Closeable
 {
-    private static final SerializedPage NO_MORE_PAGES = new SerializedPage(EMPTY_SLICE, UNCOMPRESSED, 0, 0);
+    private static final SerializedPage NO_MORE_PAGES = new SerializedPage(EMPTY_SLICE, PageCodecMarker.MarkerSet.empty(), 0, 0);
 
+    private final String selfAddress;
+    private final DataIntegrityVerification dataIntegrityVerification;
     private final long bufferCapacity;
     private final DataSize maxResponseSize;
     private final int concurrentRequestMultiplier;
@@ -97,6 +100,8 @@ public class ExchangeClient
     // ExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
     // Please change that method accordingly when this assumption becomes not true.
     public ExchangeClient(
+            String selfAddress,
+            DataIntegrityVerification dataIntegrityVerification,
             DataSize bufferCapacity,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
@@ -107,6 +112,8 @@ public class ExchangeClient
             LocalMemoryContext systemMemoryContext,
             Executor pageBufferClientCallbackExecutor)
     {
+        this.selfAddress = requireNonNull(selfAddress, "selfAddress is null");
+        this.dataIntegrityVerification = requireNonNull(dataIntegrityVerification, "dataIntegrityVerification is null");
         this.bufferCapacity = bufferCapacity.toBytes();
         this.maxResponseSize = maxResponseSize;
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
@@ -156,7 +163,9 @@ public class ExchangeClient
         checkState(!noMoreLocations, "No more locations already set");
 
         HttpPageBufferClient client = new HttpPageBufferClient(
+                selfAddress,
                 httpClient,
+                dataIntegrityVerification,
                 maxResponseSize,
                 maxErrorDuration,
                 acknowledgePages,
@@ -200,7 +209,7 @@ public class ExchangeClient
     @Nullable
     public SerializedPage pollPage()
     {
-        checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot get next page while holding a lock on this");
 
         throwIfFailed();
 
@@ -214,7 +223,7 @@ public class ExchangeClient
 
     private SerializedPage postProcessPage(SerializedPage page)
     {
-        checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot get next page while holding a lock on this");
 
         if (page == null) {
             return null;

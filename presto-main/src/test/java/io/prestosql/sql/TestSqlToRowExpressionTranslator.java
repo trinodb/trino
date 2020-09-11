@@ -16,7 +16,7 @@ package io.prestosql.sql;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.ExpressionAnalyzer;
 import io.prestosql.sql.analyzer.Scope;
@@ -36,19 +36,19 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 
 public class TestSqlToRowExpressionTranslator
 {
-    private final Metadata metadata = MetadataManager.createTestMetadataManager();
-    private final LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+    private final Metadata metadata = createTestMetadataManager();
+    private final LiteralEncoder literalEncoder = new LiteralEncoder(metadata);
 
     @Test(timeOut = 10_000)
     public void testPossibleExponentialOptimizationTime()
@@ -92,7 +92,7 @@ public class TestSqlToRowExpressionTranslator
 
     private RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types)
     {
-        return SqlToRowExpressionTranslator.translate(expression, SCALAR, types, metadata.getFunctionRegistry(), metadata.getTypeManager(), TEST_SESSION, true);
+        return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata, TEST_SESSION, true);
     }
 
     private Expression simplifyExpression(Expression expression)
@@ -108,11 +108,11 @@ public class TestSqlToRowExpressionTranslator
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionRegistry(),
-                metadata.getTypeManager(),
+                metadata,
+                new AllowAllAccessControl(),
                 TEST_SESSION,
                 TypeProvider.empty(),
-                emptyList(),
+                emptyMap(),
                 node -> new IllegalStateException("Unexpected node: %s" + node),
                 WarningCollector.NOOP,
                 false);

@@ -15,23 +15,33 @@ package io.prestosql.sql.planner.optimizations;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.MetadataManager;
+import com.google.common.collect.ImmutableMap;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.transaction.TestingTransactionManager;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.Set;
 
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.sql.ExpressionTestUtils.planExpression;
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
+import static java.lang.String.format;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static org.testng.Assert.assertFalse;
@@ -40,8 +50,23 @@ import static org.testng.Assert.assertTrue;
 public class TestExpressionEquivalence
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
-    private static final ExpressionEquivalence EQUIVALENCE = new ExpressionEquivalence(METADATA, SQL_PARSER);
+    private static final Metadata METADATA = createTestMetadataManager();
+    private static final ExpressionEquivalence EQUIVALENCE = new ExpressionEquivalence(METADATA, new TypeAnalyzer(SQL_PARSER, METADATA));
+    private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
+            .put(new Symbol("a_boolean"), BOOLEAN)
+            .put(new Symbol("b_boolean"), BOOLEAN)
+            .put(new Symbol("c_boolean"), BOOLEAN)
+            .put(new Symbol("d_boolean"), BOOLEAN)
+            .put(new Symbol("e_boolean"), BOOLEAN)
+            .put(new Symbol("f_boolean"), BOOLEAN)
+            .put(new Symbol("g_boolean"), BOOLEAN)
+            .put(new Symbol("h_boolean"), BOOLEAN)
+            .put(new Symbol("a_bigint"), BIGINT)
+            .put(new Symbol("b_bigint"), BIGINT)
+            .put(new Symbol("c_bigint"), BIGINT)
+            .put(new Symbol("d_bigint"), BIGINT)
+            .put(new Symbol("b_double"), DOUBLE)
+            .build());
 
     @Test
     public void testEquivalent()
@@ -60,6 +85,12 @@ public class TestExpressionEquivalence
         assertEquivalent("4 is distinct from 5", "5 is distinct from 4");
         assertEquivalent("4 < 5", "5 > 4");
         assertEquivalent("4 <= 5", "5 >= 4");
+        assertEquivalent(
+                "TIMESTAMP '2020-05-10 12:34:56.123456789' = TIMESTAMP '2021-05-10 12:34:56.123456789'",
+                "TIMESTAMP '2021-05-10 12:34:56.123456789' = TIMESTAMP '2020-05-10 12:34:56.123456789'");
+        assertEquivalent(
+                "TIMESTAMP '2020-05-10 12:34:56.123456789 +8' = TIMESTAMP '2021-05-10 12:34:56.123456789 +8'",
+                "TIMESTAMP '2021-05-10 12:34:56.123456789 +8' = TIMESTAMP '2020-05-10 12:34:56.123456789 +8'");
 
         assertEquivalent("mod(4, 5)", "mod(4, 5)");
 
@@ -103,19 +134,19 @@ public class TestExpressionEquivalence
     private static void assertEquivalent(@Language("SQL") String left, @Language("SQL") String right)
     {
         ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
-        Expression leftExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(left, parsingOptions));
-        Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right, parsingOptions));
+        Expression leftExpression = planExpression(METADATA, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(left, parsingOptions));
+        Expression rightExpression = planExpression(METADATA, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(right, parsingOptions));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
         TypeProvider types = TypeProvider.copyOf(symbols.stream()
                 .collect(toMap(identity(), TestExpressionEquivalence::generateType)));
 
         assertTrue(
-                EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, leftExpression, rightExpression, types),
-                String.format("Expected (%s) and (%s) to be equivalent", left, right));
+                areExpressionEquivalent(leftExpression, rightExpression, types),
+                format("Expected (%s) and (%s) to be equivalent", left, right));
         assertTrue(
-                EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, rightExpression, leftExpression, types),
-                String.format("Expected (%s) and (%s) to be equivalent", right, left));
+                areExpressionEquivalent(rightExpression, leftExpression, types),
+                format("Expected (%s) and (%s) to be equivalent", right, left));
     }
 
     @Test
@@ -155,19 +186,28 @@ public class TestExpressionEquivalence
     private static void assertNotEquivalent(@Language("SQL") String left, @Language("SQL") String right)
     {
         ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
-        Expression leftExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(left, parsingOptions));
-        Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right, parsingOptions));
+        Expression leftExpression = planExpression(METADATA, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(left, parsingOptions));
+        Expression rightExpression = planExpression(METADATA, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(right, parsingOptions));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
         TypeProvider types = TypeProvider.copyOf(symbols.stream()
                 .collect(toMap(identity(), TestExpressionEquivalence::generateType)));
 
         assertFalse(
-                EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, leftExpression, rightExpression, types),
-                String.format("Expected (%s) and (%s) to not be equivalent", left, right));
+                areExpressionEquivalent(leftExpression, rightExpression, types),
+                format("Expected (%s) and (%s) to not be equivalent", left, right));
         assertFalse(
-                EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, rightExpression, leftExpression, types),
-                String.format("Expected (%s) and (%s) to not be equivalent", right, left));
+                areExpressionEquivalent(rightExpression, leftExpression, types),
+                format("Expected (%s) and (%s) to not be equivalent", right, left));
+    }
+
+    private static boolean areExpressionEquivalent(Expression leftExpression, Expression rightExpression, TypeProvider types)
+    {
+        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+                .singleStatement()
+                .execute(TEST_SESSION, transactionSession -> {
+                    return EQUIVALENCE.areExpressionsEquivalent(transactionSession, leftExpression, rightExpression, types);
+                });
     }
 
     private static Type generateType(Symbol symbol)

@@ -51,7 +51,7 @@ public final class ApproximateLongPercentileArrayAggregations
     }
 
     @InputFunction
-    public static void weightedInput(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array(double)") Block percentilesArrayBlock)
+    public static void weightedInput(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         initializePercentilesArray(state, percentilesArrayBlock);
         initializeDigest(state);

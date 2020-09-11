@@ -27,7 +27,6 @@ import io.prestosql.split.RemoteSplit;
 import io.prestosql.sql.gen.OrderingCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
@@ -43,7 +42,7 @@ import static io.prestosql.util.MoreLists.mappedCopy;
 import static java.util.Objects.requireNonNull;
 
 public class MergeOperator
-        implements SourceOperator, Closeable
+        implements SourceOperator
 {
     public static class MergeOperatorFactory
             implements SourceOperatorFactory
@@ -165,7 +164,7 @@ public class MergeOperator
         exchangeClient.noMoreLocations();
         pageProducers.add(exchangeClient.pages()
                 .map(serializedPage -> {
-                    operatorContext.recordNetworkInput(serializedPage.getSizeInBytes());
+                    operatorContext.recordNetworkInput(serializedPage.getSizeInBytes(), serializedPage.getPositionCount());
                     return pagesSerde.deserialize(serializedPage);
                 }));
 
@@ -228,7 +227,7 @@ public class MergeOperator
     @Override
     public void addInput(Page page)
     {
-        throw new UnsupportedOperationException(getClass().getName() + " can not take input");
+        throw new UnsupportedOperationException(getClass().getName() + " cannot take input");
     }
 
     @Override

@@ -14,6 +14,8 @@
 package io.prestosql.type;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.BlockIndex;
 import io.prestosql.spi.function.BlockPosition;
@@ -27,8 +29,8 @@ import io.prestosql.spi.type.StandardTypes;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.client.IntervalDayTime.formatMillis;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.DIVIDE;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
@@ -43,13 +45,13 @@ import static io.prestosql.spi.function.OperatorType.MULTIPLY;
 import static io.prestosql.spi.function.OperatorType.NEGATION;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static java.lang.String.format;
 
 public final class IntervalDayTimeOperators
 {
-    private IntervalDayTimeOperators()
-    {
-    }
+    private IntervalDayTimeOperators() {}
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
@@ -76,6 +78,9 @@ public final class IntervalDayTimeOperators
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
     public static long multiplyByDouble(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
+        if (Double.isNaN(right)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot multiply by double NaN");
+        }
         return (long) (left * right);
     }
 
@@ -90,6 +95,9 @@ public final class IntervalDayTimeOperators
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
     public static long doubleMultiply(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
+        if (Double.isNaN(left)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot multiply by double NaN");
+        }
         return (long) (left * right);
     }
 
@@ -97,6 +105,9 @@ public final class IntervalDayTimeOperators
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
     public static long divideByDouble(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
+        if (Double.isNaN(right) || right == 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Cannot divide by double %s", right));
+        }
         return (long) (left / right);
     }
 
@@ -151,16 +162,6 @@ public final class IntervalDayTimeOperators
         return left >= right;
     }
 
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(
-            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value,
-            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long min,
-            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long max)
-    {
-        return min <= value && value <= max;
-    }
-
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -176,8 +177,15 @@ public final class IntervalDayTimeOperators
         return AbstractLongType.hash(value);
     }
 
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash64(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
+    {
+        return XxHash64.hash(value);
+    }
+
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class IntervalDayTimeDistinctFromOperator
+    public static final class IntervalDayTimeDistinctFromOperator
     {
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isDistinctFrom(

@@ -15,7 +15,6 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import io.airlift.slice.Slice;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -54,7 +53,7 @@ public final class ArraySortComparatorFunction
     public Block sortLong(
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block,
-            @SqlType("function(T, T, int)") ComparatorLongLambda function)
+            @SqlType("function(T, T, integer)") ComparatorLongLambda function)
     {
         int arrayLength = block.getPositionCount();
         initPositionsList(arrayLength);
@@ -74,7 +73,7 @@ public final class ArraySortComparatorFunction
     public Block sortDouble(
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block,
-            @SqlType("function(T, T, int)") ComparatorDoubleLambda function)
+            @SqlType("function(T, T, integer)") ComparatorDoubleLambda function)
     {
         int arrayLength = block.getPositionCount();
         initPositionsList(arrayLength);
@@ -94,7 +93,7 @@ public final class ArraySortComparatorFunction
     public Block sortBoolean(
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block,
-            @SqlType("function(T, T, int)") ComparatorBooleanLambda function)
+            @SqlType("function(T, T, integer)") ComparatorBooleanLambda function)
     {
         int arrayLength = block.getPositionCount();
         initPositionsList(arrayLength);
@@ -109,39 +108,19 @@ public final class ArraySortComparatorFunction
     }
 
     @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = Slice.class)
-    @SqlType("array(T)")
-    public Block sortSlice(
-            @TypeParameter("T") Type type,
-            @SqlType("array(T)") Block block,
-            @SqlType("function(T, T, int)") ComparatorSliceLambda function)
-    {
-        int arrayLength = block.getPositionCount();
-        initPositionsList(arrayLength);
-
-        Comparator<Integer> comparator = (x, y) -> comparatorResult(function.apply(
-                block.isNull(x) ? null : type.getSlice(block, x),
-                block.isNull(y) ? null : type.getSlice(block, y)));
-
-        sortPositions(arrayLength, comparator);
-
-        return computeResultBlock(type, block, arrayLength);
-    }
-
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = Block.class)
+    @TypeParameterSpecialization(name = "T", nativeContainerType = Object.class)
     @SqlType("array(T)")
     public Block sortObject(
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block,
-            @SqlType("function(T, T, int)") ComparatorBlockLambda function)
+            @SqlType("function(T, T, integer)") ComparatorObjectLambda function)
     {
         int arrayLength = block.getPositionCount();
         initPositionsList(arrayLength);
 
         Comparator<Integer> comparator = (x, y) -> comparatorResult(function.apply(
-                block.isNull(x) ? null : (Block) type.getObject(block, x),
-                block.isNull(y) ? null : (Block) type.getObject(block, y)));
+                block.isNull(x) ? null : type.getObject(block, x),
+                block.isNull(y) ? null : type.getObject(block, y)));
 
         sortPositions(arrayLength, comparator);
 
@@ -217,16 +196,9 @@ public final class ArraySortComparatorFunction
     }
 
     @FunctionalInterface
-    public interface ComparatorSliceLambda
+    public interface ComparatorObjectLambda
             extends LambdaFunctionInterface
     {
-        Long apply(Slice x, Slice y);
-    }
-
-    @FunctionalInterface
-    public interface ComparatorBlockLambda
-            extends LambdaFunctionInterface
-    {
-        Long apply(Block x, Block y);
+        Long apply(Object x, Object y);
     }
 }

@@ -13,8 +13,6 @@
  */
 package io.prestosql.connector.system.jdbc;
 
-import com.google.common.base.Predicates;
-import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.QualifiedTablePrefix;
 import io.prestosql.spi.predicate.Domain;
@@ -22,11 +20,11 @@ import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Optional;
 
-final class FilterUtil
+public final class FilterUtil
 {
     private FilterUtil() {}
 
-    public static Optional<String> stringFilter(TupleDomain<Integer> constraint, int index)
+    public static <T> Optional<String> tryGetSingleVarcharValue(TupleDomain<T> constraint, T index)
     {
         if (constraint.isNone()) {
             return Optional.empty();
@@ -38,34 +36,22 @@ final class FilterUtil
         }
 
         Object value = domain.getSingleValue();
-        if (value instanceof Slice) {
-            return Optional.of(((Slice) value).toStringUtf8());
-        }
-        return Optional.empty();
+        return Optional.of(((Slice) value).toStringUtf8());
     }
 
     public static QualifiedTablePrefix tablePrefix(String catalog, Optional<String> schema, Optional<String> table)
     {
-        QualifiedTablePrefix prefix = new QualifiedTablePrefix(catalog);
+        if (schema.isPresent() && table.isPresent()) {
+            return new QualifiedTablePrefix(catalog, schema.get(), table.get());
+        }
         if (schema.isPresent()) {
-            prefix = new QualifiedTablePrefix(catalog, schema.get());
-            if (table.isPresent()) {
-                prefix = new QualifiedTablePrefix(catalog, schema.get(), table.get());
-            }
+            return new QualifiedTablePrefix(catalog, schema.get());
         }
-        return prefix;
-    }
-
-    public static <T> Iterable<T> filter(Iterable<T> items, Optional<T> filter)
-    {
-        if (!filter.isPresent()) {
-            return items;
-        }
-        return Iterables.filter(items, Predicates.equalTo(filter.get()));
+        return new QualifiedTablePrefix(catalog);
     }
 
     public static <T> boolean emptyOrEquals(Optional<T> value, T other)
     {
-        return !value.isPresent() || value.get().equals(other);
+        return value.isEmpty() || value.get().equals(other);
     }
 }

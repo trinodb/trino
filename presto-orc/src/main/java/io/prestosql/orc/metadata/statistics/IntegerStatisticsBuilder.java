@@ -28,6 +28,12 @@ public class IntegerStatisticsBuilder
     private long maximum = Long.MIN_VALUE;
     private long sum;
     private boolean overflow;
+    private final BloomFilterBuilder bloomFilterBuilder;
+
+    public IntegerStatisticsBuilder(BloomFilterBuilder bloomFilterBuilder)
+    {
+        this.bloomFilterBuilder = requireNonNull(bloomFilterBuilder, "bloomFilterBuilder is null");
+    }
 
     @Override
     public void addValue(long value)
@@ -45,6 +51,7 @@ public class IntegerStatisticsBuilder
                 overflow = true;
             }
         }
+        bloomFilterBuilder.addLong(value);
     }
 
     private void addIntegerStatistics(long valueCount, IntegerStatistics value)
@@ -95,17 +102,18 @@ public class IntegerStatisticsBuilder
                 null,
                 null,
                 null,
-                null);
+                null,
+                bloomFilterBuilder.buildBloomFilter());
     }
 
     public static Optional<IntegerStatistics> mergeIntegerStatistics(List<ColumnStatistics> stats)
     {
-        IntegerStatisticsBuilder integerStatisticsBuilder = new IntegerStatisticsBuilder();
+        IntegerStatisticsBuilder integerStatisticsBuilder = new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder());
         for (ColumnStatistics columnStatistics : stats) {
             IntegerStatistics partialStatistics = columnStatistics.getIntegerStatistics();
             if (columnStatistics.getNumberOfValues() > 0) {
                 if (partialStatistics == null) {
-                    // there are non null values but no statistics, so we can not say anything about the data
+                    // there are non null values but no statistics, so we cannot say anything about the data
                     return Optional.empty();
                 }
                 integerStatisticsBuilder.addIntegerStatistics(columnStatistics.getNumberOfValues(), partialStatistics);

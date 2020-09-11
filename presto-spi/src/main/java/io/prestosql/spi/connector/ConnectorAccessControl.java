@@ -13,14 +13,19 @@
  */
 package io.prestosql.spi.connector;
 
-import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.ViewExpression;
+import io.prestosql.spi.type.Type;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
@@ -32,22 +37,29 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
+import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCurrentRoles;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
-import static io.prestosql.spi.security.AccessDeniedException.denyShowTablesMetadata;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 import static java.util.Collections.emptySet;
 
 public interface ConnectorAccessControl
@@ -57,7 +69,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+    default void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
     {
         denyCreateSchema(schemaName);
     }
@@ -67,7 +79,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+    default void checkCanDropSchema(ConnectorSecurityContext context, String schemaName)
     {
         denyDropSchema(schemaName);
     }
@@ -77,9 +89,19 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName, String newSchemaName)
+    default void checkCanRenameSchema(ConnectorSecurityContext context, String schemaName, String newSchemaName)
     {
         denyRenameSchema(schemaName, newSchemaName);
+    }
+
+    /**
+     * Check if identity is allowed to change the specified schema's user/role.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, PrestoPrincipal principal)
+    {
+        denySetSchemaAuthorization(schemaName, principal);
     }
 
     /**
@@ -91,7 +113,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity)
+    default void checkCanShowSchemas(ConnectorSecurityContext context)
     {
         denyShowSchemas();
     }
@@ -99,9 +121,29 @@ public interface ConnectorAccessControl
     /**
      * Filter the list of schemas to those visible to the identity.
      */
-    default Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> schemaNames)
+    default Set<String> filterSchemas(ConnectorSecurityContext context, Set<String> schemaNames)
     {
         return emptySet();
+    }
+
+    /**
+     * Check if identity is allowed to execute SHOW CREATE SCHEMA.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowCreateSchema(ConnectorSecurityContext context, String schemaName)
+    {
+        denyShowCreateSchema(schemaName);
+    }
+
+    /**
+     * Check if identity is allowed to execute SHOW CREATE TABLE, SHOW CREATE VIEW or SHOW CREATE MATERIALIZED VIEW
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        denyShowCreateTable(tableName.toString(), null);
     }
 
     /**
@@ -109,7 +151,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    default void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyCreateTable(tableName.toString());
     }
@@ -119,7 +161,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanDropTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    default void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyDropTable(tableName.toString());
     }
@@ -129,9 +171,29 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanRenameTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, SchemaTableName newTableName)
+    default void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName)
     {
         denyRenameTable(tableName.toString(), newTableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to comment the specified table in this catalog.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        denyCommentTable(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to comment the column in the specified table in this catalog.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        denyCommentColumn(tableName.toString());
     }
 
     /**
@@ -143,17 +205,39 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+    default void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
     {
-        denyShowTablesMetadata(schemaName);
+        denyShowTables(schemaName);
     }
 
     /**
      * Filter the list of tables and views to those visible to the identity.
      */
-    default Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<SchemaTableName> tableNames)
+    default Set<SchemaTableName> filterTables(ConnectorSecurityContext context, Set<SchemaTableName> tableNames)
     {
         return emptySet();
+    }
+
+    /**
+     * Check if identity is allowed to show columns of tables by executing SHOW COLUMNS, DESCRIBE etc.
+     * <p>
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterColumns} method must filter all results for unauthorized users,
+     * since there are multiple ways to list columns.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowColumns(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        denyShowColumns(tableName.getTableName());
+    }
+
+    /**
+     * Filter the list of columns to those visible to the identity.
+     */
+    default List<ColumnMetadata> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
+    {
+        return Collections.emptyList();
     }
 
     /**
@@ -161,7 +245,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    default void checkCanAddColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyAddColumn(tableName.toString());
     }
@@ -171,7 +255,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    default void checkCanDropColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyDropColumn(tableName.toString());
     }
@@ -181,7 +265,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanRenameColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    default void checkCanRenameColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyRenameColumn(tableName.toString());
     }
@@ -191,7 +275,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+    default void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         denySelectColumns(tableName.toString(), columnNames);
     }
@@ -201,7 +285,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    default void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyInsertTable(tableName.toString());
     }
@@ -211,7 +295,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanDeleteFromTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    default void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyDeleteTable(tableName.toString());
     }
@@ -221,9 +305,19 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanCreateView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName viewName)
+    default void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
         denyCreateView(viewName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to rename the specified view in this catalog.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanRenameView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        denyRenameView(viewName.toString(), newViewName.toString());
     }
 
     /**
@@ -231,7 +325,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanDropView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName viewName)
+    default void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
         denyDropView(viewName.toString());
     }
@@ -241,9 +335,9 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+    default void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
-        denyCreateViewWithSelect(tableName.toString(), identity);
+        denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
     }
 
     /**
@@ -251,7 +345,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String propertyName)
+    default void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
     {
         denySetCatalogSessionProperty(propertyName);
     }
@@ -261,7 +355,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
+    default void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
         denyGrantTablePrivilege(privilege.toString(), tableName.toString());
     }
@@ -271,34 +365,44 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
+    default void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
     {
         denyRevokeTablePrivilege(privilege.toString(), tableName.toString());
     }
 
-    default void checkCanCreateRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, Optional<PrestoPrincipal> grantor)
+    default void checkCanCreateRole(ConnectorSecurityContext context, String role, Optional<PrestoPrincipal> grantor)
     {
         denyCreateRole(role);
     }
 
-    default void checkCanDropRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role)
+    default void checkCanDropRole(ConnectorSecurityContext context, String role)
     {
         denyDropRole(role);
     }
 
-    default void checkCanGrantRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    default void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
         denyGrantRoles(roles, grantees);
     }
 
-    default void checkCanRevokeRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    default void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
         denyRevokeRoles(roles, grantees);
     }
 
-    default void checkCanSetRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, String catalogName)
+    default void checkCanSetRole(ConnectorSecurityContext context, String role, String catalogName)
     {
         denySetRole(role);
+    }
+
+    /**
+     * Check if identity is allowed to show role authorization descriptors (i.e. RoleGrants).
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
+    {
+        denyShowRoleAuthorizationDescriptors(catalogName);
     }
 
     /**
@@ -306,7 +410,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanShowRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    default void checkCanShowRoles(ConnectorSecurityContext context, String catalogName)
     {
         denyShowRoles(catalogName);
     }
@@ -316,7 +420,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanShowCurrentRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    default void checkCanShowCurrentRoles(ConnectorSecurityContext context, String catalogName)
     {
         denyShowCurrentRoles(catalogName);
     }
@@ -326,8 +430,38 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    default void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
     {
         denyShowRoleGrants(catalogName);
+    }
+
+    default void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
+    {
+        denyExecuteProcedure(procedure.toString());
+    }
+
+    /**
+     * Get a row filter associated with the given table and identity.
+     * <p>
+     * The filter must be a scalar SQL expression of boolean type over the columns in the table.
+     *
+     * @return the filter, or {@link Optional#empty()} if not applicable
+     */
+    default Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Get a column mask associated with the given table, column and identity.
+     * <p>
+     * The mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
+     * must be written in terms of columns in the table.
+     *
+     * @return the mask, or {@link Optional#empty()} if not applicable
+     */
+    default Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        return Optional.empty();
     }
 }

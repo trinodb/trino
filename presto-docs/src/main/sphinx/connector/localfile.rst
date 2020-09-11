@@ -22,7 +22,7 @@ Configuration Properties
 Property Name                               Description
 =========================================   ==============================================================
 ``presto-logs.http-request-log.location``   Directory or file where HTTP request logs are written
-``presto-logs.http-request-log.pattern``    If the log location is a directory this glob is used
+``presto-logs.http-request-log.pattern``    If the log location is a directory, this glob is used
                                             to match file names in the directory
 =========================================   ==============================================================
 

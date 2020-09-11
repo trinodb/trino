@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
@@ -25,12 +26,12 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.type.LiteralParameter;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.google.common.base.Strings.repeat;
+import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
@@ -39,7 +40,8 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
+import static io.prestosql.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
+import static io.prestosql.testing.SqlVarbinaryTestingUtil.sqlVarbinaryFromIso;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -53,7 +55,7 @@ public class TestStringFunctions
         registerScalar(getClass());
     }
 
-    @Description("varchar length")
+    @Description("Varchar length")
     @ScalarFunction(value = "vl", deterministic = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
@@ -71,7 +73,7 @@ public class TestStringFunctions
 
     public static String padRight(String s, int n)
     {
-        return s + repeat(" ", n - s.codePointCount(0, s.length()));
+        return s + " ".repeat(n - s.codePointCount(0, s.length()));
     }
 
     @Test
@@ -119,8 +121,11 @@ public class TestStringFunctions
         assertFunction("CONCAT(CONCAT('\u4FE1\u5FF5', ',\u7231'), ',\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
 
         // Test argument count limit
-        assertFunction("CONCAT(" + Joiner.on(", ").join(nCopies(254, "'1'")) + ")", VARCHAR, Joiner.on("").join(nCopies(254, "1")));
-        assertNotSupported("CONCAT(" + Joiner.on(", ").join(nCopies(255, "'1'")) + ")", "Too many arguments for string concatenation");
+        assertFunction("CONCAT(" + Joiner.on(", ").join(nCopies(127, "'x'")) + ")", VARCHAR, Joiner.on("").join(nCopies(127, "x")));
+        assertInvalidFunction(
+                "CONCAT(" + Joiner.on(", ").join(nCopies(128, "'x'")) + ")",
+                TOO_MANY_ARGUMENTS,
+                "line 1:1: Too many arguments for function call concat()");
     }
 
     @Test
@@ -180,11 +185,11 @@ public class TestStringFunctions
         assertInvalidFunction("LEVENSHTEIN_DISTANCE('hello wolrd', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
 
         // Test for maximum length
-        assertFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", repeat("e", 100_000)), BIGINT, 99999L);
-        assertFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", repeat("l", 100_000)), BIGINT, 99998L);
-        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', '%s')", repeat("x", 1001), repeat("x", 1001)), "The combined inputs for Levenshtein distance are too large");
-        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", repeat("x", 500_000)), "The combined inputs for Levenshtein distance are too large");
-        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", repeat("x", 500_000)), "The combined inputs for Levenshtein distance are too large");
+        assertFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", "e".repeat(100_000)), BIGINT, 99999L);
+        assertFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", "l".repeat(100_000)), BIGINT, 99998L);
+        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', '%s')", "x".repeat(1001), "x".repeat(1001)), "The combined inputs for Levenshtein distance are too large");
+        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", "x".repeat(500_000)), "The combined inputs for Levenshtein distance are too large");
+        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", "x".repeat(500_000)), "The combined inputs for Levenshtein distance are too large");
     }
 
     @Test
@@ -235,19 +240,10 @@ public class TestStringFunctions
         assertFunction("REPLACE('::\uD801\uDC2D::', ':', '')", createVarcharType(5), "\uD801\uDC2D"); //\uD801\uDC2D is one character
         assertFunction("REPLACE('\u00D6sterreich', '\u00D6', 'Oe')", createVarcharType(32), "Oesterreich");
 
-        assertFunction("CAST(REPLACE(utf8(from_hex('CE')), '', 'X') AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {'X', (byte) 0xCE, 'X'}));
-
-        assertFunction("CAST(REPLACE('abc' || utf8(from_hex('CE')), '', 'X') AS VARBINARY)",
-                VARBINARY,
-                new SqlVarbinary(new byte[] {'X', 'a', 'X', 'b', 'X', 'c', 'X', (byte) 0xCE, 'X'}));
-
-        assertFunction("CAST(REPLACE(utf8(from_hex('CE')) || 'xyz', '', 'X') AS VARBINARY)",
-                VARBINARY,
-                new SqlVarbinary(new byte[] {'X', (byte) 0xCE, 'X', 'x', 'X', 'y', 'X', 'z', 'X'}));
-
-        assertFunction("CAST(REPLACE('abc' || utf8(from_hex('CE')) || 'xyz', '', 'X') AS VARBINARY)",
-                VARBINARY,
-                new SqlVarbinary(new byte[] {'X', 'a', 'X', 'b', 'X', 'c', 'X', (byte) 0xCE, 'X', 'x', 'X', 'y', 'X', 'z', 'X'}));
+        assertFunction("CAST(REPLACE(utf8(from_hex('CE')), '', 'X') AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("X\u00CEX"));
+        assertFunction("CAST(REPLACE('abc' || utf8(from_hex('CE')), '', 'X') AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("XaXbXcX\u00CEX"));
+        assertFunction("CAST(REPLACE(utf8(from_hex('CE')) || 'xyz', '', 'X') AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("X\u00CEXxXyXzX"));
+        assertFunction("CAST(REPLACE('abc' || utf8(from_hex('CE')) || 'xyz', '', 'X') AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("XaXbXcX\u00CEXxXyXzX"));
     }
 
     @Test
@@ -263,8 +259,8 @@ public class TestStringFunctions
         assertFunction("REVERSE('na\u00EFve')", createVarcharType(5), "ev\u00EFan");
         assertFunction("REVERSE('\uD801\uDC2Dend')", createVarcharType(4), "dne\uD801\uDC2D");
 
-        assertFunction("CAST(REVERSE(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE}));
-        assertFunction("CAST(REVERSE('hello' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE, 'o', 'l', 'l', 'e', 'h'}));
+        assertFunction("CAST(REVERSE(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, sqlVarbinary(0xCE));
+        assertFunction("CAST(REVERSE('hello' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("\u00CEolleh"));
     }
 
     @Test
@@ -286,6 +282,62 @@ public class TestStringFunctions
         testStrPosAndPosition(null, "", null);
         testStrPosAndPosition("", null, null);
         testStrPosAndPosition(null, null, null);
+
+        assertFunction("STARTS_WITH('foo', 'foo')", BOOLEAN, true);
+        assertFunction("STARTS_WITH('foo', 'bar')", BOOLEAN, false);
+        assertFunction("STARTS_WITH('foo', '')", BOOLEAN, true);
+        assertFunction("STARTS_WITH('', 'foo')", BOOLEAN, false);
+        assertFunction("STARTS_WITH('', '')", BOOLEAN, true);
+        assertFunction("STARTS_WITH('foo_bar_baz', 'foo')", BOOLEAN, true);
+        assertFunction("STARTS_WITH('foo_bar_baz', 'bar')", BOOLEAN, false);
+        assertFunction("STARTS_WITH('foo', 'foo_bar_baz')", BOOLEAN, false);
+        assertFunction("STARTS_WITH('信念 爱 希望', '信念')", BOOLEAN, true);
+        assertFunction("STARTS_WITH('信念 爱 希望', '爱')", BOOLEAN, false);
+
+        assertFunction("STRPOS(NULL, '')", BIGINT, null);
+        assertFunction("STRPOS('', NULL)", BIGINT, null);
+        assertFunction("STRPOS(NULL, NULL)", BIGINT, null);
+        assertInvalidFunction("STRPOS('abc/xyz/foo/bar', '/', 0)", "'instance' must be a positive or negative number.");
+        assertInvalidFunction("STRPOS('', '', 0)", "'instance' must be a positive or negative number.");
+
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/')", BIGINT, 4L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u7231')", BIGINT, 4L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u5E0C\u671B')", BIGINT, 6L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', 'nice')", BIGINT, 0L);
+
+        assertFunction("STRPOS('high', 'ig')", BIGINT, 2L);
+        assertFunction("STRPOS('high', 'igx')", BIGINT, 0L);
+        assertFunction("STRPOS('Quadratically', 'a')", BIGINT, 3L);
+        assertFunction("STRPOS('foobar', 'foobar')", BIGINT, 1L);
+        assertFunction("STRPOS('foobar', 'obar')", BIGINT, 3L);
+        assertFunction("STRPOS('zoo!', '!')", BIGINT, 4L);
+        assertFunction("STRPOS('x', '')", BIGINT, 1L);
+        assertFunction("STRPOS('', '')", BIGINT, 1L);
+
+        assertFunction("STRPOS('abc abc abc', 'abc', 1)", BIGINT, 1L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 1)", BIGINT, 4L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 2)", BIGINT, 8L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 3)", BIGINT, 12L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 4)", BIGINT, 0L);
+        assertFunction("STRPOS('highhigh', 'ig', 1)", BIGINT, 2L);
+        assertFunction("STRPOS('foobarfoo', 'fb', 1)", BIGINT, 0L);
+        assertFunction("STRPOS('foobarfoo', 'oo', 1)", BIGINT, 2L);
+
+        assertFunction("STRPOS('abc abc abc', 'abc', -1)", BIGINT, 9L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -1)", BIGINT, 12L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -2)", BIGINT, 8L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -3)", BIGINT, 4L);
+        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -4)", BIGINT, 0L);
+        assertFunction("STRPOS('highhigh', 'ig', -1)", BIGINT, 6L);
+        assertFunction("STRPOS('highhigh', 'ig', -2)", BIGINT, 2L);
+        assertFunction("STRPOS('foobarfoo', 'fb', -1)", BIGINT, 0L);
+        assertFunction("STRPOS('foobarfoo', 'oo', -1)", BIGINT, 8L);
+
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u7231', -1)", BIGINT, 4L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u7231\u671B', '\u7231', -1)", BIGINT, 7L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u7231\u671B', '\u7231', -2)", BIGINT, 4L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u5E0C\u671B', -1)", BIGINT, 6L);
+        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', 'nice', -1)", BIGINT, 0L);
     }
 
     private void testStrPosAndPosition(String string, String substring, Long expected)
@@ -337,41 +389,45 @@ public class TestStringFunctions
     @Test
     public void testCharSubstring()
     {
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5)", createCharType(13), padRight("ratically", 13));
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 50)", createCharType(13), padRight("", 13));
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5)", createCharType(13), padRight("cally", 13));
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -50)", createCharType(13), padRight("", 13));
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5)", createVarcharType(13), "ratically");
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 50)", createVarcharType(13), "");
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5)", createVarcharType(13), "cally");
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -50)", createVarcharType(13), "");
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0)", createVarcharType(13), "");
 
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 6)", createCharType(13), padRight("ratica", 13));
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 10)", createCharType(13), padRight("ratically", 13));
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 50)", createCharType(13), padRight("ratically", 13));
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 50, 10)", createCharType(13), padRight("", 13));
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5, 4)", createCharType(13), padRight("call", 13));
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5, 40)", createCharType(13), padRight("cally", 13));
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -50, 4)", createCharType(13), padRight("", 13));
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0, 4)", createCharType(13), padRight("", 13));
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 0)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 6)", createVarcharType(13), "ratica");
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 10)", createVarcharType(13), "ratically");
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 50)", createVarcharType(13), "ratically");
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 50, 10)", createVarcharType(13), "");
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5, 4)", createVarcharType(13), "call");
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5, 40)", createVarcharType(13), "cally");
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -50, 4)", createVarcharType(13), "");
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0, 4)", createVarcharType(13), "");
+        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 0)", createVarcharType(13), "");
 
-        assertFunction("SUBSTR(CAST('abc def' AS CHAR(7)), 1, 4)", createCharType(7), padRight("abc", 7));
+        assertFunction("SUBSTR(CAST('abc def' AS CHAR(7)), 1, 4)", createVarcharType(7), "abc ");
+        assertFunction("SUBSTR(CAST('keep trailing' AS CHAR(14)), 1)", createVarcharType(14), "keep trailing ");
+        assertFunction("SUBSTR(CAST('keep trailing' AS CHAR(14)), 1, 14)", createVarcharType(14), "keep trailing ");
 
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5)", createCharType(13), padRight("ratically", 13));
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 50)", createCharType(13), padRight("", 13));
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM -5)", createCharType(13), padRight("cally", 13));
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM -50)", createCharType(13), padRight("", 13));
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 0)", createCharType(13), padRight("", 13));
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)), 5)", createVarcharType(13), "ratically");
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5)", createVarcharType(13), "ratically");
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 50)", createVarcharType(13), "");
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM -5)", createVarcharType(13), "cally");
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM -50)", createVarcharType(13), "");
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 0)", createVarcharType(13), "");
 
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5 FOR 6)", createCharType(13), padRight("ratica", 13));
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5 FOR 50)", createCharType(13), padRight("ratically", 13));
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)), 5, 6)", createVarcharType(13), "ratica");
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5 FOR 6)", createVarcharType(13), "ratica");
+        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5 FOR 50)", createVarcharType(13), "ratically");
         //
         // Test SUBSTRING for non-ASCII
-        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 1 FOR 1)", createCharType(7), padRight("\u4FE1", 7));
-        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 3 FOR 5)", createCharType(7), padRight(",\u7231,\u5E0C\u671B", 7));
-        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 4)", createCharType(7), padRight("\u7231,\u5E0C\u671B", 7));
-        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM -2)", createCharType(7), padRight("\u5E0C\u671B", 7));
-        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(4)) FROM 1 FOR 1)", createCharType(4), padRight("\uD801\uDC2D", 4));
-        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(4)) FROM 2 FOR 3)", createCharType(4), padRight("end", 4));
-        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(40)) FROM 2 FOR 3)", createCharType(40), padRight("end", 40));
+        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 1 FOR 1)", createVarcharType(7), "\u4FE1");
+        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 3 FOR 5)", createVarcharType(7), ",\u7231,\u5E0C\u671B");
+        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 4)", createVarcharType(7), "\u7231,\u5E0C\u671B");
+        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM -2)", createVarcharType(7), "\u5E0C\u671B");
+        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(4)) FROM 1 FOR 1)", createVarcharType(4), "\uD801\uDC2D");
+        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(4)) FROM 2 FOR 3)", createVarcharType(4), "end");
+        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(40)) FROM 2 FOR 3)", createVarcharType(40), "end");
     }
 
     @Test
@@ -817,10 +873,10 @@ public class TestStringFunctions
         assertFunction("LOWER('\u00D6STERREICH')", createVarcharType(10), lowerByCodePoint("\u00D6sterreich"));
         assertFunction("LOWER('From\uD801\uDC2DTo')", createVarcharType(7), lowerByCodePoint("from\uD801\uDC2Dto"));
 
-        assertFunction("CAST(LOWER(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE}));
-        assertFunction("CAST(LOWER('HELLO' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {'h', 'e', 'l', 'l', 'o', (byte) 0xCE}));
-        assertFunction("CAST(LOWER(utf8(from_hex('CE')) || 'HELLO') AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE, 'h', 'e', 'l', 'l', 'o'}));
-        assertFunction("CAST(LOWER(utf8(from_hex('C8BAFF'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xE2, (byte) 0xB1, (byte) 0xA5, (byte) 0xFF}));
+        assertFunction("CAST(LOWER(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, sqlVarbinary(0xCE));
+        assertFunction("CAST(LOWER('HELLO' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("hello\u00CE"));
+        assertFunction("CAST(LOWER(utf8(from_hex('CE')) || 'HELLO') AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("\u00CEhello"));
+        assertFunction("CAST(LOWER(utf8(from_hex('C8BAFF'))) AS VARBINARY)", VARBINARY, sqlVarbinary(0xE2, 0xB1, 0xA5, 0xFF));
     }
 
     @Test
@@ -842,9 +898,9 @@ public class TestStringFunctions
         assertFunction("UPPER('\u00D6sterreich')", createVarcharType(10), upperByCodePoint("\u00D6") + "STERREICH");
         assertFunction("UPPER('From\uD801\uDC2DTo')", createVarcharType(7), "FROM" + upperByCodePoint("\uD801\uDC2D") + "TO");
 
-        assertFunction("CAST(UPPER(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE}));
-        assertFunction("CAST(UPPER('hello' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {'H', 'E', 'L', 'L', 'O', (byte) 0xCE}));
-        assertFunction("CAST(UPPER(utf8(from_hex('CE')) || 'hello') AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xCE, 'H', 'E', 'L', 'L', 'O'}));
+        assertFunction("CAST(UPPER(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, sqlVarbinary(0xCE));
+        assertFunction("CAST(UPPER('hello' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("HELLO\u00CE"));
+        assertFunction("CAST(UPPER(utf8(from_hex('CE')) || 'hello') AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("\u00CEHELLO"));
     }
 
     @Test
@@ -985,8 +1041,36 @@ public class TestStringFunctions
 
         assertFunction("concat('hello na\u00EFve', cast(' world' as char(6)))", createCharType(17), "hello na\u00EFve world");
 
-        assertInvalidFunction("concat(cast('ab ' as char(40000)), cast('' as char(40000)))", "CHAR length scale must be in range [0, 65536]");
+        assertInvalidFunction("concat(cast('ab ' as char(40000)), cast('' as char(40000)))", "line 1:1: CHAR length scale must be in range [0, 65536]");
 
         assertFunction("concat(cast(null as char(1)), cast(' ' as char(1)))", createCharType(2), null);
+    }
+
+    @Test
+    public void testTranslate()
+    {
+        assertFunction("translate('abcd', '', '')", VARCHAR, "abcd");
+        assertFunction("translate('abcd', 'a', 'z')", VARCHAR, "zbcd");
+        assertFunction("translate('abcda', 'a', 'z')", VARCHAR, "zbcdz");
+
+        assertFunction("translate('áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU");
+
+        assertFunction("translate('Goiânia', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "Goiania");
+        assertFunction("translate('São Paulo', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "Sao Paulo");
+        assertFunction("translate('Palhoça', 'ç','c')", VARCHAR, "Palhoca");
+        assertFunction("translate('Várzea Paulista', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "Varzea Paulista");
+
+        // Test chars that don't fit in 16 bits - - U+20000 is written as "\uD840\uDC00"
+
+        assertFunction("translate('\uD840\uDC00bcd', '\uD840\uDC00', 'z')", VARCHAR, "zbcd");
+        assertFunction("translate('\uD840\uDC00bcd\uD840\uDC00', '\uD840\uDC00', 'z')", VARCHAR, "zbcdz");
+        assertFunction("translate('abcd', 'b', '\uD840\uDC00')", VARCHAR, "a\uD840\uDC00cd");
+
+        // Test that the to string can be shorter than the from string, and that we choose the first duplicate in the from string
+
+        assertFunction("translate('abcd', 'a', '')", VARCHAR, "bcd");
+        assertFunction("translate('abcd', 'a', 'zy')", VARCHAR, "zbcd");
+        assertFunction("translate('abcd', 'ac', 'z')", VARCHAR, "zbd");
+        assertFunction("translate('abcd', 'aac', 'zq')", VARCHAR, "zbd");
     }
 }

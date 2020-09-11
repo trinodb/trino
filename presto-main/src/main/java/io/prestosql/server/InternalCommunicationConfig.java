@@ -14,17 +14,57 @@
 package io.prestosql.server;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.validation.FileExists;
 
+import javax.validation.constraints.AssertTrue;
+import javax.validation.constraints.NotNull;
+
+import java.util.Optional;
+
+@DefunctConfig({
+        "internal-communication.kerberos.enabled",
+        "internal-communication.kerberos.use-canonical-hostname",
+        "internal-communication.jwt.enabled",
+})
 public class InternalCommunicationConfig
 {
-    public static final String INTERNAL_COMMUNICATION_KERBEROS_ENABLED = "internal-communication.kerberos.enabled";
-
+    private String sharedSecret;
+    private boolean http2Enabled;
     private boolean httpsRequired;
     private String keyStorePath;
     private String keyStorePassword;
-    private boolean kerberosEnabled;
-    private boolean kerberosUseCanonicalHostname = true;
+    private String trustStorePath;
+    private String trustStorePassword;
+
+    @NotNull
+    public Optional<String> getSharedSecret()
+    {
+        return Optional.ofNullable(sharedSecret);
+    }
+
+    @ConfigSecuritySensitive
+    @Config("internal-communication.shared-secret")
+    public InternalCommunicationConfig setSharedSecret(String sharedSecret)
+    {
+        this.sharedSecret = sharedSecret;
+        return this;
+    }
+
+    public boolean isHttp2Enabled()
+    {
+        return http2Enabled;
+    }
+
+    @Config("internal-communication.http2.enabled")
+    @ConfigDescription("Enable the HTTP/2 transport")
+    public InternalCommunicationConfig setHttp2Enabled(boolean http2Enabled)
+    {
+        this.http2Enabled = http2Enabled;
+        return this;
+    }
 
     public boolean isHttpsRequired()
     {
@@ -38,6 +78,7 @@ public class InternalCommunicationConfig
         return this;
     }
 
+    @FileExists
     public String getKeyStorePath()
     {
         return keyStorePath;
@@ -63,27 +104,35 @@ public class InternalCommunicationConfig
         return this;
     }
 
-    public boolean isKerberosEnabled()
+    @FileExists
+    public String getTrustStorePath()
     {
-        return kerberosEnabled;
+        return trustStorePath;
     }
 
-    @Config(INTERNAL_COMMUNICATION_KERBEROS_ENABLED)
-    public InternalCommunicationConfig setKerberosEnabled(boolean kerberosEnabled)
+    @Config("internal-communication.https.truststore.path")
+    public InternalCommunicationConfig setTrustStorePath(String trustStorePath)
     {
-        this.kerberosEnabled = kerberosEnabled;
+        this.trustStorePath = trustStorePath;
         return this;
     }
 
-    public boolean isKerberosUseCanonicalHostname()
+    public String getTrustStorePassword()
     {
-        return kerberosUseCanonicalHostname;
+        return trustStorePassword;
     }
 
-    @Config("internal-communication.kerberos.use-canonical-hostname")
-    public InternalCommunicationConfig setKerberosUseCanonicalHostname(boolean kerberosUseCanonicalHostname)
+    @Config("internal-communication.https.truststore.key")
+    @ConfigSecuritySensitive
+    public InternalCommunicationConfig setTrustStorePassword(String trustStorePassword)
     {
-        this.kerberosUseCanonicalHostname = kerberosUseCanonicalHostname;
+        this.trustStorePassword = trustStorePassword;
         return this;
+    }
+
+    @AssertTrue(message = "Internal shared secret is required when HTTPS is enabled for internal communications")
+    public boolean isRequiredSharedSecretSet()
+    {
+        return !isHttpsRequired() || getSharedSecret().isPresent();
     }
 }

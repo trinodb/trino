@@ -15,28 +15,24 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
-import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -48,15 +44,9 @@ public class TestDoubleHistogramAggregation
 
     public TestDoubleHistogramAggregation()
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
-        FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-        InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(
-                new Signature("numeric_histogram",
-                        AGGREGATE,
-                        parseTypeSignature("map(double,double)"),
-                        parseTypeSignature(StandardTypes.BIGINT),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.DOUBLE)));
+        Metadata metadata = createTestMetadataManager();
+        InternalAggregationFunction function = metadata.getAggregateFunctionImplementation(
+                metadata.resolveFunction(QualifiedName.of("numeric_histogram"), fromTypes(BIGINT, DOUBLE, DOUBLE)));
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());
 
         input = makeInput(10);

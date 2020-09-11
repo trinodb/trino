@@ -33,7 +33,10 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.Float.floatToIntBits;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -163,11 +166,27 @@ public class TestMarker
     }
 
     @Test
+    public void testDoubleNaN()
+    {
+        assertThatThrownBy(() -> Marker.above(DOUBLE, Double.NaN)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Marker.exactly(DOUBLE, Double.NaN)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Marker.below(DOUBLE, Double.NaN)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    public void testRealNaN()
+    {
+        assertThatThrownBy(() -> Marker.above(REAL, (long) floatToIntBits(Float.NaN))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Marker.exactly(REAL, (long) floatToIntBits(Float.NaN))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Marker.below(REAL, (long) floatToIntBits(Float.NaN))).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     public void testJsonSerialization()
             throws Exception
     {
         TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde(typeManager);
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 
         ObjectMapper mapper = new ObjectMapperProvider().get()
                 .registerModule(new SimpleModule()

@@ -30,7 +30,7 @@ public class GenericSpillerFactory
     @Inject
     public GenericSpillerFactory(SingleStreamSpillerFactory singleStreamSpillerFactory)
     {
-        this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory can not be null");
+        this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory cannot be null");
     }
 
     @Override

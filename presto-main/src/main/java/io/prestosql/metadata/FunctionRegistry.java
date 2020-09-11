@@ -13,22 +13,14 @@
  */
 package io.prestosql.metadata;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Multimaps;
-import com.google.common.collect.Ordering;
-import com.google.common.primitives.Primitives;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.airlift.slice.Slice;
-import io.prestosql.block.BlockSerdeUtil;
 import io.prestosql.operator.aggregation.ApproximateCountDistinctAggregation;
 import io.prestosql.operator.aggregation.ApproximateDoublePercentileAggregations;
 import io.prestosql.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
@@ -38,6 +30,7 @@ import io.prestosql.operator.aggregation.ApproximateRealPercentileAggregations;
 import io.prestosql.operator.aggregation.ApproximateRealPercentileArrayAggregations;
 import io.prestosql.operator.aggregation.ApproximateSetAggregation;
 import io.prestosql.operator.aggregation.AverageAggregations;
+import io.prestosql.operator.aggregation.BigintApproximateMostFrequent;
 import io.prestosql.operator.aggregation.BitwiseAndAggregation;
 import io.prestosql.operator.aggregation.BitwiseOrAggregation;
 import io.prestosql.operator.aggregation.BooleanAndAggregation;
@@ -68,11 +61,15 @@ import io.prestosql.operator.aggregation.RealHistogramAggregation;
 import io.prestosql.operator.aggregation.RealRegressionAggregation;
 import io.prestosql.operator.aggregation.RealSumAggregation;
 import io.prestosql.operator.aggregation.SumDataSizeForStats;
+import io.prestosql.operator.aggregation.VarcharApproximateMostFrequent;
 import io.prestosql.operator.aggregation.VarianceAggregation;
 import io.prestosql.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import io.prestosql.operator.aggregation.histogram.Histogram;
 import io.prestosql.operator.aggregation.multimapagg.MultimapAggregationFunction;
+import io.prestosql.operator.scalar.ArrayAllMatchFunction;
+import io.prestosql.operator.scalar.ArrayAnyMatchFunction;
 import io.prestosql.operator.scalar.ArrayCardinalityFunction;
+import io.prestosql.operator.scalar.ArrayCombinationsFunction;
 import io.prestosql.operator.scalar.ArrayContains;
 import io.prestosql.operator.scalar.ArrayDistinctFromOperator;
 import io.prestosql.operator.scalar.ArrayDistinctFunction;
@@ -91,6 +88,7 @@ import io.prestosql.operator.scalar.ArrayLessThanOrEqualOperator;
 import io.prestosql.operator.scalar.ArrayMaxFunction;
 import io.prestosql.operator.scalar.ArrayMinFunction;
 import io.prestosql.operator.scalar.ArrayNgramsFunction;
+import io.prestosql.operator.scalar.ArrayNoneMatchFunction;
 import io.prestosql.operator.scalar.ArrayNotEqualOperator;
 import io.prestosql.operator.scalar.ArrayPositionFunction;
 import io.prestosql.operator.scalar.ArrayRemoveFunction;
@@ -116,6 +114,7 @@ import io.prestosql.operator.scalar.JoniRegexpFunctions;
 import io.prestosql.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.prestosql.operator.scalar.JsonFunctions;
 import io.prestosql.operator.scalar.JsonOperators;
+import io.prestosql.operator.scalar.LuhnCheckFunction;
 import io.prestosql.operator.scalar.MapCardinalityFunction;
 import io.prestosql.operator.scalar.MapDistinctFromOperator;
 import io.prestosql.operator.scalar.MapEntriesFunction;
@@ -144,6 +143,70 @@ import io.prestosql.operator.scalar.UrlFunctions;
 import io.prestosql.operator.scalar.VarbinaryFunctions;
 import io.prestosql.operator.scalar.WilsonInterval;
 import io.prestosql.operator.scalar.WordStemFunction;
+import io.prestosql.operator.scalar.time.LocalTimeFunction;
+import io.prestosql.operator.scalar.time.TimeFunctions;
+import io.prestosql.operator.scalar.time.TimeOperators;
+import io.prestosql.operator.scalar.time.TimeToTimeWithTimeZoneCast;
+import io.prestosql.operator.scalar.time.TimeToTimestampCast;
+import io.prestosql.operator.scalar.time.TimeToTimestampWithTimeZoneCast;
+import io.prestosql.operator.scalar.timestamp.DateAdd;
+import io.prestosql.operator.scalar.timestamp.DateDiff;
+import io.prestosql.operator.scalar.timestamp.DateFormat;
+import io.prestosql.operator.scalar.timestamp.DateToTimestampCast;
+import io.prestosql.operator.scalar.timestamp.DateTrunc;
+import io.prestosql.operator.scalar.timestamp.ExtractDay;
+import io.prestosql.operator.scalar.timestamp.ExtractDayOfWeek;
+import io.prestosql.operator.scalar.timestamp.ExtractDayOfYear;
+import io.prestosql.operator.scalar.timestamp.ExtractHour;
+import io.prestosql.operator.scalar.timestamp.ExtractMillisecond;
+import io.prestosql.operator.scalar.timestamp.ExtractMinute;
+import io.prestosql.operator.scalar.timestamp.ExtractMonth;
+import io.prestosql.operator.scalar.timestamp.ExtractQuarter;
+import io.prestosql.operator.scalar.timestamp.ExtractSecond;
+import io.prestosql.operator.scalar.timestamp.ExtractWeekOfYear;
+import io.prestosql.operator.scalar.timestamp.ExtractYear;
+import io.prestosql.operator.scalar.timestamp.ExtractYearOfWeek;
+import io.prestosql.operator.scalar.timestamp.FormatDateTime;
+import io.prestosql.operator.scalar.timestamp.HumanReadableSeconds;
+import io.prestosql.operator.scalar.timestamp.LastDayOfMonth;
+import io.prestosql.operator.scalar.timestamp.LocalTimestamp;
+import io.prestosql.operator.scalar.timestamp.SequenceIntervalDayToSecond;
+import io.prestosql.operator.scalar.timestamp.SequenceIntervalYearToMonth;
+import io.prestosql.operator.scalar.timestamp.TimeWithTimezoneToTimestampCast;
+import io.prestosql.operator.scalar.timestamp.TimestampDistinctFromOperator;
+import io.prestosql.operator.scalar.timestamp.TimestampOperators;
+import io.prestosql.operator.scalar.timestamp.TimestampToDateCast;
+import io.prestosql.operator.scalar.timestamp.TimestampToJsonCast;
+import io.prestosql.operator.scalar.timestamp.TimestampToTimeCast;
+import io.prestosql.operator.scalar.timestamp.TimestampToTimeWithTimezoneCast;
+import io.prestosql.operator.scalar.timestamp.TimestampToTimestampCast;
+import io.prestosql.operator.scalar.timestamp.TimestampToTimestampWithTimezoneCast;
+import io.prestosql.operator.scalar.timestamp.TimestampToVarcharCast;
+import io.prestosql.operator.scalar.timestamp.ToIso8601;
+import io.prestosql.operator.scalar.timestamp.ToUnixTime;
+import io.prestosql.operator.scalar.timestamp.VarcharToTimestampCast;
+import io.prestosql.operator.scalar.timestamp.WithTimeZone;
+import io.prestosql.operator.scalar.timestamptz.AtTimeZone;
+import io.prestosql.operator.scalar.timestamptz.AtTimeZoneWithOffset;
+import io.prestosql.operator.scalar.timestamptz.CurrentTimestamp;
+import io.prestosql.operator.scalar.timestamptz.DateToTimestampWithTimeZoneCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneDistinctFromOperator;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneOperators;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToDateCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeWithTimezoneCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampWithTimeZoneCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimezoneToTimestampCast;
+import io.prestosql.operator.scalar.timestamptz.VarcharToTimestampWithTimeZoneCast;
+import io.prestosql.operator.scalar.timetz.CurrentTime;
+import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneDistinctFromOperator;
+import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneOperators;
+import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneToTimeCast;
+import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneToTimeWithTimeZoneCast;
+import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneToTimestampWithTimeZoneCast;
+import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneToVarcharCast;
+import io.prestosql.operator.scalar.timetz.VarcharToTimeWithTimeZoneCast;
 import io.prestosql.operator.window.CumulativeDistributionFunction;
 import io.prestosql.operator.window.DenseRankFunction;
 import io.prestosql.operator.window.FirstValueFunction;
@@ -158,15 +221,10 @@ import io.prestosql.operator.window.RowNumberFunction;
 import io.prestosql.operator.window.SqlWindowFunction;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockEncodingSerde;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.VarcharType;
+import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.type.BigintOperators;
 import io.prestosql.type.BooleanOperators;
@@ -185,13 +243,9 @@ import io.prestosql.type.LikeFunctions;
 import io.prestosql.type.QuantileDigestOperators;
 import io.prestosql.type.RealOperators;
 import io.prestosql.type.SmallintOperators;
-import io.prestosql.type.TimeOperators;
-import io.prestosql.type.TimeWithTimeZoneOperators;
-import io.prestosql.type.TimestampOperators;
-import io.prestosql.type.TimestampWithTimeZoneOperators;
 import io.prestosql.type.TinyintOperators;
-import io.prestosql.type.TypeRegistry;
 import io.prestosql.type.UnknownOperators;
+import io.prestosql.type.UuidOperators;
 import io.prestosql.type.VarbinaryOperators;
 import io.prestosql.type.VarcharOperators;
 import io.prestosql.type.setdigest.BuildSetDigestAggregation;
@@ -201,29 +255,16 @@ import io.prestosql.type.setdigest.SetDigestOperators;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.FunctionKind.WINDOW;
-import static io.prestosql.metadata.Signature.internalOperator;
-import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static io.prestosql.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
 import static io.prestosql.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
 import static io.prestosql.operator.aggregation.CountColumn.COUNT_COLUMN;
@@ -259,6 +300,7 @@ import static io.prestosql.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNK
 import static io.prestosql.operator.scalar.ConcatFunction.VARBINARY_CONCAT;
 import static io.prestosql.operator.scalar.ConcatFunction.VARCHAR_CONCAT;
 import static io.prestosql.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
+import static io.prestosql.operator.scalar.FormatFunction.FORMAT_FUNCTION;
 import static io.prestosql.operator.scalar.Greatest.GREATEST;
 import static io.prestosql.operator.scalar.IdentityCast.IDENTITY_CAST;
 import static io.prestosql.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY;
@@ -275,8 +317,8 @@ import static io.prestosql.operator.scalar.MapFilterFunction.MAP_FILTER_FUNCTION
 import static io.prestosql.operator.scalar.MapHashCodeOperator.MAP_HASH_CODE;
 import static io.prestosql.operator.scalar.MapToJsonCast.MAP_TO_JSON;
 import static io.prestosql.operator.scalar.MapToMapCast.MAP_TO_MAP_CAST;
-import static io.prestosql.operator.scalar.MapTransformKeyFunction.MAP_TRANSFORM_KEY_FUNCTION;
-import static io.prestosql.operator.scalar.MapTransformValueFunction.MAP_TRANSFORM_VALUE_FUNCTION;
+import static io.prestosql.operator.scalar.MapTransformKeysFunction.MAP_TRANSFORM_KEYS_FUNCTION;
+import static io.prestosql.operator.scalar.MapTransformValuesFunction.MAP_TRANSFORM_VALUES_FUNCTION;
 import static io.prestosql.operator.scalar.MapZipWithFunction.MAP_ZIP_WITH_FUNCTION;
 import static io.prestosql.operator.scalar.MathFunctions.DECIMAL_MOD_FUNCTION;
 import static io.prestosql.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRegexp;
@@ -292,22 +334,10 @@ import static io.prestosql.operator.scalar.RowLessThanOrEqualOperator.ROW_LESS_T
 import static io.prestosql.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static io.prestosql.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static io.prestosql.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.operator.scalar.TryCastFunction.TRY_CAST;
 import static io.prestosql.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static io.prestosql.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
 import static io.prestosql.operator.window.AggregateWindowFunction.supplier;
-import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
@@ -326,7 +356,6 @@ import static io.prestosql.type.DecimalCasts.REAL_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.SMALLINT_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.TINYINT_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.VARCHAR_TO_DECIMAL_CAST;
-import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_BETWEEN_OPERATOR;
 import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_DISTINCT_FROM_OPERATOR;
 import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_EQUAL_OPERATOR;
 import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_GREATER_THAN_OPERATOR;
@@ -349,41 +378,18 @@ import static io.prestosql.type.DecimalSaturatedFloorCasts.INTEGER_TO_DECIMAL_SA
 import static io.prestosql.type.DecimalSaturatedFloorCasts.SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.prestosql.type.DecimalSaturatedFloorCasts.TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.prestosql.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
-import static io.prestosql.type.TypeUtils.resolveTypes;
-import static io.prestosql.type.UnknownType.UNKNOWN;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
 public class FunctionRegistry
 {
-    private static final String MAGIC_LITERAL_FUNCTION_PREFIX = "$literal$";
-    private static final String OPERATOR_PREFIX = "$operator$";
-
-    // hack: java classes for types that can be used with magic literals
-    private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.of(long.class, double.class, Slice.class, boolean.class);
-
-    private final TypeManager typeManager;
-    private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
-    private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
-    private final LoadingCache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
-    private final LoadingCache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
-    private final MagicLiteralFunction magicLiteralFunction;
+    private final Cache<FunctionBinding, ScalarFunctionImplementation> specializedScalarCache;
+    private final Cache<FunctionBinding, InternalAggregationFunction> specializedAggregationCache;
+    private final Cache<FunctionBinding, WindowFunctionSupplier> specializedWindowCache;
     private volatile FunctionMap functions = new FunctionMap();
-    private final FunctionInvokerProvider functionInvokerProvider;
 
-    public FunctionRegistry(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
+    public FunctionRegistry(Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier, FeaturesConfig featuresConfig)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.magicLiteralFunction = new MagicLiteralFunction(blockEncodingSerde);
-
-        specializedFunctionKeyCache = CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .build(CacheLoader.from(this::doGetSpecializedFunctionKey));
-
-        // TODO the function map should be updated, so that this cast can be removed
-
         // We have observed repeated compilation of MethodHandle that leads to full GCs.
         // We notice that flushing the following caches mitigate the problem.
         // We suspect that it is a JVM bug that is related to stale/corrupted profiling data associated
@@ -393,26 +399,17 @@ public class FunctionRegistry
         specializedScalarCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS)
-                .build(CacheLoader.from(key -> ((SqlScalarFunction) key.getFunction())
-                        .specialize(key.getBoundVariables(), key.getArity(), typeManager, this)));
+                .build();
 
         specializedAggregationCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS)
-                .build(CacheLoader.from(key -> ((SqlAggregationFunction) key.getFunction())
-                        .specialize(key.getBoundVariables(), key.getArity(), typeManager, this)));
+                .build();
 
         specializedWindowCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS)
-                .build(CacheLoader.from(key ->
-                {
-                    if (key.getFunction() instanceof SqlAggregationFunction) {
-                        return supplier(key.getFunction().getSignature(), specializedAggregationCache.getUnchecked(key));
-                    }
-                    return ((SqlWindowFunction) key.getFunction())
-                            .specialize(key.getBoundVariables(), key.getArity(), typeManager, this);
-                }));
+                .build();
 
         FunctionListBuilder builder = new FunctionListBuilder()
                 .window(RowNumberFunction.class)
@@ -515,23 +512,17 @@ public class FunctionRegistry
                 .scalar(VarbinaryOperators.VarbinaryDistinctFromOperator.class)
                 .scalars(DateOperators.class)
                 .scalar(DateOperators.DateDistinctFromOperator.class)
-                .scalars(TimeOperators.class)
-                .scalar(TimeOperators.TimeDistinctFromOperator.class)
-                .scalars(TimestampOperators.class)
-                .scalar(TimestampOperators.TimestampDistinctFromOperator.class)
                 .scalars(IntervalDayTimeOperators.class)
                 .scalar(IntervalDayTimeOperators.IntervalDayTimeDistinctFromOperator.class)
                 .scalars(IntervalYearMonthOperators.class)
                 .scalar(IntervalYearMonthOperators.IntervalYearMonthDistinctFromOperator.class)
-                .scalars(TimeWithTimeZoneOperators.class)
-                .scalar(TimeWithTimeZoneOperators.TimeWithTimeZoneDistinctFromOperator.class)
-                .scalars(TimestampWithTimeZoneOperators.class)
-                .scalar(TimestampWithTimeZoneOperators.TimestampWithTimeZoneDistinctFromOperator.class)
                 .scalars(DateTimeOperators.class)
                 .scalars(HyperLogLogOperators.class)
                 .scalars(QuantileDigestOperators.class)
                 .scalars(IpAddressOperators.class)
                 .scalar(IpAddressOperators.IpAddressDistinctFromOperator.class)
+                .scalars(UuidOperators.class)
+                .scalar(UuidOperators.UuidDistinctFromOperator.class)
                 .scalars(LikeFunctions.class)
                 .scalars(ArrayFunctions.class)
                 .scalars(HmacFunctions.class)
@@ -547,6 +538,7 @@ public class FunctionRegistry
                 .scalars(JoniRegexpCasts.class)
                 .scalars(CharacterStringCasts.class)
                 .scalars(CharOperators.class)
+                .scalars(LuhnCheckFunction.class)
                 .scalar(CharOperators.CharDistinctFromOperator.class)
                 .scalar(DecimalOperators.Negation.class)
                 .scalar(DecimalOperators.HashCode.class)
@@ -576,7 +568,11 @@ public class FunctionRegistry
                 .scalar(ArrayExceptFunction.class)
                 .scalar(ArraySliceFunction.class)
                 .scalar(ArrayIndeterminateOperator.class)
+                .scalar(ArrayCombinationsFunction.class)
                 .scalar(ArrayNgramsFunction.class)
+                .scalar(ArrayAllMatchFunction.class)
+                .scalar(ArrayAnyMatchFunction.class)
+                .scalar(ArrayNoneMatchFunction.class)
                 .scalar(MapDistinctFromOperator.class)
                 .scalar(MapEqualOperator.class)
                 .scalar(MapEntriesFunction.class)
@@ -590,6 +586,7 @@ public class FunctionRegistry
                 .scalar(MapIndeterminateOperator.class)
                 .scalar(TypeOfFunction.class)
                 .scalar(TryFunction.class)
+                .scalar(DynamicFilters.Function.class)
                 .functions(ZIP_WITH_FUNCTION, MAP_ZIP_WITH_FUNCTION)
                 .functions(ZIP_FUNCTIONS)
                 .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
@@ -603,7 +600,7 @@ public class FunctionRegistry
                 .function(ARRAY_CONCAT_FUNCTION)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
                 .function(new ArrayAggregationFunction(featuresConfig.getArrayAggGroupImplementation()))
-                .functions(new MapSubscriptOperator(featuresConfig.isLegacyMapSubscript()))
+                .functions(new MapSubscriptOperator())
                 .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP, JSON_STRING_TO_MAP)
                 .functions(MAP_AGG, MAP_UNION)
                 .function(REDUCE_AGG)
@@ -620,11 +617,9 @@ public class FunctionRegistry
                 .functions(DECIMAL_TO_INTEGER_SATURATED_FLOOR_CAST, INTEGER_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_SMALLINT_SATURATED_FLOOR_CAST, SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST, TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
-                .function(DECIMAL_BETWEEN_OPERATOR)
                 .function(DECIMAL_DISTINCT_FROM_OPERATOR)
                 .function(new Histogram(featuresConfig.getHistogramGroupImplementation()))
                 .function(CHECKSUM_AGGREGATION)
-                .function(IDENTITY_CAST)
                 .function(ARBITRARY_AGGREGATION)
                 .functions(GREATEST, LEAST)
                 .functions(MAX_BY, MIN_BY, MAX_BY_N_AGGREGATION, MIN_BY_N_AGGREGATION)
@@ -639,13 +634,166 @@ public class FunctionRegistry
                 .function(DECIMAL_SUM_AGGREGATION)
                 .function(DECIMAL_MOD_FUNCTION)
                 .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
-                .functions(MAP_FILTER_FUNCTION, MAP_TRANSFORM_KEY_FUNCTION, MAP_TRANSFORM_VALUE_FUNCTION)
+                .functions(MAP_FILTER_FUNCTION, MAP_TRANSFORM_KEYS_FUNCTION, MAP_TRANSFORM_VALUES_FUNCTION)
+                .function(FORMAT_FUNCTION)
                 .function(TRY_CAST)
+                .function(new LiteralFunction(blockEncodingSerdeSupplier))
                 .aggregate(MergeSetDigestAggregation.class)
                 .aggregate(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)
                 .scalars(SetDigestOperators.class)
-                .scalars(WilsonInterval.class);
+                .scalars(WilsonInterval.class)
+                .aggregate(BigintApproximateMostFrequent.class)
+                .aggregate(VarcharApproximateMostFrequent.class);
+
+        // timestamp operators and functions
+        builder
+                .scalar(TimestampOperators.Equal.class)
+                .scalar(TimestampOperators.NotEqual.class)
+                .scalar(TimestampOperators.LessThan.class)
+                .scalar(TimestampOperators.LessThanOrEqual.class)
+                .scalar(TimestampOperators.GreaterThan.class)
+                .scalar(TimestampOperators.GreaterThanOrEqual.class)
+                .scalar(TimestampDistinctFromOperator.class)
+                .scalar(TimestampOperators.HashCode.class)
+                .scalar(TimestampOperators.Indeterminate.class)
+                .scalar(TimestampOperators.XxHash64Operator.class)
+                .scalar(TimestampOperators.TimestampPlusIntervalDayToSecond.class)
+                .scalar(TimestampOperators.IntervalDayToSecondPlusTimestamp.class)
+                .scalar(TimestampOperators.TimestampPlusIntervalYearToMonth.class)
+                .scalar(TimestampOperators.IntervalYearToMonthPlusTimestamp.class)
+                .scalar(TimestampOperators.TimestampMinusIntervalDayToSecond.class)
+                .scalar(TimestampOperators.TimestampMinusIntervalYearToMonth.class)
+                .scalar(TimestampOperators.TimestampMinusTimestamp.class)
+                .scalar(TimestampToTimestampCast.class)
+                .scalar(TimestampToTimeCast.class)
+                .scalar(TimestampToTimeWithTimezoneCast.class)
+                .scalar(TimestampToTimestampWithTimezoneCast.class)
+                .scalar(TimestampToDateCast.class)
+                .scalar(TimestampToVarcharCast.class)
+                .scalar(TimestampToJsonCast.class)
+                .scalar(DateToTimestampCast.class)
+                .scalar(TimeToTimestampCast.class)
+                .scalar(TimeWithTimezoneToTimestampCast.class)
+                .scalar(TimestampWithTimezoneToTimestampCast.class)
+                .scalar(VarcharToTimestampCast.class)
+                .scalar(LocalTimestamp.class)
+                .scalar(DateTrunc.class)
+                .scalar(ToUnixTime.class)
+                .scalar(HumanReadableSeconds.class)
+                .scalar(ToIso8601.class)
+                .scalar(WithTimeZone.class)
+                .scalar(FormatDateTime.class)
+                .scalar(DateFormat.class)
+                .scalar(SequenceIntervalYearToMonth.class)
+                .scalar(SequenceIntervalDayToSecond.class)
+                .scalar(DateAdd.class)
+                .scalar(DateDiff.class)
+                .scalar(ExtractYear.class)
+                .scalar(ExtractQuarter.class)
+                .scalar(ExtractMonth.class)
+                .scalar(ExtractDay.class)
+                .scalar(ExtractHour.class)
+                .scalar(ExtractMinute.class)
+                .scalar(ExtractSecond.class)
+                .scalar(ExtractMillisecond.class)
+                .scalar(ExtractDayOfYear.class)
+                .scalar(ExtractDayOfWeek.class)
+                .scalar(ExtractWeekOfYear.class)
+                .scalar(ExtractYearOfWeek.class)
+                .scalar(LastDayOfMonth.class);
+
+        // timestamp with timezone operators and functions
+        builder
+                .scalar(TimestampWithTimeZoneOperators.Equal.class)
+                .scalar(TimestampWithTimeZoneOperators.NotEqual.class)
+                .scalar(TimestampWithTimeZoneOperators.LessThan.class)
+                .scalar(TimestampWithTimeZoneOperators.LessThanOrEqual.class)
+                .scalar(TimestampWithTimeZoneOperators.GreaterThan.class)
+                .scalar(TimestampWithTimeZoneOperators.GreaterThanOrEqual.class)
+                .scalar(TimestampWithTimeZoneOperators.HashCode.class)
+                .scalar(TimestampWithTimeZoneOperators.Indeterminate.class)
+                .scalar(TimestampWithTimeZoneOperators.XxHash64Operator.class)
+                .scalar(TimestampWithTimeZoneDistinctFromOperator.class)
+                .scalar(TimestampWithTimeZoneOperators.TimestampPlusIntervalDayToSecond.class)
+                .scalar(TimestampWithTimeZoneOperators.IntervalDayToSecondPlusTimestamp.class)
+                .scalar(TimestampWithTimeZoneOperators.TimestampMinusIntervalDayToSecond.class)
+                .scalar(TimestampWithTimeZoneOperators.TimestampPlusIntervalYearToMonth.class)
+                .scalar(TimestampWithTimeZoneOperators.IntervalYearToMonthPlusTimestamp.class)
+                .scalar(TimestampWithTimeZoneOperators.TimestampMinusIntervalYearToMonth.class)
+                .scalar(TimestampWithTimeZoneOperators.TimestampMinusTimestamp.class)
+                .scalar(CurrentTimestamp.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractYear.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractQuarter.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractMonth.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractDay.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractHour.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractMinute.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractSecond.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractMillisecond.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractDayOfYear.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractDayOfWeek.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractWeekOfYear.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractYearOfWeek.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ToIso8601.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.DateAdd.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.DateTrunc.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.TimeZoneHour.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.TimeZoneMinute.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.DateDiff.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.DateFormat.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.FormatDateTime.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ToUnixTime.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.LastDayOfMonth.class)
+                .scalar(AtTimeZone.class)
+                .scalar(AtTimeZoneWithOffset.class)
+                .scalar(DateToTimestampWithTimeZoneCast.class)
+                .scalar(TimestampWithTimeZoneToDateCast.class)
+                .scalar(TimestampWithTimeZoneToTimeCast.class)
+                .scalar(TimestampWithTimeZoneToTimestampWithTimeZoneCast.class)
+                .scalar(TimestampWithTimeZoneToTimeWithTimezoneCast.class)
+                .scalar(TimestampWithTimeZoneToVarcharCast.class)
+                .scalar(TimeToTimestampWithTimeZoneCast.class)
+                .scalar(TimeWithTimeZoneToTimestampWithTimeZoneCast.class)
+                .scalar(VarcharToTimestampWithTimeZoneCast.class);
+
+        // time without time zone functions and operators
+        builder.scalar(LocalTimeFunction.class)
+                .scalars(TimeOperators.class)
+                .scalars(TimeFunctions.class)
+                .scalar(TimeToTimeWithTimeZoneCast.class)
+                .scalar(TimeOperators.TimeDistinctFromOperator.class);
+
+        // time with timezone operators and functions
+        builder
+                .scalar(TimeWithTimeZoneOperators.Equal.class)
+                .scalar(TimeWithTimeZoneOperators.NotEqual.class)
+                .scalar(TimeWithTimeZoneOperators.LessThan.class)
+                .scalar(TimeWithTimeZoneOperators.LessThanOrEqual.class)
+                .scalar(TimeWithTimeZoneOperators.GreaterThan.class)
+                .scalar(TimeWithTimeZoneOperators.GreaterThanOrEqual.class)
+                .scalar(TimeWithTimeZoneOperators.HashCode.class)
+                .scalar(TimeWithTimeZoneOperators.Indeterminate.class)
+                .scalar(TimeWithTimeZoneOperators.XxHash64Operator.class)
+                .scalar(TimeWithTimeZoneDistinctFromOperator.class)
+                .scalar(TimeWithTimeZoneOperators.TimePlusIntervalDayToSecond.class)
+                .scalar(TimeWithTimeZoneOperators.IntervalDayToSecondPlusTime.class)
+                .scalar(TimeWithTimeZoneOperators.TimeMinusIntervalDayToSecond.class)
+                .scalar(TimeWithTimeZoneOperators.TimeMinusTime.class)
+                .scalar(TimeWithTimeZoneToTimeCast.class)
+                .scalar(TimeWithTimeZoneToTimeWithTimeZoneCast.class)
+                .scalar(TimeWithTimeZoneToVarcharCast.class)
+                .scalar(VarcharToTimeWithTimeZoneCast.class)
+                .scalar(io.prestosql.operator.scalar.timetz.DateDiff.class)
+                .scalar(io.prestosql.operator.scalar.timetz.DateAdd.class)
+                .scalar(io.prestosql.operator.scalar.timetz.ExtractHour.class)
+                .scalar(io.prestosql.operator.scalar.timetz.ExtractMinute.class)
+                .scalar(io.prestosql.operator.scalar.timetz.ExtractSecond.class)
+                .scalar(io.prestosql.operator.scalar.timetz.ExtractMillisecond.class)
+                .scalar(io.prestosql.operator.scalar.timetz.DateTrunc.class)
+                .scalar(io.prestosql.operator.scalar.timetz.AtTimeZone.class)
+                .scalar(io.prestosql.operator.scalar.timetz.AtTimeZoneWithOffset.class)
+                .scalar(CurrentTime.class);
 
         switch (featuresConfig.getRegexLibrary()) {
             case JONI:
@@ -659,678 +807,164 @@ public class FunctionRegistry
         }
 
         addFunctions(builder.getFunctions());
-
-        if (typeManager instanceof TypeRegistry) {
-            ((TypeRegistry) typeManager).setFunctionRegistry(this);
-        }
-
-        functionInvokerProvider = new FunctionInvokerProvider(this);
-    }
-
-    public FunctionInvokerProvider getFunctionInvokerProvider()
-    {
-        return functionInvokerProvider;
     }
 
     public final synchronized void addFunctions(List<? extends SqlFunction> functions)
     {
         for (SqlFunction function : functions) {
-            for (SqlFunction existingFunction : this.functions.list()) {
-                checkArgument(!function.getSignature().equals(existingFunction.getSignature()), "Function already registered: %s", function.getSignature());
+            FunctionMetadata functionMetadata = function.getFunctionMetadata();
+            checkArgument(!functionMetadata.getSignature().getName().contains("|"), "Function name cannot contain '|' character: %s", functionMetadata.getSignature());
+            for (FunctionMetadata existingFunction : this.functions.list()) {
+                checkArgument(!functionMetadata.getFunctionId().equals(existingFunction.getFunctionId()), "Function already registered: %s", functionMetadata.getFunctionId());
+                checkArgument(!functionMetadata.getSignature().equals(existingFunction.getSignature()), "Function already registered: %s", functionMetadata.getSignature());
             }
         }
         this.functions = new FunctionMap(this.functions, functions);
     }
 
-    public List<SqlFunction> list()
+    public List<FunctionMetadata> list()
     {
-        return functions.list().stream()
-                .filter(function -> !function.isHidden())
-                .collect(toImmutableList());
+        return functions.list();
     }
 
-    public boolean isAggregationFunction(QualifiedName name)
+    public Collection<FunctionMetadata> get(QualifiedName name)
     {
-        return Iterables.any(functions.get(name), function -> function.getSignature().getKind() == AGGREGATE);
+        return functions.get(name);
     }
 
-    public Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public FunctionMetadata get(FunctionId functionId)
     {
-        Collection<SqlFunction> allCandidates = functions.get(name);
-        List<SqlFunction> exactCandidates = allCandidates.stream()
-                .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
-                .collect(Collectors.toList());
-
-        Optional<Signature> match = matchFunctionExact(exactCandidates, parameterTypes);
-        if (match.isPresent()) {
-            return match.get();
-        }
-
-        List<SqlFunction> genericCandidates = allCandidates.stream()
-                .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
-                .collect(Collectors.toList());
-
-        match = matchFunctionExact(genericCandidates, parameterTypes);
-        if (match.isPresent()) {
-            return match.get();
-        }
-
-        match = matchFunctionWithCoercion(allCandidates, parameterTypes);
-        if (match.isPresent()) {
-            return match.get();
-        }
-
-        List<String> expectedParameters = new ArrayList<>();
-        for (SqlFunction function : allCandidates) {
-            expectedParameters.add(format("%s(%s) %s",
-                    name,
-                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
-                    Joiner.on(", ").join(function.getSignature().getTypeVariableConstraints())));
-        }
-        String parameters = Joiner.on(", ").join(parameterTypes);
-        String message = format("Function %s not registered", name);
-        if (!expectedParameters.isEmpty()) {
-            String expected = Joiner.on(", ").join(expectedParameters);
-            message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
-        }
-
-        if (name.getSuffix().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
-            // extract type from function name
-            String typeName = name.getSuffix().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
-
-            // lookup the type
-            Type type = typeManager.getType(parseTypeSignature(typeName));
-
-            // verify we have one parameter of the proper type
-            checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
-            Type parameterType = typeManager.getType(parameterTypes.get(0).getTypeSignature());
-
-            return getMagicLiteralFunctionSignature(type);
-        }
-
-        throw new PrestoException(FUNCTION_NOT_FOUND, message);
+        return functions.get(functionId).getFunctionMetadata();
     }
 
-    private Optional<Signature> matchFunctionExact(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(FunctionBinding functionBinding)
     {
-        return matchFunction(candidates, actualParameters, false);
+        SqlFunction function = functions.get(functionBinding.getFunctionId());
+        checkArgument(function instanceof SqlAggregationFunction, "%s is not an aggregation function", functionBinding.getBoundSignature());
+
+        SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) function;
+        return aggregationFunction.getAggregationMetadata(functionBinding);
     }
 
-    private Optional<Signature> matchFunctionWithCoercion(Collection<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
+    public WindowFunctionSupplier getWindowFunctionImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        return matchFunction(candidates, actualParameters, true);
-    }
-
-    private Optional<Signature> matchFunction(Collection<SqlFunction> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed)
-    {
-        List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(candidates, parameters, coercionAllowed);
-        if (applicableFunctions.isEmpty()) {
-            return Optional.empty();
-        }
-
-        if (coercionAllowed) {
-            applicableFunctions = selectMostSpecificFunctions(applicableFunctions, parameters);
-            checkState(!applicableFunctions.isEmpty(), "at least single function must be left");
-        }
-
-        if (applicableFunctions.size() == 1) {
-            return Optional.of(getOnlyElement(applicableFunctions).getBoundSignature());
-        }
-
-        StringBuilder errorMessageBuilder = new StringBuilder();
-        errorMessageBuilder.append("Could not choose a best candidate operator. Explicit type casts must be added.\n");
-        errorMessageBuilder.append("Candidates are:\n");
-        for (ApplicableFunction function : applicableFunctions) {
-            errorMessageBuilder.append("\t * ");
-            errorMessageBuilder.append(function.getBoundSignature().toString());
-            errorMessageBuilder.append("\n");
-        }
-        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, errorMessageBuilder.toString());
-    }
-
-    private List<ApplicableFunction> identifyApplicableFunctions(Collection<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters, boolean allowCoercion)
-    {
-        ImmutableList.Builder<ApplicableFunction> applicableFunctions = ImmutableList.builder();
-        for (SqlFunction function : candidates) {
-            Signature declaredSignature = function.getSignature();
-            Optional<Signature> boundSignature = new SignatureBinder(typeManager, declaredSignature, allowCoercion)
-                    .bind(actualParameters);
-            if (boundSignature.isPresent()) {
-                applicableFunctions.add(new ApplicableFunction(declaredSignature, boundSignature.get()));
-            }
-        }
-        return applicableFunctions.build();
-    }
-
-    private List<ApplicableFunction> selectMostSpecificFunctions(List<ApplicableFunction> applicableFunctions, List<TypeSignatureProvider> parameters)
-    {
-        checkArgument(!applicableFunctions.isEmpty());
-
-        List<ApplicableFunction> mostSpecificFunctions = selectMostSpecificFunctions(applicableFunctions);
-        if (mostSpecificFunctions.size() <= 1) {
-            return mostSpecificFunctions;
-        }
-
-        Optional<List<Type>> optionalParameterTypes = toTypes(parameters, typeManager);
-        if (!optionalParameterTypes.isPresent()) {
-            // give up and return all remaining matches
-            return mostSpecificFunctions;
-        }
-
-        List<Type> parameterTypes = optionalParameterTypes.get();
-        if (!someParameterIsUnknown(parameterTypes)) {
-            // give up and return all remaining matches
-            return mostSpecificFunctions;
-        }
-
-        // look for functions that only cast the unknown arguments
-        List<ApplicableFunction> unknownOnlyCastFunctions = getUnknownOnlyCastFunctions(applicableFunctions, parameterTypes);
-        if (!unknownOnlyCastFunctions.isEmpty()) {
-            mostSpecificFunctions = unknownOnlyCastFunctions;
-            if (mostSpecificFunctions.size() == 1) {
-                return mostSpecificFunctions;
-            }
-        }
-
-        // If the return type for all the selected function is the same, and the parameters are declared as RETURN_NULL_ON_NULL
-        // all the functions are semantically the same. We can return just any of those.
-        if (returnTypeIsTheSame(mostSpecificFunctions) && allReturnNullOnGivenInputTypes(mostSpecificFunctions, parameterTypes)) {
-            // make it deterministic
-            ApplicableFunction selectedFunction = Ordering.usingToString()
-                    .reverse()
-                    .sortedCopy(mostSpecificFunctions)
-                    .get(0);
-            return ImmutableList.of(selectedFunction);
-        }
-
-        return mostSpecificFunctions;
-    }
-
-    private List<ApplicableFunction> selectMostSpecificFunctions(List<ApplicableFunction> candidates)
-    {
-        List<ApplicableFunction> representatives = new ArrayList<>();
-
-        for (ApplicableFunction current : candidates) {
-            boolean found = false;
-            for (int i = 0; i < representatives.size(); i++) {
-                ApplicableFunction representative = representatives.get(i);
-                if (isMoreSpecificThan(current, representative)) {
-                    representatives.set(i, current);
-                }
-                if (isMoreSpecificThan(current, representative) || isMoreSpecificThan(representative, current)) {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) {
-                representatives.add(current);
-            }
-        }
-
-        return representatives;
-    }
-
-    private static boolean someParameterIsUnknown(List<Type> parameters)
-    {
-        return parameters.stream().anyMatch(type -> type.equals(UNKNOWN));
-    }
-
-    private List<ApplicableFunction> getUnknownOnlyCastFunctions(List<ApplicableFunction> applicableFunction, List<Type> actualParameters)
-    {
-        return applicableFunction.stream()
-                .filter((function) -> onlyCastsUnknown(function, actualParameters))
-                .collect(toImmutableList());
-    }
-
-    private boolean onlyCastsUnknown(ApplicableFunction applicableFunction, List<Type> actualParameters)
-    {
-        List<Type> boundTypes = resolveTypes(applicableFunction.getBoundSignature().getArgumentTypes(), typeManager);
-        checkState(actualParameters.size() == boundTypes.size(), "type lists are of different lengths");
-        for (int i = 0; i < actualParameters.size(); i++) {
-            if (!boundTypes.get(i).equals(actualParameters.get(i)) && actualParameters.get(i) != UNKNOWN) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean returnTypeIsTheSame(List<ApplicableFunction> applicableFunctions)
-    {
-        Set<Type> returnTypes = applicableFunctions.stream()
-                .map(function -> typeManager.getType(function.getBoundSignature().getReturnType()))
-                .collect(Collectors.toSet());
-        return returnTypes.size() == 1;
-    }
-
-    private boolean allReturnNullOnGivenInputTypes(List<ApplicableFunction> applicableFunctions, List<Type> parameters)
-    {
-        return applicableFunctions.stream().allMatch(x -> returnsNullOnGivenInputTypes(x, parameters));
-    }
-
-    private boolean returnsNullOnGivenInputTypes(ApplicableFunction applicableFunction, List<Type> parameterTypes)
-    {
-        Signature boundSignature = applicableFunction.getBoundSignature();
-        FunctionKind functionKind = boundSignature.getKind();
-        // Window and Aggregation functions have fixed semantic where NULL values are always skipped
-        if (functionKind != SCALAR) {
-            return true;
-        }
-
-        for (int i = 0; i < parameterTypes.size(); i++) {
-            Type parameterType = parameterTypes.get(i);
-            if (parameterType.equals(UNKNOWN)) {
-                // TODO: Move information about nullable arguments to FunctionSignature. Remove this hack.
-                ScalarFunctionImplementation implementation = getScalarFunctionImplementation(boundSignature);
-                if (implementation.getArgumentProperty(i).getNullConvention() != RETURN_NULL_ON_NULL) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
-    {
-        checkArgument(signature.getKind() == WINDOW || signature.getKind() == AGGREGATE, "%s is not a window function", signature);
-        checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
-
+        SqlFunction function = functions.get(functionBinding.getFunctionId());
         try {
-            return specializedWindowCache.getUnchecked(getSpecializedFunctionKey(signature));
+            if (function instanceof SqlAggregationFunction) {
+                InternalAggregationFunction aggregationFunction = specializedAggregationCache.get(functionBinding, () -> specializedAggregation(functionBinding, functionDependencies));
+                return supplier(function.getFunctionMetadata().getSignature(), aggregationFunction);
+            }
+            return specializedWindowCache.get(functionBinding, () -> specializeWindow(functionBinding, functionDependencies));
         }
-        catch (UncheckedExecutionException e) {
+        catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
-            throw e;
+            throw new RuntimeException(e.getCause());
         }
     }
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(Signature signature)
+    private WindowFunctionSupplier specializeWindow(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        checkArgument(signature.getKind() == AGGREGATE, "%s is not an aggregate function", signature);
-        checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
+        SqlWindowFunction function = (SqlWindowFunction) functions.get(functionBinding.getFunctionId());
+        return function.specialize(functionBinding, functionDependencies);
+    }
 
+    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
         try {
-            return specializedAggregationCache.getUnchecked(getSpecializedFunctionKey(signature));
+            return specializedAggregationCache.get(functionBinding, () -> specializedAggregation(functionBinding, functionDependencies));
         }
-        catch (UncheckedExecutionException e) {
+        catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
-            throw e;
+            throw new RuntimeException(e.getCause());
         }
     }
 
-    public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
+    private InternalAggregationFunction specializedAggregation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        checkArgument(signature.getKind() == SCALAR, "%s is not a scalar function", signature);
-        checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
+        SqlAggregationFunction function = (SqlAggregationFunction) functions.get(functionBinding.getFunctionId());
+        return function.specialize(functionBinding, functionDependencies);
+    }
 
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    {
+        SqlFunction function = functions.get(functionBinding.getFunctionId());
+        return function.getFunctionDependencies(functionBinding);
+    }
+
+    public FunctionInvoker getScalarFunctionInvoker(
+            FunctionBinding functionBinding,
+            FunctionDependencies functionDependencies,
+            InvocationConvention invocationConvention)
+    {
+        ScalarFunctionImplementation scalarFunctionImplementation;
         try {
-            return specializedScalarCache.getUnchecked(getSpecializedFunctionKey(signature));
+            scalarFunctionImplementation = specializedScalarCache.get(functionBinding, () -> specializeScalarFunction(functionBinding, functionDependencies));
         }
-        catch (UncheckedExecutionException e) {
+        catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
-            throw e;
+            throw new RuntimeException(e.getCause());
         }
+        FunctionInvokerProvider functionInvokerProvider = new FunctionInvokerProvider();
+        return functionInvokerProvider.createFunctionInvoker(scalarFunctionImplementation, functionBinding.getBoundSignature(), invocationConvention);
     }
 
-    private SpecializedFunctionKey getSpecializedFunctionKey(Signature signature)
+    private ScalarFunctionImplementation specializeScalarFunction(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        try {
-            return specializedFunctionKeyCache.getUnchecked(signature);
-        }
-        catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
-            throw e;
-        }
-    }
-
-    private SpecializedFunctionKey doGetSpecializedFunctionKey(Signature signature)
-    {
-        Iterable<SqlFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
-        // search for exact match
-        Type returnType = typeManager.getType(signature.getReturnType());
-        List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
-        for (SqlFunction candidate : candidates) {
-            Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, candidate.getSignature(), false)
-                    .bindVariables(argumentTypeSignatureProviders, returnType);
-            if (boundVariables.isPresent()) {
-                return new SpecializedFunctionKey(candidate, boundVariables.get(), argumentTypeSignatureProviders.size());
-            }
-        }
-
-        // TODO: hack because there could be "type only" coercions (which aren't necessarily included as implicit casts),
-        // so do a second pass allowing "type only" coercions
-        List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
-        for (SqlFunction candidate : candidates) {
-            SignatureBinder binder = new SignatureBinder(typeManager, candidate.getSignature(), true);
-            Optional<BoundVariables> boundVariables = binder.bindVariables(argumentTypeSignatureProviders, returnType);
-            if (!boundVariables.isPresent()) {
-                continue;
-            }
-            Signature boundSignature = applyBoundVariables(candidate.getSignature(), boundVariables.get(), argumentTypes.size());
-
-            if (!typeManager.isTypeOnlyCoercion(typeManager.getType(boundSignature.getReturnType()), returnType)) {
-                continue;
-            }
-            boolean nonTypeOnlyCoercion = false;
-            for (int i = 0; i < argumentTypes.size(); i++) {
-                Type expectedType = typeManager.getType(boundSignature.getArgumentTypes().get(i));
-                if (!typeManager.isTypeOnlyCoercion(argumentTypes.get(i), expectedType)) {
-                    nonTypeOnlyCoercion = true;
-                    break;
-                }
-            }
-            if (nonTypeOnlyCoercion) {
-                continue;
-            }
-
-            return new SpecializedFunctionKey(candidate, boundVariables.get(), argumentTypes.size());
-        }
-
-        // TODO: this is a hack and should be removed
-        if (signature.getName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
-            List<TypeSignature> parameterTypes = signature.getArgumentTypes();
-            // extract type from function name
-            String typeName = signature.getName().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
-
-            // lookup the type
-            Type type = typeManager.getType(parseTypeSignature(typeName));
-
-            // verify we have one parameter of the proper type
-            checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
-            Type parameterType = typeManager.getType(parameterTypes.get(0));
-            requireNonNull(parameterType, format("Type %s not found", parameterTypes.get(0)));
-
-            return new SpecializedFunctionKey(
-                    magicLiteralFunction,
-                    BoundVariables.builder()
-                            .setTypeVariable("T", parameterType)
-                            .setTypeVariable("R", type)
-                            .build(),
-                    1);
-        }
-
-        throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
-    }
-
-    @VisibleForTesting
-    public List<SqlFunction> listOperators()
-    {
-        Set<String> operatorNames = Arrays.asList(OperatorType.values()).stream()
-                .map(FunctionRegistry::mangleOperatorName)
-                .collect(toImmutableSet());
-
-        return functions.list().stream()
-                .filter(function -> operatorNames.contains(function.getSignature().getName()))
-                .collect(toImmutableList());
-    }
-
-    public boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
-    {
-        Signature signature = internalOperator(operatorType, returnType, argumentTypes);
-        return isRegistered(signature);
-    }
-
-    public boolean isRegistered(Signature signature)
-    {
-        try {
-            // TODO: this is hacky, but until the magic literal and row field reference hacks are cleaned up it's difficult to implement this.
-            getScalarFunctionImplementation(signature);
-            return true;
-        }
-        catch (PrestoException e) {
-            if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                return false;
-            }
-            throw e;
-        }
-    }
-
-    public Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
-            throws OperatorNotFoundException
-    {
-        try {
-            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), fromTypes(argumentTypes));
-        }
-        catch (PrestoException e) {
-            if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(
-                        operatorType,
-                        argumentTypes.stream()
-                                .map(Type::getTypeSignature)
-                                .collect(toImmutableList()));
-            }
-            else {
-                throw e;
-            }
-        }
-    }
-
-    public Signature getCoercion(Type fromType, Type toType)
-    {
-        return getCoercion(fromType.getTypeSignature(), toType.getTypeSignature());
-    }
-
-    public Signature getCoercion(TypeSignature fromType, TypeSignature toType)
-    {
-        Signature signature = internalOperator(OperatorType.CAST.name(), toType, ImmutableList.of(fromType));
-        try {
-            getScalarFunctionImplementation(signature);
-        }
-        catch (PrestoException e) {
-            if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(OperatorType.CAST, ImmutableList.of(fromType), toType);
-            }
-            throw e;
-        }
-        return signature;
-    }
-
-    public static Type typeForMagicLiteral(Type type)
-    {
-        Class<?> clazz = type.getJavaType();
-        clazz = Primitives.unwrap(clazz);
-
-        if (clazz == long.class) {
-            return BIGINT;
-        }
-        if (clazz == double.class) {
-            return DOUBLE;
-        }
-        if (!clazz.isPrimitive()) {
-            if (type instanceof VarcharType) {
-                return type;
-            }
-            else {
-                return VARBINARY;
-            }
-        }
-        if (clazz == boolean.class) {
-            return BOOLEAN;
-        }
-        throw new IllegalArgumentException("Unhandled Java type: " + clazz.getName());
-    }
-
-    public static Signature getMagicLiteralFunctionSignature(Type type)
-    {
-        TypeSignature argumentType = typeForMagicLiteral(type).getTypeSignature();
-
-        return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature(),
-                SCALAR,
-                type.getTypeSignature(),
-                argumentType);
-    }
-
-    public static boolean isSupportedLiteralType(Type type)
-    {
-        return SUPPORTED_LITERAL_TYPES.contains(type.getJavaType());
-    }
-
-    public static String mangleOperatorName(OperatorType operatorType)
-    {
-        return mangleOperatorName(operatorType.name());
-    }
-
-    public static String mangleOperatorName(String operatorName)
-    {
-        return OPERATOR_PREFIX + operatorName;
-    }
-
-    @VisibleForTesting
-    public static OperatorType unmangleOperator(String mangledName)
-    {
-        checkArgument(mangledName.startsWith(OPERATOR_PREFIX), "%s is not a mangled operator name", mangledName);
-        return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()));
-    }
-
-    public static Optional<List<Type>> toTypes(List<TypeSignatureProvider> typeSignatureProviders, TypeManager typeManager)
-    {
-        ImmutableList.Builder<Type> resultBuilder = ImmutableList.builder();
-        for (TypeSignatureProvider typeSignatureProvider : typeSignatureProviders) {
-            if (typeSignatureProvider.hasDependency()) {
-                return Optional.empty();
-            }
-            resultBuilder.add(typeManager.getType(typeSignatureProvider.getTypeSignature()));
-        }
-        return Optional.of(resultBuilder.build());
-    }
-
-    /**
-     * One method is more specific than another if invocation handled by the first method could be passed on to the other one
-     */
-    private boolean isMoreSpecificThan(ApplicableFunction left, ApplicableFunction right)
-    {
-        List<TypeSignatureProvider> resolvedTypes = fromTypeSignatures(left.getBoundSignature().getArgumentTypes());
-        Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, right.getDeclaredSignature(), true)
-                .bindVariables(resolvedTypes);
-        return boundVariables.isPresent();
+        SqlScalarFunction function = (SqlScalarFunction) functions.get(functionBinding.getFunctionId());
+        return function.specialize(functionBinding, functionDependencies);
     }
 
     private static class FunctionMap
     {
-        private final Multimap<QualifiedName, SqlFunction> functions;
+        private final Map<FunctionId, SqlFunction> functions;
+        private final Multimap<QualifiedName, FunctionMetadata> functionsByName;
 
         public FunctionMap()
         {
-            functions = ImmutableListMultimap.of();
+            functions = ImmutableMap.of();
+            functionsByName = ImmutableListMultimap.of();
         }
 
-        public FunctionMap(FunctionMap map, Iterable<? extends SqlFunction> functions)
+        public FunctionMap(FunctionMap map, Collection<? extends SqlFunction> functions)
         {
-            this.functions = ImmutableListMultimap.<QualifiedName, SqlFunction>builder()
+            this.functions = ImmutableMap.<FunctionId, SqlFunction>builder()
                     .putAll(map.functions)
-                    .putAll(Multimaps.index(functions, function -> QualifiedName.of(function.getSignature().getName())))
+                    .putAll(Maps.uniqueIndex(functions, function -> function.getFunctionMetadata().getFunctionId()))
                     .build();
 
+            ImmutableListMultimap.Builder<QualifiedName, FunctionMetadata> functionsByName = ImmutableListMultimap.<QualifiedName, FunctionMetadata>builder()
+                    .putAll(map.functionsByName);
+            functions.stream()
+                    .map(SqlFunction::getFunctionMetadata)
+                    .forEach(functionMetadata -> functionsByName.put(QualifiedName.of(functionMetadata.getSignature().getName()), functionMetadata));
+            this.functionsByName = functionsByName.build();
+
             // Make sure all functions with the same name are aggregations or none of them are
-            for (Map.Entry<QualifiedName, Collection<SqlFunction>> entry : this.functions.asMap().entrySet()) {
-                Collection<SqlFunction> values = entry.getValue();
+            for (Map.Entry<QualifiedName, Collection<FunctionMetadata>> entry : this.functionsByName.asMap().entrySet()) {
+                Collection<FunctionMetadata> values = entry.getValue();
                 long aggregations = values.stream()
-                        .map(function -> function.getSignature().getKind())
+                        .map(FunctionMetadata::getKind)
                         .filter(kind -> kind == AGGREGATE)
                         .count();
                 checkState(aggregations == 0 || aggregations == values.size(), "'%s' is both an aggregation and a scalar function", entry.getKey());
             }
         }
 
-        public List<SqlFunction> list()
+        public List<FunctionMetadata> list()
         {
-            return ImmutableList.copyOf(functions.values());
+            return ImmutableList.copyOf(functionsByName.values());
         }
 
-        public Collection<SqlFunction> get(QualifiedName name)
+        public Collection<FunctionMetadata> get(QualifiedName name)
         {
-            return functions.get(name);
-        }
-    }
-
-    private static class ApplicableFunction
-    {
-        private final Signature declaredSignature;
-        private final Signature boundSignature;
-
-        private ApplicableFunction(Signature declaredSignature, Signature boundSignature)
-        {
-            this.declaredSignature = declaredSignature;
-            this.boundSignature = boundSignature;
+            return functionsByName.get(name);
         }
 
-        public Signature getDeclaredSignature()
+        public SqlFunction get(FunctionId functionId)
         {
-            return declaredSignature;
-        }
-
-        public Signature getBoundSignature()
-        {
-            return boundSignature;
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("declaredSignature", declaredSignature)
-                    .add("boundSignature", boundSignature)
-                    .toString();
-        }
-    }
-
-    private static class MagicLiteralFunction
-            extends SqlScalarFunction
-    {
-        private final BlockEncodingSerde blockEncodingSerde;
-
-        public MagicLiteralFunction(BlockEncodingSerde blockEncodingSerde)
-        {
-            super(new Signature(MAGIC_LITERAL_FUNCTION_PREFIX, FunctionKind.SCALAR, TypeSignature.parseTypeSignature("R"), TypeSignature.parseTypeSignature("T")));
-            this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
-        }
-
-        @Override
-        public boolean isHidden()
-        {
-            return true;
-        }
-
-        @Override
-        public boolean isDeterministic()
-        {
-            return true;
-        }
-
-        @Override
-        public String getDescription()
-        {
-            return "magic literal";
-        }
-
-        @Override
-        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-        {
-            Type parameterType = boundVariables.getTypeVariable("T");
-            Type type = boundVariables.getTypeVariable("R");
-
-            MethodHandle methodHandle = null;
-            if (parameterType.getJavaType() == type.getJavaType()) {
-                methodHandle = MethodHandles.identity(parameterType.getJavaType());
-            }
-
-            if (parameterType.getJavaType() == Slice.class) {
-                if (type.getJavaType() == Block.class) {
-                    methodHandle = BlockSerdeUtil.READ_BLOCK.bindTo(blockEncodingSerde);
-                }
-            }
-
-            checkArgument(methodHandle != null,
-                    "Expected type %s to use (or can be converted into) Java type %s, but Java type is %s",
-                    type,
-                    parameterType.getJavaType(),
-                    type.getJavaType());
-
-            return new ScalarFunctionImplementation(
-                    false,
-                    ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                    methodHandle,
-                    isDeterministic());
+            SqlFunction sqlFunction = functions.get(functionId);
+            checkArgument(sqlFunction != null, "Unknown function implementation: " + functionId);
+            return sqlFunction;
         }
     }
 }

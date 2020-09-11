@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.orc.OrcDataSource;
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
 import io.prestosql.plugin.raptor.legacy.backup.BackupManager;
@@ -43,7 +44,7 @@ import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.TestingNodeManager;
-import io.prestosql.type.TypeRegistry;
+import io.prestosql.type.InternalTypeManager;
 import org.joda.time.DateTime;
 import org.joda.time.Days;
 import org.joda.time.chrono.ISOChronology;
@@ -64,6 +65,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.hash.Hashing.md5;
@@ -75,9 +77,9 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.prestosql.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.prestosql.plugin.raptor.legacy.storage.OrcStorageManager.xxhash64;
@@ -87,8 +89,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
@@ -101,6 +102,7 @@ import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 import static org.testng.FileAssert.assertDirectory;
@@ -117,9 +119,13 @@ public class TestOrcStorageManager
     private static final int DELETION_THREADS = 2;
     private static final Duration SHARD_RECOVERY_TIMEOUT = new Duration(30, TimeUnit.SECONDS);
     private static final int MAX_SHARD_ROWS = 100;
-    private static final DataSize MAX_FILE_SIZE = new DataSize(1, MEGABYTE);
+    private static final DataSize MAX_FILE_SIZE = DataSize.of(1, MEGABYTE);
     private static final Duration MISSING_SHARD_DISCOVERY = new Duration(5, TimeUnit.MINUTES);
-    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+    private static final OrcReaderOptions READER_OPTIONS = new OrcReaderOptions()
+            .withMaxMergeDistance(DataSize.of(1, MEGABYTE))
+            .withMaxBufferSize(DataSize.of(1, MEGABYTE))
+            .withStreamBufferSize(DataSize.of(1, MEGABYTE))
+            .withTinyStripeThreshold(DataSize.of(1, MEGABYTE));
 
     private final NodeManager nodeManager = new TestingNodeManager();
     private Handle dummyHandle;
@@ -143,7 +149,7 @@ public class TestOrcStorageManager
         fileBackupStore.start();
         backupStore = Optional.of(fileBackupStore);
 
-        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 
@@ -218,22 +224,23 @@ public class TestOrcStorageManager
 
         recoveryManager.restoreFromBackup(shardUuid, shardInfo.getCompressedSize(), OptionalLong.of(shardInfo.getXxhash64()));
 
-        try (OrcDataSource dataSource = manager.openShard(shardUuid, READER_ATTRIBUTES)) {
+        try (OrcDataSource dataSource = manager.openShard(shardUuid, READER_OPTIONS)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
-            assertEquals(reader.nextBatch(), 2);
+            Page page = reader.nextPage();
+            assertEquals(page.getPositionCount(), 2);
 
-            Block column0 = reader.readBlock(BIGINT, 0);
+            Block column0 = page.getBlock(0);
             assertEquals(column0.isNull(0), false);
             assertEquals(column0.isNull(1), false);
             assertEquals(BIGINT.getLong(column0, 0), 123L);
             assertEquals(BIGINT.getLong(column0, 1), 456L);
 
-            Block column1 = reader.readBlock(createVarcharType(10), 1);
+            Block column1 = page.getBlock(1);
             assertEquals(createVarcharType(10).getSlice(column1, 0), utf8Slice("hello"));
             assertEquals(createVarcharType(10).getSlice(column1, 1), utf8Slice("bye"));
 
-            assertEquals(reader.nextBatch(), -1);
+            assertNull(reader.nextPage());
         }
     }
 
@@ -292,7 +299,7 @@ public class TestOrcStorageManager
 
         // tuple domain within the column range
         tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.<RaptorColumnHandle, NullableValue>builder()
-                .put(new RaptorColumnHandle("test", "c1", 2, BIGINT), NullableValue.of(BIGINT, 124L))
+                .put(new RaptorColumnHandle("c1", 2, BIGINT), NullableValue.of(BIGINT, 124L))
                 .build());
 
         try (ConnectorPageSource pageSource = getPageSource(manager, columnIds, columnTypes, uuid, tupleDomain)) {
@@ -302,7 +309,7 @@ public class TestOrcStorageManager
 
         // tuple domain outside the column range
         tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.<RaptorColumnHandle, NullableValue>builder()
-                .put(new RaptorColumnHandle("test", "c1", 2, BIGINT), NullableValue.of(BIGINT, 122L))
+                .put(new RaptorColumnHandle("c1", 2, BIGINT), NullableValue.of(BIGINT, 122L))
                 .build());
 
         try (ConnectorPageSource pageSource = getPageSource(manager, columnIds, columnTypes, uuid, tupleDomain)) {
@@ -489,10 +496,10 @@ public class TestOrcStorageManager
     {
         long minDate = sqlDate(2001, 8, 22).getDays();
         long maxDate = sqlDate(2005, 4, 22).getDays();
-        long maxTimestamp = sqlTimestamp(2002, 4, 13, 6, 7, 8).getMillisUtc();
-        long minTimestamp = sqlTimestamp(2001, 3, 15, 9, 10, 11).getMillisUtc();
+        long maxTimestamp = sqlTimestamp(2002, 4, 13, 6, 7, 8).getMillis();
+        long minTimestamp = sqlTimestamp(2001, 3, 15, 9, 10, 11).getMillis();
 
-        List<ColumnStats> stats = columnStats(types(DATE, TIMESTAMP),
+        List<ColumnStats> stats = columnStats(types(DATE, TIMESTAMP_MILLIS),
                 row(minDate, maxTimestamp),
                 row(maxDate, minTimestamp));
         assertColumnStats(stats, 1, minDate, maxDate);
@@ -502,7 +509,7 @@ public class TestOrcStorageManager
     @Test
     public void testMaxShardRows()
     {
-        OrcStorageManager manager = createOrcStorageManager(2, new DataSize(2, MEGABYTE));
+        OrcStorageManager manager = createOrcStorageManager(2, DataSize.of(2, MEGABYTE));
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10));
@@ -528,7 +535,7 @@ public class TestOrcStorageManager
                 .build();
 
         // Set maxFileSize to 1 byte, so adding any page makes the StoragePageSink full
-        OrcStorageManager manager = createOrcStorageManager(20, new DataSize(1, BYTE));
+        OrcStorageManager manager = createOrcStorageManager(20, DataSize.ofBytes(1));
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         sink.appendPages(pages);
         assertTrue(sink.isFull());
@@ -541,7 +548,7 @@ public class TestOrcStorageManager
             UUID uuid,
             TupleDomain<RaptorColumnHandle> tupleDomain)
     {
-        return manager.getPageSource(uuid, OptionalInt.empty(), columnIds, columnTypes, tupleDomain, READER_ATTRIBUTES);
+        return manager.getPageSource(uuid, OptionalInt.empty(), columnIds, columnTypes, tupleDomain, READER_OPTIONS);
     }
 
     private static StoragePageSink createStoragePageSink(StorageManager manager, List<Long> columnIds, List<Type> columnTypes)
@@ -605,17 +612,17 @@ public class TestOrcStorageManager
                 CURRENT_NODE,
                 storageService,
                 backupStore,
-                READER_ATTRIBUTES,
+                READER_OPTIONS,
                 new BackupManager(backupStore, storageService, 1),
                 recoveryManager,
                 shardRecorder,
-                new TypeRegistry(),
+                new InternalTypeManager(createTestMetadataManager()),
                 CONNECTOR_ID,
                 DELETION_THREADS,
                 SHARD_RECOVERY_TIMEOUT,
                 maxShardRows,
                 maxFileSize,
-                new DataSize(0, BYTE));
+                DataSize.ofBytes(0));
     }
 
     private static void assertFileEquals(File actual, File expected)
@@ -683,6 +690,6 @@ public class TestOrcStorageManager
 
     private static SqlTimestamp sqlTimestamp(int year, int month, int day, int hour, int minute, int second)
     {
-        return sqlTimestampOf(year, month, day, hour, minute, second, 0, UTC, UTC_KEY, SESSION);
+        return sqlTimestampOf(3, year, month, day, hour, minute, second, 0);
     }
 }

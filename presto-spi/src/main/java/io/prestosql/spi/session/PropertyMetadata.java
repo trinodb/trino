@@ -15,6 +15,7 @@ package io.prestosql.spi.session;
 
 import io.prestosql.spi.type.Type;
 
+import java.util.EnumSet;
 import java.util.function.Function;
 
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -22,9 +23,11 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public final class PropertyMetadata<T>
 {
@@ -157,7 +160,7 @@ public final class PropertyMetadata<T>
                 Integer.class,
                 defaultValue,
                 hidden,
-                value -> ((Number) value).intValue(),
+                Integer.class::cast,
                 object -> object);
     }
 
@@ -170,7 +173,7 @@ public final class PropertyMetadata<T>
                 Long.class,
                 defaultValue,
                 hidden,
-                value -> ((Number) value).longValue(),
+                Long.class::cast,
                 object -> object);
     }
 
@@ -183,7 +186,7 @@ public final class PropertyMetadata<T>
                 Double.class,
                 defaultValue,
                 hidden,
-                value -> ((Number) value).doubleValue(),
+                Double.class::cast,
                 object -> object);
     }
 
@@ -198,5 +201,28 @@ public final class PropertyMetadata<T>
                 hidden,
                 String.class::cast,
                 object -> object);
+    }
+
+    public static <T extends Enum<T>> PropertyMetadata<T> enumProperty(String name, String descriptionPrefix, Class<T> type, T defaultValue, boolean hidden)
+    {
+        String allValues = EnumSet.allOf(type).stream()
+                .map(Enum::name)
+                .collect(joining(", ", "[", "]"));
+        return new PropertyMetadata<>(
+                name,
+                format("%s. Possible values: %s", descriptionPrefix, allValues),
+                createUnboundedVarcharType(),
+                type,
+                defaultValue,
+                hidden,
+                value -> {
+                    try {
+                        return Enum.valueOf(type, ((String) value).toUpperCase(ENGLISH));
+                    }
+                    catch (IllegalArgumentException e) {
+                        throw new IllegalArgumentException(format("Invalid value [%s]. Valid values: %s", value, allValues), e);
+                    }
+                },
+                Enum::name);
     }
 }

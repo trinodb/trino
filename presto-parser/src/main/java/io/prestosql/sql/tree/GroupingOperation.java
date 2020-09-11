@@ -13,8 +13,6 @@
  */
 package io.prestosql.sql.tree;
 
-import com.google.common.collect.ImmutableList;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -52,7 +50,7 @@ public class GroupingOperation
     @Override
     public List<? extends Node> getChildren()
     {
-        return ImmutableList.of();
+        return groupingColumns;
     }
 
     @Override
@@ -72,5 +70,11 @@ public class GroupingOperation
     public int hashCode()
     {
         return Objects.hash(groupingColumns);
+    }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
     }
 }

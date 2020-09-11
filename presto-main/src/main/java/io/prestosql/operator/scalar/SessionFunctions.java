@@ -28,7 +28,7 @@ public final class SessionFunctions
     private SessionFunctions() {}
 
     @ScalarFunction(value = "$current_user", hidden = true)
-    @Description("current user")
+    @Description("Current user")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentUser(ConnectorSession session)
     {
@@ -36,7 +36,7 @@ public final class SessionFunctions
     }
 
     @ScalarFunction(value = "$current_path", hidden = true)
-    @Description("retrieve current path")
+    @Description("Retrieve current path")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentPath(ConnectorSession session)
     {

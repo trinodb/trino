@@ -13,7 +13,6 @@
  */
 package io.prestosql.server;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -22,6 +21,7 @@ import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StringResponseHandler.StringResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
+import io.prestosql.server.security.ResourceSecurity;
 import io.prestosql.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -44,6 +44,7 @@ import static io.airlift.http.client.TraceTokenRequestFilter.TRACETOKEN_HEADER;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.Closeables.closeQuietly;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static org.testng.Assert.assertEquals;
@@ -57,16 +58,17 @@ public class TestGenerateTokenFilter
 
     @BeforeClass
     public void setup()
-            throws Exception
     {
-        server = new TestingPrestoServer(ImmutableList.of(new TestGenerateTokenFilterModule()));
+        server = TestingPrestoServer.builder()
+                .setAdditionalModule(new TestGenerateTokenFilterModule())
+                .build();
         httpClient = (JettyHttpClient) server.getInstance(Key.get(HttpClient.class, GenerateTokenFilterTest.class));
 
         // extract the filter
         List<HttpRequestFilter> filters = httpClient.getRequestFilters();
-        assertEquals(filters.size(), 2);
-        assertInstanceOf(filters.get(1), GenerateTraceTokenRequestFilter.class);
-        filter = (GenerateTraceTokenRequestFilter) filters.get(1);
+        assertEquals(filters.size(), 3);
+        assertInstanceOf(filters.get(2), GenerateTraceTokenRequestFilter.class);
+        filter = (GenerateTraceTokenRequestFilter) filters.get(2);
     }
 
     @AfterClass(alwaysRun = true)
@@ -93,6 +95,7 @@ public class TestGenerateTokenFilter
     @Path("/testing")
     public static class TestResource
     {
+        @ResourceSecurity(PUBLIC)
         @GET
         @Path("/echo_token")
         public String echoToken(@HeaderParam(TRACETOKEN_HEADER) String token)

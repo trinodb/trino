@@ -16,7 +16,7 @@ package io.prestosql.sql.planner.sanity;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -27,14 +27,14 @@ public final class VerifyNoFilteredAggregations
         implements PlanSanityChecker.Checker
 {
     @Override
-    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode plan, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
     {
         searchFrom(plan)
                 .where(AggregationNode.class::isInstance)
                 .<AggregationNode>findAll()
                 .stream()
                 .flatMap(node -> node.getAggregations().values().stream())
-                .filter(aggregation -> aggregation.getCall().getFilter().isPresent())
+                .filter(aggregation -> aggregation.getFilter().isPresent())
                 .forEach(ignored -> {
                     throw new IllegalStateException("Generated plan contains unimplemented filtered aggregations");
                 });

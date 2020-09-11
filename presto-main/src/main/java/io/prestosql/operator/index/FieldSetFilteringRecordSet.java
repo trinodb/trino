@@ -16,21 +16,21 @@ package io.prestosql.operator.index;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.prestosql.metadata.Signature.internalOperator;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
 
@@ -43,9 +43,9 @@ public class FieldSetFilteringRecordSet
     private final RecordSet delegate;
     private final List<Set<Field>> fieldSets;
 
-    public FieldSetFilteringRecordSet(FunctionRegistry functionRegistry, RecordSet delegate, List<Set<Integer>> fieldSets)
+    public FieldSetFilteringRecordSet(Metadata metadata, RecordSet delegate, List<Set<Integer>> fieldSets)
     {
-        requireNonNull(functionRegistry, "functionRegistry is null");
+        requireNonNull(metadata, "metadata is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
 
         ImmutableList.Builder<Set<Field>> fieldSetsBuilder = ImmutableList.builder();
@@ -53,9 +53,9 @@ public class FieldSetFilteringRecordSet
         for (Set<Integer> fieldSet : requireNonNull(fieldSets, "fieldSets is null")) {
             ImmutableSet.Builder<Field> fieldSetBuilder = ImmutableSet.builder();
             for (int field : fieldSet) {
-                fieldSetBuilder.add(new Field(
-                        field,
-                        functionRegistry.getScalarFunctionImplementation(internalOperator(OperatorType.EQUAL, BooleanType.BOOLEAN, ImmutableList.of(columnTypes.get(field), columnTypes.get(field)))).getMethodHandle()));
+                ResolvedFunction resolvedFunction = metadata.resolveOperator(EQUAL, ImmutableList.of(columnTypes.get(field), columnTypes.get(field)));
+                MethodHandle methodHandle = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle();
+                fieldSetBuilder.add(new Field(field, methodHandle));
             }
             fieldSetsBuilder.add(fieldSetBuilder.build());
         }
@@ -175,18 +175,16 @@ public class FieldSetFilteringRecordSet
                 if (javaType == long.class) {
                     return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getLong(field1.getField()), cursor.getLong(field2.getField())));
                 }
-                else if (javaType == double.class) {
+                if (javaType == double.class) {
                     return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getDouble(field1.getField()), cursor.getDouble(field2.getField())));
                 }
-                else if (javaType == boolean.class) {
+                if (javaType == boolean.class) {
                     return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getBoolean(field1.getField()), cursor.getBoolean(field2.getField())));
                 }
-                else if (javaType == Slice.class) {
+                if (javaType == Slice.class) {
                     return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invokeExact(cursor.getSlice(field1.getField()), cursor.getSlice(field2.getField())));
                 }
-                else {
-                    return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invoke(cursor.getObject(field1.getField()), cursor.getObject(field2.getField())));
-                }
+                return TRUE.equals((Boolean) field1.getEqualsMethodHandle().invoke(cursor.getObject(field1.getField()), cursor.getObject(field2.getField())));
             }
             catch (Throwable t) {
                 throwIfUnchecked(t);

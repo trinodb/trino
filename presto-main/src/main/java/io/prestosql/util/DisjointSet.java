@@ -29,14 +29,9 @@ public class DisjointSet<T>
         private T parent;
         private int rank; // Without path compression, this would be equal to depth. Depth of 1-node tree is considered 0.
 
-        public Entry()
+        Entry()
         {
             this(null, 0);
-        }
-
-        public Entry(Entry<T> entry)
-        {
-            this(entry.parent, entry.rank);
         }
 
         private Entry(T parent, int rank)

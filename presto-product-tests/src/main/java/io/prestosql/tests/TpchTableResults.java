@@ -13,9 +13,9 @@
  */
 package io.prestosql.tests;
 
-import io.prestodb.tempto.internal.convention.SqlResultDescriptor;
+import io.prestosql.tempto.internal.convention.SqlResultDescriptor;
 
-import static io.prestodb.tempto.internal.convention.SqlResultDescriptor.sqlResultDescriptorForResource;
+import static io.prestosql.tempto.internal.convention.SqlResultDescriptor.sqlResultDescriptorForResource;
 
 public final class TpchTableResults
 {

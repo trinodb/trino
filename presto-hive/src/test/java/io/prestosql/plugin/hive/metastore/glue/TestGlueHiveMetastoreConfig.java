@@ -29,9 +29,20 @@ public class TestGlueHiveMetastoreConfig
     {
         assertRecordedDefaults(recordDefaults(GlueHiveMetastoreConfig.class)
                 .setGlueRegion(null)
+                .setGlueEndpointUrl(null)
                 .setPinGlueClientToCurrentRegion(false)
                 .setMaxGlueConnections(5)
-                .setDefaultWarehouseDir(null));
+                .setMaxGlueErrorRetries(10)
+                .setDefaultWarehouseDir(null)
+                .setIamRole(null)
+                .setExternalId(null)
+                .setAwsAccessKey(null)
+                .setAwsSecretKey(null)
+                .setAwsCredentialsProvider(null)
+                .setCatalogId(null)
+                .setPartitionSegments(5)
+                .setGetPartitionThreads(20)
+                .setAssumeCanonicalPartitionKeys(false));
     }
 
     @Test
@@ -39,16 +50,38 @@ public class TestGlueHiveMetastoreConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.glue.region", "us-east-1")
+                .put("hive.metastore.glue.endpoint-url", "http://foo.bar")
                 .put("hive.metastore.glue.pin-client-to-current-region", "true")
                 .put("hive.metastore.glue.max-connections", "10")
+                .put("hive.metastore.glue.max-error-retries", "20")
                 .put("hive.metastore.glue.default-warehouse-dir", "/location")
+                .put("hive.metastore.glue.iam-role", "role")
+                .put("hive.metastore.glue.external-id", "external-id")
+                .put("hive.metastore.glue.aws-access-key", "ABC")
+                .put("hive.metastore.glue.aws-secret-key", "DEF")
+                .put("hive.metastore.glue.aws-credentials-provider", "custom")
+                .put("hive.metastore.glue.catalogid", "0123456789")
+                .put("hive.metastore.glue.partitions-segments", "10")
+                .put("hive.metastore.glue.get-partition-threads", "42")
+                .put("hive.metastore.glue.assume-canonical-partition-keys", "true")
                 .build();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
                 .setGlueRegion("us-east-1")
+                .setGlueEndpointUrl("http://foo.bar")
                 .setPinGlueClientToCurrentRegion(true)
                 .setMaxGlueConnections(10)
-                .setDefaultWarehouseDir("/location");
+                .setMaxGlueErrorRetries(20)
+                .setDefaultWarehouseDir("/location")
+                .setIamRole("role")
+                .setExternalId("external-id")
+                .setAwsAccessKey("ABC")
+                .setAwsSecretKey("DEF")
+                .setAwsCredentialsProvider("custom")
+                .setCatalogId("0123456789")
+                .setPartitionSegments(10)
+                .setGetPartitionThreads(42)
+                .setAssumeCanonicalPartitionKeys(true);
 
         assertFullMapping(properties, expected);
     }

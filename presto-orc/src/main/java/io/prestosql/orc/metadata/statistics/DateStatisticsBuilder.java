@@ -26,6 +26,12 @@ public class DateStatisticsBuilder
     private long nonNullValueCount;
     private int minimum = Integer.MAX_VALUE;
     private int maximum = Integer.MIN_VALUE;
+    private final BloomFilterBuilder bloomFilterBuilder;
+
+    public DateStatisticsBuilder(BloomFilterBuilder bloomFilterBuilder)
+    {
+        this.bloomFilterBuilder = requireNonNull(bloomFilterBuilder, "bloomFilterBuilder is nulll");
+    }
 
     @Override
     public void addValue(long value)
@@ -35,6 +41,7 @@ public class DateStatisticsBuilder
         int intValue = toIntExact(value);
         minimum = Math.min(intValue, minimum);
         maximum = Math.max(intValue, maximum);
+        bloomFilterBuilder.addLong(value);
     }
 
     private void addDateStatistics(long valueCount, DateStatistics value)
@@ -70,17 +77,18 @@ public class DateStatisticsBuilder
                 dateStatistics.orElse(null),
                 null,
                 null,
-                null);
+                null,
+                bloomFilterBuilder.buildBloomFilter());
     }
 
     public static Optional<DateStatistics> mergeDateStatistics(List<ColumnStatistics> stats)
     {
-        DateStatisticsBuilder dateStatisticsBuilder = new DateStatisticsBuilder();
+        DateStatisticsBuilder dateStatisticsBuilder = new DateStatisticsBuilder(new NoOpBloomFilterBuilder());
         for (ColumnStatistics columnStatistics : stats) {
             DateStatistics partialStatistics = columnStatistics.getDateStatistics();
             if (columnStatistics.getNumberOfValues() > 0) {
                 if (partialStatistics == null) {
-                    // there are non null values but no statistics, so we can not say anything about the data
+                    // there are non null values but no statistics, so we cannot say anything about the data
                     return Optional.empty();
                 }
                 dateStatisticsBuilder.addDateStatistics(columnStatistics.getNumberOfValues(), partialStatistics);

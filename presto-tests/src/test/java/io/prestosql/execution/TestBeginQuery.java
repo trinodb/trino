@@ -18,31 +18,37 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.Plugin;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
+import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedPageSource;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.transaction.IsolationLevel;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingHandleResolver;
 import io.prestosql.testing.TestingMetadata;
 import io.prestosql.testing.TestingPageSinkProvider;
 import io.prestosql.testing.TestingSplitManager;
 import io.prestosql.testing.TestingTransactionHandle;
-import io.prestosql.tests.AbstractTestQueryFramework;
-import io.prestosql.tests.DistributedQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -56,19 +62,15 @@ public class TestBeginQuery
 {
     private TestMetadata metadata;
 
-    protected TestBeginQuery()
-    {
-        super(TestBeginQuery::createQueryRunner);
-    }
-
-    private static QueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()
                 .setCatalog("test")
                 .setSchema("default")
                 .build();
-        return new DistributedQueryRunner(session, 1);
+        return DistributedQueryRunner.builder(session).build();
     }
 
     @BeforeClass
@@ -84,33 +86,37 @@ public class TestBeginQuery
     @AfterMethod(alwaysRun = true)
     public void afterMethod()
     {
-        metadata.clear();
+        if (metadata != null) {
+            metadata.clear();
+        }
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
-        metadata.clear();
-        metadata = null;
+        if (metadata != null) {
+            metadata.clear();
+            metadata = null;
+        }
     }
 
     @Test
     public void testCreateTableAsSelect()
     {
-        assertNoBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
     }
 
     @Test
     public void testCreateTableAsSelectSameConnector()
     {
-        assertNoBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("CREATE TABLE nation_copy AS SELECT * FROM nation");
     }
 
     @Test
     public void testInsert()
     {
-        assertNoBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("INSERT INTO nation SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("INSERT INTO nation VALUES (12345, 'name', 54321, 'comment')");
     }
@@ -118,14 +124,14 @@ public class TestBeginQuery
     @Test
     public void testInsertSelectSameConnector()
     {
-        assertNoBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("INSERT INTO nation SELECT * FROM nation");
     }
 
     @Test
     public void testSelect()
     {
-        assertNoBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("SELECT * FROM nation");
     }
 
@@ -135,15 +141,6 @@ public class TestBeginQuery
         computeActual(query);
         assertEquals(metadata.begin.get(), 1);
         assertEquals(metadata.end.get(), 1);
-        metadata.resetCounters();
-    }
-
-    private void assertNoBeginQuery(String query)
-    {
-        metadata.resetCounters();
-        computeActual(query);
-        assertEquals(metadata.begin.get(), 0);
-        assertEquals(metadata.end.get(), 0);
         metadata.resetCounters();
     }
 
@@ -214,7 +211,20 @@ public class TestBeginQuery
         @Override
         public ConnectorPageSourceProvider getPageSourceProvider()
         {
-            return (transactionHandle, session, split, columns) -> new FixedPageSource(ImmutableList.of());
+            return new ConnectorPageSourceProvider()
+            {
+                @Override
+                public ConnectorPageSource createPageSource(
+                        ConnectorTransactionHandle transaction,
+                        ConnectorSession session,
+                        ConnectorSplit split,
+                        ConnectorTableHandle table,
+                        List<ColumnHandle> columns,
+                        TupleDomain<ColumnHandle> dynamicFilter)
+                {
+                    return new FixedPageSource(ImmutableList.of());
+                }
+            };
         }
 
         @Override

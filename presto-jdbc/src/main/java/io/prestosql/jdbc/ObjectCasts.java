@@ -262,9 +262,11 @@ final class ObjectCasts
             return new Time(((java.util.Date) x).getTime());
         }
         if (x instanceof LocalTime) {
+            // TODO Time.valueOf does not preserve second fraction
             return Time.valueOf((LocalTime) x);
         }
         if (x instanceof LocalDateTime) {
+            // TODO Time.valueOf does not preserve second fraction
             return Time.valueOf(((LocalDateTime) x).toLocalTime());
         }
         try {

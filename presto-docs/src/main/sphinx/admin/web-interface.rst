@@ -1,10 +1,67 @@
-=============
-Web Interface
-=============
+======
+Web UI
+======
 
-Presto provides a web interface for monitoring and managing queries.
-The web interface is accessible on the Presto coordinator via HTTP,
-using the HTTP port number specified in the coordinator :ref:`config_properties`.
+Presto provides a web-based user interface (UI) for monitoring a Presto cluster
+and managing queries. The Web UI is accessible on the coordinator via
+HTTP/HTTPS, using the corresponding port number specified in the coordinator
+:ref:`config_properties`. It can be configured with :doc:`/admin/properties-web-interface`.
+
+The Web UI can be disabled entirely with the ``web-ui.enabled`` property.
+
+.. _web-ui-authentication:
+
+Authentication
+--------------
+
+The Web UI requires users to authenticate. If Presto is not configured to require
+authentication, then any username can be used, and no password is required or
+allowed. Typically, users should login with the same username that they use for
+running queries.
+
+Accessing the Web UI over HTTPS requires configuring an authentication type for
+the Web UI or the Presto server. If no authentication type is configured for the
+Web UI, then it will chosen based on the Presto server authentication type.
+
+If no system access control is installed, then all users will be able to view and kill
+any query. This can be restricted by using :ref:`query rules <query_rules>` with the
+:doc:`/security/built-in-system-access-control`. Users always have permission to view
+or kill their own queries.
+
+Password Authentication
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Typically, a :doc:`password authenticator </develop/password-authenticator>`
+such as :doc:`LDAP </security/ldap>` or :doc:`password file </security/password-file>`
+is used to secure both the Presto server and the Web UI. When the Presto server
+is configured to use a password authenticator, the Web UI authentication type
+is automatically set to ``form``. The Web UI will display a login form that accepts
+a username and password.
+
+Fixed User Authentication
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you require the Web UI to be accessible without authentication, you can set a fixed
+username that will be used for all Web UI access by setting the authentication type to
+``fixed`` and setting the username with the ``web-ui.user`` configuration property.
+If there is a system access control installed, this user must have permission to view
+(and possibly to kill) queries.
+
+Other Authentication Types
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following Web UI authentication types are also supported:
+
+* ``certificate``
+* ``kerberos``
+* ``jwt``
+
+For these authentication types, the username is defined by :doc:`/security/user-mapping`.
+
+.. _web-ui-overview:
+
+User Interface Overview
+-----------------------
 
 The main page has a list of queries along with information like unique query ID, query text,
 query state, percentage completed, username and source from which this query originated.

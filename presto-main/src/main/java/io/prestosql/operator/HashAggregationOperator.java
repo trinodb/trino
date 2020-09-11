@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.operator.aggregation.Accumulator;
 import io.prestosql.operator.aggregation.AccumulatorFactory;
 import io.prestosql.operator.aggregation.builder.HashAggregationBuilder;
@@ -103,8 +104,8 @@ public class HashAggregationOperator
                     expectedGroups,
                     maxPartialMemory,
                     false,
-                    new DataSize(0, MEGABYTE),
-                    new DataSize(0, MEGABYTE),
+                    DataSize.of(0, MEGABYTE),
+                    DataSize.of(0, MEGABYTE),
                     (types, spillContext, memoryContext) -> {
                         throw new UnsupportedOperationException();
                     },
@@ -272,6 +273,7 @@ public class HashAggregationOperator
     private final HashCollisionsCounter hashCollisionsCounter;
 
     private HashAggregationBuilder aggregationBuilder;
+    private LocalMemoryContext memoryContext;
     private WorkProcessor<Page> outputPages;
     private boolean inputProcessed;
     private boolean finishing;
@@ -323,6 +325,11 @@ public class HashAggregationOperator
         this.hashCollisionsCounter = new HashCollisionsCounter(operatorContext);
         operatorContext.setInfoSupplier(hashCollisionsCounter);
         this.useSystemMemory = useSystemMemory;
+
+        this.memoryContext = operatorContext.localUserMemoryContext();
+        if (useSystemMemory) {
+            this.memoryContext = operatorContext.localSystemMemoryContext();
+        }
     }
 
     @Override
@@ -378,8 +385,14 @@ public class HashAggregationOperator
                         operatorContext,
                         maxPartialMemory,
                         joinCompiler,
-                        true,
-                        useSystemMemory);
+                        () -> {
+                            memoryContext.setBytes(((InMemoryHashAggregationBuilder) aggregationBuilder).getSizeInMemory());
+                            if (step.isOutputPartial() && maxPartialMemory.isPresent()) {
+                                // do not yield on memory for partial aggregations
+                                return true;
+                            }
+                            return operatorContext.isWaitingForMemory().isDone();
+                        });
             }
             else {
                 verify(!useSystemMemory, "using system memory in spillable aggregations is not supported");
@@ -511,8 +524,7 @@ public class HashAggregationOperator
             // The reference must be set to null afterwards to avoid unaccounted memory.
             aggregationBuilder = null;
         }
-        operatorContext.localUserMemoryContext().setBytes(0);
-        operatorContext.localRevocableMemoryContext().setBytes(0);
+        memoryContext.setBytes(0);
     }
 
     private Page getGlobalAggregationOutput()

@@ -14,6 +14,8 @@
 package io.prestosql.plugin.hive;
 
 import io.airlift.slice.Slice;
+import io.prestosql.plugin.hive.util.HiveBucketing;
+import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.RecordCursor;
@@ -36,6 +38,7 @@ public class HiveBucketAdapterRecordCursor
     private final int[] bucketColumnIndices;
     private final List<Class<?>> javaTypeList;
     private final List<TypeInfo> typeInfoList;
+    private final BucketingVersion bucketingVersion;
     private final int tableBucketCount;
     private final int partitionBucketCount;
     private final int bucketToKeep;
@@ -45,6 +48,7 @@ public class HiveBucketAdapterRecordCursor
     public HiveBucketAdapterRecordCursor(
             int[] bucketColumnIndices,
             List<HiveType> bucketColumnHiveTypes,
+            BucketingVersion bucketingVersion,
             int tableBucketCount,
             int partitionBucketCount,
             int bucketToKeep,
@@ -62,6 +66,7 @@ public class HiveBucketAdapterRecordCursor
         this.typeInfoList = bucketColumnHiveTypes.stream()
                 .map(HiveType::getTypeInfo)
                 .collect(toImmutableList());
+        this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
         this.tableBucketCount = tableBucketCount;
         this.partitionBucketCount = partitionBucketCount;
         this.bucketToKeep = bucketToKeep;
@@ -115,13 +120,13 @@ public class HiveBucketAdapterRecordCursor
                     scratch[i] = delegate.getSlice(index);
                 }
                 else if (javaType == Block.class) {
-                    scratch[i] = (Block) delegate.getObject(index);
+                    scratch[i] = delegate.getObject(index);
                 }
                 else {
-                    throw new UnsupportedOperationException("unknown java type");
+                    throw new UnsupportedOperationException("Unknown java type: " + javaType);
                 }
             }
-            int bucket = HiveBucketing.getHiveBucket(tableBucketCount, typeInfoList, scratch);
+            int bucket = HiveBucketing.getHiveBucket(bucketingVersion, tableBucketCount, typeInfoList, scratch);
             if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
                 throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format(
                         "A row that is supposed to be in bucket %s is encountered. Only rows in bucket %s (modulo %s) are expected",

@@ -1,4 +1,3 @@
-package io.prestosql.operator.scalar;
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,8 +11,10 @@ package io.prestosql.operator.scalar;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.prestosql.operator.scalar;
 
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlNullable;
@@ -24,6 +25,8 @@ import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
@@ -38,9 +41,13 @@ public final class MapNotEqualOperator
     @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean notEqual(
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"K", "K"}) MethodHandle keyEqualsFunction,
-            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"K"}) MethodHandle keyHashcodeFunction,
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"V", "V"}) MethodHandle valueEqualsFunction,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"K", "K"},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    MethodHandle keyEqualsFunction,
+            @OperatorDependency(operator = HASH_CODE, argumentTypes = "K") MethodHandle keyHashcodeFunction,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"V", "V"}) MethodHandle valueEqualsFunction,
             @TypeParameter("K") Type keyType,
             @TypeParameter("V") Type valueType,
             @SqlType("map(K,V)") Block left,

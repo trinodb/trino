@@ -49,6 +49,7 @@ abstract class SplitSpecification
             super(scheduledTimeNanos, perQuantaNanos);
         }
 
+        @Override
         public LeafSplit instantiate(SimulationTask task)
         {
             return new LeafSplit(task, super.getScheduledTimeNanos(), super.getPerQuantaNanos());
@@ -78,6 +79,7 @@ abstract class SplitSpecification
             this.wakeupExecutor = wakeupExecutor;
         }
 
+        @Override
         public IntermediateSplit instantiate(SimulationTask task)
         {
             return new IntermediateSplit(task, wallTimeNanos, numQuantas, super.getPerQuantaNanos(), betweenQuantaNanos, super.getScheduledTimeNanos(), wakeupExecutor);

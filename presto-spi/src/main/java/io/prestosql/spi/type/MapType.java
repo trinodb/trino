@@ -28,10 +28,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.TypeUtils.checkElementNotNull;
 import static io.prestosql.spi.type.TypeUtils.hashPosition;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodType.methodType;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -57,8 +57,8 @@ public class MapType
             MethodHandle keyBlockHashCode)
     {
         super(new TypeSignature(StandardTypes.MAP,
-                        TypeSignatureParameter.of(keyType.getTypeSignature()),
-                        TypeSignatureParameter.of(valueType.getTypeSignature())),
+                        TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
+                        TypeSignatureParameter.typeParameter(valueType.getTypeSignature())),
                 Block.class);
         if (!keyType.isComparable()) {
             throw new IllegalArgumentException(format("key type must be comparable, got %s", keyType));
@@ -68,6 +68,11 @@ public class MapType
         requireNonNull(keyBlockNativeEquals, "keyBlockNativeEquals is null");
         requireNonNull(keyNativeHashCode, "keyNativeHashCode is null");
         requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
+        if (!keyType.getJavaType().isPrimitive()) {
+            // equals and hash code non-primitive types must be exactly Object
+            keyBlockNativeEquals = keyBlockNativeEquals.asType(methodType(Boolean.class, Block.class, int.class, Object.class));
+            keyNativeHashCode = keyNativeHashCode.asType(methodType(long.class, Object.class));
+        }
         this.keyBlockNativeEquals = keyBlockNativeEquals;
         this.keyNativeHashCode = keyNativeHashCode;
         this.keyBlockHashCode = keyBlockHashCode;
@@ -77,15 +82,7 @@ public class MapType
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
-        return new MapBlockBuilder(
-                keyType,
-                valueType,
-                keyBlockNativeEquals,
-                keyBlockEquals,
-                keyNativeHashCode,
-                keyBlockHashCode,
-                blockBuilderStatus,
-                expectedEntries);
+        return new MapBlockBuilder(this, blockBuilderStatus, expectedEntries);
     }
 
     @Override
@@ -258,31 +255,38 @@ public class MapType
                 offsets,
                 keyBlock,
                 valueBlock,
-                this,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                this);
     }
 
     /**
-     * Create a map block directly without per element validations.
-     * <p>
-     * Internal use by io.prestosql.spi.Block only.
+     * Internal use by this package and io.prestosql.spi.block only.
      */
-    public static Block createMapBlockInternal(
-            TypeManager typeManager,
-            Type keyType,
-            int startOffset,
-            int positionCount,
-            Optional<boolean[]> mapIsNull,
-            int[] offsets,
-            Block keyBlock,
-            Block valueBlock,
-            int[] hashTables)
+    public MethodHandle getKeyNativeHashCode()
     {
-        // TypeManager caches types. Therefore, it is important that we go through it instead of coming up with the MethodHandles directly.
-        // BIGINT is chosen arbitrarily here. Any type will do.
-        MapType mapType = (MapType) typeManager.getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(BIGINT.getTypeSignature())));
-        return MapBlock.createMapBlockInternal(startOffset, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTables, keyType, mapType.keyBlockNativeEquals, mapType.keyNativeHashCode);
+        return keyNativeHashCode;
+    }
+
+    /**
+     * Internal use by this package and io.prestosql.spi.block only.
+     */
+    public MethodHandle getKeyBlockHashCode()
+    {
+        return keyBlockHashCode;
+    }
+
+    /**
+     * Internal use by this package and io.prestosql.spi.block only.
+     */
+    public MethodHandle getKeyBlockNativeEquals()
+    {
+        return keyBlockNativeEquals;
+    }
+
+    /**
+     * Internal use by this package and io.prestosql.spi.block only.
+     */
+    public MethodHandle getKeyBlockEquals()
+    {
+        return keyBlockEquals;
     }
 }

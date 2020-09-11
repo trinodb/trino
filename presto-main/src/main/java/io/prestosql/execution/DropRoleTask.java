@@ -17,7 +17,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.DropRole;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.transaction.TransactionManager;
@@ -26,8 +25,9 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.metadata.MetadataUtil.createCatalogName;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ROLE;
+import static io.prestosql.metadata.MetadataUtil.getSessionCatalog;
+import static io.prestosql.spi.StandardErrorCode.ROLE_NOT_FOUND;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Locale.ENGLISH;
 
 public class DropRoleTask
@@ -43,12 +43,12 @@ public class DropRoleTask
     public ListenableFuture<?> execute(DropRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
-        String catalog = createCatalogName(session, statement);
+        String catalog = getSessionCatalog(metadata, session, statement);
         String role = statement.getName().getValue().toLowerCase(ENGLISH);
-        accessControl.checkCanDropRole(session.getRequiredTransactionId(), session.getIdentity(), role, catalog);
+        accessControl.checkCanDropRole(session.toSecurityContext(), role, catalog);
         Set<String> existingRoles = metadata.listRoles(session, catalog);
         if (!existingRoles.contains(role)) {
-            throw new SemanticException(MISSING_ROLE, statement, "Role '%s' does not exist", role);
+            throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", role);
         }
         metadata.dropRole(session, role, catalog);
         return immediateFuture(null);

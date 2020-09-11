@@ -1,4 +1,3 @@
-package io.prestosql.operator.scalar;
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,22 +11,26 @@ package io.prestosql.operator.scalar;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionRegistry;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static io.prestosql.metadata.Signature.orderableWithVariadicBound;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.type.TypeUtils.checkElementNotNull;
 import static io.prestosql.util.Failures.internalError;
@@ -40,16 +43,25 @@ public abstract class RowComparisonOperator
         super(operatorType,
                 ImmutableList.of(orderableWithVariadicBound("T", StandardTypes.ROW)),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.BOOLEAN),
-                ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
+                BOOLEAN.getTypeSignature(),
+                ImmutableList.of(new TypeSignature("T"), new TypeSignature("T")),
+                false);
     }
 
-    protected List<MethodHandle> getMethodHandles(RowType type, FunctionRegistry functionRegistry, OperatorType operatorType)
+    protected FunctionDependencyDeclaration getFunctionDependencies(RowType type, OperatorType operatorType)
+    {
+        FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
+        for (Type parameterType : type.getTypeParameters()) {
+            builder.addOperator(operatorType, ImmutableList.of(parameterType, parameterType));
+        }
+        return builder.build();
+    }
+
+    protected List<MethodHandle> getMethodHandles(RowType type, FunctionDependencies functionDependencies, OperatorType operatorType)
     {
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         for (Type parameterType : type.getTypeParameters()) {
-            Signature signature = functionRegistry.resolveOperator(operatorType, ImmutableList.of(parameterType, parameterType));
-            argumentMethods.add(functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle());
+            argumentMethods.add(functionDependencies.getOperatorInvoker(operatorType, ImmutableList.of(parameterType, parameterType), Optional.empty()).getMethodHandle());
         }
         return argumentMethods.build();
     }

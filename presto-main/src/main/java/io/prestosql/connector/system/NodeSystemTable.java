@@ -14,10 +14,9 @@
 package io.prestosql.connector.system;
 
 import io.prestosql.metadata.AllNodes;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
-import io.prestosql.metadata.PrestoNode;
-import io.prestosql.spi.Node;
-import io.prestosql.spi.NodeState;
+import io.prestosql.metadata.NodeState;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -34,9 +33,9 @@ import java.util.Locale;
 import java.util.Set;
 
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static io.prestosql.spi.NodeState.ACTIVE;
-import static io.prestosql.spi.NodeState.INACTIVE;
-import static io.prestosql.spi.NodeState.SHUTTING_DOWN;
+import static io.prestosql.metadata.NodeState.ACTIVE;
+import static io.prestosql.metadata.NodeState.INACTIVE;
+import static io.prestosql.metadata.NodeState.SHUTTING_DOWN;
 import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -86,22 +85,19 @@ public class NodeSystemTable
         return table.build().cursor();
     }
 
-    private void addRows(Builder table, Set<Node> nodes, NodeState state)
+    private void addRows(Builder table, Set<InternalNode> nodes, NodeState state)
     {
-        for (Node node : nodes) {
-            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), isCoordinator(node), state.toString().toLowerCase(Locale.ENGLISH));
+        for (InternalNode node : nodes) {
+            table.addRow(node.getNodeIdentifier(), node.getInternalUri().toString(), getNodeVersion(node), isCoordinator(node), state.toString().toLowerCase(Locale.ENGLISH));
         }
     }
 
-    private static String getNodeVersion(Node node)
+    private static String getNodeVersion(InternalNode node)
     {
-        if (node instanceof PrestoNode) {
-            return ((PrestoNode) node).getNodeVersion().toString();
-        }
-        return "";
+        return node.getNodeVersion().toString();
     }
 
-    private boolean isCoordinator(Node node)
+    private boolean isCoordinator(InternalNode node)
     {
         return nodeManager.getCoordinators().contains(node);
     }

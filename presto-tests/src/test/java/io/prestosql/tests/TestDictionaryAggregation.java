@@ -15,28 +15,30 @@ package io.prestosql.tests;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.prestosql.SystemSessionProperties.DICTIONARY_AGGREGATION;
-import static io.prestosql.SystemSessionProperties.REORDER_JOINS;
+import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestDictionaryAggregation
         extends AbstractTestQueryFramework
 {
-    public TestDictionaryAggregation()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
-        super(() -> {
-            LocalQueryRunner queryRunner = new LocalQueryRunner(testSessionBuilder()
-                    .setSystemProperty(DICTIONARY_AGGREGATION, "true")
-                    .setSystemProperty(REORDER_JOINS, "false") // no JOIN reordering
-                    .build());
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(testSessionBuilder()
+                .setSystemProperty(DICTIONARY_AGGREGATION, "true")
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.toString())
+                .build());
 
-            queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
+        queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
 
-            return queryRunner;
-        });
+        return queryRunner;
     }
 
     @Test

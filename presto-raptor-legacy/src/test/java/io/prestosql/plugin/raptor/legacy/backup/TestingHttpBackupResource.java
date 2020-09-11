@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.raptor.legacy.backup;
 
-import io.airlift.node.NodeInfo;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
+import io.prestosql.spi.NodeManager;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -56,9 +56,9 @@ public class TestingHttpBackupResource
     private final Map<UUID, byte[]> shards = new HashMap<>();
 
     @Inject
-    public TestingHttpBackupResource(NodeInfo nodeInfo)
+    public TestingHttpBackupResource(NodeManager nodeManager)
     {
-        this(nodeInfo.getEnvironment());
+        this(nodeManager.getEnvironment());
     }
 
     public TestingHttpBackupResource(String environment)

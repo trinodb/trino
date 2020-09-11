@@ -30,15 +30,6 @@ public final class Chars
         return type instanceof CharType;
     }
 
-    public static Slice padSpaces(Slice slice, Type type)
-    {
-        requireNonNull(type, "type is null");
-        if (!isCharType(type)) {
-            throw new IllegalArgumentException("type must be the instance of CharType");
-        }
-        return padSpaces(slice, CharType.class.cast(type));
-    }
-
     public static Slice padSpaces(Slice slice, CharType charType)
     {
         requireNonNull(charType, "charType is null");
@@ -49,29 +40,46 @@ public final class Chars
     {
         int textLength = countCodePoints(slice);
 
-        // if our string is bigger than requested then truncate
         if (textLength > length) {
             throw new IllegalArgumentException("pad length is smaller than slice length");
         }
 
-        // if our target length is the same as our string then return our string
         if (textLength == length) {
             return slice;
         }
 
-        // preallocate the result
         int bufferSize = slice.length() + length - textLength;
         Slice buffer = Slices.allocate(bufferSize);
 
-        // fill in the existing string
         buffer.setBytes(0, slice);
 
-        // fill padding spaces
         for (int i = slice.length(); i < bufferSize; ++i) {
             buffer.setByte(i, ' ');
         }
 
         return buffer;
+    }
+
+    /**
+     * Pads String with spaces to given {@code CharType}'s length in code points.
+     * <p>
+     * Note: unlike {@code com.google.common.base.Strings#padEnd(java.lang.String, int, char)},
+     * this respects code points encoded as UTF-16 surrogate pairs.
+     */
+    public static String padSpaces(String value, CharType charType)
+    {
+        int length = charType.getLength();
+        int textLength = value.codePointCount(0, value.length());
+
+        if (textLength > length) {
+            throw new IllegalArgumentException("pad length is smaller than text length");
+        }
+
+        if (textLength == length) {
+            return value;
+        }
+
+        return value + " ".repeat(Math.max(0, length - textLength));
     }
 
     public static Slice truncateToLengthAndTrimSpaces(Slice slice, Type type)

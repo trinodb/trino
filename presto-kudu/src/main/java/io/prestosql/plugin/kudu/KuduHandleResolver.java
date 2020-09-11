@@ -17,9 +17,9 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
+import io.prestosql.spi.connector.ConnectorPartitioningHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public class KuduHandleResolver
@@ -29,12 +29,6 @@ public class KuduHandleResolver
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return KuduTableHandle.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
-    {
-        return KuduTableLayoutHandle.class;
     }
 
     @Override
@@ -65,5 +59,11 @@ public class KuduHandleResolver
     public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
     {
         return KuduOutputTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass()
+    {
+        return KuduPartitioningHandle.class;
     }
 }

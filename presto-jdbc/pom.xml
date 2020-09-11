@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>303-SNAPSHOT</version>
+        <version>341</version>
     </parent>
 
     <artifactId>presto-jdbc</artifactId>
@@ -13,6 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <project.build.targetJdk>8</project.build.targetJdk>
         <shadeBase>io.prestosql.jdbc.\$internal</shadeBase>
     </properties>
 
@@ -23,23 +24,8 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-spi</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>security</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
+            <artifactId>concurrent</artifactId>
         </dependency>
 
         <dependency>
@@ -54,19 +40,18 @@
         </dependency>
 
         <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
+            <groupId>io.airlift</groupId>
+            <artifactId>log</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>io.airlift</groupId>
+            <artifactId>security</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
         </dependency>
 
         <dependency>
@@ -75,7 +60,52 @@
             <optional>true</optional>
         </dependency>
 
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.checkerframework</groupId>
+                    <artifactId>checker-qual</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.errorprone</groupId>
+                    <artifactId>error_prone_annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.j2objc</groupId>
+                    <artifactId>j2objc-annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>animal-sniffer-annotations</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+        </dependency>
+
         <!-- for testing -->
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-blackhole</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-hive-hadoop2</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-main</artifactId>
@@ -90,37 +120,19 @@
 
         <dependency>
             <groupId>io.prestosql</groupId>
+            <artifactId>presto-spi</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-tpch</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-hive-hadoop2</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-blackhole</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -132,7 +144,20 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>concurrent</artifactId>
+            <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.oracle.ojdbc</groupId>
+            <artifactId>ojdbc8</artifactId>
+            <version>${dep.oracle.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -145,6 +170,42 @@
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>oracle-xe</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -170,10 +231,6 @@
                                     <shadedPattern>${shadeBase}.client</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>io.prestosql.spi</pattern>
-                                    <shadedPattern>${shadeBase}.spi</shadedPattern>
-                                </relocation>
-                                <relocation>
                                     <pattern>com.fasterxml.jackson</pattern>
                                     <shadedPattern>${shadeBase}.jackson</shadedPattern>
                                 </relocation>
@@ -195,11 +252,7 @@
                                 </relocation>
                                 <relocation>
                                     <pattern>javax.inject</pattern>
-                                    <shadedPattern>${shadeBase}.inject</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.openjdk.jol</pattern>
-                                    <shadedPattern>${shadeBase}.jol</shadedPattern>
+                                    <shadedPattern>${shadeBase}.javax.inject</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>org.joda.time</pattern>
@@ -215,6 +268,12 @@
                                 </relocation>
                             </relocations>
                             <filters>
+                                <filter>
+                                    <artifact>io.airlift:units</artifact>
+                                    <excludes>
+                                        <exclude>ValidationMessages.properties</exclude>
+                                    </excludes>
+                                </filter>
                                 <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>

@@ -15,9 +15,12 @@ package io.prestosql.spi.connector;
 
 import io.prestosql.spi.type.Type;
 
+import javax.annotation.Nullable;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static io.prestosql.spi.connector.SchemaUtil.checkNotEmpty;
 import static java.util.Collections.emptyMap;
@@ -29,6 +32,7 @@ public class ColumnMetadata
 {
     private final String name;
     private final Type type;
+    private final boolean nullable;
     private final String comment;
     private final String extraInfo;
     private final boolean hidden;
@@ -36,20 +40,50 @@ public class ColumnMetadata
 
     public ColumnMetadata(String name, Type type)
     {
-        this(name, type, null, null, false, emptyMap());
+        this(name, type, true, null, null, false, emptyMap());
     }
 
+    /**
+     * @deprecated Use {@link #builder()} instead.
+     */
+    @Deprecated
+    public ColumnMetadata(String name, Type type, String comment)
+    {
+        this(name, type, true, comment, null, false, emptyMap());
+    }
+
+    /**
+     * @deprecated Use {@link #builder()} instead.
+     */
+    @Deprecated
     public ColumnMetadata(String name, Type type, String comment, boolean hidden)
     {
-        this(name, type, comment, null, hidden, emptyMap());
+        this(name, type, true, comment, null, hidden, emptyMap());
     }
 
+    /**
+     * @deprecated Use {@link #builder()} instead.
+     */
+    @Deprecated
     public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden)
     {
-        this(name, type, comment, extraInfo, hidden, emptyMap());
+        this(name, type, true, comment, extraInfo, hidden, emptyMap());
     }
 
+    /**
+     * @deprecated Use {@link #builder()} instead.
+     */
+    @Deprecated
     public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
+    {
+        this(name, type, true, comment, extraInfo, hidden, properties);
+    }
+
+    /**
+     * @deprecated Use {@link #builder()} instead.
+     */
+    @Deprecated
+    public ColumnMetadata(String name, Type type, boolean nullable, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
     {
         checkNotEmpty(name, "name");
         requireNonNull(type, "type is null");
@@ -61,6 +95,7 @@ public class ColumnMetadata
         this.extraInfo = extraInfo;
         this.hidden = hidden;
         this.properties = properties.isEmpty() ? emptyMap() : unmodifiableMap(new LinkedHashMap<>(properties));
+        this.nullable = nullable;
     }
 
     public String getName()
@@ -73,11 +108,18 @@ public class ColumnMetadata
         return type;
     }
 
+    public boolean isNullable()
+    {
+        return nullable;
+    }
+
+    @Nullable // TODO make it Optional
     public String getComment()
     {
         return comment;
     }
 
+    @Nullable // TODO make it Optional
     public String getExtraInfo()
     {
         return extraInfo;
@@ -99,6 +141,7 @@ public class ColumnMetadata
         StringBuilder sb = new StringBuilder("ColumnMetadata{");
         sb.append("name='").append(name).append('\'');
         sb.append(", type=").append(type);
+        sb.append(", ").append(nullable ? "nullable" : "nonnull");
         if (comment != null) {
             sb.append(", comment='").append(comment).append('\'');
         }
@@ -118,7 +161,7 @@ public class ColumnMetadata
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, comment, extraInfo, hidden);
+        return Objects.hash(name, type, nullable, comment, extraInfo, hidden);
     }
 
     @Override
@@ -133,8 +176,97 @@ public class ColumnMetadata
         ColumnMetadata other = (ColumnMetadata) obj;
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.type, other.type) &&
+                Objects.equals(this.nullable, other.nullable) &&
                 Objects.equals(this.comment, other.comment) &&
                 Objects.equals(this.extraInfo, other.extraInfo) &&
                 Objects.equals(this.hidden, other.hidden);
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static Builder builderFrom(ColumnMetadata columnMetadata)
+    {
+        return new Builder(columnMetadata);
+    }
+
+    public static class Builder
+    {
+        private String name;
+        private Type type;
+        private boolean nullable = true;
+        private Optional<String> comment = Optional.empty();
+        private Optional<String> extraInfo = Optional.empty();
+        private boolean hidden;
+        private Map<String, Object> properties = emptyMap();
+
+        private Builder() {}
+
+        private Builder(ColumnMetadata columnMetadata)
+        {
+            this.name = columnMetadata.getName();
+            this.type = columnMetadata.getType();
+            this.nullable = columnMetadata.isNullable();
+            this.comment = Optional.ofNullable(columnMetadata.getComment());
+            this.extraInfo = Optional.ofNullable(columnMetadata.getExtraInfo());
+            this.hidden = columnMetadata.isHidden();
+            this.properties = columnMetadata.getProperties();
+        }
+
+        public Builder setName(String name)
+        {
+            this.name = requireNonNull(name, "name is null");
+            return this;
+        }
+
+        public Builder setType(Type type)
+        {
+            this.type = requireNonNull(type, "type is null");
+            return this;
+        }
+
+        public Builder setNullable(boolean nullable)
+        {
+            this.nullable = nullable;
+            return this;
+        }
+
+        public Builder setComment(Optional<String> comment)
+        {
+            this.comment = requireNonNull(comment, "comment is null");
+            return this;
+        }
+
+        public Builder setExtraInfo(Optional<String> extraInfo)
+        {
+            this.extraInfo = requireNonNull(extraInfo, "extraInfo is null");
+            return this;
+        }
+
+        public Builder setHidden(boolean hidden)
+        {
+            this.hidden = hidden;
+            return this;
+        }
+
+        public Builder setProperties(Map<String, Object> properties)
+        {
+            this.properties = requireNonNull(properties, "properties is null");
+            return this;
+        }
+
+        public ColumnMetadata build()
+        {
+            return new ColumnMetadata(
+                    name,
+                    type,
+                    nullable,
+                    comment.orElse(null),
+                    extraInfo.orElse(null),
+                    hidden,
+                    properties);
+        }
     }
 }

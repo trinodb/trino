@@ -13,7 +13,6 @@
  */
 package io.prestosql.execution.executor;
 
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
@@ -25,8 +24,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.units.Duration.succinctNanos;
 import static io.prestosql.operator.Operator.NOT_BLOCKED;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -153,7 +154,7 @@ abstract class SimulationSplit
                 task.splitComplete(this);
             }
 
-            return Futures.immediateCheckedFuture(null);
+            return immediateFuture(null);
         }
 
         ListenableFuture<?> processResult = getProcessResult();
@@ -175,6 +176,7 @@ abstract class SimulationSplit
             this.perQuantaNanos = perQuantaNanos;
         }
 
+        @Override
         public boolean process()
         {
             if (getCompletedProcessNanos() >= super.scheduledTimeNanos) {
@@ -195,6 +197,7 @@ abstract class SimulationSplit
             return false;
         }
 
+        @Override
         public ListenableFuture<?> getProcessResult()
         {
             return NOT_BLOCKED;
@@ -204,7 +207,8 @@ abstract class SimulationSplit
         public String getInfo()
         {
             double pct = (100.0 * getCompletedProcessNanos() / super.scheduledTimeNanos);
-            return String.format("leaf %3s%% done (total: %8s, per quanta: %8s)",
+            return format(
+                    "leaf %3s%% done (total: %8s, per quanta: %8s)",
                     (int) (pct > 100.00 ? 100.0 : pct),
                     succinctNanos(super.scheduledTimeNanos),
                     succinctNanos(perQuantaNanos));
@@ -236,6 +240,7 @@ abstract class SimulationSplit
             doneFuture.set(null);
         }
 
+        @Override
         public boolean process()
         {
             try {
@@ -252,6 +257,7 @@ abstract class SimulationSplit
             return true;
         }
 
+        @Override
         public ListenableFuture<?> getProcessResult()
         {
             future = SettableFuture.create();
@@ -282,7 +288,7 @@ abstract class SimulationSplit
         public String getInfo()
         {
             double pct = (100.0 * getCalls() / numQuantas);
-            return String.format("intr %3s%% done (wall: %9s, per quanta: %8s, between quanta: %8s)",
+            return format("intr %3s%% done (wall: %9s, per quanta: %8s, between quanta: %8s)",
                     (int) (pct > 100.00 ? 100.0 : pct),
                     succinctNanos(wallTimeNanos),
                     succinctNanos(perQuantaNanos),

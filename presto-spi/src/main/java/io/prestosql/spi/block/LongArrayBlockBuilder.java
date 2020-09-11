@@ -35,9 +35,9 @@ public class LongArrayBlockBuilder
     private static final Block NULL_VALUE_BLOCK = new LongArrayBlock(0, 1, new boolean[] {true}, new long[1]);
 
     @Nullable
-    private BlockBuilderStatus blockBuilderStatus;
+    private final BlockBuilderStatus blockBuilderStatus;
     private boolean initialized;
-    private int initialEntryCount;
+    private final int initialEntryCount;
 
     private int positionCount;
     private boolean hasNullValue;

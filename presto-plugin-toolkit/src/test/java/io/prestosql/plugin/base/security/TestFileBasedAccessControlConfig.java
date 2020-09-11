@@ -16,15 +16,18 @@ package io.prestosql.plugin.base.security;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.ConfigurationException;
 import io.airlift.configuration.ConfigurationFactory;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,21 +37,24 @@ public class TestFileBasedAccessControlConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(FileBasedAccessControlConfig.class)
+        assertRecordedDefaults(recordDefaults(FileBasedAccessControlConfig.class)
                 .setConfigFile(null)
                 .setRefreshPeriod(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path securityConfigFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put(SECURITY_CONFIG_FILE, "/test.json")
+                .put(SECURITY_CONFIG_FILE, securityConfigFile.toString())
                 .put(SECURITY_REFRESH_PERIOD, "1s")
                 .build();
 
         FileBasedAccessControlConfig expected = new FileBasedAccessControlConfig()
-                .setConfigFile("/test.json")
+                .setConfigFile(securityConfigFile.toString())
                 .setRefreshPeriod(new Duration(1, TimeUnit.SECONDS));
 
         assertFullMapping(properties, expected);
@@ -56,18 +62,21 @@ public class TestFileBasedAccessControlConfig
 
     @Test
     public void testValidation()
+            throws IOException
     {
+        Path securityConfigFile = Files.createTempFile(null, null);
+
         assertThatThrownBy(() -> newInstance(ImmutableMap.of(SECURITY_REFRESH_PERIOD, "1ms")))
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("security.config-file: may not be null ");
 
         assertThatThrownBy(() -> newInstance(ImmutableMap.of(
-                SECURITY_CONFIG_FILE, "/test.json",
+                SECURITY_CONFIG_FILE, securityConfigFile.toString(),
                 SECURITY_REFRESH_PERIOD, "1us")))
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("Invalid configuration property security.refresh-period");
 
-        newInstance(ImmutableMap.of(SECURITY_CONFIG_FILE, "/test.json"));
+        newInstance(ImmutableMap.of(SECURITY_CONFIG_FILE, securityConfigFile.toString()));
     }
 
     private static FileBasedAccessControlConfig newInstance(Map<String, String> properties)

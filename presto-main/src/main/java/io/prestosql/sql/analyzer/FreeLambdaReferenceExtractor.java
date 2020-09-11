@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Extract expressions that are free (unbound) references to a lambda argument.
  */
-public class FreeLambdaReferenceExtractor
+public final class FreeLambdaReferenceExtractor
 {
     private FreeLambdaReferenceExtractor() {}
 
@@ -49,7 +49,7 @@ public class FreeLambdaReferenceExtractor
     }
 
     private static class Visitor
-            extends DefaultExpressionTraversalVisitor<Void, Set<String>>
+            extends DefaultExpressionTraversalVisitor<Set<String>>
     {
         private final Analysis analysis;
         private final ImmutableList.Builder<Expression> freeReferencesToLambdaArgument = ImmutableList.builder();

@@ -19,7 +19,6 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaName;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.DropSchema;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.transaction.TransactionManager;
@@ -30,7 +29,8 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
+import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 
 public class DropSchemaTask
         implements DataDefinitionTask<DropSchema>
@@ -59,12 +59,12 @@ public class DropSchemaTask
 
         if (!metadata.schemaExists(session, schema)) {
             if (!statement.isExists()) {
-                throw new SemanticException(MISSING_SCHEMA, statement, "Schema '%s' does not exist", schema);
+                throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", schema);
             }
             return immediateFuture(null);
         }
 
-        accessControl.checkCanDropSchema(session.getRequiredTransactionId(), session.getIdentity(), schema);
+        accessControl.checkCanDropSchema(session.toSecurityContext(), schema);
 
         metadata.dropSchema(session, schema);
 

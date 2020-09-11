@@ -17,6 +17,8 @@ import com.google.common.base.StandardSystemProperty;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
@@ -30,14 +32,18 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
+@DefunctConfig("hive.s3.use-instance-credentials")
 public class HiveS3Config
 {
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
     private String s3Endpoint;
+    private PrestoS3StorageClass s3StorageClass = PrestoS3StorageClass.STANDARD;
     private PrestoS3SignerType s3SignerType;
+    private String s3SignerClass;
     private boolean s3PathStyleAccess;
-    private boolean s3UseInstanceCredentials = true;
+    private String s3IamRole;
+    private String s3ExternalId;
     private boolean s3SslEnabled = true;
     private boolean s3SseEnabled;
     private PrestoS3SseType s3SseType = PrestoS3SseType.S3;
@@ -52,11 +58,13 @@ public class HiveS3Config
     private Duration s3SocketTimeout = new Duration(5, TimeUnit.SECONDS);
     private int s3MaxConnections = 500;
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
-    private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
-    private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
+    private DataSize s3MultipartMinFileSize = DataSize.of(16, MEGABYTE);
+    private DataSize s3MultipartMinPartSize = DataSize.of(5, MEGABYTE);
     private boolean pinS3ClientToCurrentRegion;
     private String s3UserAgentPrefix = "";
     private PrestoS3AclType s3AclType = PrestoS3AclType.PRIVATE;
+    private boolean skipGlacierObjects;
+    private boolean requesterPaysEnabled;
 
     public String getS3AwsAccessKey()
     {
@@ -95,6 +103,20 @@ public class HiveS3Config
         return this;
     }
 
+    @NotNull
+    public PrestoS3StorageClass getS3StorageClass()
+    {
+        return s3StorageClass;
+    }
+
+    @Config("hive.s3.storage-class")
+    @ConfigDescription("AWS S3 storage class to use when writing the data")
+    public HiveS3Config setS3StorageClass(PrestoS3StorageClass s3StorageClass)
+    {
+        this.s3StorageClass = s3StorageClass;
+        return this;
+    }
+
     public PrestoS3SignerType getS3SignerType()
     {
         return s3SignerType;
@@ -104,6 +126,18 @@ public class HiveS3Config
     public HiveS3Config setS3SignerType(PrestoS3SignerType s3SignerType)
     {
         this.s3SignerType = s3SignerType;
+        return this;
+    }
+
+    public String getS3SignerClass()
+    {
+        return s3SignerClass;
+    }
+
+    @Config("hive.s3.signer-class")
+    public HiveS3Config setS3SignerClass(String s3SignerClass)
+    {
+        this.s3SignerClass = s3SignerClass;
         return this;
     }
 
@@ -120,15 +154,29 @@ public class HiveS3Config
         return this;
     }
 
-    public boolean isS3UseInstanceCredentials()
+    public String getS3IamRole()
     {
-        return s3UseInstanceCredentials;
+        return s3IamRole;
     }
 
-    @Config("hive.s3.use-instance-credentials")
-    public HiveS3Config setS3UseInstanceCredentials(boolean s3UseInstanceCredentials)
+    @Config("hive.s3.iam-role")
+    @ConfigDescription("ARN of an IAM role to assume when connecting to S3")
+    public HiveS3Config setS3IamRole(String s3IamRole)
     {
-        this.s3UseInstanceCredentials = s3UseInstanceCredentials;
+        this.s3IamRole = s3IamRole;
+        return this;
+    }
+
+    public String getS3ExternalId()
+    {
+        return s3ExternalId;
+    }
+
+    @Config("hive.s3.external-id")
+    @ConfigDescription("External ID for the IAM role trust policy when connecting to S3")
+    public HiveS3Config setS3ExternalId(String s3ExternalId)
+    {
+        this.s3ExternalId = s3ExternalId;
         return this;
     }
 
@@ -306,6 +354,7 @@ public class HiveS3Config
     }
 
     @NotNull
+    @FileExists
     public File getS3StagingDirectory()
     {
         return s3StagingDirectory;
@@ -387,6 +436,30 @@ public class HiveS3Config
     public HiveS3Config setS3AclType(PrestoS3AclType s3AclType)
     {
         this.s3AclType = s3AclType;
+        return this;
+    }
+
+    public boolean isSkipGlacierObjects()
+    {
+        return skipGlacierObjects;
+    }
+
+    @Config("hive.s3.skip-glacier-objects")
+    public HiveS3Config setSkipGlacierObjects(boolean skipGlacierObjects)
+    {
+        this.skipGlacierObjects = skipGlacierObjects;
+        return this;
+    }
+
+    public boolean isRequesterPaysEnabled()
+    {
+        return requesterPaysEnabled;
+    }
+
+    @Config("hive.s3.requester-pays.enabled")
+    public HiveS3Config setRequesterPaysEnabled(boolean requesterPaysEnabled)
+    {
+        this.requesterPaysEnabled = requesterPaysEnabled;
         return this;
     }
 }

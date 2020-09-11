@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Shorts;
 import io.airlift.units.DataSize;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDate;
@@ -28,7 +29,9 @@ import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
@@ -39,9 +42,6 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.sql.Timestamp;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -64,24 +64,26 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Iterables.transform;
-import static io.prestosql.plugin.hive.parquet.ParquetTester.HIVE_STORAGE_TIME_ZONE;
 import static io.prestosql.plugin.hive.parquet.ParquetTester.insertNullEvery;
+import static io.prestosql.plugin.hive.parquet.ParquetTester.testMaxReadBytes;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
+import static io.prestosql.spi.type.Decimals.longTenToNth;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.RowType.field;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
-import static io.prestosql.tests.StructuralTestUtil.mapType;
+import static io.prestosql.testing.StructuralTestUtil.mapType;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -103,6 +105,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.apache.parquet.schema.MessageTypeParser.parseMessageType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestParquetReader
@@ -110,11 +113,12 @@ public abstract class AbstractTestParquetReader
     private static final int MAX_PRECISION_INT32 = toIntExact(maxPrecision(4));
     private static final int MAX_PRECISION_INT64 = toIntExact(maxPrecision(8));
 
+    @SuppressWarnings("FieldCanBeLocal")
     private Logger parquetLogger;
 
     private final ParquetTester tester;
 
-    public AbstractTestParquetReader(ParquetTester tester)
+    protected AbstractTestParquetReader(ParquetTester tester)
     {
         this.tester = tester;
     }
@@ -122,7 +126,7 @@ public abstract class AbstractTestParquetReader
     @BeforeClass
     public void setUp()
     {
-        assertEquals(DateTimeZone.getDefault(), HIVE_STORAGE_TIME_ZONE);
+        assertEquals(DateTimeZone.getDefault(), DateTimeZone.forID("America/Bahia_Banderas"));
 
         // Parquet has excessive logging at INFO level
         parquetLogger = Logger.getLogger("org.apache.parquet.hadoop");
@@ -152,7 +156,7 @@ public abstract class AbstractTestParquetReader
         int nestingLevel = ThreadLocalRandom.current().nextInt(1, 15);
         ObjectInspector objectInspector = getStandardListObjectInspector(javaIntObjectInspector);
         Type type = new ArrayType(INTEGER);
-        Iterable values = limit(cycle(asList(1, null, 3, null, 5, null, 7, null, null, null, 11, null, 13)), 3_210);
+        Iterable<?> values = limit(cycle(asList(1, null, 3, null, 5, null, 7, null, null, null, 11, null, 13)), 3_210);
         for (int i = 0; i < nestingLevel; i++) {
             values = createNullableTestArrays(values);
             objectInspector = getStandardListObjectInspector(objectInspector);
@@ -169,7 +173,7 @@ public abstract class AbstractTestParquetReader
         int nestingLevel = ThreadLocalRandom.current().nextInt(1, 15);
         ObjectInspector objectInspector = getStandardListObjectInspector(javaIntObjectInspector);
         Type type = new ArrayType(INTEGER);
-        Iterable values = intsBetween(0, 31_234);
+        Iterable<?> values = intsBetween(0, 31_234);
         for (int i = 0; i < nestingLevel; i++) {
             values = createTestArrays(values);
             objectInspector = getStandardListObjectInspector(objectInspector);
@@ -183,8 +187,8 @@ public abstract class AbstractTestParquetReader
     public void testArrayOfStructs()
             throws Exception
     {
-        Iterable<List> structs = createNullableTestStructs(transform(intsBetween(0, 31_234), Object::toString), longsBetween(0, 31_234));
-        Iterable<List<List>> values = createTestArrays(structs);
+        Iterable<List<?>> structs = createNullableTestStructs(transform(intsBetween(0, 31_234), Object::toString), longsBetween(0, 31_234));
+        Iterable<List<List<?>>> values = createTestArrays(structs);
         List<String> structFieldNames = asList("stringField", "longField");
         Type structType = RowType.from(asList(field("stringField", VARCHAR), field("longField", BIGINT)));
         tester.testRoundTrip(
@@ -209,8 +213,8 @@ public abstract class AbstractTestParquetReader
         Iterable<Boolean> bValues = limit(cycle(asList(null, true, false, null, null, true, false)), 30_000);
         Iterable<String> cValues = transform(intsBetween(0, 31_234), Object::toString);
 
-        Iterable<List> structs = createTestStructs(aValues, bValues, cValues);
-        Iterable<List<List>> values = createTestArrays(structs);
+        Iterable<List<?>> structs = createTestStructs(aValues, bValues, cValues);
+        Iterable<List<List<?>>> values = createTestArrays(structs);
         List<String> structFieldNames = asList("a", "b", "c");
         Type structType = RowType.from(asList(field("a", BIGINT), field("b", BOOLEAN), field("c", VARCHAR)));
         tester.testSingleLevelArrayRoundTrip(
@@ -226,8 +230,8 @@ public abstract class AbstractTestParquetReader
         Iterable<Boolean> bValues = limit(cycle(asList(null, true, false, null, null, true, false)), 30_000);
         Iterable<String> cValues = transform(intsBetween(0, 31_234), Object::toString);
 
-        Iterable<List> structs = createTestStructs(aValues, bValues, cValues);
-        Iterable<List<List>> values = createTestArrays(structs);
+        Iterable<List<?>> structs = createTestStructs(aValues, bValues, cValues);
+        Iterable<List<List<?>>> values = createTestArrays(structs);
         List<String> structFieldNames = asList("a", "b", "c");
         Type structType = RowType.from(asList(field("a", BIGINT), field("b", BOOLEAN), field("c", VARCHAR)));
         ObjectInspector objectInspector = getStandardListObjectInspector(getStandardStructObjectInspector(structFieldNames, asList(javaLongObjectInspector, javaBooleanObjectInspector, javaStringObjectInspector)));
@@ -239,11 +243,11 @@ public abstract class AbstractTestParquetReader
             throws Exception
     {
         Iterable<List<String>> stringArrayField = createNullableTestArrays(transform(intsBetween(0, 31_234), Object::toString));
-        Iterable<List> structs = createNullableTestStructs(stringArrayField, limit(cycle(asList(1, null, 3, 5, null, 7, 11, null, 17)), 31_234));
+        Iterable<List<?>> structs = createNullableTestStructs(stringArrayField, limit(cycle(asList(1, null, 3, 5, null, 7, 11, null, 17)), 31_234));
         List<String> structFieldNames = asList("stringArrayField", "intField");
         Type structType = RowType.from(asList(field("stringArrayField", new ArrayType(VARCHAR)), field("intField", INTEGER)));
-        Iterable<List<List>> arrays = createNullableTestArrays(structs);
-        Iterable<List<List<List>>> values = createTestArrays(arrays);
+        Iterable<List<List<?>>> arrays = createNullableTestArrays(structs);
+        Iterable<List<List<List<?>>>> values = createTestArrays(arrays);
         tester.testRoundTrip(
                 getStandardListObjectInspector(
                         getStandardListObjectInspector(
@@ -258,11 +262,11 @@ public abstract class AbstractTestParquetReader
             throws Exception
     {
         Iterable<List<String>> stringArrayField = createNullableTestArrays(transform(intsBetween(0, 31_234), Object::toString));
-        Iterable<List> structs = createTestStructs(stringArrayField, limit(cycle(asList(1, null, 3, 5, null, 7, 11, null, 17)), 31_234));
+        Iterable<List<?>> structs = createTestStructs(stringArrayField, limit(cycle(asList(1, null, 3, 5, null, 7, 11, null, 17)), 31_234));
         List<String> structFieldNames = asList("stringArrayField", "intField");
         Type structType = RowType.from(asList(field("stringArrayField", new ArrayType(VARCHAR)), field("intField", INTEGER)));
-        Iterable<List<List>> arrays = createTestArrays(structs);
-        Iterable<List<List<List>>> values = createTestArrays(arrays);
+        Iterable<List<List<?>>> arrays = createTestArrays(structs);
+        Iterable<List<List<List<?>>>> values = createTestArrays(arrays);
         tester.testSingleLevelArraySchemaRoundTrip(
                 getStandardListObjectInspector(
                         getStandardListObjectInspector(
@@ -277,10 +281,10 @@ public abstract class AbstractTestParquetReader
             throws Exception
     {
         Iterable<List<String>> stringArrayField = createNullableTestArrays(transform(intsBetween(0, 31_234), Object::toString));
-        Iterable<List> structs = createNullableTestStructs(stringArrayField, limit(cycle(asList(1, 3, null, 5, 7, null, 11, 13, null, 17)), 31_234));
+        Iterable<List<?>> structs = createNullableTestStructs(stringArrayField, limit(cycle(asList(1, 3, null, 5, 7, null, 11, 13, null, 17)), 31_234));
         List<String> structFieldNames = asList("stringArrayField", "intField");
         Type structType = RowType.from(asList(field("stringArrayField", new ArrayType(VARCHAR)), field("intField", INTEGER)));
-        Iterable<List<List>> values = createTestArrays(structs);
+        Iterable<List<List<?>>> values = createTestArrays(structs);
         tester.testRoundTrip(
                 getStandardListObjectInspector(
                         getStandardStructObjectInspector(
@@ -294,10 +298,10 @@ public abstract class AbstractTestParquetReader
             throws Exception
     {
         Iterable<List<String>> stringArrayField = createNullableTestArrays(transform(intsBetween(0, 31_234), Object::toString));
-        Iterable<List> structs = createTestStructs(stringArrayField, limit(cycle(asList(1, 3, null, 5, 7, null, 11, 13, null, 17)), 31_234));
+        Iterable<List<?>> structs = createTestStructs(stringArrayField, limit(cycle(asList(1, 3, null, 5, 7, null, 11, 13, null, 17)), 31_234));
         List<String> structFieldNames = asList("stringArrayField", "intField");
         Type structType = RowType.from(asList(field("stringArrayField", new ArrayType(VARCHAR)), field("intField", INTEGER)));
-        Iterable<List<List>> values = createTestArrays(structs);
+        Iterable<List<List<?>>> values = createTestArrays(structs);
         tester.testSingleLevelArraySchemaRoundTrip(
                 getStandardListObjectInspector(
                         getStandardStructObjectInspector(
@@ -320,7 +324,7 @@ public abstract class AbstractTestParquetReader
     {
         int nestingLevel = ThreadLocalRandom.current().nextInt(1, 15);
         Iterable<Integer> keys = intsBetween(0, 3_210);
-        Iterable maps = limit(cycle(asList(null, "value2", "value3", null, null, "value6", "value7")), 3_210);
+        Iterable<?> maps = limit(cycle(asList(null, "value2", "value3", null, null, "value6", "value7")), 3_210);
         ObjectInspector objectInspector = getStandardMapObjectInspector(javaIntObjectInspector, javaStringObjectInspector);
         Type type = mapType(INTEGER, VARCHAR);
         for (int i = 0; i < nestingLevel; i++) {
@@ -357,11 +361,11 @@ public abstract class AbstractTestParquetReader
             throws Exception
     {
         Iterable<Integer> keys = intsBetween(0, 10_000);
-        Iterable<List> structs = createNullableTestStructs(transform(intsBetween(0, 10_000), Object::toString), longsBetween(0, 10_000));
+        Iterable<List<?>> structs = createNullableTestStructs(transform(intsBetween(0, 10_000), Object::toString), longsBetween(0, 10_000));
         List<String> structFieldNames = asList("stringField", "longField");
         Type structType = RowType.from(asList(field("stringField", VARCHAR), field("longField", BIGINT)));
-        Iterable<Map<Integer, List>> maps = createNullableTestMaps(keys, structs);
-        List<List<Map<Integer, List>>> values = createTestArrays(maps);
+        Iterable<Map<Integer, List<?>>> maps = createNullableTestMaps(keys, structs);
+        List<List<Map<Integer, List<?>>>> values = createTestArrays(maps);
         tester.testRoundTrip(getStandardListObjectInspector(
                 getStandardMapObjectInspector(
                         javaIntObjectInspector,
@@ -374,11 +378,11 @@ public abstract class AbstractTestParquetReader
             throws Exception
     {
         Iterable<Integer> keys = intsBetween(0, 10_000);
-        Iterable<List> structs = createNullableTestStructs(transform(intsBetween(0, 10_000), Object::toString), longsBetween(0, 10_000));
+        Iterable<List<?>> structs = createNullableTestStructs(transform(intsBetween(0, 10_000), Object::toString), longsBetween(0, 10_000));
         List<String> structFieldNames = asList("stringField", "longField");
         Type structType = RowType.from(asList(field("stringField", VARCHAR), field("longField", BIGINT)));
-        Iterable<Map<Integer, List>> maps = createTestMaps(keys, structs);
-        List<List<Map<Integer, List>>> values = createTestArrays(maps);
+        Iterable<Map<Integer, List<?>>> maps = createTestMaps(keys, structs);
+        List<List<Map<Integer, List<?>>>> values = createTestArrays(maps);
         tester.testSingleLevelArraySchemaRoundTrip(getStandardListObjectInspector(
                 getStandardMapObjectInspector(
                         javaIntObjectInspector,
@@ -390,8 +394,8 @@ public abstract class AbstractTestParquetReader
     public void testSingleLevelArrayOfStructOfSingleElement()
             throws Exception
     {
-        Iterable<List> structs = createTestStructs(transform(intsBetween(0, 31_234), Object::toString));
-        Iterable<List<List>> values = createTestArrays(structs);
+        Iterable<List<?>> structs = createTestStructs(transform(intsBetween(0, 31_234), Object::toString));
+        Iterable<List<List<?>>> values = createTestArrays(structs);
         List<String> structFieldNames = singletonList("test");
         Type structType = RowType.from(singletonList(field("test", VARCHAR)));
         tester.testRoundTrip(
@@ -406,9 +410,9 @@ public abstract class AbstractTestParquetReader
     public void testSingleLevelArrayOfStructOfStructOfSingleElement()
             throws Exception
     {
-        Iterable<List> structs = createTestStructs(transform(intsBetween(0, 31_234), Object::toString));
-        Iterable<List> structsOfStructs = createTestStructs(structs);
-        Iterable<List<List>> values = createTestArrays(structsOfStructs);
+        Iterable<List<?>> structs = createTestStructs(transform(intsBetween(0, 31_234), Object::toString));
+        Iterable<List<?>> structsOfStructs = createTestStructs(structs);
+        Iterable<List<List<?>>> values = createTestArrays(structsOfStructs);
         List<String> structFieldNames = singletonList("test");
         List<String> structsOfStructsFieldNames = singletonList("test");
         Type structType = RowType.from(singletonList(field("test", VARCHAR)));
@@ -485,10 +489,10 @@ public abstract class AbstractTestParquetReader
             throws Exception
     {
         Iterable<Long> keys = longsBetween(0, 30_000);
-        Iterable<List> structs = createNullableTestStructs(transform(intsBetween(0, 30_000), Object::toString), longsBetween(0, 30_000));
+        Iterable<List<?>> structs = createNullableTestStructs(transform(intsBetween(0, 30_000), Object::toString), longsBetween(0, 30_000));
         List<String> structFieldNames = asList("stringField", "longField");
         Type structType = RowType.from(asList(field("stringField", VARCHAR), field("longField", BIGINT)));
-        Iterable<Map<Long, List>> values = createTestMaps(keys, structs);
+        Iterable<Map<Long, List<?>>> values = createTestMaps(keys, structs);
         tester.testRoundTrip(getStandardMapObjectInspector(
                 javaLongObjectInspector,
                 getStandardStructObjectInspector(structFieldNames, asList(javaStringObjectInspector, javaLongObjectInspector))),
@@ -509,7 +513,7 @@ public abstract class AbstractTestParquetReader
     public void testStruct()
             throws Exception
     {
-        List<List> values = createTestStructs(transform(intsBetween(0, 31_234), Object::toString), longsBetween(0, 31_234));
+        List<List<?>> values = createTestStructs(transform(intsBetween(0, 31_234), Object::toString), longsBetween(0, 31_234));
         List<String> structFieldNames = asList("stringField", "longField");
         Type structType = RowType.from(asList(field("stringField", VARCHAR), field("longField", BIGINT)));
         tester.testRoundTrip(getStandardStructObjectInspector(structFieldNames, asList(javaStringObjectInspector, javaLongObjectInspector)), values, values, structType);
@@ -537,7 +541,7 @@ public abstract class AbstractTestParquetReader
     public void testComplexNestedStructs()
             throws Exception
     {
-        final int n = 30;
+        int n = 30;
         Iterable<Integer> mapKeys = intsBetween(0, n);
         Iterable<Integer> intPrimitives = limit(cycle(asList(1, null, 3, null, 5, null, 7, null, null, null, 11, null, 13)), n);
         Iterable<String> stringPrimitives = limit(cycle(asList(null, "value2", "value3", null, null, "value6", "value7")), n);
@@ -623,7 +627,7 @@ public abstract class AbstractTestParquetReader
         Iterable<String> stringPrimitives = limit(cycle(asList(null, "value2", "value3", null, null, "value6", "value7")), 10_000);
         Iterable<Map<Integer, String>> maps = createNullableTestMaps(mapKeys, stringPrimitives);
         Iterable<List<String>> stringArrayField = createNullableTestArrays(stringPrimitives);
-        List<List> values = createTestStructs(maps, stringArrayField, intPrimitives);
+        List<List<?>> values = createTestStructs(maps, stringArrayField, intPrimitives);
         List<String> structFieldNames = asList("mapIntStringField", "stringArrayField", "intField");
 
         Type structType = RowType.from(asList(field("mapIntStringField", mapType(INTEGER, VARCHAR)), field("stringArrayField", new ArrayType(VARCHAR)), field("intField", INTEGER)));
@@ -642,7 +646,7 @@ public abstract class AbstractTestParquetReader
         Iterable<Integer> intPrimitives = intsBetween(0, 10_000);
         Iterable<String> stringPrimitives = limit(cycle(asList(null, "value2", "value3", null, null, "value6", "value7")), 10_000);
         Iterable<Map<Integer, String>> maps = createNullableTestMaps(intPrimitives, stringPrimitives);
-        List<List> values = createTestStructs(intPrimitives, maps, intPrimitives);
+        List<List<?>> values = createTestStructs(intPrimitives, maps, intPrimitives);
         List<String> structFieldNames = asList("intField1", "mapIntStringField", "intField2");
 
         Type structType = RowType.from(asList(field("intField1", INTEGER), field("mapIntStringField", mapType(INTEGER, VARCHAR)), field("intField2", INTEGER)));
@@ -661,7 +665,7 @@ public abstract class AbstractTestParquetReader
         Iterable<Integer> intPrimitives = intsBetween(0, 10_000);
         Iterable<String> stringPrimitives = limit(cycle(asList(null, "value2", "value3", null, null, "value6", "value7")), 10_000);
         Iterable<List<String>> stringArrayField = createNullableTestArrays(stringPrimitives);
-        List<List> values = createTestStructs(intPrimitives, stringArrayField, intPrimitives);
+        List<List<?>> values = createTestStructs(intPrimitives, stringArrayField, intPrimitives);
         List<String> structFieldNames = asList("intField1", "arrayStringField", "intField2");
 
         Type structType = RowType.from(asList(field("intField1", INTEGER), field("arrayStringField", new ArrayType(VARCHAR)), field("intField2", INTEGER)));
@@ -678,7 +682,7 @@ public abstract class AbstractTestParquetReader
             throws Exception
     {
         Iterable<List<String>> stringArrayField = createNullableTestArrays(transform(intsBetween(0, 31_234), Object::toString));
-        List<List> values = createTestStructs(stringArrayField, limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 31_234));
+        List<List<?>> values = createTestStructs(stringArrayField, limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 31_234));
         List<String> structFieldNames = asList("stringArrayField", "intField");
 
         Type structType = RowType.from(asList(field("stringArrayField", new ArrayType(VARCHAR)), field("intField", INTEGER)));
@@ -691,7 +695,7 @@ public abstract class AbstractTestParquetReader
             throws Exception
     {
         Iterable<List<String>> stringArrayField = createNullableTestArrays(transform(intsBetween(0, 31_234), Object::toString));
-        List<List> values = createTestStructs(stringArrayField, limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 31_234));
+        List<List<?>> values = createTestStructs(stringArrayField, limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 31_234));
         List<String> structFieldNames = asList("stringArrayField", "intField");
 
         Type structType = RowType.from(asList(field("stringArrayField", new ArrayType(VARCHAR)), field("intField", INTEGER)));
@@ -705,7 +709,7 @@ public abstract class AbstractTestParquetReader
     {
         Iterable<List<String>> stringArrayField = createNullableTestArrays(transform(intsBetween(0, 31_234), Object::toString));
         Iterable<Integer> intField = limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 31_234);
-        List<List> values = createTestStructs(intField, stringArrayField);
+        List<List<?>> values = createTestStructs(intField, stringArrayField);
         List<String> structFieldNames = asList("intField", "stringArrayField");
 
         Type structType = RowType.from(asList(field("intField", INTEGER), field("stringArrayField", new ArrayType(VARCHAR))));
@@ -719,7 +723,7 @@ public abstract class AbstractTestParquetReader
     {
         Iterable<List<String>> stringArrayField = createNullableTestArrays(transform(intsBetween(0, 31_234), Object::toString));
         Iterable<Integer> intField = limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 31_234);
-        List<List> values = createTestStructs(intField, stringArrayField);
+        List<List<?>> values = createTestStructs(intField, stringArrayField);
         List<String> structFieldNames = asList("intField", "stringArrayField");
 
         Type structType = RowType.from(asList(field("intField", INTEGER), field("stringArrayField", new ArrayType(VARCHAR))));
@@ -733,7 +737,7 @@ public abstract class AbstractTestParquetReader
     {
         Iterable<List<Integer>> intArrayField = createNullableTestArrays(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000));
         Iterable<List<String>> stringArrayField = createNullableTestArrays(transform(intsBetween(0, 30_000), Object::toString));
-        List<List> values = createTestStructs(stringArrayField, intArrayField);
+        List<List<?>> values = createTestStructs(stringArrayField, intArrayField);
         List<String> structFieldNames = asList("stringArrayField", "intArrayField");
 
         Type structType = RowType.from(asList(field("stringArrayField", new ArrayType(VARCHAR)), field("intArrayField", new ArrayType(INTEGER))));
@@ -747,7 +751,7 @@ public abstract class AbstractTestParquetReader
     {
         Iterable<List<List<Integer>>> intArrayField = createNullableTestArrays(createNullableTestArrays(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)));
         Iterable<List<List<String>>> stringArrayField = createNullableTestArrays(createNullableTestArrays(transform(intsBetween(0, 31_234), Object::toString)));
-        List<List> values = createTestStructs(stringArrayField, intArrayField);
+        List<List<?>> values = createTestStructs(stringArrayField, intArrayField);
         List<String> structFieldNames = asList("stringArrayField", "intArrayField");
         Type structType = RowType.from(asList(field("stringArrayField", new ArrayType(new ArrayType(VARCHAR))), field("intArrayField", new ArrayType(new ArrayType(INTEGER)))));
         tester.testRoundTrip(getStandardStructObjectInspector(structFieldNames,
@@ -763,7 +767,7 @@ public abstract class AbstractTestParquetReader
     {
         Iterable<List<List<Integer>>> intArrayField = createNullableTestArrays(createTestArrays(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)));
         Iterable<List<List<String>>> stringArrayField = createNullableTestArrays(createTestArrays(transform(intsBetween(0, 31_234), Object::toString)));
-        List<List> values = createTestStructs(stringArrayField, intArrayField);
+        List<List<?>> values = createTestStructs(stringArrayField, intArrayField);
         List<String> structFieldNames = asList("stringArrayField", "intArrayField");
 
         Type structType = RowType.from(asList(field("stringArrayField", new ArrayType(new ArrayType(VARCHAR))), field("intArrayField", new ArrayType(new ArrayType(INTEGER)))));
@@ -838,15 +842,16 @@ public abstract class AbstractTestParquetReader
     public void testDecimalBackedByINT32()
             throws Exception
     {
-        for (int precision = 1; precision <= MAX_PRECISION_INT32; precision++) {
+        for (int precision = 4; precision <= MAX_PRECISION_INT32; precision++) {
             int scale = ThreadLocalRandom.current().nextInt(precision);
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT32 test (DECIMAL(%d, %d)); }", precision, scale));
-            ContiguousSet<Integer> intValues = intsBetween(1, 1_000);
+            ContiguousSet<Integer> intValues = intsBetween(-1_000, 1_000);
             ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
             for (Integer value : intValues) {
                 expectedValues.add(SqlDecimal.of(value, precision, scale));
             }
             tester.testRoundTrip(javaIntObjectInspector, intValues, expectedValues.build(), createDecimalType(precision, scale), Optional.of(parquetSchema));
+            tester.testRoundTrip(javaIntObjectInspector, intValues, expectedValues.build(), createDecimalType(MAX_PRECISION, scale), Optional.of(parquetSchema));
         }
     }
 
@@ -854,25 +859,34 @@ public abstract class AbstractTestParquetReader
     public void testDecimalBackedByINT64()
             throws Exception
     {
-        for (int precision = MAX_PRECISION_INT32 + 1; precision <= MAX_PRECISION_INT64; precision++) {
+        for (int precision = 4; precision <= MAX_PRECISION_INT64; precision++) {
             int scale = ThreadLocalRandom.current().nextInt(precision);
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, scale));
-            ContiguousSet<Long> longValues = longsBetween(1, 1_000);
+            ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
             ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
             for (Long value : longValues) {
                 expectedValues.add(SqlDecimal.of(value, precision, scale));
             }
             tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), createDecimalType(precision, scale), Optional.of(parquetSchema));
+            tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), createDecimalType(MAX_PRECISION, scale), Optional.of(parquetSchema));
         }
+    }
+
+    @Test
+    public void testParquetShortDecimalWriteToPrestoDecimalWithNonMatchingScale()
+            throws Exception
+    {
+        MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", 10, 1));
+        tester.testRoundTrip(javaLongObjectInspector, ImmutableList.of(10L), ImmutableList.of(SqlDecimal.of(100L, 10, 2)), createDecimalType(10, 2), Optional.of(parquetSchema));
     }
 
     @Test
     public void testDecimalBackedByFixedLenByteArray()
             throws Exception
     {
-        for (int precision = MAX_PRECISION_INT64 + 1; precision < MAX_PRECISION; precision++) {
+        for (int precision = 1; precision < MAX_PRECISION; precision++) {
             int scale = ThreadLocalRandom.current().nextInt(precision);
-            ContiguousSet<BigInteger> values = bigIntegersBetween(BigDecimal.valueOf(Math.pow(10, precision - 1)).toBigInteger(), BigDecimal.valueOf(Math.pow(10, precision)).toBigInteger());
+            ContiguousSet<BigInteger> values = bigIntegersBetween(BigDecimal.valueOf(Math.pow(10, precision - 1)).negate().toBigInteger(), BigDecimal.valueOf(Math.pow(10, precision)).toBigInteger());
             ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
             ImmutableList.Builder<HiveDecimal> writeValues = new ImmutableList.Builder<>();
             for (BigInteger value : limit(values, 1_000)) {
@@ -883,7 +897,92 @@ public abstract class AbstractTestParquetReader
                     writeValues.build(),
                     expectedValues.build(),
                     createDecimalType(precision, scale));
+            tester.testRoundTrip(new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(precision, scale)),
+                    writeValues.build(),
+                    expectedValues.build(),
+                    createDecimalType(MAX_PRECISION, scale));
         }
+    }
+
+    @Test
+    public void testParquetLongDecimalWriteToPrestoDecimalWithNonMatchingScale()
+            throws Exception
+    {
+        tester.testRoundTrip(
+                new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(38, 10)),
+                ImmutableList.of(HiveDecimal.create(100 * longTenToNth(10), 10)),
+                ImmutableList.of(new SqlDecimal(BigInteger.valueOf(100 * longTenToNth(9)), 38, 9)),
+                createDecimalType(38, 9));
+    }
+
+    @Test
+    public void testParquetShortDecimalWriteToPrestoTinyintBlock()
+            throws Exception
+    {
+        for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, 0));
+            ContiguousSet<Long> longValues = longsBetween(Byte.MIN_VALUE, Byte.MAX_VALUE);
+            ImmutableList.Builder<Byte> expectedValues = new ImmutableList.Builder<>();
+            for (Long value : longValues) {
+                expectedValues.add(value.byteValue());
+            }
+            tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), TINYINT, Optional.of(parquetSchema));
+        }
+    }
+
+    @Test
+    public void testParquetShortDecimalWriteToPrestoSmallintBlock()
+            throws Exception
+    {
+        for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, 0));
+            ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
+            ImmutableList.Builder<Short> expectedValues = new ImmutableList.Builder<>();
+            for (Long value : longValues) {
+                expectedValues.add(value.shortValue());
+            }
+            tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), SMALLINT, Optional.of(parquetSchema));
+        }
+    }
+
+    @Test
+    public void testParquetShortDecimalWriteToPrestoIntegerBlock()
+            throws Exception
+    {
+        for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, 0));
+            ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
+            ImmutableList.Builder<Integer> expectedValues = new ImmutableList.Builder<>();
+            for (Long value : longValues) {
+                expectedValues.add(value.intValue());
+            }
+            tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), INTEGER, Optional.of(parquetSchema));
+        }
+    }
+
+    @Test
+    public void testParquetShortDecimalWriteToPrestoBigintBlock()
+            throws Exception
+    {
+        for (int precision = 4; precision <= MAX_PRECISION_INT64; precision++) {
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, 0));
+            ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
+            ImmutableList.Builder<Long> expectedValues = new ImmutableList.Builder<>();
+            for (Long value : longValues) {
+                expectedValues.add(value);
+            }
+            tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), BIGINT, Optional.of(parquetSchema));
+        }
+    }
+
+    @Test
+    public void testParquetShortDecimalWriteToPrestoBigintBlockWithNonZeroScale()
+    {
+        assertThatThrownBy(() -> {
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", 10, 1));
+            tester.testRoundTrip(javaLongObjectInspector, ImmutableList.of(1L), ImmutableList.of(1L), BIGINT, Optional.of(parquetSchema));
+        }).hasMessage("Unsupported Presto column type (bigint) for Parquet column ([test] optional int64 test (DECIMAL(10,1)))")
+                .isInstanceOf(PrestoException.class);
     }
 
     @Test
@@ -913,9 +1012,9 @@ public abstract class AbstractTestParquetReader
         Iterable<List<String>> ownerPhoneNumbers = limit(cycle(asList(null, asList("phoneNumber2", "phoneNumber3", null), asList(null, "phoneNumber6", "phoneNumber7"))), 50_000);
         Iterable<String> name = asList("name1", "name2", "name3", "name4", "name5", "name6", "name7");
         Iterable<String> phoneNumber = asList(null, "phoneNumber2", "phoneNumber3", null, null, "phoneNumber6", "phoneNumber7");
-        Iterable<List> contact = createNullableTestStructs(name, phoneNumber);
-        Iterable<List<List>> contacts = createNullableTestArrays(limit(cycle(contact), 50_000));
-        List<List> values = createTestStructs(owner, ownerPhoneNumbers, contacts);
+        Iterable<List<?>> contact = createNullableTestStructs(name, phoneNumber);
+        Iterable<List<List<?>>> contacts = createNullableTestArrays(limit(cycle(contact), 50_000));
+        List<List<?>> values = createTestStructs(owner, ownerPhoneNumbers, contacts);
         List<String> addressBookFieldNames = asList("owner", "owner_phone_numbers", "contacts");
         List<String> contactsFieldNames = asList("name", "phone_number");
         Type contactsType = new ArrayType(RowType.from(asList(field("name", VARCHAR), field("phone_number", VARCHAR))));
@@ -946,9 +1045,9 @@ public abstract class AbstractTestParquetReader
         Type bType = RowType.from(singletonList(field("c", cType)));
         Type aType = RowType.from(singletonList(field("b", bType)));
         Iterable<String> dValues = asList("d1", "d2", "d3", "d4", "d5", "d6", "d7");
-        Iterable<List> cValues = createNullableTestStructs(dValues);
-        Iterable<List> bValues = createNullableTestStructs(cValues);
-        List<List> aValues = createTestStructs(bValues);
+        Iterable<List<?>> cValues = createNullableTestStructs(dValues);
+        Iterable<List<?>> bValues = createNullableTestStructs(cValues);
+        List<List<?>> aValues = createTestStructs(bValues);
         ObjectInspector cInspector = getStandardStructObjectInspector(singletonList("d"), singletonList(javaStringObjectInspector));
         ObjectInspector bInspector = getStandardStructObjectInspector(singletonList("c"), singletonList(cInspector));
         ObjectInspector aInspector = getStandardStructObjectInspector(singletonList("b"), singletonList(bInspector));
@@ -972,9 +1071,9 @@ public abstract class AbstractTestParquetReader
         Type bType = RowType.from(singletonList(field("c", cType)));
         Type aType = RowType.from(singletonList(field("b", bType)));
         Iterable<Integer> dValues = asList(111, null, 333, 444, null, 666, 777);
-        List<List> cValues = createTestStructs(dValues);
-        Iterable<List> bValues = createNullableTestStructs(cValues);
-        List<List> aValues = createTestStructs(bValues);
+        List<List<?>> cValues = createTestStructs(dValues);
+        Iterable<List<?>> bValues = createNullableTestStructs(cValues);
+        List<List<?>> aValues = createTestStructs(bValues);
         ObjectInspector cInspector = getStandardStructObjectInspector(singletonList("d"), singletonList(javaIntObjectInspector));
         ObjectInspector bInspector = getStandardStructObjectInspector(singletonList("c"), singletonList(cInspector));
         ObjectInspector aInspector = getStandardStructObjectInspector(singletonList("b"), singletonList(bInspector));
@@ -998,9 +1097,9 @@ public abstract class AbstractTestParquetReader
         Type bType = RowType.from(singletonList(field("c", cType)));
         Type aType = RowType.from(singletonList(field("b", bType)));
         Iterable<Integer> dValues = asList(111, null, 333, 444, null, 666, 777);
-        List<List> cValues = createTestStructs(dValues);
-        List<List> bValues = createTestStructs(cValues);
-        List<List> aValues = createTestStructs(bValues);
+        List<List<?>> cValues = createTestStructs(dValues);
+        List<List<?>> bValues = createTestStructs(cValues);
+        List<List<?>> aValues = createTestStructs(bValues);
         ObjectInspector cInspector = getStandardStructObjectInspector(singletonList("d"), singletonList(javaIntObjectInspector));
         ObjectInspector bInspector = getStandardStructObjectInspector(singletonList("c"), singletonList(cInspector));
         ObjectInspector aInspector = getStandardStructObjectInspector(singletonList("b"), singletonList(bInspector));
@@ -1024,9 +1123,9 @@ public abstract class AbstractTestParquetReader
         Type bType = RowType.from(singletonList(field("c", cType)));
         Type aType = RowType.from(singletonList(field("b", bType)));
         Iterable<Integer> dValues = asList(111, null, 333, 444, null, 666, 777);
-        Iterable<List> cValues = createNullableTestStructs(dValues);
-        List<List> bValues = createTestStructs(cValues);
-        List<List> aValues = createTestStructs(bValues);
+        Iterable<List<?>> cValues = createNullableTestStructs(dValues);
+        List<List<?>> bValues = createTestStructs(cValues);
+        List<List<?>> aValues = createTestStructs(bValues);
         ObjectInspector cInspector = getStandardStructObjectInspector(singletonList("d"), singletonList(javaIntObjectInspector));
         ObjectInspector bInspector = getStandardStructObjectInspector(singletonList("c"), singletonList(cInspector));
         ObjectInspector aInspector = getStandardStructObjectInspector(singletonList("b"), singletonList(bInspector));
@@ -1050,9 +1149,9 @@ public abstract class AbstractTestParquetReader
         Type bType = RowType.from(singletonList(field("c", cType)));
         Type aType = RowType.from(singletonList(field("b", bType)));
         Iterable<String> dValues = asList("d1", "d2", "d3", "d4", "d5", "d6", "d7");
-        Iterable<List> cValues = createNullableTestStructs(dValues);
-        List<List> bValues = createTestStructs(cValues);
-        List<List> aValues = createTestStructs(bValues);
+        Iterable<List<?>> cValues = createNullableTestStructs(dValues);
+        List<List<?>> bValues = createTestStructs(cValues);
+        List<List<?>> aValues = createTestStructs(bValues);
         ObjectInspector cInspector = getStandardStructObjectInspector(singletonList("d"), singletonList(javaStringObjectInspector));
         ObjectInspector bInspector = getStandardStructObjectInspector(singletonList("c"), singletonList(cInspector));
         ObjectInspector aInspector = getStandardStructObjectInspector(singletonList("b"), singletonList(bInspector));
@@ -1077,8 +1176,8 @@ public abstract class AbstractTestParquetReader
         Iterable<String> cValues = limit(cycle(asList("c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7")), 30000);
         Iterable<Integer> dValues = intsBetween(0, 30000);
         Iterable<String> eValues = limit(cycle(asList("e0", "e1", "e2", "e3", "e4", "e5", "e6", "e7")), 30000);
-        List<List> bValues = createTestStructs(cValues, dValues);
-        List<List> aValues = createTestStructs(bValues, eValues);
+        List<List<?>> bValues = createTestStructs(cValues, dValues);
+        List<List<?>> aValues = createTestStructs(bValues, eValues);
         ObjectInspector bInspector = getStandardStructObjectInspector(asList("c", "d"), asList(javaStringObjectInspector, javaIntObjectInspector));
         ObjectInspector aInspector = getStandardStructObjectInspector(asList("b", "e"), asList(bInspector, javaStringObjectInspector));
         tester.assertRoundTrip(singletonList(aInspector), new Iterable<?>[] {aValues}, new Iterable<?>[] {
@@ -1110,17 +1209,17 @@ public abstract class AbstractTestParquetReader
         Type bType = RowType.from(singletonList(field("c", cType)));
         Type aType = RowType.from(singletonList(field("b", bType)));
         Iterable<String> dValues = asList("d1", "d2", "d3", "d4", "d5", "d6", "d7");
-        Iterable<List> cValues = createNullableTestStructs(dValues);
-        List<List> bValues = createTestStructs(cValues);
-        List<List> aValues = createTestStructs(bValues);
+        Iterable<List<?>> cValues = createNullableTestStructs(dValues);
+        List<List<?>> bValues = createTestStructs(cValues);
+        List<List<?>> aValues = createTestStructs(bValues);
 
         Type gType = RowType.from(singletonList(field("h", VARCHAR)));
         Type fType = RowType.from(singletonList(field("g", gType)));
         Type eType = RowType.from(singletonList(field("f", fType)));
         Iterable<String> hValues = asList("h1", "h2", "h3", "h4", "h5", "h6", "h7");
-        Iterable<List> gValues = createNullableTestStructs(hValues);
-        List<List> fValues = createTestStructs(gValues);
-        List<List> eValues = createTestStructs(fValues);
+        Iterable<List<?>> gValues = createNullableTestStructs(hValues);
+        List<List<?>> fValues = createTestStructs(gValues);
+        List<List<?>> eValues = createTestStructs(fValues);
 
         ObjectInspector cInspector = getStandardStructObjectInspector(singletonList("d"), singletonList(javaStringObjectInspector));
         ObjectInspector bInspector = getStandardStructObjectInspector(singletonList("c"), singletonList(cInspector));
@@ -1348,7 +1447,7 @@ public abstract class AbstractTestParquetReader
         tester.testRoundTrip(javaTimestampObjectInspector,
                 transform(writeValues, AbstractTestParquetReader::intToTimestamp),
                 transform(writeValues, AbstractTestParquetReader::intToSqlTimestamp),
-                TIMESTAMP);
+                TIMESTAMP_MILLIS);
 
         tester.testRoundTrip(javaDateObjectInspector,
                 transform(writeValues, AbstractTestParquetReader::intToDate),
@@ -1464,7 +1563,7 @@ public abstract class AbstractTestParquetReader
 
     private static <T> Iterable<T> skipEvery(int n, Iterable<T> iterable)
     {
-        return () -> new AbstractIterator<T>()
+        return () -> new AbstractIterator<>()
         {
             private final Iterator<T> delegate = iterable.iterator();
             private int position;
@@ -1492,14 +1591,14 @@ public abstract class AbstractTestParquetReader
     public void testStructMaxReadBytes()
             throws Exception
     {
-        DataSize maxReadBlockSize = new DataSize(1_000, DataSize.Unit.BYTE);
-        List<List> structValues = createTestStructs(
+        DataSize maxReadBlockSize = DataSize.ofBytes(1_000);
+        List<List<?>> structValues = createTestStructs(
                 Collections.nCopies(500, join("", Collections.nCopies(33, "test"))),
                 Collections.nCopies(500, join("", Collections.nCopies(1, "test"))));
         List<String> structFieldNames = asList("a", "b");
         Type structType = RowType.from(asList(field("a", VARCHAR), field("b", VARCHAR)));
 
-        tester.testMaxReadBytes(
+        testMaxReadBytes(
                 getStandardStructObjectInspector(structFieldNames, asList(javaStringObjectInspector, javaStringObjectInspector)),
                 structValues,
                 structValues,
@@ -1511,23 +1610,23 @@ public abstract class AbstractTestParquetReader
     public void testArrayMaxReadBytes()
             throws Exception
     {
-        DataSize maxReadBlockSize = new DataSize(1_000, DataSize.Unit.BYTE);
+        DataSize maxReadBlockSize = DataSize.ofBytes(1_000);
         Iterable<List<Integer>> values = createFixedTestArrays(limit(cycle(asList(1, null, 3, 5, null, null, null, 7, 11, null, 13, 17)), 30_000));
-        tester.testMaxReadBytes(getStandardListObjectInspector(javaIntObjectInspector), values, values, new ArrayType(INTEGER), maxReadBlockSize);
+        testMaxReadBytes(getStandardListObjectInspector(javaIntObjectInspector), values, values, new ArrayType(INTEGER), maxReadBlockSize);
     }
 
     @Test
     public void testMapMaxReadBytes()
             throws Exception
     {
-        DataSize maxReadBlockSize = new DataSize(1_000, DataSize.Unit.BYTE);
+        DataSize maxReadBlockSize = DataSize.ofBytes(1_000);
         Iterable<Map<String, Long>> values = createFixedTestMaps(Collections.nCopies(5_000, join("", Collections.nCopies(33, "test"))), longsBetween(0, 5_000));
-        tester.testMaxReadBytes(getStandardMapObjectInspector(javaStringObjectInspector, javaLongObjectInspector), values, values, mapType(VARCHAR, BIGINT), maxReadBlockSize);
+        testMaxReadBytes(getStandardMapObjectInspector(javaStringObjectInspector, javaLongObjectInspector), values, values, mapType(VARCHAR, BIGINT), maxReadBlockSize);
     }
 
     private static <T> Iterable<T> repeatEach(int n, Iterable<T> iterable)
     {
-        return () -> new AbstractIterator<T>()
+        return () -> new AbstractIterator<>()
         {
             private final Iterator<T> delegate = iterable.iterator();
             private int position;
@@ -1564,7 +1663,7 @@ public abstract class AbstractTestParquetReader
 
     private static Iterable<Double> doubleSequence(double start, double step, int items)
     {
-        return () -> new AbstractSequentialIterator<Double>(start)
+        return () -> new AbstractSequentialIterator<>(start)
         {
             private int item;
 
@@ -1595,20 +1694,20 @@ public abstract class AbstractTestParquetReader
         return ContiguousSet.create(Range.closedOpen(lowerInclusive, upperExclusive), DiscreteDomain.bigIntegers());
     }
 
-    private <F> List<List> createTestStructs(Iterable<F> fieldValues)
+    private <F> List<List<?>> createTestStructs(Iterable<F> fieldValues)
     {
         checkArgument(fieldValues.iterator().hasNext(), "struct field values cannot be empty");
-        List<List> structs = new ArrayList<>();
+        List<List<?>> structs = new ArrayList<>();
         for (F field : fieldValues) {
             structs.add(singletonList(field));
         }
         return structs;
     }
 
-    private List<List> createTestStructs(Iterable<?>... values)
+    private List<List<?>> createTestStructs(Iterable<?>... values)
     {
-        List<List> structs = new ArrayList<>();
-        List<Iterator> iterators = Arrays.stream(values).map(Iterable::iterator).collect(Collectors.toList());
+        List<List<?>> structs = new ArrayList<>();
+        List<Iterator<?>> iterators = Arrays.stream(values).map(Iterable::iterator).collect(Collectors.toList());
         iterators.forEach(iter -> checkArgument(iter.hasNext(), "struct field values cannot be empty"));
         while (iterators.stream().allMatch(Iterator::hasNext)) {
             structs.add(iterators.stream().map(Iterator::next).collect(Collectors.toList()));
@@ -1616,7 +1715,7 @@ public abstract class AbstractTestParquetReader
         return structs;
     }
 
-    private Iterable<List> createNullableTestStructs(Iterable<?>... values)
+    private Iterable<List<?>> createNullableTestStructs(Iterable<?>... values)
     {
         return insertNullEvery(ThreadLocalRandom.current().nextInt(2, 5), createTestStructs(values));
     }
@@ -1714,7 +1813,7 @@ public abstract class AbstractTestParquetReader
         if (input == null) {
             return null;
         }
-        return input.byteValue();
+        return (byte) (input & 0xFF);
     }
 
     private static Short intToShort(Integer input)
@@ -1774,7 +1873,6 @@ public abstract class AbstractTestParquetReader
         if (input == null) {
             return null;
         }
-        Timestamp timestamp = new Timestamp(0);
         long seconds = (input / 1000);
         int nanos = ((input % 1000) * 1_000_000);
 
@@ -1789,9 +1887,7 @@ public abstract class AbstractTestParquetReader
             nanos -= 1_000_000_000;
             seconds += 1;
         }
-        timestamp.setTime(seconds * 1000);
-        timestamp.setNanos(nanos);
-        return timestamp;
+        return Timestamp.ofEpochSecond(seconds, nanos);
     }
 
     private static SqlTimestamp intToSqlTimestamp(Integer input)
@@ -1799,7 +1895,7 @@ public abstract class AbstractTestParquetReader
         if (input == null) {
             return null;
         }
-        return sqlTimestampOf(input, SESSION);
+        return sqlTimestampOf((long) input);
     }
 
     private static Date intToDate(Integer input)
@@ -1807,7 +1903,7 @@ public abstract class AbstractTestParquetReader
         if (input == null) {
             return null;
         }
-        return Date.valueOf(LocalDate.ofEpochDay(input));
+        return Date.ofEpochDay(input);
     }
 
     private static SqlDate intToSqlDate(Integer input)

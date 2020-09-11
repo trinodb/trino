@@ -38,7 +38,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 
 @AggregationFunction(value = NAME, decomposable = false, hidden = true)
-public class SpatialPartitioningInternalAggregateFunction
+public final class SpatialPartitioningInternalAggregateFunction
 {
     private static final int MAX_SAMPLE_COUNT = 1_000_000;
 
@@ -48,7 +48,7 @@ public class SpatialPartitioningInternalAggregateFunction
     public static void input(SpatialPartitioningState state, @SqlType(GEOMETRY_TYPE_NAME) Slice slice, @SqlType(INTEGER) long partitionCount)
     {
         Envelope envelope = deserializeEnvelope(slice);
-        if (envelope == null) {
+        if (envelope.isEmpty()) {
             return;
         }
 

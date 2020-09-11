@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.tree;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -24,40 +25,44 @@ import static java.util.Objects.requireNonNull;
 public class AllColumns
         extends SelectItem
 {
-    private final Optional<QualifiedName> prefix;
+    private final List<Identifier> aliases;
+    private final Optional<Expression> target;
 
     public AllColumns()
     {
-        super(Optional.empty());
-        prefix = Optional.empty();
+        this(Optional.empty(), Optional.empty(), ImmutableList.of());
     }
 
-    public AllColumns(NodeLocation location)
+    public AllColumns(Expression target)
     {
-        super(Optional.of(location));
-        prefix = Optional.empty();
+        this(Optional.empty(), Optional.of(target), ImmutableList.of());
     }
 
-    public AllColumns(QualifiedName prefix)
+    public AllColumns(Expression target, List<Identifier> aliases)
     {
-        this(Optional.empty(), prefix);
+        this(Optional.empty(), Optional.of(target), aliases);
     }
 
-    public AllColumns(NodeLocation location, QualifiedName prefix)
+    public AllColumns(NodeLocation location, Optional<Expression> target, List<Identifier> aliases)
     {
-        this(Optional.of(location), prefix);
+        this(Optional.of(location), target, aliases);
     }
 
-    private AllColumns(Optional<NodeLocation> location, QualifiedName prefix)
+    public AllColumns(Optional<NodeLocation> location, Optional<Expression> target, List<Identifier> aliases)
     {
         super(location);
-        requireNonNull(prefix, "prefix is null");
-        this.prefix = Optional.of(prefix);
+        this.aliases = ImmutableList.copyOf(requireNonNull(aliases, "aliases is null"));
+        this.target = requireNonNull(target, "target is null");
     }
 
-    public Optional<QualifiedName> getPrefix()
+    public List<Identifier> getAliases()
     {
-        return prefix;
+        return aliases;
+    }
+
+    public Optional<Expression> getTarget()
+    {
+        return target;
     }
 
     @Override
@@ -69,7 +74,8 @@ public class AllColumns
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of();
+        return target.map(ImmutableList::<Node>of)
+                .orElse(ImmutableList.of());
     }
 
     @Override
@@ -82,23 +88,41 @@ public class AllColumns
             return false;
         }
 
-        AllColumns that = (AllColumns) o;
-        return Objects.equals(prefix, that.prefix);
+        AllColumns other = (AllColumns) o;
+        return Objects.equals(aliases, other.aliases) &&
+                Objects.equals(target, other.target);
     }
 
     @Override
     public int hashCode()
     {
-        return prefix.hashCode();
+        return Objects.hash(aliases, target);
     }
 
     @Override
     public String toString()
     {
-        if (prefix.isPresent()) {
-            return prefix.get() + ".*";
+        StringBuilder builder = new StringBuilder();
+
+        target.ifPresent(value -> builder.append(value).append("."));
+        builder.append("*");
+
+        if (!aliases.isEmpty()) {
+            builder.append(" (");
+            Joiner.on(", ").appendTo(builder, aliases);
+            builder.append(")");
         }
 
-        return "*";
+        return builder.toString();
+    }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return aliases.equals(((AllColumns) other).aliases);
     }
 }

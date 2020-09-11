@@ -19,7 +19,6 @@ import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
@@ -27,63 +26,63 @@ import io.prestosql.sql.planner.plan.TableScanNode;
 import java.util.List;
 import java.util.function.Consumer;
 
-public class SchedulingOrderVisitor
+import static java.util.Objects.requireNonNull;
+
+public final class SchedulingOrderVisitor
 {
     public static List<PlanNodeId> scheduleOrder(PlanNode root)
     {
         ImmutableList.Builder<PlanNodeId> schedulingOrder = ImmutableList.builder();
-        root.accept(new Visitor(), schedulingOrder::add);
+        root.accept(new Visitor(schedulingOrder::add), null);
         return schedulingOrder.build();
     }
 
     private SchedulingOrderVisitor() {}
 
     private static class Visitor
-            extends PlanVisitor<Void, Consumer<PlanNodeId>>
+            extends SimplePlanVisitor<Void>
     {
-        @Override
-        protected Void visitPlan(PlanNode node, Consumer<PlanNodeId> schedulingOrder)
+        private final Consumer<PlanNodeId> schedulingOrder;
+
+        public Visitor(Consumer<PlanNodeId> schedulingOrder)
         {
-            for (PlanNode source : node.getSources()) {
-                source.accept(this, schedulingOrder);
-            }
+            this.schedulingOrder = requireNonNull(schedulingOrder, "schedulingOrder is null");
+        }
+
+        @Override
+        public Void visitJoin(JoinNode node, Void context)
+        {
+            node.getRight().accept(this, context);
+            node.getLeft().accept(this, context);
             return null;
         }
 
         @Override
-        public Void visitJoin(JoinNode node, Consumer<PlanNodeId> schedulingOrder)
+        public Void visitSemiJoin(SemiJoinNode node, Void context)
         {
-            node.getRight().accept(this, schedulingOrder);
-            node.getLeft().accept(this, schedulingOrder);
+            node.getFilteringSource().accept(this, context);
+            node.getSource().accept(this, context);
             return null;
         }
 
         @Override
-        public Void visitSemiJoin(SemiJoinNode node, Consumer<PlanNodeId> schedulingOrder)
+        public Void visitSpatialJoin(SpatialJoinNode node, Void context)
         {
-            node.getFilteringSource().accept(this, schedulingOrder);
-            node.getSource().accept(this, schedulingOrder);
+            node.getRight().accept(this, context);
+            node.getLeft().accept(this, context);
             return null;
         }
 
         @Override
-        public Void visitSpatialJoin(SpatialJoinNode node, Consumer<PlanNodeId> schedulingOrder)
+        public Void visitIndexJoin(IndexJoinNode node, Void context)
         {
-            node.getRight().accept(this, schedulingOrder);
-            node.getLeft().accept(this, schedulingOrder);
+            node.getIndexSource().accept(this, context);
+            node.getProbeSource().accept(this, context);
             return null;
         }
 
         @Override
-        public Void visitIndexJoin(IndexJoinNode node, Consumer<PlanNodeId> schedulingOrder)
-        {
-            node.getIndexSource().accept(this, schedulingOrder);
-            node.getProbeSource().accept(this, schedulingOrder);
-            return null;
-        }
-
-        @Override
-        public Void visitTableScan(TableScanNode node, Consumer<PlanNodeId> schedulingOrder)
+        public Void visitTableScan(TableScanNode node, Void context)
         {
             schedulingOrder.accept(node.getId());
             return null;

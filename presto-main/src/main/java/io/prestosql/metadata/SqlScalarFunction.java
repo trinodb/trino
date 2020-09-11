@@ -14,33 +14,30 @@
 package io.prestosql.metadata;
 
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.spi.type.TypeManager;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static java.util.Objects.requireNonNull;
 
 public abstract class SqlScalarFunction
         implements SqlFunction
 {
-    private final Signature signature;
+    private final FunctionMetadata functionMetadata;
 
-    protected SqlScalarFunction(Signature signature)
+    protected SqlScalarFunction(FunctionMetadata functionMetadata)
     {
-        this.signature = requireNonNull(signature, "signature is null");
-        checkArgument(signature.getKind() == SCALAR, "function kind must be SCALAR");
+        this.functionMetadata = functionMetadata;
     }
 
     @Override
-    public final Signature getSignature()
+    public FunctionMetadata getFunctionMetadata()
     {
-        return signature;
+        return functionMetadata;
     }
 
-    public abstract ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
-
-    public static PolymorphicScalarFunctionBuilder builder(Class<?> clazz)
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        return new PolymorphicScalarFunctionBuilder(clazz);
+        return specialize(functionBinding);
+    }
+
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    {
+        throw new UnsupportedOperationException();
     }
 }

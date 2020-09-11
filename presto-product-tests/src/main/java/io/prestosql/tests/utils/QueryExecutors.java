@@ -13,11 +13,11 @@
  */
 package io.prestosql.tests.utils;
 
-import io.prestodb.tempto.query.QueryExecutor;
+import io.prestosql.tempto.query.QueryExecutor;
 
-import static io.prestodb.tempto.context.ThreadLocalTestContextHolder.testContext;
+import static io.prestosql.tempto.context.ThreadLocalTestContextHolder.testContext;
 
-public class QueryExecutors
+public final class QueryExecutors
 {
     public static QueryExecutor onPresto()
     {
@@ -42,6 +42,11 @@ public class QueryExecutors
     public static QueryExecutor onMySql()
     {
         return testContext().getDependency(QueryExecutor.class, "mysql");
+    }
+
+    public static QueryExecutor onSpark()
+    {
+        return testContext().getDependency(QueryExecutor.class, "spark");
     }
 
     private QueryExecutors() {}

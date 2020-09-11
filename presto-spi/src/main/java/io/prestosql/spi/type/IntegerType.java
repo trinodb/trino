@@ -13,13 +13,10 @@
  */
 package io.prestosql.spi.type;
 
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import java.util.Optional;
 
 public final class IntegerType
         extends AbstractIntType
@@ -28,7 +25,7 @@ public final class IntegerType
 
     private IntegerType()
     {
-        super(parseTypeSignature(StandardTypes.INTEGER));
+        super(new TypeSignature(StandardTypes.INTEGER));
     }
 
     @Override
@@ -42,16 +39,9 @@ public final class IntegerType
     }
 
     @Override
-    public final void writeLong(BlockBuilder blockBuilder, long value)
+    public Optional<Range> getRange()
     {
-        if (value > Integer.MAX_VALUE) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, String.format("Value %d exceeds MAX_INT", value));
-        }
-        else if (value < Integer.MIN_VALUE) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, String.format("Value %d is less than MIN_INT", value));
-        }
-
-        blockBuilder.writeInt((int) value).closeEntry();
+        return Optional.of(new Range((long) Integer.MIN_VALUE, (long) Integer.MAX_VALUE));
     }
 
     @Override

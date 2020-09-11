@@ -14,7 +14,6 @@
 package io.prestosql.operator;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.prestosql.operator.ChannelSet.ChannelSetBuilder;
@@ -29,6 +28,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -86,7 +86,7 @@ public class SetBuilderOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            Preconditions.checkArgument(setChannel >= 0, "setChannel is negative");
+            checkArgument(setChannel >= 0, "setChannel is negative");
             this.setProvider = new SetSupplier(requireNonNull(type, "type is null"));
             this.setChannel = setChannel;
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");

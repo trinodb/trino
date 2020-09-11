@@ -13,6 +13,7 @@
  */
 package io.prestosql.operator.exchange;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.execution.Lifespan;
@@ -156,7 +157,8 @@ public class LocalExchange
         return result;
     }
 
-    public LocalExchangeSource getSource(int partitionIndex)
+    @VisibleForTesting
+    LocalExchangeSource getSource(int partitionIndex)
     {
         return sources.get(partitionIndex);
     }
@@ -249,7 +251,7 @@ public class LocalExchange
 
     private static void checkNotHoldsLock(Object lock)
     {
-        checkState(!Thread.holdsLock(lock), "Can not execute this method while holding a lock");
+        checkState(!Thread.holdsLock(lock), "Cannot execute this method while holding a lock");
     }
 
     @ThreadSafe

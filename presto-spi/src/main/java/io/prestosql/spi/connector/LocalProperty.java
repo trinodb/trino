@@ -16,14 +16,15 @@ package io.prestosql.spi.connector;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static java.lang.String.format;
+
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
-        include = JsonTypeInfo.As.PROPERTY,
         property = "@type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = ConstantProperty.class, name = "constant"),
@@ -48,7 +49,7 @@ public interface LocalProperty<E>
      */
     default Optional<LocalProperty<E>> withConstants(Set<E> constants)
     {
-        Set<E> set = new HashSet<>(getColumns());
+        Set<E> set = new LinkedHashSet<>(getColumns());
         set.removeAll(constants);
 
         if (set.isEmpty()) {
@@ -64,7 +65,7 @@ public interface LocalProperty<E>
     default LocalProperty<E> constrain(Set<E> columns)
     {
         if (!columns.equals(getColumns())) {
-            throw new IllegalArgumentException(String.format("Cannot constrain %s with %s", this, columns));
+            throw new IllegalArgumentException(format("Cannot constrain %s with %s", this, columns));
         }
         return this;
     }

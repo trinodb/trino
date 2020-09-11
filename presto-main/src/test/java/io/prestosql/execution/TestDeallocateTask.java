@@ -16,11 +16,11 @@ package io.prestosql.execution;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
+import io.prestosql.security.AccessControlConfig;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.AllowAllAccessControl;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.sql.tree.Deallocate;
 import io.prestosql.sql.tree.Identifier;
@@ -29,6 +29,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
@@ -36,16 +37,17 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestDeallocateTask
 {
-    private final MetadataManager metadata = createTestMetadataManager();
+    private final Metadata metadata = createTestMetadataManager();
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
     @AfterClass(alwaysRun = true)
@@ -67,22 +69,18 @@ public class TestDeallocateTask
     @Test
     public void testDeallocateNoSuchStatement()
     {
-        try {
-            executeDeallocate("my_query", "DEALLOCATE PREPARE my_query", TEST_SESSION);
-            fail("expected exception");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), NOT_FOUND.toErrorCode());
-            assertEquals(e.getMessage(), "Prepared statement not found: my_query");
-        }
+        assertPrestoExceptionThrownBy(() -> executeDeallocate("my_query", "DEALLOCATE PREPARE my_query", TEST_SESSION))
+                .hasErrorCode(NOT_FOUND)
+                .hasMessage("Prepared statement not found: my_query");
     }
 
     private Set<String> executeDeallocate(String statementName, String sqlString, Session session)
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControl accessControl = new AccessControlManager(transactionManager);
+        AccessControl accessControl = new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig());
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 sqlString,
+                Optional.empty(),
                 session,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
@@ -91,7 +89,8 @@ public class TestDeallocateTask
                 accessControl,
                 executor,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                Optional.empty());
         Deallocate deallocate = new Deallocate(new Identifier(statementName));
         new DeallocateTask().execute(deallocate, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
         return stateMachine.getDeallocatedPreparedStatements();

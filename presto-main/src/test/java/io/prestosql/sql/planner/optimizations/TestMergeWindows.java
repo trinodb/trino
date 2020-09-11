@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.sql.planner.RuleStatsRecorder;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.assertions.ExpectedValueProvider;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
@@ -188,7 +189,7 @@ public class TestMergeWindows
     {
         @Language("SQL") String sql = "SELECT " +
                 "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
-                "LAG(quantity, 1, 0.0E0) OVER (PARTITION BY orderkey ORDER BY shipdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B, " +
+                "NTH_VALUE(quantity, 1) OVER (PARTITION BY orderkey ORDER BY shipdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) first_quantity_B, " +
                 "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
                 "FROM lineitem";
 
@@ -200,9 +201,12 @@ public class TestMergeWindows
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationB)
-                                                .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO"))),
-                                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
-                                                LINEITEM_TABLESCAN_DOQSS)))));
+                                                .addFunction(functionCall("nth_value", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE"))),
+                                        project(
+                                                ImmutableMap.of("ONE", expression("CAST(expr AS bigint)")),
+                                                project(
+                                                        ImmutableMap.of("expr", expression("1")),
+                                                        LINEITEM_TABLESCAN_DOQSS))))));
     }
 
     @Test
@@ -231,11 +235,10 @@ public class TestMergeWindows
                                                 .specification(specificationB)
                                                 .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
                                         filter(SHIPDATE_ALIAS + " IS NOT NULL",
-                                                project(
-                                                        window(windowMatcherBuilder -> windowMatcherBuilder
-                                                                        .specification(specificationA)
-                                                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
-                                                                LINEITEM_TABLESCAN_DOQSS)))))));
+                                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                                .specification(specificationA)
+                                                                .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                        LINEITEM_TABLESCAN_DOQSS))))));
     }
 
     @Test
@@ -243,7 +246,7 @@ public class TestMergeWindows
     {
         @Language("SQL") String sql = "SELECT " +
                 "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
-                "LAG(quantity, 1, 0.0E0) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B, " +
+                "NTH_VALUE(quantity, 1) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) first_quantity_A, " +
                 "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
                 "FROM lineitem";
 
@@ -252,10 +255,11 @@ public class TestMergeWindows
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS)))
-                                        .addFunction(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO")))
+                                        .addFunction(functionCall("nth_value", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE")))
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
-                                project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0E0")),
-                                        LINEITEM_TABLESCAN_DOQS))));
+                                project(ImmutableMap.of("ONE", expression("CAST(expr AS bigint)")),
+                                        project(ImmutableMap.of("expr", expression("1")),
+                                                LINEITEM_TABLESCAN_DOQS)))));
     }
 
     @Test
@@ -280,11 +284,10 @@ public class TestMergeWindows
                                         .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS)))
                                         .addFunction(functionCall("avg", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
                                 filter(SHIPDATE_ALIAS + " IS NOT NULL",
-                                        project(
-                                                window(windowMatcherBuilder -> windowMatcherBuilder
-                                                                .specification(specificationA)
-                                                                .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
-                                                        LINEITEM_TABLESCAN_DOQSS))))));
+                                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                                        .specification(specificationA)
+                                                        .addFunction(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                LINEITEM_TABLESCAN_DOQSS)))));
     }
 
     @Test
@@ -553,7 +556,7 @@ public class TestMergeWindows
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(),
+                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
@@ -562,7 +565,7 @@ public class TestMergeWindows
                                 .add(new RemoveRedundantIdentityProjections())
                                 .addAll(GatherAndMergeWindows.rules())
                                 .build()),
-                new PruneUnreferencedOutputs());
+                new PruneUnreferencedOutputs(getQueryRunner().getMetadata(), new TypeAnalyzer(getQueryRunner().getSqlParser(), getQueryRunner().getMetadata())));
         assertPlan(sql, pattern, optimizers);
     }
 }

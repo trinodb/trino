@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 
 import static io.prestosql.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrecomputedHashes
 {
@@ -46,7 +47,7 @@ public class TestPrecomputedHashes
     public void testDistinctLimit()
     {
         // see https://github.com/prestodb/presto/issues/11593
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT a " +
                         "FROM (" +
                         "    SELECT a, b" +
@@ -55,7 +56,26 @@ public class TestPrecomputedHashes
                         "    GROUP BY a, b" +
                         "    LIMIT 1" +
                         ")" +
-                        "GROUP BY a",
-                "VALUES (1)");
+                        "GROUP BY a"))
+                .matches("VALUES (1)");
+    }
+
+    @Test
+    public void testUnionAllAndDistinctLimit()
+    {
+        assertThat(assertions.query(
+                "WITH t(a, b) AS (VALUES (1, 10))" +
+                        "SELECT" +
+                        "  count(DISTINCT if(type='A', a))," +
+                        "  count(DISTINCT if(type='A', b))" +
+                        "FROM (" +
+                        "    SELECT a, b, 'A' AS type" +
+                        "    FROM t" +
+                        "    GROUP BY a, b" +
+                        "    UNION ALL" +
+                        "    SELECT a, b, 'B' AS type" +
+                        "    FROM t" +
+                        "    GROUP BY a, b)"))
+                .matches("VALUES (BIGINT '1', BIGINT '1')");
     }
 }

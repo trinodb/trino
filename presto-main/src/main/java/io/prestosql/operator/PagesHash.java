@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 public final class PagesHash
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(PagesHash.class).instanceSize();
-    private static final DataSize CACHE_SIZE = new DataSize(128, KILOBYTE);
+    private static final DataSize CACHE_SIZE = DataSize.of(128, KILOBYTE);
     private final LongArrayList addresses;
     private final PagesHashStrategy pagesHashStrategy;
 

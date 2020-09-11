@@ -14,26 +14,25 @@
 package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.PriorityQueue;
 
 import static io.prestosql.block.BlockAssertions.createLongRepeatBlock;
 import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
 import static io.prestosql.block.BlockAssertions.createLongsBlock;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static org.testng.Assert.assertEquals;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 
 public class TestLongMaxNAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         return new Block[] {createLongSequenceBlock(start, start + length), createLongRepeatBlock(2, length)};
     }
@@ -45,13 +44,13 @@ public class TestLongMaxNAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.BIGINT, StandardTypes.BIGINT);
+        return ImmutableList.of(BIGINT, BIGINT);
     }
 
     @Override
-    public Object getExpectedValue(int start, int length)
+    protected Object getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;
@@ -73,18 +72,14 @@ public class TestLongMaxNAggregation
 
     private void testInvalidAggregation(Long[] x, int n)
     {
-        try {
-            testAggregation(new long[] {}, createLongsBlock(x), createLongRepeatBlock(n, x.length));
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode().getName(), INVALID_FUNCTION_ARGUMENT.name());
-        }
+        assertInvalidAggregation(() ->
+                testAggregation(new long[] {}, createLongsBlock(x), createLongRepeatBlock(n, x.length)));
     }
 
     private void testCustomAggregation(Long[] values, int n)
     {
         PriorityQueue<Long> heap = new PriorityQueue<>(n);
-        Arrays.stream(values).filter(x -> x != null).forEach(heap::add);
+        Arrays.stream(values).filter(Objects::nonNull).forEach(heap::add);
         Long[] expected = new Long[heap.size()];
         for (int i = heap.size() - 1; i >= 0; i--) {
             expected[i] = heap.remove();

@@ -13,14 +13,15 @@
  */
 package io.prestosql.plugin.accumulo.io;
 
-import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.accumulo.conf.AccumuloConfig;
 import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
 import io.prestosql.plugin.accumulo.model.AccumuloSplit;
+import io.prestosql.plugin.accumulo.model.AccumuloTableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.RecordSet;
 import org.apache.accumulo.core.client.Connector;
@@ -29,6 +30,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -53,21 +55,15 @@ public class AccumuloRecordSetProvider
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
-        requireNonNull(split, "split is null");
-        requireNonNull(columns, "columns is null");
-
-        // Convert split
         AccumuloSplit accSplit = (AccumuloSplit) split;
+        AccumuloTableHandle accTable = (AccumuloTableHandle) table;
 
-        // Convert all columns handles
-        ImmutableList.Builder<AccumuloColumnHandle> handles = ImmutableList.builder();
-        for (ColumnHandle handle : columns) {
-            handles.add((AccumuloColumnHandle) handle);
-        }
+        List<AccumuloColumnHandle> accColumns = columns.stream()
+                .map(AccumuloColumnHandle.class::cast)
+                .collect(toImmutableList());
 
-        // Return new record set
-        return new AccumuloRecordSet(connector, session, accSplit, username, handles.build());
+        return new AccumuloRecordSet(connector, session, accSplit, username, accTable, accColumns);
     }
 }

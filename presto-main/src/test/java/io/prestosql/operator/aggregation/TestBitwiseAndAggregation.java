@@ -16,7 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -29,7 +29,7 @@ public class TestBitwiseAndAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, length);
 
@@ -40,7 +40,7 @@ public class TestBitwiseAndAggregation
     }
 
     @Override
-    public Object getExpectedValue(int start, int length)
+    protected Object getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;
@@ -55,9 +55,9 @@ public class TestBitwiseAndAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.BIGINT);
+        return ImmutableList.of(BIGINT);
     }
 
     @Test

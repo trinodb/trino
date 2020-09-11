@@ -27,6 +27,7 @@ class SymbolAlias
         this.alias = requireNonNull(alias, "alias is null");
     }
 
+    @Override
     public Symbol toSymbol(SymbolAliases aliases)
     {
         return Symbol.from(aliases.get(alias));

@@ -13,12 +13,12 @@
  */
 package io.prestosql.tests.hive;
 
-import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
+import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
 
-import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
+import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static java.lang.String.format;
 
-public class HiveTableDefinitions
+public final class HiveTableDefinitions
 {
     private static final String NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME = "nation_partitioned_by_regionkey";
 

@@ -16,22 +16,36 @@ package io.prestosql.plugin.ml;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
-import io.prestosql.spi.type.ParametricType;
-import io.prestosql.spi.type.Type;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestMLQueries
         extends AbstractTestQueryFramework
 {
-    public TestMLQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
-        super(TestMLQueries::createLocalQueryRunner);
+        Session defaultSession = testSessionBuilder()
+                .setCatalog("local")
+                .setSchema(TINY_SCHEMA_NAME)
+                .build();
+
+        LocalQueryRunner localQueryRunner = LocalQueryRunner.create(defaultSession);
+
+        // add the tpch catalog
+        // local queries run directly against the generator
+        localQueryRunner.createCatalog(
+                defaultSession.getCatalog().get(),
+                new TpchConnectorFactory(1),
+                ImmutableMap.of());
+
+        localQueryRunner.installPlugin(new MLPlugin());
+        return localQueryRunner;
     }
 
     @Test
@@ -46,33 +60,5 @@ public class TestMLQueries
     {
         assertQuery("SELECT classify(features(1, 2), model) " +
                 "FROM (SELECT learn_classifier(labels, features) AS model FROM (VALUES ('cat', features(1, 2))) t(labels, features)) t2", "SELECT 'cat'");
-    }
-
-    private static LocalQueryRunner createLocalQueryRunner()
-    {
-        Session defaultSession = testSessionBuilder()
-                .setCatalog("local")
-                .setSchema(TINY_SCHEMA_NAME)
-                .build();
-
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
-
-        // add the tpch catalog
-        // local queries run directly against the generator
-        localQueryRunner.createCatalog(
-                defaultSession.getCatalog().get(),
-                new TpchConnectorFactory(1),
-                ImmutableMap.of());
-
-        MLPlugin plugin = new MLPlugin();
-        for (Type type : plugin.getTypes()) {
-            localQueryRunner.getTypeManager().addType(type);
-        }
-        for (ParametricType parametricType : plugin.getParametricTypes()) {
-            localQueryRunner.getTypeManager().addParametricType(parametricType);
-        }
-        localQueryRunner.getMetadata().addFunctions(extractFunctions(new MLPlugin().getFunctions()));
-
-        return localQueryRunner;
     }
 }

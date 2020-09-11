@@ -1,4 +1,3 @@
-package io.prestosql.operator.scalar;
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,25 +11,28 @@ package io.prestosql.operator.scalar;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static io.prestosql.metadata.Signature.comparableWithVariadicBound;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.util.Reflection.methodHandle;
 
 public class RowNotEqualOperator
@@ -44,23 +46,31 @@ public class RowNotEqualOperator
         super(NOT_EQUAL,
                 ImmutableList.of(comparableWithVariadicBound("T", "row")),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.BOOLEAN),
-                ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
+                BOOLEAN.getTypeSignature(),
+                ImmutableList.of(new TypeSignature("T"), new TypeSignature("T")),
+                true);
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
     {
-        RowType type = (RowType) boundVariables.getTypeVariable("T");
+        RowType rowType = (RowType) functionBinding.getTypeVariable("T");
+        FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
+        rowType.getTypeParameters()
+                .forEach(type -> builder.addOperator(EQUAL, ImmutableList.of(type, type)));
+        return builder.build();
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        RowType type = (RowType) functionBinding.getTypeVariable("T");
         return new ScalarFunctionImplementation(
-                true,
-                ImmutableList.of(
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                NULLABLE_RETURN,
+                ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 METHOD_HANDLE
                         .bindTo(type)
-                        .bindTo(RowEqualOperator.resolveFieldEqualOperators(type, functionRegistry)),
-                isDeterministic());
+                        .bindTo(RowEqualOperator.resolveFieldEqualOperators(type, functionDependencies)));
     }
 
     @UsedByGeneratedCode

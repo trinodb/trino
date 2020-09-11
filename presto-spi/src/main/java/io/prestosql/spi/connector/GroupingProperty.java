@@ -17,15 +17,17 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static java.lang.String.format;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 
 public final class GroupingProperty<E>
         implements LocalProperty<E>
@@ -37,7 +39,7 @@ public final class GroupingProperty<E>
     {
         requireNonNull(columns, "columns is null");
 
-        this.columns = Collections.unmodifiableSet(new HashSet<>(columns));
+        this.columns = unmodifiableSet(new LinkedHashSet<>(columns));
     }
 
     @Override
@@ -46,6 +48,7 @@ public final class GroupingProperty<E>
         return true;
     }
 
+    @Override
     @JsonProperty
     public Set<E> getColumns()
     {
@@ -56,7 +59,7 @@ public final class GroupingProperty<E>
     public LocalProperty<E> constrain(Set<E> columns)
     {
         if (!this.columns.containsAll(columns)) {
-            throw new IllegalArgumentException(String.format("Cannot constrain %s with %s", this, columns));
+            throw new IllegalArgumentException(format("Cannot constrain %s with %s", this, columns));
         }
 
         return new GroupingProperty<>(columns);
@@ -76,12 +79,12 @@ public final class GroupingProperty<E>
     {
         Set<Optional<T>> translated = columns.stream()
                 .map(translator)
-                .collect(Collectors.toSet());
+                .collect(toCollection(LinkedHashSet::new));
 
         if (translated.stream().allMatch(Optional::isPresent)) {
             Set<T> columns = translated.stream()
                     .map(Optional::get)
-                    .collect(Collectors.toSet());
+                    .collect(toCollection(LinkedHashSet::new));
 
             return Optional.of(new GroupingProperty<>(columns));
         }

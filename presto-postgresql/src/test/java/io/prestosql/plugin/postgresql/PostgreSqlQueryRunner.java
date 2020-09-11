@@ -15,57 +15,59 @@ package io.prestosql.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.postgresql.TestingPostgreSqlServer;
-import io.airlift.tpch.TpchTable;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.tpch.TpchTable;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.util.HashMap;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.QueryAssertions.copyTpchTables;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.tests.QueryAssertions.copyTpchTables;
 
 public final class PostgreSqlQueryRunner
 {
-    private PostgreSqlQueryRunner()
-    {
-    }
+    private PostgreSqlQueryRunner() {}
 
     private static final String TPCH_SCHEMA = "tpch";
 
     public static QueryRunner createPostgreSqlQueryRunner(TestingPostgreSqlServer server, TpchTable<?>... tables)
             throws Exception
     {
-        return createPostgreSqlQueryRunner(server, ImmutableList.copyOf(tables));
+        return createPostgreSqlQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.copyOf(tables));
     }
 
-    public static QueryRunner createPostgreSqlQueryRunner(TestingPostgreSqlServer server, Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createPostgreSqlQueryRunner(
+            TestingPostgreSqlServer server,
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = new DistributedQueryRunner(createSession(), 3);
+            queryRunner = DistributedQueryRunner.builder(createSession())
+                    .setExtraProperties(extraProperties)
+                    .build();
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            Map<String, String> properties = ImmutableMap.<String, String>builder()
-                    .put("connection-url", server.getJdbcUrl())
-                    .put("allow-drop-table", "true")
-                    .build();
+            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+            connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
+            connectorProperties.putIfAbsent("allow-drop-table", "true");
+            connectorProperties.putIfAbsent("postgresql.include-system-tables", "true");
 
-            createSchema(server.getJdbcUrl(), "tpch");
+            server.execute("CREATE SCHEMA tpch");
 
             queryRunner.installPlugin(new PostgreSqlPlugin());
-            queryRunner.createCatalog("postgresql", "postgresql", properties);
+            queryRunner.createCatalog("postgresql", "postgresql", connectorProperties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
 
@@ -77,20 +79,27 @@ public final class PostgreSqlQueryRunner
         }
     }
 
-    private static void createSchema(String url, String schema)
-            throws SQLException
-    {
-        try (Connection connection = DriverManager.getConnection(url);
-                Statement statement = connection.createStatement()) {
-            statement.execute("CREATE SCHEMA " + schema);
-        }
-    }
-
     public static Session createSession()
     {
         return testSessionBuilder()
                 .setCatalog("postgresql")
                 .setSchema(TPCH_SCHEMA)
                 .build();
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+
+        DistributedQueryRunner queryRunner = createPostgreSqlQueryRunner(
+                new TestingPostgreSqlServer(),
+                ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of(),
+                TpchTable.getTables());
+
+        Logger log = Logger.get(PostgreSqlQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }

@@ -29,39 +29,39 @@ public class RevokeRoles
 {
     private final Set<Identifier> roles;
     private final Set<PrincipalSpecification> grantees;
-    private final boolean adminOptionFor;
+    private final boolean adminOption;
     private final Optional<GrantorSpecification> grantor;
 
     public RevokeRoles(
             NodeLocation location,
             Set<Identifier> roles,
             Set<PrincipalSpecification> grantees,
-            boolean adminOptionFor,
+            boolean adminOption,
             Optional<GrantorSpecification> grantor)
     {
-        this(Optional.of(location), roles, grantees, adminOptionFor, grantor);
+        this(Optional.of(location), roles, grantees, adminOption, grantor);
     }
 
     public RevokeRoles(
             Set<Identifier> roles,
             Set<PrincipalSpecification> grantees,
-            boolean adminOptionFor,
+            boolean adminOption,
             Optional<GrantorSpecification> grantor)
     {
-        this(Optional.empty(), roles, grantees, adminOptionFor, grantor);
+        this(Optional.empty(), roles, grantees, adminOption, grantor);
     }
 
     private RevokeRoles(
             Optional<NodeLocation> location,
             Set<Identifier> roles,
             Set<PrincipalSpecification> grantees,
-            boolean adminOptionFor,
+            boolean adminOption,
             Optional<GrantorSpecification> grantor)
     {
         super(location);
         this.roles = ImmutableSet.copyOf(requireNonNull(roles, "roles is null"));
         this.grantees = ImmutableSet.copyOf(requireNonNull(grantees, "grantees is null"));
-        this.adminOptionFor = adminOptionFor;
+        this.adminOption = adminOption;
         this.grantor = requireNonNull(grantor, "grantor is null");
     }
 
@@ -75,9 +75,9 @@ public class RevokeRoles
         return grantees;
     }
 
-    public boolean isAdminOptionFor()
+    public boolean isAdminOption()
     {
-        return adminOptionFor;
+        return adminOption;
     }
 
     public Optional<GrantorSpecification> getGrantor()
@@ -107,7 +107,7 @@ public class RevokeRoles
             return false;
         }
         RevokeRoles that = (RevokeRoles) o;
-        return adminOptionFor == that.adminOptionFor &&
+        return adminOption == that.adminOption &&
                 Objects.equals(roles, that.roles) &&
                 Objects.equals(grantees, that.grantees) &&
                 Objects.equals(grantor, that.grantor);
@@ -116,7 +116,7 @@ public class RevokeRoles
     @Override
     public int hashCode()
     {
-        return Objects.hash(roles, grantees, adminOptionFor, grantor);
+        return Objects.hash(roles, grantees, adminOption, grantor);
     }
 
     @Override
@@ -125,7 +125,7 @@ public class RevokeRoles
         return toStringHelper(this)
                 .add("roles", roles)
                 .add("grantees", grantees)
-                .add("adminOptionFor", adminOptionFor)
+                .add("adminOption", adminOption)
                 .add("grantor", grantor)
                 .toString();
     }

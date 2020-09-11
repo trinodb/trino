@@ -13,15 +13,13 @@
  */
 package io.prestosql.plugin.resourcegroups.db;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-import io.prestosql.execution.resourceGroups.InternalResourceGroup;
+import io.prestosql.execution.resourcegroups.InternalResourceGroup;
+import io.prestosql.plugin.resourcegroups.ResourceGroupIdTemplate;
 import io.prestosql.plugin.resourcegroups.ResourceGroupSelector;
 import io.prestosql.plugin.resourcegroups.ResourceGroupSpec;
 import io.prestosql.plugin.resourcegroups.StaticSelector;
-import io.prestosql.plugin.resourcegroups.VariableMap;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.resourcegroups.SchedulingPolicy;
@@ -31,6 +29,7 @@ import io.prestosql.spi.session.ResourceEstimates;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.testng.annotations.Test;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -40,12 +39,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.prestosql.execution.resourceGroups.InternalResourceGroup.DEFAULT_WEIGHT;
+import static io.prestosql.execution.resourcegroups.InternalResourceGroup.DEFAULT_WEIGHT;
 import static io.prestosql.spi.resourcegroups.SchedulingPolicy.FAIR;
 import static io.prestosql.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
-import static java.util.concurrent.TimeUnit.DAYS;
-import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -58,7 +56,7 @@ public class TestDbResourceGroupConfigurationManager
 
     static H2DaoProvider setup(String prefix)
     {
-        DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_" + prefix + System.nanoTime());
+        DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_" + prefix + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         return new H2DaoProvider(config);
     }
 
@@ -83,23 +81,23 @@ public class TestDbResourceGroupConfigurationManager
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {}, new DbResourceGroupConfig(), daoProvider.get(), prodEnvironment);
         List<ResourceGroupSpec> groups = manager.getRootGroups();
         assertEquals(groups.size(), 1);
-        InternalResourceGroup prodGlobal = new InternalResourceGroup.RootInternalResourceGroup("prod_global", (group, export) -> {}, directExecutor());
-        manager.configure(prodGlobal, new SelectionContext<>(prodGlobal.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
-        assertEqualsResourceGroup(prodGlobal, "10MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, new Duration(1, HOURS), new Duration(1, DAYS));
+        InternalResourceGroup prodGlobal = new InternalResourceGroup("prod_global", (group, export) -> {}, directExecutor());
+        manager.configure(prodGlobal, new SelectionContext<>(prodGlobal.getId(), new ResourceGroupIdTemplate("prod_global")));
+        assertEqualsResourceGroup(prodGlobal, "10MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1));
         assertEquals(manager.getSelectors().size(), 1);
         ResourceGroupSelector prodSelector = manager.getSelectors().get(0);
-        ResourceGroupId prodResourceGroupId = prodSelector.match(new SelectionCriteria(true, "prod_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty())).get().getResourceGroupId();
+        ResourceGroupId prodResourceGroupId = prodSelector.match(new SelectionCriteria(true, "prod_user", ImmutableSet.of(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty())).get().getResourceGroupId();
         assertEquals(prodResourceGroupId.toString(), "prod_global");
 
         // check the dev configuration
         manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {}, new DbResourceGroupConfig(), daoProvider.get(), devEnvironment);
         assertEquals(groups.size(), 1);
-        InternalResourceGroup devGlobal = new InternalResourceGroup.RootInternalResourceGroup("dev_global", (group, export) -> {}, directExecutor());
-        manager.configure(devGlobal, new SelectionContext<>(prodGlobal.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
-        assertEqualsResourceGroup(devGlobal, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, new Duration(1, HOURS), new Duration(1, DAYS));
+        InternalResourceGroup devGlobal = new InternalResourceGroup("dev_global", (group, export) -> {}, directExecutor());
+        manager.configure(devGlobal, new SelectionContext<>(prodGlobal.getId(), new ResourceGroupIdTemplate("dev_global")));
+        assertEqualsResourceGroup(devGlobal, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1));
         assertEquals(manager.getSelectors().size(), 1);
         ResourceGroupSelector devSelector = manager.getSelectors().get(0);
-        ResourceGroupId devResourceGroupId = devSelector.match(new SelectionCriteria(true, "dev_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty())).get().getResourceGroupId();
+        ResourceGroupId devResourceGroupId = devSelector.match(new SelectionCriteria(true, "dev_user", ImmutableSet.of(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty())).get().getResourceGroupId();
         assertEquals(devResourceGroupId.toString(), "dev_global");
     }
 
@@ -117,13 +115,13 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertSelector(2, 1, null, null, null, null, null);
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
         AtomicBoolean exported = new AtomicBoolean();
-        InternalResourceGroup global = new InternalResourceGroup.RootInternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
-        manager.configure(global, new SelectionContext<>(global.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
-        assertEqualsResourceGroup(global, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, new Duration(1, HOURS), new Duration(1, DAYS));
+        InternalResourceGroup global = new InternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
+        manager.configure(global, new SelectionContext<>(global.getId(), new ResourceGroupIdTemplate("global")));
+        assertEqualsResourceGroup(global, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1));
         exported.set(false);
         InternalResourceGroup sub = global.getOrCreateSubGroup("sub");
-        manager.configure(sub, new SelectionContext<>(sub.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
-        assertEqualsResourceGroup(sub, "2MB", 4, 3, 3, FAIR, 5, false, new Duration(Long.MAX_VALUE, MILLISECONDS), new Duration(Long.MAX_VALUE, MILLISECONDS));
+        manager.configure(sub, new SelectionContext<>(sub.getId(), new ResourceGroupIdTemplate("global.sub")));
+        assertEqualsResourceGroup(sub, "2MB", 4, 3, 3, FAIR, 5, false, Duration.ofMillis(Long.MAX_VALUE), Duration.ofMillis(Long.MAX_VALUE));
     }
 
     @Test
@@ -141,7 +139,7 @@ public class TestDbResourceGroupConfigurationManager
         }
         catch (RuntimeException ex) {
             assertTrue(ex instanceof UnableToExecuteStatementException);
-            assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcSQLException);
+            assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcException);
             assertTrue(ex.getCause().getMessage().startsWith("Unique index or primary key violation"));
         }
         dao.insertSelector(1, 1, null, null, null, null, null);
@@ -157,14 +155,14 @@ public class TestDbResourceGroupConfigurationManager
         }
         catch (RuntimeException ex) {
             assertTrue(ex instanceof UnableToExecuteStatementException);
-            assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcSQLException);
+            assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcException);
             assertTrue(ex.getCause().getMessage().startsWith("Unique index or primary key violation"));
         }
 
         dao.insertSelector(2, 2, null, null, null, null, null);
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "No matching configuration found for: missing")
+    @Test
     public void testMissing()
     {
         H2DaoProvider daoProvider = setup("test_missing");
@@ -177,8 +175,11 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
         dao.insertSelector(2, 1, null, null, null, null, null);
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
-        InternalResourceGroup missing = new InternalResourceGroup.RootInternalResourceGroup("missing", (group, export) -> {}, directExecutor());
-        manager.configure(missing, new SelectionContext<>(missing.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
+        InternalResourceGroup missing = new InternalResourceGroup("missing", (group, export) -> {}, directExecutor());
+
+        assertThatThrownBy(() -> manager.configure(missing, new SelectionContext<>(missing.getId(), new ResourceGroupIdTemplate("missing"))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("No matching configuration found for [missing] using [missing]");
     }
 
     @Test(timeOut = 60_000)
@@ -197,19 +198,19 @@ public class TestDbResourceGroupConfigurationManager
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
         manager.start();
         AtomicBoolean exported = new AtomicBoolean();
-        InternalResourceGroup global = new InternalResourceGroup.RootInternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
-        manager.configure(global, new SelectionContext<>(global.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
+        InternalResourceGroup global = new InternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
+        manager.configure(global, new SelectionContext<>(global.getId(), new ResourceGroupIdTemplate("global")));
         InternalResourceGroup globalSub = global.getOrCreateSubGroup("sub");
-        manager.configure(globalSub, new SelectionContext<>(globalSub.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
+        manager.configure(globalSub, new SelectionContext<>(globalSub.getId(), new ResourceGroupIdTemplate("global.sub")));
         // Verify record exists
-        assertEqualsResourceGroup(globalSub, "2MB", 4, 3, 3, FAIR, 5, false, new Duration(Long.MAX_VALUE, MILLISECONDS), new Duration(Long.MAX_VALUE, MILLISECONDS));
+        assertEqualsResourceGroup(globalSub, "2MB", 4, 3, 3, FAIR, 5, false, Duration.ofMillis(Long.MAX_VALUE), Duration.ofMillis(Long.MAX_VALUE));
         dao.updateResourceGroup(2, "sub", "3MB", 2, 1, 1, "weighted", 6, true, "1h", "1d", 1L, ENVIRONMENT);
         do {
             MILLISECONDS.sleep(500);
         }
         while (globalSub.getJmxExport() == false);
         // Verify update
-        assertEqualsResourceGroup(globalSub, "3MB", 2, 1, 1, WEIGHTED, 6, true, new Duration(1, HOURS), new Duration(1, DAYS));
+        assertEqualsResourceGroup(globalSub, "3MB", 2, 1, 1, WEIGHTED, 6, true, Duration.ofHours(1), Duration.ofDays(1));
         // Verify delete
         dao.deleteSelectors(2);
         dao.deleteResourceGroup(2);
@@ -288,7 +289,7 @@ public class TestDbResourceGroupConfigurationManager
         }
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "No selectors are configured")
+    @Test
     public void testInvalidConfiguration()
     {
         H2DaoProvider daoProvider = setup("selectors");
@@ -299,11 +300,13 @@ public class TestDbResourceGroupConfigurationManager
 
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
                 (poolId, listener) -> {},
-                new DbResourceGroupConfig().setMaxRefreshInterval(Duration.valueOf("1ms")),
+                new DbResourceGroupConfig().setMaxRefreshInterval(io.airlift.units.Duration.valueOf("1ms")),
                 daoProvider.get(),
                 ENVIRONMENT);
 
-        manager.getSelectors();
+        assertThatThrownBy(manager::getSelectors)
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("No selectors are configured");
     }
 
     @Test
@@ -317,7 +320,7 @@ public class TestDbResourceGroupConfigurationManager
 
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
                 (poolId, listener) -> {},
-                new DbResourceGroupConfig().setMaxRefreshInterval(Duration.valueOf("1ms")),
+                new DbResourceGroupConfig().setMaxRefreshInterval(io.airlift.units.Duration.valueOf("1ms")),
                 daoProvider.get(),
                 ENVIRONMENT);
 
@@ -355,7 +358,7 @@ public class TestDbResourceGroupConfigurationManager
             Duration softCpuLimit,
             Duration hardCpuLimit)
     {
-        assertEquals(group.getSoftMemoryLimit(), DataSize.valueOf(softMemoryLimit));
+        assertEquals(group.getSoftMemoryLimitBytes(), DataSize.valueOf(softMemoryLimit).toBytes());
         assertEquals(group.getMaxQueuedQueries(), maxQueued);
         assertEquals(group.getHardConcurrencyLimit(), hardConcurrencyLimit);
         assertEquals(group.getSoftConcurrencyLimit(), softConcurrencyLimit);

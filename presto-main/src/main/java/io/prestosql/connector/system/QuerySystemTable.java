@@ -14,10 +14,13 @@
 package io.prestosql.connector.system;
 
 import io.airlift.units.Duration;
+import io.prestosql.FullConnectorSession;
+import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.QueryInfo;
-import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.QueryStats;
+import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -36,15 +39,15 @@ import org.joda.time.DateTime;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.prestosql.security.AccessControlUtil.filterQueries;
 import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_COORDINATORS;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -63,20 +66,25 @@ public class QuerySystemTable
 
             .column("queued_time_ms", BIGINT)
             .column("analysis_time_ms", BIGINT)
-            .column("distributed_planning_time_ms", BIGINT)
+            .column("planning_time_ms", BIGINT)
 
-            .column("created", TIMESTAMP)
-            .column("started", TIMESTAMP)
-            .column("last_heartbeat", TIMESTAMP)
-            .column("end", TIMESTAMP)
+            .column("created", TIMESTAMP_MILLIS)
+            .column("started", TIMESTAMP_MILLIS)
+            .column("last_heartbeat", TIMESTAMP_MILLIS)
+            .column("end", TIMESTAMP_MILLIS)
+
+            .column("error_type", createUnboundedVarcharType())
+            .column("error_code", createUnboundedVarcharType())
             .build();
 
-    private final QueryManager queryManager;
+    private final Optional<DispatchManager> dispatchManager;
+    private final AccessControl accessControl;
 
     @Inject
-    public QuerySystemTable(QueryManager queryManager)
+    public QuerySystemTable(Optional<DispatchManager> dispatchManager, AccessControl accessControl)
     {
-        this.queryManager = queryManager;
+        this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -94,21 +102,18 @@ public class QuerySystemTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
+        checkState(dispatchManager.isPresent(), "Query system table can return results only on coordinator");
+
+        List<BasicQueryInfo> queries = dispatchManager.get().getQueries();
+        queries = filterQueries(((FullConnectorSession) session).getSession().getIdentity(), queries, accessControl);
+
         Builder table = InMemoryRecordSet.builder(QUERY_TABLE);
-        List<QueryInfo> queryInfos = queryManager.getQueries().stream()
-                .map(BasicQueryInfo::getQueryId)
-                .map(queryId -> {
-                    try {
-                        return queryManager.getFullQueryInfo(queryId);
-                    }
-                    catch (NoSuchElementException e) {
-                        return null;
-                    }
-                })
-                .filter(Objects::nonNull)
-                .collect(toImmutableList());
-        for (QueryInfo queryInfo : queryInfos) {
-            QueryStats queryStats = queryInfo.getQueryStats();
+        for (BasicQueryInfo queryInfo : queries) {
+            Optional<QueryInfo> fullQueryInfo = dispatchManager.get().getFullQueryInfo(queryInfo.getQueryId());
+            if (fullQueryInfo.isEmpty()) {
+                continue;
+            }
+            QueryStats queryStats = fullQueryInfo.get().getQueryStats();
             table.addRow(
                     queryInfo.getQueryId().toString(),
                     queryInfo.getState().toString(),
@@ -119,12 +124,15 @@ public class QuerySystemTable
 
                     toMillis(queryStats.getQueuedTime()),
                     toMillis(queryStats.getAnalysisTime()),
-                    toMillis(queryStats.getDistributedPlanningTime()),
+                    toMillis(queryStats.getPlanningTime()),
 
                     toTimeStamp(queryStats.getCreateTime()),
                     toTimeStamp(queryStats.getExecutionStartTime()),
                     toTimeStamp(queryStats.getLastHeartbeat()),
-                    toTimeStamp(queryStats.getEndTime()));
+                    toTimeStamp(queryStats.getEndTime()),
+
+                    Optional.ofNullable(queryInfo.getErrorType()).map(Enum::name).orElse(null),
+                    Optional.ofNullable(queryInfo.getErrorCode()).map(ErrorCode::getName).orElse(null));
         }
         return table.build().cursor();
     }

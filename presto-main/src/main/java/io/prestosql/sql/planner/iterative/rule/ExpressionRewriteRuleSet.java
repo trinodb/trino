@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
-import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
@@ -30,18 +30,27 @@ import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.OrderBy;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.SortItem;
+import io.prestosql.sql.tree.SortItem.NullOrdering;
+import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.ResolvedFunction.extractFunctionName;
 import static io.prestosql.sql.planner.plan.Patterns.aggregation;
-import static io.prestosql.sql.planner.plan.Patterns.applyNode;
 import static io.prestosql.sql.planner.plan.Patterns.filter;
 import static io.prestosql.sql.planner.plan.Patterns.join;
 import static io.prestosql.sql.planner.plan.Patterns.project;
 import static io.prestosql.sql.planner.plan.Patterns.values;
+import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
+import static io.prestosql.sql.tree.SortItem.Ordering.DESCENDING;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionRewriteRuleSet
@@ -65,8 +74,7 @@ public class ExpressionRewriteRuleSet
                 aggregationExpressionRewrite(),
                 filterExpressionRewrite(),
                 joinExpressionRewrite(),
-                valuesExpressionRewrite(),
-                applyExpressionRewrite());
+                valuesExpressionRewrite());
     }
 
     public Rule<?> projectExpressionRewrite()
@@ -92,11 +100,6 @@ public class ExpressionRewriteRuleSet
     public Rule<?> valuesExpressionRewrite()
     {
         return new ValuesExpressionRewrite(rewriter);
-    }
-
-    public Rule<?> applyExpressionRewrite()
-    {
-        return new ApplyExpressionRewrite(rewriter);
     }
 
     private static final class ProjectExpressionRewrite
@@ -149,11 +152,34 @@ public class ExpressionRewriteRuleSet
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
-                FunctionCall call = (FunctionCall) rewriter.rewrite(aggregation.getCall(), context);
-                aggregations.put(
-                        entry.getKey(),
-                        new Aggregation(call, aggregation.getSignature(), aggregation.getMask()));
-                if (!aggregation.getCall().equals(call)) {
+                FunctionCall call = (FunctionCall) rewriter.rewrite(
+                        new FunctionCall(
+                                Optional.empty(),
+                                QualifiedName.of(aggregation.getResolvedFunction().getSignature().getName()),
+                                Optional.empty(),
+                                aggregation.getFilter().map(symbol -> new SymbolReference(symbol.getName())),
+                                aggregation.getOrderingScheme().map(orderBy -> new OrderBy(orderBy.getOrderBy().stream()
+                                        .map(symbol -> new SortItem(
+                                                new SymbolReference(symbol.getName()),
+                                                orderBy.getOrdering(symbol).isAscending() ? ASCENDING : DESCENDING,
+                                                orderBy.getOrdering(symbol).isNullsFirst() ? NullOrdering.FIRST : NullOrdering.LAST))
+                                        .collect(toImmutableList()))),
+                                aggregation.isDistinct(),
+                                Optional.empty(),
+                                aggregation.getArguments()),
+                        context);
+                verify(
+                        QualifiedName.of(extractFunctionName(call.getName())).equals(QualifiedName.of(aggregation.getResolvedFunction().getSignature().getName())),
+                        "Aggregation function name changed");
+                Aggregation newAggregation = new Aggregation(
+                        aggregation.getResolvedFunction(),
+                        call.getArguments(),
+                        call.isDistinct(),
+                        call.getFilter().map(Symbol::from),
+                        call.getOrderBy().map(OrderingScheme::fromOrderBy),
+                        aggregation.getMask());
+                aggregations.put(entry.getKey(), newAggregation);
+                if (!aggregation.equals(newAggregation)) {
                     anyRewritten = true;
                 }
             }
@@ -226,11 +252,15 @@ public class ExpressionRewriteRuleSet
                         joinNode.getLeft(),
                         joinNode.getRight(),
                         joinNode.getCriteria(),
-                        joinNode.getOutputSymbols(),
+                        joinNode.getLeftOutputSymbols(),
+                        joinNode.getRightOutputSymbols(),
                         filter,
                         joinNode.getLeftHashSymbol(),
                         joinNode.getRightHashSymbol(),
-                        joinNode.getDistributionType()));
+                        joinNode.getDistributionType(),
+                        joinNode.isSpillable(),
+                        joinNode.getDynamicFilters(),
+                        joinNode.getReorderJoinStatsAndCost()));
             }
             return Result.empty();
         }
@@ -272,39 +302,6 @@ public class ExpressionRewriteRuleSet
                 return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getOutputSymbols(), rows.build()));
             }
             return Result.empty();
-        }
-    }
-
-    private static final class ApplyExpressionRewrite
-            implements Rule<ApplyNode>
-    {
-        private final ExpressionRewriter rewriter;
-
-        ApplyExpressionRewrite(ExpressionRewriter rewriter)
-        {
-            this.rewriter = rewriter;
-        }
-
-        @Override
-        public Pattern<ApplyNode> getPattern()
-        {
-            return applyNode();
-        }
-
-        @Override
-        public Result apply(ApplyNode applyNode, Captures captures, Context context)
-        {
-            Assignments subqueryAssignments = applyNode.getSubqueryAssignments().rewrite(x -> rewriter.rewrite(x, context));
-            if (applyNode.getSubqueryAssignments().equals(subqueryAssignments)) {
-                return Result.empty();
-            }
-            return Result.ofPlanNode(new ApplyNode(
-                    applyNode.getId(),
-                    applyNode.getInput(),
-                    applyNode.getSubquery(),
-                    subqueryAssignments,
-                    applyNode.getCorrelation(),
-                    applyNode.getOriginSubquery()));
         }
     }
 }

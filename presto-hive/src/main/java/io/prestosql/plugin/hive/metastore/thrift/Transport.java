@@ -27,7 +27,9 @@ import java.net.Proxy;
 import java.net.Socket;
 import java.util.Optional;
 
+import static java.lang.String.format;
 import static java.net.Proxy.Type.SOCKS;
+import static java.util.Objects.requireNonNull;
 
 public final class Transport
 {
@@ -36,12 +38,14 @@ public final class Transport
             Optional<SSLContext> sslContext,
             Optional<HostAndPort> socksProxy,
             int timeoutMillis,
-            HiveMetastoreAuthentication authentication)
+            HiveMetastoreAuthentication authentication,
+            Optional<String> delegationToken)
             throws TTransportException
     {
+        requireNonNull(address, "address is null");
         try {
             TTransport rawTransport = createRaw(address, sslContext, socksProxy, timeoutMillis);
-            TTransport authenticatedTransport = authentication.authenticate(rawTransport, address.getHost());
+            TTransport authenticatedTransport = authentication.authenticate(rawTransport, address.getHost(), delegationToken);
             if (!authenticatedTransport.isOpen()) {
                 authenticatedTransport.open();
             }
@@ -88,7 +92,8 @@ public final class Transport
 
     private static TTransportException rewriteException(TTransportException e, HostAndPort address)
     {
-        return new TTransportException(e.getType(), String.format("%s: %s", address, e.getMessage()), e);
+        String message = e.getMessage() != null ? format("%s: %s", address, e.getMessage()) : address.toString();
+        return new TTransportException(e.getType(), message, e);
     }
 
     private static class TTransportWrapper
@@ -99,8 +104,8 @@ public final class Transport
 
         TTransportWrapper(TTransport transport, HostAndPort address)
         {
-            this.transport = transport;
-            this.address = address;
+            this.transport = requireNonNull(transport, "transport is null");
+            this.address = requireNonNull(address, "address is null");
         }
 
         @Override

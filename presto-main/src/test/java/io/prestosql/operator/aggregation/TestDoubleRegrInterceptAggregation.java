@@ -15,7 +15,7 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.testng.annotations.Test;
 
@@ -24,12 +24,13 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.block.BlockAssertions.createDoubleSequenceBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 
 public class TestDoubleRegrInterceptAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         return new Block[] {createDoubleSequenceBlock(start, start + length), createDoubleSequenceBlock(start + 2, start + 2 + length)};
     }
@@ -41,13 +42,13 @@ public class TestDoubleRegrInterceptAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.DOUBLE, StandardTypes.DOUBLE);
+        return ImmutableList.of(DOUBLE, DOUBLE);
     }
 
     @Override
-    public Object getExpectedValue(int start, int length)
+    protected Object getExpectedValue(int start, int length)
     {
         if (length <= 1) {
             return null;

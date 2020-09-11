@@ -13,24 +13,27 @@
  */
 package io.prestosql.execution;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.eventlistener.RoutineInfo;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.procedure.Procedure.Argument;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.planner.ParameterRewriter;
 import io.prestosql.sql.tree.Call;
 import io.prestosql.sql.tree.CallArgument;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.Parameter;
 import io.prestosql.transaction.TransactionManager;
 
 import java.lang.invoke.MethodType;
@@ -44,17 +47,18 @@ import java.util.Map.Entry;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
-import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_DEFINITION;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.PROCEDURE_CALL_FAILED;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static io.prestosql.sql.ParameterUtils.parameterExtractor;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
-import static io.prestosql.util.Failures.checkCondition;
 import static java.util.Arrays.asList;
 
 public class CallTask
@@ -75,9 +79,9 @@ public class CallTask
 
         Session session = stateMachine.getSession();
         QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName());
-        ConnectorId connectorId = metadata.getCatalogHandle(stateMachine.getSession(), procedureName.getCatalogName())
-                .orElseThrow(() -> new SemanticException(MISSING_CATALOG, call, "Catalog %s does not exist", procedureName.getCatalogName()));
-        Procedure procedure = metadata.getProcedureRegistry().resolve(connectorId, procedureName.asSchemaTableName());
+        CatalogName catalogName = metadata.getCatalogHandle(stateMachine.getSession(), procedureName.getCatalogName())
+                .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, call, "Catalog '%s' does not exist", procedureName.getCatalogName()));
+        Procedure procedure = metadata.getProcedureRegistry().resolve(catalogName, procedureName.asSchemaTableName());
 
         // map declared argument names to positions
         Map<String, Integer> positions = new HashMap<>();
@@ -90,7 +94,7 @@ public class CallTask
         boolean anyNamed = call.getArguments().stream().anyMatch(hasName);
         boolean allNamed = call.getArguments().stream().allMatch(hasName);
         if (anyNamed && !allNamed) {
-            throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, call, "Named and positional arguments cannot be mixed");
+            throw semanticException(INVALID_ARGUMENTS, call, "Named and positional arguments cannot be mixed");
         }
 
         // get the argument names in call order
@@ -100,39 +104,53 @@ public class CallTask
             if (argument.getName().isPresent()) {
                 String name = argument.getName().get();
                 if (names.put(name, argument) != null) {
-                    throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, argument, "Duplicate procedure argument: %s", name);
+                    throw semanticException(INVALID_ARGUMENTS, argument, "Duplicate procedure argument: %s", name);
                 }
                 if (!positions.containsKey(name)) {
-                    throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, argument, "Unknown argument name: %s", name);
+                    throw semanticException(INVALID_ARGUMENTS, argument, "Unknown argument name: %s", name);
                 }
             }
             else if (i < procedure.getArguments().size()) {
                 names.put(procedure.getArguments().get(i).getName(), argument);
             }
             else {
-                throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, call, "Too many arguments for procedure");
+                throw semanticException(INVALID_ARGUMENTS, call, "Too many arguments for procedure");
             }
         }
 
-        // verify argument count
-        if (names.size() < positions.size()) {
-            throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, call, "Too few arguments for procedure");
-        }
+        procedure.getArguments().stream()
+                .filter(Argument::isRequired)
+                .filter(argument -> !names.containsKey(argument.getName()))
+                .map(Argument::getName)
+                .findFirst()
+                .ifPresent(argument -> {
+                    throw semanticException(INVALID_ARGUMENTS, call, "Required procedure argument '%s' is missing", argument);
+                });
 
         // get argument values
         Object[] values = new Object[procedure.getArguments().size()];
+        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(call, parameters);
         for (Entry<String, CallArgument> entry : names.entrySet()) {
             CallArgument callArgument = entry.getValue();
             int index = positions.get(entry.getKey());
             Argument argument = procedure.getArguments().get(index);
 
-            Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), callArgument.getValue());
-            Type type = metadata.getType(argument.getType());
-            checkCondition(type != null, INVALID_PROCEDURE_DEFINITION, "Unknown procedure argument type: %s", argument.getType());
+            Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameterLookup), callArgument.getValue());
 
-            Object value = evaluateConstantExpression(expression, type, metadata, session, parameters);
+            Type type = argument.getType();
+            Object value = evaluateConstantExpression(expression, type, metadata, session, accessControl, parameterLookup);
 
             values[index] = toTypeObjectValue(session, type, value);
+        }
+
+        // fill values with optional arguments defaults
+        for (int i = 0; i < procedure.getArguments().size(); i++) {
+            Argument argument = procedure.getArguments().get(i);
+
+            if (!names.containsKey(argument.getName())) {
+                verify(argument.isOptional());
+                values[i] = toTypeObjectValue(session, argument.getType(), argument.getDefaultValue());
+            }
         }
 
         // validate arguments
@@ -149,12 +167,15 @@ public class CallTask
         Iterator<Object> valuesIterator = asList(values).iterator();
         for (Class<?> type : methodType.parameterList()) {
             if (ConnectorSession.class.isAssignableFrom(type)) {
-                arguments.add(session.toConnectorSession(connectorId));
+                arguments.add(session.toConnectorSession(catalogName));
             }
             else {
                 arguments.add(valuesIterator.next());
             }
         }
+
+        accessControl.checkCanExecuteProcedure(session.toSecurityContext(), procedureName);
+        stateMachine.setRoutines(ImmutableList.of(new RoutineInfo(procedureName.getObjectName(), session.getUser())));
 
         try {
             procedure.getMethodHandle().invokeWithArguments(arguments);

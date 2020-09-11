@@ -21,6 +21,9 @@ import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.List;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public interface Type
 {
@@ -28,8 +31,22 @@ public interface Type
      * Gets the name of this type which must be case insensitive globally unique.
      * The name of a user defined type must be a legal identifier in Presto.
      */
-    @JsonValue
     TypeSignature getTypeSignature();
+
+    @JsonValue
+    default TypeId getTypeId()
+    {
+        return TypeId.of(getTypeSignature().toString());
+    }
+
+    /**
+     * Returns the base name of this type. For simple types, it is the type name.
+     * For complex types (row, array, etc), it is the type name without any parameters.
+     */
+    default String getBaseName()
+    {
+        return getTypeSignature().getBase();
+    }
 
     /**
      * Returns the name of this type that should be displayed to end-users.
@@ -152,7 +169,41 @@ public interface Type
     long hash(Block block, int position);
 
     /**
-     * Compare the values in the specified block at the specified positions equal.
+     * Compare the values in the specified block at the specified positions.
+     *
+     * @return 0 if the values are equal, negative if left is less than right, and positive, otherwise.
      */
     int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
+
+    /**
+     * Return the range of possible values for this type, if available.
+     * <p>
+     * The type of the values must match {@link #getJavaType}
+     */
+    default Optional<Range> getRange()
+    {
+        return Optional.empty();
+    }
+
+    final class Range
+    {
+        private final Object min;
+        private final Object max;
+
+        public Range(Object min, Object max)
+        {
+            this.min = requireNonNull(min, "min is null");
+            this.max = requireNonNull(max, "max is null");
+        }
+
+        public Object getMin()
+        {
+            return min;
+        }
+
+        public Object getMax()
+        {
+            return max;
+        }
+    }
 }

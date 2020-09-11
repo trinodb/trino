@@ -11,26 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
 import io.prestosql.cost.CostComparator;
-import io.prestosql.cost.PlanNodeCostEstimate;
+import io.prestosql.cost.LocalCostEstimate;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.cost.StatsProvider;
 import io.prestosql.cost.TaskCountEstimator;
@@ -44,7 +30,6 @@ import io.prestosql.sql.planner.plan.SemiJoinNode;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static io.prestosql.SystemSessionProperties.getJoinDistributionType;
 import static io.prestosql.SystemSessionProperties.getJoinMaxBroadcastTableSize;
@@ -65,7 +50,7 @@ public class DetermineSemiJoinDistributionType
     private final TaskCountEstimator taskCountEstimator;
     private final CostComparator costComparator;
 
-    private static final Pattern<SemiJoinNode> PATTERN = semiJoin().matching(semiJoin -> !semiJoin.getDistributionType().isPresent());
+    private static final Pattern<SemiJoinNode> PATTERN = semiJoin().matching(semiJoin -> semiJoin.getDistributionType().isEmpty());
 
     public DetermineSemiJoinDistributionType(CostComparator costComparator, TaskCountEstimator taskCountEstimator)
     {
@@ -116,22 +101,19 @@ public class DetermineSemiJoinDistributionType
 
     private boolean canReplicate(SemiJoinNode node, Context context)
     {
-        Optional<DataSize> joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
-        if (!joinMaxBroadcastTableSize.isPresent()) {
-            return true;
-        }
+        DataSize joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
 
         PlanNode buildSide = node.getFilteringSource();
         PlanNodeStatsEstimate buildSideStatsEstimate = context.getStatsProvider().getStats(buildSide);
         double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide.getOutputSymbols(), context.getSymbolAllocator().getTypes());
-        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.get().toBytes();
+        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.toBytes();
     }
 
     private PlanNodeWithCost getSemiJoinNodeWithCost(SemiJoinNode possibleJoinNode, Context context)
     {
         TypeProvider types = context.getSymbolAllocator().getTypes();
         StatsProvider stats = context.getStatsProvider();
-        boolean replicated = possibleJoinNode.getDistributionType().get().equals(REPLICATED);
+        boolean replicated = possibleJoinNode.getDistributionType().get() == REPLICATED;
         /*
          *   HACK!
          *
@@ -147,16 +129,18 @@ public class DetermineSemiJoinDistributionType
          *
          *   However assuming the cost of SEMI-JOIN output is always the same, we can still make
          *   cost based decisions based on the input cost for different types of SEMI-JOINs.
+         *
+         *   TODO Decision about the distribution should be based on LocalCostEstimate only when PlanCostEstimate cannot be calculated. Otherwise cost comparator cannot take query.max-memory into account.
          */
 
-        int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount();
-        PlanNodeCostEstimate cost = calculateJoinCostWithoutOutput(
+        int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount(context.getSession());
+        LocalCostEstimate cost = calculateJoinCostWithoutOutput(
                 possibleJoinNode.getSource(),
                 possibleJoinNode.getFilteringSource(),
                 stats,
                 types,
                 replicated,
                 estimatedSourceDistributedTaskCount);
-        return new PlanNodeWithCost(cost, possibleJoinNode);
+        return new PlanNodeWithCost(cost.toPlanCost(), possibleJoinNode);
     }
 }

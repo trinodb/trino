@@ -13,20 +13,18 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.prestosql.execution.NodeTaskMap;
 import io.prestosql.execution.RemoteTask;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.Node;
 import io.prestosql.spi.PrestoException;
 
 import javax.annotation.Nullable;
@@ -36,9 +34,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import static io.prestosql.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static io.prestosql.execution.scheduler.NodeScheduler.calculateLowWatermark;
+import static io.prestosql.execution.scheduler.NodeScheduler.getAllNodes;
 import static io.prestosql.execution.scheduler.NodeScheduler.randomizedNodes;
 import static io.prestosql.execution.scheduler.NodeScheduler.selectDistributionNodes;
 import static io.prestosql.execution.scheduler.NodeScheduler.selectExactNodes;
@@ -60,8 +60,7 @@ public class TopologyAwareNodeSelector
     private final int maxSplitsPerNode;
     private final int maxPendingSplitsPerTask;
     private final List<CounterStat> topologicalSplitCounters;
-    private final List<String> networkLocationSegmentNames;
-    private final NetworkLocationCache networkLocationCache;
+    private final NetworkTopology networkTopology;
 
     public TopologyAwareNodeSelector(
             InternalNodeManager nodeManager,
@@ -72,8 +71,7 @@ public class TopologyAwareNodeSelector
             int maxSplitsPerNode,
             int maxPendingSplitsPerTask,
             List<CounterStat> topologicalSplitCounters,
-            List<String> networkLocationSegmentNames,
-            NetworkLocationCache networkLocationCache)
+            NetworkTopology networkTopology)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -83,8 +81,7 @@ public class TopologyAwareNodeSelector
         this.maxSplitsPerNode = maxSplitsPerNode;
         this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
         this.topologicalSplitCounters = requireNonNull(topologicalSplitCounters, "topologicalSplitCounters is null");
-        this.networkLocationSegmentNames = requireNonNull(networkLocationSegmentNames, "networkLocationSegmentNames is null");
-        this.networkLocationCache = requireNonNull(networkLocationCache, "networkLocationCache is null");
+        this.networkTopology = requireNonNull(networkTopology, "networkTopology is null");
     }
 
     @Override
@@ -94,20 +91,20 @@ public class TopologyAwareNodeSelector
     }
 
     @Override
-    public List<Node> allNodes()
+    public List<InternalNode> allNodes()
     {
-        return ImmutableList.copyOf(nodeMap.get().get().getNodesByHostAndPort().values());
+        return getAllNodes(nodeMap.get().get(), includeCoordinator);
     }
 
     @Override
-    public Node selectCurrentNode()
+    public InternalNode selectCurrentNode()
     {
         // TODO: this is a hack to force scheduling on the coordinator
         return nodeManager.getCurrentNode();
     }
 
     @Override
-    public List<Node> selectRandomNodes(int limit, Set<Node> excludedNodes)
+    public List<InternalNode> selectRandomNodes(int limit, Set<InternalNode> excludedNodes)
     {
         return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator, excludedNodes));
     }
@@ -116,21 +113,21 @@ public class TopologyAwareNodeSelector
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
         NodeMap nodeMap = this.nodeMap.get().get();
-        Multimap<Node, Split> assignment = HashMultimap.create();
+        Multimap<InternalNode, Split> assignment = HashMultimap.create();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
         int[] topologicCounters = new int[topologicalSplitCounters.size()];
         Set<NetworkLocation> filledLocations = new HashSet<>();
-        Set<Node> blockedExactNodes = new HashSet<>();
+        Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
         for (Split split : splits) {
             if (!split.isRemotelyAccessible()) {
-                List<Node> candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
+                List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
                 if (candidateNodes.isEmpty()) {
                     log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
                     throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                 }
-                Node chosenNode = bestNodeSplitCount(candidateNodes.iterator(), minCandidates, maxPendingSplitsPerTask, assignmentStats);
+                InternalNode chosenNode = bestNodeSplitCount(candidateNodes.iterator(), minCandidates, maxPendingSplitsPerTask, assignmentStats);
                 if (chosenNode != null) {
                     assignment.put(chosenNode, split);
                     assignmentStats.addAssignedSplit(chosenNode);
@@ -142,12 +139,12 @@ public class TopologyAwareNodeSelector
                 continue;
             }
 
-            Node chosenNode = null;
-            int depth = networkLocationSegmentNames.size();
+            InternalNode chosenNode = null;
+            int depth = topologicalSplitCounters.size() - 1;
             int chosenDepth = 0;
             Set<NetworkLocation> locations = new HashSet<>();
             for (HostAddress host : split.getAddresses()) {
-                locations.add(networkLocationCache.get(host));
+                locations.add(networkTopology.locate(host));
             }
             if (locations.isEmpty()) {
                 // Add the root location
@@ -166,7 +163,7 @@ public class TopologyAwareNodeSelector
                     if (filledLocations.contains(location)) {
                         continue;
                     }
-                    Set<Node> nodes = nodeMap.getWorkersByNetworkPath().get(location);
+                    Set<InternalNode> nodes = nodeMap.getWorkersByNetworkPath().get(location);
                     chosenNode = bestNodeSplitCount(new ResettableRandomizedIterator<>(nodes), minCandidates, calculateMaxPendingSplits(i, depth), assignmentStats);
                     if (chosenNode != null) {
                         chosenDepth = i;
@@ -191,7 +188,7 @@ public class TopologyAwareNodeSelector
         }
 
         ListenableFuture<?> blocked;
-        int maxPendingForWildcardNetworkAffinity = calculateMaxPendingSplits(0, networkLocationSegmentNames.size());
+        int maxPendingForWildcardNetworkAffinity = calculateMaxPendingSplits(0, topologicalSplitCounters.size() - 1);
         if (splitWaitingForAnyNode) {
             blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingForWildcardNetworkAffinity));
         }
@@ -224,14 +221,14 @@ public class TopologyAwareNodeSelector
     }
 
     @Nullable
-    private Node bestNodeSplitCount(Iterator<Node> candidates, int minCandidatesWhenFull, int maxPendingSplitsPerTask, NodeAssignmentStats assignmentStats)
+    private InternalNode bestNodeSplitCount(Iterator<InternalNode> candidates, int minCandidatesWhenFull, int maxPendingSplitsPerTask, NodeAssignmentStats assignmentStats)
     {
-        Node bestQueueNotFull = null;
+        InternalNode bestQueueNotFull = null;
         int min = Integer.MAX_VALUE;
         int fullCandidatesConsidered = 0;
 
         while (candidates.hasNext() && (fullCandidatesConsidered < minCandidatesWhenFull || bestQueueNotFull == null)) {
-            Node node = candidates.next();
+            InternalNode node = candidates.next();
             if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode) {
                 return node;
             }

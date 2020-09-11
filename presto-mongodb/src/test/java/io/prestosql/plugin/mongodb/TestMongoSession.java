@@ -37,6 +37,7 @@ public class TestMongoSession
 {
     private static final MongoColumnHandle COL1 = new MongoColumnHandle("col1", BIGINT, false);
     private static final MongoColumnHandle COL2 = new MongoColumnHandle("col2", createUnboundedVarcharType(), false);
+    private static final MongoColumnHandle COL3 = new MongoColumnHandle("col3", createUnboundedVarcharType(), false);
 
     @Test
     public void testBuildQuery()
@@ -56,12 +57,12 @@ public class TestMongoSession
     public void testBuildQueryStringType()
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                COL1, Domain.create(ValueSet.ofRanges(range(createUnboundedVarcharType(), utf8Slice("hello"), false, utf8Slice("world"), true)), false),
+                COL3, Domain.create(ValueSet.ofRanges(range(createUnboundedVarcharType(), utf8Slice("hello"), false, utf8Slice("world"), true)), false),
                 COL2, Domain.create(ValueSet.ofRanges(greaterThanOrEqual(createUnboundedVarcharType(), utf8Slice("a value"))), false)));
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document()
-                .append(COL1.getName(), new Document().append("$gt", "hello").append("$lte", "world"))
+                .append(COL3.getName(), new Document().append("$gt", "hello").append("$lte", "world"))
                 .append(COL2.getName(), new Document("$gte", "a value"));
         assertEquals(query, expected);
     }

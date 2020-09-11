@@ -17,10 +17,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.prestosql.Session;
+import io.prestosql.execution.TableInfo;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.TableMetadata;
+import io.prestosql.metadata.TableProperties;
 import io.prestosql.operator.StageExecutionDescriptor;
+import io.prestosql.server.DynamicFilterService;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.split.SampledSplitSource;
 import io.prestosql.split.SplitManager;
 import io.prestosql.split.SplitSource;
+import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
 import io.prestosql.sql.planner.plan.DeleteNode;
@@ -34,7 +41,6 @@ import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
-import io.prestosql.sql.planner.plan.MetadataDeleteNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -47,6 +53,7 @@ import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
+import io.prestosql.sql.planner.plan.TableDeleteNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -61,10 +68,14 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static io.prestosql.spi.connector.DynamicFilter.EMPTY;
+import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.util.Objects.requireNonNull;
 
 public class DistributedExecutionPlanner
@@ -72,11 +83,15 @@ public class DistributedExecutionPlanner
     private static final Logger log = Logger.get(DistributedExecutionPlanner.class);
 
     private final SplitManager splitManager;
+    private final Metadata metadata;
+    private final DynamicFilterService dynamicFilterService;
 
     @Inject
-    public DistributedExecutionPlanner(SplitManager splitManager)
+    public DistributedExecutionPlanner(SplitManager splitManager, Metadata metadata, DynamicFilterService dynamicFilterService)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
     }
 
     public StageExecutionPlan plan(SubPlan root, Session session)
@@ -114,10 +129,26 @@ public class DistributedExecutionPlanner
             dependencies.add(doPlan(childPlan, session, allSplitSources));
         }
 
+        // extract TableInfo
+        Map<PlanNodeId, TableInfo> tables = searchFrom(root.getFragment().getRoot())
+                .where(TableScanNode.class::isInstance)
+                .findAll()
+                .stream()
+                .map(TableScanNode.class::cast)
+                .collect(toImmutableMap(PlanNode::getId, node -> getTableInfo(node, session)));
+
         return new StageExecutionPlan(
                 currentFragment,
                 splitSources,
-                dependencies.build());
+                dependencies.build(),
+                tables);
+    }
+
+    private TableInfo getTableInfo(TableScanNode node, Session session)
+    {
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, node.getTable());
+        TableProperties tableProperties = metadata.getTableProperties(session, node.getTable());
+        return new TableInfo(tableMetadata.getQualifiedName(), tableProperties.getPredicate());
     }
 
     private final class Visitor
@@ -143,11 +174,29 @@ public class DistributedExecutionPlanner
         @Override
         public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Void context)
         {
+            return visitScanAndFilter(node, Optional.empty());
+        }
+
+        private Map<PlanNodeId, SplitSource> visitScanAndFilter(TableScanNode node, Optional<FilterNode> filter)
+        {
+            List<DynamicFilters.Descriptor> dynamicFilters = filter
+                    .map(FilterNode::getPredicate)
+                    .map(DynamicFilters::extractDynamicFilters)
+                    .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
+                    .orElse(ImmutableList.of());
+
+            DynamicFilter dynamicFilter = EMPTY;
+            if (!dynamicFilters.isEmpty()) {
+                log.debug("Dynamic filters: %s", dynamicFilters);
+                dynamicFilter = dynamicFilterService.createDynamicFilter(session.getQueryId(), dynamicFilters, node.getAssignments());
+            }
+
             // get dataSource for table
             SplitSource splitSource = splitManager.getSplits(
                     session,
-                    node.getLayout().get(),
-                    stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
+                    node.getTable(),
+                    stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING,
+                    dynamicFilter);
 
             splitSources.add(splitSource);
 
@@ -210,6 +259,11 @@ public class DistributedExecutionPlanner
         @Override
         public Map<PlanNodeId, SplitSource> visitFilter(FilterNode node, Void context)
         {
+            if (node.getSource() instanceof TableScanNode) {
+                TableScanNode scan = (TableScanNode) node.getSource();
+                return visitScanAndFilter(scan, Optional.of(node));
+            }
+
             return node.getSource().accept(this, context);
         }
 
@@ -350,9 +404,9 @@ public class DistributedExecutionPlanner
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitMetadataDelete(MetadataDeleteNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitTableDelete(TableDeleteNode node, Void context)
         {
-            // MetadataDelete node does not have splits
+            // node does not have splits
             return ImmutableMap.of();
         }
 

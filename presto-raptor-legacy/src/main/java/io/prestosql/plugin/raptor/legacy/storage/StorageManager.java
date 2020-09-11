@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -31,9 +32,9 @@ public interface StorageManager
             List<Long> columnIds,
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
-            ReaderAttributes readerAttributes)
+            OrcReaderOptions orcReaderOptions)
     {
-        return getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, effectivePredicate, readerAttributes, OptionalLong.empty());
+        return getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, effectivePredicate, orcReaderOptions, OptionalLong.empty());
     }
 
     ConnectorPageSource getPageSource(
@@ -42,7 +43,7 @@ public interface StorageManager
             List<Long> columnIds,
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
-            ReaderAttributes readerAttributes,
+            OrcReaderOptions orcReaderOptions,
             OptionalLong transactionId);
 
     StoragePageSink createStoragePageSink(

@@ -13,25 +13,31 @@
  */
 package io.prestosql.type;
 
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.AbstractType;
+import io.prestosql.spi.type.AbstractVariableWidthType;
 import io.prestosql.spi.type.TypeSignature;
 
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 public class Re2JRegexpType
-        extends AbstractType
+        extends AbstractVariableWidthType
 {
-    public static final Re2JRegexpType RE2J_REGEXP = new Re2JRegexpType();
     public static final String NAME = "Re2JRegExp";
+    public static final TypeSignature RE2J_REGEXP_SIGNATURE = new TypeSignature(NAME);
 
-    public Re2JRegexpType()
+    private final int dfaStatesLimit;
+    private final int dfaRetries;
+
+    public Re2JRegexpType(int dfaStatesLimit, int dfaRetries)
     {
-        super(new TypeSignature(NAME), Re2JRegexp.class);
+        super(RE2J_REGEXP_SIGNATURE, Re2JRegexp.class);
+        this.dfaStatesLimit = dfaStatesLimit;
+        this.dfaRetries = dfaRetries;
     }
 
     @Override
@@ -47,14 +53,25 @@ public class Re2JRegexpType
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public Object getObject(Block block, int position)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "RegExp type cannot be serialized");
+        if (block.isNull(position)) {
+            return null;
+        }
+
+        Slice pattern = block.getSlice(position, 0, block.getSliceLength(position));
+        try {
+            return new Re2JRegexp(dfaStatesLimit, dfaRetries, pattern);
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "RegExp type cannot be serialized");
+        Slice pattern = Slices.utf8Slice(((Re2JRegexp) value).pattern());
+        blockBuilder.writeBytes(pattern, 0, pattern.length()).closeEntry();
     }
 }

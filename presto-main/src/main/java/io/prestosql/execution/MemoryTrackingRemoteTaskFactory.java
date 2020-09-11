@@ -18,8 +18,8 @@ import io.prestosql.Session;
 import io.prestosql.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.OutputBuffers;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
-import io.prestosql.spi.Node;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
@@ -40,9 +40,10 @@ public class MemoryTrackingRemoteTaskFactory
     }
 
     @Override
-    public RemoteTask createRemoteTask(Session session,
+    public RemoteTask createRemoteTask(
+            Session session,
             TaskId taskId,
-            Node node,
+            InternalNode node,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OptionalInt totalPartitions,
@@ -70,6 +71,7 @@ public class MemoryTrackingRemoteTaskFactory
         private final QueryStateMachine stateMachine;
         private long previousUserMemory;
         private long previousSystemMemory;
+        private long previousRevocableMemory;
 
         public UpdatePeakMemory(QueryStateMachine stateMachine)
         {
@@ -81,12 +83,15 @@ public class MemoryTrackingRemoteTaskFactory
         {
             long currentUserMemory = newStatus.getMemoryReservation().toBytes();
             long currentSystemMemory = newStatus.getSystemMemoryReservation().toBytes();
-            long currentTotalMemory = currentUserMemory + currentSystemMemory;
+            long currentRevocableMemory = newStatus.getRevocableMemoryReservation().toBytes();
+            long currentTotalMemory = currentUserMemory + currentSystemMemory + currentRevocableMemory;
             long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
-            long deltaTotalMemoryInBytes = currentTotalMemory - (previousUserMemory + previousSystemMemory);
+            long deltaRevocableMemoryInBytes = currentRevocableMemory - previousRevocableMemory;
+            long deltaTotalMemoryInBytes = currentTotalMemory - (previousUserMemory + previousSystemMemory + previousRevocableMemory);
             previousUserMemory = currentUserMemory;
             previousSystemMemory = currentSystemMemory;
-            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes, currentUserMemory, currentTotalMemory);
+            previousRevocableMemory = currentRevocableMemory;
+            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaRevocableMemoryInBytes, deltaTotalMemoryInBytes, currentUserMemory, currentRevocableMemory, currentTotalMemory);
         }
     }
 }

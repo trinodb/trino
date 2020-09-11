@@ -1,4 +1,3 @@
-package io.prestosql.operator.scalar;
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,27 +11,29 @@ package io.prestosql.operator.scalar;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.Signature.comparableWithVariadicBound;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.util.Failures.internalError;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -48,37 +49,43 @@ public class RowEqualOperator
         super(EQUAL,
                 ImmutableList.of(comparableWithVariadicBound("T", "row")),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.BOOLEAN),
-                ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
+                BOOLEAN.getTypeSignature(),
+                ImmutableList.of(new TypeSignature("T"), new TypeSignature("T")),
+                true);
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
     {
-        RowType type = (RowType) boundVariables.getTypeVariable("T");
-        return new ScalarFunctionImplementation(
-                true,
-                ImmutableList.of(
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                METHOD_HANDLE
-                        .bindTo(type)
-                        .bindTo(resolveFieldEqualOperators(type, functionRegistry)),
-                isDeterministic());
+        RowType rowType = (RowType) functionBinding.getTypeVariable("T");
+        FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
+        rowType.getTypeParameters()
+                .forEach(type -> builder.addOperator(EQUAL, ImmutableList.of(type, type)));
+        return builder.build();
     }
 
-    public static List<MethodHandle> resolveFieldEqualOperators(RowType rowType, FunctionRegistry functionRegistry)
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        RowType type = (RowType) functionBinding.getTypeVariable("T");
+        return new ScalarFunctionImplementation(
+                NULLABLE_RETURN,
+                ImmutableList.of(NEVER_NULL, NEVER_NULL),
+                METHOD_HANDLE
+                        .bindTo(type)
+                        .bindTo(resolveFieldEqualOperators(type, functionDependencies)));
+    }
+
+    public static List<MethodHandle> resolveFieldEqualOperators(RowType rowType, FunctionDependencies functionDependencies)
     {
         return rowType.getTypeParameters().stream()
-                .map(type -> resolveEqualOperator(type, functionRegistry))
+                .map(type -> resolveEqualOperator(type, functionDependencies))
                 .collect(toImmutableList());
     }
 
-    private static MethodHandle resolveEqualOperator(Type type, FunctionRegistry functionRegistry)
+    private static MethodHandle resolveEqualOperator(Type type, FunctionDependencies functionDependencies)
     {
-        Signature operator = functionRegistry.resolveOperator(EQUAL, ImmutableList.of(type, type));
-        ScalarFunctionImplementation implementation = functionRegistry.getScalarFunctionImplementation(operator);
-        return implementation.getMethodHandle();
+        return functionDependencies.getOperatorInvoker(EQUAL, ImmutableList.of(type, type), Optional.empty()).getMethodHandle();
     }
 
     public static Boolean equals(RowType rowType, List<MethodHandle> fieldEqualOperators, Block leftRow, Block rightRow)

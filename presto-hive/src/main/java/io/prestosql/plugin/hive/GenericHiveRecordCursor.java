@@ -22,10 +22,11 @@ import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.io.HiveCharWritable;
@@ -39,27 +40,23 @@ import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordReader;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static io.prestosql.plugin.hive.HiveUtil.closeWithSuppression;
-import static io.prestosql.plugin.hive.HiveUtil.getDeserializer;
-import static io.prestosql.plugin.hive.HiveUtil.getTableObjectInspector;
-import static io.prestosql.plugin.hive.HiveUtil.isStructuralType;
+import static io.prestosql.plugin.hive.util.HiveUtil.closeWithSuppression;
+import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializer;
+import static io.prestosql.plugin.hive.util.HiveUtil.getTableObjectInspector;
+import static io.prestosql.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.prestosql.plugin.hive.util.SerDeUtils.getBlockObject;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -71,7 +68,8 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -79,9 +77,10 @@ import static io.prestosql.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-class GenericHiveRecordCursor<K, V extends Writable>
+public class GenericHiveRecordCursor<K, V extends Writable>
         implements RecordCursor
 {
     private final Path path;
@@ -107,7 +106,6 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private final boolean[] nulls;
 
     private final long totalBytes;
-    private final DateTimeZone hiveStorageTimeZone;
 
     private long completedBytes;
     private Object rowData;
@@ -119,23 +117,19 @@ class GenericHiveRecordCursor<K, V extends Writable>
             RecordReader<K, V> recordReader,
             long totalBytes,
             Properties splitSchema,
-            List<HiveColumnHandle> columns,
-            DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            List<HiveColumnHandle> columns)
     {
         requireNonNull(path, "path is null");
         requireNonNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
         requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(columns, "columns is null");
-        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
         this.path = path;
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.key = recordReader.createKey();
         this.value = recordReader.createValue();
-        this.hiveStorageTimeZone = hiveStorageTimeZone;
 
         this.deserializer = getDeserializer(configuration, splitSchema);
         this.rowInspector = getTableObjectInspector(deserializer);
@@ -161,7 +155,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
             HiveColumnHandle column = columns.get(i);
             checkState(column.getColumnType() == REGULAR, "column type must be regular");
 
-            types[i] = typeManager.getType(column.getTypeSignature());
+            types[i] = column.getType();
             hiveTypes[i] = column.getHiveType();
 
             StructField field = rowInspector.getStructFieldRef(column.getName());
@@ -188,6 +182,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private void updateCompletedBytes()
     {
         try {
+            @SuppressWarnings("NumericCastThatLosesPrecision")
             long newCompletedBytes = (long) (totalBytes * recordReader.getProgress());
             completedBytes = min(totalBytes, max(completedBytes, newCompletedBytes));
         }
@@ -280,35 +275,18 @@ class GenericHiveRecordCursor<K, V extends Writable>
         else {
             Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
-            longs[column] = getLongExpressedValue(fieldValue, hiveStorageTimeZone);
+            longs[column] = getLongExpressedValue(fieldValue);
             nulls[column] = false;
         }
     }
 
-    private static long getLongExpressedValue(Object value, DateTimeZone hiveTimeZone)
+    private long getLongExpressedValue(Object value)
     {
         if (value instanceof Date) {
-            long storageTime = ((Date) value).getTime();
-            // convert date from VM current time zone to UTC
-            long utcMillis = storageTime + DateTimeZone.getDefault().getOffset(storageTime);
-            return TimeUnit.MILLISECONDS.toDays(utcMillis);
+            return ((Date) value).toEpochDay();
         }
         if (value instanceof Timestamp) {
-            // The Hive SerDe parses timestamps using the default time zone of
-            // this JVM, but the data might have been written using a different
-            // time zone. We need to convert it to the configured time zone.
-
-            // the timestamp that Hive parsed using the JVM time zone
-            long parsedJvmMillis = ((Timestamp) value).getTime();
-
-            // remove the JVM time zone correction from the timestamp
-            DateTimeZone jvmTimeZone = DateTimeZone.getDefault();
-            long hiveMillis = jvmTimeZone.convertUTCToLocal(parsedJvmMillis);
-
-            // convert to UTC using the real time zone for the underlying data
-            long utcMillis = hiveTimeZone.convertLocalToUTC(hiveMillis, false);
-
-            return utcMillis;
+            return ((Timestamp) value).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
         }
         if (value instanceof Float) {
             return floatToRawIntBits(((Float) value));
@@ -503,7 +481,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
         else if (DATE.equals(type)) {
             parseLongColumn(column);
         }
-        else if (TIMESTAMP.equals(type)) {
+        else if (TIMESTAMP_MILLIS.equals(type)) {
             parseLongColumn(column);
         }
         else if (type instanceof DecimalType) {
@@ -518,7 +496,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     {
         if (!types[fieldId].getJavaType().equals(type)) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
-            throw new IllegalArgumentException(String.format("Expected field to be %s, actual %s (field %s)", type, types[fieldId], fieldId));
+            throw new IllegalArgumentException(format("Expected field to be %s, actual %s (field %s)", type, types[fieldId], fieldId));
         }
     }
 

@@ -14,19 +14,17 @@
 
 package io.prestosql.block;
 
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.ByteArrayBlock;
+import io.prestosql.spi.block.MapBlock;
 import io.prestosql.spi.block.MapBlockBuilder;
 import io.prestosql.spi.block.SingleMapBlock;
 import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,13 +46,6 @@ import static org.testng.Assert.assertTrue;
 public class TestMapBlock
         extends AbstractTestBlock
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-
-    static {
-        // associate TYPE_MANAGER with a function registry
-        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
-
     @Test
     public void test()
     {
@@ -80,8 +71,123 @@ public class TestMapBlock
         testIncompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, inCompactKeyBlock, inCompactValueBlock));
     }
 
-    private Map<String, Long>[] createTestMap(int... entryCounts)
+    @Test
+    public void testLazyHashTableBuildOverBlockRegion()
     {
+        assertLazyHashTableBuildOverBlockRegion(createTestMap(9, 3, 4, 0, 8, 0, 6, 5));
+        assertLazyHashTableBuildOverBlockRegion(alternatingNullValues(createTestMap(9, 3, 4, 0, 8, 0, 6, 5)));
+    }
+
+    private void assertLazyHashTableBuildOverBlockRegion(Map<String, Long>[] testValues)
+    {
+        testLazyGetPositionsHashTable(testValues);
+        testLazyBeginningGetRegionHashTable(testValues);
+        testLazyMiddleGetRegionHashTable(testValues);
+        testLazyEndGetRegionHashTable(testValues);
+    }
+
+    private void testLazyGetPositionsHashTable(Map<String, Long>[] testValues)
+    {
+        MapBlock block = createBlockWithValuesFromKeyValueBlock(testValues);
+        assertFalse(block.isHashTablesPresent());
+        BlockBuilder blockBuilder = createBlockBuilderWithValues(testValues);
+
+        int[] testPositions = {7, 1, 5, 2, 3, 7};
+        Block prefix = block.getPositions(testPositions, 0, testPositions.length);
+
+        assertFalse(block.isHashTablesPresent());
+
+        assertBlock(prefix, () -> blockBuilder.newBlockBuilderLike(null), getArrayPositions(testValues, testPositions));
+
+        assertTrue(block.isHashTablesPresent());
+    }
+
+    private static Map<String, Long>[] getArrayPositions(Map<String, Long>[] testPositions, int[] positions)
+    {
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        Map<String, Long>[] values = new Map[positions.length];
+        for (int i = 0; i < positions.length; i++) {
+            values[i] = testPositions[positions[i]];
+        }
+        return values;
+    }
+
+    private void testLazyBeginningGetRegionHashTable(Map<String, Long>[] testValues)
+    {
+        MapBlock block = createBlockWithValuesFromKeyValueBlock(testValues);
+        assertFalse(block.isHashTablesPresent());
+        BlockBuilder blockBuilder = createBlockBuilderWithValues(testValues);
+
+        MapBlock prefix = (MapBlock) block.getRegion(0, 4);
+
+        assertFalse(block.isHashTablesPresent());
+        assertFalse(prefix.isHashTablesPresent());
+
+        assertBlock(prefix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 0, 4));
+
+        assertTrue(block.isHashTablesPresent());
+        assertTrue(prefix.isHashTablesPresent());
+
+        MapBlock midSection = (MapBlock) block.getRegion(2, 4);
+        assertTrue(midSection.isHashTablesPresent());
+        assertBlock(midSection, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 2, 6));
+
+        MapBlock suffix = (MapBlock) block.getRegion(4, 4);
+        assertTrue(suffix.isHashTablesPresent());
+        assertBlock(suffix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 4, 8));
+    }
+
+    private void testLazyMiddleGetRegionHashTable(Map<String, Long>[] testValues)
+    {
+        MapBlock block = createBlockWithValuesFromKeyValueBlock(testValues);
+        BlockBuilder blockBuilder = createBlockBuilderWithValues(testValues);
+
+        MapBlock midSection = (MapBlock) block.getRegion(2, 4);
+
+        assertFalse(block.isHashTablesPresent());
+        assertFalse(midSection.isHashTablesPresent());
+
+        assertBlock(midSection, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 2, 6));
+
+        assertTrue(block.isHashTablesPresent());
+        assertTrue(midSection.isHashTablesPresent());
+
+        MapBlock prefix = (MapBlock) block.getRegion(0, 4);
+        assertTrue(prefix.isHashTablesPresent());
+        assertBlock(prefix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 0, 4));
+
+        MapBlock suffix = (MapBlock) block.getRegion(4, 4);
+        assertTrue(suffix.isHashTablesPresent());
+        assertBlock(suffix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 4, 8));
+    }
+
+    private void testLazyEndGetRegionHashTable(Map<String, Long>[] testValues)
+    {
+        MapBlock block = createBlockWithValuesFromKeyValueBlock(testValues);
+        BlockBuilder blockBuilder = createBlockBuilderWithValues(testValues);
+
+        MapBlock suffix = (MapBlock) block.getRegion(4, 4);
+
+        assertFalse(block.isHashTablesPresent());
+        assertFalse(suffix.isHashTablesPresent());
+
+        assertBlock(suffix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 4, 8));
+
+        assertTrue(block.isHashTablesPresent());
+        assertTrue(suffix.isHashTablesPresent());
+
+        MapBlock prefix = (MapBlock) block.getRegion(0, 4);
+        assertTrue(prefix.isHashTablesPresent());
+        assertBlock(prefix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 0, 4));
+
+        MapBlock midSection = (MapBlock) block.getRegion(2, 4);
+        assertTrue(midSection.isHashTablesPresent());
+        assertBlock(midSection, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 2, 6));
+    }
+
+    private static Map<String, Long>[] createTestMap(int... entryCounts)
+    {
+        @SuppressWarnings({"rawtypes", "unchecked"})
         Map<String, Long>[] result = new Map[entryCounts.length];
         for (int rowNumber = 0; rowNumber < entryCounts.length; rowNumber++) {
             int entryCount = entryCounts[rowNumber];
@@ -138,7 +244,7 @@ public class TestMapBlock
         return mapBlockBuilder;
     }
 
-    private Block createBlockWithValuesFromKeyValueBlock(Map<String, Long>[] maps)
+    private MapBlock createBlockWithValuesFromKeyValueBlock(Map<String, Long>[] maps)
     {
         List<String> keys = new ArrayList<>();
         List<Long> values = new ArrayList<>();
@@ -158,7 +264,7 @@ public class TestMapBlock
                 offsets[i + 1] = offsets[i] + map.size();
             }
         }
-        return mapType(VARCHAR, BIGINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, createStringsBlock(keys), createLongsBlock(values));
+        return (MapBlock) mapType(VARCHAR, BIGINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, createStringsBlock(keys), createLongsBlock(values));
     }
 
     private void createBlockBuilderWithValues(Map<String, Long> map, BlockBuilder mapBlockBuilder)

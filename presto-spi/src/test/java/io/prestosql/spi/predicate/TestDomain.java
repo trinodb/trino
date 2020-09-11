@@ -30,8 +30,11 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.TestingIdType.ID;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.Double.longBitsToDouble;
+import static java.lang.Float.floatToRawIntBits;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -106,6 +109,46 @@ public class TestDomain
         assertTrue(domain.includesNullableValue(Long.MAX_VALUE));
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.none(BIGINT));
+    }
+
+    @Test
+    public void testFloatingPointOrderableAll()
+    {
+        Domain domain = Domain.all(REAL);
+        assertFalse(domain.isNone());
+        assertTrue(domain.isAll());
+        assertFalse(domain.isSingleValue());
+        assertFalse(domain.isNullableSingleValue());
+        assertFalse(domain.isOnlyNull());
+        assertTrue(domain.isNullAllowed());
+        assertEquals(domain.getValues(), ValueSet.all(REAL));
+        assertEquals(domain.getType(), REAL);
+        assertTrue(domain.includesNullableValue((long) floatToRawIntBits(-Float.MAX_VALUE)));
+        assertTrue(domain.includesNullableValue((long) floatToRawIntBits(0.0f)));
+        assertTrue(domain.includesNullableValue((long) floatToRawIntBits(Float.MAX_VALUE)));
+        assertTrue(domain.includesNullableValue((long) floatToRawIntBits(Float.MIN_VALUE)));
+        assertTrue(domain.includesNullableValue(null));
+        assertTrue(domain.includesNullableValue((long) floatToRawIntBits(Float.NaN)));
+        assertTrue(domain.includesNullableValue((long) 0x7fc01234)); // different NaN representation
+        assertEquals(domain.complement(), Domain.none(REAL));
+
+        domain = Domain.all(DOUBLE);
+        assertFalse(domain.isNone());
+        assertTrue(domain.isAll());
+        assertFalse(domain.isSingleValue());
+        assertFalse(domain.isNullableSingleValue());
+        assertFalse(domain.isOnlyNull());
+        assertTrue(domain.isNullAllowed());
+        assertEquals(domain.getValues(), ValueSet.all(DOUBLE));
+        assertEquals(domain.getType(), DOUBLE);
+        assertTrue(domain.includesNullableValue(-Double.MAX_VALUE));
+        assertTrue(domain.includesNullableValue(0.0));
+        assertTrue(domain.includesNullableValue(Double.MAX_VALUE));
+        assertTrue(domain.includesNullableValue(Double.MIN_VALUE));
+        assertTrue(domain.includesNullableValue(null));
+        assertTrue(domain.includesNullableValue(Double.NaN));
+        assertTrue(domain.includesNullableValue(longBitsToDouble(0x7ff8123412341234L))); // different NaN representation
+        assertEquals(domain.complement(), Domain.none(DOUBLE));
     }
 
     @Test
@@ -531,7 +574,7 @@ public class TestDomain
             throws Exception
     {
         TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde(typeManager);
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 
         ObjectMapper mapper = new ObjectMapperProvider().get()
                 .registerModule(new SimpleModule()

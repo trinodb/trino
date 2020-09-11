@@ -14,15 +14,17 @@
 package io.prestosql.client;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Splitter;
+import com.google.common.base.StandardSystemProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.security.pem.PemReader;
-import okhttp3.Call;
-import okhttp3.Callback;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
-import okhttp3.Response;
+import okhttp3.Protocol;
+import okhttp3.Request;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -41,6 +43,7 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
+import java.security.SecureRandom;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
@@ -49,6 +52,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
@@ -61,16 +65,6 @@ import static java.util.Objects.requireNonNull;
 public final class OkHttpUtil
 {
     private OkHttpUtil() {}
-
-    public static class NullCallback
-            implements Callback
-    {
-        @Override
-        public void onFailure(Call call, IOException e) {}
-
-        @Override
-        public void onResponse(Call call, Response response) {}
-    }
 
     public static Interceptor userAgent(String userAgent)
     {
@@ -101,6 +95,16 @@ public final class OkHttpUtil
         return chain -> chain.proceed(chain.request().newBuilder()
                 .addHeader(AUTHORIZATION, "Bearer " + accessToken)
                 .build());
+    }
+
+    public static Interceptor interceptRequest(Consumer<Request> consumer)
+    {
+        requireNonNull(consumer, "consumer is null");
+
+        return chain -> {
+            consumer.accept(chain.request());
+            return chain.proceed(chain.request());
+        };
     }
 
     public static void setupTimeouts(OkHttpClient.Builder clientBuilder, int timeout, TimeUnit unit)
@@ -138,12 +142,49 @@ public final class OkHttpUtil
         return InetSocketAddress.createUnresolved(address.getHost(), address.getPort());
     }
 
+    public static void setupInsecureSsl(OkHttpClient.Builder clientBuilder)
+    {
+        try {
+            X509TrustManager trustAllCerts = new X509TrustManager()
+            {
+                @Override
+                public void checkClientTrusted(X509Certificate[] chain, String authType)
+                {
+                    throw new UnsupportedOperationException("checkClientTrusted should not be called");
+                }
+
+                @Override
+                public void checkServerTrusted(X509Certificate[] chain, String authType)
+                {
+                    // skip validation of server certificate
+                }
+
+                @Override
+                public X509Certificate[] getAcceptedIssuers()
+                {
+                    return new X509Certificate[0];
+                }
+            };
+
+            SSLContext sslContext = SSLContext.getInstance("SSL");
+            sslContext.init(null, new TrustManager[] {trustAllCerts}, new SecureRandom());
+
+            clientBuilder.sslSocketFactory(sslContext.getSocketFactory(), trustAllCerts);
+            clientBuilder.hostnameVerifier((hostname, session) -> true);
+        }
+        catch (GeneralSecurityException e) {
+            throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
+        }
+    }
+
     public static void setupSsl(
             OkHttpClient.Builder clientBuilder,
             Optional<String> keyStorePath,
             Optional<String> keyStorePassword,
+            Optional<String> keyStoreType,
             Optional<String> trustStorePath,
-            Optional<String> trustStorePassword)
+            Optional<String> trustStorePassword,
+            Optional<String> trustStoreType)
     {
         if (!keyStorePath.isPresent() && !trustStorePath.isPresent()) {
             return;
@@ -164,7 +205,7 @@ public final class OkHttpUtil
                 catch (IOException | GeneralSecurityException ignored) {
                     keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
 
-                    keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+                    keyStore = KeyStore.getInstance(keyStoreType.orElse(KeyStore.getDefaultType()));
                     try (InputStream in = new FileInputStream(keyStorePath.get())) {
                         keyStore.load(in, keyManagerPassword);
                     }
@@ -178,7 +219,7 @@ public final class OkHttpUtil
             // load TrustStore if configured, otherwise use KeyStore
             KeyStore trustStore = keyStore;
             if (trustStorePath.isPresent()) {
-                trustStore = loadTrustStore(new File(trustStorePath.get()), trustStorePassword);
+                trustStore = loadTrustStore(new File(trustStorePath.get()), trustStorePassword, trustStoreType);
             }
 
             // create TrustManagerFactory
@@ -187,7 +228,7 @@ public final class OkHttpUtil
 
             // get X509TrustManager
             TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
-            if ((trustManagers.length != 1) || !(trustManagers[0] instanceof X509TrustManager)) {
+            if (trustManagers.length != 1 || !(trustManagers[0] instanceof X509TrustManager)) {
                 throw new RuntimeException("Unexpected default trust managers:" + Arrays.toString(trustManagers));
             }
             X509TrustManager trustManager = (X509TrustManager) trustManagers[0];
@@ -200,6 +241,26 @@ public final class OkHttpUtil
         }
         catch (GeneralSecurityException | IOException e) {
             throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
+        }
+    }
+
+    public static void setupChannelSocket(OkHttpClient.Builder clientBuilder)
+    {
+        // Enable socket factory only for pre JDK 11
+        if (!isAtLeastJava11()) {
+            clientBuilder.socketFactory(new SocketChannelSocketFactory());
+            clientBuilder.protocols(ImmutableList.of(Protocol.HTTP_1_1));
+        }
+    }
+
+    private static boolean isAtLeastJava11()
+    {
+        String feature = Splitter.on(".").split(StandardSystemProperty.JAVA_VERSION.value()).iterator().next();
+        try {
+            return Integer.parseInt(feature) >= 11;
+        }
+        catch (NumberFormatException e) {
+            return false;
         }
     }
 
@@ -227,10 +288,10 @@ public final class OkHttpUtil
         }
     }
 
-    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword)
+    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword, Optional<String> trustStoreType)
             throws IOException, GeneralSecurityException
     {
-        KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        KeyStore trustStore = KeyStore.getInstance(trustStoreType.orElse(KeyStore.getDefaultType()));
         try {
             // attempt to read the trust store as a PEM file
             List<X509Certificate> certificateChain = PemReader.readCertificateChain(trustStorePath);
@@ -254,6 +315,7 @@ public final class OkHttpUtil
 
     public static void setupKerberos(
             OkHttpClient.Builder clientBuilder,
+            String servicePrincipalPattern,
             String remoteServiceName,
             boolean useCanonicalHostname,
             Optional<String> principal,
@@ -261,13 +323,7 @@ public final class OkHttpUtil
             Optional<File> keytab,
             Optional<File> credentialCache)
     {
-        SpnegoHandler handler = new SpnegoHandler(
-                remoteServiceName,
-                useCanonicalHostname,
-                principal,
-                kerberosConfig,
-                keytab,
-                credentialCache);
+        SpnegoHandler handler = new SpnegoHandler(servicePrincipalPattern, remoteServiceName, useCanonicalHostname, principal, kerberosConfig, keytab, credentialCache);
         clientBuilder.addInterceptor(handler);
         clientBuilder.authenticator(handler);
     }

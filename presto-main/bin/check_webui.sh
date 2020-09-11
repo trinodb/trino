@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Perform basic validations on the Web UI Javascript code
 #

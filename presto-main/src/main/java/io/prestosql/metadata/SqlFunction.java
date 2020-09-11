@@ -13,13 +13,19 @@
  */
 package io.prestosql.metadata;
 
+import static io.prestosql.metadata.FunctionDependencyDeclaration.NO_DEPENDENCIES;
+
 public interface SqlFunction
 {
-    Signature getSignature();
+    FunctionMetadata getFunctionMetadata();
 
-    boolean isHidden();
+    default FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    {
+        return getFunctionDependencies();
+    }
 
-    boolean isDeterministic();
-
-    String getDescription();
+    default FunctionDependencyDeclaration getFunctionDependencies()
+    {
+        return NO_DEPENDENCIES;
+    }
 }

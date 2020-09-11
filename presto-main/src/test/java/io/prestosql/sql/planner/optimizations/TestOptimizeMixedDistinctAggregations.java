@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.sql.planner.RuleStatsRecorder;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.assertions.ExpectedValueProvider;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
@@ -37,7 +38,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anySymbol;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.groupingSet;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.groupId;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -85,8 +86,8 @@ public class TestOptimizeMixedDistinctAggregations
                 aggregation(singleGroupingSet(groupByKeysSecond), aggregationsSecond, ImmutableMap.of(), Optional.empty(), SINGLE,
                         project(
                                 aggregation(singleGroupingSet(groupByKeysFirst), aggregationsFirst, ImmutableMap.of(), Optional.empty(), SINGLE,
-                                        groupingSet(groups.build(), group,
-                                                anyTree(tableScan))))));
+                                        groupId(groups.build(), group,
+                                                tableScan)))));
 
         assertUnitPlan(sql, expectedPlanPattern);
     }
@@ -114,7 +115,7 @@ public class TestOptimizeMixedDistinctAggregations
     private void assertUnitPlan(String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(),
+                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
@@ -124,7 +125,7 @@ public class TestOptimizeMixedDistinctAggregations
                                 new SingleDistinctAggregationToGroupBy(),
                                 new MultipleDistinctAggregationToMarkDistinct())),
                 new OptimizeMixedDistinctAggregations(getQueryRunner().getMetadata()),
-                new PruneUnreferencedOutputs());
+                new PruneUnreferencedOutputs(getQueryRunner().getMetadata(), new TypeAnalyzer(getQueryRunner().getSqlParser(), getQueryRunner().getMetadata())));
         assertPlan(sql, pattern, optimizers);
     }
 }

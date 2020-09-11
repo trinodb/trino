@@ -30,14 +30,13 @@ import java.util.stream.IntStream;
 
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public final class AggregationTestUtils
 {
-    private AggregationTestUtils()
-    {
-    }
+    private AggregationTestUtils() {}
 
     public static void assertAggregation(InternalAggregationFunction function, Object expectedValue, Block... blocks)
     {
@@ -46,18 +45,20 @@ public final class AggregationTestUtils
 
     public static void assertAggregation(InternalAggregationFunction function, Object expectedValue, Page page)
     {
-        BiFunction<Object, Object, Boolean> equalAssertion;
-        if (expectedValue instanceof Double && !expectedValue.equals(Double.NaN)) {
-            equalAssertion = (actual, expected) -> Precision.equals((double) actual, (double) expected, 1e-10);
-        }
-        else if (expectedValue instanceof Float && !expectedValue.equals(Float.NaN)) {
-            equalAssertion = (actual, expected) -> Precision.equals((float) actual, (float) expected, 1e-10f);
-        }
-        else {
-            equalAssertion = Objects::equals;
-        }
+        BiFunction<Object, Object, Boolean> equalAssertion = makeValidityAssertion(expectedValue);
 
         assertAggregation(function, equalAssertion, null, page, expectedValue);
+    }
+
+    public static BiFunction<Object, Object, Boolean> makeValidityAssertion(Object expectedValue)
+    {
+        if (expectedValue instanceof Double && !expectedValue.equals(Double.NaN)) {
+            return (actual, expected) -> Precision.equals((double) actual, (double) expected, 1e-10);
+        }
+        if (expectedValue instanceof Float && !expectedValue.equals(Float.NaN)) {
+            return (actual, expected) -> Precision.equals((float) actual, (float) expected, 1e-10f);
+        }
+        return Objects::equals;
     }
 
     public static void assertAggregation(InternalAggregationFunction function, BiFunction<Object, Object, Boolean> equalAssertion, String testDescription, Page page, Object expectedValue)
@@ -126,9 +127,9 @@ public final class AggregationTestUtils
         if (!isEqual.apply(actualValue, expectedValue)) {
             StringBuilder sb = new StringBuilder();
             if (testDescription != null) {
-                sb.append(String.format("Test: %s, ", testDescription));
+                sb.append(format("Test: %s, ", testDescription));
             }
-            sb.append(String.format("Expected: %s, actual: %s", expectedValue, actualValue));
+            sb.append(format("Expected: %s, actual: %s", expectedValue, actualValue));
             fail(sb.toString());
         }
     }
@@ -331,7 +332,7 @@ public final class AggregationTestUtils
         return new GroupByIdBlock(groupId, blockBuilder.build());
     }
 
-    private static int[] createArgs(InternalAggregationFunction function)
+    static int[] createArgs(InternalAggregationFunction function)
     {
         int[] args = new int[function.getParameterTypes().size()];
         for (int i = 0; i < args.length; i++) {

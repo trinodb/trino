@@ -14,22 +14,22 @@
 package io.prestosql.execution.scheduler;
 
 import com.google.common.collect.SetMultimap;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.Node;
 
 import java.net.InetAddress;
 import java.util.Set;
 
 public class NodeMap
 {
-    private final SetMultimap<HostAddress, Node> nodesByHostAndPort;
-    private final SetMultimap<InetAddress, Node> nodesByHost;
-    private final SetMultimap<NetworkLocation, Node> workersByNetworkPath;
+    private final SetMultimap<HostAddress, InternalNode> nodesByHostAndPort;
+    private final SetMultimap<InetAddress, InternalNode> nodesByHost;
+    private final SetMultimap<NetworkLocation, InternalNode> workersByNetworkPath;
     private final Set<String> coordinatorNodeIds;
 
-    public NodeMap(SetMultimap<HostAddress, Node> nodesByHostAndPort,
-            SetMultimap<InetAddress, Node> nodesByHost,
-            SetMultimap<NetworkLocation, Node> workersByNetworkPath,
+    public NodeMap(SetMultimap<HostAddress, InternalNode> nodesByHostAndPort,
+            SetMultimap<InetAddress, InternalNode> nodesByHost,
+            SetMultimap<NetworkLocation, InternalNode> workersByNetworkPath,
             Set<String> coordinatorNodeIds)
     {
         this.nodesByHostAndPort = nodesByHostAndPort;
@@ -38,17 +38,17 @@ public class NodeMap
         this.coordinatorNodeIds = coordinatorNodeIds;
     }
 
-    public SetMultimap<HostAddress, Node> getNodesByHostAndPort()
+    public SetMultimap<HostAddress, InternalNode> getNodesByHostAndPort()
     {
         return nodesByHostAndPort;
     }
 
-    public SetMultimap<InetAddress, Node> getNodesByHost()
+    public SetMultimap<InetAddress, InternalNode> getNodesByHost()
     {
         return nodesByHost;
     }
 
-    public SetMultimap<NetworkLocation, Node> getWorkersByNetworkPath()
+    public SetMultimap<NetworkLocation, InternalNode> getWorkersByNetworkPath()
     {
         return workersByNetworkPath;
     }

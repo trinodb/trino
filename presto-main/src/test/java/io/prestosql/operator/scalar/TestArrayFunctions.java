@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import io.prestosql.spi.type.ArrayType;
 import org.testng.annotations.Test;
 
+import static io.prestosql.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.util.Collections.nCopies;
@@ -36,9 +37,10 @@ public class TestArrayFunctions
     @Test
     public void testArrayConcat()
     {
-        assertFunction("CONCAT(" + Joiner.on(", ").join(nCopies(253, "array[1]")) + ")", new ArrayType(INTEGER), nCopies(253, 1));
-        assertNotSupported(
-                "CONCAT(" + Joiner.on(", ").join(nCopies(254, "array[1]")) + ")",
-                "Too many arguments for vararg function");
+        assertFunction("CONCAT(" + Joiner.on(", ").join(nCopies(127, "array[1]")) + ")", new ArrayType(INTEGER), nCopies(127, 1));
+        assertInvalidFunction(
+                "CONCAT(" + Joiner.on(", ").join(nCopies(128, "array[1]")) + ")",
+                TOO_MANY_ARGUMENTS,
+                "line 1:1: Too many arguments for function call concat()");
     }
 }

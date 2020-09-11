@@ -13,13 +13,12 @@
  */
 package io.prestosql.operator.aggregation;
 
-import io.prestosql.spi.PrestoException;
 import org.testng.annotations.Test;
 
 import static io.prestosql.operator.aggregation.ApproximateCountDistinctAggregation.standardErrorToBuckets;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestApproximateCountDistinctAggregations
 {
@@ -51,22 +50,12 @@ public class TestApproximateCountDistinctAggregations
     @Test
     public void testStandardErrorToBucketsBounds()
     {
-        try {
-            // Lower bound
-            standardErrorToBuckets(0.0040624);
-            fail();
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
-        }
+        // Lower bound
+        assertPrestoExceptionThrownBy(() -> standardErrorToBuckets(0.0040624))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        try {
-            // Upper bound
-            standardErrorToBuckets(0.26001);
-            fail();
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
-        }
+        // Upper bound
+        assertPrestoExceptionThrownBy(() -> standardErrorToBuckets(0.26001))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 }

@@ -105,6 +105,7 @@ public class TestTupleDomain
                         .build());
 
         assertEquals(tupleDomain1.intersect(tupleDomain2), expectedTupleDomain);
+        assertEquals(tupleDomain2.intersect(tupleDomain1), expectedTupleDomain);
     }
 
     @Test
@@ -588,11 +589,11 @@ public class TestTupleDomain
             throws Exception
     {
         TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde(typeManager);
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 
         ObjectMapper mapper = new ObjectMapperProvider().get()
                 .registerModule(new SimpleModule()
-                        .addDeserializer(ColumnHandle.class, new JsonDeserializer<ColumnHandle>()
+                        .addDeserializer(ColumnHandle.class, new JsonDeserializer<>()
                         {
                             @Override
                             public ColumnHandle deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)

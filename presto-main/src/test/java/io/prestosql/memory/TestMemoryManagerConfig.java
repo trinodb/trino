@@ -14,7 +14,6 @@
 package io.prestosql.memory;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
@@ -23,6 +22,7 @@ import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.prestosql.memory.MemoryManagerConfig.LowMemoryKillerPolicy.NONE;
 import static io.prestosql.memory.MemoryManagerConfig.LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
@@ -34,28 +34,28 @@ public class TestMemoryManagerConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(MemoryManagerConfig.class)
-                .setLowMemoryKillerPolicy(NONE)
+        assertRecordedDefaults(recordDefaults(MemoryManagerConfig.class)
+                .setLowMemoryKillerPolicy(TOTAL_RESERVATION_ON_BLOCKED_NODES)
                 .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES))
-                .setMaxQueryMemory(new DataSize(20, GIGABYTE))
-                .setMaxQueryTotalMemory(new DataSize(40, GIGABYTE)));
+                .setMaxQueryMemory(DataSize.of(20, GIGABYTE))
+                .setMaxQueryTotalMemory(DataSize.of(40, GIGABYTE)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("query.low-memory-killer.policy", "total-reservation-on-blocked-nodes")
+                .put("query.low-memory-killer.policy", "none")
                 .put("query.low-memory-killer.delay", "20s")
                 .put("query.max-memory", "2GB")
                 .put("query.max-total-memory", "3GB")
                 .build();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
-                .setLowMemoryKillerPolicy(TOTAL_RESERVATION_ON_BLOCKED_NODES)
+                .setLowMemoryKillerPolicy(NONE)
                 .setKillOnOutOfMemoryDelay(new Duration(20, SECONDS))
-                .setMaxQueryMemory(new DataSize(2, GIGABYTE))
-                .setMaxQueryTotalMemory(new DataSize(3, GIGABYTE));
+                .setMaxQueryMemory(DataSize.of(2, GIGABYTE))
+                .setMaxQueryTotalMemory(DataSize.of(3, GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

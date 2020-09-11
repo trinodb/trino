@@ -13,6 +13,7 @@
  */
 package io.prestosql.type;
 
+import io.airlift.slice.XxHash64;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.BlockIndex;
 import io.prestosql.spi.function.BlockPosition;
@@ -27,13 +28,12 @@ import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.type.ColorType.COLOR;
 
 public final class ColorOperators
 {
-    private ColorOperators()
-    {
-    }
+    private ColorOperators() {}
 
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
@@ -58,8 +58,15 @@ public final class ColorOperators
         return (int) value;
     }
 
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash64(@SqlType(ColorType.NAME) long value)
+    {
+        return XxHash64.hash(value);
+    }
+
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class ColorDistinctFromOperator
+    public static final class ColorDistinctFromOperator
     {
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isDistinctFrom(

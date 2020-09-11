@@ -33,16 +33,17 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.util.PropertiesUtil.loadProperties;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static java.lang.String.format;
 
 public class SessionPropertyDefaults
 {
     private static final Logger log = Logger.get(SessionPropertyDefaults.class);
-    private static final File SESSION_PROPERTY_CONFIGURATION = new File("etc/session-property-config.properties");
-    private static final String SESSION_PROPERTY_MANAGER_NAME = "session-property-config.configuration-manager";
+
+    private static final File CONFIG_FILE = new File("etc/session-property-config.properties");
+    private static final String NAME_PROPERTY = "session-property-config.configuration-manager";
 
     private final SessionPropertyConfigurationManagerContext configurationManagerContext;
     private final Map<String, SessionPropertyConfigurationManagerFactory> factories = new ConcurrentHashMap<>();
@@ -64,30 +65,31 @@ public class SessionPropertyDefaults
     public void loadConfigurationManager()
             throws IOException
     {
-        if (!SESSION_PROPERTY_CONFIGURATION.exists()) {
+        File configFile = CONFIG_FILE.getAbsoluteFile();
+        if (!configFile.exists()) {
             return;
         }
 
-        Map<String, String> propertyMap = new HashMap<>(loadProperties(SESSION_PROPERTY_CONFIGURATION));
+        Map<String, String> properties = new HashMap<>(loadPropertiesFrom(configFile.getPath()));
 
-        log.info("-- Loading session property configuration manager --");
+        String name = properties.remove(NAME_PROPERTY);
+        checkState(!isNullOrEmpty(name), "Session property configuration %s does not contain '%s'", configFile, NAME_PROPERTY);
 
-        String configManagerName = propertyMap.remove(SESSION_PROPERTY_MANAGER_NAME);
-        checkArgument(configManagerName != null, "Session property configuration %s does not contain %s", SESSION_PROPERTY_CONFIGURATION, SESSION_PROPERTY_MANAGER_NAME);
-
-        setConfigurationManager(configManagerName, propertyMap);
-
-        log.info("-- Loaded session property configuration manager %s --", configManagerName);
+        setConfigurationManager(name, properties);
     }
 
     @VisibleForTesting
     public void setConfigurationManager(String name, Map<String, String> properties)
     {
+        log.info("-- Loading session property configuration manager --");
+
         SessionPropertyConfigurationManagerFactory factory = factories.get(name);
-        checkState(factory != null, "Session property configuration manager %s is not registered");
+        checkState(factory != null, "Session property configuration manager '%s' is not registered", name);
 
         SessionPropertyConfigurationManager manager = factory.create(properties, configurationManagerContext);
         checkState(delegate.compareAndSet(null, manager), "sessionPropertyConfigurationManager is already set");
+
+        log.info("-- Loaded session property configuration manager %s --", name);
     }
 
     public Session newSessionWithDefaultProperties(Session session, Optional<String> queryType, ResourceGroupId resourceGroupId)

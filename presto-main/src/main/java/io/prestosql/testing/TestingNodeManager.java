@@ -15,7 +15,7 @@ package io.prestosql.testing;
 
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.client.NodeVersion;
-import io.prestosql.metadata.PrestoNode;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.NodeManager;
 
@@ -43,7 +43,7 @@ public class TestingNodeManager
 
     public TestingNodeManager(String environment)
     {
-        this(environment, new PrestoNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true), ImmutableSet.of());
+        this(environment, new InternalNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true), ImmutableSet.of());
     }
 
     public TestingNodeManager(Node localNode)

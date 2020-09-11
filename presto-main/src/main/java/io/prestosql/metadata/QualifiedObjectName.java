@@ -15,15 +15,17 @@ package io.prestosql.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.base.Function;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.connector.SchemaRoutineName;
 import io.prestosql.spi.connector.SchemaTableName;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.metadata.MetadataUtil.checkObjectName;
@@ -78,6 +80,16 @@ public class QualifiedObjectName
     public CatalogSchemaTableName asCatalogSchemaTableName()
     {
         return new CatalogSchemaTableName(catalogName, schemaName, objectName);
+    }
+
+    public SchemaRoutineName asSchemaRoutineName()
+    {
+        return new SchemaRoutineName(schemaName, objectName);
+    }
+
+    public CatalogSchemaRoutineName asCatalogSchemaRoutineName()
+    {
+        return new CatalogSchemaRoutineName(catalogName, schemaName, objectName);
     }
 
     public QualifiedTablePrefix asQualifiedTablePrefix()

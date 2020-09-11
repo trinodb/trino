@@ -40,18 +40,12 @@ public class CommitTask
     public ListenableFuture<?> execute(Commit statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
-        if (!session.getTransactionId().isPresent()) {
+        if (session.getTransactionId().isEmpty()) {
             throw new PrestoException(NOT_IN_TRANSACTION, "No transaction in progress");
         }
         TransactionId transactionId = session.getTransactionId().get();
 
         stateMachine.clearTransactionId();
         return transactionManager.asyncCommit(transactionId);
-    }
-
-    @Override
-    public boolean isTransactionControl()
-    {
-        return true;
     }
 }

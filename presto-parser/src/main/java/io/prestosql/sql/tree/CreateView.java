@@ -33,24 +33,26 @@ public class CreateView
     private final QualifiedName name;
     private final Query query;
     private final boolean replace;
+    private final Optional<String> comment;
     private final Optional<Security> security;
 
-    public CreateView(QualifiedName name, Query query, boolean replace, Optional<Security> security)
+    public CreateView(QualifiedName name, Query query, boolean replace, Optional<String> comment, Optional<Security> security)
     {
-        this(Optional.empty(), name, query, replace, security);
+        this(Optional.empty(), name, query, replace, comment, security);
     }
 
-    public CreateView(NodeLocation location, QualifiedName name, Query query, boolean replace, Optional<Security> security)
+    public CreateView(NodeLocation location, QualifiedName name, Query query, boolean replace, Optional<String> comment, Optional<Security> security)
     {
-        this(Optional.of(location), name, query, replace, security);
+        this(Optional.of(location), name, query, replace, comment, security);
     }
 
-    private CreateView(Optional<NodeLocation> location, QualifiedName name, Query query, boolean replace, Optional<Security> security)
+    private CreateView(Optional<NodeLocation> location, QualifiedName name, Query query, boolean replace, Optional<String> comment, Optional<Security> security)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.query = requireNonNull(query, "query is null");
         this.replace = replace;
+        this.comment = requireNonNull(comment, "comment is null");
         this.security = requireNonNull(security, "security is null");
     }
 
@@ -67,6 +69,11 @@ public class CreateView
     public boolean isReplace()
     {
         return replace;
+    }
+
+    public Optional<String> getComment()
+    {
+        return comment;
     }
 
     public Optional<Security> getSecurity()
@@ -105,6 +112,7 @@ public class CreateView
         return Objects.equals(name, o.name)
                 && Objects.equals(query, o.query)
                 && Objects.equals(replace, o.replace)
+                && Objects.equals(comment, o.comment)
                 && Objects.equals(security, o.security);
     }
 
@@ -115,6 +123,7 @@ public class CreateView
                 .add("name", name)
                 .add("query", query)
                 .add("replace", replace)
+                .add("comment", comment)
                 .add("security", security)
                 .toString();
     }

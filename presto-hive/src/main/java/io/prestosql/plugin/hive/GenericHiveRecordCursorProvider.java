@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.hive;
 
+import io.airlift.units.DataSize;
+import io.prestosql.plugin.hive.util.HiveUtil;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.RecordCursor;
@@ -22,7 +24,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordReader;
-import org.joda.time.DateTimeZone;
+import org.apache.hadoop.mapreduce.lib.input.LineRecordReader;
 
 import javax.inject.Inject;
 
@@ -31,22 +33,33 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class GenericHiveRecordCursorProvider
         implements HiveRecordCursorProvider
 {
     private final HdfsEnvironment hdfsEnvironment;
+    private final int textMaxLineLengthBytes;
 
     @Inject
-    public GenericHiveRecordCursorProvider(HdfsEnvironment hdfsEnvironment)
+    public GenericHiveRecordCursorProvider(HdfsEnvironment hdfsEnvironment, HiveConfig config)
+    {
+        this(hdfsEnvironment, config.getTextMaxLineLength());
+    }
+
+    public GenericHiveRecordCursorProvider(HdfsEnvironment hdfsEnvironment, DataSize textMaxLineLength)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.textMaxLineLengthBytes = toIntExact(textMaxLineLength.toBytes());
+        checkArgument(textMaxLineLengthBytes >= 1, "textMaxLineLength must be at least 1 byte");
     }
 
     @Override
-    public Optional<RecordCursor> createRecordCursor(
+    public Optional<ReaderRecordCursorWithProjections> createRecordCursor(
             Configuration configuration,
             ConnectorSession session,
             Path path,
@@ -56,10 +69,11 @@ public class GenericHiveRecordCursorProvider
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             boolean s3SelectPushdownEnabled)
     {
+        configuration.setInt(LineRecordReader.MAX_LINE_LENGTH, textMaxLineLengthBytes);
+
         // make sure the FileSystem is created with the proper Configuration object
         try {
             this.hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
@@ -68,18 +82,31 @@ public class GenericHiveRecordCursorProvider
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + path, e);
         }
 
-        RecordReader<?, ?> recordReader = hdfsEnvironment.doAs(session.getUser(),
-                () -> HiveUtil.createRecordReader(configuration, path, start, length, schema, columns));
+        Optional<ReaderProjections> projectedReaderColumns = projectBaseColumns(columns);
 
-        return Optional.of(new GenericHiveRecordCursor<>(
-                configuration,
-                path,
-                genericRecordReader(recordReader),
-                length,
-                schema,
-                columns,
-                hiveStorageTimeZone,
-                typeManager));
+        RecordCursor cursor = hdfsEnvironment.doAs(session.getUser(), () -> {
+            RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(
+                    configuration,
+                    path,
+                    start,
+                    length,
+                    schema,
+                    projectedReaderColumns
+                            .map(ReaderProjections::getReaderColumns)
+                            .orElse(columns));
+
+            return new GenericHiveRecordCursor<>(
+                    configuration,
+                    path,
+                    genericRecordReader(recordReader),
+                    length,
+                    schema,
+                    projectedReaderColumns
+                            .map(ReaderProjections::getReaderColumns)
+                            .orElse(columns));
+        });
+
+        return Optional.of(new ReaderRecordCursorWithProjections(cursor, projectedReaderColumns));
     }
 
     @SuppressWarnings("unchecked")

@@ -17,11 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.server.EmbeddedDiscoveryModule;
+import io.airlift.http.server.HttpServerConfig;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.client.QueryResults;
 import io.prestosql.cost.CostCalculator;
@@ -32,28 +33,17 @@ import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.cost.StatsCalculatorModule;
 import io.prestosql.cost.TaskCountEstimator;
+import io.prestosql.dispatcher.DispatchExecutor;
+import io.prestosql.dispatcher.DispatchManager;
+import io.prestosql.dispatcher.DispatchQueryFactory;
+import io.prestosql.dispatcher.FailedDispatchQueryFactory;
+import io.prestosql.dispatcher.LocalDispatchQueryFactory;
+import io.prestosql.dispatcher.QueuedStatementResource;
 import io.prestosql.event.QueryMonitor;
 import io.prestosql.event.QueryMonitorConfig;
-import io.prestosql.execution.AddColumnTask;
-import io.prestosql.execution.CallTask;
 import io.prestosql.execution.ClusterSizeMonitor;
-import io.prestosql.execution.CommitTask;
-import io.prestosql.execution.CreateRoleTask;
-import io.prestosql.execution.CreateSchemaTask;
-import io.prestosql.execution.CreateTableTask;
-import io.prestosql.execution.CreateViewTask;
-import io.prestosql.execution.DataDefinitionTask;
-import io.prestosql.execution.DeallocateTask;
-import io.prestosql.execution.DropColumnTask;
-import io.prestosql.execution.DropRoleTask;
-import io.prestosql.execution.DropSchemaTask;
-import io.prestosql.execution.DropTableTask;
-import io.prestosql.execution.DropViewTask;
 import io.prestosql.execution.ExplainAnalyzeContext;
 import io.prestosql.execution.ForQueryExecution;
-import io.prestosql.execution.GrantRolesTask;
-import io.prestosql.execution.GrantTask;
-import io.prestosql.execution.PrepareTask;
 import io.prestosql.execution.QueryExecution;
 import io.prestosql.execution.QueryExecutionMBean;
 import io.prestosql.execution.QueryIdGenerator;
@@ -62,29 +52,17 @@ import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.QueryPerformanceFetcher;
 import io.prestosql.execution.QueryPreparer;
 import io.prestosql.execution.RemoteTaskFactory;
-import io.prestosql.execution.RenameColumnTask;
-import io.prestosql.execution.RenameSchemaTask;
-import io.prestosql.execution.RenameTableTask;
-import io.prestosql.execution.ResetSessionTask;
-import io.prestosql.execution.RevokeRolesTask;
-import io.prestosql.execution.RevokeTask;
-import io.prestosql.execution.RollbackTask;
-import io.prestosql.execution.SetPathTask;
-import io.prestosql.execution.SetRoleTask;
-import io.prestosql.execution.SetSessionTask;
 import io.prestosql.execution.SqlQueryManager;
-import io.prestosql.execution.StartTransactionTask;
 import io.prestosql.execution.TaskInfo;
 import io.prestosql.execution.TaskManagerConfig;
-import io.prestosql.execution.UseTask;
-import io.prestosql.execution.resourceGroups.InternalResourceGroupManager;
-import io.prestosql.execution.resourceGroups.LegacyResourceGroupConfigurationManager;
-import io.prestosql.execution.resourceGroups.ResourceGroupManager;
+import io.prestosql.execution.resourcegroups.InternalResourceGroupManager;
+import io.prestosql.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
+import io.prestosql.execution.resourcegroups.ResourceGroupManager;
 import io.prestosql.execution.scheduler.AllAtOnceExecutionPolicy;
 import io.prestosql.execution.scheduler.ExecutionPolicy;
 import io.prestosql.execution.scheduler.PhasedExecutionPolicy;
 import io.prestosql.execution.scheduler.SplitSchedulerStats;
-import io.prestosql.failureDetector.FailureDetectorModule;
+import io.prestosql.failuredetector.FailureDetectorModule;
 import io.prestosql.memory.ClusterMemoryManager;
 import io.prestosql.memory.ForMemoryManager;
 import io.prestosql.memory.LowMemoryKiller;
@@ -95,47 +73,21 @@ import io.prestosql.memory.TotalReservationLowMemoryKiller;
 import io.prestosql.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.operator.ForScheduler;
-import io.prestosql.server.protocol.StatementResource;
+import io.prestosql.server.protocol.ExecutingStatementResource;
 import io.prestosql.server.remotetask.RemoteTaskStats;
+import io.prestosql.server.ui.WebUiModule;
+import io.prestosql.server.ui.WorkerResource;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
-import io.prestosql.spi.resourcegroups.QueryType;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.sql.analyzer.QueryExplainer;
 import io.prestosql.sql.planner.PlanFragmenter;
 import io.prestosql.sql.planner.PlanOptimizers;
-import io.prestosql.sql.tree.AddColumn;
-import io.prestosql.sql.tree.Call;
-import io.prestosql.sql.tree.Commit;
-import io.prestosql.sql.tree.CreateRole;
-import io.prestosql.sql.tree.CreateSchema;
-import io.prestosql.sql.tree.CreateTable;
-import io.prestosql.sql.tree.CreateView;
-import io.prestosql.sql.tree.Deallocate;
-import io.prestosql.sql.tree.DropColumn;
-import io.prestosql.sql.tree.DropRole;
-import io.prestosql.sql.tree.DropSchema;
-import io.prestosql.sql.tree.DropTable;
-import io.prestosql.sql.tree.DropView;
-import io.prestosql.sql.tree.Grant;
-import io.prestosql.sql.tree.GrantRoles;
-import io.prestosql.sql.tree.Prepare;
-import io.prestosql.sql.tree.RenameColumn;
-import io.prestosql.sql.tree.RenameSchema;
-import io.prestosql.sql.tree.RenameTable;
-import io.prestosql.sql.tree.ResetSession;
-import io.prestosql.sql.tree.Revoke;
-import io.prestosql.sql.tree.RevokeRoles;
-import io.prestosql.sql.tree.Rollback;
-import io.prestosql.sql.tree.SetPath;
-import io.prestosql.sql.tree.SetRole;
-import io.prestosql.sql.tree.SetSession;
-import io.prestosql.sql.tree.StartTransaction;
-import io.prestosql.sql.tree.Statement;
-import io.prestosql.sql.tree.Use;
+import io.prestosql.sql.planner.RuleStatsRecorder;
 import io.prestosql.transaction.ForTransactionManager;
 import io.prestosql.transaction.InMemoryTransactionManager;
 import io.prestosql.transaction.TransactionManager;
 import io.prestosql.transaction.TransactionManagerConfig;
+import io.prestosql.version.EmbedVersion;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -145,7 +97,6 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -153,13 +104,9 @@ import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
-import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static io.prestosql.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
-import static io.prestosql.execution.QueryExecution.QueryExecutionFactory;
-import static io.prestosql.execution.SqlQueryExecution.SqlQueryExecutionFactory;
-import static io.prestosql.util.StatementUtils.getAllQueryTypes;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -172,8 +119,7 @@ public class CoordinatorModule
     @Override
     protected void setup(Binder binder)
     {
-        httpServerBinder(binder).bindResource("/ui", "webapp").withWelcomeFile("index.html");
-        httpServerBinder(binder).bindResource("/tableau", "webapp/tableau");
+        install(new WebUiModule());
 
         // discovery server
         install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
@@ -186,12 +132,16 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
         jsonCodecBinder(binder).bindJsonCodec(SelectedRole.class);
-        jaxrsBinder(binder).bind(StatementResource.class);
+        jaxrsBinder(binder).bind(QueuedStatementResource.class);
+        jaxrsBinder(binder).bind(ExecutingStatementResource.class);
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
 
-        // resource for serving static content
-        jaxrsBinder(binder).bind(WebUiResource.class);
+        // allow large prepared statements in headers
+        configBinder(binder).bindConfigDefaults(HttpServerConfig.class, config -> {
+            config.setMaxRequestHeaderSize(DataSize.of(2, MEGABYTE));
+            config.setMaxResponseHeaderSize(DataSize.of(2, MEGABYTE));
+        });
 
         // failure detector
         binder.install(new FailureDetectorModule());
@@ -206,7 +156,6 @@ public class CoordinatorModule
 
         // query manager
         jaxrsBinder(binder).bind(QueryResource.class);
-        jaxrsBinder(binder).bind(StageResource.class);
         jaxrsBinder(binder).bind(QueryStateInfoResource.class);
         jaxrsBinder(binder).bind(ResourceGroupStateInfoResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
@@ -217,7 +166,16 @@ public class CoordinatorModule
         newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
         binder.bind(LegacyResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(QueryManager.class).withGeneratedName();
+
+        // dispatcher
+        binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
+        // export under the old name, for backwards compatibility
+        newExporter(binder).export(DispatchManager.class).as("presto.execution:name=QueryManager");
+        binder.bind(FailedDispatchQueryFactory.class).in(Scopes.SINGLETON);
+        binder.bind(DispatchExecutor.class).in(Scopes.SINGLETON);
+
+        // local dispatcher
+        binder.bind(DispatchQueryFactory.class).to(LocalDispatchQueryFactory.class);
 
         // cluster memory manager
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
@@ -235,6 +193,7 @@ public class CoordinatorModule
 
         // node monitor
         binder.bind(ClusterSizeMonitor.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(ClusterSizeMonitor.class).withGeneratedName();
 
         // statistics calculator
         binder.install(new StatsCalculatorModule());
@@ -245,12 +204,15 @@ public class CoordinatorModule
         binder.bind(CostCalculator.class).annotatedWith(EstimatedExchanges.class).to(CostCalculatorWithEstimatedExchanges.class).in(Scopes.SINGLETON);
         binder.bind(CostComparator.class).in(Scopes.SINGLETON);
 
-        // cluster statistics
-        jaxrsBinder(binder).bind(ClusterStatsResource.class);
+        // dynamic filtering service
+        binder.bind(DynamicFilterService.class).in(Scopes.SINGLETON);
 
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
         binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
+
+        // Rule Stats Recorder
+        binder.bind(RuleStatsRecorder.class).in(Scopes.SINGLETON);
 
         // query explainer
         binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);
@@ -259,6 +221,7 @@ public class CoordinatorModule
         binder.bind(ExplainAnalyzeContext.class).in(Scopes.SINGLETON);
 
         // execution scheduler
+        jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
         binder.bind(RemoteTaskFactory.class).to(HttpRemoteTaskFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RemoteTaskFactory.class).withGeneratedName();
 
@@ -284,49 +247,14 @@ public class CoordinatorModule
         newExporter(binder).export(QueryExecutionMBean.class)
                 .as(generator -> generator.generatedNameOf(QueryExecution.class));
 
-        MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder = newMapBinder(binder,
-                new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<?>>() {});
-
         binder.bind(SplitSchedulerStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
-        binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
-        getAllQueryTypes().entrySet().stream()
-                .filter(entry -> entry.getValue() != QueryType.DATA_DEFINITION)
-                .forEach(entry -> executionBinder.addBinding(entry.getKey()).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON));
-
-        binder.bind(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
-        bindDataDefinitionTask(binder, executionBinder, CreateSchema.class, CreateSchemaTask.class);
-        bindDataDefinitionTask(binder, executionBinder, DropSchema.class, DropSchemaTask.class);
-        bindDataDefinitionTask(binder, executionBinder, RenameSchema.class, RenameSchemaTask.class);
-        bindDataDefinitionTask(binder, executionBinder, AddColumn.class, AddColumnTask.class);
-        bindDataDefinitionTask(binder, executionBinder, CreateTable.class, CreateTableTask.class);
-        bindDataDefinitionTask(binder, executionBinder, RenameTable.class, RenameTableTask.class);
-        bindDataDefinitionTask(binder, executionBinder, RenameColumn.class, RenameColumnTask.class);
-        bindDataDefinitionTask(binder, executionBinder, DropColumn.class, DropColumnTask.class);
-        bindDataDefinitionTask(binder, executionBinder, DropTable.class, DropTableTask.class);
-        bindDataDefinitionTask(binder, executionBinder, CreateView.class, CreateViewTask.class);
-        bindDataDefinitionTask(binder, executionBinder, DropView.class, DropViewTask.class);
-        bindDataDefinitionTask(binder, executionBinder, Use.class, UseTask.class);
-        bindDataDefinitionTask(binder, executionBinder, SetSession.class, SetSessionTask.class);
-        bindDataDefinitionTask(binder, executionBinder, ResetSession.class, ResetSessionTask.class);
-        bindDataDefinitionTask(binder, executionBinder, StartTransaction.class, StartTransactionTask.class);
-        bindDataDefinitionTask(binder, executionBinder, Commit.class, CommitTask.class);
-        bindDataDefinitionTask(binder, executionBinder, Rollback.class, RollbackTask.class);
-        bindDataDefinitionTask(binder, executionBinder, Call.class, CallTask.class);
-        bindDataDefinitionTask(binder, executionBinder, CreateRole.class, CreateRoleTask.class);
-        bindDataDefinitionTask(binder, executionBinder, DropRole.class, DropRoleTask.class);
-        bindDataDefinitionTask(binder, executionBinder, GrantRoles.class, GrantRolesTask.class);
-        bindDataDefinitionTask(binder, executionBinder, RevokeRoles.class, RevokeRolesTask.class);
-        bindDataDefinitionTask(binder, executionBinder, SetRole.class, SetRoleTask.class);
-        bindDataDefinitionTask(binder, executionBinder, Grant.class, GrantTask.class);
-        bindDataDefinitionTask(binder, executionBinder, Revoke.class, RevokeTask.class);
-        bindDataDefinitionTask(binder, executionBinder, Prepare.class, PrepareTask.class);
-        bindDataDefinitionTask(binder, executionBinder, Deallocate.class, DeallocateTask.class);
-        bindDataDefinitionTask(binder, executionBinder, SetPath.class, SetPathTask.class);
 
         MapBinder<String, ExecutionPolicy> executionPolicyBinder = newMapBinder(binder, String.class, ExecutionPolicy.class);
         executionPolicyBinder.addBinding("all-at-once").to(AllAtOnceExecutionPolicy.class);
         executionPolicyBinder.addBinding("phased").to(PhasedExecutionPolicy.class);
+
+        install(new QueryExecutionFactoryModule());
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
@@ -391,31 +319,18 @@ public class CoordinatorModule
     public static TransactionManager createTransactionManager(
             TransactionManagerConfig config,
             CatalogManager catalogManager,
+            EmbedVersion embedVersion,
             @ForTransactionManager ScheduledExecutorService idleCheckExecutor,
             @ForTransactionManager ExecutorService finishingExecutor)
     {
-        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, finishingExecutor);
+        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, embedVersion.embedVersion(finishingExecutor));
     }
 
-    private static <T extends Statement> void bindDataDefinitionTask(
-            Binder binder,
-            MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder,
-            Class<T> statement,
-            Class<? extends DataDefinitionTask<T>> task)
-    {
-        verify(getAllQueryTypes().get(statement) == QueryType.DATA_DEFINITION);
-        MapBinder<Class<? extends Statement>, DataDefinitionTask<?>> taskBinder = newMapBinder(binder,
-                new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<DataDefinitionTask<?>>() {});
-
-        taskBinder.addBinding(statement).to(task).in(Scopes.SINGLETON);
-        executionBinder.addBinding(statement).to(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
-    }
-
-    private void bindLowMemoryKiller(String name, Class<? extends LowMemoryKiller> clazz)
+    private void bindLowMemoryKiller(LowMemoryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
     {
         install(installModuleIf(
                 MemoryManagerConfig.class,
-                config -> name.equals(config.getLowMemoryKillerPolicy()),
+                config -> policy == config.getLowMemoryKillerPolicy(),
                 binder -> binder.bind(LowMemoryKiller.class).to(clazz).in(Scopes.SINGLETON)));
     }
 

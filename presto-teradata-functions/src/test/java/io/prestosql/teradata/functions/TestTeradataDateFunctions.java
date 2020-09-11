@@ -24,7 +24,6 @@ import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 
-import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -46,7 +45,7 @@ public class TestTeradataDateFunctions
     @BeforeClass
     public void setUp()
     {
-        functionAssertions.addFunctions(extractFunctions(new TeradataFunctionsPlugin().getFunctions()));
+        functionAssertions.installPlugin(new TeradataFunctionsPlugin());
     }
 
     @Test
@@ -85,6 +84,19 @@ public class TestTeradataDateFunctions
         assertVarchar("to_char(TIMESTAMP '1988-04-08 14:15:16 +02:09','yyyy/mm/dd hh24:mi:ss')", "1988/04/08 14:15:16");
 
         assertVarchar("to_char(DATE '1988-04-08','yyyy/mm/dd hh24:mi:ss')", "1988/04/08 00:00:00");
+
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.0','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.00','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.0000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.00000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.0000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.00000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.000000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.0000000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.00000000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.000000000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
     }
 
     @Test
@@ -131,8 +143,8 @@ public class TestTeradataDateFunctions
     {
         assertFunction(
                 projection,
-                TimestampType.TIMESTAMP,
-                sqlTimestampOf(year, month, day, hour, minutes, seconds, 0, SESSION));
+                TimestampType.TIMESTAMP_MILLIS,
+                sqlTimestampOf(3, year, month, day, hour, minutes, seconds, 0));
     }
 
     private void assertDate(String projection, int year, int month, int day)

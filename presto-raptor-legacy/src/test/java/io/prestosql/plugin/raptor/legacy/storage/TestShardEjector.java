@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.prestosql.client.NodeVersion;
-import io.prestosql.metadata.PrestoNode;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.plugin.raptor.legacy.backup.BackupStore;
 import io.prestosql.plugin.raptor.legacy.metadata.ColumnInfo;
 import io.prestosql.plugin.raptor.legacy.metadata.MetadataDao;
@@ -43,6 +43,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -69,7 +70,7 @@ public class TestShardEjector
     @BeforeMethod
     public void setup()
     {
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
         shardManager = createShardManager(dbi);
@@ -199,7 +200,7 @@ public class TestShardEjector
 
     private static Node createTestingNode(String identifier)
     {
-        return new PrestoNode(identifier, URI.create("http://test"), NodeVersion.UNKNOWN, false);
+        return new InternalNode(identifier, URI.create("http://test"), NodeVersion.UNKNOWN, false);
     }
 
     private static class TestingBackupStore

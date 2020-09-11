@@ -14,6 +14,8 @@
 package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.prestosql.execution.TableInfo;
 import io.prestosql.split.SplitSource;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -32,11 +34,12 @@ public class StageExecutionPlan
     private final Map<PlanNodeId, SplitSource> splitSources;
     private final List<StageExecutionPlan> subStages;
     private final Optional<List<String>> fieldNames;
+    private final Map<PlanNodeId, TableInfo> tables;
 
     public StageExecutionPlan(
             PlanFragment fragment,
             Map<PlanNodeId, SplitSource> splitSources,
-            List<StageExecutionPlan> subStages)
+            List<StageExecutionPlan> subStages, Map<PlanNodeId, TableInfo> tables)
     {
         this.fragment = requireNonNull(fragment, "fragment is null");
         this.splitSources = requireNonNull(splitSources, "dataSource is null");
@@ -45,6 +48,8 @@ public class StageExecutionPlan
         fieldNames = (fragment.getRoot() instanceof OutputNode) ?
                 Optional.of(ImmutableList.copyOf(((OutputNode) fragment.getRoot()).getColumnNames())) :
                 Optional.empty();
+
+        this.tables = ImmutableMap.copyOf(requireNonNull(tables, "tables is null"));
     }
 
     public List<String> getFieldNames()
@@ -68,9 +73,14 @@ public class StageExecutionPlan
         return subStages;
     }
 
+    public Map<PlanNodeId, TableInfo> getTables()
+    {
+        return tables;
+    }
+
     public StageExecutionPlan withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new StageExecutionPlan(fragment.withBucketToPartition(bucketToPartition), splitSources, subStages);
+        return new StageExecutionPlan(fragment.withBucketToPartition(bucketToPartition), splitSources, subStages, tables);
     }
 
     @Override

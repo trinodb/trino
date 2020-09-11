@@ -21,7 +21,6 @@ import io.prestosql.operator.exchange.LocalExchangeBufferInfo;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
-        include = JsonTypeInfo.As.PROPERTY,
         property = "@type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = ExchangeClientStatus.class, name = "exchangeClientStatus"),

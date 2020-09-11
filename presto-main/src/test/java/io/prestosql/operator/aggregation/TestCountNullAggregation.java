@@ -27,6 +27,7 @@ import io.prestosql.spi.function.InputFunction;
 import io.prestosql.spi.function.OutputFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.BeforeClass;
 
 import java.util.List;
@@ -39,11 +40,11 @@ public class TestCountNullAggregation
     @BeforeClass
     public void setup()
     {
-        functionRegistry.addFunctions(new FunctionListBuilder().aggregates(CountNull.class).getFunctions());
+        metadata.addFunctions(new FunctionListBuilder().aggregates(CountNull.class).getFunctions());
     }
 
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -53,7 +54,7 @@ public class TestCountNullAggregation
     }
 
     @Override
-    public Number getExpectedValue(int start, int length)
+    protected Number getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;
@@ -62,7 +63,7 @@ public class TestCountNullAggregation
     }
 
     @Override
-    public Object getExpectedValueIncludingNulls(int start, int length, int lengthIncludingNulls)
+    protected Object getExpectedValueIncludingNulls(int start, int length, int lengthIncludingNulls)
     {
         return (long) lengthIncludingNulls - length;
     }
@@ -102,8 +103,8 @@ public class TestCountNullAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.BIGINT);
+        return ImmutableList.of(BIGINT);
     }
 }

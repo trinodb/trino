@@ -16,17 +16,22 @@ package io.prestosql.sql.planner.plan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolsExtractor;
+import io.prestosql.sql.planner.plan.JoinNode.Type;
+import io.prestosql.sql.tree.Expression;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -35,29 +40,35 @@ public class UnnestNode
 {
     private final PlanNode source;
     private final List<Symbol> replicateSymbols;
-    private final Map<Symbol, List<Symbol>> unnestSymbols;
+    private final List<Mapping> mappings;
     private final Optional<Symbol> ordinalitySymbol;
+    private final Type joinType;
+    private final Optional<Expression> filter;
 
     @JsonCreator
     public UnnestNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("replicateSymbols") List<Symbol> replicateSymbols,
-            @JsonProperty("unnestSymbols") Map<Symbol, List<Symbol>> unnestSymbols,
-            @JsonProperty("ordinalitySymbol") Optional<Symbol> ordinalitySymbol)
+            @JsonProperty("mappings") List<Mapping> mappings,
+            @JsonProperty("ordinalitySymbol") Optional<Symbol> ordinalitySymbol,
+            @JsonProperty("joinType") Type joinType,
+            @JsonProperty("filter") Optional<Expression> filter)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
         this.replicateSymbols = ImmutableList.copyOf(requireNonNull(replicateSymbols, "replicateSymbols is null"));
         checkArgument(source.getOutputSymbols().containsAll(replicateSymbols), "Source does not contain all replicateSymbols");
-        requireNonNull(unnestSymbols, "unnestSymbols is null");
-        checkArgument(!unnestSymbols.isEmpty(), "unnestSymbols is empty");
-        ImmutableMap.Builder<Symbol, List<Symbol>> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, List<Symbol>> entry : unnestSymbols.entrySet()) {
-            builder.put(entry.getKey(), ImmutableList.copyOf(entry.getValue()));
-        }
-        this.unnestSymbols = builder.build();
+        requireNonNull(mappings, "mappings is null");
+        checkArgument(!mappings.isEmpty(), "mappings is empty");
+        this.mappings = ImmutableList.copyOf(mappings);
         this.ordinalitySymbol = requireNonNull(ordinalitySymbol, "ordinalitySymbol is null");
+        this.joinType = requireNonNull(joinType, "type is null");
+        this.filter = requireNonNull(filter, "filter is null");
+        if (filter.isPresent()) {
+            Set<Symbol> outputs = ImmutableSet.copyOf(getOutputSymbols());
+            checkArgument(outputs.containsAll(SymbolsExtractor.extractUnique(filter.get())), "Outputs do not contain all filter symbols");
+        }
     }
 
     @Override
@@ -65,7 +76,11 @@ public class UnnestNode
     {
         ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.<Symbol>builder()
                 .addAll(replicateSymbols)
-                .addAll(Iterables.concat(unnestSymbols.values()));
+                .addAll(mappings.stream()
+                        .map(Mapping::getOutputs)
+                        .flatMap(Collection::stream)
+                        .collect(toImmutableList()));
+
         ordinalitySymbol.ifPresent(outputSymbolsBuilder::add);
         return outputSymbolsBuilder.build();
     }
@@ -83,15 +98,27 @@ public class UnnestNode
     }
 
     @JsonProperty
-    public Map<Symbol, List<Symbol>> getUnnestSymbols()
+    public List<Mapping> getMappings()
     {
-        return unnestSymbols;
+        return mappings;
     }
 
     @JsonProperty
     public Optional<Symbol> getOrdinalitySymbol()
     {
         return ordinalitySymbol;
+    }
+
+    @JsonProperty
+    public Type getJoinType()
+    {
+        return joinType;
+    }
+
+    @JsonProperty
+    public Optional<Expression> getFilter()
+    {
+        return filter;
     }
 
     @Override
@@ -109,6 +136,34 @@ public class UnnestNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new UnnestNode(getId(), Iterables.getOnlyElement(newChildren), replicateSymbols, unnestSymbols, ordinalitySymbol);
+        return new UnnestNode(getId(), Iterables.getOnlyElement(newChildren), replicateSymbols, mappings, ordinalitySymbol, joinType, filter);
+    }
+
+    public static class Mapping
+    {
+        private final Symbol input;
+        private final List<Symbol> outputs;
+
+        @JsonCreator
+        public Mapping(
+                @JsonProperty("input") Symbol input,
+                @JsonProperty("outputs") List<Symbol> outputs)
+        {
+            this.input = requireNonNull(input, "input is null");
+            requireNonNull(outputs, "outputs is null");
+            this.outputs = ImmutableList.copyOf(outputs);
+        }
+
+        @JsonProperty
+        public Symbol getInput()
+        {
+            return input;
+        }
+
+        @JsonProperty
+        public List<Symbol> getOutputs()
+        {
+            return outputs;
+        }
     }
 }

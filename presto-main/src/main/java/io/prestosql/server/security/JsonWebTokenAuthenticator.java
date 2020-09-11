@@ -26,15 +26,16 @@ import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.prestosql.spi.security.BasicPrincipal;
+import io.prestosql.spi.security.Identity;
 
 import javax.crypto.spec.SecretKeySpec;
 import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.container.ContainerRequestContext;
 
 import java.io.File;
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.security.Key;
-import java.security.Principal;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
@@ -44,6 +45,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static io.prestosql.server.security.UserMapping.createUserMapping;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Base64.getMimeDecoder;
@@ -58,11 +60,13 @@ public class JsonWebTokenAuthenticator
 
     private final JwtParser jwtParser;
     private final Function<JwsHeader<?>, Key> keyLoader;
+    private final UserMapping userMapping;
 
     @Inject
     public JsonWebTokenAuthenticator(JsonWebTokenConfig config)
     {
         requireNonNull(config, "config is null");
+        this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
 
         if (config.getKeyFile().contains(KEY_ID_VARIABLE)) {
             keyLoader = new DynamicKeyLoader(config.getKeyFile());
@@ -74,7 +78,7 @@ public class JsonWebTokenAuthenticator
         JwtParser jwtParser = Jwts.parser()
                 .setSigningKeyResolver(new SigningKeyResolver()
                 {
-                    // interface uses raw types and this can not be fixed here
+                    // interface uses raw types and this cannot be fixed here
                     @SuppressWarnings("rawtypes")
                     @Override
                     public Key resolveSigningKey(JwsHeader header, Claims claims)
@@ -100,10 +104,10 @@ public class JsonWebTokenAuthenticator
     }
 
     @Override
-    public Principal authenticate(HttpServletRequest request)
+    public Identity authenticate(ContainerRequestContext request)
             throws AuthenticationException
     {
-        String header = nullToEmpty(request.getHeader(AUTHORIZATION));
+        String header = nullToEmpty(request.getHeaders().getFirst(AUTHORIZATION));
 
         int space = header.indexOf(' ');
         if ((space < 0) || !header.substring(0, space).equalsIgnoreCase("bearer")) {
@@ -117,9 +121,12 @@ public class JsonWebTokenAuthenticator
         try {
             Jws<Claims> claimsJws = jwtParser.parseClaimsJws(token);
             String subject = claimsJws.getBody().getSubject();
-            return new BasicPrincipal(subject);
+            String authenticatedUser = userMapping.mapUser(subject);
+            return Identity.forUser(authenticatedUser)
+                    .withPrincipal(new BasicPrincipal(subject))
+                    .build();
         }
-        catch (JwtException e) {
+        catch (JwtException | UserMappingException e) {
             throw needAuthentication(e.getMessage());
         }
         catch (RuntimeException e) {
@@ -196,23 +203,32 @@ public class JsonWebTokenAuthenticator
             throw new SignatureException("Unknown signing key ID");
         }
 
-        // try to load the key as a PEM encoded public key
+        String data;
         try {
-            return new LoadedKey(PemReader.loadPublicKey(file));
+            data = asCharSource(file, US_ASCII).read();
         }
-        catch (Exception ignored) {
+        catch (IOException e) {
+            throw new SignatureException("Unable to read signing key", e);
+        }
+
+        // try to load the key as a PEM encoded public key
+        if (PemReader.isPem(data)) {
+            try {
+                return new LoadedKey(PemReader.loadPublicKey(data));
+            }
+            catch (RuntimeException | GeneralSecurityException e) {
+                throw new SignatureException("Unable to decode PEM signing key id", e);
+            }
         }
 
         // try to load the key as a base64 encoded HMAC key
         try {
-            String base64Key = asCharSource(file, US_ASCII).read();
-            byte[] rawKey = getMimeDecoder().decode(base64Key.getBytes(US_ASCII));
+            byte[] rawKey = getMimeDecoder().decode(data.getBytes(US_ASCII));
             return new LoadedKey(rawKey);
         }
-        catch (IOException ignored) {
+        catch (RuntimeException e) {
+            throw new SignatureException("Unable to decode HMAC signing key", e);
         }
-
-        throw new SignatureException("Unknown signing key id");
     }
 
     private static class LoadedKey

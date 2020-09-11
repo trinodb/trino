@@ -13,17 +13,22 @@
  */
 package io.prestosql.sql.planner.assertions;
 
+import com.google.common.base.MoreObjects.ToStringHelper;
 import io.prestosql.Session;
 import io.prestosql.cost.StatsProvider;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern.Ordering;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.prestosql.sql.planner.assertions.Util.orderingSchemeMatches;
 import static java.util.Objects.requireNonNull;
@@ -34,12 +39,16 @@ final class ExchangeMatcher
     private final ExchangeNode.Scope scope;
     private final ExchangeNode.Type type;
     private final List<Ordering> orderBy;
+    private final Set<String> partitionedBy;
+    private final Optional<List<List<String>>> inputs;
 
-    public ExchangeMatcher(ExchangeNode.Scope scope, ExchangeNode.Type type, List<Ordering> orderBy)
+    public ExchangeMatcher(ExchangeNode.Scope scope, ExchangeNode.Type type, List<Ordering> orderBy, Set<String> partitionedBy, Optional<List<List<String>>> inputs)
     {
         this.scope = scope;
         this.type = type;
         this.orderBy = requireNonNull(orderBy, "orderBy is null");
+        this.partitionedBy = requireNonNull(partitionedBy, "partitionedBy is null");
+        this.inputs = requireNonNull(inputs, "inputs is null");
     }
 
     @Override
@@ -60,12 +69,37 @@ final class ExchangeMatcher
         ExchangeNode exchangeNode = (ExchangeNode) node;
 
         if (!orderBy.isEmpty()) {
-            if (!exchangeNode.getOrderingScheme().isPresent()) {
+            if (exchangeNode.getOrderingScheme().isEmpty()) {
                 return NO_MATCH;
             }
 
             if (!orderingSchemeMatches(orderBy, exchangeNode.getOrderingScheme().get(), symbolAliases)) {
                 return NO_MATCH;
+            }
+        }
+
+        if (!partitionedBy.isEmpty()) {
+            Set<Symbol> partitionedColumns = exchangeNode.getPartitioningScheme().getPartitioning().getColumns();
+            if (!partitionedBy.stream()
+                    .map(symbolAliases::get)
+                    .map(Symbol::from)
+                    .allMatch(partitionedColumns::contains)) {
+                return NO_MATCH;
+            }
+        }
+
+        if (inputs.isPresent()) {
+            if (inputs.get().size() != exchangeNode.getInputs().size()) {
+                return NO_MATCH;
+            }
+            for (int i = 0; i < exchangeNode.getInputs().size(); i++) {
+                if (!inputs.get().get(i).stream()
+                        .map(symbolAliases::get)
+                        .map(Symbol::from)
+                        .collect(toImmutableList())
+                        .equals(exchangeNode.getInputs().get(i))) {
+                    return NO_MATCH;
+                }
             }
         }
 
@@ -75,10 +109,12 @@ final class ExchangeMatcher
     @Override
     public String toString()
     {
-        return toStringHelper(this)
+        ToStringHelper string = toStringHelper(this)
                 .add("scope", scope)
                 .add("type", type)
                 .add("orderBy", orderBy)
-                .toString();
+                .add("partitionedBy", partitionedBy);
+        inputs.ifPresent(inputs -> string.add("inputs", inputs));
+        return string.toString();
     }
 }

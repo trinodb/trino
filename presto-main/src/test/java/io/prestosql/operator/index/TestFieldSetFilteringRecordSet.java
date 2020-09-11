@@ -15,16 +15,12 @@ package io.prestosql.operator.index;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.spi.connector.InMemoryRecordSet;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
@@ -37,12 +33,9 @@ public class TestFieldSetFilteringRecordSet
     @Test
     public void test()
     {
-        TypeManager typeManager = new TypeRegistry();
-        FunctionRegistry functionRegistry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-
         ArrayType arrayOfBigintType = new ArrayType(BIGINT);
         FieldSetFilteringRecordSet fieldSetFilteringRecordSet = new FieldSetFilteringRecordSet(
-                functionRegistry,
+                createTestMetadataManager(),
                 new InMemoryRecordSet(
                         ImmutableList.of(BIGINT, BIGINT, TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE, arrayOfBigintType, arrayOfBigintType),
                         ImmutableList.of(

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.RuleStatsRecorder;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.assertions.ExpectedValueProvider;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
@@ -85,12 +86,13 @@ public class TestEliminateSorts
         assertUnitPlan(sql, pattern);
     }
 
-    public void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
+    private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
+        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), getQueryRunner().getMetadata());
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(),
-                new AddExchanges(getQueryRunner().getMetadata(), new SqlParser()),
-                new PruneUnreferencedOutputs(),
+                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                new AddExchanges(getQueryRunner().getMetadata(), typeAnalyzer),
+                new PruneUnreferencedOutputs(getQueryRunner().getMetadata(), typeAnalyzer),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),

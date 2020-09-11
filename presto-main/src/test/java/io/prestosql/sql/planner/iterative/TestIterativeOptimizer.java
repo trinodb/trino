@@ -23,17 +23,18 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.sql.planner.RuleStatsRecorder;
+import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
-import static io.prestosql.sql.planner.plan.Patterns.project;
+import static io.prestosql.sql.planner.plan.Patterns.tableScan;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -49,10 +50,9 @@ public class TestIterativeOptimizer
                 .setCatalog("local")
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1")
-                .setSystemProperty("iterative_optimizer_enabled", "true")
                 .setSystemProperty("iterative_optimizer_timeout", "1ms");
 
-        queryRunner = new LocalQueryRunner(sessionBuilder.build());
+        queryRunner = LocalQueryRunner.create(sessionBuilder.build());
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
@@ -75,11 +75,11 @@ public class TestIterativeOptimizer
                 new RuleStatsRecorder(),
                 queryRunner.getStatsCalculator(),
                 queryRunner.getCostCalculator(),
-                ImmutableSet.of(new NonConvergingRule()));
+                ImmutableSet.of(new AddIdentityOverTableScan(), new RemoveRedundantIdentityProjections()));
 
         try {
             queryRunner.inTransaction(transactionSession -> {
-                queryRunner.createPlan(transactionSession, "SELECT * FROM nation", ImmutableList.of(optimizer), WarningCollector.NOOP);
+                queryRunner.createPlan(transactionSession, "SELECT nationkey FROM nation", ImmutableList.of(optimizer), WarningCollector.NOOP);
                 fail("The optimizer should not converge");
                 return null;
             });
@@ -89,31 +89,19 @@ public class TestIterativeOptimizer
         }
     }
 
-    private static class NonConvergingRule
-            implements Rule<ProjectNode>
+    private static class AddIdentityOverTableScan
+            implements Rule<TableScanNode>
     {
         @Override
-        public Pattern<ProjectNode> getPattern()
+        public Pattern<TableScanNode> getPattern()
         {
-            return project();
+            return tableScan();
         }
 
-        // This rewrite will produce an identity projection node unless one exists.
-        // In that case, it will be removed.
-        // Thanks to that approach, it never converges and always produces different node.
         @Override
-        public Result apply(ProjectNode project, Captures captures, Context context)
+        public Result apply(TableScanNode tableScan, Captures captures, Context context)
         {
-            if (isIdentityProjection(project)) {
-                return Result.ofPlanNode(project.getSource());
-            }
-            PlanNode projectNode = new ProjectNode(context.getIdAllocator().getNextId(), project, Assignments.identity(project.getOutputSymbols()));
-            return Result.ofPlanNode(projectNode);
-        }
-
-        private static boolean isIdentityProjection(ProjectNode project)
-        {
-            return ImmutableSet.copyOf(project.getOutputSymbols()).equals(ImmutableSet.copyOf(project.getSource().getOutputSymbols()));
+            return Result.ofPlanNode(new ProjectNode(context.getIdAllocator().getNextId(), tableScan, Assignments.identity(tableScan.getOutputSymbols())));
         }
     }
 }

@@ -50,7 +50,7 @@ public class HostAddressFactory
         return address;
     }
 
-    public List<HostAddress> AddressNamesToHostAddressList(Collection<String> hosts)
+    public List<HostAddress> hostAddressNamesToHostAddressList(Collection<String> hosts)
     {
         ArrayList<HostAddress> list = new ArrayList<>(hosts.size());
         for (String host : hosts) {

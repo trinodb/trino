@@ -62,8 +62,6 @@ public class RedisRecordCursor
 
     private final AtomicBoolean reported = new AtomicBoolean();
 
-    private FieldValueProvider[] fieldValueProviders;
-
     private String valueString;
     private Map<String, String> valueMap;
 
@@ -156,9 +154,7 @@ public class RedisRecordCursor
         totalBytes += valueData.length;
         totalValues++;
 
-        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedKey = keyDecoder.decodeRow(
-                keyData,
-                null);
+        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedKey = keyDecoder.decodeRow(keyData);
         Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = valueDecoder.decodeRow(
                 valueData,
                 valueMap);
@@ -182,10 +178,10 @@ public class RedisRecordCursor
                         currentRowValuesMap.put(columnHandle, longValueProvider(valueData.length));
                         break;
                     case KEY_CORRUPT_FIELD:
-                        currentRowValuesMap.put(columnHandle, booleanValueProvider(!decodedKey.isPresent()));
+                        currentRowValuesMap.put(columnHandle, booleanValueProvider(decodedKey.isEmpty()));
                         break;
                     case VALUE_CORRUPT_FIELD:
-                        currentRowValuesMap.put(columnHandle, booleanValueProvider(!decodedValue.isPresent()));
+                        currentRowValuesMap.put(columnHandle, booleanValueProvider(decodedValue.isEmpty()));
                         break;
                     default:
                         throw new IllegalArgumentException("unknown internal field " + fieldDescription);

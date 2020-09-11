@@ -91,4 +91,10 @@ public class SearchedCaseExpression
     {
         return Objects.hash(whenClauses, defaultValue);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

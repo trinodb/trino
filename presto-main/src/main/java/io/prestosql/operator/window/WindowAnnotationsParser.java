@@ -14,6 +14,7 @@
 package io.prestosql.operator.window;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TypeVariableConstraint;
 import io.prestosql.spi.function.WindowFunction;
@@ -25,9 +26,8 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 
 public final class WindowAnnotationsParser
 {
@@ -50,18 +50,18 @@ public final class WindowAnnotationsParser
         }
 
         List<TypeSignature> argumentTypes = Stream.of(window.argumentTypes())
-                .map(TypeSignature::parseTypeSignature)
+                .map(type -> parseTypeSignature(type, ImmutableSet.of()))
                 .collect(toImmutableList());
 
         Signature signature = new Signature(
                 window.name(),
-                WINDOW,
                 typeVariables,
                 ImmutableList.of(),
-                parseTypeSignature(window.returnType()),
+                parseTypeSignature(window.returnType(), ImmutableSet.of()),
                 argumentTypes,
                 false);
 
-        return new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz));
+        boolean deprecated = clazz.getAnnotationsByType(Deprecated.class).length > 0;
+        return new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz), deprecated);
     }
 }

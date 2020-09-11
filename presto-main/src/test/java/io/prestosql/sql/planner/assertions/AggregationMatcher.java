@@ -82,8 +82,8 @@ public class AggregationMatcher
         List<Symbol> aggregationsWithMask = aggregationNode.getAggregations()
                 .entrySet()
                 .stream()
-                .filter(entry -> entry.getValue().getCall().isDistinct())
-                .map(entry -> entry.getKey())
+                .filter(entry -> entry.getValue().isDistinct())
+                .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
 
         if (aggregationsWithMask.size() != masks.keySet().size()) {
@@ -91,7 +91,7 @@ public class AggregationMatcher
         }
 
         for (Symbol symbol : aggregationsWithMask) {
-            if (!masks.keySet().contains(symbol)) {
+            if (!masks.containsKey(symbol)) {
                 return NO_MATCH;
             }
         }
@@ -101,6 +101,10 @@ public class AggregationMatcher
         }
 
         if (!matches(preGroupedSymbols, aggregationNode.getPreGroupedSymbols(), symbolAliases)) {
+            return NO_MATCH;
+        }
+
+        if (!preGroupedSymbols.isEmpty() && !aggregationNode.isStreamable()) {
             return NO_MATCH;
         }
 

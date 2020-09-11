@@ -19,16 +19,12 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
@@ -37,12 +33,14 @@ import java.util.TreeMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.prestosql.metadata.Signature.typeVariable;
+import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.operator.scalar.JsonOperators.JSON_FACTORY;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.type.TypeSignature.mapType;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.JsonUtil.JsonGeneratorWriter;
 import static io.prestosql.util.JsonUtil.ObjectKeyProvider;
@@ -54,26 +52,27 @@ public class MapToJsonCast
         extends SqlOperator
 {
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, ConnectorSession.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, Block.class);
 
     private MapToJsonCast()
     {
         super(OperatorType.CAST,
-                ImmutableList.of(typeVariable("K"), typeVariable("V")),
+                ImmutableList.of(
+                        castableToTypeParameter("K", VARCHAR.getTypeSignature()),
+                        castableToTypeParameter("V", JSON.getTypeSignature())),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.JSON),
-                ImmutableList.of(parseTypeSignature("map(K,V)")));
+                JSON.getTypeSignature(),
+                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),
+                false);
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        checkArgument(arity == 1, "Expected arity to be 1");
-        Type keyType = boundVariables.getTypeVariable("K");
-        Type valueType = boundVariables.getTypeVariable("V");
-        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.of(keyType.getTypeSignature()),
-                TypeSignatureParameter.of(valueType.getTypeSignature())));
+        checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
+        Type keyType = functionBinding.getTypeVariable("K");
+        Type valueType = functionBinding.getTypeVariable("V");
+        Type mapType = functionBinding.getBoundSignature().getArgumentTypes().get(0);
         checkCondition(canCastToJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", mapType);
 
         ObjectKeyProvider provider = ObjectKeyProvider.createObjectKeyProvider(keyType);
@@ -81,14 +80,13 @@ public class MapToJsonCast
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(provider).bindTo(writer);
 
         return new ScalarFunctionImplementation(
-                false,
-                ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandle,
-                isDeterministic());
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL),
+                methodHandle);
     }
 
     @UsedByGeneratedCode
-    public static Slice toJson(ObjectKeyProvider provider, JsonGeneratorWriter writer, ConnectorSession session, Block block)
+    public static Slice toJson(ObjectKeyProvider provider, JsonGeneratorWriter writer, Block block)
     {
         try {
             Map<String, Integer> orderedKeyToValuePosition = new TreeMap<>();
@@ -102,7 +100,7 @@ public class MapToJsonCast
                 jsonGenerator.writeStartObject();
                 for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
                     jsonGenerator.writeFieldName(entry.getKey());
-                    writer.writeJsonValue(jsonGenerator, block, entry.getValue(), session);
+                    writer.writeJsonValue(jsonGenerator, block, entry.getValue());
                 }
                 jsonGenerator.writeEndObject();
             }

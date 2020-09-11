@@ -17,7 +17,6 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import io.airlift.node.NodeInfo;
 
 import javax.inject.Singleton;
 
@@ -37,14 +36,6 @@ public class HttpBackupModule
         binder.bind(BackupStore.class).to(HttpBackupStore.class).in(Scopes.SINGLETON);
 
         httpClientBinder(binder).bindHttpClient("backup", ForHttpBackup.class);
-    }
-
-    @Provides
-    @Singleton
-    @ForHttpBackup
-    public String createEnvironment(NodeInfo nodeInfo)
-    {
-        return nodeInfo.getEnvironment();
     }
 
     @Provides

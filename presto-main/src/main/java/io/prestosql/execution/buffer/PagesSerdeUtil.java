@@ -17,24 +17,30 @@ import com.google.common.collect.AbstractIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
+import io.airlift.slice.XxHash64;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockEncodingSerde;
 
 import java.util.Iterator;
+import java.util.List;
 
 import static io.prestosql.block.BlockSerdeUtil.readBlock;
 import static io.prestosql.block.BlockSerdeUtil.writeBlock;
-import static io.prestosql.execution.buffer.PageCompression.lookupCodecFromMarker;
-import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
-public class PagesSerdeUtil
+public final class PagesSerdeUtil
 {
-    private PagesSerdeUtil()
-    {
-    }
+    private PagesSerdeUtil() {}
+
+    /**
+     * Special checksum value used to verify configuration consistency across nodes (all nodes need to have data integrity configured the same way).
+     *
+     * @implNote It's not just 0, so that hypothetical zero-ed out data is not treated as valid payload with no checksum.
+     */
+    public static final long NO_CHECKSUM = 0x0123456789abcdefL;
 
     static void writeRawPage(Page page, SliceOutput output, BlockEncodingSerde serde)
     {
@@ -57,21 +63,32 @@ public class PagesSerdeUtil
 
     public static void writeSerializedPage(SliceOutput output, SerializedPage page)
     {
+        // Every new field being written here must be added in updateChecksum() too.
         output.writeInt(page.getPositionCount());
-        output.writeByte(page.getCompression().getMarker());
+        output.writeByte(page.getPageCodecMarkers());
         output.writeInt(page.getUncompressedSizeInBytes());
         output.writeInt(page.getSizeInBytes());
         output.writeBytes(page.getSlice());
     }
 
+    private static void updateChecksum(XxHash64 hash, SerializedPage page)
+    {
+        hash.update(Slices.wrappedIntArray(
+                page.getPositionCount(),
+                page.getPageCodecMarkers(),
+                page.getUncompressedSizeInBytes(),
+                page.getSizeInBytes()));
+        hash.update(page.getSlice());
+    }
+
     private static SerializedPage readSerializedPage(SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
-        byte codecMarker = sliceInput.readByte();
+        PageCodecMarker.MarkerSet markers = PageCodecMarker.MarkerSet.fromByteValue(sliceInput.readByte());
         int uncompressedSizeInBytes = sliceInput.readInt();
         int sizeInBytes = sliceInput.readInt();
-        Slice slice = sliceInput.readSlice(toIntExact((sizeInBytes)));
-        return new SerializedPage(slice, lookupCodecFromMarker(codecMarker), positionCount, uncompressedSizeInBytes);
+        Slice slice = sliceInput.readSlice(sizeInBytes);
+        return new SerializedPage(slice, markers, positionCount, uncompressedSizeInBytes);
     }
 
     public static long writeSerializedPages(SliceOutput sliceOutput, Iterable<SerializedPage> pages)
@@ -84,6 +101,20 @@ public class PagesSerdeUtil
             size += page.getSizeInBytes();
         }
         return size;
+    }
+
+    public static long calculateChecksum(List<SerializedPage> pages)
+    {
+        XxHash64 hash = new XxHash64();
+        for (SerializedPage page : pages) {
+            updateChecksum(hash, page);
+        }
+        long checksum = hash.hash();
+        // Since NO_CHECKSUM is assigned a special meaning, it is not a valid checksum.
+        if (checksum == NO_CHECKSUM) {
+            return checksum + 1;
+        }
+        return checksum;
     }
 
     public static long writePages(PagesSerde serde, SliceOutput sliceOutput, Page... pages)

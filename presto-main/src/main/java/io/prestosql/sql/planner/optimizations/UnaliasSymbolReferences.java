@@ -13,18 +13,18 @@
  */
 package io.prestosql.sql.planner.optimizations;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.Signature;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.sql.planner.DeterminismEvaluator;
+import io.prestosql.sql.planner.NodeAndMappings;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
@@ -35,8 +35,10 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
 import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExceptNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
@@ -47,21 +49,21 @@ import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.IndexSourceNode;
 import io.prestosql.sql.planner.plan.IntersectNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
+import io.prestosql.sql.planner.plan.OffsetNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.RemoteSourceNode;
 import io.prestosql.sql.planner.plan.RowNumberNode;
 import io.prestosql.sql.planner.plan.SampleNode;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
-import io.prestosql.sql.planner.plan.SetOperationNode;
-import io.prestosql.sql.planner.plan.SimplePlanRewriter;
 import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
+import io.prestosql.sql.planner.plan.TableDeleteNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -72,12 +74,10 @@ import io.prestosql.sql.planner.plan.UnnestNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionRewriter;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.SymbolReference;
 
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -86,10 +86,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.sql.planner.optimizations.SymbolMapper.symbolMapper;
+import static io.prestosql.sql.planner.optimizations.SymbolMapper.symbolReallocator;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static java.util.Objects.requireNonNull;
 
@@ -107,6 +111,13 @@ import static java.util.Objects.requireNonNull;
 public class UnaliasSymbolReferences
         implements PlanOptimizer
 {
+    private final Metadata metadata;
+
+    public UnaliasSymbolReferences(Metadata metadata)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+    }
+
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
@@ -116,620 +127,1078 @@ public class UnaliasSymbolReferences
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(types), plan);
+        return plan.accept(new Visitor(metadata, SymbolMapper::symbolMapper), UnaliasContext.empty()).getRoot();
     }
 
-    private static class Rewriter
-            extends SimplePlanRewriter<Void>
+    /**
+     * Replace all symbols in the plan with new symbols.
+     * The returned plan has different output than the original plan. Also, the order of symbols might change during symbol replacement.
+     * Symbols in the list `fields` are replaced maintaining the order so they might be used to match original symbols with their replacements.
+     * Replacing symbols helps avoid collisions when symbols or parts of the plan are reused.
+     */
+    public NodeAndMappings reallocateSymbols(PlanNode plan, List<Symbol> fields, SymbolAllocator symbolAllocator)
     {
-        private final Map<Symbol, Symbol> mapping = new HashMap<>();
-        private final TypeProvider types;
+        requireNonNull(plan, "plan is null");
+        requireNonNull(fields, "fields is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
 
-        private Rewriter(TypeProvider types)
+        PlanAndMappings result = plan.accept(new Visitor(metadata, mapping -> symbolReallocator(mapping, symbolAllocator)), UnaliasContext.empty());
+        return new NodeAndMappings(result.getRoot(), symbolMapper(result.getMappings()).map(fields));
+    }
+
+    private static class Visitor
+            extends PlanVisitor<PlanAndMappings, UnaliasContext>
+    {
+        private final Metadata metadata;
+        private final Function<Map<Symbol, Symbol>, SymbolMapper> mapperProvider;
+
+        public Visitor(Metadata metadata, Function<Map<Symbol, Symbol>, SymbolMapper> mapperProvider)
         {
-            this.types = types;
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.mapperProvider = requireNonNull(mapperProvider, "mapperProvider is null");
+        }
+
+        private SymbolMapper symbolMapper(Map<Symbol, Symbol> mappings)
+        {
+            return mapperProvider.apply(mappings);
         }
 
         @Override
-        public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-            //TODO: use mapper in other methods
-            SymbolMapper mapper = new SymbolMapper(mapping);
-            return mapper.map(node, source);
-        }
-
-        @Override
-        public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-
-            Map<Symbol, Symbol> newGroupingMappings = new HashMap<>();
-            ImmutableList.Builder<List<Symbol>> newGroupingSets = ImmutableList.builder();
-
-            for (List<Symbol> groupingSet : node.getGroupingSets()) {
-                ImmutableList.Builder<Symbol> newGroupingSet = ImmutableList.builder();
-                for (Symbol output : groupingSet) {
-                    newGroupingMappings.putIfAbsent(canonicalize(output), canonicalize(node.getGroupingColumns().get(output)));
-                    newGroupingSet.add(canonicalize(output));
-                }
-                newGroupingSets.add(newGroupingSet.build());
-            }
-
-            return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMappings, canonicalizeAndDistinct(node.getAggregationArguments()), canonicalize(node.getGroupIdSymbol()));
-        }
-
-        @Override
-        public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-            return new ExplainAnalyzeNode(node.getId(), source, canonicalize(node.getOutputSymbol()), node.isVerbose());
-        }
-
-        @Override
-        public PlanNode visitMarkDistinct(MarkDistinctNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-            List<Symbol> symbols = canonicalizeAndDistinct(node.getDistinctSymbols());
-            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols, canonicalize(node.getHashSymbol()));
-        }
-
-        @Override
-        public PlanNode visitUnnest(UnnestNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-            ImmutableMap.Builder<Symbol, List<Symbol>> builder = ImmutableMap.builder();
-            for (Map.Entry<Symbol, List<Symbol>> entry : node.getUnnestSymbols().entrySet()) {
-                builder.put(canonicalize(entry.getKey()), entry.getValue());
-            }
-            return new UnnestNode(node.getId(), source, canonicalizeAndDistinct(node.getReplicateSymbols()), builder.build(), node.getOrdinalitySymbol());
-        }
-
-        @Override
-        public PlanNode visitWindow(WindowNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-
-            ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
-            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
-                Symbol symbol = entry.getKey();
-
-                FunctionCall canonicalFunctionCall = (FunctionCall) canonicalize(entry.getValue().getFunctionCall());
-                Signature signature = entry.getValue().getSignature();
-                WindowNode.Frame canonicalFrame = canonicalize(entry.getValue().getFrame());
-
-                functions.put(canonicalize(symbol), new WindowNode.Function(canonicalFunctionCall, signature, canonicalFrame));
-            }
-
-            return new WindowNode(
-                    node.getId(),
-                    source,
-                    canonicalizeAndDistinct(node.getSpecification()),
-                    functions.build(),
-                    canonicalize(node.getHashSymbol()),
-                    canonicalize(node.getPrePartitionedInputs()),
-                    node.getPreSortedOrderPrefix());
-        }
-
-        private WindowNode.Frame canonicalize(WindowNode.Frame frame)
-        {
-            return new WindowNode.Frame(
-                    frame.getType(),
-                    frame.getStartType(),
-                    canonicalize(frame.getStartValue()),
-                    frame.getEndType(),
-                    canonicalize(frame.getEndValue()),
-                    frame.getOriginalStartValue(),
-                    frame.getOriginalEndValue());
-        }
-
-        @Override
-        public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
-        {
-            return node;
-        }
-
-        @Override
-        public PlanNode visitExchange(ExchangeNode node, RewriteContext<Void> context)
-        {
-            List<PlanNode> sources = node.getSources().stream()
-                    .map(context::rewrite)
-                    .collect(toImmutableList());
-
-            mapExchangeNodeSymbols(node);
-
-            List<List<Symbol>> inputs = new ArrayList<>();
-            for (int i = 0; i < node.getInputs().size(); i++) {
-                inputs.add(new ArrayList<>());
-            }
-            Set<Symbol> addedOutputs = new HashSet<>();
-            ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
-            for (int symbolIndex = 0; symbolIndex < node.getOutputSymbols().size(); symbolIndex++) {
-                Symbol canonicalOutput = canonicalize(node.getOutputSymbols().get(symbolIndex));
-                if (addedOutputs.add(canonicalOutput)) {
-                    outputs.add(canonicalOutput);
-                    for (int i = 0; i < node.getInputs().size(); i++) {
-                        List<Symbol> input = node.getInputs().get(i);
-                        inputs.get(i).add(canonicalize(input.get(symbolIndex)));
-                    }
-                }
-            }
-
-            PartitioningScheme partitioningScheme = new PartitioningScheme(
-                    node.getPartitioningScheme().getPartitioning().translate(this::canonicalize),
-                    outputs.build(),
-                    canonicalize(node.getPartitioningScheme().getHashColumn()),
-                    node.getPartitioningScheme().isReplicateNullsAndAny(),
-                    node.getPartitioningScheme().getBucketToPartition());
-
-            Optional<OrderingScheme> orderingScheme = node.getOrderingScheme().map(this::canonicalizeAndDistinct);
-
-            return new ExchangeNode(node.getId(), node.getType(), node.getScope(), partitioningScheme, sources, inputs, orderingScheme);
-        }
-
-        private void mapExchangeNodeSymbols(ExchangeNode node)
-        {
-            if (node.getInputs().size() == 1) {
-                mapExchangeNodeOutputToInputSymbols(node);
-                return;
-            }
-
-            // Mapping from list [node.getInput(0).get(symbolIndex), node.getInput(1).get(symbolIndex), ...] to node.getOutputSymbols(symbolIndex).
-            // All symbols are canonical.
-            Map<List<Symbol>, Symbol> inputsToOutputs = new HashMap<>();
-            // Map each same list of input symbols [I1, I2, ..., In] to the same output symbol O
-            for (int symbolIndex = 0; symbolIndex < node.getOutputSymbols().size(); symbolIndex++) {
-                Symbol canonicalOutput = canonicalize(node.getOutputSymbols().get(symbolIndex));
-                List<Symbol> canonicalInputs = canonicalizeExchangeNodeInputs(node, symbolIndex);
-                Symbol output = inputsToOutputs.get(canonicalInputs);
-
-                if (output == null || canonicalOutput.equals(output)) {
-                    inputsToOutputs.put(canonicalInputs, canonicalOutput);
-                }
-                else {
-                    map(canonicalOutput, output);
-                }
-            }
-        }
-
-        private void mapExchangeNodeOutputToInputSymbols(ExchangeNode node)
-        {
-            checkState(node.getInputs().size() == 1);
-
-            for (int symbolIndex = 0; symbolIndex < node.getOutputSymbols().size(); symbolIndex++) {
-                Symbol canonicalOutput = canonicalize(node.getOutputSymbols().get(symbolIndex));
-                Symbol canonicalInput = canonicalize(node.getInputs().get(0).get(symbolIndex));
-
-                if (!canonicalOutput.equals(canonicalInput)) {
-                    map(canonicalOutput, canonicalInput);
-                }
-            }
-        }
-
-        private List<Symbol> canonicalizeExchangeNodeInputs(ExchangeNode node, int symbolIndex)
-        {
-            return node.getInputs().stream()
-                    .map(input -> canonicalize(input.get(symbolIndex)))
-                    .collect(toImmutableList());
-        }
-
-        @Override
-        public PlanNode visitRemoteSource(RemoteSourceNode node, RewriteContext<Void> context)
-        {
-            return new RemoteSourceNode(
-                    node.getId(),
-                    node.getSourceFragmentIds(),
-                    canonicalizeAndDistinct(node.getOutputSymbols()),
-                    node.getOrderingScheme().map(this::canonicalizeAndDistinct),
-                    node.getExchangeType());
-        }
-
-        @Override
-        public PlanNode visitLimit(LimitNode node, RewriteContext<Void> context)
-        {
-            return context.defaultRewrite(node);
-        }
-
-        @Override
-        public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Void> context)
-        {
-            return new DistinctLimitNode(node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalizeAndDistinct(node.getDistinctSymbols()), canonicalize(node.getHashSymbol()));
-        }
-
-        @Override
-        public PlanNode visitSample(SampleNode node, RewriteContext<Void> context)
-        {
-            return new SampleNode(node.getId(), context.rewrite(node.getSource()), node.getSampleRatio(), node.getSampleType());
-        }
-
-        @Override
-        public PlanNode visitValues(ValuesNode node, RewriteContext<Void> context)
-        {
-            List<List<Expression>> canonicalizedRows = node.getRows().stream()
-                    .map(this::canonicalize)
-                    .collect(toImmutableList());
-            List<Symbol> canonicalizedOutputSymbols = canonicalizeAndDistinct(node.getOutputSymbols());
-            checkState(node.getOutputSymbols().size() == canonicalizedOutputSymbols.size(), "Values output symbols were pruned");
-            return new ValuesNode(
-                    node.getId(),
-                    canonicalizedOutputSymbols,
-                    canonicalizedRows);
-        }
-
-        @Override
-        public PlanNode visitDelete(DeleteNode node, RewriteContext<Void> context)
-        {
-            return new DeleteNode(node.getId(), context.rewrite(node.getSource()), node.getTarget(), canonicalize(node.getRowId()), node.getOutputSymbols());
-        }
-
-        @Override
-        public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-            SymbolMapper mapper = new SymbolMapper(mapping);
-            return mapper.map(node, source);
-        }
-
-        @Override
-        public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-            SymbolMapper mapper = new SymbolMapper(mapping);
-            return mapper.map(node, source);
-        }
-
-        @Override
-        public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Void> context)
-        {
-            return new RowNumberNode(node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinct(node.getPartitionBy()), canonicalize(node.getRowNumberSymbol()), node.getMaxRowCountPerPartition(), canonicalize(node.getHashSymbol()));
-        }
-
-        @Override
-        public PlanNode visitTopNRowNumber(TopNRowNumberNode node, RewriteContext<Void> context)
-        {
-            return new TopNRowNumberNode(
-                    node.getId(),
-                    context.rewrite(node.getSource()),
-                    canonicalizeAndDistinct(node.getSpecification()),
-                    canonicalize(node.getRowNumberSymbol()),
-                    node.getMaxRowCountPerPartition(),
-                    node.isPartial(),
-                    canonicalize(node.getHashSymbol()));
-        }
-
-        @Override
-        public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-
-            return new FilterNode(node.getId(), source, canonicalize(node.getPredicate()));
-        }
-
-        @Override
-        public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-            return new ProjectNode(node.getId(), source, canonicalize(node.getAssignments()));
-        }
-
-        @Override
-        public PlanNode visitOutput(OutputNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-
-            List<Symbol> canonical = Lists.transform(node.getOutputSymbols(), this::canonicalize);
-            return new OutputNode(node.getId(), source, node.getColumnNames(), canonical);
-        }
-
-        @Override
-        public PlanNode visitEnforceSingleRow(EnforceSingleRowNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-
-            return new EnforceSingleRowNode(node.getId(), source);
-        }
-
-        @Override
-        public PlanNode visitAssignUniqueId(AssignUniqueId node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-
-            return new AssignUniqueId(node.getId(), source, node.getIdColumn());
-        }
-
-        @Override
-        public PlanNode visitApply(ApplyNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getInput());
-            PlanNode subquery = context.rewrite(node.getSubquery());
-            List<Symbol> canonicalCorrelation = Lists.transform(node.getCorrelation(), this::canonicalize);
-
-            return new ApplyNode(node.getId(), source, subquery, canonicalize(node.getSubqueryAssignments()), canonicalCorrelation, node.getOriginSubquery());
-        }
-
-        @Override
-        public PlanNode visitLateralJoin(LateralJoinNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getInput());
-            PlanNode subquery = context.rewrite(node.getSubquery());
-            List<Symbol> canonicalCorrelation = canonicalizeAndDistinct(node.getCorrelation());
-
-            return new LateralJoinNode(node.getId(), source, subquery, canonicalCorrelation, node.getType(), node.getOriginSubquery());
-        }
-
-        @Override
-        public PlanNode visitTopN(TopNNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-
-            SymbolMapper mapper = new SymbolMapper(mapping);
-            return mapper.map(node, source, node.getId());
-        }
-
-        @Override
-        public PlanNode visitSort(SortNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-
-            return new SortNode(node.getId(), source, canonicalizeAndDistinct(node.getOrderingScheme()));
-        }
-
-        @Override
-        public PlanNode visitJoin(JoinNode node, RewriteContext<Void> context)
-        {
-            PlanNode left = context.rewrite(node.getLeft());
-            PlanNode right = context.rewrite(node.getRight());
-
-            List<JoinNode.EquiJoinClause> canonicalCriteria = canonicalizeJoinCriteria(node.getCriteria());
-            Optional<Expression> canonicalFilter = node.getFilter().map(this::canonicalize);
-            Optional<Symbol> canonicalLeftHashSymbol = canonicalize(node.getLeftHashSymbol());
-            Optional<Symbol> canonicalRightHashSymbol = canonicalize(node.getRightHashSymbol());
-
-            if (node.getType().equals(INNER)) {
-                canonicalCriteria.stream()
-                        .filter(clause -> types.get(clause.getLeft()).equals(types.get(clause.getRight())))
-                        .filter(clause -> node.getOutputSymbols().contains(clause.getLeft()))
-                        .forEach(clause -> map(clause.getRight(), clause.getLeft()));
-            }
-
-            return new JoinNode(node.getId(), node.getType(), left, right, canonicalCriteria, canonicalizeAndDistinct(node.getOutputSymbols()), canonicalFilter, canonicalLeftHashSymbol, canonicalRightHashSymbol, node.getDistributionType());
-        }
-
-        @Override
-        public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-            PlanNode filteringSource = context.rewrite(node.getFilteringSource());
-
-            return new SemiJoinNode(
-                    node.getId(),
-                    source,
-                    filteringSource,
-                    canonicalize(node.getSourceJoinSymbol()),
-                    canonicalize(node.getFilteringSourceJoinSymbol()),
-                    canonicalize(node.getSemiJoinOutput()),
-                    canonicalize(node.getSourceHashSymbol()),
-                    canonicalize(node.getFilteringSourceHashSymbol()),
-                    node.getDistributionType());
-        }
-
-        @Override
-        public PlanNode visitSpatialJoin(SpatialJoinNode node, RewriteContext<Void> context)
-        {
-            PlanNode left = context.rewrite(node.getLeft());
-            PlanNode right = context.rewrite(node.getRight());
-
-            return new SpatialJoinNode(node.getId(), node.getType(), left, right, canonicalizeAndDistinct(node.getOutputSymbols()), canonicalize(node.getFilter()), canonicalize(node.getLeftPartitionSymbol()), canonicalize(node.getRightPartitionSymbol()), node.getKdbTree());
-        }
-
-        @Override
-        public PlanNode visitIndexSource(IndexSourceNode node, RewriteContext<Void> context)
-        {
-            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), node.getLayout(), canonicalize(node.getLookupSymbols()), node.getOutputSymbols(), node.getAssignments(), node.getCurrentConstraint());
-        }
-
-        @Override
-        public PlanNode visitIndexJoin(IndexJoinNode node, RewriteContext<Void> context)
-        {
-            PlanNode probeSource = context.rewrite(node.getProbeSource());
-            PlanNode indexSource = context.rewrite(node.getIndexSource());
-
-            return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, canonicalizeIndexJoinCriteria(node.getCriteria()), canonicalize(node.getProbeHashSymbol()), canonicalize(node.getIndexHashSymbol()));
-        }
-
-        @Override
-        public PlanNode visitUnion(UnionNode node, RewriteContext<Void> context)
-        {
-            return new UnionNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationSymbolMap(node.getSymbolMapping()), canonicalizeAndDistinct(node.getOutputSymbols()));
-        }
-
-        @Override
-        public PlanNode visitIntersect(IntersectNode node, RewriteContext<Void> context)
-        {
-            return new IntersectNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationSymbolMap(node.getSymbolMapping()), canonicalizeAndDistinct(node.getOutputSymbols()));
-        }
-
-        @Override
-        public PlanNode visitExcept(ExceptNode node, RewriteContext<Void> context)
-        {
-            return new ExceptNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationSymbolMap(node.getSymbolMapping()), canonicalizeAndDistinct(node.getOutputSymbols()));
-        }
-
-        private static ImmutableList.Builder<PlanNode> rewriteSources(SetOperationNode node, RewriteContext<Void> context)
-        {
-            ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
-            for (PlanNode source : node.getSources()) {
-                rewrittenSources.add(context.rewrite(source));
-            }
-            return rewrittenSources;
-        }
-
-        @Override
-        public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Void> context)
-        {
-            PlanNode source = context.rewrite(node.getSource());
-            SymbolMapper mapper = new SymbolMapper(mapping);
-            return mapper.map(node, source);
-        }
-
-        @Override
-        protected PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
+        protected PlanAndMappings visitPlan(PlanNode node, UnaliasContext context)
         {
             throw new UnsupportedOperationException("Unsupported plan node " + node.getClass().getSimpleName());
         }
 
-        private void map(Symbol symbol, Symbol canonical)
+        @Override
+        public PlanAndMappings visitAggregation(AggregationNode node, UnaliasContext context)
         {
-            Preconditions.checkArgument(!symbol.equals(canonical), "Can't map symbol to itself: %s", symbol);
-            mapping.put(symbol, canonical);
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            AggregationNode rewrittenAggregation = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenAggregation, mapping);
         }
 
-        private Assignments canonicalize(Assignments oldAssignments)
+        @Override
+        public PlanAndMappings visitGroupId(GroupIdNode node, UnaliasContext context)
         {
-            Map<Expression, Symbol> computedExpressions = new HashMap<>();
-            Assignments.Builder assignments = Assignments.builder();
-            for (Map.Entry<Symbol, Expression> entry : oldAssignments.getMap().entrySet()) {
-                Expression expression = canonicalize(entry.getValue());
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
 
-                if (expression instanceof SymbolReference) {
-                    // Always map a trivial symbol projection
-                    Symbol symbol = Symbol.from(expression);
-                    if (!symbol.equals(entry.getKey())) {
-                        map(entry.getKey(), symbol);
+            GroupIdNode rewrittenGroupId = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenGroupId, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitExplainAnalyze(ExplainAnalyzeNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            Symbol newOutputSymbol = mapper.map(node.getOutputSymbol());
+
+            return new PlanAndMappings(
+                    new ExplainAnalyzeNode(node.getId(), rewrittenSource.getRoot(), newOutputSymbol, node.isVerbose()),
+                    mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitMarkDistinct(MarkDistinctNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            Symbol newMarkerSymbol = mapper.map(node.getMarkerSymbol());
+            List<Symbol> newDistinctSymbols = mapper.mapAndDistinct(node.getDistinctSymbols());
+            Optional<Symbol> newHashSymbol = node.getHashSymbol().map(mapper::map);
+
+            return new PlanAndMappings(
+                    new MarkDistinctNode(
+                            node.getId(),
+                            rewrittenSource.getRoot(),
+                            newMarkerSymbol,
+                            newDistinctSymbols,
+                            newHashSymbol),
+                    mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitUnnest(UnnestNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            List<Symbol> newReplicateSymbols = mapper.mapAndDistinct(node.getReplicateSymbols());
+
+            ImmutableList.Builder<UnnestNode.Mapping> newMappings = ImmutableList.builder();
+            for (UnnestNode.Mapping unnestMapping : node.getMappings()) {
+                newMappings.add(new UnnestNode.Mapping(mapper.map(unnestMapping.getInput()), mapper.map(unnestMapping.getOutputs())));
+            }
+
+            Optional<Symbol> newOrdinalitySymbol = node.getOrdinalitySymbol().map(mapper::map);
+            Optional<Expression> newFilter = node.getFilter().map(mapper::map);
+
+            return new PlanAndMappings(
+                    new UnnestNode(
+                            node.getId(),
+                            rewrittenSource.getRoot(),
+                            newReplicateSymbols,
+                            newMappings.build(),
+                            newOrdinalitySymbol,
+                            node.getJoinType(),
+                            newFilter),
+                    mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitWindow(WindowNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            WindowNode rewrittenWindow = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenWindow, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitTableScan(TableScanNode node, UnaliasContext context)
+        {
+            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            List<Symbol> newOutputs = mapper.map(node.getOutputSymbols());
+
+            Map<Symbol, ColumnHandle> newAssignments = new HashMap<>();
+            node.getAssignments().forEach((symbol, handle) -> {
+                newAssignments.put(mapper.map(symbol), handle);
+            });
+
+            return new PlanAndMappings(
+                    new TableScanNode(node.getId(), node.getTable(), newOutputs, newAssignments, node.getEnforcedConstraint()),
+                    mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitExchange(ExchangeNode node, UnaliasContext context)
+        {
+            ImmutableList.Builder<PlanNode> rewrittenChildren = ImmutableList.builder();
+            ImmutableList.Builder<List<Symbol>> rewrittenInputsBuilder = ImmutableList.builder();
+
+            // rewrite child and map corresponding input list accordingly to the child's mapping
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanAndMappings rewrittenChild = node.getSources().get(i).accept(this, context);
+                rewrittenChildren.add(rewrittenChild.getRoot());
+                SymbolMapper mapper = symbolMapper(new HashMap<>(rewrittenChild.getMappings()));
+                rewrittenInputsBuilder.add(mapper.map(node.getInputs().get(i)));
+            }
+            List<List<Symbol>> rewrittenInputs = rewrittenInputsBuilder.build();
+
+            // canonicalize ExchangeNode outputs
+            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+            SymbolMapper mapper = symbolMapper(mapping);
+            List<Symbol> rewrittenOutputs = mapper.map(node.getOutputSymbols());
+
+            // sanity check: assert that duplicate outputs result from same inputs
+            Map<Symbol, List<Symbol>> outputsToInputs = new HashMap<>();
+            for (int i = 0; i < rewrittenOutputs.size(); i++) {
+                ImmutableList.Builder<Symbol> inputsBuilder = ImmutableList.builder();
+                for (List<Symbol> inputs : rewrittenInputs) {
+                    inputsBuilder.add(inputs.get(i));
+                }
+                List<Symbol> inputs = inputsBuilder.build();
+                List<Symbol> previous = outputsToInputs.put(rewrittenOutputs.get(i), inputs);
+                checkState(previous == null || inputs.equals(previous), "different inputs mapped to the same output symbol");
+            }
+
+            // derive new mappings for ExchangeNode output symbols
+            Map<Symbol, Symbol> newMapping = new HashMap<>();
+
+            // 1. for a single ExchangeNode source, map outputs to inputs
+            if (rewrittenInputs.size() == 1) {
+                for (int i = 0; i < rewrittenOutputs.size(); i++) {
+                    Symbol output = rewrittenOutputs.get(i);
+                    Symbol input = rewrittenInputs.get(0).get(i);
+                    if (!output.equals(input)) {
+                        newMapping.put(output, input);
                     }
                 }
-                else if (DeterminismEvaluator.isDeterministic(expression) && !(expression instanceof NullLiteral)) {
-                    // Try to map same deterministic expressions within a projection into the same symbol
-                    // Omit NullLiterals since those have ambiguous types
-                    Symbol computedSymbol = computedExpressions.get(expression);
-                    if (computedSymbol == null) {
-                        // If we haven't seen the expression before in this projection, record it
-                        computedExpressions.put(expression, entry.getKey());
+            }
+            else {
+                // 2. for multiple ExchangeNode sources, if different output symbols result from the same lists of canonical input symbols, map all those outputs to the same symbol
+                Map<List<Symbol>, Symbol> inputsToOutputs = new HashMap<>();
+                for (int i = 0; i < rewrittenOutputs.size(); i++) {
+                    ImmutableList.Builder<Symbol> inputsBuilder = ImmutableList.builder();
+                    for (List<Symbol> inputs : rewrittenInputs) {
+                        inputsBuilder.add(inputs.get(i));
+                    }
+                    List<Symbol> inputs = inputsBuilder.build();
+                    Symbol previous = inputsToOutputs.get(inputs);
+                    if (previous == null || rewrittenOutputs.get(i).equals(previous)) {
+                        inputsToOutputs.put(inputs, rewrittenOutputs.get(i));
                     }
                     else {
-                        // If we have seen the expression before and if it is deterministic
-                        // then we can rewrite references to the current symbol in terms of the parallel computedSymbol in the projection
-                        map(entry.getKey(), computedSymbol);
+                        newMapping.put(rewrittenOutputs.get(i), previous);
                     }
                 }
-
-                Symbol canonical = canonicalize(entry.getKey());
-                assignments.put(canonical, expression);
             }
-            return assignments.build();
+
+            Map<Symbol, Symbol> outputMapping = new HashMap<>();
+            outputMapping.putAll(mapping);
+            outputMapping.putAll(newMapping);
+
+            mapper = symbolMapper(outputMapping);
+
+            // deduplicate outputs and prune input symbols lists accordingly
+            List<List<Symbol>> newInputs = new ArrayList<>();
+            for (int i = 0; i < node.getInputs().size(); i++) {
+                newInputs.add(new ArrayList<>());
+            }
+            ImmutableList.Builder<Symbol> newOutputs = ImmutableList.builder();
+            Set<Symbol> addedOutputs = new HashSet<>();
+            for (int i = 0; i < rewrittenOutputs.size(); i++) {
+                Symbol output = mapper.map(rewrittenOutputs.get(i));
+                if (addedOutputs.add(output)) {
+                    newOutputs.add(output);
+                    for (int j = 0; j < rewrittenInputs.size(); j++) {
+                        newInputs.get(j).add(rewrittenInputs.get(j).get(i));
+                    }
+                }
+            }
+
+            // rewrite PartitioningScheme
+            PartitioningScheme newPartitioningScheme = mapper.map(node.getPartitioningScheme(), newOutputs.build());
+
+            // rewrite OrderingScheme
+            Optional<OrderingScheme> newOrderingScheme = node.getOrderingScheme().map(mapper::map);
+
+            return new PlanAndMappings(
+                    new ExchangeNode(
+                            node.getId(),
+                            node.getType(),
+                            node.getScope(),
+                            newPartitioningScheme,
+                            rewrittenChildren.build(),
+                            newInputs,
+                            newOrderingScheme),
+                    outputMapping);
         }
 
-        private Optional<Symbol> canonicalize(Optional<Symbol> symbol)
+        @Override
+        public PlanAndMappings visitRemoteSource(RemoteSourceNode node, UnaliasContext context)
         {
-            if (symbol.isPresent()) {
-                return Optional.of(canonicalize(symbol.get()));
-            }
-            return Optional.empty();
+            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            List<Symbol> newOutputs = mapper.mapAndDistinct(node.getOutputSymbols());
+            Optional<OrderingScheme> newOrderingScheme = node.getOrderingScheme().map(mapper::map);
+
+            return new PlanAndMappings(
+                    new RemoteSourceNode(
+                            node.getId(),
+                            node.getSourceFragmentIds(),
+                            newOutputs,
+                            newOrderingScheme,
+                            node.getExchangeType()),
+                    mapping);
         }
 
-        private Symbol canonicalize(Symbol symbol)
+        @Override
+        public PlanAndMappings visitOffset(OffsetNode node, UnaliasContext context)
         {
-            Symbol canonical = symbol;
-            while (mapping.containsKey(canonical)) {
-                canonical = mapping.get(canonical);
-            }
-            return canonical;
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+
+            return new PlanAndMappings(
+                    node.replaceChildren(ImmutableList.of(rewrittenSource.getRoot())),
+                    rewrittenSource.getMappings());
         }
 
-        private List<Expression> canonicalize(List<Expression> values)
+        @Override
+        public PlanAndMappings visitLimit(LimitNode node, UnaliasContext context)
         {
-            return values.stream()
-                    .map(this::canonicalize)
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            LimitNode rewrittenLimit = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenLimit, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitDistinctLimit(DistinctLimitNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            DistinctLimitNode rewrittenDistinctLimit = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenDistinctLimit, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitSample(SampleNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+
+            return new PlanAndMappings(
+                    node.replaceChildren(ImmutableList.of(rewrittenSource.getRoot())),
+                    rewrittenSource.getMappings());
+        }
+
+        @Override
+        public PlanAndMappings visitValues(ValuesNode node, UnaliasContext context)
+        {
+            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            ImmutableList.Builder<SimpleEntry<Symbol, List<Expression>>> rewrittenAssignmentsBuilder = ImmutableList.builder();
+            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
+                for (List<Expression> row : node.getRows()) {
+                    expressionsBuilder.add(mapper.map(row.get(i)));
+                }
+                rewrittenAssignmentsBuilder.add(new SimpleEntry<>(mapper.map(node.getOutputSymbols().get(i)), expressionsBuilder.build()));
+            }
+            List<SimpleEntry<Symbol, List<Expression>>> rewrittenAssignments = rewrittenAssignmentsBuilder.build();
+
+            // prune duplicate outputs and corresponding expressions. assert that duplicate outputs result from same input expressions
+            Map<Symbol, List<Expression>> deduplicateAssignments = rewrittenAssignments.stream()
+                    .collect(toImmutableMap(SimpleEntry::getKey, SimpleEntry::getValue, (previous, current) -> {
+                        checkState(previous.equals(current), "different expressions mapped to the same output symbol");
+                        return previous;
+                    }));
+
+            List<Symbol> newOutputs = deduplicateAssignments.keySet().stream()
                     .collect(toImmutableList());
-        }
 
-        private Expression canonicalize(Expression value)
-        {
-            return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
-            {
-                @Override
-                public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-                {
-                    Symbol canonical = canonicalize(Symbol.from(node));
-                    return canonical.toSymbolReference();
-                }
-            }, value);
-        }
-
-        private List<Symbol> canonicalizeAndDistinct(List<Symbol> outputs)
-        {
-            Set<Symbol> added = new HashSet<>();
-            ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-            for (Symbol symbol : outputs) {
-                Symbol canonical = canonicalize(symbol);
-                if (added.add(canonical)) {
-                    builder.add(canonical);
-                }
+            List<ImmutableList.Builder<Expression>> newRows = new ArrayList<>(node.getRows().size());
+            for (int i = 0; i < node.getRows().size(); i++) {
+                newRows.add(ImmutableList.builder());
             }
-            return builder.build();
-        }
-
-        private WindowNode.Specification canonicalizeAndDistinct(WindowNode.Specification specification)
-        {
-            return new WindowNode.Specification(
-                    canonicalizeAndDistinct(specification.getPartitionBy()),
-                    specification.getOrderingScheme().map(this::canonicalizeAndDistinct));
-        }
-
-        private OrderingScheme canonicalizeAndDistinct(OrderingScheme orderingScheme)
-        {
-            Set<Symbol> added = new HashSet<>();
-            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
-            for (Symbol symbol : orderingScheme.getOrderBy()) {
-                Symbol canonical = canonicalize(symbol);
-                if (added.add(canonical)) {
-                    symbols.add(canonical);
-                    orderings.put(canonical, orderingScheme.getOrdering(symbol));
+            for (List<Expression> expressions : deduplicateAssignments.values()) {
+                for (int i = 0; i < expressions.size(); i++) {
+                    newRows.get(i).add(expressions.get(i));
                 }
             }
 
-            return new OrderingScheme(symbols.build(), orderings.build());
+            return new PlanAndMappings(
+                    new ValuesNode(
+                            node.getId(),
+                            newOutputs,
+                            newRows.stream()
+                                    .map(ImmutableList.Builder::build)
+                                    .collect(toImmutableList())),
+                    mapping);
         }
 
-        private Set<Symbol> canonicalize(Set<Symbol> symbols)
+        @Override
+        public PlanAndMappings visitTableDelete(TableDeleteNode node, UnaliasContext context)
         {
-            return symbols.stream()
-                    .map(this::canonicalize)
-                    .collect(toImmutableSet());
+            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            Symbol newOutput = mapper.map(node.getOutput());
+
+            return new PlanAndMappings(
+                    new TableDeleteNode(node.getId(), node.getTarget(), newOutput),
+                    mapping);
         }
 
-        private List<JoinNode.EquiJoinClause> canonicalizeJoinCriteria(List<JoinNode.EquiJoinClause> criteria)
+        @Override
+        public PlanAndMappings visitDelete(DeleteNode node, UnaliasContext context)
         {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            Symbol newRowId = mapper.map(node.getRowId());
+            List<Symbol> newOutputs = mapper.map(node.getOutputSymbols());
+
+            return new PlanAndMappings(
+                    new DeleteNode(
+                            node.getId(),
+                            rewrittenSource.getRoot(),
+                            node.getTarget(),
+                            newRowId,
+                            newOutputs),
+                    mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitStatisticsWriterNode(StatisticsWriterNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            StatisticsWriterNode rewrittenStatisticsWriter = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenStatisticsWriter, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitTableWriter(TableWriterNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            TableWriterNode rewrittenTableWriter = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenTableWriter, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitTableFinish(TableFinishNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            TableFinishNode rewrittenTableFinish = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenTableFinish, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitRowNumber(RowNumberNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            RowNumberNode rewrittenRowNumber = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenRowNumber, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitTopNRowNumber(TopNRowNumberNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            TopNRowNumberNode rewrittenTopNRowNumber = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenTopNRowNumber, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitTopN(TopNNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            TopNNode rewrittenTopN = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenTopN, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitSort(SortNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            OrderingScheme newOrderingScheme = mapper.map(node.getOrderingScheme());
+
+            return new PlanAndMappings(
+                    new SortNode(node.getId(), rewrittenSource.getRoot(), newOrderingScheme, node.isPartial()),
+                    mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitFilter(FilterNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            Expression newPredicate = mapper.map(node.getPredicate());
+
+            return new PlanAndMappings(
+                    new FilterNode(node.getId(), rewrittenSource.getRoot(), newPredicate),
+                    mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitProject(ProjectNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+
+            // Assignment of a form `s -> x` establishes new semantics for symbol s.
+            // It is possible though that symbol `s` is present in the source plan, and represents the same or different semantics.
+            // As a consequence, any symbol mapping derived from the source plan involving symbol `s` becomes potentially invalid,
+            // e.g. `s -> y` or `y -> s` refer to the old semantics of symbol `s`.
+            // In such case, the underlying mappings are only used to map projection assignments' values to ensure consistency with the source plan.
+            // They aren't used to map projection outputs to avoid:
+            // - errors from duplicate assignments
+            // - incorrect results from mixed semantics of symbols
+            // Also, the underlying mappings aren't passed up the plan, and new mappings aren't derived from projection assignments
+            // (with the exception for "deduplicating" mappings for repeated assignments).
+            // This can be thought of as a "cut-off" at the point of potentially changed semantics.
+            // Note: the issue of ambiguous symbols does not apply to symbols involved in context (correlation) mapping.
+            // Those symbols are supposed to represent constant semantics throughout the plan.
+
+            Assignments assignments = node.getAssignments();
+            Set<Symbol> newlyAssignedSymbols = assignments.filter(output -> !assignments.isIdentity(output)).getSymbols();
+            Set<Symbol> symbolsInSourceMapping = ImmutableSet.<Symbol>builder()
+                    .addAll(rewrittenSource.getMappings().keySet())
+                    .addAll(rewrittenSource.getMappings().values())
+                    .build();
+            Set<Symbol> symbolsInCorrelationMapping = ImmutableSet.<Symbol>builder()
+                    .addAll(context.getCorrelationMapping().keySet())
+                    .addAll(context.getCorrelationMapping().values())
+                    .build();
+            boolean ambiguousSymbolsPresent = !Sets.intersection(newlyAssignedSymbols, Sets.difference(symbolsInSourceMapping, symbolsInCorrelationMapping)).isEmpty();
+
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            // canonicalize ProjectNode assignments
+            ImmutableList.Builder<Map.Entry<Symbol, Expression>> rewrittenAssignments = ImmutableList.builder();
+            for (Map.Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
+                rewrittenAssignments.add(new SimpleEntry<>(
+                        ambiguousSymbolsPresent ? assignment.getKey() : mapper.map(assignment.getKey()),
+                        mapper.map(assignment.getValue())));
+            }
+
+            // deduplicate assignments
+            Map<Symbol, Expression> deduplicateAssignments = rewrittenAssignments.build().stream()
+                    .distinct()
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+            // derive new mappings for ProjectNode output symbols
+            Map<Symbol, Symbol> newMapping = mappingFromAssignments(deduplicateAssignments, ambiguousSymbolsPresent);
+
+            Map<Symbol, Symbol> outputMapping = new HashMap<>();
+            outputMapping.putAll(ambiguousSymbolsPresent ? context.getCorrelationMapping() : mapping);
+            outputMapping.putAll(newMapping);
+
+            mapper = symbolMapper(outputMapping);
+
+            // build new Assignments with canonical outputs
+            // duplicate entries will be removed by the Builder
+            Assignments.Builder newAssignments = Assignments.builder();
+            for (Map.Entry<Symbol, Expression> assignment : deduplicateAssignments.entrySet()) {
+                newAssignments.put(mapper.map(assignment.getKey()), assignment.getValue());
+            }
+
+            return new PlanAndMappings(
+                    new ProjectNode(node.getId(), rewrittenSource.getRoot(), newAssignments.build()),
+                    outputMapping);
+        }
+
+        private Map<Symbol, Symbol> mappingFromAssignments(Map<Symbol, Expression> assignments, boolean ambiguousSymbolsPresent)
+        {
+            Map<Symbol, Symbol> newMapping = new HashMap<>();
+            Map<Expression, Symbol> inputsToOutputs = new HashMap<>();
+            for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
+                Expression expression = assignment.getValue();
+                // 1. for trivial symbol projection, map output symbol to input symbol
+                // If the assignment potentially introduces a reused (ambiguous) symbol, do not map output to input
+                // to avoid mixing semantics. Input symbols represent semantics as in the source plan,
+                // while output symbols represent newly established semantics.
+                if (expression instanceof SymbolReference && !ambiguousSymbolsPresent) {
+                    Symbol value = Symbol.from(expression);
+                    if (!assignment.getKey().equals(value)) {
+                        newMapping.put(assignment.getKey(), value);
+                    }
+                }
+                // 2. map same deterministic expressions within a projection into the same symbol
+                // omit NullLiterals since those have ambiguous types
+                else if (DeterminismEvaluator.isDeterministic(expression, metadata) && !(expression instanceof NullLiteral)) {
+                    Symbol previous = inputsToOutputs.get(expression);
+                    if (previous == null) {
+                        inputsToOutputs.put(expression, assignment.getKey());
+                    }
+                    else {
+                        newMapping.put(assignment.getKey(), previous);
+                    }
+                }
+            }
+            return newMapping;
+        }
+
+        @Override
+        public PlanAndMappings visitOutput(OutputNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            List<Symbol> newOutputs = mapper.map(node.getOutputSymbols());
+
+            return new PlanAndMappings(
+                    new OutputNode(node.getId(), rewrittenSource.getRoot(), node.getColumnNames(), newOutputs),
+                    mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitEnforceSingleRow(EnforceSingleRowNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+
+            return new PlanAndMappings(
+                    node.replaceChildren(ImmutableList.of(rewrittenSource.getRoot())),
+                    rewrittenSource.getMappings());
+        }
+
+        @Override
+        public PlanAndMappings visitAssignUniqueId(AssignUniqueId node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            Symbol newUnique = mapper.map(node.getIdColumn());
+
+            return new PlanAndMappings(
+                    new AssignUniqueId(node.getId(), rewrittenSource.getRoot(), newUnique),
+                    mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitApply(ApplyNode node, UnaliasContext context)
+        {
+            // it is assumed that apart from correlation (and possibly outer correlation), symbols are distinct between Input and Subquery
+            // rewrite Input
+            PlanAndMappings rewrittenInput = node.getInput().accept(this, context);
+            Map<Symbol, Symbol> inputMapping = new HashMap<>(rewrittenInput.getMappings());
+            SymbolMapper mapper = symbolMapper(inputMapping);
+
+            // rewrite correlation with mapping from Input
+            List<Symbol> rewrittenCorrelation = mapper.mapAndDistinct(node.getCorrelation());
+
+            // extract new mappings for correlation symbols to apply in Subquery
+            Set<Symbol> correlationSymbols = ImmutableSet.copyOf(node.getCorrelation());
+            Map<Symbol, Symbol> correlationMapping = inputMapping.entrySet().stream()
+                    .filter(mapping -> correlationSymbols.contains(mapping.getKey()))
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+            Map<Symbol, Symbol> mappingForSubquery = new HashMap<>();
+            mappingForSubquery.putAll(context.getCorrelationMapping());
+            mappingForSubquery.putAll(correlationMapping);
+
+            // rewrite Subquery
+            PlanAndMappings rewrittenSubquery = node.getSubquery().accept(this, new UnaliasContext(mappingForSubquery));
+
+            // unify mappings from Input and Subquery to rewrite Subquery assignments
+            Map<Symbol, Symbol> resultMapping = new HashMap<>();
+            resultMapping.putAll(rewrittenInput.getMappings());
+            resultMapping.putAll(rewrittenSubquery.getMappings());
+            mapper = symbolMapper(resultMapping);
+
+            ImmutableList.Builder<Map.Entry<Symbol, Expression>> rewrittenAssignments = ImmutableList.builder();
+            for (Map.Entry<Symbol, Expression> assignment : node.getSubqueryAssignments().entrySet()) {
+                rewrittenAssignments.add(new SimpleEntry<>(mapper.map(assignment.getKey()), mapper.map(assignment.getValue())));
+            }
+
+            // deduplicate assignments
+            Map<Symbol, Expression> deduplicateAssignments = rewrittenAssignments.build().stream()
+                    .distinct()
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+            // derive new mappings for Subquery assignments outputs
+            Map<Symbol, Symbol> newMapping = mappingFromAssignments(deduplicateAssignments, false);
+
+            Map<Symbol, Symbol> assignmentsOutputMapping = new HashMap<>();
+            assignmentsOutputMapping.putAll(resultMapping);
+            assignmentsOutputMapping.putAll(newMapping);
+
+            mapper = symbolMapper(assignmentsOutputMapping);
+
+            // build new Assignments with canonical outputs
+            // duplicate entries will be removed by the Builder
+            Assignments.Builder newAssignments = Assignments.builder();
+            for (Map.Entry<Symbol, Expression> assignment : deduplicateAssignments.entrySet()) {
+                newAssignments.put(mapper.map(assignment.getKey()), assignment.getValue());
+            }
+
+            return new PlanAndMappings(
+                    new ApplyNode(node.getId(), rewrittenInput.getRoot(), rewrittenSubquery.getRoot(), newAssignments.build(), rewrittenCorrelation, node.getOriginSubquery()),
+                    assignmentsOutputMapping);
+        }
+
+        @Override
+        public PlanAndMappings visitCorrelatedJoin(CorrelatedJoinNode node, UnaliasContext context)
+        {
+            // it is assumed that apart from correlation (and possibly outer correlation), symbols are distinct between left and right CorrelatedJoin source
+            // rewrite Input
+            PlanAndMappings rewrittenInput = node.getInput().accept(this, context);
+            Map<Symbol, Symbol> inputMapping = new HashMap<>(rewrittenInput.getMappings());
+            SymbolMapper mapper = symbolMapper(inputMapping);
+
+            // rewrite correlation with mapping from Input
+            List<Symbol> rewrittenCorrelation = mapper.mapAndDistinct(node.getCorrelation());
+
+            // extract new mappings for correlation symbols to apply in Subquery
+            Set<Symbol> correlationSymbols = ImmutableSet.copyOf(node.getCorrelation());
+            Map<Symbol, Symbol> correlationMapping = inputMapping.entrySet().stream()
+                    .filter(mapping -> correlationSymbols.contains(mapping.getKey()))
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+            Map<Symbol, Symbol> mappingForSubquery = new HashMap<>();
+            mappingForSubquery.putAll(context.getCorrelationMapping());
+            mappingForSubquery.putAll(correlationMapping);
+
+            // rewrite Subquery
+            PlanAndMappings rewrittenSubquery = node.getSubquery().accept(this, new UnaliasContext(mappingForSubquery));
+
+            // unify mappings from Input and Subquery
+            Map<Symbol, Symbol> resultMapping = new HashMap<>();
+            resultMapping.putAll(rewrittenInput.getMappings());
+            resultMapping.putAll(rewrittenSubquery.getMappings());
+
+            // rewrite filter with unified mapping
+            mapper = symbolMapper(resultMapping);
+            Expression newFilter = mapper.map(node.getFilter());
+
+            return new PlanAndMappings(
+                    new CorrelatedJoinNode(node.getId(), rewrittenInput.getRoot(), rewrittenSubquery.getRoot(), rewrittenCorrelation, node.getType(), newFilter, node.getOriginSubquery()),
+                    resultMapping);
+        }
+
+        @Override
+        public PlanAndMappings visitJoin(JoinNode node, UnaliasContext context)
+        {
+            // it is assumed that symbols are distinct between left and right join source. Only symbols from outer correlation might be the exception
+            PlanAndMappings rewrittenLeft = node.getLeft().accept(this, context);
+            PlanAndMappings rewrittenRight = node.getRight().accept(this, context);
+
+            // unify mappings from left and right join source
+            Map<Symbol, Symbol> unifiedMapping = new HashMap<>();
+            unifiedMapping.putAll(rewrittenLeft.getMappings());
+            unifiedMapping.putAll(rewrittenRight.getMappings());
+
+            SymbolMapper mapper = symbolMapper(unifiedMapping);
+
             ImmutableList.Builder<JoinNode.EquiJoinClause> builder = ImmutableList.builder();
-            for (JoinNode.EquiJoinClause clause : criteria) {
-                builder.add(new JoinNode.EquiJoinClause(canonicalize(clause.getLeft()), canonicalize(clause.getRight())));
+            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+                builder.add(new JoinNode.EquiJoinClause(mapper.map(clause.getLeft()), mapper.map(clause.getRight())));
             }
+            List<JoinNode.EquiJoinClause> newCriteria = builder.build();
 
-            return builder.build();
-        }
+            Optional<Expression> newFilter = node.getFilter().map(mapper::map);
+            Optional<Symbol> newLeftHashSymbol = node.getLeftHashSymbol().map(mapper::map);
+            Optional<Symbol> newRightHashSymbol = node.getRightHashSymbol().map(mapper::map);
 
-        private List<IndexJoinNode.EquiJoinClause> canonicalizeIndexJoinCriteria(List<IndexJoinNode.EquiJoinClause> criteria)
-        {
-            ImmutableList.Builder<IndexJoinNode.EquiJoinClause> builder = ImmutableList.builder();
-            for (IndexJoinNode.EquiJoinClause clause : criteria) {
-                builder.add(new IndexJoinNode.EquiJoinClause(canonicalize(clause.getProbe()), canonicalize(clause.getIndex())));
-            }
-
-            return builder.build();
-        }
-
-        private ListMultimap<Symbol, Symbol> canonicalizeSetOperationSymbolMap(ListMultimap<Symbol, Symbol> setOperationSymbolMap)
-        {
-            ImmutableListMultimap.Builder<Symbol, Symbol> builder = ImmutableListMultimap.builder();
-            Set<Symbol> addedSymbols = new HashSet<>();
-            for (Map.Entry<Symbol, Collection<Symbol>> entry : setOperationSymbolMap.asMap().entrySet()) {
-                Symbol canonicalOutputSymbol = canonicalize(entry.getKey());
-                if (addedSymbols.add(canonicalOutputSymbol)) {
-                    builder.putAll(canonicalOutputSymbol, Iterables.transform(entry.getValue(), this::canonicalize));
+            // rewrite dynamic filters
+            Set<Symbol> added = new HashSet<>();
+            ImmutableMap.Builder<DynamicFilterId, Symbol> filtersBuilder = ImmutableMap.builder();
+            for (Map.Entry<DynamicFilterId, Symbol> entry : node.getDynamicFilters().entrySet()) {
+                Symbol canonical = mapper.map(entry.getValue());
+                if (added.add(canonical)) {
+                    filtersBuilder.put(entry.getKey(), canonical);
                 }
             }
-            return builder.build();
+            Map<DynamicFilterId, Symbol> newDynamicFilters = filtersBuilder.build();
+
+            // derive new mappings from inner join equi criteria
+            Map<Symbol, Symbol> newMapping = new HashMap<>();
+            if (node.getType() == INNER) {
+                newCriteria.stream()
+                        // Map right equi-condition symbol to left symbol. This helps to
+                        // reuse join node partitioning better as partitioning properties are
+                        // only derived from probe side symbols
+                        .forEach(clause -> newMapping.put(clause.getRight(), clause.getLeft()));
+            }
+
+            Map<Symbol, Symbol> outputMapping = new HashMap<>();
+            outputMapping.putAll(unifiedMapping);
+            outputMapping.putAll(newMapping);
+
+            mapper = symbolMapper(outputMapping);
+            List<Symbol> canonicalOutputs = mapper.mapAndDistinct(node.getOutputSymbols());
+            List<Symbol> newLeftOutputSymbols = canonicalOutputs.stream()
+                    .filter(rewrittenLeft.getRoot().getOutputSymbols()::contains)
+                    .collect(toImmutableList());
+            List<Symbol> newRightOutputSymbols = canonicalOutputs.stream()
+                    .filter(rewrittenRight.getRoot().getOutputSymbols()::contains)
+                    .collect(toImmutableList());
+
+            return new PlanAndMappings(
+                    new JoinNode(
+                            node.getId(),
+                            node.getType(),
+                            rewrittenLeft.getRoot(),
+                            rewrittenRight.getRoot(),
+                            newCriteria,
+                            newLeftOutputSymbols,
+                            newRightOutputSymbols,
+                            newFilter,
+                            newLeftHashSymbol,
+                            newRightHashSymbol,
+                            node.getDistributionType(),
+                            node.isSpillable(),
+                            newDynamicFilters,
+                            node.getReorderJoinStatsAndCost()),
+                    outputMapping);
+        }
+
+        @Override
+        public PlanAndMappings visitSemiJoin(SemiJoinNode node, UnaliasContext context)
+        {
+            // it is assumed that symbols are distinct between SemiJoin source and filtering source. Only symbols from outer correlation might be the exception
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            PlanAndMappings rewrittenFilteringSource = node.getFilteringSource().accept(this, context);
+
+            Map<Symbol, Symbol> outputMapping = new HashMap<>();
+            outputMapping.putAll(rewrittenSource.getMappings());
+            outputMapping.putAll(rewrittenFilteringSource.getMappings());
+
+            SymbolMapper mapper = symbolMapper(outputMapping);
+
+            Symbol newSourceJoinSymbol = mapper.map(node.getSourceJoinSymbol());
+            Symbol newFilteringSourceJoinSymbol = mapper.map(node.getFilteringSourceJoinSymbol());
+            Symbol newSemiJoinOutput = mapper.map(node.getSemiJoinOutput());
+            Optional<Symbol> newSourceHashSymbol = node.getSourceHashSymbol().map(mapper::map);
+            Optional<Symbol> newFilteringSourceHashSymbol = node.getFilteringSourceHashSymbol().map(mapper::map);
+
+            return new PlanAndMappings(
+                    new SemiJoinNode(
+                            node.getId(),
+                            rewrittenSource.getRoot(),
+                            rewrittenFilteringSource.getRoot(),
+                            newSourceJoinSymbol,
+                            newFilteringSourceJoinSymbol,
+                            newSemiJoinOutput,
+                            newSourceHashSymbol,
+                            newFilteringSourceHashSymbol,
+                            node.getDistributionType(),
+                            node.getDynamicFilterId()),
+                    outputMapping);
+        }
+
+        @Override
+        public PlanAndMappings visitSpatialJoin(SpatialJoinNode node, UnaliasContext context)
+        {
+            // it is assumed that symbols are distinct between left and right SpatialJoin source. Only symbols from outer correlation might be the exception
+            PlanAndMappings rewrittenLeft = node.getLeft().accept(this, context);
+            PlanAndMappings rewrittenRight = node.getRight().accept(this, context);
+
+            Map<Symbol, Symbol> outputMapping = new HashMap<>();
+            outputMapping.putAll(rewrittenLeft.getMappings());
+            outputMapping.putAll(rewrittenRight.getMappings());
+
+            SymbolMapper mapper = symbolMapper(outputMapping);
+
+            List<Symbol> newOutputSymbols = mapper.mapAndDistinct(node.getOutputSymbols());
+            Expression newFilter = mapper.map(node.getFilter());
+            Optional<Symbol> newLeftPartitionSymbol = node.getLeftPartitionSymbol().map(mapper::map);
+            Optional<Symbol> newRightPartitionSymbol = node.getRightPartitionSymbol().map(mapper::map);
+
+            return new PlanAndMappings(
+                    new SpatialJoinNode(node.getId(), node.getType(), rewrittenLeft.getRoot(), rewrittenRight.getRoot(), newOutputSymbols, newFilter, newLeftPartitionSymbol, newRightPartitionSymbol, node.getKdbTree()),
+                    outputMapping);
+        }
+
+        @Override
+        public PlanAndMappings visitIndexJoin(IndexJoinNode node, UnaliasContext context)
+        {
+            // it is assumed that symbols are distinct between probeSource and indexSource. Only symbols from outer correlation might be the exception
+            PlanAndMappings rewrittenProbe = node.getProbeSource().accept(this, context);
+            PlanAndMappings rewrittenIndex = node.getIndexSource().accept(this, context);
+
+            Map<Symbol, Symbol> outputMapping = new HashMap<>();
+            outputMapping.putAll(rewrittenProbe.getMappings());
+            outputMapping.putAll(rewrittenIndex.getMappings());
+
+            SymbolMapper mapper = symbolMapper(outputMapping);
+
+            // canonicalize index join criteria
+            ImmutableList.Builder<IndexJoinNode.EquiJoinClause> builder = ImmutableList.builder();
+            for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
+                builder.add(new IndexJoinNode.EquiJoinClause(mapper.map(clause.getProbe()), mapper.map(clause.getIndex())));
+            }
+            List<IndexJoinNode.EquiJoinClause> newEquiCriteria = builder.build();
+
+            Optional<Symbol> newProbeHashSymbol = node.getProbeHashSymbol().map(mapper::map);
+            Optional<Symbol> newIndexHashSymbol = node.getIndexHashSymbol().map(mapper::map);
+
+            return new PlanAndMappings(
+                    new IndexJoinNode(node.getId(), node.getType(), rewrittenProbe.getRoot(), rewrittenIndex.getRoot(), newEquiCriteria, newProbeHashSymbol, newIndexHashSymbol),
+                    outputMapping);
+        }
+
+        @Override
+        public PlanAndMappings visitIndexSource(IndexSourceNode node, UnaliasContext context)
+        {
+            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            Set<Symbol> newLookupSymbols = node.getLookupSymbols().stream()
+                    .map(mapper::map)
+                    .collect(toImmutableSet());
+            List<Symbol> newOutputSymbols = mapper.mapAndDistinct(node.getOutputSymbols());
+
+            Map<Symbol, ColumnHandle> newAssignments = new HashMap<>();
+            node.getAssignments().entrySet().stream()
+                    .forEach(assignment -> newAssignments.put(mapper.map(assignment.getKey()), assignment.getValue()));
+
+            return new PlanAndMappings(
+                    new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), newLookupSymbols, newOutputSymbols, newAssignments),
+                    mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitUnion(UnionNode node, UnaliasContext context)
+        {
+            List<PlanAndMappings> rewrittenSources = node.getSources().stream()
+                    .map(source -> source.accept(this, context))
+                    .collect(toImmutableList());
+
+            List<SymbolMapper> inputMappers = rewrittenSources.stream()
+                    .map(source -> symbolMapper(new HashMap<>(source.getMappings())))
+                    .collect(toImmutableList());
+
+            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+            SymbolMapper outputMapper = symbolMapper(mapping);
+
+            ListMultimap<Symbol, Symbol> newOutputToInputs = rewriteOutputToInputsMap(node.getSymbolMapping(), outputMapper, inputMappers);
+            List<Symbol> newOutputs = outputMapper.mapAndDistinct(node.getOutputSymbols());
+
+            return new PlanAndMappings(
+                    new UnionNode(
+                            node.getId(),
+                            rewrittenSources.stream()
+                                    .map(PlanAndMappings::getRoot)
+                                    .collect(toImmutableList()),
+                            newOutputToInputs,
+                            newOutputs),
+                    mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitIntersect(IntersectNode node, UnaliasContext context)
+        {
+            List<PlanAndMappings> rewrittenSources = node.getSources().stream()
+                    .map(source -> source.accept(this, context))
+                    .collect(toImmutableList());
+
+            List<SymbolMapper> inputMappers = rewrittenSources.stream()
+                    .map(source -> symbolMapper(new HashMap<>(source.getMappings())))
+                    .collect(toImmutableList());
+
+            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+            SymbolMapper outputMapper = symbolMapper(mapping);
+
+            ListMultimap<Symbol, Symbol> newOutputToInputs = rewriteOutputToInputsMap(node.getSymbolMapping(), outputMapper, inputMappers);
+            List<Symbol> newOutputs = outputMapper.mapAndDistinct(node.getOutputSymbols());
+
+            return new PlanAndMappings(
+                    new IntersectNode(
+                            node.getId(),
+                            rewrittenSources.stream()
+                                    .map(PlanAndMappings::getRoot)
+                                    .collect(toImmutableList()),
+                            newOutputToInputs,
+                            newOutputs),
+                    mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitExcept(ExceptNode node, UnaliasContext context)
+        {
+            List<PlanAndMappings> rewrittenSources = node.getSources().stream()
+                    .map(source -> source.accept(this, context))
+                    .collect(toImmutableList());
+
+            List<SymbolMapper> inputMappers = rewrittenSources.stream()
+                    .map(source -> symbolMapper(new HashMap<>(source.getMappings())))
+                    .collect(toImmutableList());
+
+            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+            SymbolMapper outputMapper = symbolMapper(mapping);
+
+            ListMultimap<Symbol, Symbol> newOutputToInputs = rewriteOutputToInputsMap(node.getSymbolMapping(), outputMapper, inputMappers);
+            List<Symbol> newOutputs = outputMapper.mapAndDistinct(node.getOutputSymbols());
+
+            return new PlanAndMappings(
+                    new ExceptNode(
+                            node.getId(),
+                            rewrittenSources.stream()
+                                    .map(PlanAndMappings::getRoot)
+                                    .collect(toImmutableList()),
+                            newOutputToInputs,
+                            newOutputs),
+                    mapping);
+        }
+
+        private ListMultimap<Symbol, Symbol> rewriteOutputToInputsMap(ListMultimap<Symbol, Symbol> oldMapping, SymbolMapper outputMapper, List<SymbolMapper> inputMappers)
+        {
+            ImmutableListMultimap.Builder<Symbol, Symbol> newMappingBuilder = ImmutableListMultimap.builder();
+            Set<Symbol> addedSymbols = new HashSet<>();
+            for (Map.Entry<Symbol, Collection<Symbol>> entry : oldMapping.asMap().entrySet()) {
+                Symbol rewrittenOutput = outputMapper.map(entry.getKey());
+                if (addedSymbols.add(rewrittenOutput)) {
+                    List<Symbol> inputs = ImmutableList.copyOf(entry.getValue());
+                    ImmutableList.Builder<Symbol> rewrittenInputs = ImmutableList.builder();
+                    for (int i = 0; i < inputs.size(); i++) {
+                        rewrittenInputs.add(inputMappers.get(i).map(inputs.get(i)));
+                    }
+                    newMappingBuilder.putAll(rewrittenOutput, rewrittenInputs.build());
+                }
+            }
+            return newMappingBuilder.build();
+        }
+    }
+
+    private static class UnaliasContext
+    {
+        // Correlation mapping is a record of how correlation symbols have been mapped in the subplan which provides them.
+        // All occurrences of correlation symbols within the correlated subquery must be remapped accordingly.
+        // In case of nested correlation, correlationMappings has required mappings for correlation symbols from all levels of nesting.
+        private final Map<Symbol, Symbol> correlationMapping;
+
+        public UnaliasContext(Map<Symbol, Symbol> correlationMapping)
+        {
+            this.correlationMapping = requireNonNull(correlationMapping, "correlationMapping is null");
+        }
+
+        public static UnaliasContext empty()
+        {
+            return new UnaliasContext(ImmutableMap.of());
+        }
+
+        public Map<Symbol, Symbol> getCorrelationMapping()
+        {
+            return correlationMapping;
+        }
+    }
+
+    private static class PlanAndMappings
+    {
+        private final PlanNode root;
+        private final Map<Symbol, Symbol> mappings;
+
+        public PlanAndMappings(PlanNode root, Map<Symbol, Symbol> mappings)
+        {
+            this.root = requireNonNull(root, "root is null");
+            this.mappings = ImmutableMap.copyOf(requireNonNull(mappings, "mappings is null"));
+        }
+
+        public PlanNode getRoot()
+        {
+            return root;
+        }
+
+        public Map<Symbol, Symbol> getMappings()
+        {
+            return mappings;
         }
     }
 }

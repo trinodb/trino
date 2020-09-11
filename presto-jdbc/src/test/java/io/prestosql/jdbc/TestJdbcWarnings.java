@@ -16,16 +16,12 @@ package io.prestosql.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
-import com.google.common.util.concurrent.AbstractFuture;
 import io.prestosql.client.Warning;
-import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.warnings.WarningCollectorConfig;
 import io.prestosql.plugin.blackhole.BlackHolePlugin;
-import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.WarningCode;
-import io.prestosql.sql.parser.SqlParserOptions;
 import io.prestosql.testing.TestingWarningCollector;
 import io.prestosql.testing.TestingWarningCollectorConfig;
 import org.testng.annotations.AfterClass;
@@ -46,13 +42,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
 import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newSingleThreadExecutor;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -68,32 +65,41 @@ public class TestJdbcWarnings
     private TestingPrestoServer server;
     private Connection connection;
     private Statement statement;
+    private ExecutorService executor;
 
     @BeforeClass
     public void setupServer()
             throws Exception
     {
-        server = new TestingPrestoServer(
-                true,
-                ImmutableMap.<String, String>builder()
+        server = TestingPrestoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
                         .put("testing-warning-collector.add-warnings", "true")
                         .put("testing-warning-collector.preloaded-warnings", String.valueOf(PRELOADED_WARNINGS))
-                        .build(),
-                null,
-                null,
-                new SqlParserOptions(),
-                ImmutableList.of());
-        server.installPlugin(new TpchPlugin());
-        server.createCatalog("tpch", "tpch");
+                        .build())
+                .build();
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
         waitForNodeRefresh(server);
+
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE SCHEMA blackhole.blackhole");
+            statement.executeUpdate("" +
+                    "CREATE TABLE slow_table (x int) " +
+                    "WITH (" +
+                    "   split_count = 1, " +
+                    "   pages_per_split = 5, " +
+                    "   rows_per_page = 3, " +
+                    "   page_processing_delay = '1s'" +
+                    ")");
+        }
     }
 
     @AfterClass(alwaysRun = true)
-    public void teardownServer()
+    public void tearDownServer()
+            throws Exception
     {
-        closeQuietly(server);
+        server.close();
     }
 
     @SuppressWarnings("JDBCResourceOpenedButNotSafelyClosed")
@@ -103,13 +109,16 @@ public class TestJdbcWarnings
     {
         connection = createConnection();
         statement = connection.createStatement();
+        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void teardown()
+            throws Exception
     {
-        closeQuietly(statement);
-        closeQuietly(connection);
+        executor.shutdownNow();
+        statement.close();
+        connection.close();
     }
 
     @Test
@@ -129,70 +138,28 @@ public class TestJdbcWarnings
 
     @Test
     public void testLongRunningStatement()
-            throws SQLException, InterruptedException
+            throws Exception
     {
-        ExecutorService queryExecutor = newSingleThreadExecutor(daemonThreadsNamed("test-%s"));
-        QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
-        queryExecutor.submit(() -> {
-            try {
-                statement.execute("CREATE SCHEMA blackhole.blackhole");
-                statement.execute("CREATE TABLE blackhole.blackhole.test_table AS SELECT 1 AS col1 FROM tpch.sf1.lineitem CROSS JOIN tpch.sf1.lineitem");
-                queryCreationFuture.set(null);
-            }
-            catch (Throwable e) {
-                queryCreationFuture.setException(e);
-            }
+        Future<?> future = executor.submit(() -> {
+            statement.execute("CREATE TABLE test_long_running AS SELECT * FROM slow_table");
+            return null;
         });
-        while (statement.getWarnings() == null) {
-            Thread.sleep(100);
-        }
-        SQLWarning warning = statement.getWarnings();
-        Set<WarningEntry> currentWarnings = new HashSet<>();
-        assertTrue(currentWarnings.add(new WarningEntry(warning)));
-        for (int warnings = 1; !queryCreationFuture.isDone() && warnings < 100; warnings++) {
-            for (SQLWarning nextWarning = warning.getNextWarning(); nextWarning == null; nextWarning = warning.getNextWarning()) {
-                // Wait for new warnings
-            }
-            warning = warning.getNextWarning();
-            assertTrue(currentWarnings.add(new WarningEntry(warning)));
-            Thread.sleep(100);
-        }
-        assertEquals(currentWarnings.size(), 100);
-        queryExecutor.shutdownNow();
+        assertStatementWarnings(statement, future);
+        statement.execute("DROP TABLE test_long_running");
     }
 
     @Test
     public void testLongRunningQuery()
-            throws SQLException, InterruptedException
+            throws Exception
     {
-        ExecutorService queryExecutor = newSingleThreadExecutor(daemonThreadsNamed("test-%s"));
-        QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
-        queryExecutor.submit(() -> {
-            try {
-                statement.execute("SELECT 1 AS col1 FROM tpch.sf1.lineitem CROSS JOIN tpch.sf1.lineitem");
-                queryCreationFuture.set(null);
+        Future<?> future = executor.submit(() -> {
+            ResultSet resultSet = statement.executeQuery("SELECT * FROM slow_table");
+            while (resultSet.next()) {
+                // discard results
             }
-            catch (Throwable e) {
-                queryCreationFuture.setException(e);
-            }
+            return null;
         });
-        while (statement.getResultSet() == null) {
-            Thread.sleep(100);
-        }
-        ResultSet resultSet = statement.getResultSet();
-        Set<WarningEntry> currentWarnings = new HashSet<>();
-        for (int rows = 0; !queryCreationFuture.isDone() && rows < 10; ) {
-            if (resultSet.next()) {
-                for (SQLWarning warning = resultSet.getWarnings(); warning.getNextWarning() != null; warning = warning.getNextWarning()) {
-                    assertTrue(currentWarnings.add(new WarningEntry(warning.getNextWarning())));
-                }
-            }
-            else {
-                break;
-            }
-            Thread.sleep(100);
-        }
-        queryExecutor.shutdownNow();
+        assertStatementWarnings(statement, future);
     }
 
     @Test
@@ -201,11 +168,10 @@ public class TestJdbcWarnings
     {
         try (ResultSet rs = statement.executeQuery("SELECT a FROM (VALUES 1, 2, 3) t(a)")) {
             assertNull(statement.getConnection().getWarnings());
-            assertNull(statement.getWarnings());
-            assertNull(rs.getWarnings());
             Set<WarningEntry> currentWarnings = new HashSet<>();
+            assertWarnings(rs.getWarnings(), currentWarnings);
             while (rs.next()) {
-                assertWarnings(rs.getWarnings(), currentWarnings);
+                assertWarnings(statement.getWarnings(), currentWarnings);
             }
 
             TestingWarningCollectorConfig warningCollectorConfig = new TestingWarningCollectorConfig().setPreloadedWarnings(PRELOADED_WARNINGS).setAddWarnings(true);
@@ -230,6 +196,43 @@ public class TestJdbcWarnings
         assertWarningsEqual(warning, toPrestoSqlWarning(warnings.get(0)));
         assertWarningsEqual(warning.getNextWarning(), toPrestoSqlWarning(warnings.get(1)));
         assertWarningsEqual(warning.getNextWarning().getNextWarning(), toPrestoSqlWarning(warnings.get(2)));
+    }
+
+    private static void assertStatementWarnings(Statement statement, Future<?> future)
+            throws Exception
+    {
+        // wait for initial warnings
+        while (!future.isDone() && statement.getWarnings() == null) {
+            Thread.sleep(100);
+        }
+
+        Set<WarningEntry> warnings = new HashSet<>();
+        SQLWarning warning = statement.getWarnings();
+
+        // collect initial set of warnings
+        assertTrue(warnings.add(new WarningEntry(warning)));
+        while (warning.getNextWarning() != null) {
+            warning = warning.getNextWarning();
+            assertTrue(warnings.add(new WarningEntry(warning)));
+        }
+
+        int initialSize = warnings.size();
+        assertThat(initialSize).isGreaterThanOrEqualTo(PRELOADED_WARNINGS + 1);
+
+        // collect additional warnings until query finish
+        while (!future.isDone()) {
+            if (warning.getNextWarning() == null) {
+                Thread.sleep(100);
+                continue;
+            }
+            warning = warning.getNextWarning();
+            assertTrue(warnings.add(new WarningEntry(warning)));
+        }
+
+        int finalSize = warnings.size();
+        assertThat(finalSize).isGreaterThan(initialSize);
+
+        future.get();
     }
 
     private static SQLWarning fromPrestoWarnings(List<PrestoWarning> warnings)
@@ -275,17 +278,18 @@ public class TestJdbcWarnings
         }
     }
 
-    //TODO: this method seems to be copied in multiple test classes in this package, should it be moved to a utility?
     private Connection createConnection()
             throws SQLException
     {
-        String url = format("jdbc:presto://%s", server.getAddress());
+        String url = format("jdbc:presto://%s/blackhole/blackhole", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
     }
 
     private static void assertWarnings(SQLWarning warning, Set<WarningEntry> currentWarnings)
     {
-        assertNotNull(warning);
+        if (warning == null) {
+            return;
+        }
         int previousSize = currentWarnings.size();
         addWarnings(currentWarnings, warning);
         assertTrue(currentWarnings.size() >= previousSize);
@@ -339,29 +343,6 @@ public class TestJdbcWarnings
         public int hashCode()
         {
             return Objects.hash(vendorCode, sqlState, message);
-        }
-    }
-
-    private static class QueryCreationFuture
-            extends AbstractFuture<QueryInfo>
-    {
-        @Override
-        protected boolean set(QueryInfo value)
-        {
-            return super.set(value);
-        }
-
-        @Override
-        protected boolean setException(Throwable throwable)
-        {
-            return super.setException(throwable);
-        }
-
-        @Override
-        public boolean cancel(boolean mayInterruptIfRunning)
-        {
-            // query submission can not be canceled
-            return false;
         }
     }
 }

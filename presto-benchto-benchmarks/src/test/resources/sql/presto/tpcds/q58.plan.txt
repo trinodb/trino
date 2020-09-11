@@ -25,10 +25,10 @@ local exchange (GATHER, SINGLE, [])
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (GATHER, SINGLE, [])
                                                                 scan date_dim
-                final aggregation over (i_item_id_79)
+                final aggregation over (i_item_id_57)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["i_item_id_79"])
-                            partial aggregation over (i_item_id_79)
+                        remote exchange (REPARTITION, HASH, ["i_item_id_57"])
+                            partial aggregation over (i_item_id_57)
                                 semijoin (REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
@@ -48,10 +48,10 @@ local exchange (GATHER, SINGLE, [])
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (GATHER, SINGLE, [])
                                                                 scan date_dim
-            final aggregation over (i_item_id_210)
+            final aggregation over (i_item_id_166)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["i_item_id_210"])
-                        partial aggregation over (i_item_id_210)
+                    remote exchange (REPARTITION, HASH, ["i_item_id_166"])
+                        partial aggregation over (i_item_id_166)
                             semijoin (REPLICATED):
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):

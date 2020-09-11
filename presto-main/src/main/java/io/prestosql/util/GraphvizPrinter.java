@@ -14,9 +14,7 @@
 package io.prestosql.util;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import io.prestosql.sql.planner.Partitioning.ArgumentBinding;
 import io.prestosql.sql.planner.PlanFragment;
@@ -26,6 +24,7 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
@@ -34,7 +33,6 @@ import io.prestosql.sql.planner.plan.GroupIdNode;
 import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.IndexSourceNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
 import io.prestosql.sql.planner.plan.OutputNode;
@@ -69,9 +67,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.prestosql.sql.planner.planprinter.PlanPrinter.formatAggregation;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.String.format;
 
 public final class GraphvizPrinter
@@ -126,7 +127,7 @@ public final class GraphvizPrinter
             .build());
 
     static {
-        Preconditions.checkState(NODE_COLORS.size() == NodeType.values().length);
+        checkState(NODE_COLORS.size() == NodeType.values().length);
     }
 
     private GraphvizPrinter() {}
@@ -338,12 +339,7 @@ public final class GraphvizPrinter
         {
             StringBuilder builder = new StringBuilder();
             for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-                if (entry.getValue().getMask().isPresent()) {
-                    builder.append(format("%s := %s (mask = %s)\\n", entry.getKey(), entry.getValue().getCall(), entry.getValue().getMask().get()));
-                }
-                else {
-                    builder.append(format("%s := %s\\n", entry.getKey(), entry.getValue().getCall()));
-                }
+                builder.append(format("%s := %s\\n", entry.getKey(), formatAggregation(entry.getValue())));
             }
             printNode(node, format("Aggregate[%s]", node.getStep()), builder.toString(), NODE_COLORS.get(NodeType.AGGREGATE));
             return node.getSource().accept(this, context);
@@ -391,20 +387,40 @@ public final class GraphvizPrinter
         @Override
         public Void visitUnnest(UnnestNode node, Void context)
         {
-            if (!node.getOrdinalitySymbol().isPresent()) {
-                printNode(node, format("Unnest[%s]", node.getUnnestSymbols().keySet()), NODE_COLORS.get(NodeType.UNNEST));
+            StringBuilder label = new StringBuilder();
+            if (node.getFilter().isPresent()) {
+                label.append(node.getJoinType().getJoinLabel())
+                        .append(" Unnest");
+            }
+            else if (!node.getReplicateSymbols().isEmpty()) {
+                label.append("CrossJoin Unnest");
             }
             else {
-                printNode(node, format("Unnest[%s (ordinality)]", node.getUnnestSymbols().keySet()), NODE_COLORS.get(NodeType.UNNEST));
+                label.append("Unnest");
             }
+
+            List<Symbol> unnestInputs = node.getMappings().stream()
+                    .map(UnnestNode.Mapping::getInput)
+                    .collect(toImmutableList());
+
+            label.append(format(" [%s", unnestInputs))
+                    .append(node.getOrdinalitySymbol().isPresent() ? " (ordinality)]" : "]");
+
+            String details = node.getFilter().isPresent() ? " filter " + node.getFilter().get().toString() : "";
+
+            printNode(node, label.toString(), details, NODE_COLORS.get(NodeType.UNNEST));
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Void visitTopN(final TopNNode node, Void context)
+        public Void visitTopN(TopNNode node, Void context)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderBy(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
-            printNode(node, format("TopN[%s]", node.getCount()), Joiner.on(", ").join(keys), NODE_COLORS.get(NodeType.TOPN));
+            String keys = node.getOrderingScheme()
+                    .getOrderBy().stream()
+                    .map(input -> input + " " + node.getOrderingScheme().getOrdering(input))
+                    .collect(Collectors.joining(", "));
+
+            printNode(node, format("TopN[%s]", node.getCount()), keys, NODE_COLORS.get(NodeType.TOPN));
             return node.getSource().accept(this, context);
         }
 
@@ -512,10 +528,15 @@ public final class GraphvizPrinter
         }
 
         @Override
-        public Void visitLateralJoin(LateralJoinNode node, Void context)
+        public Void visitCorrelatedJoin(CorrelatedJoinNode node, Void context)
         {
-            String parameters = Joiner.on(",").join(node.getCorrelation());
-            printNode(node, "LateralJoin", parameters, NODE_COLORS.get(NodeType.JOIN));
+            String correlationSymbols = Joiner.on(",").join(node.getCorrelation());
+            String filterExpression = "";
+            if (!node.getFilter().equals(TRUE_LITERAL)) {
+                filterExpression = " " + node.getFilter().toString();
+            }
+
+            printNode(node, "CorrelatedJoin", correlationSymbols + filterExpression, NODE_COLORS.get(NodeType.JOIN));
 
             node.getInput().accept(this, context);
             node.getSubquery().accept(this, context);

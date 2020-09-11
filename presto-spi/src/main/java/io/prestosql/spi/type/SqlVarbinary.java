@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Arrays;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlVarbinary
@@ -89,7 +90,7 @@ public final class SqlVarbinary
                 }
             }
 
-            builder.append(String.format("%02x", bytes[i] & 0xff));
+            builder.append(format("%02x", bytes[i] & 0xff));
         }
         return builder.toString();
     }

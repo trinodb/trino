@@ -14,7 +14,6 @@
 package io.prestosql.plugin.blackhole;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -26,28 +25,30 @@ import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.FixedWidthType;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.RealType;
+import io.prestosql.spi.type.SmallintType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 
 import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.math.BigDecimal.ZERO;
 import static java.util.Objects.requireNonNull;
@@ -67,9 +68,11 @@ public final class BlackHolePageSourceProvider
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
             ConnectorSplit split,
-            List<ColumnHandle> columns)
+            ConnectorTableHandle tableHandle,
+            List<ColumnHandle> columns,
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
-        BlackHoleSplit blackHoleSplit = (BlackHoleSplit) split;
+        BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
 
         ImmutableList.Builder<Type> builder = ImmutableList.builder();
 
@@ -78,8 +81,8 @@ public final class BlackHolePageSourceProvider
         }
         List<Type> types = builder.build();
 
-        Page page = generateZeroPage(types, blackHoleSplit.getRowsPerPage(), blackHoleSplit.getFieldsLength());
-        return new BlackHolePageSource(page, blackHoleSplit.getPagesCount(), executorService, blackHoleSplit.getPageProcessingDelay());
+        Page page = generateZeroPage(types, table.getRowsPerPage(), table.getFieldsLength());
+        return new BlackHolePageSource(page, table.getPagesPerSplit(), executorService, table.getPageProcessingDelay());
     }
 
     private Page generateZeroPage(List<Type> types, int rowsCount, int fieldLength)
@@ -142,9 +145,24 @@ public final class BlackHolePageSourceProvider
         return builder.build();
     }
 
-    private boolean isSupportedType(Type type)
+    private static boolean isSupportedType(Type type)
     {
-        return ImmutableSet.<Type>of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, BOOLEAN, DATE, TIMESTAMP, VARBINARY).contains(type)
-                || isVarcharType(type) || type instanceof DecimalType;
+        return isNumericType(type) ||
+                type instanceof BooleanType ||
+                type instanceof DateType ||
+                type instanceof TimestampType ||
+                type instanceof VarcharType ||
+                type instanceof VarbinaryType;
+    }
+
+    public static boolean isNumericType(Type type)
+    {
+        return type instanceof TinyintType ||
+                type instanceof SmallintType ||
+                type instanceof IntegerType ||
+                type instanceof BigintType ||
+                type instanceof RealType ||
+                type instanceof DoubleType ||
+                type instanceof DecimalType;
     }
 }

@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.prestosql.orc.OrcDataSink;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcDataSourceId;
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.plugin.hive.orc.HdfsOrcDataSource;
 import io.prestosql.plugin.hive.util.MergingPageIterator;
 import io.prestosql.plugin.hive.util.SortBuffer;
@@ -50,7 +51,6 @@ import java.util.stream.IntStream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static java.lang.Math.min;
@@ -58,7 +58,7 @@ import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 public class SortingFileWriter
-        implements HiveFileWriter
+        implements FileWriter
 {
     private static final Logger log = Logger.get(SortingFileWriter.class);
 
@@ -70,7 +70,7 @@ public class SortingFileWriter
     private final List<Type> types;
     private final List<Integer> sortFields;
     private final List<SortOrder> sortOrders;
-    private final HiveFileWriter outputWriter;
+    private final FileWriter outputWriter;
     private final SortBuffer sortBuffer;
     private final TempFileSinkFactory tempFileSinkFactory;
     private final Queue<TempFile> tempFiles = new PriorityQueue<>(comparing(TempFile::getSize));
@@ -79,7 +79,7 @@ public class SortingFileWriter
     public SortingFileWriter(
             FileSystem fileSystem,
             Path tempFilePrefix,
-            HiveFileWriter outputWriter,
+            FileWriter outputWriter,
             DataSize maxMemory,
             int maxOpenTempFiles,
             List<Type> types,
@@ -211,10 +211,7 @@ public class SortingFileWriter
                 OrcDataSource dataSource = new HdfsOrcDataSource(
                         new OrcDataSourceId(file.toString()),
                         fileSystem.getFileStatus(file).getLen(),
-                        new DataSize(1, MEGABYTE),
-                        new DataSize(8, MEGABYTE),
-                        new DataSize(8, MEGABYTE),
-                        false,
+                        new OrcReaderOptions(),
                         fileSystem.open(file),
                         new FileFormatDataSourceStats());
                 closer.register(dataSource);
@@ -226,8 +223,7 @@ public class SortingFileWriter
 
             for (TempFile tempFile : files) {
                 Path file = tempFile.getPath();
-                fileSystem.delete(file, false);
-                if (fileSystem.exists(file)) {
+                if (!fileSystem.delete(file, false)) {
                     throw new IOException("Failed to delete temporary file: " + file);
                 }
             }
@@ -255,8 +251,7 @@ public class SortingFileWriter
     private void cleanupFile(Path file)
     {
         try {
-            fileSystem.delete(file, false);
-            if (fileSystem.exists(file)) {
+            if (!fileSystem.delete(file, false)) {
                 throw new IOException("Delete failed");
             }
         }

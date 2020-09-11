@@ -1,0 +1,11 @@
+hdfs:
+  webhdfs:
+    # 9870 is the name node's default port in Hadoop 3
+    uri: http://${databases.hive.host}:9870
+
+databases:
+  hive:
+    prepare_statement:
+      - USE ${databases.hive.schema}
+      # Hive 3 gathers stats by default. For test purposes we need to disable this behavior.
+      - SET hive.stats.column.autogather=false

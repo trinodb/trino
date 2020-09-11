@@ -18,7 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
+import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.ScheduledSplit;
 import io.prestosql.execution.TaskSource;
 import io.prestosql.metadata.Split;
@@ -29,13 +30,13 @@ import io.prestosql.operator.TaskContext;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.PageConsumerOperator;
 import io.prestosql.testing.TestingTaskContext;
-import io.prestosql.testing.TestingTransactionHandle;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -49,6 +50,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -82,7 +84,7 @@ public class TestSystemMemoryBlocking
                 .addDriverContext();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
@@ -93,22 +95,24 @@ public class TestSystemMemoryBlocking
     public void testTableScanSystemMemoryBlocking()
     {
         PlanNodeId sourceId = new PlanNodeId("source");
-        final List<Type> types = ImmutableList.of(VARCHAR);
+        List<Type> types = ImmutableList.of(VARCHAR);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "values"),
                 sourceId,
-                (session, split, columns) -> new FixedPageSource(rowPagesBuilder(types)
+                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
                         .build()),
-                ImmutableList.of());
+                TEST_TABLE_HANDLE,
+                ImmutableList.of(),
+                DynamicFilter.EMPTY);
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
         assertSame(driver.getDriverContext(), driverContext);
         assertFalse(driver.isFinished());
-        Split testSplit = new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new TestSplit());
+        Split testSplit = new Split(new CatalogName("test"), new TestSplit(), Lifespan.taskWide());
         driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, testSplit)), true));
 
         ListenableFuture<?> blocked = driver.processFor(new Duration(1, NANOSECONDS));

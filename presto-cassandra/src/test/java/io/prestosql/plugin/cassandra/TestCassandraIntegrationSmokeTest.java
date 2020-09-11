@@ -14,23 +14,28 @@
 package io.prestosql.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.spi.type.Type;
+import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
-import org.testng.annotations.BeforeClass;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.assertions.Assert;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.datastax.driver.core.utils.Bytes.toRawHexString;
-import static com.google.common.primitives.Ints.toByteArray;
+import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraSession;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES_INSERT;
@@ -45,53 +50,87 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
-import static io.prestosql.tests.QueryAssertions.assertContains;
-import static io.prestosql.tests.QueryAssertions.assertContainsEventually;
+import static io.prestosql.testing.QueryAssertions.assertContains;
+import static io.prestosql.testing.QueryAssertions.assertContainsEventually;
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
+import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
+import static java.lang.String.format;
+import static java.util.Comparator.comparing;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
 public class TestCassandraIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
     private static final String KEYSPACE = "smoke_test";
     private static final Session SESSION = createCassandraSession(KEYSPACE);
 
-    private static final Timestamp DATE_TIME_LOCAL = Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 3, 4, 5, 0));
-    // TODO should match DATE_TIME_LOCAL after https://github.com/prestodb/presto/issues/7122
-    private static final LocalDateTime TIMESTAMP_LOCAL = LocalDateTime.of(1969, 12, 31, 23, 4, 5);
+    private static final ZonedDateTime TIMESTAMP_VALUE = ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneId.of("UTC"));
 
+    private CassandraServer server;
     private CassandraSession session;
 
-    public TestCassandraIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(CassandraQueryRunner::createCassandraQueryRunner);
+        server = new CassandraServer();
+        session = server.getSession();
+        createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
+        return createCassandraQueryRunner(server, CUSTOMER, NATION, ORDERS, REGION);
     }
 
-    @BeforeClass
-    public void setUp()
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
     {
-        session = EmbeddedCassandra.getSession();
-        createTestTables(session, KEYSPACE, DATE_TIME_LOCAL);
+        server.close();
+    }
+
+    @Test
+    @Override
+    public void testDescribeTable()
+    {
+        MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar", "", "")
+                .row("clerk", "varchar", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar", "", "")
+                .build();
+        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
+        Assert.assertEquals(actualColumns, expectedColumns);
     }
 
     @Override
-    protected boolean isDateTypeSupported()
+    public void testShowCreateTable()
     {
-        return false;
-    }
-
-    @Override
-    protected boolean isParameterizedVarcharSupported()
-    {
-        return false;
+        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .isEqualTo("CREATE TABLE cassandra.tpch.orders (\n" +
+                        "   orderkey bigint,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderstatus varchar,\n" +
+                        "   totalprice double,\n" +
+                        "   orderdate date,\n" +
+                        "   orderpriority varchar,\n" +
+                        "   clerk varchar,\n" +
+                        "   shippriority integer,\n" +
+                        "   comment varchar\n" +
+                        ")");
     }
 
     @Test
@@ -103,8 +142,8 @@ public class TestCassandraIntegrationSmokeTest
                 " AND typeuuid = '00000000-0000-0000-0000-000000000007'" +
                 " AND typeinteger = 7" +
                 " AND typelong = 1007" +
-                " AND typebytes = from_hex('" + toRawHexString(ByteBuffer.wrap(toByteArray(7))) + "')" +
-                " AND typetimestamp = TIMESTAMP '1969-12-31 23:04:05'" +
+                " AND typebytes = from_hex('" + toRawHexString(ByteBuffer.wrap(Ints.toByteArray(7))) + "')" +
+                " AND typetimestamp = TIMESTAMP '1970-01-01 03:04:05Z'" +
                 " AND typeansi = 'ansi 7'" +
                 " AND typeboolean = false" +
                 " AND typedecimal = 128.0" +
@@ -124,10 +163,43 @@ public class TestCassandraIntegrationSmokeTest
     }
 
     @Test
+    public void testTimestampPartitionKey()
+            throws Exception
+    {
+        String tableName = "test_timestamp_" + Math.abs(ThreadLocalRandom.current().nextLong());
+        session.execute(format("CREATE TABLE %s.%s (c1 timestamp primary key)", KEYSPACE, tableName));
+        session.execute(format("INSERT INTO %s.%s (c1) VALUES ('2017-04-01T11:21:59.001+0000')", KEYSPACE, tableName));
+        server.refreshSizeEstimates(KEYSPACE, tableName);
+
+        try {
+            String sql = format(
+                    "SELECT * " +
+                            "FROM %s " +
+                            "WHERE c1 = TIMESTAMP '2017-04-01 11:21:59.001 UTC'", tableName);
+            MaterializedResult result = execute(sql);
+
+            assertEquals(result.getRowCount(), 1);
+        }
+        finally {
+            session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
+        }
+    }
+
+    @Test
     public void testSelect()
     {
         assertSelect(TABLE_ALL_TYPES, false);
         assertSelect(TABLE_ALL_TYPES_PARTITION_KEY, false);
+    }
+
+    @Test
+    public void testInsertToTableWithHiddenId()
+    {
+        execute("DROP TABLE IF EXISTS test_create_table");
+        execute("CREATE TABLE test_create_table (col1 integer)");
+        execute("INSERT INTO test_create_table VALUES (12345)");
+        assertQuery("SELECT * FROM smoke_test.test_create_table", "VALUES (12345)");
+        execute("DROP TABLE test_create_table");
     }
 
     @Test
@@ -137,6 +209,23 @@ public class TestCassandraIntegrationSmokeTest
         execute("CREATE TABLE table_all_types_copy AS SELECT * FROM " + TABLE_ALL_TYPES);
         assertSelect("table_all_types_copy", true);
         execute("DROP TABLE table_all_types_copy");
+    }
+
+    @Test
+    public void testIdentifiers()
+    {
+        session.execute("DROP KEYSPACE IF EXISTS \"_keyspace\"");
+        session.execute("CREATE KEYSPACE \"_keyspace\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+        assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row("_keyspace")
+                .build(), new Duration(1, MINUTES));
+
+        execute("CREATE TABLE _keyspace._table AS SELECT 1 AS \"_col\", 2 AS \"2col\"");
+        assertQuery("SHOW TABLES FROM cassandra._keyspace", "VALUES ('_table')");
+        assertQuery("SELECT * FROM cassandra._keyspace._table", "VALUES (1, 2)");
+        assertUpdate("DROP TABLE cassandra._keyspace._table");
+
+        session.execute("DROP KEYSPACE \"_keyspace\"");
     }
 
     @Test
@@ -235,17 +324,17 @@ public class TestCassandraIntegrationSmokeTest
         assertEquals(execute(sql).getRowCount(), 4);
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2";
         assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three = timestamp '1969-12-31 23:04:05.020'";
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three = timestamp '1970-01-01 03:04:05.020Z'";
         assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three = timestamp '1969-12-31 23:04:05.010'";
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three = timestamp '1970-01-01 03:04:05.010Z'";
         assertEquals(execute(sql).getRowCount(), 0);
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2)";
         assertEquals(execute(sql).getRowCount(), 2);
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two > 1 AND clust_two < 3";
         assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three >= timestamp '1969-12-31 23:04:05.010' AND clust_three <= timestamp '1969-12-31 23:04:05.020'";
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three >= timestamp '1970-01-01 03:04:05.010Z' AND clust_three <= timestamp '1970-01-01 03:04:05.020Z'";
         assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2) AND clust_three >= timestamp '1969-12-31 23:04:05.010' AND clust_three <= timestamp '1969-12-31 23:04:05.020'";
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2) AND clust_three >= timestamp '1970-01-01 03:04:05.010Z' AND clust_three <= timestamp '1970-01-01 03:04:05.020Z'";
         assertEquals(execute(sql).getRowCount(), 2);
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2,3) AND clust_two < 2";
         assertEquals(execute(sql).getRowCount(), 1);
@@ -396,6 +485,71 @@ public class TestCassandraIntegrationSmokeTest
     }
 
     @Test
+    public void testUnsupportedColumnType()
+    {
+        session.execute("CREATE KEYSPACE keyspace_6 WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+        assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row("keyspace_6")
+                .build(), new Duration(1, MINUTES));
+
+        session.execute("CREATE TABLE keyspace_6.table_6 (column_1 bigint, column_2 bigint, unsupported_3 tuple<bigint>, unsupported_4 set<frozen<tuple<bigint>>>, PRIMARY KEY (column_1))");
+        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_6"), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row("table_6")
+                .build(), new Duration(1, MINUTES));
+
+        assertContains(execute("SHOW COLUMNS FROM cassandra.keyspace_6.table_6"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
+                .row("column_1", "bigint", "", "")
+                .row("column_2", "bigint", "", "")
+                .build());
+        session.execute("DROP TABLE keyspace_6.table_6");
+
+        session.execute("CREATE TABLE keyspace_6.table_6 (unsupported_primary_key tuple<bigint>, column_2 bigint, PRIMARY KEY (unsupported_primary_key))");
+        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_6"), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row("table_6")
+                .build(), new Duration(1, MINUTES));
+
+        assertQueryFailsEventually(
+                "SHOW COLUMNS FROM cassandra.keyspace_6.table_6",
+                "Unsupported partition key type: tuple",
+                new Duration(1, MINUTES));
+
+        session.execute("DROP KEYSPACE keyspace_6");
+    }
+
+    @Test
+    public void testNestedCollectionType()
+    {
+        session.execute("CREATE KEYSPACE keyspace_test_nested_collection WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+        assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row("keyspace_test_nested_collection")
+                .build(), new Duration(1, MINUTES));
+
+        session.execute("CREATE TABLE keyspace_test_nested_collection.table_set (column_5 bigint PRIMARY KEY, nested_collection frozen<set<set<bigint>>>)");
+        session.execute("CREATE TABLE keyspace_test_nested_collection.table_list (column_5 bigint PRIMARY KEY, nested_collection frozen<list<list<bigint>>>)");
+        session.execute("CREATE TABLE keyspace_test_nested_collection.table_map (column_5 bigint PRIMARY KEY, nested_collection frozen<map<int, map<bigint, bigint>>>)");
+
+        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_test_nested_collection"), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row("table_set")
+                .row("table_list")
+                .row("table_map")
+                .build(), new Duration(1, MINUTES));
+
+        session.execute("INSERT INTO keyspace_test_nested_collection.table_set (column_5, nested_collection) VALUES (1, {{1, 2, 3}})");
+        assertEquals(execute("SELECT nested_collection FROM cassandra.keyspace_test_nested_collection.table_set").getMaterializedRows().get(0),
+                new MaterializedRow(DEFAULT_PRECISION, "[[1,2,3]]"));
+
+        session.execute("INSERT INTO keyspace_test_nested_collection.table_list (column_5, nested_collection) VALUES (1, [[4, 5, 6]])");
+        assertEquals(execute("SELECT nested_collection FROM cassandra.keyspace_test_nested_collection.table_list").getMaterializedRows().get(0),
+                new MaterializedRow(DEFAULT_PRECISION, "[[4,5,6]]"));
+
+        session.execute("INSERT INTO keyspace_test_nested_collection.table_map (column_5, nested_collection) VALUES (1, {7:{8:9}})");
+        assertEquals(execute("SELECT nested_collection FROM cassandra.keyspace_test_nested_collection.table_map").getMaterializedRows().get(0),
+                new MaterializedRow(DEFAULT_PRECISION, "{7:{8:9}}"));
+
+        session.execute("DROP KEYSPACE keyspace_test_nested_collection");
+    }
+
+    @Test
     public void testInsert()
     {
         String sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
@@ -431,7 +585,7 @@ public class TestCassandraIntegrationSmokeTest
                 "1, " +
                 "1000, " +
                 "null, " +
-                "timestamp '1970-01-01 08:34:05.0', " +
+                "timestamp '1970-01-01 08:34:05.0Z', " +
                 "'ansi1', " +
                 "true, " +
                 "null, " +
@@ -455,7 +609,7 @@ public class TestCassandraIntegrationSmokeTest
                 1,
                 1000L,
                 null,
-                LocalDateTime.of(1970, 1, 1, 8, 34, 5),
+                ZonedDateTime.of(1970, 1, 1, 8, 34, 5, 0, ZoneId.of("UTC")),
                 "ansi1",
                 true,
                 null,
@@ -535,7 +689,7 @@ public class TestCassandraIntegrationSmokeTest
                 INTEGER,
                 BIGINT,
                 VARBINARY,
-                TIMESTAMP,
+                TIMESTAMP_WITH_TIME_ZONE,
                 createUnboundedVarcharType(),
                 BOOLEAN,
                 DOUBLE,
@@ -550,17 +704,17 @@ public class TestCassandraIntegrationSmokeTest
                 createUnboundedVarcharType()));
 
         List<MaterializedRow> sortedRows = result.getMaterializedRows().stream()
-                .sorted((o1, o2) -> o1.getField(1).toString().compareTo(o2.getField(1).toString()))
+                .sorted(comparing(o -> o.getField(1).toString()))
                 .collect(toList());
 
         for (int rowNumber = 1; rowNumber <= rowCount; rowNumber++) {
             assertEquals(sortedRows.get(rowNumber - 1), new MaterializedRow(DEFAULT_PRECISION,
                     "key " + rowNumber,
-                    String.format("00000000-0000-0000-0000-%012d", rowNumber),
+                    format("00000000-0000-0000-0000-%012d", rowNumber),
                     rowNumber,
                     rowNumber + 1000L,
-                    ByteBuffer.wrap(toByteArray(rowNumber)),
-                    TIMESTAMP_LOCAL,
+                    ByteBuffer.wrap(Ints.toByteArray(rowNumber)),
+                    TIMESTAMP_VALUE,
                     "ansi " + rowNumber,
                     rowNumber % 2 == 0,
                     Math.pow(2, rowNumber),
@@ -569,9 +723,9 @@ public class TestCassandraIntegrationSmokeTest
                     "127.0.0.1",
                     "varchar " + rowNumber,
                     BigInteger.TEN.pow(rowNumber).toString(),
-                    String.format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber),
-                    String.format("[\"list-value-1%1$d\",\"list-value-2%1$d\"]", rowNumber),
-                    String.format("{%d:%d,%d:%d}", rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L),
+                    format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber),
+                    format("[\"list-value-1%1$d\",\"list-value-2%1$d\"]", rowNumber),
+                    format("{%d:%d,%d:%d}", rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L),
                     "[false,true]"));
         }
     }

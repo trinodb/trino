@@ -18,13 +18,14 @@ import io.airlift.slice.Slices;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.Objects;
 
-import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.Chars.compareChars;
+import static io.prestosql.spi.type.Chars.padSpaces;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 
@@ -45,7 +46,7 @@ public final class CharType
         super(
                 new TypeSignature(
                         StandardTypes.CHAR,
-                        singletonList(TypeSignatureParameter.of(length))),
+                        singletonList(TypeSignatureParameter.numericParameter(length))),
                 Slice.class);
 
         if (length < 0 || length > MAX_LENGTH) {
@@ -78,14 +79,8 @@ public final class CharType
             return null;
         }
 
-        StringBuilder builder = new StringBuilder(length);
         Slice slice = block.getSlice(position, 0, block.getSliceLength(position));
-        builder.append(slice.toStringUtf8());
-        for (int i = countCodePoints(slice); i < length; i++) {
-            builder.append(' ');
-        }
-
-        return builder.toString();
+        return padSpaces(slice, length).toStringUtf8();
     }
 
     @Override
@@ -112,6 +107,14 @@ public final class CharType
         Slice rightSlice = rightBlock.getSlice(rightPosition, 0, rightBlock.getSliceLength(rightPosition));
 
         return compareChars(leftSlice, rightSlice);
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        // If bound on length of char is smaller than EXPECTED_BYTES_PER_ENTRY, use that as expectedBytesPerEntry
+        // The data can take up to 4 bytes per character due to UTF-8 encoding, but we assume it is ASCII and only needs one byte.
+        return createBlockBuilder(blockBuilderStatus, expectedEntries, Math.min(length, EXPECTED_BYTES_PER_ENTRY));
     }
 
     @Override
@@ -171,17 +174,5 @@ public final class CharType
     public int hashCode()
     {
         return Objects.hash(length);
-    }
-
-    @Override
-    public String getDisplayName()
-    {
-        return getTypeSignature().toString();
-    }
-
-    @Override
-    public String toString()
-    {
-        return getDisplayName();
     }
 }

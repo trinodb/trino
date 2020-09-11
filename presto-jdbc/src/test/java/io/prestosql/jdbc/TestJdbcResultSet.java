@@ -13,6 +13,7 @@
  */
 package io.prestosql.jdbc;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
 import io.prestosql.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterClass;
@@ -35,8 +36,9 @@ import java.sql.Types;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.HashMap;
+import java.util.Map;
 
-import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -56,16 +58,16 @@ public class TestJdbcResultSet
 
     @BeforeClass
     public void setupServer()
-            throws Exception
     {
         Logging.initialize();
-        server = new TestingPrestoServer();
+        server = TestingPrestoServer.create();
     }
 
     @AfterClass(alwaysRun = true)
-    public void teardownServer()
+    public void tearDownServer()
+            throws Exception
     {
-        closeQuietly(server);
+        server.close();
     }
 
     @SuppressWarnings("JDBCResourceOpenedButNotSafelyClosed")
@@ -77,11 +79,12 @@ public class TestJdbcResultSet
         statement = connection.createStatement();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void teardown()
+            throws Exception
     {
-        closeQuietly(statement);
-        closeQuietly(connection);
+        statement.close();
+        connection.close();
     }
 
     @Test
@@ -101,9 +104,8 @@ public class TestJdbcResultSet
         }
     }
 
-    @SuppressWarnings("UnnecessaryBoxing")
     @Test
-    public void testObjectTypes()
+    public void testPrimitiveTypes()
             throws Exception
     {
         checkRepresentation("123", Types.INTEGER, 123);
@@ -112,28 +114,77 @@ public class TestJdbcResultSet
         checkRepresentation("1e-1", Types.DOUBLE, 0.1);
         checkRepresentation("1.0E0 / 0.0E0", Types.DOUBLE, Double.POSITIVE_INFINITY);
         checkRepresentation("0.0E0 / 0.0E0", Types.DOUBLE, Double.NaN);
-        checkRepresentation("0.1", Types.DECIMAL, new BigDecimal("0.1"));
         checkRepresentation("true", Types.BOOLEAN, true);
         checkRepresentation("'hello'", Types.VARCHAR, "hello");
         checkRepresentation("cast('foo' as char(5))", Types.CHAR, "foo  ");
-        checkRepresentation("ARRAY[1, 2]", Types.ARRAY, (rs, column) -> assertEquals(rs.getArray(column).getArray(), new int[] {1, 2}));
-        checkRepresentation("DECIMAL '0.1'", Types.DECIMAL, new BigDecimal("0.1"));
+    }
 
+    @Test
+    public void testDecimal()
+            throws Exception
+    {
+        checkRepresentation("0.1", Types.DECIMAL, new BigDecimal("0.1"));
+        checkRepresentation("DECIMAL '0.1'", Types.DECIMAL, new BigDecimal("0.1"));
+    }
+
+    @Test
+    public void testDate()
+            throws Exception
+    {
         checkRepresentation("DATE '2018-02-13'", Types.DATE, (rs, column) -> {
             assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
+            assertEquals(rs.getObject(column, Date.class), Date.valueOf(LocalDate.of(2018, 2, 13)));
             assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
             assertThrows(IllegalArgumentException.class, () -> rs.getTime(column));
             assertThrows(IllegalArgumentException.class, () -> rs.getTimestamp(column));
         });
 
-        checkRepresentation("TIME '09:39:05'", Types.TIME, (rs, column) -> {
+        // distant past, but apparently not an uncommon value in practice
+        checkRepresentation("DATE '0001-01-01'", Types.DATE, (rs, column) -> {
+            assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1, 1, 1)));
+            assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1, 1, 1)));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTime(column));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTimestamp(column));
+        });
+
+        // the Julian-Gregorian calendar "default cut-over"
+        checkRepresentation("DATE '1582-10-04'", Types.DATE, (rs, column) -> {
+            assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1582, 10, 4)));
+            assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1582, 10, 4)));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTime(column));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTimestamp(column));
+        });
+
+        // after the Julian-Gregorian calendar "default cut-over", but before the Gregorian calendar start
+        checkRepresentation("DATE '1582-10-10'", Types.DATE, (rs, column) -> {
+            assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1582, 10, 10)));
+            assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1582, 10, 10)));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTime(column));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTimestamp(column));
+        });
+
+        // the Gregorian calendar start
+        checkRepresentation("DATE '1582-10-15'", Types.DATE, (rs, column) -> {
+            assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1582, 10, 15)));
+            assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1582, 10, 15)));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTime(column));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTimestamp(column));
+        });
+    }
+
+    @Test
+    public void testTime()
+            throws Exception
+    {
+        checkRepresentation("TIME '09:39:05.000'", Types.TIME, (rs, column) -> {
             assertEquals(rs.getObject(column), Time.valueOf(LocalTime.of(9, 39, 5)));
+            assertEquals(rs.getObject(column, Time.class), Time.valueOf(LocalTime.of(9, 39, 5)));
             assertThrows(() -> rs.getDate(column));
             assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(9, 39, 5)));
             assertThrows(() -> rs.getTimestamp(column));
         });
 
-        // TODO https://github.com/prestodb/presto/issues/7122
+        // TODO https://github.com/prestosql/presto/issues/37
         // TODO line 1:8: '00:39:05' is not a valid time literal
 //        checkRepresentation("TIME '00:39:05'", Types.TIME, (rs, column) -> {
 //            ...
@@ -169,19 +220,90 @@ public class TestJdbcResultSet
             assertEquals(rs.getTime(column), someBogusValue); // TODO this should fail, as there no java.sql.Time representation for TIME '00:39:07' in America/Bahia_Banderas
             assertThrows(() -> rs.getTimestamp(column));
         });
+    }
 
+    @Test
+    public void testTimestamp()
+            throws Exception
+    {
         checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.123'", Types.TIMESTAMP, (rs, column) -> {
             assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
+            assertEquals(rs.getObject(column, Timestamp.class), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
             assertThrows(() -> rs.getDate(column));
             assertThrows(() -> rs.getTime(column));
             assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
         });
 
-        // TODO https://github.com/prestodb/presto/issues/7122
+        checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.111111111111'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 111_111_111)));
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 111_111_111)));
+        });
+
+        checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.555555555555'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 555_555_556)));
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 555_555_556)));
+        });
+
+        // distant past, but apparently not an uncommon value in practice
+        checkRepresentation("TIMESTAMP '0001-01-01 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1, 1, 1, 0, 0, 0)));
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1, 1, 1, 0, 0, 0)));
+        });
+
+        // the Julian-Gregorian calendar "default cut-over"
+        checkRepresentation("TIMESTAMP '1582-10-04 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 4, 0, 0, 0)));
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 4, 0, 0, 0)));
+        });
+
+        // after the Julian-Gregorian calendar "default cut-over", but before the Gregorian calendar start
+        checkRepresentation("TIMESTAMP '1582-10-10 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 10, 0, 0, 0)));
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 10, 0, 0, 0)));
+        });
+
+        // the Gregorian calendar start
+        checkRepresentation("TIMESTAMP '1582-10-15 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 15, 0, 0, 0)));
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 15, 0, 0, 0)));
+        });
+
+        checkRepresentation("TIMESTAMP '1583-01-01 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1583, 1, 1, 0, 0, 0)));
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1583, 1, 1, 0, 0, 0)));
+        });
+
+        // TODO https://github.com/prestosql/presto/issues/37
         // TODO line 1:8: '1970-01-01 00:14:15.123' is not a valid timestamp literal; the expected values will pro
 //        checkRepresentation("TIMESTAMP '1970-01-01 00:14:15.123'", Types.TIMESTAMP, (rs, column) -> {
 //            ...
 //        });
+
+        // TODO https://github.com/prestosql/presto/issues/4363
+//        checkRepresentation("TIMESTAMP '-123456-01-23 01:23:45.123456789'", Types.TIMESTAMP, (rs, column) -> {
+//            ...
+//        });
+
+        checkRepresentation("TIMESTAMP '123456-01-23 01:23:45.123456789'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(123456, 1, 23, 1, 23, 45, 123_456_789)));
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(123456, 1, 23, 1, 23, 45, 123_456_789)));
+        });
 
         checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
             assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 6, 14, 15, 227_000_000))); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
@@ -204,12 +326,97 @@ public class TestJdbcResultSet
             // TODO this should fail, as there no java.sql.Timestamp representation for TIMESTAMP '1970-01-01 00:14:15.227ó' in America/Bahia_Banderas
             assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1969, 12, 31, 15, 14, 15, 227_000_000)));
         });
+
+        // TODO https://github.com/prestosql/presto/issues/4363
+//        checkRepresentation("TIMESTAMP '-12345-01-23 01:23:45.123456789 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
+//            ...
+//        });
+
+        checkRepresentation("TIMESTAMP '12345-01-23 01:23:45.123456789 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(12345, 1, 22, 18, 23, 45, 123_456_789))); // TODO this should contain the zone
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(12345, 1, 22, 18, 23, 45, 123_456_789)));
+        });
+    }
+
+    @Test
+    public void testIpAddress()
+            throws Exception
+    {
+        checkRepresentation("IPADDRESS '1.2.3.4'", Types.JAVA_OBJECT, "1.2.3.4");
+    }
+
+    @Test
+    public void testUuid()
+            throws Exception
+    {
+        checkRepresentation("UUID '0397e63b-2b78-4b7b-9c87-e085fa225dd8'", Types.JAVA_OBJECT, "0397e63b-2b78-4b7b-9c87-e085fa225dd8");
+    }
+
+    @Test
+    public void testArray()
+            throws Exception
+    {
+        checkRepresentation("ARRAY[1, 2]", Types.ARRAY, (rs, column) -> assertEquals(rs.getArray(column).getArray(), new int[] {1, 2}));
+    }
+
+    @Test
+    public void testMap()
+            throws Exception
+    {
+        checkRepresentation("map(ARRAY['k1', 'k2'], ARRAY[BIGINT '42', -117])", Types.JAVA_OBJECT, (rs, column) -> {
+            assertEquals(rs.getObject(column), ImmutableMap.of("k1", 42L, "k2", -117L));
+            assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("k1", 42L, "k2", -117L));
+        });
+
+        // NULL value
+        checkRepresentation("map(ARRAY['k1', 'k2'], ARRAY[42, NULL])", Types.JAVA_OBJECT, (rs, column) -> {
+            Map<String, Integer> expected = new HashMap<>();
+            expected.put("k1", 42);
+            expected.put("k2", null);
+            assertEquals(rs.getObject(column), expected);
+            assertEquals(rs.getObject(column, Map.class), expected);
+        });
+    }
+
+    @Test
+    public void testRow()
+            throws Exception
+    {
+        // named row
+        checkRepresentation("CAST(ROW(42, 'Presto') AS ROW(a_bigint bigint, a_varchar varchar(17)))", Types.JAVA_OBJECT, (rs, column) -> {
+            assertEquals(rs.getObject(column), ImmutableMap.of("a_bigint", 42L, "a_varchar", "Presto"));
+            assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("a_bigint", 42L, "a_varchar", "Presto"));
+        });
+
+        // partially named row
+        checkRepresentation("CAST(ROW(42, 'Presto') AS ROW(a_bigint bigint, varchar(17)))", Types.JAVA_OBJECT, (rs, column) -> {
+            assertEquals(rs.getObject(column), ImmutableMap.of("a_bigint", 42L, "field1", "Presto"));
+            assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("a_bigint", 42L, "field1", "Presto"));
+        });
+
+        // anonymous row
+        checkRepresentation("ROW(42, 'Presto')", Types.JAVA_OBJECT, (rs, column) -> {
+            assertEquals(rs.getObject(column), ImmutableMap.of("field0", 42, "field1", "Presto"));
+            assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("field0", 42, "field1", "Presto"));
+        });
+
+        // name collision
+        checkRepresentation("CAST(ROW(42, 'Presto') AS ROW(field1 integer, varchar(17)))", Types.JAVA_OBJECT, (rs, column) -> {
+            // TODO (https://github.com/prestosql/presto/issues/4594) both fields should be visible or exception thrown
+            assertEquals(rs.getObject(column), ImmutableMap.of("field1", "Presto"));
+            assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("field1", "Presto"));
+        });
     }
 
     private void checkRepresentation(String expression, int expectedSqlType, Object expectedRepresentation)
             throws Exception
     {
-        checkRepresentation(expression, expectedSqlType, (rs, column) -> assertEquals(rs.getObject(column), expectedRepresentation));
+        checkRepresentation(expression, expectedSqlType, (rs, column) -> {
+            assertEquals(rs.getObject(column), expectedRepresentation);
+            assertEquals(rs.getObject(column, expectedRepresentation.getClass()), expectedRepresentation);
+        });
     }
 
     private void checkRepresentation(String expression, int expectedSqlType, ResultAssertion assertion)
@@ -327,6 +534,15 @@ public class TestJdbcResultSet
     {
         statement.setLargeMaxRows(Integer.MAX_VALUE * 10L);
         statement.getMaxRows();
+    }
+
+    @Test
+    public void testGetStatement()
+            throws SQLException
+    {
+        try (ResultSet rs = statement.executeQuery("SELECT * FROM (VALUES (1), (2), (3))")) {
+            assertEquals(rs.getStatement(), statement);
+        }
     }
 
     private Connection createConnection()

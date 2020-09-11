@@ -16,16 +16,14 @@ package io.prestosql.spiller;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import io.prestosql.RowPagesBuilder;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.execution.buffer.PagesSerde;
 import io.prestosql.execution.buffer.PagesSerdeFactory;
 import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -38,13 +36,13 @@ import java.util.concurrent.ExecutionException;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.PageAssertions.assertPageEquals;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.doubleToLongBits;
-import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -52,8 +50,7 @@ public class TestBinaryFileSpiller
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BIGINT);
 
-    private BlockEncodingSerde blockEncodingSerde;
-    private File spillPath = Files.createTempDir();
+    private final File spillPath = Files.createTempDir();
     private SpillerStats spillerStats;
     private FileSingleStreamSpillerFactory singleStreamSpillerFactory;
     private SpillerFactory factory;
@@ -63,19 +60,20 @@ public class TestBinaryFileSpiller
     @BeforeMethod
     public void setUp()
     {
-        blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+        Metadata metadata = createTestMetadataManager();
         spillerStats = new SpillerStats();
         FeaturesConfig featuresConfig = new FeaturesConfig();
         featuresConfig.setSpillerSpillPaths(spillPath.getAbsolutePath());
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
-        singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig);
+        NodeSpillConfig nodeSpillConfig = new NodeSpillConfig();
+        singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(metadata, spillerStats, featuresConfig, nodeSpillConfig);
         factory = new GenericSpillerFactory(singleStreamSpillerFactory);
-        PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), false);
+        PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(metadata.getBlockEncodingSerde(), nodeSpillConfig.isSpillCompressionEnabled());
         pagesSerde = pagesSerdeFactory.createPagesSerde();
         memoryContext = newSimpleAggregatedMemoryContext();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
@@ -131,7 +129,8 @@ public class TestBinaryFileSpiller
         testSpiller(TYPES, spiller, firstSpill, secondSpill);
     }
 
-    private void testSpiller(List<Type> types, Spiller spiller, List<Page>... spills)
+    @SafeVarargs
+    private final void testSpiller(List<Type> types, Spiller spiller, List<Page>... spills)
             throws ExecutionException, InterruptedException
     {
         long spilledBytesBefore = spillerStats.getTotalSpilledBytes();

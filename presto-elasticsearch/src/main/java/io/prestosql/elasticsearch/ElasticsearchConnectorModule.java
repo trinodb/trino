@@ -16,50 +16,60 @@ package io.prestosql.elasticsearch;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import io.prestosql.decoder.DecoderModule;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.prestosql.elasticsearch.client.ElasticsearchClient;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
-import javax.inject.Singleton;
 
-import java.io.IOException;
-
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.elasticsearch.ElasticsearchConfig.Security.AWS;
+import static io.prestosql.elasticsearch.ElasticsearchConfig.Security.PASSWORD;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Predicate.isEqual;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class ElasticsearchConnectorModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
         binder.bind(ElasticsearchConnector.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(ElasticsearchRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ElasticsearchPageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ElasticsearchClient.class).in(Scopes.SINGLETON);
+        binder.bind(NodesSystemTable.class).in(Scopes.SINGLETON);
 
-        configBinder(binder).bindConfig(ElasticsearchConnectorConfig.class);
+        newExporter(binder).export(ElasticsearchClient.class).withGeneratedName();
+
+        configBinder(binder).bindConfig(ElasticsearchConfig.class);
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
-        jsonCodecBinder(binder).bindJsonCodec(ElasticsearchTableDescription.class);
 
-        binder.install(new DecoderModule());
-    }
+        newOptionalBinder(binder, AwsSecurityConfig.class);
+        newOptionalBinder(binder, PasswordConfig.class);
 
-    @Singleton
-    @Provides
-    public static ElasticsearchClient createElasticsearchClient(ElasticsearchConnectorConfig config, ElasticsearchTableDescriptionProvider elasticsearchTableDescriptionProvider)
-            throws IOException
-    {
-        return new ElasticsearchClient(elasticsearchTableDescriptionProvider, config);
+        install(installModuleIf(
+                ElasticsearchConfig.class,
+                config -> config.getSecurity()
+                        .filter(isEqual(AWS))
+                        .isPresent(),
+                conditionalBinder -> configBinder(conditionalBinder).bindConfig(AwsSecurityConfig.class)));
+
+        install(installModuleIf(
+                ElasticsearchConfig.class,
+                config -> config.getSecurity()
+                        .filter(isEqual(PASSWORD))
+                        .isPresent(),
+                conditionalBinder -> configBinder(conditionalBinder).bindConfig(PasswordConfig.class)));
     }
 
     private static final class TypeDeserializer
@@ -79,9 +89,7 @@ public class ElasticsearchConnectorModule
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            Type type = typeManager.getType(parseTypeSignature(value));
-            checkArgument(type != null, "Unknown type %s", value);
-            return type;
+            return typeManager.getType(TypeId.of(value));
         }
     }
 }

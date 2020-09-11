@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<configuration>
+    <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://hadoop-master:9000</value>
+    </property>
+
+    <!-- Hive impersonation in KMS -->
+    <property>
+        <name>hadoop.kms.proxyuser.hive.hosts</name>
+        <value>*</value>
+    </property>
+    <property>
+        <name>hadoop.kms.proxyuser.hive.groups</name>
+        <value>*</value>
+    </property>
+
+    <!-- Presto impersonation in KMS -->
+    <property>
+        <name>hadoop.kms.proxyuser.presto-server.hosts</name>
+        <value>*</value>
+    </property>
+    <property>
+        <name>hadoop.kms.proxyuser.presto-server.groups</name>
+        <value>*</value>
+    </property>
+
+</configuration>

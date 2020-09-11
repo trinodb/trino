@@ -43,7 +43,7 @@ public class HiveNodePartitioningProvider
     {
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         List<HiveType> hiveTypes = handle.getHiveTypes();
-        return new HiveBucketFunction(bucketCount, hiveTypes);
+        return new HiveBucketFunction(handle.getBucketingVersion(), bucketCount, hiveTypes);
     }
 
     @Override

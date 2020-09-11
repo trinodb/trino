@@ -15,13 +15,13 @@ package io.prestosql.memory;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.BasicQueryStats;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.QueryId;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -113,6 +113,7 @@ public class TestMemoryManager
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("experimental.reserved-pool-disabled", "false")
                 .put("task.verbose-stats", "true")
                 .put("query.low-memory-killer.delay", "5s")
                 .put("query.low-memory-killer.policy", "total-reservation")
@@ -157,7 +158,7 @@ public class TestMemoryManager
             for (BasicQueryInfo info : queryRunner.getCoordinator().getQueryManager().getQueries()) {
                 if (info.getState().isDone()) {
                     assertNotNull(info.getErrorCode());
-                    assertEquals(info.getErrorCode().getCode(), CLUSTER_OUT_OF_MEMORY.toErrorCode().getCode());
+                    assertEquals(info.getErrorCode(), CLUSTER_OUT_OF_MEMORY.toErrorCode());
                     return;
                 }
             }
@@ -170,7 +171,7 @@ public class TestMemoryManager
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("experimental.reserved-pool-enabled", "false")
+                .put("experimental.reserved-pool-disabled", "true")
                 .put("query.low-memory-killer.delay", "5s")
                 .put("query.low-memory-killer.policy", "total-reservation")
                 .build();
@@ -221,6 +222,7 @@ public class TestMemoryManager
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("experimental.reserved-pool-disabled", "false")
                 .put("task.verbose-stats", "true")
                 .build();
 
@@ -247,6 +249,7 @@ public class TestMemoryManager
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("experimental.reserved-pool-disabled", "false")
                 .put("task.verbose-stats", "true")
                 .build();
 
@@ -379,19 +382,13 @@ public class TestMemoryManager
         }
     }
 
-    public static DistributedQueryRunner createQueryRunner(Session session, Map<String, String> properties)
+    public static DistributedQueryRunner createQueryRunner(Session session, Map<String, String> extraProperties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 2, properties);
-
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-            return queryRunner;
-        }
-        catch (Exception e) {
-            queryRunner.close();
-            throw e;
-        }
+        return TpchQueryRunnerBuilder.builder()
+                .amendSession(sessionBuilder -> Session.builder(session))
+                .setNodeCount(2)
+                .setExtraProperties(extraProperties)
+                .build();
     }
 }

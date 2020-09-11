@@ -34,7 +34,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.DIVIDE;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
@@ -59,9 +58,7 @@ import static java.lang.String.format;
 
 public final class BigintOperators
 {
-    private BigintOperators()
-    {
-    }
+    private BigintOperators() {}
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.BIGINT)
@@ -110,7 +107,7 @@ public final class BigintOperators
             return left / right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, e);
+            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
@@ -122,7 +119,7 @@ public final class BigintOperators
             return left % right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, e);
+            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
@@ -180,13 +177,6 @@ public final class BigintOperators
     public static boolean greaterThanOrEqual(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.BIGINT) long right)
     {
         return left >= right;
-    }
-
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(@SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long min, @SqlType(StandardTypes.BIGINT) long max)
-    {
-        return min <= value && value <= max;
     }
 
     @ScalarOperator(CAST)
@@ -284,7 +274,7 @@ public final class BigintOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class BigintDistinctFromOperator
+    public static final class BigintDistinctFromOperator
     {
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isDistinctFrom(

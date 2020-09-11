@@ -31,6 +31,13 @@ public class DoubleStatisticsBuilder
     private double minimum = Double.POSITIVE_INFINITY;
     private double maximum = Double.NEGATIVE_INFINITY;
 
+    private final BloomFilterBuilder bloomFilterBuilder;
+
+    public DoubleStatisticsBuilder(BloomFilterBuilder bloomFilterBuilder)
+    {
+        this.bloomFilterBuilder = requireNonNull(bloomFilterBuilder, "bloomFilterBuilder is null");
+    }
+
     @Override
     public void addBlock(Type type, Block block)
     {
@@ -49,6 +56,18 @@ public class DoubleStatisticsBuilder
     }
 
     public void addValue(double value)
+    {
+        addValueInternal(value);
+        bloomFilterBuilder.addDouble(value);
+    }
+
+    public void addValue(float value)
+    {
+        addValueInternal(value);
+        bloomFilterBuilder.addFloat(value);
+    }
+
+    private void addValueInternal(double value)
     {
         nonNullValueCount++;
         if (Double.isNaN(value)) {
@@ -73,7 +92,7 @@ public class DoubleStatisticsBuilder
 
     private Optional<DoubleStatistics> buildDoubleStatistics()
     {
-        // if there are NaN values we can not say anything about the data
+        // if there are NaN values we cannot say anything about the data
         if (nonNullValueCount == 0 || hasNan) {
             return Optional.empty();
         }
@@ -94,17 +113,18 @@ public class DoubleStatisticsBuilder
                 null,
                 null,
                 null,
-                null);
+                null,
+                bloomFilterBuilder.buildBloomFilter());
     }
 
     public static Optional<DoubleStatistics> mergeDoubleStatistics(List<ColumnStatistics> stats)
     {
-        DoubleStatisticsBuilder doubleStatisticsBuilder = new DoubleStatisticsBuilder();
+        DoubleStatisticsBuilder doubleStatisticsBuilder = new DoubleStatisticsBuilder(new NoOpBloomFilterBuilder());
         for (ColumnStatistics columnStatistics : stats) {
             DoubleStatistics partialStatistics = columnStatistics.getDoubleStatistics();
             if (columnStatistics.getNumberOfValues() > 0) {
                 if (partialStatistics == null) {
-                    // there are non null values but no statistics, so we can not say anything about the data
+                    // there are non null values but no statistics, so we cannot say anything about the data
                     return Optional.empty();
                 }
                 doubleStatisticsBuilder.addDoubleStatistics(columnStatistics.getNumberOfValues(), partialStatistics);

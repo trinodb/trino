@@ -18,6 +18,7 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryIdGenerator
@@ -32,28 +33,28 @@ public class TestQueryIdGenerator
 
         // generate ids to 99,999
         for (int i = 0; i < 100_000; i++) {
-            assertEquals(idGenerator.createNextQueryId(), new QueryId(String.format("20010714_010203_%05d_%s", i, idGenerator.getCoordinatorId())));
+            assertEquals(idGenerator.createNextQueryId(), new QueryId(format("20010714_010203_%05d_%s", i, idGenerator.getCoordinatorId())));
         }
 
         // next id will cause counter to roll, but we need to add a second to the time or code will block for ever
         millis += 1000;
         idGenerator.setNow(millis);
         for (int i = 0; i < 100_000; i++) {
-            assertEquals(idGenerator.createNextQueryId(), new QueryId(String.format("20010714_010204_%05d_%s", i, idGenerator.getCoordinatorId())));
+            assertEquals(idGenerator.createNextQueryId(), new QueryId(format("20010714_010204_%05d_%s", i, idGenerator.getCoordinatorId())));
         }
 
         // more forward one more second and generate 100 ids
         millis += 1000;
         idGenerator.setNow(millis);
         for (int i = 0; i < 100; i++) {
-            assertEquals(idGenerator.createNextQueryId(), new QueryId(String.format("20010714_010205_%05d_%s", i, idGenerator.getCoordinatorId())));
+            assertEquals(idGenerator.createNextQueryId(), new QueryId(format("20010714_010205_%05d_%s", i, idGenerator.getCoordinatorId())));
         }
 
         // now we move to the start of the next day, and the counter should reset
         millis = new DateTime(2001, 7, 15, 0, 0, 0, 0, DateTimeZone.UTC).getMillis();
         idGenerator.setNow(millis);
         for (int i = 0; i < 100_000; i++) {
-            assertEquals(idGenerator.createNextQueryId(), new QueryId(String.format("20010715_000000_%05d_%s", i, idGenerator.getCoordinatorId())));
+            assertEquals(idGenerator.createNextQueryId(), new QueryId(format("20010715_000000_%05d_%s", i, idGenerator.getCoordinatorId())));
         }
     }
 

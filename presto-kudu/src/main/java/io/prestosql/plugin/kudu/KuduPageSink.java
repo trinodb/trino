@@ -14,6 +14,8 @@
 package io.prestosql.plugin.kudu;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
@@ -47,11 +49,14 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.truncateEpochMicrosToMillis;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -73,7 +78,7 @@ public class KuduPageSink
             KuduClientSession clientSession,
             KuduInsertTableHandle tableHandle)
     {
-        this(connectorSession, clientSession, tableHandle, tableHandle);
+        this(connectorSession, clientSession, tableHandle.getTable(clientSession), tableHandle);
     }
 
     public KuduPageSink(
@@ -81,13 +86,13 @@ public class KuduPageSink
             KuduClientSession clientSession,
             KuduOutputTableHandle tableHandle)
     {
-        this(connectorSession, clientSession, tableHandle, tableHandle);
+        this(connectorSession, clientSession, tableHandle.getTable(clientSession), tableHandle);
     }
 
     private KuduPageSink(
             ConnectorSession connectorSession,
             KuduClientSession clientSession,
-            KuduTableHandle tableHandle,
+            KuduTable table,
             KuduTableMapping mapping)
     {
         requireNonNull(clientSession, "clientSession is null");
@@ -96,7 +101,7 @@ public class KuduPageSink
         this.originalColumnTypes = mapping.getOriginalColumnTypes();
         this.generateUUID = mapping.isGenerateUUID();
 
-        this.table = tableHandle.getTable(clientSession);
+        this.table = table;
         this.session = clientSession.newSession();
         this.session.setFlushMode(SessionConfiguration.FlushMode.AUTO_FLUSH_BACKGROUND);
         uuid = UUID.randomUUID().toString();
@@ -110,7 +115,7 @@ public class KuduPageSink
             PartialRow row = upsert.getRow();
             int start = 0;
             if (generateUUID) {
-                String id = String.format("%s-%08x", uuid, nextSubId++);
+                String id = format("%s-%08x", uuid, nextSubId++);
                 row.addString(0, id);
                 start = 1;
             }
@@ -136,23 +141,23 @@ public class KuduPageSink
         if (block.isNull(position)) {
             row.setNull(destChannel);
         }
-        else if (TIMESTAMP.equals(type)) {
-            row.addLong(destChannel, type.getLong(block, position) * 1000);
+        else if (TIMESTAMP_MILLIS.equals(type)) {
+            row.addLong(destChannel, truncateEpochMicrosToMillis(type.getLong(block, position)));
         }
         else if (REAL.equals(type)) {
-            row.addFloat(destChannel, intBitsToFloat((int) type.getLong(block, position)));
+            row.addFloat(destChannel, intBitsToFloat(toIntExact(type.getLong(block, position))));
         }
         else if (BIGINT.equals(type)) {
             row.addLong(destChannel, type.getLong(block, position));
         }
         else if (INTEGER.equals(type)) {
-            row.addInt(destChannel, (int) type.getLong(block, position));
+            row.addInt(destChannel, toIntExact(type.getLong(block, position)));
         }
         else if (SMALLINT.equals(type)) {
-            row.addShort(destChannel, (short) type.getLong(block, position));
+            row.addShort(destChannel, Shorts.checkedCast(type.getLong(block, position)));
         }
         else if (TINYINT.equals(type)) {
-            row.addByte(destChannel, (byte) type.getLong(block, position));
+            row.addByte(destChannel, SignedBytes.checkedCast(type.getLong(block, position)));
         }
         else if (BOOLEAN.equals(type)) {
             row.addBoolean(destChannel, type.getBoolean(block, position));

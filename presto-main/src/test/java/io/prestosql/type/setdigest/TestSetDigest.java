@@ -40,20 +40,17 @@ public class TestSetDigest
 {
     @Test
     public void testIntersectionCardinality()
-            throws Exception
     {
         testIntersectionCardinality(DEFAULT_MAX_HASHES, NUMBER_OF_BUCKETS, DEFAULT_MAX_HASHES, NUMBER_OF_BUCKETS);
     }
 
     @Test
     public void testUnevenIntersectionCardinality()
-            throws Exception
     {
         testIntersectionCardinality(DEFAULT_MAX_HASHES / 4, NUMBER_OF_BUCKETS, DEFAULT_MAX_HASHES, NUMBER_OF_BUCKETS);
     }
 
     private static void testIntersectionCardinality(int maxHashes1, int numBuckets1, int maxHashes2, int numBuckets2)
-            throws Exception
     {
         List<Integer> sizes = new ArrayList<>();
 
@@ -108,13 +105,13 @@ public class TestSetDigest
         ObjectMapper mapper = new ObjectMapperProvider().get();
 
         Slice slice = hashCounts(digest1.serialize());
-        Map<Long, Short> counts = mapper.readValue(slice.toStringUtf8(), new TypeReference<Map<Long, Short>>() {});
+        Map<Long, Short> counts = mapper.readValue(slice.toStringUtf8(), new TypeReference<>() {});
         Set<Short> expected = ImmutableSet.of((short) 1, (short) 2);
         assertEquals(counts.values(), expected);
 
         digest1.mergeWith(digest2);
         slice = hashCounts(digest1.serialize());
-        counts = mapper.readValue(slice.toStringUtf8(), new TypeReference<Map<Long, Short>>() {});
+        counts = mapper.readValue(slice.toStringUtf8(), new TypeReference<>() {});
         expected = ImmutableSet.of((short) 1, (short) 2, (short) 4);
         assertEquals(ImmutableSet.copyOf(counts.values()), expected);
     }

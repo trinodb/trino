@@ -20,19 +20,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 public abstract class Dictionary
 {
-    private final ParquetEncoding encoding;
-
     public Dictionary(ParquetEncoding encoding)
     {
         checkArgument(
                 encoding == ParquetEncoding.PLAIN_DICTIONARY || encoding == ParquetEncoding.PLAIN,
-                " dictionary does not support encoding: %s", encoding);
-        this.encoding = encoding;
-    }
-
-    public ParquetEncoding getEncoding()
-    {
-        return encoding;
+                "Dictionary does not support encoding: %s",
+                encoding);
     }
 
     public Binary decodeToBinary(int id)

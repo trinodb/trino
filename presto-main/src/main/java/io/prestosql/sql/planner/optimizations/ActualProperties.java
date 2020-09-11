@@ -39,7 +39,6 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.transform;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -74,7 +73,7 @@ public class ActualProperties
                 .build();
 
         List<LocalProperty<Symbol>> updatedLocalProperties = LocalProperties.normalizeAndPrune(ImmutableList.<LocalProperty<Symbol>>builder()
-                .addAll(transform(updatedLocalConstants, ConstantProperty::new))
+                .addAll(updatedLocalConstants.stream().map(ConstantProperty::new).iterator())
                 .addAll(localProperties)
                 .build());
 
@@ -290,7 +289,7 @@ public class ActualProperties
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final ActualProperties other = (ActualProperties) obj;
+        ActualProperties other = (ActualProperties) obj;
         return Objects.equals(this.global, other.global)
                 && Objects.equals(this.localProperties, other.localProperties)
                 && Objects.equals(this.constants.keySet(), other.constants.keySet());
@@ -323,8 +322,8 @@ public class ActualProperties
 
         private Global(Optional<Partitioning> nodePartitioning, Optional<Partitioning> streamPartitioning, boolean nullsAndAnyReplicated)
         {
-            checkArgument(!nodePartitioning.isPresent()
-                            || !streamPartitioning.isPresent()
+            checkArgument(nodePartitioning.isEmpty()
+                            || streamPartitioning.isEmpty()
                             || nodePartitioning.get().getColumns().containsAll(streamPartitioning.get().getColumns())
                             || streamPartitioning.get().getColumns().containsAll(nodePartitioning.get().getColumns()),
                     "Global stream partitioning columns should match node partitioning columns");
@@ -393,7 +392,7 @@ public class ActualProperties
          */
         private boolean isSingleNode()
         {
-            if (!nodePartitioning.isPresent()) {
+            if (nodePartitioning.isEmpty()) {
                 return false;
             }
 
@@ -402,7 +401,7 @@ public class ActualProperties
 
         private boolean isCoordinatorOnly()
         {
-            if (!nodePartitioning.isPresent()) {
+            if (nodePartitioning.isEmpty()) {
                 return false;
             }
 
@@ -462,7 +461,7 @@ public class ActualProperties
          */
         private boolean isStreamRepartitionEffective(Collection<Symbol> keys, Set<Symbol> constants)
         {
-            return (!streamPartitioning.isPresent() || streamPartitioning.get().isRepartitionEffective(keys, constants)) && !nullsAndAnyReplicated;
+            return (streamPartitioning.isEmpty() || streamPartitioning.get().isRepartitionEffective(keys, constants)) && !nullsAndAnyReplicated;
         }
 
         private Global translate(Partitioning.Translator translator)
@@ -488,7 +487,7 @@ public class ActualProperties
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-            final Global other = (Global) obj;
+            Global other = (Global) obj;
             return Objects.equals(this.nodePartitioning, other.nodePartitioning) &&
                     Objects.equals(this.streamPartitioning, other.streamPartitioning) &&
                     this.nullsAndAnyReplicated == other.nullsAndAnyReplicated;

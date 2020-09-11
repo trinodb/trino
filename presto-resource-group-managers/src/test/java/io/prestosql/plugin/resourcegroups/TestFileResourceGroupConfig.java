@@ -14,32 +14,38 @@
 package io.prestosql.plugin.resourcegroups;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestFileResourceGroupConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(FileResourceGroupConfig.class)
+        assertRecordedDefaults(recordDefaults(FileResourceGroupConfig.class)
                 .setConfigFile(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path resourceGroupConfigFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("resource-groups.config-file", "/test.json")
+                .put("resource-groups.config-file", resourceGroupConfigFile.toString())
                 .build();
 
         FileResourceGroupConfig expected = new FileResourceGroupConfig()
-                .setConfigFile("/test.json");
+                .setConfigFile(resourceGroupConfigFile.toString());
 
         assertFullMapping(properties, expected);
     }

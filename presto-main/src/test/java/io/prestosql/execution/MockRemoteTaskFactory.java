@@ -25,7 +25,6 @@ import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.prestosql.execution.buffer.LazyOutputBuffer;
@@ -34,11 +33,10 @@ import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.memory.MemoryPool;
 import io.prestosql.memory.QueryContext;
 import io.prestosql.memory.context.SimpleLocalMemoryContext;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
-import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskStats;
-import io.prestosql.spi.Node;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spiller.SpillSpaceTracker;
 import io.prestosql.sql.planner.Partitioning;
@@ -50,7 +48,6 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
-import io.prestosql.testing.TestingMetadata.TestingTableHandle;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -73,7 +70,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
@@ -85,6 +81,7 @@ import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.prestosql.util.Failures.toFailures;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -102,15 +99,15 @@ public class MockRemoteTaskFactory
         this.scheduledExecutor = scheduledExecutor;
     }
 
-    public MockRemoteTask createTableScanTask(TaskId taskId, Node newNode, List<Split> splits, PartitionedSplitCountTracker partitionedSplitCountTracker)
+    public MockRemoteTask createTableScanTask(TaskId taskId, InternalNode newNode, List<Split> splits, PartitionedSplitCountTracker partitionedSplitCountTracker)
     {
         Symbol symbol = new Symbol("column");
         PlanNodeId sourceId = new PlanNodeId("sourceId");
         PlanFragment testFragment = new PlanFragment(
                 new PlanFragmentId("test"),
-                new TableScanNode(
+                TableScanNode.newInstance(
                         sourceId,
-                        new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
+                        TEST_TABLE_HANDLE,
                         ImmutableList.of(symbol),
                         ImmutableMap.of(symbol, new TestingColumnHandle("column"))),
                 ImmutableMap.of(symbol, VARCHAR),
@@ -132,7 +129,7 @@ public class MockRemoteTaskFactory
     public MockRemoteTask createRemoteTask(
             Session session,
             TaskId taskId,
-            Node node,
+            InternalNode node,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OptionalInt totalPartitions,
@@ -170,7 +167,10 @@ public class MockRemoteTaskFactory
 
         private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
-        public MockRemoteTask(TaskId taskId,
+        private boolean isOutputBufferOverUtilized;
+
+        public MockRemoteTask(
+                TaskId taskId,
                 PlanFragment fragment,
                 String nodeId,
                 Executor executor,
@@ -181,16 +181,16 @@ public class MockRemoteTaskFactory
         {
             this.taskStateMachine = new TaskStateMachine(requireNonNull(taskId, "taskId is null"), requireNonNull(executor, "executor is null"));
 
-            MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
-            SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
+            MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE));
+            SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
             QueryContext queryContext = new QueryContext(taskId.getQueryId(),
-                    new DataSize(1, MEGABYTE),
-                    new DataSize(2, MEGABYTE),
+                    DataSize.of(1, MEGABYTE),
+                    DataSize.of(2, MEGABYTE),
                     memoryPool,
                     new TestingGcMonitor(),
                     executor,
                     scheduledExecutor,
-                    new DataSize(1, MEGABYTE),
+                    DataSize.of(1, MEGABYTE),
                     spillSpaceTracker);
             this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, true, true, totalPartitions);
 
@@ -200,7 +200,7 @@ public class MockRemoteTaskFactory
                     taskId,
                     TASK_INSTANCE_ID,
                     executor,
-                    new DataSize(1, BYTE),
+                    DataSize.ofBytes(1),
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"));
 
             this.fragment = requireNonNull(fragment, "fragment is null");
@@ -244,12 +244,14 @@ public class MockRemoteTaskFactory
                             failures,
                             0,
                             0,
-                            false,
-                            new DataSize(0, BYTE),
-                            new DataSize(0, BYTE),
-                            new DataSize(0, BYTE),
+                            isOutputBufferOverUtilized,
+                            DataSize.ofBytes(0),
+                            DataSize.ofBytes(0),
+                            DataSize.ofBytes(0),
+                            DataSize.ofBytes(0),
                             0,
-                            new Duration(0, MILLISECONDS)),
+                            new Duration(0, MILLISECONDS),
+                            ImmutableMap.of()),
                     DateTime.now(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
@@ -271,12 +273,14 @@ public class MockRemoteTaskFactory
                     ImmutableList.of(),
                     stats.getQueuedPartitionedDrivers(),
                     stats.getRunningPartitionedDrivers(),
-                    false,
+                    isOutputBufferOverUtilized,
                     stats.getPhysicalWrittenDataSize(),
                     stats.getUserMemoryReservation(),
                     stats.getSystemMemoryReservation(),
+                    stats.getRevocableMemoryReservation(),
                     0,
-                    new Duration(0, MILLISECONDS));
+                    new Duration(0, MILLISECONDS),
+                    ImmutableMap.of());
         }
 
         private synchronized void updateSplitQueueSpace()
@@ -319,6 +323,11 @@ public class MockRemoteTaskFactory
             runningDrivers = splits.size();
             runningDrivers = Math.min(runningDrivers, maxRunning);
             updateSplitQueueSpace();
+        }
+
+        public synchronized void setOutputBufferOverUtilized(boolean isOutputBufferOverUtilized)
+        {
+            this.isOutputBufferOverUtilized = isOutputBufferOverUtilized;
         }
 
         @Override

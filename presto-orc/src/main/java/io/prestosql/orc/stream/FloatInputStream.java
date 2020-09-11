@@ -16,30 +16,22 @@ package io.prestosql.orc.stream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.orc.checkpoint.FloatStreamCheckpoint;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
 
 import java.io.IOException;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
-import static java.lang.Float.floatToRawIntBits;
 
 public class FloatInputStream
         implements ValueInputStream<FloatStreamCheckpoint>
 {
+    private static final int BUFFER_SIZE = 128;
     private final OrcInputStream input;
-    private final byte[] buffer = new byte[SIZE_OF_FLOAT];
+    private final byte[] buffer = new byte[SIZE_OF_FLOAT * BUFFER_SIZE];
     private final Slice slice = Slices.wrappedBuffer(buffer);
 
     public FloatInputStream(OrcInputStream input)
     {
         this.input = input;
-    }
-
-    @Override
-    public Class<FloatStreamCheckpoint> getCheckpointType()
-    {
-        return FloatStreamCheckpoint.class;
     }
 
     @Override
@@ -64,11 +56,9 @@ public class FloatInputStream
         return slice.getFloat(0);
     }
 
-    public void nextVector(Type type, int items, BlockBuilder builder)
+    public void next(int[] values, int items)
             throws IOException
     {
-        for (int i = 0; i < items; i++) {
-            type.writeLong(builder, floatToRawIntBits(next()));
-        }
+        input.readFully(Slices.wrappedIntArray(values), 0, items * SIZE_OF_FLOAT);
     }
 }

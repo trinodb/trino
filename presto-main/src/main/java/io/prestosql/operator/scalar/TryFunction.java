@@ -13,9 +13,7 @@
  */
 package io.prestosql.operator.scalar;
 
-import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlNullable;
@@ -26,15 +24,18 @@ import io.prestosql.sql.gen.lambda.LambdaFunctionInterface;
 
 import java.util.function.Supplier;
 
+import static io.prestosql.operator.scalar.TryFunction.NAME;
 import static io.prestosql.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 
-@Description("internal try function for desugaring TRY")
-@ScalarFunction(value = "$internal$try", hidden = true, deterministic = false)
+@Description("Internal try function for desugaring TRY")
+@ScalarFunction(value = NAME, hidden = true, deterministic = false)
 public final class TryFunction
 {
+    public static final String NAME = "$internal$try";
+
     private TryFunction() {}
 
     @TypeParameter("T")
@@ -83,25 +84,10 @@ public final class TryFunction
     }
 
     @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = Slice.class)
+    @TypeParameterSpecialization(name = "T", nativeContainerType = Object.class)
     @SqlNullable
     @SqlType("T")
-    public static Slice trySlice(@SqlType("function(T)") TrySliceLambda function)
-    {
-        try {
-            return function.apply();
-        }
-        catch (PrestoException e) {
-            propagateIfUnhandled(e);
-            return null;
-        }
-    }
-
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = Block.class)
-    @SqlNullable
-    @SqlType("T")
-    public static Block tryBlock(@SqlType("function(T)") TryBlockLambda function)
+    public static Object tryObject(@SqlType("function(T)") TryObjectLambda function)
     {
         try {
             return function.apply();
@@ -134,17 +120,10 @@ public final class TryFunction
     }
 
     @FunctionalInterface
-    public interface TrySliceLambda
+    public interface TryObjectLambda
             extends LambdaFunctionInterface
     {
-        Slice apply();
-    }
-
-    @FunctionalInterface
-    public interface TryBlockLambda
-            extends LambdaFunctionInterface
-    {
-        Block apply();
+        Object apply();
     }
 
     public static <T> T evaluate(Supplier<T> supplier, T defaultValue)

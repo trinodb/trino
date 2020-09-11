@@ -41,11 +41,12 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.type.JsonType.JSON;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
@@ -404,19 +405,19 @@ public class TestReadWrite
     {
         public TimestampColumn()
         {
-            super(TIMESTAMP);
+            super(TIMESTAMP_MILLIS);
         }
 
         @Override
         Object extractValue(Block block, int position)
         {
-            return TIMESTAMP.getLong(block, position);
+            return TIMESTAMP_MILLIS.getLong(block, position);
         }
 
         @Override
         void writeNextRandomValue(Random random, BlockBuilder builder)
         {
-            TIMESTAMP.writeLong(builder, nextTimestamp(random));
+            TIMESTAMP_MILLIS.writeLong(builder, nextTimestamp(random));
         }
     }
 
@@ -437,7 +438,8 @@ public class TestReadWrite
         @Override
         void writeNextRandomValue(Random random, BlockBuilder builder)
         {
-            String json = String.format("{\"%s\": %d, \"%s\": \"%s\"}",
+            String json = format(
+                    "{\"%s\": %d, \"%s\": \"%s\"}",
                     nextString(random, MAX_GENERATED_JSON_KEY_LENGTH),
                     random.nextInt(),
                     nextString(random, MAX_GENERATED_JSON_KEY_LENGTH),

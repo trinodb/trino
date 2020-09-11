@@ -18,7 +18,6 @@ import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.connector.CatalogSchemaName;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.RenameSchema;
 import io.prestosql.transaction.TransactionManager;
@@ -28,8 +27,9 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.SCHEMA_ALREADY_EXISTS;
+import static io.prestosql.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
+import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 
 public class RenameSchemaTask
         implements DataDefinitionTask<RenameSchema>
@@ -48,14 +48,14 @@ public class RenameSchemaTask
         CatalogSchemaName target = new CatalogSchemaName(source.getCatalogName(), statement.getTarget().getValue());
 
         if (!metadata.schemaExists(session, source)) {
-            throw new SemanticException(MISSING_SCHEMA, statement, "Schema '%s' does not exist", source);
+            throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", source);
         }
 
         if (metadata.schemaExists(session, target)) {
-            throw new SemanticException(SCHEMA_ALREADY_EXISTS, statement, "Target schema '%s' already exists", target);
+            throw semanticException(SCHEMA_ALREADY_EXISTS, statement, "Target schema '%s' already exists", target);
         }
 
-        accessControl.checkCanRenameSchema(session.getRequiredTransactionId(), session.getIdentity(), source, statement.getTarget().getValue());
+        accessControl.checkCanRenameSchema(session.toSecurityContext(), source, statement.getTarget().getValue());
 
         metadata.renameSchema(session, source, statement.getTarget().getValue());
 

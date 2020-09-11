@@ -15,14 +15,14 @@ package io.prestosql.split;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -42,15 +42,9 @@ public class BufferingSplitSource
     }
 
     @Override
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return source.getConnectorId();
-    }
-
-    @Override
-    public ConnectorTransactionHandle getTransactionHandle()
-    {
-        return source.getTransactionHandle();
+        return source.getCatalogName();
     }
 
     @Override
@@ -70,6 +64,12 @@ public class BufferingSplitSource
     public boolean isFinished()
     {
         return source.isFinished();
+    }
+
+    @Override
+    public Optional<Integer> getMinScheduleSplitBatchSize()
+    {
+        return source.getMinScheduleSplitBatchSize();
     }
 
     private static class GetNextBatch

@@ -19,14 +19,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.FunctionRegistry;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.Partitioning.ArgumentBinding;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
@@ -36,6 +39,7 @@ import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
@@ -43,7 +47,6 @@ import io.prestosql.sql.planner.plan.GroupIdNode;
 import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.IndexJoinNode.EquiJoinClause;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
@@ -63,6 +66,7 @@ import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -78,8 +82,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -88,18 +91,19 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.prestosql.type.TypeUtils.NULL_HASH_CODE;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Stream.concat;
 
 public class HashGenerationOptimizer
         implements PlanOptimizer
 {
     public static final int INITIAL_HASH_VALUE = 0;
-    private static final String HASH_CODE = FunctionRegistry.mangleOperatorName("HASH_CODE");
-    private static final Signature COMBINE_HASH = new Signature(
-            "combine_hash",
-            SCALAR,
-            BIGINT.getTypeSignature(),
-            ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+    private static final String HASH_CODE = mangleOperatorName(OperatorType.HASH_CODE);
+
+    private final Metadata metadata;
+
+    public HashGenerationOptimizer(Metadata metadata)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+    }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
@@ -110,7 +114,7 @@ public class HashGenerationOptimizer
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         if (SystemSessionProperties.isOptimizeHashGenerationEnabled(session)) {
-            PlanWithProperties result = plan.accept(new Rewriter(idAllocator, symbolAllocator, types), new HashComputationSet());
+            PlanWithProperties result = plan.accept(new Rewriter(metadata, idAllocator, symbolAllocator, types), new HashComputationSet());
             return result.getNode();
         }
         return plan;
@@ -119,12 +123,14 @@ public class HashGenerationOptimizer
     private static class Rewriter
             extends PlanVisitor<PlanWithProperties, HashComputationSet>
     {
+        private final Metadata metadata;
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
         private final TypeProvider types;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, TypeProvider types)
+        private Rewriter(Metadata metadata, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, TypeProvider types)
         {
+            this.metadata = requireNonNull(metadata, "metadata is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.types = requireNonNull(types, "types is null");
@@ -152,9 +158,9 @@ public class HashGenerationOptimizer
         }
 
         @Override
-        public PlanWithProperties visitLateralJoin(LateralJoinNode node, HashComputationSet context)
+        public PlanWithProperties visitCorrelatedJoin(CorrelatedJoinNode node, HashComputationSet context)
         {
-            // Lateral join node is not supported by execution, so do not rewrite it
+            // Correlated join node is not supported by execution, so do not rewrite it
             // that way query will fail in sanity checkers
             return new PlanWithProperties(node, ImmutableMap.of());
         }
@@ -228,7 +234,7 @@ public class HashGenerationOptimizer
         {
             // skip hash symbol generation for single bigint
             if (canSkipHashGeneration(node.getDistinctSymbols())) {
-                return planSimpleNodeWithProperties(node, parentPreference);
+                return planSimpleNodeWithProperties(node, parentPreference, false);
             }
 
             Optional<HashComputation> hashComputation = computeHash(node.getDistinctSymbols());
@@ -264,6 +270,7 @@ public class HashGenerationOptimizer
                             node.getId(),
                             child.getNode(),
                             node.getPartitionBy(),
+                            node.isOrderSensitive(),
                             node.getRowNumberSymbol(),
                             node.getMaxRowCountPerPartition(),
                             Optional.of(hashSymbol)),
@@ -351,9 +358,15 @@ public class HashGenerationOptimizer
                             .stream()
                             .filter(entry -> parentPreference.getHashes().contains(entry.getKey()))
                             .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+            Set<Symbol> preferredHashSymbols = ImmutableSet.copyOf(hashSymbolsWithParentPreferences.values());
+            Set<Symbol> leftOutputSymbols = ImmutableSet.copyOf(node.getLeftOutputSymbols());
+            Set<Symbol> rightOutputSymbols = ImmutableSet.copyOf(node.getRightOutputSymbols());
 
-            List<Symbol> outputSymbols = concat(left.getNode().getOutputSymbols().stream(), right.getNode().getOutputSymbols().stream())
-                    .filter(symbol -> node.getOutputSymbols().contains(symbol) || hashSymbolsWithParentPreferences.values().contains(symbol))
+            List<Symbol> newLeftOutputSymbols = left.getNode().getOutputSymbols().stream()
+                    .filter(symbol -> leftOutputSymbols.contains(symbol) || preferredHashSymbols.contains(symbol))
+                    .collect(toImmutableList());
+            List<Symbol> newRightOutputSymbols = right.getNode().getOutputSymbols().stream()
+                    .filter(symbol -> rightOutputSymbols.contains(symbol) || preferredHashSymbols.contains(symbol))
                     .collect(toImmutableList());
 
             return new PlanWithProperties(
@@ -363,11 +376,15 @@ public class HashGenerationOptimizer
                             left.getNode(),
                             right.getNode(),
                             node.getCriteria(),
-                            outputSymbols,
+                            newLeftOutputSymbols,
+                            newRightOutputSymbols,
                             node.getFilter(),
                             leftHashSymbol,
                             rightHashSymbol,
-                            node.getDistributionType()),
+                            node.getDistributionType(),
+                            node.isSpillable(),
+                            node.getDynamicFilters(),
+                            node.getReorderJoinStatsAndCost()),
                     hashSymbolsWithParentPreferences);
         }
 
@@ -397,7 +414,8 @@ public class HashGenerationOptimizer
                             node.getSemiJoinOutput(),
                             Optional.of(sourceHashSymbol),
                             Optional.of(filteringSourceHashSymbol),
-                            node.getDistributionType()),
+                            node.getDistributionType(),
+                            node.getDynamicFilterId()),
                     source.getHashSymbols());
         }
 
@@ -620,13 +638,15 @@ public class HashGenerationOptimizer
                 Expression hashExpression;
                 if (hashSymbol == null) {
                     hashSymbol = symbolAllocator.newHashSymbol();
-                    hashExpression = hashComputation.getHashExpression();
+                    hashExpression = hashComputation.getHashExpression(metadata, types);
                 }
                 else {
                     hashExpression = hashSymbol.toSymbolReference();
                 }
                 newAssignments.put(hashSymbol, hashExpression);
-                allHashSymbols.put(hashComputation, hashSymbol);
+                for (HashComputation sourceHashComputation : sourceContext.lookup(hashComputation)) {
+                    allHashSymbols.put(sourceHashComputation, hashSymbol);
+                }
             }
 
             return new PlanWithProperties(new ProjectNode(node.getId(), child.getNode(), newAssignments.build()), allHashSymbols);
@@ -649,8 +669,10 @@ public class HashGenerationOptimizer
                                     .addAll(node.getReplicateSymbols())
                                     .addAll(hashSymbols.values())
                                     .build(),
-                            node.getUnnestSymbols(),
-                            node.getOrdinalitySymbol()),
+                            node.getMappings(),
+                            node.getOrdinalitySymbol(),
+                            node.getJoinType(),
+                            node.getFilter()),
                     hashSymbols);
         }
 
@@ -733,7 +755,7 @@ public class HashGenerationOptimizer
             // add new projections for hash symbols needed by the parent
             for (HashComputation hashComputation : requiredHashes.getHashes()) {
                 if (!planWithProperties.getHashSymbols().containsKey(hashComputation)) {
-                    Expression hashExpression = hashComputation.getHashExpression();
+                    Expression hashExpression = hashComputation.getHashExpression(metadata, types);
                     Symbol hashSymbol = symbolAllocator.newHashSymbol();
                     assignments.put(hashSymbol, hashExpression);
                     outputHashSymbols.put(hashComputation, hashSymbol);
@@ -757,52 +779,60 @@ public class HashGenerationOptimizer
 
     private static class HashComputationSet
     {
-        private final Set<HashComputation> hashes;
+        private final Multimap<HashComputation, HashComputation> hashes;
 
         public HashComputationSet()
         {
-            hashes = ImmutableSet.of();
+            hashes = ImmutableSetMultimap.of();
         }
 
         public HashComputationSet(Optional<HashComputation> hash)
         {
             requireNonNull(hash, "hash is null");
             if (hash.isPresent()) {
-                this.hashes = ImmutableSet.of(hash.get());
+                this.hashes = ImmutableSetMultimap.of(hash.get(), hash.get());
             }
             else {
-                this.hashes = ImmutableSet.of();
+                this.hashes = ImmutableSetMultimap.of();
             }
         }
 
-        private HashComputationSet(Iterable<HashComputation> hashes)
+        private HashComputationSet(Multimap<HashComputation, HashComputation> hashes)
         {
             requireNonNull(hashes, "hashes is null");
-            this.hashes = ImmutableSet.copyOf(hashes);
+            this.hashes = ImmutableSetMultimap.copyOf(hashes);
         }
 
         public Set<HashComputation> getHashes()
         {
-            return hashes;
+            return hashes.keySet();
         }
 
         public HashComputationSet pruneSymbols(List<Symbol> symbols)
         {
             Set<Symbol> uniqueSymbols = ImmutableSet.copyOf(symbols);
-            return new HashComputationSet(hashes.stream()
+            ImmutableSetMultimap.Builder<HashComputation, HashComputation> builder = ImmutableSetMultimap.builder();
+
+            hashes.keySet().stream()
                     .filter(hash -> hash.canComputeWith(uniqueSymbols))
-                    .collect(toImmutableSet()));
+                    .forEach(hash -> builder.putAll(hash, hashes.get(hash)));
+
+            return new HashComputationSet(builder.build());
         }
 
         public HashComputationSet translate(Function<Symbol, Optional<Symbol>> translator)
         {
-            Set<HashComputation> newHashes = hashes.stream()
-                    .map(hash -> hash.translate(translator))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .collect(toImmutableSet());
+            ImmutableSetMultimap.Builder<HashComputation, HashComputation> builder = ImmutableSetMultimap.builder();
+            for (HashComputation hashComputation : hashes.keySet()) {
+                hashComputation.translate(translator)
+                        .ifPresent(hash -> builder.put(hash, hashComputation));
+            }
+            return new HashComputationSet(builder.build());
+        }
 
-            return new HashComputationSet(newHashes);
+        public Collection<HashComputation> lookup(HashComputation hashComputation)
+        {
+            return hashes.get(hashComputation);
         }
 
         public HashComputationSet withHashComputation(PlanNode node, Optional<HashComputation> hashComputation)
@@ -812,17 +842,17 @@ public class HashGenerationOptimizer
 
         public HashComputationSet withHashComputation(Optional<HashComputation> hashComputation)
         {
-            if (!hashComputation.isPresent()) {
+            if (hashComputation.isEmpty() || hashes.containsKey(hashComputation.get())) {
                 return this;
             }
-            return new HashComputationSet(ImmutableSet.<HashComputation>builder()
-                    .addAll(hashes)
-                    .add(hashComputation.get())
+            return new HashComputationSet(ImmutableSetMultimap.<HashComputation, HashComputation>builder()
+                    .putAll(hashes)
+                    .put(hashComputation.get(), hashComputation.get())
                     .build());
         }
     }
 
-    public static Optional<HashComputation> computeHash(Iterable<Symbol> fields)
+    private static Optional<HashComputation> computeHash(Iterable<Symbol> fields)
     {
         requireNonNull(fields, "fields is null");
         List<Symbol> symbols = ImmutableList.copyOf(fields);
@@ -832,23 +862,26 @@ public class HashGenerationOptimizer
         return Optional.of(new HashComputation(fields));
     }
 
-    public static Optional<Expression> getHashExpression(List<Symbol> symbols)
+    public static Optional<Expression> getHashExpression(Metadata metadata, SymbolAllocator symbolAllocator, List<Symbol> symbols)
     {
         if (symbols.isEmpty()) {
             return Optional.empty();
         }
 
-        Expression result = new LongLiteral(String.valueOf(INITIAL_HASH_VALUE));
+        Expression result = new GenericLiteral(StandardTypes.BIGINT, String.valueOf(INITIAL_HASH_VALUE));
         for (Symbol symbol : symbols) {
-            Expression hashField = new FunctionCall(
-                    QualifiedName.of(HASH_CODE),
-                    Optional.empty(),
-                    false,
-                    ImmutableList.of(new SymbolReference(symbol.getName())));
+            Expression hashField = new FunctionCallBuilder(metadata)
+                    .setName(QualifiedName.of(HASH_CODE))
+                    .addArgument(symbolAllocator.getTypes().get(symbol), new SymbolReference(symbol.getName()))
+                    .build();
 
             hashField = new CoalesceExpression(hashField, new LongLiteral(String.valueOf(NULL_HASH_CODE)));
 
-            result = new FunctionCall(QualifiedName.of("combine_hash"), ImmutableList.of(result, hashField));
+            result = new FunctionCallBuilder(metadata)
+                    .setName(QualifiedName.of("combine_hash"))
+                    .addArgument(BIGINT, result)
+                    .addArgument(BIGINT, hashField)
+                    .build();
         }
         return Optional.of(result);
     }
@@ -861,7 +894,7 @@ public class HashGenerationOptimizer
         {
             requireNonNull(fields, "fields is null");
             this.fields = ImmutableList.copyOf(fields);
-            checkArgument(!this.fields.isEmpty(), "fields can not be empty");
+            checkArgument(!this.fields.isEmpty(), "fields cannot be empty");
         }
 
         public List<Symbol> getFields()
@@ -874,7 +907,7 @@ public class HashGenerationOptimizer
             ImmutableList.Builder<Symbol> newSymbols = ImmutableList.builder();
             for (Symbol field : fields) {
                 Optional<Symbol> newSymbol = translator.apply(field);
-                if (!newSymbol.isPresent()) {
+                if (newSymbol.isEmpty()) {
                     return Optional.empty();
                 }
                 newSymbols.add(newSymbol.get());
@@ -887,24 +920,27 @@ public class HashGenerationOptimizer
             return availableFields.containsAll(fields);
         }
 
-        private Expression getHashExpression()
+        private Expression getHashExpression(Metadata metadata, TypeProvider types)
         {
             Expression hashExpression = new GenericLiteral(StandardTypes.BIGINT, Integer.toString(INITIAL_HASH_VALUE));
             for (Symbol field : fields) {
-                hashExpression = getHashFunctionCall(hashExpression, field);
+                hashExpression = getHashFunctionCall(hashExpression, field, metadata, types);
             }
             return hashExpression;
         }
 
-        private static Expression getHashFunctionCall(Expression previousHashValue, Symbol symbol)
+        private Expression getHashFunctionCall(Expression previousHashValue, Symbol symbol, Metadata metadata, TypeProvider types)
         {
-            FunctionCall functionCall = new FunctionCall(
-                    QualifiedName.of(HASH_CODE),
-                    Optional.empty(),
-                    false,
-                    ImmutableList.of(symbol.toSymbolReference()));
-            List<Expression> arguments = ImmutableList.of(previousHashValue, orNullHashCode(functionCall));
-            return new FunctionCall(QualifiedName.of("combine_hash"), arguments);
+            FunctionCall functionCall = new FunctionCallBuilder(metadata)
+                    .setName(QualifiedName.of(HASH_CODE))
+                    .addArgument(types.get(symbol), symbol.toSymbolReference())
+                    .build();
+
+            return new FunctionCallBuilder(metadata)
+                    .setName(QualifiedName.of("combine_hash"))
+                    .addArgument(BIGINT, previousHashValue)
+                    .addArgument(BIGINT, orNullHashCode(functionCall))
+                    .build();
         }
 
         private static Expression orNullHashCode(Expression expression)

@@ -19,8 +19,6 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
-
 // Layout is <size>:<hll>, where
 //   size: is a short describing the length of the hll bytes
 //   hll: is the serialized hll
@@ -32,7 +30,7 @@ public class HyperLogLogType
     @JsonCreator
     public HyperLogLogType()
     {
-        super(parseTypeSignature(StandardTypes.HYPER_LOG_LOG), Slice.class);
+        super(new TypeSignature(StandardTypes.HYPER_LOG_LOG), Slice.class);
     }
 
     @Override

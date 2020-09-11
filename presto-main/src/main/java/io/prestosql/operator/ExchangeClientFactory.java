@@ -15,9 +15,12 @@ package io.prestosql.operator;
 
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
+import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -30,13 +33,14 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public class ExchangeClientFactory
         implements ExchangeClientSupplier
 {
+    private final NodeInfo nodeInfo;
+    private final DataIntegrityVerification dataIntegrityVerification;
     private final DataSize maxBufferedBytes;
     private final int concurrentRequestMultiplier;
     private final Duration maxErrorDuration;
@@ -49,11 +53,15 @@ public class ExchangeClientFactory
 
     @Inject
     public ExchangeClientFactory(
+            NodeInfo nodeInfo,
+            FeaturesConfig featuresConfig,
             ExchangeClientConfig config,
             @ForExchange HttpClient httpClient,
             @ForExchange ScheduledExecutorService scheduler)
     {
         this(
+                nodeInfo,
+                featuresConfig.getExchangeDataIntegrityVerification(),
                 config.getMaxBufferSize(),
                 config.getMaxResponseSize(),
                 config.getConcurrentRequestMultiplier(),
@@ -65,6 +73,8 @@ public class ExchangeClientFactory
     }
 
     public ExchangeClientFactory(
+            NodeInfo nodeInfo,
+            DataIntegrityVerification dataIntegrityVerification,
             DataSize maxBufferedBytes,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
@@ -74,6 +84,8 @@ public class ExchangeClientFactory
             HttpClient httpClient,
             ScheduledExecutorService scheduler)
     {
+        this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
+        this.dataIntegrityVerification = requireNonNull(dataIntegrityVerification, "dataIntegrityVerification is null");
         this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
@@ -84,7 +96,7 @@ public class ExchangeClientFactory
         // TODO figure out a better way to compute the size of data that will be transferred over the network
         requireNonNull(maxResponseSize, "maxResponseSize is null");
         long maxResponseSizeBytes = (long) (Math.min(httpClient.getMaxContentLength(), maxResponseSize.toBytes()) * 0.75);
-        this.maxResponseSize = new DataSize(maxResponseSizeBytes, BYTE);
+        this.maxResponseSize = DataSize.ofBytes(maxResponseSizeBytes);
 
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
 
@@ -113,6 +125,8 @@ public class ExchangeClientFactory
     public ExchangeClient get(LocalMemoryContext systemMemoryContext)
     {
         return new ExchangeClient(
+                nodeInfo.getExternalAddress(),
+                dataIntegrityVerification,
                 maxBufferedBytes,
                 maxResponseSize,
                 concurrentRequestMultiplier,

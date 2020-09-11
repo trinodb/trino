@@ -13,14 +13,14 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.tree.QualifiedName;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -34,19 +34,20 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertLessThan;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestApproximateCountDistinct
 {
-    public abstract InternalAggregationFunction getAggregationFunction();
+    protected abstract Type getValueType();
 
-    public abstract Type getValueType();
+    protected abstract Object randomValue();
 
-    public abstract Object randomValue();
-
-    protected static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    protected static final Metadata metadata = createTestMetadataManager();
 
     protected int getUniqueValuesCount()
     {
@@ -154,6 +155,12 @@ public abstract class AbstractTestApproximateCountDistinct
         return (long) result;
     }
 
+    private InternalAggregationFunction getAggregationFunction()
+    {
+        return metadata.getAggregateFunctionImplementation(
+                metadata.resolveFunction(QualifiedName.of("approx_distinct"), fromTypes(getValueType(), DOUBLE)));
+    }
+
     private Page createPage(List<?> values, double maxStandardError)
     {
         if (values.isEmpty()) {
@@ -192,7 +199,7 @@ public abstract class AbstractTestApproximateCountDistinct
                 type.writeSlice(blockBuilder, slice, 0, slice.length());
             }
             else {
-                throw new UnsupportedOperationException("not yet implemented: " + javaType);
+                type.writeObject(blockBuilder, value);
             }
         }
 
@@ -201,7 +208,7 @@ public abstract class AbstractTestApproximateCountDistinct
 
     private List<Object> createRandomSample(int uniques, int total)
     {
-        Preconditions.checkArgument(uniques <= total, "uniques (%s) must be <= total (%s)", uniques, total);
+        checkArgument(uniques <= total, "uniques (%s) must be <= total (%s)", uniques, total);
 
         List<Object> result = new ArrayList<>(total);
         result.addAll(makeRandomSet(uniques));

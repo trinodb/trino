@@ -19,7 +19,6 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.MetadataUtil;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.RevokeRoles;
 import io.prestosql.transaction.TransactionManager;
@@ -32,10 +31,11 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.metadata.MetadataUtil.createCatalogName;
 import static io.prestosql.metadata.MetadataUtil.createPrincipal;
+import static io.prestosql.metadata.MetadataUtil.getSessionCatalog;
+import static io.prestosql.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ROLE;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 
 public class RevokeRolesTask
         implements DataDefinitionTask<RevokeRoles>
@@ -55,9 +55,9 @@ public class RevokeRolesTask
         Set<PrestoPrincipal> grantees = statement.getGrantees().stream()
                 .map(MetadataUtil::createPrincipal)
                 .collect(toImmutableSet());
-        boolean adminOptionFor = statement.isAdminOptionFor();
+        boolean adminOption = statement.isAdminOption();
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
-        String catalog = createCatalogName(session, statement);
+        String catalog = getSessionCatalog(metadata, session, statement);
 
         Set<String> availableRoles = metadata.listRoles(session, catalog);
         Set<String> specifiedRoles = new LinkedHashSet<>();
@@ -72,12 +72,12 @@ public class RevokeRolesTask
 
         for (String role : specifiedRoles) {
             if (!availableRoles.contains(role)) {
-                throw new SemanticException(MISSING_ROLE, statement, "Role '%s' does not exist", role);
+                throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", role);
             }
         }
 
-        accessControl.checkCanRevokeRoles(session.getRequiredTransactionId(), session.getIdentity(), roles, grantees, adminOptionFor, grantor, catalog);
-        metadata.revokeRoles(session, roles, grantees, adminOptionFor, grantor, catalog);
+        accessControl.checkCanRevokeRoles(session.toSecurityContext(), roles, grantees, adminOption, grantor, catalog);
+        metadata.revokeRoles(session, roles, grantees, adminOption, grantor, catalog);
 
         return immediateFuture(null);
     }

@@ -90,7 +90,7 @@ public class HashBuilderOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            requireNonNull(sortChannel, "sortChannel can not be null");
+            requireNonNull(sortChannel, "sortChannel cannot be null");
             requireNonNull(searchFunctionFactories, "searchFunctionFactories is null");
             checkArgument(sortChannel.isPresent() != searchFunctionFactories.isEmpty(), "both or none sortChannel and searchFunctionFactories must be set");
             this.lookupSourceFactoryManager = requireNonNull(lookupSourceFactoryManager, "lookupSourceFactoryManager is null");
@@ -142,7 +142,7 @@ public class HashBuilderOperator
         @Override
         public OperatorFactory duplicate()
         {
-            throw new UnsupportedOperationException("Parallel hash build can not be duplicated");
+            throw new UnsupportedOperationException("Parallel hash build cannot be duplicated");
         }
 
         private int getAndIncrementPartitionIndex(Lifespan lifespan)
@@ -379,7 +379,7 @@ public class HashBuilderOperator
             });
             return spillIndex();
         }
-        else if (state == State.LOOKUP_SOURCE_BUILT) {
+        if (state == State.LOOKUP_SOURCE_BUILT) {
             finishMemoryRevoke = Optional.of(() -> {
                 lookupSourceFactory.setPartitionSpilledLookupSourceHandle(partitionIndex, spilledLookupSourceHandle);
                 lookupSourceNotNeeded = Optional.empty();
@@ -392,18 +392,18 @@ public class HashBuilderOperator
             });
             return spillIndex();
         }
-        else if (operatorContext.getReservedRevocableBytes() == 0) {
+        if (operatorContext.getReservedRevocableBytes() == 0) {
             // Probably stale revoking request
             finishMemoryRevoke = Optional.of(() -> {});
             return immediateFuture(null);
         }
 
-        throw new IllegalStateException(format("State %s can not have revocable memory, but has %s revocable bytes", state, operatorContext.getReservedRevocableBytes()));
+        throw new IllegalStateException(format("State %s cannot have revocable memory, but has %s revocable bytes", state, operatorContext.getReservedRevocableBytes()));
     }
 
     private ListenableFuture<?> spillIndex()
     {
-        checkState(!spiller.isPresent(), "Spiller already created");
+        checkState(spiller.isEmpty(), "Spiller already created");
         spiller = Optional.of(singleStreamSpillerFactory.create(
                 index.getTypes(),
                 operatorContext.getSpillContext().newLocalSpillContext(),
@@ -530,7 +530,7 @@ public class HashBuilderOperator
         }
 
         verify(spiller.isPresent());
-        verify(!unspillInProgress.isPresent());
+        verify(unspillInProgress.isEmpty());
 
         localUserMemoryContext.setBytes(getSpiller().getSpilledPagesInMemorySize() + index.getEstimatedSize().toBytes());
         unspillInProgress = Optional.of(getSpiller().getAllSpilledPages());

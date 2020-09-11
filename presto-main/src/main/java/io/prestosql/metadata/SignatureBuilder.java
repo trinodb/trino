@@ -19,8 +19,7 @@ import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
 
-import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.FunctionRegistry.mangleOperatorName;
+import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -28,7 +27,6 @@ import static java.util.Objects.requireNonNull;
 public final class SignatureBuilder
 {
     private String name;
-    private FunctionKind kind;
     private List<TypeVariableConstraint> typeVariableConstraints = emptyList();
     private List<LongVariableConstraint> longVariableConstraints = emptyList();
     private TypeSignature returnType;
@@ -43,16 +41,9 @@ public final class SignatureBuilder
         return this;
     }
 
-    public SignatureBuilder kind(FunctionKind kind)
-    {
-        this.kind = kind;
-        return this;
-    }
-
     public SignatureBuilder operatorType(OperatorType operatorType)
     {
         this.name = mangleOperatorName(requireNonNull(operatorType, "operatorType is null"));
-        this.kind = SCALAR;
         return this;
     }
 
@@ -103,6 +94,6 @@ public final class SignatureBuilder
 
     public Signature build()
     {
-        return new Signature(name, kind, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
+        return new Signature(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
     }
 }

@@ -36,9 +36,9 @@ public class ArrayBlockBuilder
     private int positionCount;
 
     @Nullable
-    private BlockBuilderStatus blockBuilderStatus;
+    private final BlockBuilderStatus blockBuilderStatus;
     private boolean initialized;
-    private int initialEntryCount;
+    private final int initialEntryCount;
 
     private int[] offsets = new int[1];
     private boolean[] valueIsNull = new boolean[0];

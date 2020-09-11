@@ -15,14 +15,17 @@ package io.prestosql.tests;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.spi.type.Type;
+import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.TestingAccessControlManager;
+import io.prestosql.testing.PlanDeterminismChecker;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.TestingAccessControlManager.TestingPrivilege;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -38,11 +41,6 @@ public class TestQueryPlanDeterminism
 {
     private PlanDeterminismChecker determinismChecker;
 
-    protected TestQueryPlanDeterminism()
-    {
-        super(TestQueryPlanDeterminism::createLocalQueryRunner);
-    }
-
     @BeforeClass
     public void setUp()
     {
@@ -55,14 +53,17 @@ public class TestQueryPlanDeterminism
         determinismChecker = null;
     }
 
-    private static LocalQueryRunner createLocalQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
         Session defaultSession = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
+        LocalQueryRunner localQueryRunner = LocalQueryRunner.builder(defaultSession)
+                .withDefaultSessionProperties(ImmutableMap.of(TESTING_CATALOG, TEST_CATALOG_PROPERTIES))
+                .build();
 
         // add the tpch catalog
         // local queries run directly against the generator
@@ -75,7 +76,6 @@ public class TestQueryPlanDeterminism
 
         SessionPropertyManager sessionPropertyManager = localQueryRunner.getMetadata().getSessionPropertyManager();
         sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
-        sessionPropertyManager.addConnectorSessionProperties(new ConnectorId(TESTING_CATALOG), TEST_CATALOG_PROPERTIES);
 
         return localQueryRunner;
     }
@@ -107,7 +107,7 @@ public class TestQueryPlanDeterminism
     }
 
     @Override
-    public void assertQueryOrdered(@Language("SQL") String sql)
+    protected void assertQueryOrdered(@Language("SQL") String sql)
     {
         determinismChecker.checkPlanIsDeterministic(sql);
     }
@@ -185,22 +185,22 @@ public class TestQueryPlanDeterminism
     }
 
     @Override
-    protected void assertAccessAllowed(@Language("SQL") String sql, TestingAccessControlManager.TestingPrivilege... deniedPrivileges)
+    protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
     {
     }
 
     @Override
-    protected void assertAccessAllowed(Session session, @Language("SQL") String sql, TestingAccessControlManager.TestingPrivilege... deniedPrivileges)
+    protected void assertAccessAllowed(Session session, @Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
     {
     }
 
     @Override
-    protected void assertAccessDenied(@Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingAccessControlManager.TestingPrivilege... deniedPrivileges)
+    protected void assertAccessDenied(@Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingPrivilege... deniedPrivileges)
     {
     }
 
     @Override
-    protected void assertAccessDenied(Session session, @Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingAccessControlManager.TestingPrivilege... deniedPrivileges)
+    protected void assertAccessDenied(Session session, @Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingPrivilege... deniedPrivileges)
     {
     }
 
@@ -268,5 +268,12 @@ public class TestQueryPlanDeterminism
                 "    (SELECT avg(j.quantity)\n" +
                 "     FROM lineitem j\n" +
                 "    )\n");
+    }
+
+    @Override
+    public void testLargeIn()
+    {
+        // testLargeIn is expensive
+        throw new SkipException("Skipping testLargeIn");
     }
 }

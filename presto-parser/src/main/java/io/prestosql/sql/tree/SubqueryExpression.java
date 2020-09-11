@@ -76,4 +76,10 @@ public class SubqueryExpression
     {
         return query.hashCode();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

@@ -19,6 +19,7 @@ import io.airlift.configuration.ConfigDescription;
 public class JdbcMetadataConfig
 {
     private boolean allowDropTable;
+    private boolean allowAggregationPushdown = true;
 
     public boolean isAllowDropTable()
     {
@@ -30,6 +31,19 @@ public class JdbcMetadataConfig
     public JdbcMetadataConfig setAllowDropTable(boolean allowDropTable)
     {
         this.allowDropTable = allowDropTable;
+        return this;
+    }
+
+    public boolean isAllowAggregationPushdown()
+    {
+        return allowAggregationPushdown;
+    }
+
+    @Config("allow-aggregation-pushdown")
+    @ConfigDescription("Allow aggregation pushdown")
+    public JdbcMetadataConfig setAllowAggregationPushdown(boolean allowAggregationPushdown)
+    {
+        this.allowAggregationPushdown = allowAggregationPushdown;
         return this;
     }
 }

@@ -20,6 +20,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern.Ordering;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.TopNNode;
+import io.prestosql.sql.planner.plan.TopNNode.Step;
 
 import java.util.List;
 
@@ -35,11 +36,13 @@ public class TopNMatcher
 {
     private final long count;
     private final List<Ordering> orderBy;
+    private final Step step;
 
-    public TopNMatcher(long count, List<Ordering> orderBy)
+    public TopNMatcher(long count, List<Ordering> orderBy, Step step)
     {
         this.count = count;
         this.orderBy = ImmutableList.copyOf(requireNonNull(orderBy, "orderBy is null"));
+        this.step = requireNonNull(step, "step is null");
     }
 
     @Override
@@ -62,6 +65,10 @@ public class TopNMatcher
             return NO_MATCH;
         }
 
+        if (topNNode.getStep() != step) {
+            return NO_MATCH;
+        }
+
         return match();
     }
 
@@ -71,6 +78,7 @@ public class TopNMatcher
         return toStringHelper(this)
                 .add("count", count)
                 .add("orderBy", orderBy)
+                .add("step", step)
                 .toString();
     }
 }

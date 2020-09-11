@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.sql.parser.SqlParser;
@@ -25,15 +24,19 @@ import io.prestosql.sql.rewrite.StatementRewrite;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GroupingOperation;
+import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.Parameter;
 import io.prestosql.sql.tree.Statement;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static io.prestosql.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
 
 public class Analyzer
@@ -44,14 +47,17 @@ public class Analyzer
     private final Session session;
     private final Optional<QueryExplainer> queryExplainer;
     private final List<Expression> parameters;
+    private final Map<NodeRef<Parameter>, Expression> parameterLookup;
     private final WarningCollector warningCollector;
 
-    public Analyzer(Session session,
+    public Analyzer(
+            Session session,
             Metadata metadata,
             SqlParser sqlParser,
             AccessControl accessControl,
             Optional<QueryExplainer> queryExplainer,
             List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector)
     {
         this.session = requireNonNull(session, "session is null");
@@ -60,6 +66,7 @@ public class Analyzer
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.queryExplainer = requireNonNull(queryExplainer, "query explainer is null");
         this.parameters = parameters;
+        this.parameterLookup = parameterLookup;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
@@ -70,25 +77,24 @@ public class Analyzer
 
     public Analysis analyze(Statement statement, boolean isDescribe)
     {
-        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, accessControl, warningCollector);
-        Analysis analysis = new Analysis(rewrittenStatement, parameters, isDescribe);
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
+        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector);
+        Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
         analyzer.analyze(rewrittenStatement, Optional.empty());
 
         // check column access permissions for each table
         analysis.getTableColumnReferences().forEach((accessControlInfo, tableColumnReferences) ->
                 tableColumnReferences.forEach((tableName, columns) ->
                         accessControlInfo.getAccessControl().checkCanSelectFromColumns(
-                                session.getRequiredTransactionId(),
-                                accessControlInfo.getIdentity(),
+                                accessControlInfo.getSecurityContext(session.getRequiredTransactionId(), session.getQueryId()),
                                 tableName,
                                 columns)));
         return analysis;
     }
 
-    static void verifyNoAggregateWindowOrGroupingFunctions(FunctionRegistry functionRegistry, Expression predicate, String clause)
+    static void verifyNoAggregateWindowOrGroupingFunctions(Metadata metadata, Expression predicate, String clause)
     {
-        List<FunctionCall> aggregates = extractAggregateFunctions(ImmutableList.of(predicate), functionRegistry);
+        List<FunctionCall> aggregates = extractAggregateFunctions(ImmutableList.of(predicate), metadata);
 
         List<FunctionCall> windowExpressions = extractWindowFunctions(ImmutableList.of(predicate));
 
@@ -100,7 +106,7 @@ public class Analyzer
                 groupingOperations));
 
         if (!found.isEmpty()) {
-            throw new SemanticException(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, predicate, "%s cannot contain aggregations, window functions or grouping operations: %s", clause, found);
+            throw semanticException(EXPRESSION_NOT_SCALAR, predicate, "%s cannot contain aggregations, window functions or grouping operations: %s", clause, found);
         }
     }
 }

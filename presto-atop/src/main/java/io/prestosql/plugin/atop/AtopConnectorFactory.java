@@ -16,6 +16,7 @@ package io.prestosql.plugin.atop;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.prestosql.plugin.atop.AtopConnectorConfig.AtopSecurity;
 import io.prestosql.plugin.base.security.AllowAllAccessControlModule;
 import io.prestosql.plugin.base.security.FileBasedAccessControlModule;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
@@ -26,10 +27,7 @@ import io.prestosql.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
-import static io.prestosql.plugin.atop.AtopConnectorConfig.SECURITY_FILE;
-import static io.prestosql.plugin.atop.AtopConnectorConfig.SECURITY_NONE;
 import static java.util.Objects.requireNonNull;
 
 public class AtopConnectorFactory
@@ -71,13 +69,13 @@ public class AtopConnectorFactory
                             catalogName),
                     installModuleIf(
                             AtopConnectorConfig.class,
-                            config -> config.getSecurity().equalsIgnoreCase(SECURITY_NONE),
+                            config -> config.getSecurity() == AtopSecurity.NONE,
                             new AllowAllAccessControlModule()),
                     installModuleIf(
                             AtopConnectorConfig.class,
-                            config -> config.getSecurity().equalsIgnoreCase(SECURITY_FILE),
+                            config -> config.getSecurity() == AtopSecurity.FILE,
                             binder -> {
-                                binder.install(new FileBasedAccessControlModule());
+                                binder.install(new FileBasedAccessControlModule(catalogName));
                                 binder.install(new JsonModule());
                             }));
 
@@ -88,10 +86,6 @@ public class AtopConnectorFactory
                     .initialize();
 
             return injector.getInstance(AtopConnector.class);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
         }
     }
 }

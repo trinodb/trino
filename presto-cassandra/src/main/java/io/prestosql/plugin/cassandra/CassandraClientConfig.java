@@ -22,14 +22,17 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
 
+import javax.annotation.Nullable;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -39,7 +42,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({"cassandra.thrift-port", "cassandra.partitioner", "cassandra.thrift-connection-factory-class", "cassandra.transport-factory-options",
         "cassandra.no-host-available-retry-count", "cassandra.max-schema-refresh-threads", "cassandra.schema-cache-ttl",
-        "cassandra.schema-refresh-interval"})
+        "cassandra.schema-refresh-interval", "cassandra.load-policy.use-white-list", "cassandra.load-policy.white-list.addresses"})
 public class CassandraClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
@@ -64,12 +67,16 @@ public class CassandraClientConfig
     private boolean dcAwareAllowRemoteDCsForLocal;
     private boolean useTokenAware;
     private boolean tokenAwareShuffleReplicas;
-    private boolean useWhiteList;
-    private List<String> whiteListAddresses = ImmutableList.of();
+    private List<String> allowedAddresses = ImmutableList.of();
     private Duration noHostAvailableRetryTimeout = new Duration(1, MINUTES);
     private int speculativeExecutionLimit = 1;
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
-    private ProtocolVersion protocolVersion = ProtocolVersion.V3;
+    private ProtocolVersion protocolVersion;
+    private boolean tlsEnabled;
+    private File keystorePath;
+    private String keystorePassword;
+    private File truststorePath;
+    private String truststorePassword;
 
     @NotNull
     @Size(min = 1)
@@ -174,7 +181,7 @@ public class CassandraClientConfig
     }
 
     @Config("cassandra.allow-drop-table")
-    @ConfigDescription("Allow hive connector to drop table")
+    @ConfigDescription("Allow Cassandra connector to drop table")
     public CassandraClientConfig setAllowDropTable(boolean allowDropTable)
     {
         this.allowDropTable = allowDropTable;
@@ -333,28 +340,16 @@ public class CassandraClientConfig
         return this;
     }
 
-    public boolean isUseWhiteList()
+    @Config("cassandra.load-policy.allowed-addresses")
+    public CassandraClientConfig setAllowedAddresses(String allowedAddresses)
     {
-        return this.useWhiteList;
-    }
-
-    @Config("cassandra.load-policy.use-white-list")
-    public CassandraClientConfig setUseWhiteList(boolean useWhiteList)
-    {
-        this.useWhiteList = useWhiteList;
+        this.allowedAddresses = SPLITTER.splitToList(allowedAddresses);
         return this;
     }
 
-    public List<String> getWhiteListAddresses()
+    public List<String> getAllowedAddresses()
     {
-        return whiteListAddresses;
-    }
-
-    @Config("cassandra.load-policy.white-list.addresses")
-    public CassandraClientConfig setWhiteListAddresses(String commaSeparatedList)
-    {
-        this.whiteListAddresses = SPLITTER.splitToList(commaSeparatedList);
-        return this;
+        return allowedAddresses;
     }
 
     @NotNull
@@ -396,6 +391,7 @@ public class CassandraClientConfig
         return this;
     }
 
+    @Nullable
     public ProtocolVersion getProtocolVersion()
     {
         return protocolVersion;
@@ -405,6 +401,68 @@ public class CassandraClientConfig
     public CassandraClientConfig setProtocolVersion(ProtocolVersion version)
     {
         this.protocolVersion = version;
+        return this;
+    }
+
+    public boolean isTlsEnabled()
+    {
+        return tlsEnabled;
+    }
+
+    @Config("cassandra.tls.enabled")
+    public CassandraClientConfig setTlsEnabled(boolean tlsEnabled)
+    {
+        this.tlsEnabled = tlsEnabled;
+        return this;
+    }
+
+    public Optional<@FileExists File> getKeystorePath()
+    {
+        return Optional.ofNullable(keystorePath);
+    }
+
+    @Config("cassandra.tls.keystore-path")
+    public CassandraClientConfig setKeystorePath(File keystorePath)
+    {
+        this.keystorePath = keystorePath;
+        return this;
+    }
+
+    public Optional<String> getKeystorePassword()
+    {
+        return Optional.ofNullable(keystorePassword);
+    }
+
+    @Config("cassandra.tls.keystore-password")
+    @ConfigSecuritySensitive
+    public CassandraClientConfig setKeystorePassword(String keystorePassword)
+    {
+        this.keystorePassword = keystorePassword;
+        return this;
+    }
+
+    public Optional<@FileExists File> getTruststorePath()
+    {
+        return Optional.ofNullable(truststorePath);
+    }
+
+    @Config("cassandra.tls.truststore-path")
+    public CassandraClientConfig setTruststorePath(File truststorePath)
+    {
+        this.truststorePath = truststorePath;
+        return this;
+    }
+
+    public Optional<String> getTruststorePassword()
+    {
+        return Optional.ofNullable(truststorePassword);
+    }
+
+    @Config("cassandra.tls.truststore-password")
+    @ConfigSecuritySensitive
+    public CassandraClientConfig setTruststorePassword(String truststorePassword)
+    {
+        this.truststorePassword = truststorePassword;
         return this;
     }
 }

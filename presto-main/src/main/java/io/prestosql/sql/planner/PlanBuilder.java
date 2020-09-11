@@ -15,53 +15,57 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.analyzer.Analysis;
+import io.prestosql.sql.analyzer.Scope;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.LambdaArgumentDeclaration;
+import io.prestosql.sql.tree.NodeRef;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 
+import static io.prestosql.sql.planner.ScopeAware.scopeAwareKey;
 import static java.util.Objects.requireNonNull;
 
 class PlanBuilder
 {
     private final TranslationMap translations;
-    private final List<Expression> parameters;
     private final PlanNode root;
 
-    public PlanBuilder(TranslationMap translations, PlanNode root, List<Expression> parameters)
+    public PlanBuilder(TranslationMap translations, PlanNode root)
     {
         requireNonNull(translations, "translations is null");
         requireNonNull(root, "root is null");
-        requireNonNull(parameters, "parameterRewriter is null");
 
         this.translations = translations;
         this.root = root;
-        this.parameters = parameters;
     }
 
-    public TranslationMap copyTranslations()
+    public static PlanBuilder newPlanBuilder(RelationPlan plan, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments)
     {
-        TranslationMap translations = new TranslationMap(getRelationPlan(), getAnalysis(), getTranslations().getLambdaDeclarationToSymbolMap());
-        translations.copyMappingsFrom(getTranslations());
-        return translations;
+        return newPlanBuilder(plan, analysis, lambdaArguments, ImmutableMap.of());
     }
 
-    private Analysis getAnalysis()
+    public static PlanBuilder newPlanBuilder(RelationPlan plan, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, Map<ScopeAware<Expression>, Symbol> mappings)
     {
-        return translations.getAnalysis();
+        return new PlanBuilder(
+                new TranslationMap(plan.getOuterContext(), plan.getScope(), analysis, lambdaArguments, plan.getFieldMappings(), mappings),
+                plan.getRoot());
     }
 
     public PlanBuilder withNewRoot(PlanNode root)
     {
-        return new PlanBuilder(translations, root, parameters);
+        return new PlanBuilder(translations, root);
     }
 
-    public RelationPlan getRelationPlan()
+    public PlanBuilder withScope(Scope scope, List<Symbol> fields)
     {
-        return translations.getRelationPlan();
+        return new PlanBuilder(translations.withScope(scope, fields), root);
     }
 
     public PlanNode getRoot()
@@ -71,12 +75,12 @@ class PlanBuilder
 
     public boolean canTranslate(Expression expression)
     {
-        return translations.containsSymbol(expression);
+        return translations.canTranslate(expression);
     }
 
     public Symbol translate(Expression expression)
     {
-        return translations.get(expression);
+        return Symbol.from(translations.rewrite(expression));
     }
 
     public Expression rewrite(Expression expression)
@@ -89,28 +93,40 @@ class PlanBuilder
         return translations;
     }
 
+    public Scope getScope()
+    {
+        return translations.getScope();
+    }
+
     public PlanBuilder appendProjections(Iterable<Expression> expressions, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        TranslationMap translations = copyTranslations();
+        return appendProjections(expressions, symbolAllocator, idAllocator, TranslationMap::rewrite, TranslationMap::canTranslate);
+    }
 
+    public <T extends Expression> PlanBuilder appendProjections(
+            Iterable<T> expressions,
+            SymbolAllocator symbolAllocator,
+            PlanNodeIdAllocator idAllocator,
+            BiFunction<TranslationMap, T, Expression> rewriter,
+            BiPredicate<TranslationMap, T> alreadyHasTranslation)
+    {
         Assignments.Builder projections = Assignments.builder();
 
         // add an identity projection for underlying plan
-        for (Symbol symbol : getRoot().getOutputSymbols()) {
-            projections.put(symbol, symbol.toSymbolReference());
+        projections.putIdentities(root.getOutputSymbols());
+
+        Map<ScopeAware<Expression>, Symbol> mappings = new HashMap<>();
+        for (T expression : expressions) {
+            // Skip any expressions that have already been translated and recorded in the translation map, or that are duplicated in the list of exp
+            if (!mappings.containsKey(scopeAwareKey(expression, translations.getAnalysis(), translations.getScope())) && !alreadyHasTranslation.test(translations, expression)) {
+                Symbol symbol = symbolAllocator.newSymbol(expression, translations.getAnalysis().getType(expression));
+                projections.put(symbol, rewriter.apply(translations, expression));
+                mappings.put(scopeAwareKey(expression, translations.getAnalysis(), translations.getScope()), symbol);
+            }
         }
 
-        ImmutableMap.Builder<Symbol, Expression> newTranslations = ImmutableMap.builder();
-        for (Expression expression : expressions) {
-            Symbol symbol = symbolAllocator.newSymbol(expression, getAnalysis().getTypeWithCoercions(expression));
-            projections.put(symbol, translations.rewrite(expression));
-            newTranslations.put(symbol, expression);
-        }
-        // Now append the new translations into the TranslationMap
-        for (Map.Entry<Symbol, Expression> entry : newTranslations.build().entrySet()) {
-            translations.put(entry.getValue(), entry.getKey());
-        }
-
-        return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), getRoot(), projections.build()), parameters);
+        return new PlanBuilder(
+                getTranslations().withAdditionalMappings(mappings),
+                new ProjectNode(idAllocator.getNextId(), root, projections.build()));
     }
 }

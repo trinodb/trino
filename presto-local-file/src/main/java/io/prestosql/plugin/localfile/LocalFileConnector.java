@@ -14,7 +14,6 @@
 package io.prestosql.plugin.localfile;
 
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
@@ -31,8 +30,6 @@ import static java.util.Objects.requireNonNull;
 public class LocalFileConnector
         implements Connector
 {
-    private static final Logger log = Logger.get(LocalFileConnector.class);
-
     private final LifeCycleManager lifeCycleManager;
     private final LocalFileMetadata metadata;
     private final LocalFileSplitManager splitManager;
@@ -45,7 +42,7 @@ public class LocalFileConnector
             LocalFileSplitManager splitManager,
             LocalFileRecordSetProvider recordSetProvider)
     {
-        this.recordSetProvider = recordSetProvider;
+        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -79,11 +76,6 @@ public class LocalFileConnector
     @Override
     public final void shutdown()
     {
-        try {
-            lifeCycleManager.stop();
-        }
-        catch (Exception e) {
-            log.error(e, "Error shutting down connector");
-        }
+        lifeCycleManager.stop();
     }
 }

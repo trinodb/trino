@@ -16,33 +16,47 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.plugin.hive.HiveColumnHandle.ColumnType;
 import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.TestingTypeManager;
+import io.prestosql.spi.type.Type;
+import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
-import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
+import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveSplit
 {
-    private final JsonCodec<HiveSplit> codec = JsonCodec.jsonCodec(HiveSplit.class);
-
     @Test
     public void testJsonRoundTrip()
     {
+        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new HiveModule.TypeDeserializer(new TestingTypeManager())));
+        JsonCodec<HiveSplit> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(HiveSplit.class);
+
         Properties schema = new Properties();
         schema.setProperty("foo", "bar");
         schema.setProperty("bar", "baz");
 
         ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", "apple"), new HivePartitionKey("b", "42"));
         ImmutableList<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));
+
+        AcidInfo.Builder acidInfoBuilder = AcidInfo.builder(new Path("file:///data/fullacid"));
+        acidInfoBuilder.addDeleteDelta(new Path("file:///data/fullacid/delete_delta_0000004_0000004_0000"));
+        acidInfoBuilder.addDeleteDelta(new Path("file:///data/fullacid/delete_delta_0000007_0000007_0000"));
+        AcidInfo acidInfo = acidInfoBuilder.build().get();
+
         HiveSplit expected = new HiveSplit(
                 "db",
                 "table",
@@ -51,18 +65,20 @@ public class TestHiveSplit
                 42,
                 87,
                 88,
+                Instant.now().toEpochMilli(),
                 schema,
                 partitionKeys,
                 addresses,
                 OptionalInt.empty(),
                 true,
-                TupleDomain.all(),
-                ImmutableMap.of(1, HIVE_STRING),
+                TableToPartitionMapping.mapColumnsByIndex(ImmutableMap.of(1, new HiveTypeName("string"))),
                 Optional.of(new HiveSplit.BucketConversion(
+                        BUCKETING_V1,
                         32,
                         16,
-                        ImmutableList.of(new HiveColumnHandle("col", HIVE_LONG, BIGINT.getTypeSignature(), 5, ColumnType.REGULAR, Optional.of("comment"))))),
-                false);
+                        ImmutableList.of(createBaseColumn("col", 5, HIVE_LONG, BIGINT, ColumnType.REGULAR, Optional.of("comment"))))),
+                false,
+                Optional.of(acidInfo));
 
         String json = codec.toJson(expected);
         HiveSplit actual = codec.fromJson(json);
@@ -77,9 +93,11 @@ public class TestHiveSplit
         assertEquals(actual.getSchema(), expected.getSchema());
         assertEquals(actual.getPartitionKeys(), expected.getPartitionKeys());
         assertEquals(actual.getAddresses(), expected.getAddresses());
-        assertEquals(actual.getColumnCoercions(), expected.getColumnCoercions());
+        assertEquals(actual.getTableToPartitionMapping().getPartitionColumnCoercions(), expected.getTableToPartitionMapping().getPartitionColumnCoercions());
+        assertEquals(actual.getTableToPartitionMapping().getTableToPartitionColumns(), expected.getTableToPartitionMapping().getTableToPartitionColumns());
         assertEquals(actual.getBucketConversion(), expected.getBucketConversion());
         assertEquals(actual.isForceLocalScheduling(), expected.isForceLocalScheduling());
         assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
+        assertEquals(actual.getAcidInfo().get(), expected.getAcidInfo().get());
     }
 }

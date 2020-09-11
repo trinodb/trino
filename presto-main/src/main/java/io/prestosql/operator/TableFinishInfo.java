@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 public class TableFinishInfo
         implements OperatorInfo
 {
-    private static final int JSON_LENGTH_LIMIT = toIntExact(new DataSize(10, MEGABYTE).toBytes());
+    private static final int JSON_LENGTH_LIMIT = toIntExact(DataSize.of(10, MEGABYTE).toBytes());
     private static final JsonCodec<Object> INFO_CODEC = jsonCodec(Object.class);
     private static final JsonCodec<JsonNode> JSON_NODE_CODEC = jsonCodec(JsonNode.class);
 
@@ -47,7 +47,7 @@ public class TableFinishInfo
         boolean jsonLengthLimitExceeded = false;
         if (metadata.isPresent()) {
             Optional<String> serializedMetadata = INFO_CODEC.toJsonWithLengthLimit(metadata.get().getInfo(), JSON_LENGTH_LIMIT);
-            if (!serializedMetadata.isPresent()) {
+            if (serializedMetadata.isEmpty()) {
                 connectorOutputMetadata = null;
                 jsonLengthLimitExceeded = true;
             }

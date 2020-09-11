@@ -32,7 +32,6 @@ import io.prestosql.plugin.raptor.legacy.storage.organization.ShardCompactionMan
 import io.prestosql.plugin.raptor.legacy.storage.organization.ShardCompactor;
 import io.prestosql.plugin.raptor.legacy.storage.organization.ShardOrganizationManager;
 import io.prestosql.plugin.raptor.legacy.storage.organization.ShardOrganizer;
-import io.prestosql.plugin.raptor.legacy.storage.organization.TemporalFunction;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -66,9 +65,7 @@ public class StorageModule
         binder.bind(ShardEjector.class).in(Scopes.SINGLETON);
         binder.bind(ShardCleaner.class).in(Scopes.SINGLETON);
         binder.bind(BucketBalancer.class).in(Scopes.SINGLETON);
-        binder.bind(ReaderAttributes.class).in(Scopes.SINGLETON);
         binder.bind(AssignmentLimiter.class).in(Scopes.SINGLETON);
-        binder.bind(TemporalFunction.class).in(Scopes.SINGLETON);
 
         newExporter(binder).export(ShardRecoveryManager.class).withGeneratedName();
         newExporter(binder).export(BackupManager.class).withGeneratedName();

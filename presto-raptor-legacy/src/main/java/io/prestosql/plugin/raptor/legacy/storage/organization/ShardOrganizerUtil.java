@@ -50,7 +50,7 @@ import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toSet;
 
-public class ShardOrganizerUtil
+public final class ShardOrganizerUtil
 {
     private ShardOrganizerUtil() {}
 
@@ -107,14 +107,14 @@ public class ShardOrganizerUtil
                             Optional<ShardRange> sortRange = Optional.empty();
                             if (includeSortColumns) {
                                 sortRange = getShardRange(sortColumns.get(), resultSet);
-                                if (!sortRange.isPresent()) {
+                                if (sortRange.isEmpty()) {
                                     continue;
                                 }
                             }
                             Optional<ShardRange> temporalRange = Optional.empty();
                             if (temporalColumn.isPresent()) {
                                 temporalRange = getShardRange(ImmutableList.of(temporalColumn.get()), resultSet);
-                                if (!temporalRange.isPresent()) {
+                                if (temporalRange.isEmpty()) {
                                     continue;
                                 }
                             }
@@ -143,19 +143,19 @@ public class ShardOrganizerUtil
                 temporalRange);
     }
 
-    public static Collection<Collection<ShardIndexInfo>> getShardsByDaysBuckets(Table tableInfo, Collection<ShardIndexInfo> shards, TemporalFunction temporalFunction)
+    public static Collection<Collection<ShardIndexInfo>> getShardsByDaysBuckets(Table tableInfo, Collection<ShardIndexInfo> shards)
     {
         if (shards.isEmpty()) {
             return ImmutableList.of();
         }
 
         // Neither bucketed nor temporal, no partitioning required
-        if (!tableInfo.getBucketCount().isPresent() && !tableInfo.getTemporalColumnId().isPresent()) {
+        if (tableInfo.getBucketCount().isEmpty() && tableInfo.getTemporalColumnId().isEmpty()) {
             return ImmutableList.of(shards);
         }
 
         // if only bucketed, partition by bucket number
-        if (tableInfo.getBucketCount().isPresent() && !tableInfo.getTemporalColumnId().isPresent()) {
+        if (tableInfo.getBucketCount().isPresent() && tableInfo.getTemporalColumnId().isEmpty()) {
             return Multimaps.index(shards, shard -> shard.getBucketNumber().getAsInt()).asMap().values();
         }
 
@@ -164,14 +164,14 @@ public class ShardOrganizerUtil
         shards.stream()
                 .filter(shard -> shard.getTemporalRange().isPresent())
                 .forEach(shard -> {
-                    long day = temporalFunction.getDayFromRange(shard.getTemporalRange().get());
+                    long day = TemporalFunction.getDayFromRange(shard.getTemporalRange().get());
                     shardsByDaysBuilder.put(day, shard);
                 });
 
         Collection<Collection<ShardIndexInfo>> byDays = shardsByDaysBuilder.build().asMap().values();
 
         // if table is bucketed further partition by bucket number
-        if (!tableInfo.getBucketCount().isPresent()) {
+        if (tableInfo.getBucketCount().isEmpty()) {
             return byDays;
         }
 

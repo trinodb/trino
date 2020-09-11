@@ -138,23 +138,20 @@ public class BlackHoleConnector
                 new PropertyMetadata<>(
                         DISTRIBUTED_ON,
                         "Distribution columns",
-                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(createUnboundedVarcharType().getTypeSignature()))),
+                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.typeParameter(createUnboundedVarcharType().getTypeSignature()))),
                         List.class,
                         ImmutableList.of(),
                         false,
-                        value -> ImmutableList.copyOf(((List<String>) value).stream()
+                        value -> ImmutableList.copyOf(((List<?>) value).stream()
+                                .map(String.class::cast)
                                 .map(name -> name.toLowerCase(ENGLISH))
                                 .collect(toList())),
                         List.class::cast),
-                new PropertyMetadata<>(
+                durationProperty(
                         PAGE_PROCESSING_DELAY,
                         "Sleep duration before processing each page",
-                        VARCHAR,
-                        Duration.class,
                         new Duration(0, SECONDS),
-                        false,
-                        value -> Duration.valueOf((String) value),
-                        Duration::toString));
+                        false));
     }
 
     @Override
@@ -167,5 +164,18 @@ public class BlackHoleConnector
     public void shutdown()
     {
         executorService.shutdownNow();
+    }
+
+    private static PropertyMetadata<Duration> durationProperty(String name, String description, Duration defaultValue, boolean hidden)
+    {
+        return new PropertyMetadata<>(
+                name,
+                description,
+                VARCHAR,
+                Duration.class,
+                defaultValue,
+                hidden,
+                value -> Duration.valueOf((String) value),
+                Duration::toString);
     }
 }

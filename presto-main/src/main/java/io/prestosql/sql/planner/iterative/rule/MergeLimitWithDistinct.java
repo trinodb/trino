@@ -32,18 +32,8 @@ public class MergeLimitWithDistinct
     private static final Capture<AggregationNode> CHILD = newCapture();
 
     private static final Pattern<LimitNode> PATTERN = limit()
-            .with(source().matching(aggregation().capturedAs(CHILD)
-                    .matching(MergeLimitWithDistinct::isDistinct)));
-
-    /**
-     * Whether this node corresponds to a DISTINCT operation in SQL
-     */
-    private static boolean isDistinct(AggregationNode node)
-    {
-        return node.getAggregations().isEmpty() &&
-                node.getOutputSymbols().size() == node.getGroupingKeys().size() &&
-                node.getOutputSymbols().containsAll(node.getGroupingKeys());
-    }
+            .matching(limit -> !limit.isWithTies())
+            .with(source().matching(aggregation().capturedAs(CHILD).matching(AggregationNode::producesDistinctRows)));
 
     @Override
     public Pattern<LimitNode> getPattern()

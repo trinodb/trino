@@ -16,7 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
@@ -28,7 +28,7 @@ public class TestBooleanAndAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -39,12 +39,12 @@ public class TestBooleanAndAggregation
     }
 
     @Override
-    public Boolean getExpectedValue(int start, int length)
+    protected Boolean getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;
         }
-        return length > 1 ? FALSE : TRUE;
+        return (length > 1 || (start % 2 == 1)) ? FALSE : TRUE;
     }
 
     @Override
@@ -54,8 +54,8 @@ public class TestBooleanAndAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.BOOLEAN);
+        return ImmutableList.of(BOOLEAN);
     }
 }

@@ -16,8 +16,8 @@ package io.prestosql.tests.cli;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.prestodb.tempto.ProductTest;
 import io.prestosql.cli.Presto;
+import io.prestosql.tempto.ProductTest;
 
 import java.io.File;
 import java.io.IOException;
@@ -59,8 +59,8 @@ public class PrestoCliLauncher
             throws InterruptedException
     {
         if (presto != null) {
-            presto.getProcessInput().println(EXIT_COMMAND);
-            presto.waitForWithTimeoutAndKill();
+            presto.close();
+            presto = null;
         }
     }
 
@@ -79,7 +79,7 @@ public class PrestoCliLauncher
     protected ProcessBuilder getProcessBuilder(List<String> arguments)
     {
         return new ProcessBuilder(ImmutableList.<String>builder()
-                .add(JAVA_BIN, "-cp", CLASSPATH, Presto.class.getCanonicalName())
+                .add(JAVA_BIN, "-Xmx50m", "-cp", CLASSPATH, Presto.class.getCanonicalName())
                 .addAll(arguments)
                 .build());
     }

@@ -13,7 +13,6 @@
  */
 package io.prestosql.jdbc;
 
-import io.prestosql.client.SocketChannelSocketFactory;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
@@ -29,7 +28,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Strings.nullToEmpty;
+import static io.prestosql.client.OkHttpUtil.setupChannelSocket;
 import static io.prestosql.client.OkHttpUtil.userAgent;
 import static java.lang.Integer.parseInt;
 
@@ -43,21 +42,17 @@ public class PrestoDriver
 
     private static final String DRIVER_URL_START = "jdbc:presto:";
 
-    private final OkHttpClient httpClient = new OkHttpClient.Builder()
-            .addInterceptor(userAgent(DRIVER_NAME + "/" + DRIVER_VERSION))
-            .socketFactory(new SocketChannelSocketFactory())
-            .build();
+    private final OkHttpClient httpClient = newHttpClient();
 
     static {
-        String version = nullToEmpty(PrestoDriver.class.getPackage().getImplementationVersion());
-        Matcher matcher = Pattern.compile("^(\\d+)(\\.(\\d+))?($|[.-])").matcher(version);
+        String implementationVersion = PrestoDriver.class.getPackage().getImplementationVersion();
+        DRIVER_VERSION = implementationVersion == null ? "unknown" : implementationVersion;
+        Matcher matcher = Pattern.compile("^(\\d+)(\\.(\\d+))?($|[.-])").matcher(DRIVER_VERSION);
         if (!matcher.find()) {
-            DRIVER_VERSION = "unknown";
             DRIVER_VERSION_MAJOR = 0;
             DRIVER_VERSION_MINOR = 0;
         }
         else {
-            DRIVER_VERSION = version;
             DRIVER_VERSION_MAJOR = parseInt(matcher.group(1));
             DRIVER_VERSION_MINOR = parseInt(firstNonNull(matcher.group(3), "0"));
         }
@@ -137,5 +132,15 @@ public class PrestoDriver
     {
         // TODO: support java.util.Logging
         throw new SQLFeatureNotSupportedException();
+    }
+
+    private OkHttpClient newHttpClient()
+    {
+        OkHttpClient.Builder builder = new OkHttpClient.Builder()
+                .addInterceptor(userAgent(DRIVER_NAME + "/" + DRIVER_VERSION));
+
+        // Enable socket factory only for pre JDK 11
+        setupChannelSocket(builder);
+        return builder.build();
     }
 }

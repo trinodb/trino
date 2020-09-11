@@ -13,27 +13,19 @@
  */
 package io.prestosql.sql;
 
-import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.IsNullPredicate;
-import io.prestosql.sql.tree.LikePredicate;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
-import io.prestosql.sql.tree.LongLiteral;
-import io.prestosql.sql.tree.NotExpression;
-import io.prestosql.sql.tree.StringLiteral;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
-import static io.prestosql.sql.ExpressionUtils.normalize;
-import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.prestosql.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
-import static io.prestosql.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static org.testng.Assert.assertEquals;
 
 public class TestExpressionUtils
 {
+    private final Metadata metadata = createTestMetadataManager();
+
     @Test
     public void testAnd()
     {
@@ -48,34 +40,8 @@ public class TestExpressionUtils
                 and(and(and(a, b), and(c, d)), e));
 
         assertEquals(
-                ExpressionUtils.combineConjuncts(a, b, a, c, d, c, e),
+                ExpressionUtils.combineConjuncts(metadata, a, b, a, c, d, c, e),
                 and(and(and(a, b), and(c, d)), e));
-    }
-
-    @Test
-    public void testNormalize()
-    {
-        assertNormalize(new ComparisonExpression(EQUAL, name("a"), new LongLiteral("1")));
-        assertNormalize(new IsNullPredicate(name("a")));
-        assertNormalize(new NotExpression(new LikePredicate(name("a"), new StringLiteral("x%"), Optional.empty())));
-        assertNormalize(
-                new NotExpression(new ComparisonExpression(EQUAL, name("a"), new LongLiteral("1"))),
-                new ComparisonExpression(NOT_EQUAL, name("a"), new LongLiteral("1")));
-        assertNormalize(
-                new NotExpression(new ComparisonExpression(NOT_EQUAL, name("a"), new LongLiteral("1"))),
-                new ComparisonExpression(EQUAL, name("a"), new LongLiteral("1")));
-        // Cannot normalize IS DISTINCT FROM yet
-        assertNormalize(new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, name("a"), new LongLiteral("1"))));
-    }
-
-    private static void assertNormalize(Expression expression)
-    {
-        assertNormalize(expression, expression);
-    }
-
-    private static void assertNormalize(Expression expression, Expression normalized)
-    {
-        assertEquals(normalize(expression), normalized);
     }
 
     private static Identifier name(String name)

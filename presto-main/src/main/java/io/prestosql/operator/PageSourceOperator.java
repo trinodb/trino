@@ -17,7 +17,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ConnectorPageSource;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.concurrent.CompletableFuture;
@@ -26,7 +25,7 @@ import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
 
 public class PageSourceOperator
-        implements Operator, Closeable
+        implements Operator
 {
     private final ConnectorPageSource pageSource;
     private final OperatorContext operatorContext;
@@ -92,7 +91,7 @@ public class PageSourceOperator
         // update operator stats
         long endCompletedBytes = pageSource.getCompletedBytes();
         long endReadTimeNanos = pageSource.getReadTimeNanos();
-        operatorContext.recordPhysicalInputWithTiming(endCompletedBytes - completedBytes, endReadTimeNanos - readTimeNanos);
+        operatorContext.recordPhysicalInputWithTiming(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
         operatorContext.recordProcessedInput(page.getSizeInBytes(), page.getPositionCount());
         completedBytes = endCompletedBytes;
         readTimeNanos = endReadTimeNanos;

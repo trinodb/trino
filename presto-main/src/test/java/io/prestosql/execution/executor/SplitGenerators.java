@@ -29,7 +29,7 @@ import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-class SplitGenerators
+final class SplitGenerators
 {
     private SplitGenerators() {}
 
@@ -97,6 +97,7 @@ class SplitGenerators
             this.wakeupExecutor = wakeupExecutor;
         }
 
+        @Override
         public IntermediateSplitSpecification next()
         {
             long numQuanta = generateIntermediateSplitNumQuanta(0, 1);
@@ -116,6 +117,7 @@ class SplitGenerators
     public static class AggregatedLeafSplitGenerator
             implements SplitGenerator
     {
+        @Override
         public LeafSplitSpecification next()
         {
             long totalNanos = MILLISECONDS.toNanos(generateLeafSplitScheduledTimeMs(0, 1));
@@ -128,6 +130,7 @@ class SplitGenerators
     public static class FastLeafSplitGenerator
             implements SplitGenerator
     {
+        @Override
         public LeafSplitSpecification next()
         {
             long totalNanos = MILLISECONDS.toNanos(generateLeafSplitScheduledTimeMs(0, 0.75));
@@ -140,6 +143,7 @@ class SplitGenerators
     public static class SlowLeafSplitGenerator
             implements SplitGenerator
     {
+        @Override
         public LeafSplitSpecification next()
         {
             long totalNanos = MILLISECONDS.toNanos(generateLeafSplitScheduledTimeMs(0.75, 1));
@@ -152,6 +156,7 @@ class SplitGenerators
     public static class L4LeafSplitGenerator
             implements SplitGenerator
     {
+        @Override
         public LeafSplitSpecification next()
         {
             long totalNanos = MILLISECONDS.toNanos(generateLeafSplitScheduledTimeMs(0.99, 1));
@@ -164,6 +169,7 @@ class SplitGenerators
     public static class QuantaExceedingSplitGenerator
             implements SplitGenerator
     {
+        @Override
         public LeafSplitSpecification next()
         {
             long totalNanos = MILLISECONDS.toNanos(generateLeafSplitScheduledTimeMs(0.99, 1));
@@ -185,6 +191,7 @@ class SplitGenerators
             this.quantaNanos = quantaNanos;
         }
 
+        @Override
         public LeafSplitSpecification next()
         {
             return new LeafSplitSpecification(totalNanos, quantaNanos);

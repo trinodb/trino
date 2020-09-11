@@ -13,15 +13,16 @@
  */
 package io.prestosql.tests.hive;
 
-import io.prestodb.tempto.BeforeTestWithContext;
-import io.prestodb.tempto.ProductTest;
-import io.prestodb.tempto.query.QueryExecutor;
+import io.prestosql.tempto.BeforeTestWithContext;
+import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.TestGroups.AUTHORIZATION;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
+import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
 public class TestSqlStandardAccessControlChecks
@@ -32,6 +33,7 @@ public class TestSqlStandardAccessControlChecks
     private QueryExecutor aliceExecutor;
     private QueryExecutor bobExecutor;
     private QueryExecutor charlieExecutor;
+    private QueryExecutor caseSensitiveUserNameExecutor;
 
     @BeforeTestWithContext
     public void setup()
@@ -39,6 +41,7 @@ public class TestSqlStandardAccessControlChecks
         aliceExecutor = connectToPresto("alice@presto");
         bobExecutor = connectToPresto("bob@presto");
         charlieExecutor = connectToPresto("charlie@presto");
+        caseSensitiveUserNameExecutor = connectToPresto("CaseSensitiveUserName@presto");
 
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint) WITH (partitioned_by = ARRAY['day'])", tableName));
@@ -185,5 +188,56 @@ public class TestSqlStandardAccessControlChecks
         aliceExecutor.executeQuery(format("DROP VIEW %s", viewName));
         assertThat(() -> aliceExecutor.executeQuery(format("SELECT * FROM %s", viewName)))
                 .failsWithMessage("does not exist");
+    }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAccessControlSelectWithCaseSensitiveUserName()
+    {
+        assertThat(() -> caseSensitiveUserNameExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
+
+        onHive().executeQuery("SET ROLE admin");
+
+        // make sure that case matters
+        onHive().executeQuery(format("GRANT SELECT ON TABLE %s TO USER casesensitiveusername", tableName));
+        assertThat(() -> caseSensitiveUserNameExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
+
+        onHive().executeQuery(format("GRANT SELECT ON TABLE %s TO USER CaseSensitiveUserName", tableName));
+        assertThat(caseSensitiveUserNameExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+
+        assertThat(() -> caseSensitiveUserNameExecutor.executeQuery(format("SELECT * FROM %s", viewName)))
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", viewName));
+        onHive().executeQuery(format("GRANT SELECT ON TABLE %s TO USER CaseSensitiveUserName", viewName));
+        assertThat(caseSensitiveUserNameExecutor.executeQuery(format("SELECT * FROM %s", viewName))).hasNoRows();
+    }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAccessControlShowColumns()
+    {
+        assertThat(() -> bobExecutor.executeQuery(format("SHOW COLUMNS FROM %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot show columns of table default.%s", tableName));
+
+        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
+        assertThat(bobExecutor.executeQuery(format("SHOW COLUMNS FROM %s", tableName))).hasRowsCount(2);
+    }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAccessControlShowStatsFor()
+    {
+        assertThat(() -> bobExecutor.executeQuery(format("SHOW STATS FOR %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot show stats for table default.%s", tableName));
+
+        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
+        assertThat(bobExecutor.executeQuery(format("SHOW STATS FOR %s", tableName))).hasRowsCount(3);
+    }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAccessControlFilterColumns()
+    {
+        assertThat(bobExecutor.executeQuery(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", tableName))).hasNoRows();
+
+        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
+        assertThat(bobExecutor.executeQuery(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", tableName))).hasRowsCount(2);
     }
 }

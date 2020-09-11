@@ -19,43 +19,54 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.prestosql.decoder.DecoderModule;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorRecordSetProvider;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
+import io.prestosql.plugin.base.classloader.ForClassLoaderSafe;
+import io.prestosql.plugin.kafka.encoder.EncoderModule;
+import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorPageSinkProvider;
+import io.prestosql.spi.connector.ConnectorRecordSetProvider;
+import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Guice module for the Apache Kafka connector.
- */
 public class KafkaConnectorModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
+        binder.bind(ConnectorMetadata.class).to(KafkaMetadata.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).annotatedWith(ForClassLoaderSafe.class).to(KafkaSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).to(ClassLoaderSafeConnectorSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForClassLoaderSafe.class).to(KafkaRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorRecordSetProvider.class).to(ClassLoaderSafeConnectorRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSinkProvider.class).annotatedWith(ForClassLoaderSafe.class).to(KafkaPageSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSinkProvider.class).to(ClassLoaderSafeConnectorPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(KafkaConnector.class).in(Scopes.SINGLETON);
 
-        binder.bind(KafkaMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(KafkaSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(KafkaRecordSetProvider.class).in(Scopes.SINGLETON);
-
-        binder.bind(KafkaSimpleConsumerManager.class).in(Scopes.SINGLETON);
-
-        configBinder(binder).bindConfig(KafkaConnectorConfig.class);
+        configBinder(binder).bindConfig(KafkaConfig.class);
+        newSetBinder(binder, TableDescriptionSupplier.class).addBinding().toProvider(KafkaTableDescriptionSupplier.class).in(Scopes.SINGLETON);
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
 
         binder.install(new DecoderModule());
+        binder.install(new EncoderModule());
+        binder.install(new KafkaProducerModule());
     }
 
-    public static final class TypeDeserializer
+    private static final class TypeDeserializer
             extends FromStringDeserializer<Type>
     {
         private static final long serialVersionUID = 1L;
@@ -72,7 +83,7 @@ public class KafkaConnectorModule
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            return typeManager.getType(parseTypeSignature(value));
+            return typeManager.getType(TypeId.of(value));
         }
     }
 }

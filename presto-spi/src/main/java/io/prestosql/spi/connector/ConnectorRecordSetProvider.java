@@ -17,5 +17,23 @@ import java.util.List;
 
 public interface ConnectorRecordSetProvider
 {
-    RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns);
+    default RecordSet getRecordSet(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
+            List<? extends ColumnHandle> columns)
+    {
+        return getRecordSet(transaction, session, split, columns);
+    }
+
+    @Deprecated
+    default RecordSet getRecordSet(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorSplit split,
+            List<? extends ColumnHandle> columns)
+    {
+        throw new UnsupportedOperationException("getRecordSet() must be implemented");
+    }
 }

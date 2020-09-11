@@ -20,8 +20,6 @@ import io.prestosql.execution.Column;
 import io.prestosql.execution.Input;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
-import io.prestosql.metadata.TableLayoutHandle;
-import io.prestosql.metadata.TableMetadata;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -59,11 +57,11 @@ public class InputExtractor
         return new Column(columnMetadata.getName(), columnMetadata.getType().toString());
     }
 
-    private Input createInput(TableMetadata table, Optional<TableLayoutHandle> layout, Set<Column> columns)
+    private Input createInput(Session session, TableHandle table, Set<Column> columns)
     {
-        SchemaTableName schemaTable = table.getTable();
-        Optional<Object> inputMetadata = layout.flatMap(tableLayout -> metadata.getInfo(session, tableLayout));
-        return new Input(table.getConnectorId(), schemaTable.getSchemaName(), schemaTable.getTableName(), inputMetadata, ImmutableList.copyOf(columns));
+        SchemaTableName schemaTable = metadata.getTableMetadata(session, table).getTable();
+        Optional<Object> inputMetadata = metadata.getInfo(session, table);
+        return new Input(table.getCatalogName().getCatalogName(), schemaTable.getSchemaName(), schemaTable.getTableName(), inputMetadata, ImmutableList.copyOf(columns));
     }
 
     private class Visitor
@@ -86,7 +84,7 @@ public class InputExtractor
                 columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
             }
 
-            inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), node.getLayout(), columns));
+            inputs.add(createInput(session, tableHandle, columns));
 
             return null;
         }
@@ -101,7 +99,7 @@ public class InputExtractor
                 columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
             }
 
-            inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), node.getLayout(), columns));
+            inputs.add(createInput(session, tableHandle, columns));
 
             return null;
         }

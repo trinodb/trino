@@ -15,15 +15,14 @@ package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session.SessionBuilder;
-import io.prestosql.execution.TestEventListener.EventsBuilder;
 import io.prestosql.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
 import io.prestosql.execution.warnings.WarningCollectorConfig;
 import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.WarningCode;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingWarningCollector;
 import io.prestosql.testing.TestingWarningCollectorConfig;
-import io.prestosql.tests.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -39,6 +38,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true)
 public class TestCompletedEventWarnings
 {
     private static final int EXPECTED_EVENTS = 3;

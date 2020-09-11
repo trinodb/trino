@@ -19,7 +19,11 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import io.prestosql.Session;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolAllocator;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
@@ -78,6 +82,18 @@ public class Assignments
         return builder().put(symbol1, expression1).put(symbol2, expression2).build();
     }
 
+    public static Assignments of(Collection<? extends Expression> expressions, Session session, SymbolAllocator symbolAllocator, TypeAnalyzer typeAnalyzer)
+    {
+        Assignments.Builder assignments = Assignments.builder();
+
+        for (Expression expression : expressions) {
+            Type type = typeAnalyzer.getType(session, symbolAllocator.getTypes(), expression);
+            assignments.put(symbolAllocator.newSymbol(expression, type), expression);
+        }
+
+        return assignments.build();
+    }
+
     private final Map<Symbol, Expression> assignments;
 
     @JsonCreator
@@ -97,7 +113,7 @@ public class Assignments
         return assignments;
     }
 
-    public <C> Assignments rewrite(ExpressionRewriter<C> rewriter)
+    public Assignments rewrite(ExpressionRewriter<Void> rewriter)
     {
         return rewrite(expression -> ExpressionTreeRewriter.rewriteWith(rewriter, expression));
     }
@@ -126,6 +142,18 @@ public class Assignments
         Expression expression = assignments.get(output);
 
         return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(output.getName());
+    }
+
+    public boolean isIdentity()
+    {
+        for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
+            Expression expression = entry.getValue();
+            Symbol symbol = entry.getKey();
+            if (!(expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(symbol.getName()))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private Collector<Entry<Symbol, Expression>, Builder, Assignments> toAssignments()
@@ -205,9 +233,9 @@ public class Assignments
             return putAll(assignments.getMap());
         }
 
-        public Builder putAll(Map<Symbol, Expression> assignments)
+        public Builder putAll(Map<Symbol, ? extends Expression> assignments)
         {
-            for (Entry<Symbol, Expression> assignment : assignments.entrySet()) {
+            for (Entry<Symbol, ? extends Expression> assignment : assignments.entrySet()) {
                 put(assignment.getKey(), assignment.getValue());
             }
             return this;

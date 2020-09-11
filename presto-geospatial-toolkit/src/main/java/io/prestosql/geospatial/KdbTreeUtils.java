@@ -18,7 +18,7 @@ import io.airlift.json.JsonCodecFactory;
 
 import static java.util.Objects.requireNonNull;
 
-public class KdbTreeUtils
+public final class KdbTreeUtils
 {
     private static final JsonCodec<KdbTree> KDB_TREE_CODEC = new JsonCodecFactory().jsonCodec(KdbTree.class);
 

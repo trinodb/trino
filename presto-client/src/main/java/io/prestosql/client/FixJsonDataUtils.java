@@ -14,6 +14,7 @@
 package io.prestosql.client;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.client.ClientTypeSignatureParameter.ParameterKind;
 
 import java.util.ArrayList;
 import java.util.Base64;
@@ -21,7 +22,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.client.ClientStandardTypes.ARRAY;
@@ -47,6 +47,7 @@ import static io.prestosql.client.ClientStandardTypes.TIMESTAMP;
 import static io.prestosql.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.client.ClientStandardTypes.TIME_WITH_TIME_ZONE;
 import static io.prestosql.client.ClientStandardTypes.TINYINT;
+import static io.prestosql.client.ClientStandardTypes.UUID;
 import static io.prestosql.client.ClientStandardTypes.VARCHAR;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -97,14 +98,14 @@ final class FixJsonDataUtils
             ClientTypeSignature keySignature = signature.getArgumentsAsTypeSignatures().get(0);
             ClientTypeSignature valueSignature = signature.getArgumentsAsTypeSignatures().get(1);
             Map<Object, Object> fixedValue = new HashMap<>();
-            for (Map.Entry<?, ?> entry : (Set<Map.Entry<?, ?>>) Map.class.cast(value).entrySet()) {
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
                 fixedValue.put(fixValue(keySignature, entry.getKey()), fixValue(valueSignature, entry.getValue()));
             }
             return fixedValue;
         }
         if (signature.getRawType().equals(ROW)) {
             Map<String, Object> fixedValue = new LinkedHashMap<>();
-            List<Object> listValue = List.class.cast(value);
+            List<?> listValue = ((List<?>) value);
             checkArgument(listValue.size() == signature.getArguments().size(), "Mismatched data values and row type");
             for (int i = 0; i < listValue.size(); i++) {
                 ClientTypeSignatureParameter parameter = signature.getArguments().get(i);
@@ -164,6 +165,7 @@ final class FixJsonDataUtils
             case INTERVAL_YEAR_TO_MONTH:
             case INTERVAL_DAY_TO_SECOND:
             case IPADDRESS:
+            case UUID:
             case DECIMAL:
             case CHAR:
             case GEOMETRY:

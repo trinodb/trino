@@ -56,7 +56,7 @@ public class TestScalarParser
     }
 
     @ScalarFunction("generic_incomplete_specialization_nullable")
-    public static class GenericWithIncompleteSpecializationNullable
+    public static final class GenericWithIncompleteSpecializationNullable
     {
         @TypeParameter("E")
         @SqlNullable
@@ -76,7 +76,7 @@ public class TestScalarParser
     }
 
     @ScalarFunction("generic_incomplete_specialization_not_nullable")
-    public static class GenericWithIncompleteSpecializationNotNullable
+    public static final class GenericWithIncompleteSpecializationNotNullable
     {
         @TypeParameter("E")
         @SqlType("E")

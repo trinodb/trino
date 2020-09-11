@@ -22,34 +22,40 @@ import io.prestosql.spi.type.Type;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.lang.String.format;
 import static java.util.Collections.unmodifiableCollection;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 /**
  * A set containing values that are uniquely identifiable.
- * Assumes an infinite number of possible values. The values may be collectively included (aka whitelist)
- * or collectively excluded (aka !whitelist).
+ * Assumes an infinite number of possible values. The values may be collectively included
+ * or collectively excluded.
  */
 public class EquatableValueSet
         implements ValueSet
 {
     private final Type type;
-    private final boolean whiteList;
+    private final boolean inclusive;
     private final Set<ValueEntry> entries;
 
     @JsonCreator
     public EquatableValueSet(
             @JsonProperty("type") Type type,
-            @JsonProperty("whiteList") boolean whiteList,
+            @JsonProperty("inclusive") boolean inclusive,
             @JsonProperty("entries") Set<ValueEntry> entries)
     {
         requireNonNull(type, "type is null");
@@ -62,8 +68,8 @@ public class EquatableValueSet
             throw new IllegalArgumentException("Use SortedRangeSet instead");
         }
         this.type = type;
-        this.whiteList = whiteList;
-        this.entries = Collections.unmodifiableSet(new HashSet<>(entries));
+        this.inclusive = inclusive;
+        this.entries = unmodifiableSet(new LinkedHashSet<>(entries));
     }
 
     static EquatableValueSet none(Type type)
@@ -78,7 +84,7 @@ public class EquatableValueSet
 
     static EquatableValueSet of(Type type, Object first, Object... rest)
     {
-        HashSet<ValueEntry> set = new HashSet<>(rest.length + 1);
+        HashSet<ValueEntry> set = new LinkedHashSet<>(rest.length + 1);
         set.add(ValueEntry.create(type, first));
         for (Object value : rest) {
             set.add(ValueEntry.create(type, value));
@@ -90,7 +96,7 @@ public class EquatableValueSet
     {
         return new EquatableValueSet(type, true, values.stream()
                 .map(value -> ValueEntry.create(type, value))
-                .collect(toSet()));
+                .collect(toLinkedSet()));
     }
 
     @JsonProperty
@@ -101,9 +107,9 @@ public class EquatableValueSet
     }
 
     @JsonProperty
-    public boolean isWhiteList()
+    public boolean inclusive()
     {
-        return whiteList;
+        return inclusive;
     }
 
     @JsonProperty
@@ -119,22 +125,27 @@ public class EquatableValueSet
                 .collect(toList()));
     }
 
+    public int getValuesCount()
+    {
+        return entries.size();
+    }
+
     @Override
     public boolean isNone()
     {
-        return whiteList && entries.isEmpty();
+        return inclusive && entries.isEmpty();
     }
 
     @Override
     public boolean isAll()
     {
-        return !whiteList && entries.isEmpty();
+        return !inclusive && entries.isEmpty();
     }
 
     @Override
     public boolean isSingleValue()
     {
-        return whiteList && entries.size() == 1;
+        return inclusive && entries.size() == 1;
     }
 
     @Override
@@ -147,9 +158,26 @@ public class EquatableValueSet
     }
 
     @Override
+    public boolean isDiscreteSet()
+    {
+        return inclusive && !entries.isEmpty();
+    }
+
+    @Override
+    public List<Object> getDiscreteSet()
+    {
+        if (!isDiscreteSet()) {
+            throw new IllegalStateException("EquatableValueSet is not a discrete set");
+        }
+        return entries.stream()
+                .map(ValueEntry::getValue)
+                .collect(toUnmodifiableList());
+    }
+
+    @Override
     public boolean containsValue(Object value)
     {
-        return whiteList == entries.contains(ValueEntry.create(type, value));
+        return inclusive == entries.contains(ValueEntry.create(type, value));
     }
 
     @Override
@@ -158,15 +186,21 @@ public class EquatableValueSet
         return new DiscreteValues()
         {
             @Override
-            public boolean isWhiteList()
+            public boolean isInclusive()
             {
-                return EquatableValueSet.this.isWhiteList();
+                return EquatableValueSet.this.inclusive();
             }
 
             @Override
             public Collection<Object> getValues()
             {
                 return EquatableValueSet.this.getValues();
+            }
+
+            @Override
+            public int getValuesCount()
+            {
+                return EquatableValueSet.this.getValuesCount();
             }
         };
     }
@@ -195,13 +229,13 @@ public class EquatableValueSet
     {
         EquatableValueSet otherValueSet = checkCompatibility(other);
 
-        if (whiteList && otherValueSet.isWhiteList()) {
+        if (inclusive && otherValueSet.inclusive()) {
             return new EquatableValueSet(type, true, intersect(entries, otherValueSet.entries));
         }
-        else if (whiteList) {
+        else if (inclusive) {
             return new EquatableValueSet(type, true, subtract(entries, otherValueSet.entries));
         }
-        else if (otherValueSet.isWhiteList()) {
+        else if (otherValueSet.inclusive()) {
             return new EquatableValueSet(type, true, subtract(otherValueSet.entries, entries));
         }
         else {
@@ -210,17 +244,36 @@ public class EquatableValueSet
     }
 
     @Override
+    public boolean overlaps(ValueSet other)
+    {
+        EquatableValueSet otherValueSet = checkCompatibility(other);
+
+        if (inclusive && otherValueSet.inclusive()) {
+            return setsOverlap(entries, otherValueSet.entries);
+        }
+        else if (inclusive) {
+            return !otherValueSet.entries.containsAll(entries);
+        }
+        else if (otherValueSet.inclusive()) {
+            return !entries.containsAll(otherValueSet.entries);
+        }
+        else {
+            return true;
+        }
+    }
+
+    @Override
     public EquatableValueSet union(ValueSet other)
     {
         EquatableValueSet otherValueSet = checkCompatibility(other);
 
-        if (whiteList && otherValueSet.isWhiteList()) {
+        if (inclusive && otherValueSet.inclusive()) {
             return new EquatableValueSet(type, true, union(entries, otherValueSet.entries));
         }
-        else if (whiteList) {
+        else if (inclusive) {
             return new EquatableValueSet(type, false, subtract(otherValueSet.entries, entries));
         }
-        else if (otherValueSet.isWhiteList()) {
+        else if (otherValueSet.inclusive()) {
             return new EquatableValueSet(type, false, subtract(entries, otherValueSet.entries));
         }
         else {
@@ -231,44 +284,69 @@ public class EquatableValueSet
     @Override
     public EquatableValueSet complement()
     {
-        return new EquatableValueSet(type, !whiteList, entries);
+        return new EquatableValueSet(type, !inclusive, entries);
+    }
+
+    @Override
+    public String toString()
+    {
+        return format(
+                "%s[... (%d elements) ...]",
+                inclusive ? "" : "EXCLUDES",
+                entries.size());
     }
 
     @Override
     public String toString(ConnectorSession session)
     {
-        return (whiteList ? "[ " : "EXCLUDES[ ") + entries.stream()
+        return (inclusive ? "[ " : "EXCLUDES[ ") + entries.stream()
                 .map(entry -> type.getObjectValue(session, entry.getBlock(), 0).toString())
                 .collect(Collectors.joining(", ")) + " ]";
     }
 
     private static <T> Set<T> intersect(Set<T> set1, Set<T> set2)
     {
+        if (set1.size() > set2.size()) {
+            return intersect(set2, set1);
+        }
         return set1.stream()
                 .filter(set2::contains)
-                .collect(toSet());
+                .collect(toLinkedSet());
+    }
+
+    private static <T> boolean setsOverlap(Set<T> set1, Set<T> set2)
+    {
+        if (set1.size() > set2.size()) {
+            return setsOverlap(set2, set1);
+        }
+        for (T element : set1) {
+            if (set2.contains(element)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static <T> Set<T> union(Set<T> set1, Set<T> set2)
     {
         return Stream.concat(set1.stream(), set2.stream())
-                .collect(toSet());
+                .collect(toLinkedSet());
     }
 
     private static <T> Set<T> subtract(Set<T> set1, Set<T> set2)
     {
         return set1.stream()
                 .filter(value -> !set2.contains(value))
-                .collect(toSet());
+                .collect(toLinkedSet());
     }
 
     private EquatableValueSet checkCompatibility(ValueSet other)
     {
         if (!getType().equals(other.getType())) {
-            throw new IllegalStateException(String.format("Mismatched types: %s vs %s", getType(), other.getType()));
+            throw new IllegalStateException(format("Mismatched types: %s vs %s", getType(), other.getType()));
         }
         if (!(other instanceof EquatableValueSet)) {
-            throw new IllegalStateException(String.format("ValueSet is not a EquatableValueSet: %s", other.getClass()));
+            throw new IllegalStateException(format("ValueSet is not a EquatableValueSet: %s", other.getClass()));
         }
         return (EquatableValueSet) other;
     }
@@ -276,7 +354,7 @@ public class EquatableValueSet
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, whiteList, entries);
+        return Objects.hash(type, inclusive, entries);
     }
 
     @Override
@@ -288,9 +366,9 @@ public class EquatableValueSet
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final EquatableValueSet other = (EquatableValueSet) obj;
+        EquatableValueSet other = (EquatableValueSet) obj;
         return Objects.equals(this.type, other.type)
-                && this.whiteList == other.whiteList
+                && this.inclusive == other.inclusive
                 && Objects.equals(this.entries, other.entries);
     }
 
@@ -349,9 +427,14 @@ public class EquatableValueSet
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-            final ValueEntry other = (ValueEntry) obj;
+            ValueEntry other = (ValueEntry) obj;
             return Objects.equals(this.type, other.type)
                     && type.equalTo(this.block, 0, other.block, 0);
         }
+    }
+
+    private static <T> Collector<T, ?, Set<T>> toLinkedSet()
+    {
+        return toCollection(LinkedHashSet::new);
     }
 }

@@ -13,36 +13,35 @@
  */
 package io.prestosql.plugin.redis;
 
-import io.prestosql.plugin.redis.util.EmbeddedRedis;
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
+import io.prestosql.plugin.redis.util.RedisServer;
+import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.prestosql.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
-import static io.prestosql.plugin.redis.util.EmbeddedRedis.createEmbeddedRedis;
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
+import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 
 @Test
 public class TestRedisIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final EmbeddedRedis embeddedRedis;
+    private RedisServer redisServer;
 
-    public TestRedisIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(createEmbeddedRedis());
-    }
-
-    public TestRedisIntegrationSmokeTest(EmbeddedRedis embeddedRedis)
-    {
-        super(() -> createRedisQueryRunner(embeddedRedis, "string", ORDERS));
-        this.embeddedRedis = embeddedRedis;
+        redisServer = new RedisServer();
+        return createRedisQueryRunner(redisServer, "string", CUSTOMER, NATION, ORDERS, REGION);
     }
 
     @AfterClass(alwaysRun = true)
     public void destroy()
     {
-        embeddedRedis.close();
+        redisServer.close();
     }
 }

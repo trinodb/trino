@@ -31,7 +31,7 @@ public class QuantileDigestType
     @JsonCreator
     public QuantileDigestType(Type type)
     {
-        super(new TypeSignature(StandardTypes.QDIGEST, TypeSignatureParameter.of(type.getTypeSignature())), Slice.class);
+        super(new TypeSignature(StandardTypes.QDIGEST, TypeSignatureParameter.typeParameter(type.getTypeSignature())), Slice.class);
         this.type = type;
     }
 

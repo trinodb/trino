@@ -73,14 +73,14 @@ public class TestQuerySpillLimits
 
     private LocalQueryRunner createLocalQueryRunner(NodeSpillConfig nodeSpillConfig)
     {
-        LocalQueryRunner queryRunner = new LocalQueryRunner(
-                SESSION,
-                new FeaturesConfig()
-                        .setSpillerSpillPaths(spillPath.getAbsolutePath())
-                        .setSpillEnabled(true),
-                nodeSpillConfig,
-                false,
-                true);
+        LocalQueryRunner queryRunner = LocalQueryRunner.builder(SESSION)
+                .withFeaturesConfig(
+                        new FeaturesConfig()
+                                .setSpillerSpillPaths(spillPath.getAbsolutePath())
+                                .setSpillEnabled(true))
+                .withNodeSpillConfig(nodeSpillConfig)
+                .withAlwaysRevokeMemory()
+                .build();
 
         queryRunner.createCatalog(
                 SESSION.getCatalog().get(),

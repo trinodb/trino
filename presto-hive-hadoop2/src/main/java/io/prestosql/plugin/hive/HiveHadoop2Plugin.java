@@ -13,11 +13,16 @@
  */
 package io.prestosql.plugin.hive;
 
+import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.connector.ConnectorFactory;
+
 public class HiveHadoop2Plugin
-        extends HivePlugin
+        implements Plugin
 {
-    public HiveHadoop2Plugin()
+    @Override
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        super("hive-hadoop2");
+        return ImmutableList.of(new HiveConnectorFactory("hive-hadoop2"));
     }
 }

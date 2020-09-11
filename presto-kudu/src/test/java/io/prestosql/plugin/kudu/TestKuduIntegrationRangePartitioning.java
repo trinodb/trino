@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.kudu;
 
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.AbstractTestQueryFramework;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.prestosql.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunner;
 import static java.lang.String.join;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -27,9 +27,7 @@ import static org.testng.Assert.assertTrue;
 public class TestKuduIntegrationRangePartitioning
         extends AbstractTestQueryFramework
 {
-    private QueryRunner queryRunner;
-
-    static final TestRanges[] testRangesList = {
+    private static final TestRanges[] TEST_RANGES = {
             new TestRanges("varchar",
                     "{\"lower\": null, \"upper\": \"D\"}",
                     "{\"lower\": \"D\", \"upper\": \"M\"}",
@@ -84,20 +82,31 @@ public class TestKuduIntegrationRangePartitioning
                     "{\"lower\": [2, \"Z\"], \"upper\": null}"),
     };
 
-    public TestKuduIntegrationRangePartitioning()
+    private TestingKuduServer kuduServer;
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> KuduQueryRunnerFactory.createKuduQueryRunner("range_partitioning"));
+        kuduServer = new TestingKuduServer();
+        return createKuduQueryRunner(kuduServer, "range_partitioning");
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void destroy()
+    {
+        kuduServer.close();
     }
 
     @Test
     public void testCreateAndChangeTableWithRangePartition()
     {
-        for (TestRanges ranges : testRangesList) {
+        for (TestRanges ranges : TEST_RANGES) {
             doTestCreateAndChangeTableWithRangePartition(ranges);
         }
     }
 
-    public void doTestCreateAndChangeTableWithRangePartition(TestRanges ranges)
+    private void doTestCreateAndChangeTableWithRangePartition(TestRanges ranges)
     {
         String[] types = ranges.types;
         String name = join("_", ranges.types);
@@ -121,40 +130,25 @@ public class TestKuduIntegrationRangePartitioning
                         " partition_by_range_columns = " + rangePartitionColumns + ",\n" +
                         " range_partitions = '[" + ranges.range1 + "," + ranges.range2 + "]'\n" +
                         ")";
-        queryRunner.execute(createTable);
+        assertUpdate(createTable);
 
-        String schema = queryRunner.getDefaultSession().getSchema().get();
+        String schema = getSession().getSchema().get();
 
         String addPartition3 = "CALL kudu.system.add_range_partition('" + schema + "','" + tableName + "','" + ranges.range3 + "')";
-        queryRunner.execute(addPartition3);
+        assertUpdate(addPartition3);
         String addPartition4 = "CALL kudu.system.add_range_partition('" + schema + "','" + tableName + "','" + ranges.range4 + "')";
-        queryRunner.execute(addPartition4);
+        assertUpdate(addPartition4);
 
         String dropPartition3 = addPartition3.replace(".add_range_partition(", ".drop_range_partition(");
-        queryRunner.execute(dropPartition3);
+        assertUpdate(dropPartition3);
 
-        MaterializedResult result = queryRunner.execute("SHOW CREATE TABLE " + tableName);
+        MaterializedResult result = computeActual("SHOW CREATE TABLE " + tableName);
         assertEquals(result.getRowCount(), 1);
         String createSQL = result.getMaterializedRows().get(0).getField(0).toString();
         String rangesArray = "'[" + ranges.cmp1 + "," + ranges.cmp2 + "," + ranges.cmp4 + "]'";
         rangesArray = rangesArray.replaceAll("\\s+", "");
         String expectedRanges = "range_partitions = " + rangesArray;
         assertTrue(createSQL.contains(expectedRanges), createSQL + "\ncontains\n" + expectedRanges);
-    }
-
-    @BeforeClass
-    public void setUp()
-    {
-        queryRunner = getQueryRunner();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        if (queryRunner != null) {
-            queryRunner.close();
-            queryRunner = null;
-        }
     }
 
     static class TestRanges

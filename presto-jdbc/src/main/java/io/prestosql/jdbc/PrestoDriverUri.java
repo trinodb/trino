@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
 import io.prestosql.client.ClientException;
+import io.prestosql.client.ClientSelectedRole;
 import okhttp3.OkHttpClient;
 
 import java.io.File;
@@ -42,6 +43,8 @@ import static io.prestosql.client.OkHttpUtil.setupSsl;
 import static io.prestosql.client.OkHttpUtil.tokenAuth;
 import static io.prestosql.jdbc.ConnectionProperties.ACCESS_TOKEN;
 import static io.prestosql.jdbc.ConnectionProperties.APPLICATION_NAME_PREFIX;
+import static io.prestosql.jdbc.ConnectionProperties.CLIENT_INFO;
+import static io.prestosql.jdbc.ConnectionProperties.CLIENT_TAGS;
 import static io.prestosql.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static io.prestosql.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
@@ -49,15 +52,22 @@ import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_CREDENTIAL_CACHE_P
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_KEYTAB_PATH;
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_PRINCIPAL;
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_REMOTE_SERVICE_NAME;
+import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static io.prestosql.jdbc.ConnectionProperties.PASSWORD;
+import static io.prestosql.jdbc.ConnectionProperties.ROLES;
+import static io.prestosql.jdbc.ConnectionProperties.SESSION_PROPERTIES;
 import static io.prestosql.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static io.prestosql.jdbc.ConnectionProperties.SSL;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_KEY_STORE_PASSWORD;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_KEY_STORE_PATH;
+import static io.prestosql.jdbc.ConnectionProperties.SSL_KEY_STORE_TYPE;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
+import static io.prestosql.jdbc.ConnectionProperties.SSL_TRUST_STORE_TYPE;
+import static io.prestosql.jdbc.ConnectionProperties.TRACE_TOKEN;
 import static io.prestosql.jdbc.ConnectionProperties.USER;
+import static io.prestosql.jdbc.ConnectionProperties.USE_SESSION_TIMEZONE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -128,6 +138,12 @@ final class PrestoDriverUri
         return USER.getRequiredValue(properties);
     }
 
+    public Map<String, ClientSelectedRole> getRoles()
+            throws SQLException
+    {
+        return ROLES.getValue(properties).orElse(ImmutableMap.of());
+    }
+
     public Optional<String> getApplicationNamePrefix()
             throws SQLException
     {
@@ -143,6 +159,36 @@ final class PrestoDriverUri
             throws SQLException
     {
         return EXTRA_CREDENTIALS.getValue(properties).orElse(ImmutableMap.of());
+    }
+
+    public Optional<String> getClientInfo()
+            throws SQLException
+    {
+        return CLIENT_INFO.getValue(properties);
+    }
+
+    public Optional<String> getClientTags()
+            throws SQLException
+    {
+        return CLIENT_TAGS.getValue(properties);
+    }
+
+    public Optional<String> getTraceToken()
+            throws SQLException
+    {
+        return TRACE_TOKEN.getValue(properties);
+    }
+
+    public Optional<Boolean> useSessionTimezone()
+            throws SQLException
+    {
+        return USE_SESSION_TIMEZONE.getValue(properties);
+    }
+
+    public Map<String, String> getSessionProperties()
+            throws SQLException
+    {
+        return SESSION_PROPERTIES.getValue(properties).orElse(ImmutableMap.of());
     }
 
     public void setupClient(OkHttpClient.Builder builder)
@@ -167,8 +213,10 @@ final class PrestoDriverUri
                         builder,
                         SSL_KEY_STORE_PATH.getValue(properties),
                         SSL_KEY_STORE_PASSWORD.getValue(properties),
+                        SSL_KEY_STORE_TYPE.getValue(properties),
                         SSL_TRUST_STORE_PATH.getValue(properties),
-                        SSL_TRUST_STORE_PASSWORD.getValue(properties));
+                        SSL_TRUST_STORE_PASSWORD.getValue(properties),
+                        SSL_TRUST_STORE_TYPE.getValue(properties));
             }
 
             if (KERBEROS_REMOTE_SERVICE_NAME.getValue(properties).isPresent()) {
@@ -177,6 +225,7 @@ final class PrestoDriverUri
                 }
                 setupKerberos(
                         builder,
+                        KERBEROS_SERVICE_PRINCIPAL_PATTERN.getRequiredValue(properties),
                         KERBEROS_REMOTE_SERVICE_NAME.getRequiredValue(properties),
                         KERBEROS_USE_CANONICAL_HOSTNAME.getRequiredValue(properties),
                         KERBEROS_PRINCIPAL.getValue(properties),

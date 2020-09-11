@@ -13,16 +13,19 @@
  */
 package io.prestosql.plugin.base.security;
 
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 
+import java.util.List;
 import java.util.Set;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateView;
 import static io.prestosql.spi.security.AccessDeniedException.denyDeleteTable;
@@ -33,137 +36,184 @@ import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePriv
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 
 public class ReadOnlyAccessControl
         implements ConnectorAccessControl
 {
     @Override
-    public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity)
+    public void checkCanShowSchemas(ConnectorSecurityContext context)
     {
     }
 
     @Override
-    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> schemaNames)
+    public Set<String> filterSchemas(ConnectorSecurityContext context, Set<String> schemaNames)
     {
         return schemaNames;
     }
 
     @Override
-    public void checkCanAddColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanAddColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyAddColumn(tableName.toString());
     }
 
     @Override
-    public void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanDropColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyDropColumn(tableName.toString());
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanShowCreateSchema(ConnectorSecurityContext context, String schemaName)
+    {
+    }
+
+    @Override
+    public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyCreateTable(tableName.toString());
     }
 
     @Override
-    public void checkCanDropTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyDropTable(tableName.toString());
     }
 
     @Override
-    public void checkCanRenameTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName, SchemaTableName newTableName)
+    public void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName)
     {
         denyRenameTable(tableName.toString(), newTableName.toString());
     }
 
     @Override
-    public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+    public void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        denyCommentTable(tableName.toString());
+    }
+
+    @Override
+    public void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
     {
     }
 
     @Override
-    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<SchemaTableName> tableNames)
+    public void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        denyCommentColumn(tableName.toString());
+    }
+
+    @Override
+    public Set<SchemaTableName> filterTables(ConnectorSecurityContext context, Set<SchemaTableName> tableNames)
     {
         return tableNames;
     }
 
     @Override
-    public void checkCanRenameColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanShowColumns(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        // allow
+    }
+
+    @Override
+    public List<ColumnMetadata> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
+    {
+        return columns;
+    }
+
+    @Override
+    public void checkCanRenameColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyRenameColumn(tableName.toString());
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         // allow
     }
 
     @Override
-    public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyInsertTable(tableName.toString());
     }
 
     @Override
-    public void checkCanDeleteFromTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyDeleteTable(tableName.toString());
     }
 
     @Override
-    public void checkCanCreateView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName viewName)
+    public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
         denyCreateView(viewName.toString());
     }
 
     @Override
-    public void checkCanDropView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName viewName)
+    public void checkCanRenameView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        denyRenameView(viewName.toString(), newViewName.toString());
+    }
+
+    @Override
+    public void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
         denyDropView(viewName.toString());
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         // allow
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String propertyName)
+    public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
     {
         // allow
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
+    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
         denyGrantTablePrivilege(privilege.name(), tableName.toString());
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
+    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
     {
         denyRevokeTablePrivilege(privilege.name(), tableName.toString());
     }
 
     @Override
-    public void checkCanShowRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
     {
         // allow
     }
 
     @Override
-    public void checkCanShowCurrentRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    public void checkCanShowRoles(ConnectorSecurityContext context, String catalogName)
     {
         // allow
     }
 
     @Override
-    public void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    public void checkCanShowCurrentRoles(ConnectorSecurityContext context, String catalogName)
+    {
+        // allow
+    }
+
+    @Override
+    public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
     {
         // allow
     }

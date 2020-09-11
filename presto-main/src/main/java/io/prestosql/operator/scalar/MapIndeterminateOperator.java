@@ -14,6 +14,7 @@
 package io.prestosql.operator.scalar;
 
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.IsNull;
 import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarOperator;
@@ -24,6 +25,8 @@ import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.util.Failures.internalError;
@@ -37,7 +40,11 @@ public final class MapIndeterminateOperator
     @TypeParameter("V")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean indeterminate(
-            @OperatorDependency(operator = INDETERMINATE, returnType = StandardTypes.BOOLEAN, argumentTypes = {"V"}) MethodHandle valueIndeterminateFunction,
+            @OperatorDependency(
+                    operator = INDETERMINATE,
+                    argumentTypes = "V",
+                    convention = @Convention(arguments = NULL_FLAG, result = NULLABLE_RETURN))
+                    MethodHandle valueIndeterminateFunction,
             @TypeParameter("K") Type keyType,
             @TypeParameter("V") Type valueType,
             @SqlType("map(K,V)") Block block,

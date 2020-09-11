@@ -13,16 +13,19 @@
  */
 package io.prestosql.elasticsearch;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorRecordSetProvider;
+import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
+
+import java.util.Set;
 
 import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.prestosql.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -31,24 +34,25 @@ import static java.util.Objects.requireNonNull;
 public class ElasticsearchConnector
         implements Connector
 {
-    private static final Logger LOG = Logger.get(ElasticsearchConnector.class);
-
     private final LifeCycleManager lifeCycleManager;
     private final ElasticsearchMetadata metadata;
     private final ElasticsearchSplitManager splitManager;
-    private final ElasticsearchRecordSetProvider recordSetProvider;
+    private final ElasticsearchPageSourceProvider pageSourceProvider;
+    private final NodesSystemTable nodesSystemTable;
 
     @Inject
     public ElasticsearchConnector(
             LifeCycleManager lifeCycleManager,
             ElasticsearchMetadata metadata,
             ElasticsearchSplitManager splitManager,
-            ElasticsearchRecordSetProvider recordSetProvider)
+            ElasticsearchPageSourceProvider pageSourceProvider,
+            NodesSystemTable nodesSystemTable)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
-        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.nodesSystemTable = requireNonNull(nodesSystemTable, "nodesSystemTable is null");
     }
 
     @Override
@@ -71,19 +75,20 @@ public class ElasticsearchConnector
     }
 
     @Override
-    public ConnectorRecordSetProvider getRecordSetProvider()
+    public ConnectorPageSourceProvider getPageSourceProvider()
     {
-        return recordSetProvider;
+        return pageSourceProvider;
+    }
+
+    @Override
+    public Set<SystemTable> getSystemTables()
+    {
+        return ImmutableSet.of(nodesSystemTable);
     }
 
     @Override
     public final void shutdown()
     {
-        try {
-            lifeCycleManager.stop();
-        }
-        catch (Exception e) {
-            LOG.error(e, "Error shutting down connector");
-        }
+        lifeCycleManager.stop();
     }
 }

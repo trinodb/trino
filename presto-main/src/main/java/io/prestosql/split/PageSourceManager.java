@@ -14,12 +14,15 @@
 package io.prestosql.split;
 
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Split;
+import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.DynamicFilter;
+import io.prestosql.spi.connector.EmptyPageSource;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,36 +35,45 @@ import static java.util.Objects.requireNonNull;
 public class PageSourceManager
         implements PageSourceProvider
 {
-    private final ConcurrentMap<ConnectorId, ConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, ConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
 
-    public void addConnectorPageSourceProvider(ConnectorId connectorId, ConnectorPageSourceProvider pageSourceProvider)
+    public void addConnectorPageSourceProvider(CatalogName catalogName, ConnectorPageSourceProvider pageSourceProvider)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(pageSourceProvider, "pageSourceProvider is null");
-        checkState(pageSourceProviders.put(connectorId, pageSourceProvider) == null, "PageSourceProvider for connector '%s' is already registered", connectorId);
+        checkState(pageSourceProviders.put(catalogName, pageSourceProvider) == null, "PageSourceProvider for connector '%s' is already registered", catalogName);
     }
 
-    public void removeConnectorPageSourceProvider(ConnectorId connectorId)
+    public void removeConnectorPageSourceProvider(CatalogName catalogName)
     {
-        pageSourceProviders.remove(connectorId);
+        pageSourceProviders.remove(catalogName);
     }
 
     @Override
-    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
     {
-        requireNonNull(split, "split is null");
         requireNonNull(columns, "columns is null");
+        checkArgument(split.getCatalogName().equals(table.getCatalogName()), "mismatched split and table");
+        CatalogName catalogName = split.getCatalogName();
 
-        ConnectorSession connectorSession = session.toConnectorSession(split.getConnectorId());
-        return getPageSourceProvider(split).createPageSource(split.getTransactionHandle(), connectorSession, split.getConnectorSplit(), columns);
+        ConnectorPageSourceProvider provider = getPageSourceProvider(catalogName);
+        TupleDomain<ColumnHandle> constraint = dynamicFilter.getCurrentPredicate();
+        if (constraint.isNone()) {
+            return new EmptyPageSource();
+        }
+        return provider.createPageSource(
+                table.getTransaction(),
+                session.toConnectorSession(catalogName),
+                split.getConnectorSplit(),
+                table.getConnectorHandle(),
+                columns,
+                dynamicFilter);
     }
 
-    private ConnectorPageSourceProvider getPageSourceProvider(Split split)
+    private ConnectorPageSourceProvider getPageSourceProvider(CatalogName catalogName)
     {
-        ConnectorPageSourceProvider provider = pageSourceProviders.get(split.getConnectorId());
-
-        checkArgument(provider != null, "No page stream provider for '%s", split.getConnectorId());
-
+        ConnectorPageSourceProvider provider = pageSourceProviders.get(catalogName);
+        checkArgument(provider != null, "No page source provider for connector: %s", catalogName);
         return provider;
     }
 }

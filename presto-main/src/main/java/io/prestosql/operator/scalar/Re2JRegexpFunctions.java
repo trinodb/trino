@@ -13,8 +13,11 @@
  */
 package io.prestosql.operator.scalar;
 
+import com.google.re2j.Matcher;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.LiteralParameters;
@@ -26,13 +29,13 @@ import io.prestosql.type.Constraint;
 import io.prestosql.type.Re2JRegexp;
 import io.prestosql.type.Re2JRegexpType;
 
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+
 public final class Re2JRegexpFunctions
 {
-    private Re2JRegexpFunctions()
-    {
-    }
+    private Re2JRegexpFunctions() {}
 
-    @Description("returns substrings matching a regular expression")
+    @Description("Returns substrings matching a regular expression")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
@@ -41,7 +44,7 @@ public final class Re2JRegexpFunctions
         return pattern.matches(source);
     }
 
-    @Description("removes substrings matching a regular expression")
+    @Description("Removes substrings matching a regular expression")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -50,7 +53,7 @@ public final class Re2JRegexpFunctions
         return regexpReplace(source, pattern, Slices.EMPTY_SLICE);
     }
 
-    @Description("replaces substrings matching a regular expression by given string")
+    @Description("Replaces substrings matching a regular expression by given string")
     @ScalarFunction
     @LiteralParameters({"x", "y", "z"})
     // Longest possible output is when the pattern is empty, than the replacement will be placed in between
@@ -65,26 +68,26 @@ public final class Re2JRegexpFunctions
         return pattern.replace(source, replacement);
     }
 
-    @Description("string(s) extracted using the given pattern")
+    @Description("String(s) extracted using the given pattern")
     @ScalarFunction
     @LiteralParameters("x")
-    @SqlType("array<varchar(x)>")
+    @SqlType("array(varchar(x))")
     public static Block regexpExtractAll(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
     {
         return regexpExtractAll(source, pattern, 0);
     }
 
-    @Description("group(s) extracted using the given pattern")
+    @Description("Group(s) extracted using the given pattern")
     @ScalarFunction
     @LiteralParameters("x")
-    @SqlType("array<varchar(x)>")
+    @SqlType("array(varchar(x))")
     public static Block regexpExtractAll(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
         return pattern.extractAll(source, groupIndex);
     }
 
     @SqlNullable
-    @Description("string extracted using the given pattern")
+    @Description("String extracted using the given pattern")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -94,7 +97,7 @@ public final class Re2JRegexpFunctions
     }
 
     @SqlNullable
-    @Description("returns regex group of extracted string with a pattern")
+    @Description("Returns regex group of extracted string with a pattern")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -104,11 +107,85 @@ public final class Re2JRegexpFunctions
     }
 
     @ScalarFunction
-    @Description("returns array of strings split by pattern")
+    @Description("Returns array of strings split by pattern")
     @LiteralParameters("x")
-    @SqlType("array<varchar(x)>")
+    @SqlType("array(varchar(x))")
     public static Block regexpSplit(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
     {
         return pattern.split(source);
+    }
+
+    @ScalarFunction
+    @Description("Returns the index of the matched substring.")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTEGER)
+    public static long regexpPosition(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
+    {
+        return regexpPosition(source, pattern, 1);
+    }
+
+    @ScalarFunction
+    @Description("Returns the index of the matched substring starting from the specified position")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTEGER)
+    public static long regexpPosition(
+            @SqlType("varchar(x)") Slice source,
+            @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern,
+            @SqlType(StandardTypes.INTEGER) long start)
+    {
+        return regexpPosition(source, pattern, start, 1);
+    }
+
+    @ScalarFunction
+    @Description("Returns the index of the n-th matched substring starting from the specified position")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTEGER)
+    public static long regexpPosition(
+            @SqlType("varchar(x)") Slice source,
+            @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern,
+            @SqlType(StandardTypes.INTEGER) long start,
+            @SqlType(StandardTypes.INTEGER) long occurrence)
+    {
+        // start position cannot be smaller than 1
+        if (start < 1) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "start position cannot be smaller than 1");
+        }
+        // occurrence cannot be smaller than 1
+        if (occurrence < 1) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "occurrence cannot be smaller than 1");
+        }
+        // returns -1 if start is greater than the length of source
+        if (start > SliceUtf8.countCodePoints(source)) {
+            return -1;
+        }
+
+        int startBytePosition = SliceUtf8.offsetOfCodePoint(source, (int) start - 1);
+        int length = source.length() - startBytePosition;
+        Matcher matcher = pattern.matcher(source.slice(startBytePosition, length));
+        long count = 0;
+        while (matcher.find()) {
+            if (++count == occurrence) {
+                // Plus 1 because position returned start from 1
+                return SliceUtf8.countCodePoints(source, 0, startBytePosition + matcher.start()) + 1;
+            }
+        }
+
+        return -1;
+    }
+
+    @ScalarFunction
+    @Description("Returns the number of times that a pattern occurs in a string")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.BIGINT)
+    public static long regexpCount(@SqlType("varchar(x)") Slice source, @SqlType(Re2JRegexpType.NAME) Re2JRegexp pattern)
+    {
+        Matcher matcher = pattern.matcher(source);
+
+        int count = 0;
+        while (matcher.find()) {
+            count++;
+        }
+
+        return count;
     }
 }

@@ -1,0 +1,20 @@
+{
+  "catalogs": [
+    {
+      "allow": true
+    }
+  ],
+  "queries": [
+    {
+      "user": "admin",
+      "allow": ["execute", "kill", "view"]
+    },
+    {
+      "user": "alice",
+      "allow": ["execute", "kill"]
+    },
+    {
+      "allow": ["execute"]
+    }
+  ]
+}

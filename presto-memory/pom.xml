@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>303-SNAPSHOT</version>
+        <version>341</version>
     </parent>
 
     <artifactId>presto-memory</artifactId>
@@ -18,13 +18,13 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
+            <groupId>io.airlift</groupId>
+            <artifactId>bootstrap</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>bootstrap</artifactId>
+            <artifactId>configuration</artifactId>
         </dependency>
 
         <dependency>
@@ -34,7 +34,7 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>configuration</artifactId>
+            <artifactId>units</artifactId>
         </dependency>
 
         <dependency>
@@ -44,13 +44,13 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
         </dependency>
 
         <dependency>
@@ -59,8 +59,22 @@
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
+            <groupId>javax.validation</groupId>
+            <artifactId>validation-api</artifactId>
+        </dependency>
+
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Presto SPI -->
@@ -77,40 +91,27 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
             <scope>provided</scope>
         </dependency>
 
-        <!-- used by tests but also needed transitively -->
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-            <scope>runtime</scope>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <!-- for testing -->
         <dependency>
             <groupId>io.prestosql</groupId>
-            <artifactId>presto-tests</artifactId>
+            <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.prestosql</groupId>
-            <artifactId>presto-main</artifactId>
+            <artifactId>presto-testing</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -121,14 +122,20 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.tpch</groupId>
+            <groupId>io.prestosql.tpch</groupId>
             <artifactId>tpch</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -139,8 +146,8 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

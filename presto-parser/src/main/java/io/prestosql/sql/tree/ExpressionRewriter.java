@@ -15,7 +15,7 @@ package io.prestosql.sql.tree;
 
 public class ExpressionRewriter<C>
 {
-    public Expression rewriteExpression(Expression node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    protected Expression rewriteExpression(Expression node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return null;
     }
@@ -195,6 +195,11 @@ public class ExpressionRewriter<C>
         return rewriteExpression(node, context, treeRewriter);
     }
 
+    public Expression rewriteFormat(Format node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
     public Expression rewriteFieldReference(FieldReference node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
@@ -216,6 +221,26 @@ public class ExpressionRewriter<C>
     }
 
     public Expression rewriteGroupingOperation(GroupingOperation node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
+    public Expression rewriteGenericDataType(GenericDataType node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
+    public Expression rewriteRowDataType(RowDataType node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
+    public Expression rewriteDateTimeDataType(DateTimeDataType node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
+    public Expression rewriteIntervalDayTimeDataType(IntervalDayTimeDataType node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
     }

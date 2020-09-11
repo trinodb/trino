@@ -21,14 +21,12 @@ import io.prestosql.spi.type.StandardTypes;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.util.Failures.checkCondition;
 
-public class WilsonInterval
+public final class WilsonInterval
 {
-    private WilsonInterval()
-    {
-    }
+    private WilsonInterval() {}
 
     @ScalarFunction
-    @Description("binomial confidence interval lower bound using Wilson score")
+    @Description("Binomial confidence interval lower bound using Wilson score")
     @SqlType(StandardTypes.DOUBLE)
     public static double wilsonIntervalLower(@SqlType(StandardTypes.BIGINT) long successes, @SqlType(StandardTypes.BIGINT) long trials, @SqlType(StandardTypes.DOUBLE) double z)
     {
@@ -36,7 +34,7 @@ public class WilsonInterval
     }
 
     @ScalarFunction
-    @Description("binomial confidence interval upper bound using Wilson score")
+    @Description("Binomial confidence interval upper bound using Wilson score")
     @SqlType(StandardTypes.DOUBLE)
     public static double wilsonIntervalUpper(@SqlType(StandardTypes.BIGINT) long successes, @SqlType(StandardTypes.BIGINT) long trials, @SqlType(StandardTypes.DOUBLE) double z)
     {

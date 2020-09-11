@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.execution.buffer.BufferResult.emptyResults;
 import static io.prestosql.execution.buffer.BufferState.OPEN;
 import static io.prestosql.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
@@ -89,13 +88,13 @@ public class TestPartitionedOutputBuffer
     public void testInvalidConstructorArg()
     {
         try {
-            createPartitionedBuffer(createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(FIRST, 0).withNoMoreBufferIds(), new DataSize(0, BYTE));
+            createPartitionedBuffer(createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(FIRST, 0).withNoMoreBufferIds(), DataSize.ofBytes(0));
             fail("Expected IllegalStateException");
         }
         catch (IllegalArgumentException ignored) {
         }
         try {
-            createPartitionedBuffer(createInitialEmptyOutputBuffers(PARTITIONED), new DataSize(0, BYTE));
+            createPartitionedBuffer(createInitialEmptyOutputBuffers(PARTITIONED), DataSize.ofBytes(0));
             fail("Expected IllegalStateException");
         }
         catch (IllegalArgumentException ignored) {
@@ -818,7 +817,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testForceFreeMemory()
-            throws Throwable
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
                 createInitialEmptyOutputBuffers(PARTITIONED)

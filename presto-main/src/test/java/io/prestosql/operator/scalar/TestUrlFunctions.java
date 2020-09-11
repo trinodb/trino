@@ -46,13 +46,14 @@ public class TestUrlFunctions
         assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k1=v2&k1&k1#Ref1', 'k1')", createVarcharType(53), "v1");
         assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1&k1=v1&k1&k1#Ref1', 'k1')", createVarcharType(50), "");
         assertFunction("url_extract_parameter('http://example.com/path1/p.php?k=a=b=c&x=y#Ref1', 'k')", createVarcharType(47), "a=b=c");
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=a%26k2%3Db&k2=c#Ref1', 'k2')", createVarcharType(54), "c");
         assertFunction("url_extract_parameter('foo', 'k1')", createVarcharType(3), null);
     }
 
     @Test
     public void testUrlEncode()
     {
-        final String[][] outputInputPairs = {
+        String[][] outputInputPairs = {
                 {"http%3A%2F%2Ftest", "http://test"},
                 {"http%3A%2F%2Ftest%3Fa%3Db%26c%3Dd", "http://test?a=b&c=d"},
                 {"http%3A%2F%2F%E3%83%86%E3%82%B9%E3%83%88", "http://\u30c6\u30b9\u30c8"},

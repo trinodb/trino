@@ -20,6 +20,7 @@ import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -38,7 +39,7 @@ public final class Range
         requireNonNull(low, "value is null");
         requireNonNull(high, "value is null");
         if (!low.getType().equals(high.getType())) {
-            throw new IllegalArgumentException(String.format("Marker types do not match: %s vs %s", low.getType(), high.getType()));
+            throw new IllegalArgumentException(format("Marker types do not match: %s vs %s", low.getType(), high.getType()));
         }
         if (low.getBound() == Marker.Bound.BELOW) {
             throw new IllegalArgumentException("low bound must be EXACTLY or ABOVE");
@@ -168,14 +169,14 @@ public final class Range
     private void checkTypeCompatibility(Range range)
     {
         if (!getType().equals(range.getType())) {
-            throw new IllegalArgumentException(String.format("Mismatched Range types: %s vs %s", getType(), range.getType()));
+            throw new IllegalArgumentException(format("Mismatched Range types: %s vs %s", getType(), range.getType()));
         }
     }
 
     private void checkTypeCompatibility(Marker marker)
     {
         if (!getType().equals(marker.getType())) {
-            throw new IllegalArgumentException(String.format("Marker of %s does not match Range of %s", marker.getType(), getType()));
+            throw new IllegalArgumentException(format("Marker of %s does not match Range of %s", marker.getType(), getType()));
         }
     }
 
@@ -194,24 +195,38 @@ public final class Range
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final Range other = (Range) obj;
+        Range other = (Range) obj;
         return Objects.equals(this.low, other.low) &&
                 Objects.equals(this.high, other.high);
     }
 
+    @Override
+    public String toString()
+    {
+        if (isSingleValue()) {
+            return "?";
+        }
+
+        StringBuilder buffer = new StringBuilder();
+        buffer.append((low.getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
+        buffer.append(low.isLowerUnbounded() ? "<min>" : "?");
+        buffer.append(", ");
+        buffer.append(high.isUpperUnbounded() ? "<max>" : "?");
+        buffer.append((high.getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
+        return buffer.toString();
+    }
+
     public String toString(ConnectorSession session)
     {
-        StringBuilder buffer = new StringBuilder();
         if (isSingleValue()) {
-            buffer.append('[').append(low.getPrintableValue(session)).append(']');
+            return "[" + low.getPrintableValue(session) + "]";
         }
-        else {
-            buffer.append((low.getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
-            buffer.append(low.isLowerUnbounded() ? "<min>" : low.getPrintableValue(session));
-            buffer.append(", ");
-            buffer.append(high.isUpperUnbounded() ? "<max>" : high.getPrintableValue(session));
-            buffer.append((high.getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
-        }
+        StringBuilder buffer = new StringBuilder();
+        buffer.append((low.getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
+        buffer.append(low.isLowerUnbounded() ? "<min>" : low.getPrintableValue(session));
+        buffer.append(", ");
+        buffer.append(high.isUpperUnbounded() ? "<max>" : high.getPrintableValue(session));
+        buffer.append((high.getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
         return buffer.toString();
     }
 }

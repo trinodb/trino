@@ -19,7 +19,8 @@ import io.prestosql.plugin.cassandra.util.CassandraCqlUtils;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.stream.Collectors.toList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class CassandraTable
 {
@@ -28,8 +29,8 @@ public class CassandraTable
 
     public CassandraTable(CassandraTableHandle tableHandle, List<CassandraColumnHandle> columns)
     {
-        this.tableHandle = tableHandle;
-        this.columns = ImmutableList.copyOf(columns);
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
     }
 
     public List<CassandraColumnHandle> getColumns()
@@ -46,14 +47,14 @@ public class CassandraTable
     {
         return columns.stream()
                 .filter(CassandraColumnHandle::isPartitionKey)
-                .collect(toList());
+                .collect(toImmutableList());
     }
 
     public List<CassandraColumnHandle> getClusteringKeyColumns()
     {
         return columns.stream()
                 .filter(CassandraColumnHandle::isClusteringKey)
-                .collect(toList());
+                .collect(toImmutableList());
     }
 
     public String getTokenExpression()

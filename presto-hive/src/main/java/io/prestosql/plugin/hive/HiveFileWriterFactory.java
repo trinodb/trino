@@ -24,7 +24,7 @@ import java.util.Properties;
 
 public interface HiveFileWriterFactory
 {
-    Optional<HiveFileWriter> createFileWriter(
+    Optional<FileWriter> createFileWriter(
             Path path,
             List<String> inputColumnNames,
             StorageFormat storageFormat,

@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.util.PropertiesUtil.loadProperties;
+import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 
 public class StaticCatalogStore
 {
@@ -40,7 +40,6 @@ public class StaticCatalogStore
     private final File catalogConfigurationDir;
     private final Set<String> disabledCatalogs;
     private final AtomicBoolean catalogsLoading = new AtomicBoolean();
-    private final AtomicBoolean catalogsLoaded = new AtomicBoolean();
 
     @Inject
     public StaticCatalogStore(ConnectorManager connectorManager, StaticCatalogStoreConfig config)
@@ -57,11 +56,6 @@ public class StaticCatalogStore
         this.disabledCatalogs = ImmutableSet.copyOf(disabledCatalogs);
     }
 
-    public boolean areCatalogsLoaded()
-    {
-        return catalogsLoaded.get();
-    }
-
     public void loadCatalogs()
             throws Exception
     {
@@ -74,8 +68,6 @@ public class StaticCatalogStore
                 loadCatalog(file);
             }
         }
-
-        catalogsLoaded.set(true);
     }
 
     private void loadCatalog(File file)
@@ -88,12 +80,12 @@ public class StaticCatalogStore
         }
 
         log.info("-- Loading catalog %s --", file);
-        Map<String, String> properties = new HashMap<>(loadProperties(file));
+        Map<String, String> properties = new HashMap<>(loadPropertiesFrom(file.getPath()));
 
         String connectorName = properties.remove("connector.name");
         checkState(connectorName != null, "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());
 
-        connectorManager.createConnection(catalogName, connectorName, ImmutableMap.copyOf(properties));
+        connectorManager.createCatalog(catalogName, connectorName, ImmutableMap.copyOf(properties));
         log.info("-- Added catalog %s using connector %s --", catalogName, connectorName);
     }
 

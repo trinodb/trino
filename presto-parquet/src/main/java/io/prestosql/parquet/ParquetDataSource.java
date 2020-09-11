@@ -15,6 +15,7 @@ package io.prestosql.parquet;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Map;
 
 public interface ParquetDataSource
         extends Closeable
@@ -30,6 +31,8 @@ public interface ParquetDataSource
     void readFully(long position, byte[] buffer);
 
     void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength);
+
+    <K> Map<K, ChunkReader> planRead(Map<K, DiskRange> diskRanges);
 
     @Override
     default void close()

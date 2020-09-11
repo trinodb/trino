@@ -28,6 +28,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
@@ -47,7 +48,7 @@ public class TestShardDao
     @BeforeMethod
     public void setup()
     {
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dummyHandle = dbi.open();
         dao = dbi.onDemand(TestingShardDao.class);
         createTablesWithRetry(dbi);

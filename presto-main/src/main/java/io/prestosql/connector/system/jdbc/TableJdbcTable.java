@@ -13,6 +13,7 @@
  */
 package io.prestosql.connector.system.jdbc;
 
+import io.prestosql.FullConnectorSession;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedTablePrefix;
@@ -29,16 +30,17 @@ import io.prestosql.spi.predicate.TupleDomain;
 import javax.inject.Inject;
 
 import java.util.Optional;
+import java.util.Set;
 
-import static io.prestosql.connector.system.SystemConnectorSessionUtil.toSession;
-import static io.prestosql.connector.system.jdbc.FilterUtil.filter;
-import static io.prestosql.connector.system.jdbc.FilterUtil.stringFilter;
+import static io.prestosql.connector.system.jdbc.FilterUtil.emptyOrEquals;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tablePrefix;
+import static io.prestosql.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataListing.listTables;
 import static io.prestosql.metadata.MetadataListing.listViews;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class TableJdbcTable
@@ -78,29 +80,42 @@ public class TableJdbcTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        Session session = toSession(transactionHandle, connectorSession);
-        Optional<String> catalogFilter = stringFilter(constraint, 0);
-        Optional<String> schemaFilter = stringFilter(constraint, 1);
-        Optional<String> tableFilter = stringFilter(constraint, 2);
-        Optional<String> typeFilter = stringFilter(constraint, 3);
+        Session session = ((FullConnectorSession) connectorSession).getSession();
+        Optional<String> catalogFilter = tryGetSingleVarcharValue(constraint, 0);
+        Optional<String> schemaFilter = tryGetSingleVarcharValue(constraint, 1);
+        Optional<String> tableFilter = tryGetSingleVarcharValue(constraint, 2);
+        Optional<String> typeFilter = tryGetSingleVarcharValue(constraint, 3);
 
+        boolean includeTables = emptyOrEquals(typeFilter, "TABLE");
+        boolean includeViews = emptyOrEquals(typeFilter, "VIEW");
         Builder table = InMemoryRecordSet.builder(METADATA);
-        for (String catalog : filter(listCatalogs(session, metadata, accessControl).keySet(), catalogFilter)) {
+
+        if (!includeTables && !includeViews) {
+            return table.build().cursor();
+        }
+
+        if (isNonLowercase(schemaFilter) || isNonLowercase(tableFilter)) {
+            // Non-lowercase predicate will never match a lowercase name (until TODO https://github.com/prestosql/presto/issues/17)
+            return table.build().cursor();
+        }
+
+        for (String catalog : listCatalogs(session, metadata, accessControl, catalogFilter).keySet()) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
-            if (FilterUtil.emptyOrEquals(typeFilter, "TABLE")) {
-                for (SchemaTableName name : listTables(session, metadata, accessControl, prefix)) {
-                    table.addRow(tableRow(catalog, name, "TABLE"));
-                }
-            }
-
-            if (FilterUtil.emptyOrEquals(typeFilter, "VIEW")) {
-                for (SchemaTableName name : listViews(session, metadata, accessControl, prefix)) {
-                    table.addRow(tableRow(catalog, name, "VIEW"));
+            Set<SchemaTableName> views = listViews(session, metadata, accessControl, prefix);
+            for (SchemaTableName name : listTables(session, metadata, accessControl, prefix)) {
+                boolean isView = views.contains(name);
+                if ((includeTables && !isView) || (includeViews && isView)) {
+                    table.addRow(tableRow(catalog, name, isView ? "VIEW" : "TABLE"));
                 }
             }
         }
         return table.build().cursor();
+    }
+
+    private static boolean isNonLowercase(Optional<String> filter)
+    {
+        return filter.filter(value -> !value.equals(value.toLowerCase(ENGLISH))).isPresent();
     }
 
     private static Object[] tableRow(String catalog, SchemaTableName name, String type)

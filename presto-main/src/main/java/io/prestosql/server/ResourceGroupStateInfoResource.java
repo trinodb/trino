@@ -13,7 +13,8 @@
  */
 package io.prestosql.server;
 
-import io.prestosql.execution.resourceGroups.ResourceGroupManager;
+import io.prestosql.execution.resourcegroups.ResourceGroupManager;
+import io.prestosql.server.security.ResourceSecurity;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 
 import javax.inject.Inject;
@@ -28,10 +29,10 @@ import javax.ws.rs.core.MediaType;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.Arrays;
-import java.util.NoSuchElementException;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
@@ -47,6 +48,7 @@ public class ResourceGroupStateInfoResource
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
     }
 
+    @ResourceSecurity(MANAGEMENT_READ)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Encoded
@@ -54,16 +56,12 @@ public class ResourceGroupStateInfoResource
     public ResourceGroupInfo getQueryStateInfos(@PathParam("resourceGroupId") String resourceGroupIdString)
     {
         if (!isNullOrEmpty(resourceGroupIdString)) {
-            try {
-                return resourceGroupManager.getResourceGroupInfo(
-                        new ResourceGroupId(
-                                Arrays.stream(resourceGroupIdString.split("/"))
-                                        .map(ResourceGroupStateInfoResource::urlDecode)
-                                        .collect(toImmutableList())));
-            }
-            catch (NoSuchElementException e) {
-                throw new WebApplicationException(NOT_FOUND);
-            }
+            return resourceGroupManager.tryGetResourceGroupInfo(
+                    new ResourceGroupId(
+                            Arrays.stream(resourceGroupIdString.split("/"))
+                                    .map(ResourceGroupStateInfoResource::urlDecode)
+                                    .collect(toImmutableList())))
+                    .orElseThrow(() -> new WebApplicationException(NOT_FOUND));
         }
         throw new WebApplicationException(NOT_FOUND);
     }

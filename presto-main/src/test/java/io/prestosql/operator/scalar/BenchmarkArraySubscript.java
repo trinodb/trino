@@ -15,9 +15,8 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
@@ -58,6 +57,7 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.block.BlockAssertions.createSlicesBlock;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -105,7 +105,7 @@ public class BenchmarkArraySubscript
         @Setup
         public void setup()
         {
-            MetadataManager metadata = MetadataManager.createTestMetadataManager();
+            Metadata metadata = createTestMetadataManager();
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
             ArrayType arrayType;
@@ -135,16 +135,10 @@ public class BenchmarkArraySubscript
 
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
 
-            Signature signature = new Signature(
-                    "$operator$" + SUBSCRIPT.name(),
-                    FunctionKind.SCALAR,
-                    arrayType.getElementType().getTypeSignature(),
-                    arrayType.getTypeSignature(),
-                    BIGINT.getTypeSignature());
+            ResolvedFunction resolvedFunction = metadata.resolveOperator(SUBSCRIPT, ImmutableList.of(arrayType, BIGINT));
             for (int i = 0; i < arraySize; i++) {
                 projectionsBuilder.add(new CallExpression(
-                        signature,
-                        arrayType.getElementType(),
+                        resolvedFunction,
                         ImmutableList.of(field(0, arrayType), constant((long) i + 1, BIGINT))));
             }
 
@@ -234,7 +228,7 @@ public class BenchmarkArraySubscript
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();

@@ -16,10 +16,10 @@ package io.prestosql.execution;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AccessControlConfig;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.AllowAllAccessControl;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.AllColumns;
@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -44,16 +45,17 @@ import static io.prestosql.sql.QueryUtil.identifier;
 import static io.prestosql.sql.QueryUtil.selectList;
 import static io.prestosql.sql.QueryUtil.simpleQuery;
 import static io.prestosql.sql.QueryUtil.table;
+import static io.prestosql.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestPrepareTask
 {
-    private final MetadataManager metadata = createTestMetadataManager();
+    private final Metadata metadata = createTestMetadataManager();
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
     @AfterClass(alwaysRun = true)
@@ -89,14 +91,9 @@ public class TestPrepareTask
     {
         Statement statement = new Execute(identifier("foo"), emptyList());
         String sqlString = "PREPARE my_query FROM EXECUTE foo";
-        try {
-            executePrepare("my_query", statement, sqlString, TEST_SESSION);
-            fail("expected exception");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
-            assertEquals(e.getMessage(), "Invalid statement type for prepared statement: EXECUTE");
-        }
+        assertPrestoExceptionThrownBy(() -> executePrepare("my_query", statement, sqlString, TEST_SESSION))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("Invalid statement type for prepared statement: EXECUTE");
     }
 
     private Map<String, String> executePrepare(String statementName, Statement statement, String sqlString, Session session)
@@ -104,15 +101,17 @@ public class TestPrepareTask
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 sqlString,
+                Optional.empty(),
                 session,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
                 false,
                 transactionManager,
-                new AccessControlManager(transactionManager),
+                new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig()),
                 executor,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                Optional.empty());
         Prepare prepare = new Prepare(identifier(statementName), statement);
         new PrepareTask(new SqlParser()).execute(prepare, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
         return stateMachine.getAddedPreparedStatements();

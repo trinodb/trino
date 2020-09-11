@@ -247,7 +247,7 @@ public class TestStateCompiler
         Field[] fields = state.getClass().getDeclaredFields();
         try {
             for (Field field : fields) {
-                Class type = field.getType();
+                Class<?> type = field.getType();
                 field.setAccessible(true);
                 if (type == BlockBigArray.class || type == BooleanBigArray.class || type == SliceBigArray.class ||
                         type == ByteBigArray.class || type == DoubleBigArray.class || type == LongBigArray.class || type == IntBigArray.class) {

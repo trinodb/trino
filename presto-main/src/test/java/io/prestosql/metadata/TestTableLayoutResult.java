@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 import static io.prestosql.metadata.TableLayoutResult.computeEnforced;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static java.lang.String.format;
 import static org.testng.Assert.fail;
 
 public class TestTableLayoutResult
@@ -101,7 +102,7 @@ public class TestTableLayoutResult
     {
         try {
             TupleDomain<ColumnHandle> enforced = computeEnforced(predicate, unenforced);
-            fail(String.format("expected IllegalArgumentException but found [%s]", enforced.toString(SESSION)));
+            fail(format("expected IllegalArgumentException but found [%s]", enforced.toString(SESSION)));
         }
         catch (IllegalArgumentException e) {
             // do nothing
@@ -112,7 +113,7 @@ public class TestTableLayoutResult
     {
         TupleDomain<ColumnHandle> enforced = computeEnforced(predicate, unenforced);
         if (!enforced.equals(expectedEnforced)) {
-            fail(String.format("expected [%s] but found [%s]", expectedEnforced.toString(SESSION), enforced.toString(SESSION)));
+            fail(format("expected [%s] but found [%s]", expectedEnforced.toString(SESSION), enforced.toString(SESSION)));
         }
     }
 }

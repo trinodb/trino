@@ -16,8 +16,11 @@ package io.prestosql.plugin.hive.gcs;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.prestosql.plugin.hive.ConfigurationInitializer;
 import io.prestosql.plugin.hive.DynamicConfigurationProvider;
+import io.prestosql.plugin.hive.rubix.RubixEnabledConfig;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -28,9 +31,11 @@ public class HiveGcsModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(HiveGcsConfig.class);
-        binder.bind(GcsConfigurationInitializer.class).to(GoogleGcsConfigurationInitializer.class).in(Scopes.SINGLETON);
+
+        newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(GoogleGcsConfigurationInitializer.class).in(Scopes.SINGLETON);
 
         if (buildConfigObject(HiveGcsConfig.class).isUseGcsAccessToken()) {
+            checkArgument(!buildConfigObject(RubixEnabledConfig.class).isCacheEnabled(), "Use of GCS access token is not compatible with Hive caching");
             newSetBinder(binder, DynamicConfigurationProvider.class).addBinding().to(GcsConfigurationProvider.class).in(Scopes.SINGLETON);
         }
     }

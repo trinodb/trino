@@ -13,40 +13,25 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.DesugarAtTimeZoneRewriter;
-import io.prestosql.sql.planner.iterative.Rule;
-
-import java.util.Set;
+import io.prestosql.sql.planner.TypeAnalyzer;
 
 import static java.util.Objects.requireNonNull;
 
 public class DesugarAtTimeZone
         extends ExpressionRewriteRuleSet
 {
-    public DesugarAtTimeZone(Metadata metadata, SqlParser sqlParser)
+    public DesugarAtTimeZone(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
-        super(createRewrite(metadata, sqlParser));
+        super(createRewrite(metadata, typeAnalyzer));
     }
 
-    @Override
-    public Set<Rule<?>> rules()
-    {
-        return ImmutableSet.of(
-                projectExpressionRewrite(),
-                aggregationExpressionRewrite(),
-                filterExpressionRewrite(),
-                joinExpressionRewrite(),
-                valuesExpressionRewrite());
-    }
-
-    private static ExpressionRewriter createRewrite(Metadata metadata, SqlParser sqlParser)
+    private static ExpressionRewriter createRewrite(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
         requireNonNull(metadata, "metadata is null");
-        requireNonNull(sqlParser, "sqlParser is null");
+        requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
-        return (expression, context) -> DesugarAtTimeZoneRewriter.rewrite(expression, context.getSession(), metadata, sqlParser, context.getSymbolAllocator());
+        return (expression, context) -> DesugarAtTimeZoneRewriter.rewrite(expression, context.getSession(), metadata, typeAnalyzer, context.getSymbolAllocator());
     }
 }

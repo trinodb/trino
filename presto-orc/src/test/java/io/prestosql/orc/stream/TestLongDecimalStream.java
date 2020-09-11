@@ -14,6 +14,7 @@
 package io.prestosql.orc.stream;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.OrcDecompressor;
 import io.prestosql.orc.checkpoint.DecimalStreamCheckpoint;
@@ -68,15 +69,15 @@ public class TestLongDecimalStream
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        return new DecimalInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize()));
+        return new DecimalInputStream(OrcChunkLoader.create(ORC_DATA_SOURCE_ID, slice, orcDecompressor, newSimpleAggregatedMemoryContext()));
     }
 
     @Override
     protected Slice readValue(DecimalInputStream valueStream)
             throws IOException
     {
-        Slice decimal = unscaledDecimal();
-        valueStream.nextLongDecimal(decimal);
-        return decimal;
+        long[] decimal = new long[2];
+        valueStream.nextLongDecimal(decimal, 1);
+        return Slices.wrappedLongArray(decimal);
     }
 }

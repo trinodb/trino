@@ -22,7 +22,8 @@ import io.prestosql.sql.tree.NodeRef;
 
 import java.util.Set;
 
-import static io.prestosql.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
+import static io.prestosql.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 
 public final class ConstantExpressionVerifier
 {
@@ -34,7 +35,7 @@ public final class ConstantExpressionVerifier
     }
 
     private static class ConstantExpressionVerifierVisitor
-            extends DefaultTraversalVisitor<Void, Void>
+            extends DefaultTraversalVisitor<Void>
     {
         private final Set<NodeRef<Expression>> columnReferences;
         private final Expression expression;
@@ -49,7 +50,7 @@ public final class ConstantExpressionVerifier
         protected Void visitDereferenceExpression(DereferenceExpression node, Void context)
         {
             if (columnReferences.contains(NodeRef.<Expression>of(node))) {
-                throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
+                throw semanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
             }
 
             process(node.getBase(), context);
@@ -59,13 +60,13 @@ public final class ConstantExpressionVerifier
         @Override
         protected Void visitIdentifier(Identifier node, Void context)
         {
-            throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
+            throw semanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
         }
 
         @Override
         protected Void visitFieldReference(FieldReference node, Void context)
         {
-            throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
+            throw semanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
         }
     }
 }

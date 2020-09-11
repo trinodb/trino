@@ -19,52 +19,82 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
 import java.util.List;
+import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Streams.stream;
-
-@DefunctConfig("http.server.authentication.enabled")
+@DefunctConfig({
+        "http.server.authentication.enabled",
+        "http-server.authentication.allow-forwarded-https",
+        "dispatcher.forwarded-header"})
 public class SecurityConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
-    private List<AuthenticationType> authenticationTypes = ImmutableList.of();
+    private boolean insecureAuthenticationOverHttpAllowed = true;
+    private List<String> authenticationTypes = ImmutableList.of("insecure");
+    private Optional<String> fixedManagementUser = Optional.empty();
+    private boolean fixedManagementUserForHttps;
 
-    public enum AuthenticationType
+    public boolean isInsecureAuthenticationOverHttpAllowed()
     {
-        CERTIFICATE,
-        KERBEROS,
-        PASSWORD,
-        JWT
+        return insecureAuthenticationOverHttpAllowed;
+    }
+
+    @Config("http-server.authentication.allow-insecure-over-http")
+    @ConfigDescription("Insecure authentication over HTTP (non-secure) enabled")
+    public SecurityConfig setInsecureAuthenticationOverHttpAllowed(boolean insecureAuthenticationOverHttpAllowed)
+    {
+        this.insecureAuthenticationOverHttpAllowed = insecureAuthenticationOverHttpAllowed;
+        return this;
     }
 
     @NotNull
-    public List<AuthenticationType> getAuthenticationTypes()
+    @NotEmpty(message = "http-server.authentication.type cannot be empty")
+    public List<String> getAuthenticationTypes()
     {
         return authenticationTypes;
     }
 
-    public SecurityConfig setAuthenticationTypes(List<AuthenticationType> authenticationTypes)
+    public SecurityConfig setAuthenticationTypes(List<String> authenticationTypes)
     {
         this.authenticationTypes = ImmutableList.copyOf(authenticationTypes);
         return this;
     }
 
     @Config("http-server.authentication.type")
-    @ConfigDescription("Authentication types (supported types: CERTIFICATE, KERBEROS, PASSWORD, JWT)")
+    @ConfigDescription("Ordered list of authentication types")
     public SecurityConfig setAuthenticationTypes(String types)
     {
-        if (types == null) {
-            authenticationTypes = null;
-            return this;
-        }
+        authenticationTypes = Optional.ofNullable(types).map(SPLITTER::splitToList).orElse(null);
+        return this;
+    }
 
-        authenticationTypes = stream(SPLITTER.split(types))
-                .map(AuthenticationType::valueOf)
-                .collect(toImmutableList());
+    public Optional<String> getFixedManagementUser()
+    {
+        return fixedManagementUser;
+    }
+
+    @Config("management.user")
+    @ConfigDescription("Optional fixed user for all requests to management endpoints")
+    public SecurityConfig setFixedManagementUser(String fixedManagementUser)
+    {
+        this.fixedManagementUser = Optional.ofNullable(fixedManagementUser);
+        return this;
+    }
+
+    public boolean isFixedManagementUserForHttps()
+    {
+        return fixedManagementUserForHttps;
+    }
+
+    @Config("management.user.https-enabled")
+    @ConfigDescription("Use fixed management user for secure HTTPS requests")
+    public SecurityConfig setFixedManagementUserForHttps(boolean fixedManagementUserForHttps)
+    {
+        this.fixedManagementUserForHttps = fixedManagementUserForHttps;
         return this;
     }
 }

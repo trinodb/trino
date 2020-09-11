@@ -33,7 +33,7 @@ public final class DataSizeFunctions
 {
     private DataSizeFunctions() {}
 
-    @Description("converts data size string to bytes")
+    @Description("Converts data size string to bytes")
     @ScalarFunction("parse_presto_data_size")
     @LiteralParameters("x")
     @SqlType("decimal(38,0)")

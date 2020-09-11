@@ -14,9 +14,11 @@
 package io.prestosql.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -81,6 +83,12 @@ public class Table
     public String getTableName()
     {
         return tableName;
+    }
+
+    @JsonIgnore
+    public SchemaTableName getSchemaTableName()
+    {
+        return new SchemaTableName(databaseName, tableName);
     }
 
     @JsonProperty
@@ -286,6 +294,12 @@ public class Table
         public Builder setParameters(Map<String, String> parameters)
         {
             this.parameters = new LinkedHashMap<>(parameters);
+            return this;
+        }
+
+        public Builder setParameter(String key, String value)
+        {
+            this.parameters.put(key, value);
             return this;
         }
 

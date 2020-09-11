@@ -39,7 +39,7 @@ import static io.prestosql.plugin.localfile.LocalFileTables.HttpRequestLogTable.
 import static io.prestosql.plugin.localfile.LocalFileTables.HttpRequestLogTable.getServerAddressColumn;
 import static io.prestosql.plugin.localfile.LocalFileTables.HttpRequestLogTable.getTimestampColumn;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -95,7 +95,7 @@ public class LocalFileTables
 
     public List<ColumnMetadata> getColumns(LocalFileTableHandle tableHandle)
     {
-        checkArgument(tableColumns.containsKey(tableHandle.getSchemaTableName()), "Table %s not registered", tableHandle.getSchemaTableName());
+        checkArgument(tableColumns.containsKey(tableHandle.getSchemaTableName()), "Table '%s' not registered", tableHandle.getSchemaTableName());
         return tableColumns.get(tableHandle.getSchemaTableName());
     }
 
@@ -110,11 +110,11 @@ public class LocalFileTables
         }
     }
 
-    public static class HttpRequestLogTable
+    public static final class HttpRequestLogTable
     {
         private static final List<ColumnMetadata> COLUMNS = ImmutableList.of(
                 SERVER_ADDRESS_COLUMN,
-                new ColumnMetadata("timestamp", TIMESTAMP),
+                new ColumnMetadata("timestamp", createTimestampWithTimeZoneType(3)),
                 new ColumnMetadata("client_address", createUnboundedVarcharType()),
                 new ColumnMetadata("method", createUnboundedVarcharType()),
                 new ColumnMetadata("request_uri", createUnboundedVarcharType()),

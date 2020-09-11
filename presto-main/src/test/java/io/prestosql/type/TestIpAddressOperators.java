@@ -13,15 +13,20 @@
  */
 package io.prestosql.type;
 
+import com.google.common.net.InetAddresses;
+import io.airlift.slice.Slices;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.spi.type.SqlVarbinary;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
 import org.testng.annotations.Test;
 
-import static com.google.common.io.BaseEncoding.base16;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.SqlVarbinaryTestingUtil.sqlVarbinaryFromHex;
 import static io.prestosql.type.IpAddressType.IPADDRESS;
 
 public class TestIpAddressOperators
@@ -74,9 +79,9 @@ public class TestIpAddressOperators
     @Test
     public void testIpAddressToVarbinaryCast()
     {
-        assertFunction("CAST(IPADDRESS '::ffff:1.2.3.4' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("00000000000000000000FFFF01020304")));
-        assertFunction("CAST(IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("20010DB8000000000000FF0000428329")));
-        assertFunction("CAST(IPADDRESS '2001:db8::ff00:42:8329' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("20010DB8000000000000FF0000428329")));
+        assertFunction("CAST(IPADDRESS '::ffff:1.2.3.4' AS VARBINARY)", VARBINARY, sqlVarbinaryFromHex("00000000000000000000FFFF01020304"));
+        assertFunction("CAST(IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329' AS VARBINARY)", VARBINARY, sqlVarbinaryFromHex("20010DB8000000000000FF0000428329"));
+        assertFunction("CAST(IPADDRESS '2001:db8::ff00:42:8329' AS VARBINARY)", VARBINARY, sqlVarbinaryFromHex("20010DB8000000000000FF0000428329"));
     }
 
     @Test
@@ -136,5 +141,20 @@ public class TestIpAddressOperators
     {
         assertOperator(INDETERMINATE, "CAST(null AS IPADDRESS)", BOOLEAN, true);
         assertOperator(INDETERMINATE, "IPADDRESS '::2222'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testHash()
+    {
+        assertOperator(HASH_CODE, "CAST(null AS IPADDRESS)", BIGINT, null);
+        assertOperator(HASH_CODE, "IPADDRESS '::2222'", BIGINT, hashFromType("::2222"));
+    }
+
+    private static long hashFromType(String address)
+    {
+        BlockBuilder blockBuilder = IPADDRESS.createBlockBuilder(null, 1);
+        IPADDRESS.writeSlice(blockBuilder, Slices.wrappedBuffer(InetAddresses.forString(address).getAddress()));
+        Block block = blockBuilder.build();
+        return IPADDRESS.hash(block, 0);
     }
 }

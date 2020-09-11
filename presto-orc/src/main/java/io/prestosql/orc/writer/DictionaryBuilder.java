@@ -148,7 +148,7 @@ public class DictionaryBuilder
                 // Doesn't have this element
                 return hashPosition;
             }
-            else if (elementBlock.getSliceLength(blockPosition) == length && block.equals(position, 0, elementBlock, blockPosition, 0, length)) {
+            if (elementBlock.getSliceLength(blockPosition) == length && block.equals(position, 0, elementBlock, blockPosition, 0, length)) {
                 // Already has this element
                 return hashPosition;
             }

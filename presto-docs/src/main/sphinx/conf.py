@@ -60,11 +60,11 @@ def get_version():
 
 # -- General configuration -----------------------------------------------------
 
-needs_sphinx = '1.1'
+needs_sphinx = '2.0'
 
-extensions = ['download', 'issue']
+extensions = ['myst_parser', 'backquote', 'download', 'issue']
 
-templates_path = ['_templates']
+templates_path = ['templates']
 
 source_suffix = '.rst'
 
@@ -75,11 +75,11 @@ project = u'Presto'
 version = get_version()
 release = version
 
-exclude_patterns = ['_build', 'rest*']
-
-pygments_style = 'sphinx'
+exclude_patterns = ['_build']
 
 highlight_language = 'sql'
+
+default_role = 'backquote'
 
 rst_epilog = """
 .. |presto_server_release| replace:: ``presto-server-{release}``
@@ -87,11 +87,33 @@ rst_epilog = """
 
 # -- Options for HTML output ---------------------------------------------------
 
-html_theme_path = ['./themes']
-html_theme = 'presto'
+html_theme = 'sphinx_material'
+
+html_static_path = ['static']
 
 html_title = '%s %s Documentation' % (project, release)
 
-html_add_permalinks = ''
+html_logo = 'images/presto.svg'
+
+html_add_permalinks = '#'
 html_show_copyright = False
 html_show_sphinx = False
+
+html_sidebars = {
+    "**": ['logo-text.html', 'globaltoc.html', 'localtoc.html', 'searchbox.html']
+}
+
+html_theme_options = {
+    'base_url': '/',
+    'globaltoc_depth': -1,
+    'theme_color': '2196f3',
+    'color_primary': 'blue-grey',
+    'color_accent': 'light-blue',
+    'repo_url': 'https://github.com/prestosql/presto',
+    'repo_name': 'Presto',
+    'version_json': '../versions.json',
+}
+
+html_css_files = [
+    'presto.css',
+]

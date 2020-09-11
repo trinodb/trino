@@ -35,7 +35,6 @@ import java.util.OptionalInt;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.prestosql.memory.LocalMemoryManager.RESERVED_POOL;
@@ -67,23 +66,23 @@ public class TestQueryContext
     public void testSetMemoryPool(boolean useReservedPool)
     {
         QueryId secondQuery = new QueryId("second");
-        MemoryPool reservedPool = new MemoryPool(RESERVED_POOL, new DataSize(10, BYTE));
+        MemoryPool reservedPool = new MemoryPool(RESERVED_POOL, DataSize.ofBytes(10));
         long secondQueryMemory = reservedPool.getMaxBytes() - 1;
         if (useReservedPool) {
             assertTrue(reservedPool.reserve(secondQuery, "test", secondQueryMemory).isDone());
         }
 
-        try (LocalQueryRunner localQueryRunner = new LocalQueryRunner(TEST_SESSION)) {
+        try (LocalQueryRunner localQueryRunner = LocalQueryRunner.create(TEST_SESSION)) {
             QueryContext queryContext = new QueryContext(
                     new QueryId("query"),
-                    new DataSize(10, BYTE),
-                    new DataSize(20, BYTE),
-                    new MemoryPool(GENERAL_POOL, new DataSize(10, BYTE)),
+                    DataSize.ofBytes(10),
+                    DataSize.ofBytes(20),
+                    new MemoryPool(GENERAL_POOL, DataSize.ofBytes(10)),
                     new TestingGcMonitor(),
                     localQueryRunner.getExecutor(),
                     localQueryRunner.getScheduler(),
-                    new DataSize(0, BYTE),
-                    new SpillSpaceTracker(new DataSize(0, BYTE)));
+                    DataSize.ofBytes(0),
+                    new SpillSpaceTracker(DataSize.ofBytes(0)));
 
             // Use memory
             queryContext.getQueryMemoryContext().initializeLocalMemoryContexts("test");
@@ -107,8 +106,8 @@ public class TestQueryContext
     @Test
     public void testMoveTaggedAllocations()
     {
-        MemoryPool generalPool = new MemoryPool(GENERAL_POOL, new DataSize(10_000, BYTE));
-        MemoryPool reservedPool = new MemoryPool(RESERVED_POOL, new DataSize(10_000, BYTE));
+        MemoryPool generalPool = new MemoryPool(GENERAL_POOL, DataSize.ofBytes(10_000));
+        MemoryPool reservedPool = new MemoryPool(RESERVED_POOL, DataSize.ofBytes(10_000));
         QueryId queryId = new QueryId("query");
         QueryContext queryContext = createQueryContext(queryId, generalPool);
         TaskStateMachine taskStateMachine = new TaskStateMachine(TaskId.valueOf("task-id"), TEST_EXECUTOR);
@@ -141,13 +140,13 @@ public class TestQueryContext
     private static QueryContext createQueryContext(QueryId queryId, MemoryPool generalPool)
     {
         return new QueryContext(queryId,
-                new DataSize(10_000, BYTE),
-                new DataSize(10_000, BYTE),
+                DataSize.ofBytes(10_000),
+                DataSize.ofBytes(10_000),
                 generalPool,
                 new TestingGcMonitor(),
                 TEST_EXECUTOR,
                 TEST_EXECUTOR,
-                new DataSize(0, BYTE),
-                new SpillSpaceTracker(new DataSize(0, BYTE)));
+                DataSize.ofBytes(0),
+                new SpillSpaceTracker(DataSize.ofBytes(0)));
     }
 }

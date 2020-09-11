@@ -17,18 +17,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -41,7 +41,7 @@ import static io.prestosql.split.MockSplitSource.Action.FINISH;
 public class MockSplitSource
         implements SplitSource
 {
-    private static final Split SPLIT = new Split(new ConnectorId("test"), new ConnectorTransactionHandle() {}, new MockConnectorSplit());
+    private static final Split SPLIT = new Split(new CatalogName("test"), new MockConnectorSplit(), Lifespan.taskWide());
     private static final SettableFuture<List<Split>> COMPLETED_FUTURE = SettableFuture.create();
 
     static {
@@ -85,13 +85,7 @@ public class MockSplitSource
     }
 
     @Override
-    public ConnectorId getConnectorId()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ConnectorTransactionHandle getTransactionHandle()
+    public CatalogName getCatalogName()
     {
         throw new UnsupportedOperationException();
     }
@@ -146,6 +140,12 @@ public class MockSplitSource
     public boolean isFinished()
     {
         return splitsProduced == totalSplits && atSplitDepletion == FINISH;
+    }
+
+    @Override
+    public Optional<Integer> getMinScheduleSplitBatchSize()
+    {
+        return Optional.empty();
     }
 
     public int getNextBatchInvocationCount()

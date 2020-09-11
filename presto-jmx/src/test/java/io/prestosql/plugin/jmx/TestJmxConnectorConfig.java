@@ -15,7 +15,6 @@ package io.prestosql.plugin.jmx;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -25,13 +24,14 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertDeprecatedEquivalence;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestJmxConnectorConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(JmxConnectorConfig.class)
+        assertRecordedDefaults(recordDefaults(JmxConnectorConfig.class)
                 .setDumpTables("")
                 .setDumpPeriod(new Duration(10, TimeUnit.SECONDS))
                 .setMaxEntries(24 * 60 * 60));

@@ -30,6 +30,7 @@ import io.prestosql.operator.OperatorFactory;
 import io.prestosql.operator.PagesIndex.TestingFactory;
 import io.prestosql.operator.PagesSpatialIndex;
 import io.prestosql.operator.PagesSpatialIndexFactory;
+import io.prestosql.operator.PipelineContext;
 import io.prestosql.operator.SpatialIndexBuilderOperator.SpatialIndexBuilderOperatorFactory;
 import io.prestosql.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.prestosql.operator.SpatialJoinOperator.SpatialJoinOperatorFactory;
@@ -45,6 +46,7 @@ import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.TestingTaskContext;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -61,6 +63,7 @@ import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.geospatial.KdbTree.Node.newInternal;
 import static io.prestosql.geospatial.KdbTree.Node.newLeaf;
 import static io.prestosql.operator.OperatorAssertion.assertOperatorEquals;
+import static io.prestosql.operator.OperatorAssertion.toPages;
 import static io.prestosql.plugin.geospatial.GeoFunctions.stGeometryFromText;
 import static io.prestosql.plugin.geospatial.GeoFunctions.stPoint;
 import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
@@ -70,6 +73,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.plan.SpatialJoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.SpatialJoinNode.Type.LEFT;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
@@ -114,7 +118,7 @@ public class TestSpatialJoinOperator
                 Integer.MAX_VALUE,
                 60L,
                 SECONDS,
-                new SynchronousQueue<Runnable>(),
+                new SynchronousQueue<>(),
                 daemonThreadsNamed("test-executor-%s"),
                 new ThreadPoolExecutor.DiscardPolicy());
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
@@ -318,6 +322,49 @@ public class TestSpatialJoinOperator
 
         // make sure we have 40 matches
         assertEquals(output.getPositionCount(), 40);
+    }
+
+    @Test(dataProvider = "testDuplicateProbeFactoryDataProvider")
+    public void testDuplicateProbeFactory(boolean createSecondaryOperators)
+            throws Exception
+    {
+        TaskContext taskContext = createTaskContext();
+        PipelineContext pipelineContext = taskContext.addPipelineContext(0, true, true, false);
+        DriverContext probeDriver = pipelineContext.addDriverContext();
+        DriverContext buildDriver = pipelineContext.addDriverContext();
+
+        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR, DOUBLE))
+                .row(stPoint(0, 0), "0_0", 1.5);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(buildDriver, (build, probe, r) -> build.distance(probe) <= r.getAsDouble(), Optional.of(2), Optional.empty(), buildPages);
+
+        RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
+                .row(stPoint(0, 1), "0_1");
+        OperatorFactory firstFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, Optional.empty(), pagesSpatialIndexFactory);
+
+        for (int i = 0; i < 3; i++) {
+            DriverContext secondDriver = pipelineContext.addDriverContext();
+            OperatorFactory secondFactory = firstFactory.duplicate();
+            if (createSecondaryOperators) {
+                try (Operator secondOperator = secondFactory.createOperator(secondDriver)) {
+                    assertEquals(toPages(secondOperator, emptyIterator()), ImmutableList.of());
+                }
+            }
+            secondFactory.noMoreOperators();
+        }
+
+        MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
+                .row("0_1", "0_0")
+                .build();
+        assertOperatorEquals(firstFactory, probeDriver, probePages.build(), expected);
+    }
+
+    @DataProvider
+    public Object[][] testDuplicateProbeFactoryDataProvider()
+    {
+        return new Object[][] {
+                {true},
+                {false},
+        };
     }
 
     @Test

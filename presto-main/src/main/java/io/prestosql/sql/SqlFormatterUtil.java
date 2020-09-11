@@ -17,22 +17,21 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Statement;
 
-import java.util.List;
-import java.util.Optional;
+import javax.annotation.Nullable;
 
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.REJECT;
+import static java.lang.String.format;
 
 public final class SqlFormatterUtil
 {
     private SqlFormatterUtil() {}
 
-    public static String getFormattedSql(Statement statement, SqlParser sqlParser, Optional<List<Expression>> parameters)
+    public static String getFormattedSql(Statement statement, SqlParser sqlParser)
     {
-        String sql = SqlFormatter.formatSql(statement, parameters);
+        String sql = SqlFormatter.formatSql(statement);
 
         // verify round-trip
         Statement parsed;
@@ -41,12 +40,20 @@ public final class SqlFormatterUtil
             parsed = sqlParser.createStatement(sql, parsingOptions);
         }
         catch (ParsingException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Formatted query does not parse: " + statement);
+            throw formattingFailure(e, "Formatted query does not parse", statement, sql);
         }
         if (!statement.equals(parsed)) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Query does not round-trip: " + statement);
+            throw formattingFailure(null, "Query does not round-trip", statement, sql);
         }
 
         return sql;
+    }
+
+    private static PrestoException formattingFailure(@Nullable Throwable cause, String message, Statement statement, String sql)
+    {
+        PrestoException exception = new PrestoException(GENERIC_INTERNAL_ERROR, message, cause);
+        exception.addSuppressed(new RuntimeException("Statement: " + statement));
+        exception.addSuppressed(new RuntimeException(format("Formatted: [%s]", sql)));
+        return exception;
     }
 }

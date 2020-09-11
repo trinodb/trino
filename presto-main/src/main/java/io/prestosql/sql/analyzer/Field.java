@@ -62,7 +62,6 @@ public class Field
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
         requireNonNull(originTable, "originTable is null");
-        requireNonNull(aliased, "aliased is null");
 
         return new Field(Optional.of(relationAlias), name, type, hidden, originTable, originColumn, aliased);
     }
@@ -74,7 +73,6 @@ public class Field
         requireNonNull(type, "type is null");
         requireNonNull(originTable, "originTable is null");
         requireNonNull(originColumnName, "originColumnName is null");
-        requireNonNull(aliased, "aliased is null");
 
         this.relationAlias = relationAlias;
         this.name = name;
@@ -122,7 +120,7 @@ public class Field
 
     public boolean matchesPrefix(Optional<QualifiedName> prefix)
     {
-        return !prefix.isPresent() || relationAlias.isPresent() && relationAlias.get().hasSuffix(prefix.get());
+        return prefix.isEmpty() || relationAlias.isPresent() && relationAlias.get().hasSuffix(prefix.get());
     }
 
     /*
@@ -148,7 +146,7 @@ public class Field
      */
     public boolean canResolve(QualifiedName name)
     {
-        if (!this.name.isPresent()) {
+        if (this.name.isEmpty()) {
             return false;
         }
 

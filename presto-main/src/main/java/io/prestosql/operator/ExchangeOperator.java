@@ -14,7 +14,7 @@
 package io.prestosql.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.buffer.PagesSerde;
 import io.prestosql.execution.buffer.PagesSerdeFactory;
 import io.prestosql.execution.buffer.SerializedPage;
@@ -24,7 +24,6 @@ import io.prestosql.spi.connector.UpdatablePageSource;
 import io.prestosql.split.RemoteSplit;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
-import java.io.Closeable;
 import java.net.URI;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -34,9 +33,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class ExchangeOperator
-        implements SourceOperator, Closeable
+        implements SourceOperator
 {
-    public static final ConnectorId REMOTE_CONNECTOR_ID = new ConnectorId("$remote");
+    public static final CatalogName REMOTE_CONNECTOR_ID = new CatalogName("$remote");
 
     public static class ExchangeOperatorFactory
             implements SourceOperatorFactory
@@ -118,7 +117,7 @@ public class ExchangeOperator
     public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
         requireNonNull(split, "split is null");
-        checkArgument(split.getConnectorId().equals(REMOTE_CONNECTOR_ID), "split is not a remote split");
+        checkArgument(split.getCatalogName().equals(REMOTE_CONNECTOR_ID), "split is not a remote split");
 
         URI location = ((RemoteSplit) split.getConnectorSplit()).getLocation();
         exchangeClient.addLocation(location);
@@ -169,7 +168,7 @@ public class ExchangeOperator
     @Override
     public void addInput(Page page)
     {
-        throw new UnsupportedOperationException(getClass().getName() + " can not take input");
+        throw new UnsupportedOperationException(getClass().getName() + " cannot take input");
     }
 
     @Override
@@ -180,7 +179,7 @@ public class ExchangeOperator
             return null;
         }
 
-        operatorContext.recordNetworkInput(page.getSizeInBytes());
+        operatorContext.recordNetworkInput(page.getSizeInBytes(), page.getPositionCount());
 
         Page deserializedPage = serde.deserialize(page);
         operatorContext.recordProcessedInput(deserializedPage.getSizeInBytes(), page.getPositionCount());

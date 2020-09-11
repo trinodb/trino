@@ -21,7 +21,7 @@ import io.prestosql.cost.CachingCostProvider;
 import io.prestosql.cost.CachingStatsProvider;
 import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.CostProvider;
-import io.prestosql.cost.PlanNodeCostEstimate;
+import io.prestosql.cost.PlanCostEstimate;
 import io.prestosql.cost.StatsProvider;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
@@ -56,7 +56,7 @@ public class TestJoinEnumerator
     @BeforeClass
     public void setUp()
     {
-        queryRunner = new LocalQueryRunner(testSessionBuilder().build());
+        queryRunner = LocalQueryRunner.create(testSessionBuilder().build());
     }
 
     @AfterClass(alwaysRun = true)
@@ -96,14 +96,16 @@ public class TestJoinEnumerator
         MultiJoinNode multiJoinNode = new MultiJoinNode(
                 new LinkedHashSet<>(ImmutableList.of(p.values(a1), p.values(b1))),
                 TRUE_LITERAL,
-                ImmutableList.of(a1, b1));
+                ImmutableList.of(a1, b1),
+                false);
         JoinEnumerator joinEnumerator = new JoinEnumerator(
+                queryRunner.getMetadata(),
                 new CostComparator(1, 1, 1),
                 multiJoinNode.getFilter(),
                 createContext());
         JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols(), ImmutableSet.of(0));
         assertFalse(actual.getPlanNode().isPresent());
-        assertEquals(actual.getCost(), PlanNodeCostEstimate.infinite());
+        assertEquals(actual.getCost(), PlanCostEstimate.infinite());
     }
 
     private Rule.Context createContext()

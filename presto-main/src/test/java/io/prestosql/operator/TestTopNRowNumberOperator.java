@@ -16,11 +16,9 @@ package io.prestosql.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.prestosql.RowPagesBuilder;
-import io.prestosql.metadata.MetadataManager;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.MaterializedResult;
@@ -38,6 +36,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
 import static io.prestosql.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static io.prestosql.operator.OperatorAssertion.assertOperatorEquals;
@@ -66,10 +65,10 @@ public class TestTopNRowNumberOperator
         driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
-        joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
+        joinCompiler = new JoinCompiler(createTestMetadataManager());
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
@@ -190,10 +189,11 @@ public class TestTopNRowNumberOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
+    @Test
     public void testMemoryReservationYield()
     {
         Type type = BIGINT;
-        List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
+        List<Page> input = createPagesWithDistinctHashKeys(type, 1_000, 500);
 
         OperatorFactory operatorFactory = new TopNRowNumberOperatorFactory(
                 0,
@@ -228,6 +228,6 @@ public class TestTopNRowNumberOperator
                 count++;
             }
         }
-        assertEquals(count, 6_000 * 600);
+        assertEquals(count, 1_000 * 500);
     }
 }

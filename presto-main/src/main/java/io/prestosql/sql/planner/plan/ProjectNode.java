@@ -18,13 +18,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.SymbolReference;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
-import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -76,14 +73,7 @@ public class ProjectNode
 
     public boolean isIdentity()
     {
-        for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
-            Expression expression = entry.getValue();
-            Symbol symbol = entry.getKey();
-            if (!(expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(symbol.getName()))) {
-                return false;
-            }
-        }
-        return true;
+        return assignments.isIdentity();
     }
 
     @Override

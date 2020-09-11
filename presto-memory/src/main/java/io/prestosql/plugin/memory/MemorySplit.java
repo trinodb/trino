@@ -21,6 +21,7 @@ import io.prestosql.spi.connector.ConnectorSplit;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -29,35 +30,38 @@ import static java.util.Objects.requireNonNull;
 public class MemorySplit
         implements ConnectorSplit
 {
-    private final MemoryTableHandle tableHandle;
+    private final long table;
     private final int totalPartsPerWorker; // how many concurrent reads there will be from one worker
     private final int partNumber; // part of the pages on one worker that this splits is responsible
     private final HostAddress address;
     private final long expectedRows;
+    private final OptionalLong limit;
 
     @JsonCreator
     public MemorySplit(
-            @JsonProperty("tableHandle") MemoryTableHandle tableHandle,
+            @JsonProperty("table") long table,
             @JsonProperty("partNumber") int partNumber,
             @JsonProperty("totalPartsPerWorker") int totalPartsPerWorker,
             @JsonProperty("address") HostAddress address,
-            @JsonProperty("expectedRows") long expectedRows)
+            @JsonProperty("expectedRows") long expectedRows,
+            @JsonProperty("limit") OptionalLong limit)
     {
         checkState(partNumber >= 0, "partNumber must be >= 0");
         checkState(totalPartsPerWorker >= 1, "totalPartsPerWorker must be >= 1");
         checkState(totalPartsPerWorker > partNumber, "totalPartsPerWorker must be > partNumber");
 
-        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        this.table = requireNonNull(table, "table is null");
         this.partNumber = partNumber;
         this.totalPartsPerWorker = totalPartsPerWorker;
         this.address = requireNonNull(address, "address is null");
         this.expectedRows = expectedRows;
+        this.limit = limit;
     }
 
     @JsonProperty
-    public MemoryTableHandle getTableHandle()
+    public long getTable()
     {
-        return tableHandle;
+        return table;
     }
 
     @JsonProperty
@@ -102,6 +106,12 @@ public class MemorySplit
         return expectedRows;
     }
 
+    @JsonProperty
+    public OptionalLong getLimit()
+    {
+        return limit;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -112,7 +122,7 @@ public class MemorySplit
             return false;
         }
         MemorySplit other = (MemorySplit) obj;
-        return Objects.equals(this.tableHandle, other.tableHandle) &&
+        return Objects.equals(this.table, other.table) &&
                 Objects.equals(this.totalPartsPerWorker, other.totalPartsPerWorker) &&
                 Objects.equals(this.partNumber, other.partNumber);
     }
@@ -120,14 +130,14 @@ public class MemorySplit
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableHandle, totalPartsPerWorker, partNumber);
+        return Objects.hash(table, totalPartsPerWorker, partNumber);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("tableHandle", tableHandle)
+                .add("tableHandle", table)
                 .add("partNumber", partNumber)
                 .add("totalPartsPerWorker", totalPartsPerWorker)
                 .toString();

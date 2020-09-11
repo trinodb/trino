@@ -23,7 +23,7 @@ import javax.validation.constraints.NotNull;
 
 public class QueryMonitorConfig
 {
-    private DataSize maxOutputStageJsonSize = new DataSize(16, Unit.MEGABYTE);
+    private DataSize maxOutputStageJsonSize = DataSize.of(16, Unit.MEGABYTE);
 
     @MinDataSize("1kB")
     @MaxDataSize("1GB")

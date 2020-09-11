@@ -14,14 +14,17 @@
 package io.prestosql.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.testing.QueryRunner;
 
 import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 
 public class TestRaptorDistributedQueriesBucketed
         extends TestRaptorDistributedQueries
 {
-    public TestRaptorDistributedQueriesBucketed()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true));
+        return createRaptorQueryRunner(ImmutableMap.of(), true, true);
     }
 }

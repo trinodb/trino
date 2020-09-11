@@ -17,7 +17,6 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public class JmxHandleResolver
@@ -39,12 +38,6 @@ public class JmxHandleResolver
     public Class<? extends ConnectorSplit> getSplitClass()
     {
         return JmxSplit.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
-    {
-        return JmxTableLayoutHandle.class;
     }
 
     @Override

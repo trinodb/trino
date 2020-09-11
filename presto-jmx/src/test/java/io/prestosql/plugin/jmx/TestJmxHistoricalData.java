@@ -19,18 +19,19 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static org.testng.Assert.assertEquals;
 
 public class TestJmxHistoricalData
 {
-    private static final String TABLE_NAME = "test";
+    private static final String TABLE_NAME = "java.lang:type=classloading";
     private static final String NOT_EXISTING_TABLE_NAME = "not-existing-test";
     private static final int MAX_ENTRIES = 2;
 
     @Test
     public void testAddingRows()
     {
-        JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of(TABLE_NAME));
+        JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of(TABLE_NAME), getPlatformMBeanServer());
 
         List<Integer> bothColumns = ImmutableList.of(0, 1);
         List<Integer> secondColumn = ImmutableList.of(1);
@@ -50,7 +51,7 @@ public class TestJmxHistoricalData
     @Test
     public void testCaseInsensitive()
     {
-        JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of(TABLE_NAME.toUpperCase()));
+        JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of(TABLE_NAME.toUpperCase()), getPlatformMBeanServer());
 
         List<Integer> columns = ImmutableList.of(0);
         assertEquals(jmxHistoricalData.getRows(TABLE_NAME, columns), ImmutableList.of());
@@ -63,5 +64,13 @@ public class TestJmxHistoricalData
                 ImmutableList.<Object>of(42), ImmutableList.<Object>of(44)));
         assertEquals(jmxHistoricalData.getRows(TABLE_NAME.toUpperCase(), columns), ImmutableList.of(
                 ImmutableList.<Object>of(42), ImmutableList.<Object>of(44)));
+    }
+
+    @Test
+    public void testWildCardPatterns()
+    {
+        JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of("java.lang:type=c*"), getPlatformMBeanServer());
+
+        assertEquals(jmxHistoricalData.getTables(), ImmutableSet.of("java.lang:type=classloading", "java.lang:type=compilation"));
     }
 }

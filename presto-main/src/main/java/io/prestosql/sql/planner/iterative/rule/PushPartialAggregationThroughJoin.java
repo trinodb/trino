@@ -24,6 +24,7 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 
@@ -33,11 +34,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
-import static io.prestosql.SystemSessionProperties.isPushAggregationThroughJoin;
-import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
+import static io.prestosql.SystemSessionProperties.isPushPartialAggregationThroughJoin;
 import static io.prestosql.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -77,7 +76,7 @@ public class PushPartialAggregationThroughJoin
     @Override
     public boolean isEnabled(Session session)
     {
-        return isPushAggregationThroughJoin(session);
+        return isPushPartialAggregationThroughJoin(session);
     }
 
     @Override
@@ -93,16 +92,19 @@ public class PushPartialAggregationThroughJoin
         if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getLeft().getOutputSymbols())) {
             return Result.ofPlanNode(pushPartialToLeftChild(aggregationNode, joinNode, context));
         }
-        else if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getRight().getOutputSymbols())) {
+        if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getRight().getOutputSymbols())) {
             return Result.ofPlanNode(pushPartialToRightChild(aggregationNode, joinNode, context));
         }
 
         return Result.empty();
     }
 
-    private boolean allAggregationsOn(Map<Symbol, AggregationNode.Aggregation> aggregations, List<Symbol> symbols)
+    private static boolean allAggregationsOn(Map<Symbol, Aggregation> aggregations, List<Symbol> symbols)
     {
-        Set<Symbol> inputs = extractUnique(aggregations.values().stream().map(AggregationNode.Aggregation::getCall).collect(toImmutableList()));
+        Set<Symbol> inputs = aggregations.values().stream()
+                .map(SymbolsExtractor::extractAll)
+                .flatMap(List::stream)
+                .collect(toImmutableSet());
         return symbols.containsAll(inputs);
     }
 
@@ -180,14 +182,15 @@ public class PushPartialAggregationThroughJoin
                 leftChild,
                 rightChild,
                 child.getCriteria(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftChild.getOutputSymbols())
-                        .addAll(rightChild.getOutputSymbols())
-                        .build(),
+                leftChild.getOutputSymbols(),
+                rightChild.getOutputSymbols(),
                 child.getFilter(),
                 child.getLeftHashSymbol(),
                 child.getRightHashSymbol(),
-                child.getDistributionType());
+                child.getDistributionType(),
+                child.isSpillable(),
+                child.getDynamicFilters(),
+                child.getReorderJoinStatsAndCost());
         return restrictOutputs(context.getIdAllocator(), joinNode, ImmutableSet.copyOf(aggregation.getOutputSymbols())).orElse(joinNode);
     }
 }

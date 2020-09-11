@@ -18,10 +18,11 @@ import io.airlift.stats.QuantileDigest;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.QuantileDigestType;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeParameter;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -29,6 +30,7 @@ import java.util.function.BiFunction;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.QuantileDigestParametricType.QDIGEST;
 import static java.util.Objects.requireNonNull;
 
@@ -52,9 +54,9 @@ public class TestMergeQuantileDigestFunction
     };
 
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
-        Type type = QDIGEST.createType(typeRegistry, ImmutableList.of(TypeParameter.of(DoubleType.DOUBLE)));
+        Type type = metadata.getType(new TypeSignature(QDIGEST.getName(), TypeSignatureParameter.typeParameter(DOUBLE.getTypeSignature())));
         BlockBuilder blockBuilder = type.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             QuantileDigest qdigest = new QuantileDigest(0.0);
@@ -71,13 +73,13 @@ public class TestMergeQuantileDigestFunction
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of("qdigest(double)");
+        return ImmutableList.of(new QuantileDigestType(DOUBLE));
     }
 
     @Override
-    public Object getExpectedValue(int start, int length)
+    protected Object getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;

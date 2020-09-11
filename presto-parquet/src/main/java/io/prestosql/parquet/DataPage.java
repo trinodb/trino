@@ -18,9 +18,9 @@ public abstract class DataPage
 {
     protected final int valueCount;
 
-    public DataPage(int compressedSize, int uncompressedSize, int valueCount)
+    public DataPage(int uncompressedSize, int valueCount)
     {
-        super(compressedSize, uncompressedSize);
+        super(uncompressedSize);
         this.valueCount = valueCount;
     }
 

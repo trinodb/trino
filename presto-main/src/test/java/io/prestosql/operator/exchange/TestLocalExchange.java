@@ -34,7 +34,6 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static io.airlift.testing.Assertions.assertContains;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -53,8 +52,8 @@ import static org.testng.Assert.fail;
 public class TestLocalExchange
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
-    private static final DataSize RETAINED_PAGE_SIZE = new DataSize(createPage(42).getRetainedSizeInBytes(), BYTE);
-    private static final DataSize LOCAL_EXCHANGE_MAX_BUFFERED_BYTES = new DataSize(32, DataSize.Unit.MEGABYTE);
+    private static final DataSize RETAINED_PAGE_SIZE = DataSize.ofBytes(createPage(42).getRetainedSizeInBytes());
+    private static final DataSize LOCAL_EXCHANGE_MAX_BUFFERED_BYTES = DataSize.of(32, DataSize.Unit.MEGABYTE);
 
     @DataProvider
     public static Object[][] executionStrategy()
@@ -72,7 +71,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 executionStrategy,
-                new DataSize(retainedSizeOfPages(99), BYTE));
+                DataSize.ofBytes(retainedSizeOfPages(99)));
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
@@ -279,7 +278,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 executionStrategy,
-                new DataSize(retainedSizeOfPages(1), BYTE));
+                DataSize.ofBytes(retainedSizeOfPages(1)));
 
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
@@ -460,7 +459,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 executionStrategy,
-                new DataSize(1, BYTE));
+                DataSize.ofBytes(1));
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 

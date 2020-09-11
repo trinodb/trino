@@ -16,6 +16,8 @@ package io.prestosql.sql.planner.optimizations.joins;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.GroupReference;
 import io.prestosql.sql.planner.iterative.Lookup;
@@ -27,7 +29,6 @@ import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -36,8 +37,9 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.sql.planner.iterative.rule.PushProjectionThroughJoin.pushProjectionThroughJoin;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -47,42 +49,23 @@ import static java.util.Objects.requireNonNull;
  */
 public class JoinGraph
 {
-    private final Optional<Map<Symbol, Expression>> assignments;
     private final List<Expression> filters;
     private final List<PlanNode> nodes; // nodes in order of their appearance in tree plan (left, right, parent)
     private final Multimap<PlanNodeId, Edge> edges;
     private final PlanNodeId rootId;
-
-    /**
-     * Builds all (distinct) {@link JoinGraph}-es whole plan tree.
-     */
-    public static List<JoinGraph> buildFrom(PlanNode plan)
-    {
-        return buildFrom(plan, Lookup.noLookup());
-    }
+    private final boolean containsCrossJoin;
 
     /**
      * Builds {@link JoinGraph} containing {@code plan} node.
      */
-    public static JoinGraph buildShallowFrom(PlanNode plan, Lookup lookup)
+    public static JoinGraph buildFrom(Metadata metadata, PlanNode plan, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator)
     {
-        JoinGraph graph = plan.accept(new Builder(true, lookup), new Context());
-        return graph;
-    }
-
-    private static List<JoinGraph> buildFrom(PlanNode plan, Lookup lookup)
-    {
-        Context context = new Context();
-        JoinGraph graph = plan.accept(new Builder(false, lookup), context);
-        if (graph.size() > 1) {
-            context.addSubGraph(graph);
-        }
-        return context.getGraphs();
+        return plan.accept(new Builder(metadata, lookup, planNodeIdAllocator), new Context());
     }
 
     public JoinGraph(PlanNode node)
     {
-        this(ImmutableList.of(node), ImmutableMultimap.of(), node.getId(), ImmutableList.of(), Optional.empty());
+        this(ImmutableList.of(node), ImmutableMultimap.of(), node.getId(), ImmutableList.of(), false);
     }
 
     public JoinGraph(
@@ -90,23 +73,13 @@ public class JoinGraph
             Multimap<PlanNodeId, Edge> edges,
             PlanNodeId rootId,
             List<Expression> filters,
-            Optional<Map<Symbol, Expression>> assignments)
+            boolean containsCrossJoin)
     {
         this.nodes = nodes;
         this.edges = edges;
         this.rootId = rootId;
         this.filters = filters;
-        this.assignments = assignments;
-    }
-
-    public JoinGraph withAssignments(Map<Symbol, Expression> assignments)
-    {
-        return new JoinGraph(nodes, edges, rootId, filters, Optional.of(assignments));
-    }
-
-    public Optional<Map<Symbol, Expression>> getAssignments()
-    {
-        return assignments;
+        this.containsCrossJoin = containsCrossJoin;
     }
 
     public JoinGraph withFilter(Expression expression)
@@ -115,7 +88,7 @@ public class JoinGraph
         filters.addAll(this.filters);
         filters.add(expression);
 
-        return new JoinGraph(nodes, edges, rootId, filters.build(), assignments);
+        return new JoinGraph(nodes, edges, rootId, filters.build(), containsCrossJoin);
     }
 
     public List<Expression> getFilters()
@@ -126,11 +99,6 @@ public class JoinGraph
     public PlanNodeId getRootId()
     {
         return rootId;
-    }
-
-    public JoinGraph withRootId(PlanNodeId rootId)
-    {
-        return new JoinGraph(nodes, edges, rootId, filters, assignments);
     }
 
     public boolean isEmpty()
@@ -158,6 +126,11 @@ public class JoinGraph
         return ImmutableList.copyOf(edges.get(node.getId()));
     }
 
+    public boolean isContainsCrossJoin()
+    {
+        return containsCrossJoin;
+    }
+
     @Override
     public String toString()
     {
@@ -181,10 +154,10 @@ public class JoinGraph
         return builder.toString();
     }
 
-    private JoinGraph joinWith(JoinGraph other, List<JoinNode.EquiJoinClause> joinClauses, Context context, PlanNodeId newRoot)
+    private JoinGraph joinWith(JoinGraph other, List<JoinNode.EquiJoinClause> joinClauses, Context context, PlanNodeId newRoot, boolean containsCrossJoin)
     {
         for (PlanNode node : other.nodes) {
-            checkState(!edges.containsKey(node.getId()), format("Node [%s] appeared in two JoinGraphs", node));
+            checkState(!edges.containsKey(node.getId()), "Node [%s] appeared in two JoinGraphs", node);
         }
 
         List<PlanNode> nodes = ImmutableList.<PlanNode>builder()
@@ -213,35 +186,26 @@ public class JoinGraph
             edges.put(right.getId(), new Edge(left, rightSymbol, leftSymbol));
         }
 
-        return new JoinGraph(nodes, edges.build(), newRoot, joinedFilters, Optional.empty());
+        return new JoinGraph(nodes, edges.build(), newRoot, joinedFilters, this.containsCrossJoin || containsCrossJoin);
     }
 
     private static class Builder
             extends PlanVisitor<JoinGraph, Context>
     {
-        // TODO When io.prestosql.sql.planner.optimizations.EliminateCrossJoins is removed, remove 'shallow' flag
-        private final boolean shallow;
+        private final Metadata metadata;
         private final Lookup lookup;
+        private final PlanNodeIdAllocator planNodeIdAllocator;
 
-        private Builder(boolean shallow, Lookup lookup)
+        private Builder(Metadata metadata, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator)
         {
-            this.shallow = shallow;
+            this.metadata = requireNonNull(metadata, "metadata is null");
             this.lookup = requireNonNull(lookup, "lookup cannot be null");
+            this.planNodeIdAllocator = requireNonNull(planNodeIdAllocator, "planNodeIdAllocator is null");
         }
 
         @Override
         protected JoinGraph visitPlan(PlanNode node, Context context)
         {
-            if (!shallow) {
-                for (PlanNode child : node.getSources()) {
-                    JoinGraph graph = child.accept(this, context);
-                    if (graph.size() < 2) {
-                        continue;
-                    }
-                    context.addSubGraph(graph.withRootId(child.getId()));
-                }
-            }
-
             for (Symbol symbol : node.getOutputSymbols()) {
                 context.setSymbolSource(symbol, node);
             }
@@ -266,7 +230,7 @@ public class JoinGraph
             JoinGraph left = node.getLeft().accept(this, context);
             JoinGraph right = node.getRight().accept(this, context);
 
-            JoinGraph graph = left.joinWith(right, node.getCriteria(), context, node.getId());
+            JoinGraph graph = left.joinWith(right, node.getCriteria(), context, node.getId(), node.isCrossJoin());
 
             if (node.getFilter().isPresent()) {
                 return graph.withFilter(node.getFilter().get());
@@ -277,10 +241,11 @@ public class JoinGraph
         @Override
         public JoinGraph visitProject(ProjectNode node, Context context)
         {
-            if (node.isIdentity()) {
-                JoinGraph graph = node.getSource().accept(this, context);
-                return graph.withAssignments(node.getAssignments().getMap());
+            Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin(metadata, node, lookup, planNodeIdAllocator);
+            if (rewrittenNode.isPresent()) {
+                return rewrittenNode.get().accept(this, context);
             }
+
             return visitPlan(node, context);
         }
 
@@ -289,15 +254,10 @@ public class JoinGraph
         {
             PlanNode dereferenced = lookup.resolve(node);
             JoinGraph graph = dereferenced.accept(this, context);
-            if (isTrivialGraph(graph)) {
-                return replacementGraph(dereferenced, node, context);
+            if (graph.nodes.size() == 1) {
+                return replacementGraph(getOnlyElement(graph.nodes), node, context);
             }
             return graph;
-        }
-
-        private boolean isTrivialGraph(JoinGraph graph)
-        {
-            return graph.nodes.size() < 2 && graph.edges.isEmpty() && graph.filters.isEmpty() && !graph.assignments.isPresent();
         }
 
         private JoinGraph replacementGraph(PlanNode oldNode, PlanNode newNode, Context context)
@@ -346,17 +306,9 @@ public class JoinGraph
     {
         private final Map<Symbol, PlanNode> symbolSources = new HashMap<>();
 
-        // TODO When io.prestosql.sql.planner.optimizations.EliminateCrossJoins is removed, remove 'joinGraphs'
-        private final List<JoinGraph> joinGraphs = new ArrayList<>();
-
         public void setSymbolSource(Symbol symbol, PlanNode node)
         {
             symbolSources.put(symbol, node);
-        }
-
-        public void addSubGraph(JoinGraph graph)
-        {
-            joinGraphs.add(graph);
         }
 
         public boolean containsSymbol(Symbol symbol)
@@ -368,11 +320,6 @@ public class JoinGraph
         {
             checkState(containsSymbol(symbol));
             return symbolSources.get(symbol);
-        }
-
-        public List<JoinGraph> getGraphs()
-        {
-            return joinGraphs;
         }
     }
 }

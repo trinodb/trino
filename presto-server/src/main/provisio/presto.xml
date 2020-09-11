@@ -1,6 +1,6 @@
 <runtime>
     <!-- Target -->
-    <archive name="${project.artifactId}-${project.version}.tar.gz" />
+    <archive name="${project.artifactId}-${project.version}.tar.gz" hardLinkIncludes="**/*.jar" />
 
     <!-- Notices -->
     <fileSet to="/">
@@ -22,7 +22,7 @@
 
     <!-- Server -->
     <artifactSet to="lib">
-        <artifact id="${project.groupId}:presto-main:${project.version}" />
+        <artifact id="${project.groupId}:presto-server-main:${project.version}" />
     </artifactSet>
 
     <!-- Plugins -->
@@ -64,6 +64,12 @@
 
     <artifactSet to="plugin/hive-hadoop2">
         <artifact id="${project.groupId}:presto-hive-hadoop2:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/iceberg">
+        <artifact id="${project.groupId}:presto-iceberg:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -110,14 +116,38 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/memsql">
+        <artifact id="${project.groupId}:presto-memsql:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/mysql">
         <artifact id="${project.groupId}:presto-mysql:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/oracle">
+        <artifact id="${project.groupId}:presto-oracle:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/phoenix">
+        <artifact id="${project.groupId}:presto-phoenix:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/postgresql">
         <artifact id="${project.groupId}:presto-postgresql:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/prometheus">
+        <artifact id="${project.groupId}:presto-prometheus:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -134,7 +164,7 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/raptor">
+    <artifactSet to="plugin/raptor-legacy">
         <artifact id="${project.groupId}:presto-raptor-legacy:zip:${project.version}">
             <unpack />
         </artifact>
@@ -170,7 +200,7 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/localfile">
+    <artifactSet to="plugin/local-file">
         <artifact id="${project.groupId}:presto-local-file:zip:${project.version}">
             <unpack />
         </artifact>
@@ -182,14 +212,43 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/presto-thrift">
+    <artifactSet to="plugin/thrift">
         <artifact id="${project.groupId}:presto-thrift:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/presto-elasticsearch">
+    <artifactSet to="plugin/elasticsearch">
         <artifact id="${project.groupId}:presto-elasticsearch:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/google-sheets">
+        <artifact id="${project.groupId}:presto-google-sheets:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/kinesis">
+        <artifact id="${project.groupId}:presto-kinesis:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/bigquery">
+        <artifact id="${project.groupId}:presto-bigquery:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+    <artifactSet to="plugin/presto-pinot">
+        <artifact id="${project.groupId}:presto-pinot:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/druid">
+        <artifact id="${project.groupId}:presto-druid:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

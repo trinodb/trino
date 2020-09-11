@@ -14,14 +14,21 @@
 package io.prestosql.server.security;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.LegacyConfig;
+import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.NotNull;
+
+import java.io.File;
+import java.util.Optional;
 
 public class JsonWebTokenConfig
 {
     private String keyFile;
     private String requiredIssuer;
     private String requiredAudience;
+    private Optional<String> userMappingPattern = Optional.empty();
+    private Optional<File> userMappingFile = Optional.empty();
 
     @NotNull
     public String getKeyFile()
@@ -29,7 +36,8 @@ public class JsonWebTokenConfig
         return keyFile;
     }
 
-    @Config("http.authentication.jwt.key-file")
+    @Config("http-server.authentication.jwt.key-file")
+    @LegacyConfig("http.authentication.jwt.key-file")
     public JsonWebTokenConfig setKeyFile(String keyFile)
     {
         this.keyFile = keyFile;
@@ -41,7 +49,8 @@ public class JsonWebTokenConfig
         return requiredIssuer;
     }
 
-    @Config("http.authentication.jwt.required-issuer")
+    @Config("http-server.authentication.jwt.required-issuer")
+    @LegacyConfig("http.authentication.jwt.required-issuer")
     public JsonWebTokenConfig setRequiredIssuer(String requiredIssuer)
     {
         this.requiredIssuer = requiredIssuer;
@@ -53,10 +62,35 @@ public class JsonWebTokenConfig
         return requiredAudience;
     }
 
-    @Config("http.authentication.jwt.required-audience")
+    @Config("http-server.authentication.jwt.required-audience")
+    @LegacyConfig("http.authentication.jwt.required-audience")
     public JsonWebTokenConfig setRequiredAudience(String requiredAudience)
     {
         this.requiredAudience = requiredAudience;
+        return this;
+    }
+
+    public Optional<String> getUserMappingPattern()
+    {
+        return userMappingPattern;
+    }
+
+    @Config("http-server.authentication.jwt.user-mapping.pattern")
+    public JsonWebTokenConfig setUserMappingPattern(String userMappingPattern)
+    {
+        this.userMappingPattern = Optional.ofNullable(userMappingPattern);
+        return this;
+    }
+
+    public Optional<@FileExists File> getUserMappingFile()
+    {
+        return userMappingFile;
+    }
+
+    @Config("http-server.authentication.jwt.user-mapping.file")
+    public JsonWebTokenConfig setUserMappingFile(File userMappingFile)
+    {
+        this.userMappingFile = Optional.ofNullable(userMappingFile);
         return this;
     }
 }

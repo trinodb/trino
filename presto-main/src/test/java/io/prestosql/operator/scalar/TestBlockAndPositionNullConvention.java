@@ -33,6 +33,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.type.UnknownType.UNKNOWN;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -63,9 +64,8 @@ public class TestBlockAndPositionNullConvention
         assertFunction("test_block_position(bound_string)", VARCHAR, "hello");
         assertTrue(FunctionWithBlockAndPositionConvention.hitBlockPositionSlice.get());
 
-        // TODO: add adaptations so these will pass
-        //assertFunction("test_block_position(null)", UNKNOWN, null);
-        //assertFalse(FunctionWithBlockAndPositionConvention.hitBlockPositionObject.get());
+        assertFunction("test_block_position(null)", UNKNOWN, null);
+        assertFalse(FunctionWithBlockAndPositionConvention.hitBlockPositionObject.get());
 
         assertFunction("test_block_position(false)", BOOLEAN, false);
         assertFalse(FunctionWithBlockAndPositionConvention.hitBlockPositionBoolean.get());
@@ -75,7 +75,7 @@ public class TestBlockAndPositionNullConvention
     }
 
     @ScalarFunction("test_block_position")
-    public static class FunctionWithBlockAndPositionConvention
+    public static final class FunctionWithBlockAndPositionConvention
     {
         private static final AtomicBoolean hitBlockPositionBigint = new AtomicBoolean();
         private static final AtomicBoolean hitBlockPositionDouble = new AtomicBoolean();
@@ -114,6 +114,7 @@ public class TestBlockAndPositionNullConvention
         }
 
         @TypeParameter("E")
+        @SqlNullable
         @SqlType("E")
         public static Slice specializedSlice(@TypeParameter("E") Type type, @BlockPosition @SqlType(value = "E", nativeContainerType = Slice.class) Block block, @BlockIndex int position)
         {
@@ -124,7 +125,7 @@ public class TestBlockAndPositionNullConvention
         @TypeParameter("E")
         @SqlNullable
         @SqlType("E")
-        public static Boolean speciailizedBoolean(@TypeParameter("E") Type type, @SqlType("E") boolean bool)
+        public static Boolean speciailizedBoolean(@TypeParameter("E") Type type, @SqlNullable @SqlType("E") Boolean bool)
         {
             return bool;
         }
@@ -141,13 +142,15 @@ public class TestBlockAndPositionNullConvention
         // exact
 
         @SqlType(StandardTypes.BIGINT)
-        public static long getLong(@SqlType(StandardTypes.BIGINT) long number)
+        @SqlNullable
+        public static Long getLong(@SqlNullable @SqlType(StandardTypes.BIGINT) Long number)
         {
             return number;
         }
 
         @SqlType(StandardTypes.BIGINT)
-        public static long getBlockPosition(@BlockPosition @SqlType(value = StandardTypes.BIGINT, nativeContainerType = long.class) Block block, @BlockIndex int position)
+        @SqlNullable
+        public static Long getBlockPosition(@BlockPosition @SqlType(value = StandardTypes.BIGINT, nativeContainerType = long.class) Block block, @BlockIndex int position)
         {
             hitBlockPositionBigint.set(true);
             return BIGINT.getLong(block, position);
@@ -155,7 +158,7 @@ public class TestBlockAndPositionNullConvention
 
         @SqlType(StandardTypes.DOUBLE)
         @SqlNullable
-        public static Double getDouble(@SqlType(StandardTypes.DOUBLE) double number)
+        public static Double getDouble(@SqlNullable @SqlType(StandardTypes.DOUBLE) Double number)
         {
             return number;
         }

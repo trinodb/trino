@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.spi.PrestoException;
 
 import javax.annotation.PreDestroy;
@@ -51,7 +52,7 @@ public class AtopProcessFactory
     private final ExecutorService executor;
 
     @Inject
-    public AtopProcessFactory(AtopConnectorConfig config, AtopCatalogName catalogName)
+    public AtopProcessFactory(AtopConnectorConfig config, CatalogName catalogName)
     {
         this.executablePath = config.getExecutablePath();
         this.timeZone = config.getTimeZoneId();

@@ -34,9 +34,9 @@ public class ShortArrayBlockBuilder
     private static final Block NULL_VALUE_BLOCK = new ShortArrayBlock(0, 1, new boolean[] {true}, new short[1]);
 
     @Nullable
-    private BlockBuilderStatus blockBuilderStatus;
+    private final BlockBuilderStatus blockBuilderStatus;
     private boolean initialized;
-    private int initialEntryCount;
+    private final int initialEntryCount;
 
     private int positionCount;
     private boolean hasNullValue;
@@ -102,7 +102,7 @@ public class ShortArrayBlockBuilder
         if (!hasNonNullValue) {
             return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
         }
-        return new ShortArrayBlock(0, positionCount, valueIsNull, values);
+        return new ShortArrayBlock(0, positionCount, hasNullValue ? valueIsNull : null, values);
     }
 
     @Override

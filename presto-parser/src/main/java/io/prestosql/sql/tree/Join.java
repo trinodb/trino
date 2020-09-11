@@ -134,4 +134,14 @@ public class Join
     {
         return Objects.hash(type, left, right, criteria);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return type.equals(((Join) other).type);
+    }
 }

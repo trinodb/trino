@@ -19,12 +19,12 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 
 import java.util.Collection;
+import java.util.List;
 
 import static java.util.stream.Collectors.toList;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
-        include = JsonTypeInfo.As.PROPERTY,
         property = "@type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = EquatableValueSet.class, name = "equatable"),
@@ -98,6 +98,10 @@ public interface ValueSet
 
     Object getSingleValue();
 
+    boolean isDiscreteSet();
+
+    List<Object> getDiscreteSet();
+
     boolean containsValue(Object value);
 
     /**
@@ -147,6 +151,9 @@ public interface ValueSet
     {
         return this.union(other).equals(this);
     }
+
+    @Override
+    String toString();
 
     String toString(ConnectorSession session);
 }

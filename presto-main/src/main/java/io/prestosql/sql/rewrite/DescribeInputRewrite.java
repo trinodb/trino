@@ -22,13 +22,14 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analyzer;
 import io.prestosql.sql.analyzer.QueryExplainer;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.DescribeInput;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Limit;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.Node;
+import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.Parameter;
 import io.prestosql.sql.tree.Row;
@@ -36,8 +37,10 @@ import io.prestosql.sql.tree.Statement;
 import io.prestosql.sql.tree.StringLiteral;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.execution.ParameterExtractor.getParameters;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.QueryUtil.aliased;
@@ -48,6 +51,7 @@ import static io.prestosql.sql.QueryUtil.row;
 import static io.prestosql.sql.QueryUtil.selectList;
 import static io.prestosql.sql.QueryUtil.simpleQuery;
 import static io.prestosql.sql.QueryUtil.values;
+import static io.prestosql.type.TypeUtils.getDisplayLabel;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
@@ -62,10 +66,11 @@ final class DescribeInputRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameterLookup,
             AccessControl accessControl,
             WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, accessControl, warningCollector).process(node, null);
+        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, accessControl, warningCollector).process(node, null);
     }
 
     private static final class Visitor
@@ -76,6 +81,7 @@ final class DescribeInputRewrite
         private final Metadata metadata;
         private final Optional<QueryExplainer> queryExplainer;
         private final List<Expression> parameters;
+        private final Map<NodeRef<Parameter>, Expression> parameterLookup;
         private final AccessControl accessControl;
         private final WarningCollector warningCollector;
 
@@ -85,6 +91,7 @@ final class DescribeInputRewrite
                 Metadata metadata,
                 Optional<QueryExplainer> queryExplainer,
                 List<Expression> parameters,
+                Map<NodeRef<Parameter>, Expression> parameterLookup,
                 AccessControl accessControl,
                 WarningCollector warningCollector)
         {
@@ -94,29 +101,29 @@ final class DescribeInputRewrite
             this.queryExplainer = queryExplainer;
             this.accessControl = accessControl;
             this.parameters = parameters;
+            this.parameterLookup = parameterLookup;
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
 
         @Override
         protected Node visitDescribeInput(DescribeInput node, Void context)
-                throws SemanticException
         {
             String sqlString = session.getPreparedStatement(node.getName().getValue());
             Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
 
             // create  analysis for the query we are describing.
-            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, warningCollector);
+            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector);
             Analysis analysis = analyzer.analyze(statement, true);
 
             // get all parameters in query
             List<Parameter> parameters = getParameters(statement);
 
             // return the positions and types of all parameters
-            Row[] rows = parameters.stream().map(parameter -> createDescribeInputRow(parameter, analysis)).toArray(Row[]::new);
-            Optional<String> limit = Optional.empty();
+            Row[] rows = parameters.stream().map(parameter -> createDescribeInputRow(session, parameter, analysis)).toArray(Row[]::new);
+            Optional<Node> limit = Optional.empty();
             if (rows.length == 0) {
                 rows = new Row[] {row(new NullLiteral(), new NullLiteral())};
-                limit = Optional.of("0");
+                limit = Optional.of(new Limit(new LongLiteral("0")));
             }
 
             return simpleQuery(
@@ -129,10 +136,11 @@ final class DescribeInputRewrite
                     Optional.empty(),
                     Optional.empty(),
                     Optional.of(ordering(ascending("Position"))),
+                    Optional.empty(),
                     limit);
         }
 
-        private static Row createDescribeInputRow(Parameter parameter, Analysis queryAnalysis)
+        private static Row createDescribeInputRow(Session session, Parameter parameter, Analysis queryAnalysis)
         {
             Type type = queryAnalysis.getCoercion(parameter);
             if (type == null) {
@@ -141,7 +149,7 @@ final class DescribeInputRewrite
 
             return row(
                     new LongLiteral(Integer.toString(parameter.getPosition())),
-                    new StringLiteral(type.getTypeSignature().getBase()));
+                    new StringLiteral(getDisplayLabel(type, isOmitDateTimeTypePrecision(session))));
         }
 
         @Override

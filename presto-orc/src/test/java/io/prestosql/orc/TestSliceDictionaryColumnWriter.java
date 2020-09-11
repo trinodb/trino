@@ -16,6 +16,8 @@ package io.prestosql.orc;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.statistics.NoOpBloomFilterBuilder;
+import io.prestosql.orc.metadata.statistics.StringStatisticsBuilder;
 import io.prestosql.orc.writer.SliceDictionaryColumnWriter;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
@@ -26,6 +28,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
 import static io.prestosql.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
+import static io.prestosql.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertFalse;
@@ -36,12 +39,11 @@ public class TestSliceDictionaryColumnWriter
     public void testDirectConversion()
     {
         SliceDictionaryColumnWriter writer = new SliceDictionaryColumnWriter(
-                0,
+                ROOT_COLUMN,
                 VARCHAR,
                 CompressionKind.NONE,
                 toIntExact(DEFAULT_MAX_COMPRESSION_BUFFER_SIZE.toBytes()),
-                OrcEncoding.ORC,
-                DEFAULT_MAX_STRING_STATISTICS_LIMIT);
+                () -> new StringStatisticsBuilder(toIntExact(DEFAULT_MAX_STRING_STATISTICS_LIMIT.toBytes()), new NoOpBloomFilterBuilder()));
 
         // a single row group exceeds 2G after direct conversion
         byte[] value = new byte[megabytes(1)];
@@ -56,6 +58,6 @@ public class TestSliceDictionaryColumnWriter
 
     private static int megabytes(int size)
     {
-        return toIntExact(new DataSize(size, MEGABYTE).toBytes());
+        return toIntExact(DataSize.of(size, MEGABYTE).toBytes());
     }
 }

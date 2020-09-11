@@ -49,7 +49,7 @@ import static io.prestosql.sql.planner.plan.Patterns.project;
 import static io.prestosql.sql.planner.plan.Patterns.source;
 import static io.prestosql.sql.planner.plan.Patterns.window;
 
-public class GatherAndMergeWindows
+public final class GatherAndMergeWindows
 {
     private GatherAndMergeWindows() {}
 
@@ -268,13 +268,13 @@ public class GatherAndMergeWindows
 
         private static int compareOrderBy(WindowNode o1, WindowNode o2)
         {
-            if (!o1.getOrderingScheme().isPresent() && !o2.getOrderingScheme().isPresent()) {
+            if (o1.getOrderingScheme().isEmpty() && o2.getOrderingScheme().isEmpty()) {
                 return 0;
             }
-            else if (o1.getOrderingScheme().isPresent() && !o2.getOrderingScheme().isPresent()) {
+            if (o1.getOrderingScheme().isPresent() && o2.getOrderingScheme().isEmpty()) {
                 return 1;
             }
-            else if (!o1.getOrderingScheme().isPresent() && o2.getOrderingScheme().isPresent()) {
+            if (o1.getOrderingScheme().isEmpty() && o2.getOrderingScheme().isPresent()) {
                 return -1;
             }
 

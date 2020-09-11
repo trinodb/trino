@@ -19,7 +19,10 @@ import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
+import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcColumnId;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
 import io.prestosql.orc.metadata.RowGroupIndex;
 import io.prestosql.orc.metadata.StripeInformation;
@@ -31,31 +34,40 @@ import io.prestosql.orc.metadata.statistics.DoubleStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.IntegerStatistics;
 import io.prestosql.orc.metadata.statistics.IntegerStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.LongDecimalStatisticsBuilder;
+import io.prestosql.orc.metadata.statistics.NoOpBloomFilterBuilder;
 import io.prestosql.orc.metadata.statistics.ShortDecimalStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.StatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.StatisticsHasher;
 import io.prestosql.orc.metadata.statistics.StringStatistics;
 import io.prestosql.orc.metadata.statistics.StringStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.StripeStatistics;
+import io.prestosql.orc.metadata.statistics.TimestampStatisticsBuilder;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.ColumnarMap;
 import io.prestosql.spi.block.ColumnarRow;
 import io.prestosql.spi.type.AbstractLongType;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.LongTimestamp;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.function.Function;
@@ -69,7 +81,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
 import static io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode.DETAILED;
 import static io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode.HASHED;
-import static io.prestosql.orc.metadata.DwrfMetadataWriter.STATIC_METADATA;
+import static io.prestosql.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.prestosql.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
 import static io.prestosql.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -77,17 +89,22 @@ import static io.prestosql.spi.block.ColumnarArray.toColumnarArray;
 import static io.prestosql.spi.block.ColumnarMap.toColumnarMap;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.MAP;
-import static io.prestosql.spi.type.StandardTypes.ROW;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -101,29 +118,32 @@ public class OrcWriteValidation
 
     private final List<Integer> version;
     private final CompressionKind compression;
+    private final ZoneId timeZone;
     private final int rowGroupMaxRowCount;
     private final List<String> columnNames;
     private final Map<String, Slice> metadata;
     private final WriteChecksum checksum;
     private final Map<Long, List<RowGroupStatistics>> rowGroupStatistics;
     private final Map<Long, StripeStatistics> stripeStatistics;
-    private final List<ColumnStatistics> fileStatistics;
+    private final Optional<ColumnMetadata<ColumnStatistics>> fileStatistics;
     private final int stringStatisticsLimitInBytes;
 
     private OrcWriteValidation(
             List<Integer> version,
             CompressionKind compression,
+            ZoneId timeZone,
             int rowGroupMaxRowCount,
             List<String> columnNames,
             Map<String, Slice> metadata,
             WriteChecksum checksum,
             Map<Long, List<RowGroupStatistics>> rowGroupStatistics,
             Map<Long, StripeStatistics> stripeStatistics,
-            List<ColumnStatistics> fileStatistics,
+            Optional<ColumnMetadata<ColumnStatistics>> fileStatistics,
             int stringStatisticsLimitInBytes)
     {
         this.version = version;
         this.compression = compression;
+        this.timeZone = timeZone;
         this.rowGroupMaxRowCount = rowGroupMaxRowCount;
         this.columnNames = columnNames;
         this.metadata = metadata;
@@ -144,6 +164,19 @@ public class OrcWriteValidation
         return compression;
     }
 
+    public ZoneId getTimeZone()
+    {
+        return timeZone;
+    }
+
+    public void validateTimeZone(OrcDataSourceId orcDataSourceId, ZoneId actualTimeZone)
+            throws OrcCorruptionException
+    {
+        if (!timeZone.equals(actualTimeZone)) {
+            throw new OrcCorruptionException(orcDataSourceId, "Unexpected time zone");
+        }
+    }
+
     public int getRowGroupMaxRowCount()
     {
         return rowGroupMaxRowCount;
@@ -162,12 +195,7 @@ public class OrcWriteValidation
     public void validateMetadata(OrcDataSourceId orcDataSourceId, Map<String, Slice> actualMetadata)
             throws OrcCorruptionException
     {
-        // Filter out metadata value statically added by the DWRF writer
-        Map<String, Slice> filteredMetadata = actualMetadata.entrySet().stream()
-                .filter(entry -> !STATIC_METADATA.containsKey(entry.getKey()))
-                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
-
-        if (!metadata.equals(filteredMetadata)) {
+        if (!metadata.equals(actualMetadata)) {
             throw new OrcCorruptionException(orcDataSourceId, "Unexpected metadata");
         }
     }
@@ -177,26 +205,28 @@ public class OrcWriteValidation
         return checksum;
     }
 
-    public void validateFileStatistics(OrcDataSourceId orcDataSourceId, List<ColumnStatistics> actualFileStatistics)
+    public void validateFileStatistics(OrcDataSourceId orcDataSourceId, Optional<ColumnMetadata<ColumnStatistics>> actualFileStatistics)
             throws OrcCorruptionException
     {
-        if (actualFileStatistics.isEmpty()) {
-            // DWRF file statistics are disabled
+        // file stats will be absent when no rows are written
+        if (fileStatistics.isEmpty()) {
+            if (actualFileStatistics.isPresent()) {
+                throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected file statistics");
+            }
             return;
         }
-        validateColumnStatisticsEquivalent(orcDataSourceId, "file", actualFileStatistics, fileStatistics);
+        if (actualFileStatistics.isEmpty()) {
+            throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: expected file statistics");
+        }
+
+        validateColumnStatisticsEquivalent(orcDataSourceId, "file", actualFileStatistics.get(), fileStatistics.get());
     }
 
-    public void validateStripeStatistics(OrcDataSourceId orcDataSourceId, List<StripeInformation> actualStripes, List<StripeStatistics> actualStripeStatistics)
+    public void validateStripeStatistics(OrcDataSourceId orcDataSourceId, List<StripeInformation> actualStripes, List<Optional<StripeStatistics>> actualStripeStatistics)
             throws OrcCorruptionException
     {
         requireNonNull(actualStripes, "actualStripes is null");
         requireNonNull(actualStripeStatistics, "actualStripeStatistics is null");
-
-        if (actualStripeStatistics.isEmpty()) {
-            // DWRF does not have stripe statistics
-            return;
-        }
 
         if (actualStripeStatistics.size() != stripeStatistics.size()) {
             throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected number of columns in stripe statistics");
@@ -204,12 +234,12 @@ public class OrcWriteValidation
 
         for (int stripeIndex = 0; stripeIndex < actualStripes.size(); stripeIndex++) {
             long stripeOffset = actualStripes.get(stripeIndex).getOffset();
-            StripeStatistics actual = actualStripeStatistics.get(stripeIndex);
+            StripeStatistics actual = actualStripeStatistics.get(stripeIndex).get();
             validateStripeStatistics(orcDataSourceId, stripeOffset, actual.getColumnStatistics());
         }
     }
 
-    public void validateStripeStatistics(OrcDataSourceId orcDataSourceId, long stripeOffset, List<ColumnStatistics> actual)
+    public void validateStripeStatistics(OrcDataSourceId orcDataSourceId, long stripeOffset, ColumnMetadata<ColumnStatistics> actual)
             throws OrcCorruptionException
     {
         StripeStatistics expected = stripeStatistics.get(stripeOffset);
@@ -230,10 +260,6 @@ public class OrcWriteValidation
 
         int rowGroupCount = expectedRowGroupStatistics.size();
         for (Entry<StreamId, List<RowGroupIndex>> entry : actualRowGroupStatistics.entrySet()) {
-            // TODO: Remove once the Presto writer supports flat map
-            if (entry.getKey().getSequence() > 0) {
-                throw new OrcCorruptionException(orcDataSourceId, "Unexpected sequence ID for column %s at offset %s", entry.getKey().getColumn(), stripeOffset);
-            }
             if (entry.getValue().size() != rowGroupCount) {
                 throw new OrcCorruptionException(orcDataSourceId, "Unexpected row group count stripe in at offset %s", stripeOffset);
             }
@@ -242,16 +268,16 @@ public class OrcWriteValidation
         for (int rowGroupIndex = 0; rowGroupIndex < expectedRowGroupStatistics.size(); rowGroupIndex++) {
             RowGroupStatistics expectedRowGroup = expectedRowGroupStatistics.get(rowGroupIndex);
             if (expectedRowGroup.getValidationMode() != HASHED) {
-                Map<Integer, ColumnStatistics> expectedStatistics = expectedRowGroup.getColumnStatistics();
-                Set<Integer> actualColumns = actualRowGroupStatistics.keySet().stream()
-                        .map(StreamId::getColumn)
+                Map<OrcColumnId, ColumnStatistics> expectedStatistics = expectedRowGroup.getColumnStatistics();
+                Set<OrcColumnId> actualColumns = actualRowGroupStatistics.keySet().stream()
+                        .map(StreamId::getColumnId)
                         .collect(Collectors.toSet());
                 if (!expectedStatistics.keySet().equals(actualColumns)) {
                     throw new OrcCorruptionException(orcDataSourceId, "Unexpected column in row group %s in stripe at offset %s", rowGroupIndex, stripeOffset);
                 }
                 for (Entry<StreamId, List<RowGroupIndex>> entry : actualRowGroupStatistics.entrySet()) {
                     ColumnStatistics actual = entry.getValue().get(rowGroupIndex).getColumnStatistics();
-                    ColumnStatistics expected = expectedStatistics.get(entry.getKey().getColumn());
+                    ColumnStatistics expected = expectedStatistics.get(entry.getKey().getColumnId());
                     validateColumnStatisticsEquivalent(orcDataSourceId, "Row group " + rowGroupIndex + " in stripe at offset " + stripeOffset, actual, expected);
                 }
             }
@@ -271,14 +297,14 @@ public class OrcWriteValidation
                 BOTH,
                 actualRowGroupStatistics.entrySet()
                         .stream()
-                        .collect(Collectors.toMap(entry -> entry.getKey().getColumn(), entry -> entry.getValue().get(rowGroupIndex).getColumnStatistics())));
+                        .collect(Collectors.toMap(entry -> entry.getKey().getColumnId(), entry -> entry.getValue().get(rowGroupIndex).getColumnStatistics())));
     }
 
     public void validateRowGroupStatistics(
             OrcDataSourceId orcDataSourceId,
             long stripeOffset,
             int rowGroupIndex,
-            List<ColumnStatistics> actual)
+            ColumnMetadata<ColumnStatistics> actual)
             throws OrcCorruptionException
     {
         List<RowGroupStatistics> rowGroups = rowGroupStatistics.get(stripeOffset);
@@ -290,16 +316,19 @@ public class OrcWriteValidation
         }
 
         RowGroupStatistics expectedRowGroup = rowGroups.get(rowGroupIndex);
-        RowGroupStatistics actualRowGroup = new RowGroupStatistics(BOTH, IntStream.range(1, actual.size()).boxed().collect(toImmutableMap(identity(), actual::get)));
+        RowGroupStatistics actualRowGroup = new RowGroupStatistics(BOTH, IntStream.range(1, actual.size()).mapToObj(OrcColumnId::new).collect(toImmutableMap(identity(), actual::get)));
 
         if (expectedRowGroup.getValidationMode() != HASHED) {
-            Map<Integer, ColumnStatistics> expectedByColumnIndex = expectedRowGroup.getColumnStatistics();
+            Map<OrcColumnId, ColumnStatistics> expectedByColumnIndex = expectedRowGroup.getColumnStatistics();
 
             // new writer does not write row group stats for column zero (table row column)
-            List<ColumnStatistics> expected = IntStream.range(1, actual.size())
-                    .mapToObj(expectedByColumnIndex::get)
-                    .collect(toImmutableList());
-            actual = actual.subList(1, actual.size());
+            ColumnMetadata<ColumnStatistics> expected = new ColumnMetadata<>(IntStream.range(1, actual.size())
+                    .mapToObj(OrcColumnId::new)
+                    .map(expectedByColumnIndex::get)
+                    .collect(toImmutableList()));
+            actual = new ColumnMetadata<>(actual.stream()
+                    .skip(1)
+                    .collect(toImmutableList()));
 
             validateColumnStatisticsEquivalent(orcDataSourceId, "Row group " + rowGroupIndex + " in stripe at offset " + stripeOffset, actual, expected);
         }
@@ -311,29 +340,17 @@ public class OrcWriteValidation
         }
     }
 
-    public StatisticsValidation createWriteStatisticsBuilder(Map<Integer, Type> readColumns)
+    public StatisticsValidation createWriteStatisticsBuilder(ColumnMetadata<OrcType> orcTypes, List<Type> readTypes)
     {
-        requireNonNull(readColumns, "readColumns is null");
-        checkArgument(!readColumns.isEmpty(), "readColumns is empty");
-        int columnCount = readColumns.keySet().stream()
-                .mapToInt(Integer::intValue)
-                .max().getAsInt() + 1;
-        checkArgument(readColumns.size() == columnCount, "statistics validation requires all columns to be read");
-
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (int column = 0; column < columnCount; column++) {
-            Type type = readColumns.get(column);
-            checkArgument(type != null, "statistics validation requires all columns to be read");
-            types.add(type);
-        }
-        return new StatisticsValidation(types.build());
+        checkArgument(readTypes.size() == orcTypes.get(ROOT_COLUMN).getFieldCount(), "statistics validation requires all columns to be read");
+        return new StatisticsValidation(readTypes);
     }
 
     private static void validateColumnStatisticsEquivalent(
             OrcDataSourceId orcDataSourceId,
             String name,
-            List<ColumnStatistics> actualColumnStatistics,
-            List<ColumnStatistics> expectedColumnStatistics)
+            ColumnMetadata<ColumnStatistics> actualColumnStatistics,
+            ColumnMetadata<ColumnStatistics> expectedColumnStatistics)
             throws OrcCorruptionException
     {
         requireNonNull(name, "name is null");
@@ -343,8 +360,9 @@ public class OrcWriteValidation
             throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected number of columns in %s statistics", name);
         }
         for (int i = 0; i < actualColumnStatistics.size(); i++) {
-            ColumnStatistics actual = actualColumnStatistics.get(i);
-            ColumnStatistics expected = expectedColumnStatistics.get(i);
+            OrcColumnId columnId = new OrcColumnId(i);
+            ColumnStatistics actual = actualColumnStatistics.get(columnId);
+            ColumnStatistics expected = expectedColumnStatistics.get(columnId);
             validateColumnStatisticsEquivalent(orcDataSourceId, name + " column " + i, actual, expected);
         }
     }
@@ -467,22 +485,10 @@ public class OrcWriteValidation
             this.columnHashes = columnHashes.build();
         }
 
-        public static WriteChecksumBuilder createWriteChecksumBuilder(Map<Integer, Type> readColumns)
+        public static WriteChecksumBuilder createWriteChecksumBuilder(ColumnMetadata<OrcType> orcTypes, List<Type> readTypes)
         {
-            requireNonNull(readColumns, "readColumns is null");
-            checkArgument(!readColumns.isEmpty(), "readColumns is empty");
-            int columnCount = readColumns.keySet().stream()
-                    .mapToInt(Integer::intValue)
-                    .max().getAsInt() + 1;
-            checkArgument(readColumns.size() == columnCount, "checksum requires all columns to be read");
-
-            ImmutableList.Builder<Type> types = ImmutableList.builder();
-            for (int column = 0; column < columnCount; column++) {
-                Type type = readColumns.get(column);
-                checkArgument(type != null, "checksum requires all columns to be read");
-                types.add(type);
-            }
-            return new WriteChecksumBuilder(types.build());
+            checkArgument(readTypes.size() == orcTypes.get(ROOT_COLUMN).getFieldCount(), "checksum requires all columns to be read");
+            return new WriteChecksumBuilder(readTypes);
         }
 
         public void addStripe(int rowCount)
@@ -515,7 +521,7 @@ public class OrcWriteValidation
                 return NULL_HASH_CODE;
             }
 
-            if (type.getTypeSignature().getBase().equals(MAP)) {
+            if (type instanceof MapType) {
                 Type keyType = type.getTypeParameters().get(0);
                 Type valueType = type.getTypeParameters().get(1);
                 Block mapBlock = (Block) type.getObject(block, position);
@@ -529,7 +535,7 @@ public class OrcWriteValidation
                 return hash;
             }
 
-            if (type.getTypeSignature().getBase().equals(ARRAY)) {
+            if (type instanceof ArrayType) {
                 Type elementType = type.getTypeParameters().get(0);
                 Block array = (Block) type.getObject(block, position);
                 long hash = 0;
@@ -539,7 +545,7 @@ public class OrcWriteValidation
                 return hash;
             }
 
-            if (type.getTypeSignature().getBase().equals(ROW)) {
+            if (type instanceof RowType) {
                 Block row = (Block) type.getObject(block, position);
                 long hash = 0;
                 for (int i = 0; i < row.getPositionCount(); i++) {
@@ -549,11 +555,11 @@ public class OrcWriteValidation
                 return hash;
             }
 
-            if (type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP)) {
+            if (type instanceof TimestampType) {
                 // A flaw in ORC encoding makes it impossible to represent timestamp
                 // between 1969-12-31 23:59:59.000, exclusive, and 1970-01-01 00:00:00.000, exclusive.
                 // Therefore, such data won't round trip. The data read back is expected to be 1 second later than the original value.
-                long mills = TIMESTAMP.getLong(block, position);
+                long mills = floorDiv(TIMESTAMP_MILLIS.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
                 if (mills > -1000 && mills < 0) {
                     return AbstractLongType.hash(mills + 1000);
                 }
@@ -603,15 +609,15 @@ public class OrcWriteValidation
             }
         }
 
-        public List<ColumnStatistics> build()
+        public Optional<ColumnMetadata<ColumnStatistics>> build()
         {
-            ImmutableList.Builder<ColumnStatistics> statisticsBuilders = ImmutableList.builder();
-            // if there are no rows, there will be no stats
-            if (rowCount > 0) {
-                statisticsBuilders.add(new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null));
-                columnStatisticsValidations.forEach(validation -> validation.build(statisticsBuilders));
+            if (rowCount == 0) {
+                return Optional.empty();
             }
-            return statisticsBuilders.build();
+            ImmutableList.Builder<ColumnStatistics> statisticsBuilders = ImmutableList.builder();
+            statisticsBuilders.add(new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null, null));
+            columnStatisticsValidations.forEach(validation -> validation.build(statisticsBuilders));
+            return Optional.of(new ColumnMetadata<>(statisticsBuilders.build()));
         }
     }
 
@@ -637,37 +643,37 @@ public class OrcWriteValidation
                 fieldBuilders = ImmutableList.of();
             }
             else if (SMALLINT.equals(type)) {
-                statisticsBuilder = new IntegerStatisticsBuilder();
+                statisticsBuilder = new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (INTEGER.equals(type)) {
-                statisticsBuilder = new IntegerStatisticsBuilder();
+                statisticsBuilder = new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (BIGINT.equals(type)) {
-                statisticsBuilder = new IntegerStatisticsBuilder();
+                statisticsBuilder = new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (DOUBLE.equals(type)) {
-                statisticsBuilder = new DoubleStatisticsBuilder();
+                statisticsBuilder = new DoubleStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (REAL.equals(type)) {
-                statisticsBuilder = new DoubleStatisticsBuilder();
+                statisticsBuilder = new DoubleStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (type instanceof VarcharType) {
-                statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes);
+                statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes, new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (type instanceof CharType) {
-                statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes);
+                statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes, new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
@@ -677,12 +683,27 @@ public class OrcWriteValidation
                 fieldBuilders = ImmutableList.of();
             }
             else if (DATE.equals(type)) {
-                statisticsBuilder = new DateStatisticsBuilder();
+                statisticsBuilder = new DateStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (TIMESTAMP.equals(type)) {
-                statisticsBuilder = new CountStatisticsBuilder();
+            else if (TIMESTAMP_MILLIS.equals(type) || TIMESTAMP_MICROS.equals(type)) {
+                statisticsBuilder = new TimestampStatisticsBuilder(this::timestampMicrosToMillis);
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (TIMESTAMP_NANOS.equals(type)) {
+                statisticsBuilder = new TimestampStatisticsBuilder(this::timestampNanosToMillis);
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
+                statisticsBuilder = new TimestampStatisticsBuilder(this::timestampTzShortToMillis);
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (TIMESTAMP_TZ_MICROS.equals(type) || TIMESTAMP_TZ_NANOS.equals(type)) {
+                statisticsBuilder = new TimestampStatisticsBuilder(this::timestampTzLongToMillis);
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
@@ -697,12 +718,12 @@ public class OrcWriteValidation
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (type.getTypeSignature().getBase().equals(ARRAY)) {
+            else if (type instanceof ArrayType) {
                 statisticsBuilder = new CountStatisticsBuilder();
                 fieldExtractor = block -> ImmutableList.of(toColumnarArray(block).getElementsBlock());
                 fieldBuilders = ImmutableList.of(new ColumnStatisticsValidation(Iterables.getOnlyElement(type.getTypeParameters())));
             }
-            else if (type.getTypeSignature().getBase().equals(MAP)) {
+            else if (type instanceof MapType) {
                 statisticsBuilder = new CountStatisticsBuilder();
                 fieldExtractor = block -> {
                     ColumnarMap columnarMap = toColumnarMap(block);
@@ -712,7 +733,7 @@ public class OrcWriteValidation
                         .map(ColumnStatisticsValidation::new)
                         .collect(toImmutableList());
             }
-            else if (type.getTypeSignature().getBase().equals(ROW)) {
+            else if (type instanceof RowType) {
                 statisticsBuilder = new CountStatisticsBuilder();
                 fieldExtractor = block -> {
                     ColumnarRow columnarRow = ColumnarRow.toColumnarRow(block);
@@ -729,6 +750,26 @@ public class OrcWriteValidation
             else {
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
             }
+        }
+
+        private long timestampMicrosToMillis(Type blockType, Block block, int position)
+        {
+            return floorDiv(blockType.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
+        }
+
+        private long timestampNanosToMillis(Type blockType, Block block, int position)
+        {
+            return floorDiv(((LongTimestamp) blockType.getObject(block, position)).getEpochMicros(), MICROSECONDS_PER_MILLISECOND);
+        }
+
+        private long timestampTzShortToMillis(Type blockType, Block block, int position)
+        {
+            return unpackMillisUtc(blockType.getLong(block, position));
+        }
+
+        private long timestampTzLongToMillis(Type blockType, Block block, int position)
+        {
+            return ((LongTimestampWithTimeZone) blockType.getObject(block, position)).getEpochMillis();
         }
 
         private void addBlock(Block block)
@@ -766,7 +807,7 @@ public class OrcWriteValidation
         @Override
         public ColumnStatistics buildColumnStatistics()
         {
-            return new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null);
+            return new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null, null);
         }
     }
 
@@ -775,10 +816,10 @@ public class OrcWriteValidation
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowGroupStatistics.class).instanceSize();
 
         private final OrcWriteValidationMode validationMode;
-        private final SortedMap<Integer, ColumnStatistics> columnStatistics;
+        private final SortedMap<OrcColumnId, ColumnStatistics> columnStatistics;
         private final long hash;
 
-        public RowGroupStatistics(OrcWriteValidationMode validationMode, Map<Integer, ColumnStatistics> columnStatistics)
+        public RowGroupStatistics(OrcWriteValidationMode validationMode, Map<OrcColumnId, ColumnStatistics> columnStatistics)
         {
             this.validationMode = validationMode;
 
@@ -800,12 +841,12 @@ public class OrcWriteValidation
             }
         }
 
-        private static long hashColumnStatistics(SortedMap<Integer, ColumnStatistics> columnStatistics)
+        private static long hashColumnStatistics(SortedMap<OrcColumnId, ColumnStatistics> columnStatistics)
         {
             StatisticsHasher statisticsHasher = new StatisticsHasher();
             statisticsHasher.putInt(columnStatistics.size());
-            for (Entry<Integer, ColumnStatistics> entry : columnStatistics.entrySet()) {
-                statisticsHasher.putInt(entry.getKey())
+            for (Entry<OrcColumnId, ColumnStatistics> entry : columnStatistics.entrySet()) {
+                statisticsHasher.putInt(entry.getKey().getId())
                         .putOptionalHashable(entry.getValue());
             }
             return statisticsHasher.hash();
@@ -816,7 +857,7 @@ public class OrcWriteValidation
             return validationMode;
         }
 
-        public Map<Integer, ColumnStatistics> getColumnStatistics()
+        public Map<OrcColumnId, ColumnStatistics> getColumnStatistics()
         {
             verify(validationMode != HASHED, "columnStatistics are not available in HASHED mode");
             return columnStatistics;
@@ -836,6 +877,7 @@ public class OrcWriteValidation
 
         private List<Integer> version;
         private CompressionKind compression;
+        private ZoneId timeZone;
         private int rowGroupMaxRowCount;
         private int stringStatisticsLimitInBytes;
         private List<String> columnNames;
@@ -844,7 +886,7 @@ public class OrcWriteValidation
         private List<RowGroupStatistics> currentRowGroupStatistics = new ArrayList<>();
         private final Map<Long, List<RowGroupStatistics>> rowGroupStatisticsByStripe = new HashMap<>();
         private final Map<Long, StripeStatistics> stripeStatistics = new HashMap<>();
-        private List<ColumnStatistics> fileStatistics;
+        private Optional<ColumnMetadata<ColumnStatistics>> fileStatistics = Optional.empty();
         private long retainedSize = INSTANCE_SIZE;
 
         public OrcWriteValidationBuilder(OrcWriteValidationMode validationMode, List<Type> types)
@@ -867,6 +909,11 @@ public class OrcWriteValidation
         public void setCompression(CompressionKind compression)
         {
             this.compression = compression;
+        }
+
+        public void setTimeZone(ZoneId timeZone)
+        {
+            this.timeZone = timeZone;
         }
 
         public void setRowGroupMaxRowCount(int rowGroupMaxRowCount)
@@ -904,7 +951,7 @@ public class OrcWriteValidation
             return this;
         }
 
-        public void addRowGroupStatistics(Map<Integer, ColumnStatistics> columnStatistics)
+        public void addRowGroupStatistics(Map<OrcColumnId, ColumnStatistics> columnStatistics)
         {
             RowGroupStatistics rowGroupStatistics = new RowGroupStatistics(validationMode, columnStatistics);
             currentRowGroupStatistics.add(rowGroupStatistics);
@@ -924,7 +971,7 @@ public class OrcWriteValidation
             currentRowGroupStatistics = new ArrayList<>();
         }
 
-        public void setFileStatistics(List<ColumnStatistics> fileStatistics)
+        public void setFileStatistics(Optional<ColumnMetadata<ColumnStatistics>> fileStatistics)
         {
             this.fileStatistics = fileStatistics;
         }
@@ -934,6 +981,7 @@ public class OrcWriteValidation
             return new OrcWriteValidation(
                     version,
                     compression,
+                    timeZone,
                     rowGroupMaxRowCount,
                     columnNames,
                     metadata,

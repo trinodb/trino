@@ -15,157 +15,156 @@ package io.prestosql.plugin.hive;
 
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
-import io.airlift.log.Logger;
-import io.prestosql.plugin.hive.metastore.CachingHiveMetastore;
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.airlift.units.Duration;
+import io.prestosql.plugin.base.CatalogName;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.prestosql.plugin.hive.security.AccessControlMetadataFactory;
 import io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
 import io.prestosql.spi.type.TypeManager;
-import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Supplier;
+import java.util.concurrent.ScheduledExecutorService;
 
+import static io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static java.util.Objects.requireNonNull;
 
 public class HiveMetadataFactory
-        implements Supplier<TransactionalMetadata>
+        implements TransactionalMetadataFactory
 {
-    private static final Logger log = Logger.get(HiveMetadataFactory.class);
-
-    private final boolean allowCorruptWritesForTesting;
+    private final CatalogName catalogName;
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
+    private final boolean translateHiveViews;
     private final long perTransactionCacheMaximumSize;
-    private final int maxPartitions;
-    private final ExtendedHiveMetastore metastore;
+    private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
-    private final DateTimeZone timeZone;
     private final TypeManager typeManager;
     private final LocationService locationService;
-    private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final BoundedExecutor renameExecution;
-    private final TypeTranslator typeTranslator;
+    private final BoundedExecutor dropExecutor;
     private final String prestoVersion;
+    private final AccessControlMetadataFactory accessControlMetadataFactory;
+    private final Optional<Duration> hiveTransactionHeartbeatInterval;
+    private final ScheduledExecutorService heartbeatService;
 
     @Inject
     @SuppressWarnings("deprecation")
     public HiveMetadataFactory(
-            HiveClientConfig hiveClientConfig,
-            ExtendedHiveMetastore metastore,
+            CatalogName catalogName,
+            HiveConfig hiveConfig,
+            HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
-            @ForHiveClient ExecutorService executorService,
+            ExecutorService executorService,
+            @ForHiveTransactionHeartbeats ScheduledExecutorService heartbeatService,
             TypeManager typeManager,
             LocationService locationService,
-            TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
-            TypeTranslator typeTranslator,
-            NodeVersion nodeVersion)
+            NodeVersion nodeVersion,
+            AccessControlMetadataFactory accessControlMetadataFactory)
     {
         this(
+                catalogName,
                 metastore,
                 hdfsEnvironment,
                 partitionManager,
-                hiveClientConfig.getDateTimeZone(),
-                hiveClientConfig.getMaxConcurrentFileRenames(),
-                hiveClientConfig.getAllowCorruptWritesForTesting(),
-                hiveClientConfig.isSkipDeletionForAlter(),
-                hiveClientConfig.isSkipTargetCleanupOnRollback(),
-                hiveClientConfig.getWritesToNonManagedTablesEnabled(),
-                hiveClientConfig.getCreatesOfNonManagedTablesEnabled(),
-                hiveClientConfig.getPerTransactionMetastoreCacheMaximumSize(),
-                hiveClientConfig.getMaxPartitionsPerScan(),
+                hiveConfig.getMaxConcurrentFileRenames(),
+                hiveConfig.getMaxConcurrentMetastoreDrops(),
+                hiveConfig.isSkipDeletionForAlter(),
+                hiveConfig.isSkipTargetCleanupOnRollback(),
+                hiveConfig.getWritesToNonManagedTablesEnabled(),
+                hiveConfig.getCreatesOfNonManagedTablesEnabled(),
+                hiveConfig.isTranslateHiveViews(),
+                hiveConfig.getPerTransactionMetastoreCacheMaximumSize(),
+                hiveConfig.getHiveTransactionHeartbeatInterval(),
                 typeManager,
                 locationService,
-                tableParameterCodec,
                 partitionUpdateCodec,
                 executorService,
-                typeTranslator,
-                nodeVersion.toString());
+                heartbeatService,
+                nodeVersion.toString(),
+                accessControlMetadataFactory);
     }
 
     public HiveMetadataFactory(
-            ExtendedHiveMetastore metastore,
+            CatalogName catalogName,
+            HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
-            DateTimeZone timeZone,
             int maxConcurrentFileRenames,
-            boolean allowCorruptWritesForTesting,
+            int maxConcurrentMetastoreDrops,
             boolean skipDeletionForAlter,
             boolean skipTargetCleanupOnRollback,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
+            boolean translateHiveViews,
             long perTransactionCacheMaximumSize,
-            int maxPartitions,
+            Optional<Duration> hiveTransactionHeartbeatInterval,
             TypeManager typeManager,
             LocationService locationService,
-            TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ExecutorService executorService,
-            TypeTranslator typeTranslator,
-            String prestoVersion)
+            ScheduledExecutorService heartbeatService,
+            String prestoVersion,
+            AccessControlMetadataFactory accessControlMetadataFactory)
     {
-        this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        this.translateHiveViews = translateHiveViews;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
 
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
-        this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
-        this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
-        this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
-        this.maxPartitions = maxPartitions;
-
-        if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
-            log.warn("Hive writes are disabled. " +
-                            "To write data to Hive, your JVM timezone must match the Hive storage timezone. " +
-                            "Add -Duser.timezone=%s to your JVM arguments",
-                    timeZone.getID());
-        }
+        this.accessControlMetadataFactory = requireNonNull(accessControlMetadataFactory, "accessControlMetadataFactory is null");
+        this.hiveTransactionHeartbeatInterval = requireNonNull(hiveTransactionHeartbeatInterval, "hiveTransactionHeartbeatInterval is null");
 
         renameExecution = new BoundedExecutor(executorService, maxConcurrentFileRenames);
+        dropExecutor = new BoundedExecutor(executorService, maxConcurrentMetastoreDrops);
+        this.heartbeatService = requireNonNull(heartbeatService, "heartbeatService is null");
     }
 
     @Override
-    public HiveMetadata get()
+    public TransactionalMetadata create()
     {
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
-                CachingHiveMetastore.memoizeMetastore(this.metastore, perTransactionCacheMaximumSize), // per-transaction cache
+                new HiveMetastoreClosure(memoizeMetastore(this.metastore, perTransactionCacheMaximumSize)), // per-transaction cache
                 renameExecution,
+                dropExecutor,
                 skipDeletionForAlter,
-                skipTargetCleanupOnRollback);
+                skipTargetCleanupOnRollback,
+                hiveTransactionHeartbeatInterval,
+                heartbeatService);
 
         return new HiveMetadata(
+                catalogName,
                 metastore,
                 hdfsEnvironment,
                 partitionManager,
-                timeZone,
-                allowCorruptWritesForTesting,
                 writesToNonManagedTablesEnabled,
                 createsOfNonManagedTablesEnabled,
+                translateHiveViews,
                 typeManager,
                 locationService,
-                tableParameterCodec,
                 partitionUpdateCodec,
-                typeTranslator,
                 prestoVersion,
                 new MetastoreHiveStatisticsProvider(metastore),
-                maxPartitions);
+                accessControlMetadataFactory.create(metastore));
     }
 }

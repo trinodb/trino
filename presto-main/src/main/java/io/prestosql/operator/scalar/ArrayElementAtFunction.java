@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar;
 
-import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.Description;
@@ -83,7 +82,7 @@ public final class ArrayElementAtFunction
     @TypeParameter("E")
     @SqlNullable
     @SqlType("E")
-    public static Slice sliceElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
+    public static Object sliceElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
         int position = checkedIndexToBlockPosition(array, index);
         if (position == -1) {
@@ -93,23 +92,7 @@ public final class ArrayElementAtFunction
             return null;
         }
 
-        return elementType.getSlice(array, position);
-    }
-
-    @TypeParameter("E")
-    @SqlNullable
-    @SqlType("E")
-    public static Block blockElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
-    {
-        int position = checkedIndexToBlockPosition(array, index);
-        if (position == -1) {
-            return null;
-        }
-        if (array.isNull(position)) {
-            return null;
-        }
-
-        return (Block) elementType.getObject(array, position);
+        return elementType.getObject(array, position);
     }
 
     /**
@@ -127,8 +110,6 @@ public final class ArrayElementAtFunction
         if (index > 0) {
             return toIntExact(index - 1);
         }
-        else {
-            return toIntExact(arrayLength + index);
-        }
+        return toIntExact(arrayLength + index);
     }
 }

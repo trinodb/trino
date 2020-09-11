@@ -50,8 +50,6 @@ public class TpcdsSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        TpcdsTableHandle tableHandle = ((TpcdsTableLayoutHandle) layout).getTable();
-
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
         checkState(!nodes.isEmpty(), "No TPCDS nodes available");
 
@@ -62,7 +60,7 @@ public class TpcdsSplitManager
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         for (Node node : nodes) {
             for (int i = 0; i < splitsPerNode; i++) {
-                splits.add(new TpcdsSplit(tableHandle, partNumber, totalParts, ImmutableList.of(node.getHostAndPort()), noSexism));
+                splits.add(new TpcdsSplit(partNumber, totalParts, ImmutableList.of(node.getHostAndPort()), noSexism));
                 partNumber++;
             }
         }

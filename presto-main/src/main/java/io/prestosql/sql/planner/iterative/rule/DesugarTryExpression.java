@@ -13,13 +13,15 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.DesugarTryExpressionRewriter;
+import io.prestosql.sql.planner.TypeAnalyzer;
 
 public class DesugarTryExpression
         extends ExpressionRewriteRuleSet
 {
-    public DesugarTryExpression()
+    public DesugarTryExpression(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
-        super((expression, context) -> DesugarTryExpressionRewriter.rewrite(expression));
+        super((expression, context) -> DesugarTryExpressionRewriter.rewrite(expression, metadata, typeAnalyzer, context.getSession(), context.getSymbolAllocator()));
     }
 }

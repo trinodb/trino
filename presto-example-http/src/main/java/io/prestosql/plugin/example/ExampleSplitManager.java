@@ -17,9 +17,10 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
+import io.prestosql.spi.connector.TableNotFoundException;
 
 import javax.inject.Inject;
 
@@ -28,34 +29,37 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class ExampleSplitManager
         implements ConnectorSplitManager
 {
-    private final String connectorId;
     private final ExampleClient exampleClient;
 
     @Inject
-    public ExampleSplitManager(ExampleConnectorId connectorId, ExampleClient exampleClient)
+    public ExampleSplitManager(ExampleClient exampleClient)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.exampleClient = requireNonNull(exampleClient, "client is null");
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle handle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle connectorTableHandle,
+            SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        ExampleTableLayoutHandle layoutHandle = (ExampleTableLayoutHandle) layout;
-        ExampleTableHandle tableHandle = layoutHandle.getTable();
+        ExampleTableHandle tableHandle = (ExampleTableHandle) connectorTableHandle;
         ExampleTable table = exampleClient.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
+
         // this can happen if table is removed during a query
-        checkState(table != null, "Table %s.%s no longer exists", tableHandle.getSchemaName(), tableHandle.getTableName());
+        if (table == null) {
+            throw new TableNotFoundException(tableHandle.toSchemaTableName());
+        }
 
         List<ConnectorSplit> splits = new ArrayList<>();
         for (URI uri : table.getSources()) {
-            splits.add(new ExampleSplit(connectorId, tableHandle.getSchemaName(), tableHandle.getTableName(), uri));
+            splits.add(new ExampleSplit(uri));
         }
         Collections.shuffle(splits);
 

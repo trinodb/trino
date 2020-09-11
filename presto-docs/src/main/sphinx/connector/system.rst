@@ -50,26 +50,44 @@ that can be set when creating a new schema.
 The table properties table contains the list of available properties
 that can be set when creating a new table.
 
+``metadata.table_comments``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The table comments table contains the list of table comment.
+
 ``runtime.nodes``
 ^^^^^^^^^^^^^^^^^
 
 The nodes table contains the list of visible nodes in the Presto
 cluster along with their status.
 
+.. _optimizer_rule_stats:
+
+``runtime.optimizer_rule_stats``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``optimizer_rule_stats`` table contains the statistics for optimizer
+rule invocations during the query planning phase. The statistics are
+aggregated over all queries since the server start-up. The table contains
+information about invocation frequency, failure rates and performance for
+optimizer rules. For example, you can look at the multiplication of columns
+``invocations`` and ``average_time`` to get an idea about which rules
+generally impact query planning times the most.
+
 ``runtime.queries``
 ^^^^^^^^^^^^^^^^^^^
 
 The queries table contains information about currently and recently
 running queries on the Presto cluster. From this table you can find out
-the original query text (SQL), the identity of the user who ran the query
-and performance information about the query including how long the query
+the original query SQL text, the identity of the user who ran the query,
+and performance information about the query, including how long the query
 was queued and analyzed.
 
 ``runtime.tasks``
 ^^^^^^^^^^^^^^^^^
 
 The tasks table contains information about the tasks involved in a
-Presto query including where they were executed and and how many rows
+Presto query, including where they were executed, and and how many rows
 and bytes each task processed.
 
 ``runtime.transactions``
@@ -85,4 +103,4 @@ System Connector Procedures
 .. function:: runtime.kill_query(query_id, message)
 
     Kill the query identified by ``query_id``. The query failure message
-    will include the specified ``message``.
+    includes the specified ``message``.

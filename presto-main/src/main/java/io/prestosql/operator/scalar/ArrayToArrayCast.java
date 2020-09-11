@@ -21,20 +21,25 @@ import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionInvoker;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.ArrayGeneratorUtils;
 import io.prestosql.sql.gen.ArrayMapBytecodeExpression;
 import io.prestosql.sql.gen.CachedInstanceBinder;
 import io.prestosql.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.Access.FINAL;
@@ -44,12 +49,12 @@ import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean;
-import static io.prestosql.metadata.Signature.internalOperator;
+import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.util.CompilerUtils.defineClass;
 import static io.prestosql.util.CompilerUtils.makeClassName;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -62,39 +67,45 @@ public class ArrayToArrayCast
     private ArrayToArrayCast()
     {
         super(CAST,
-                ImmutableList.of(typeVariable("F"), typeVariable("T")),
+                ImmutableList.of(castableToTypeParameter("F", new TypeSignature("T")), typeVariable("T")),
                 ImmutableList.of(),
-                parseTypeSignature("array(T)"),
-                ImmutableList.of(parseTypeSignature("array(F)")));
+                arrayType(new TypeSignature("T")),
+                ImmutableList.of(arrayType(new TypeSignature("F"))),
+                false);
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        checkArgument(arity == 1, "Expected arity to be 1");
-        Type fromType = boundVariables.getTypeVariable("F");
-        Type toType = boundVariables.getTypeVariable("T");
-
-        Signature signature = internalOperator(CAST.name(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()));
-        ScalarFunctionImplementation function = functionRegistry.getScalarFunctionImplementation(signature);
-        Class<?> castOperatorClass = generateArrayCast(typeManager, signature, function);
-        MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);
-        return new ScalarFunctionImplementation(
-                false,
-                ImmutableList.of(
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandle,
-                isDeterministic());
+        return FunctionDependencyDeclaration.builder()
+                .addCastSignature(new TypeSignature("F"), new TypeSignature("T"))
+                .build();
     }
 
-    private static Class<?> generateArrayCast(TypeManager typeManager, Signature elementCastSignature, ScalarFunctionImplementation elementCast)
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
+        Type fromType = functionBinding.getTypeVariable("F");
+        Type toType = functionBinding.getTypeVariable("T");
+
+        FunctionMetadata castMetadata = functionDependencies.getCastMetadata(fromType, toType);
+        Function<InvocationConvention, FunctionInvoker> castInvokerProvider = invocationConvention -> functionDependencies.getCastInvoker(fromType, toType, Optional.of(invocationConvention));
+        Class<?> castOperatorClass = generateArrayCast(fromType, toType, castMetadata, castInvokerProvider);
+        MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);
+        return new ScalarFunctionImplementation(
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL),
+                methodHandle);
+    }
+
+    private static Class<?> generateArrayCast(Type fromElementType, Type toElementType, FunctionMetadata castMetadata, Function<InvocationConvention, FunctionInvoker> castInvokerProvider)
     {
         CallSiteBinder binder = new CallSiteBinder();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(Joiner.on("$").join("ArrayCast", elementCastSignature.getArgumentTypes().get(0), elementCastSignature.getReturnType())),
+                makeClassName(Joiner.on("$").join("ArrayCast", fromElementType, toElementType)),
                 type(Object.class));
 
         Parameter session = arg("session", ConnectorSession.class);
@@ -114,10 +125,8 @@ public class ArrayToArrayCast
         body.append(wasNull.set(constantBoolean(false)));
 
         // cast map elements
-        Type fromElementType = typeManager.getType(elementCastSignature.getArgumentTypes().get(0));
-        Type toElementType = typeManager.getType(elementCastSignature.getReturnType());
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(definition, binder);
-        ArrayMapBytecodeExpression newArray = ArrayGeneratorUtils.map(scope, cachedInstanceBinder, fromElementType, toElementType, value, elementCastSignature.getName(), elementCast);
+        ArrayMapBytecodeExpression newArray = ArrayGeneratorUtils.map(scope, cachedInstanceBinder, fromElementType, toElementType, value, castMetadata, castInvokerProvider);
 
         // return the block
         body.append(newArray.ret());

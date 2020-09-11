@@ -29,6 +29,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -54,8 +55,8 @@ public class GenericPartitioningSpiller
     private final SpillContext spillContext;
     private final AggregatedMemoryContext memoryContext;
 
-    private final PageBuilder[] pageBuilders;
-    private final Optional<SingleStreamSpiller>[] spillers;
+    private final List<PageBuilder> pageBuilders;
+    private final List<Optional<SingleStreamSpiller>> spillers;
 
     private boolean readingStarted;
     private final Set<Integer> spilledPartitions = new HashSet<>();
@@ -78,14 +79,14 @@ public class GenericPartitioningSpiller
         closer.register(memoryContext::close);
         this.memoryContext = memoryContext;
         int partitionCount = partitionFunction.getPartitionCount();
-        this.pageBuilders = new PageBuilder[partitionCount];
-        //noinspection unchecked
-        this.spillers = new Optional[partitionCount];
 
+        ImmutableList.Builder<PageBuilder> pageBuilders = ImmutableList.builder();
+        spillers = new ArrayList<>(partitionCount);
         for (int partition = 0; partition < partitionCount; partition++) {
-            pageBuilders[partition] = new PageBuilder(types);
-            spillers[partition] = Optional.empty();
+            pageBuilders.add(new PageBuilder(types));
+            spillers.add(Optional.empty());
         }
+        this.pageBuilders = pageBuilders.build();
     }
 
     @Override
@@ -130,7 +131,7 @@ public class GenericPartitioningSpiller
             }
 
             spilledPartitions.add(partition);
-            PageBuilder pageBuilder = pageBuilders[partition];
+            PageBuilder pageBuilder = pageBuilders.get(partition);
             pageBuilder.declarePosition();
             for (int channel = 0; channel < types.size(); channel++) {
                 Type type = types.get(channel);
@@ -157,8 +158,8 @@ public class GenericPartitioningSpiller
         requireNonNull(flushCondition, "flushCondition is null");
         ImmutableList.Builder<ListenableFuture<?>> futures = ImmutableList.builder();
 
-        for (int partition = 0; partition < spillers.length; partition++) {
-            PageBuilder pageBuilder = pageBuilders[partition];
+        for (int partition = 0; partition < spillers.size(); partition++) {
+            PageBuilder pageBuilder = pageBuilders.get(partition);
             if (flushCondition.test(pageBuilder)) {
                 futures.add(flush(partition));
             }
@@ -169,7 +170,7 @@ public class GenericPartitioningSpiller
 
     private synchronized ListenableFuture<?> flush(int partition)
     {
-        PageBuilder pageBuilder = pageBuilders[partition];
+        PageBuilder pageBuilder = pageBuilders.get(partition);
         if (pageBuilder.isEmpty()) {
             return Futures.immediateFuture(null);
         }
@@ -180,10 +181,10 @@ public class GenericPartitioningSpiller
 
     private synchronized SingleStreamSpiller getSpiller(int partition)
     {
-        Optional<SingleStreamSpiller> spiller = spillers[partition];
-        if (!spiller.isPresent()) {
+        Optional<SingleStreamSpiller> spiller = spillers.get(partition);
+        if (spiller.isEmpty()) {
             spiller = Optional.of(closer.register(spillerFactory.create(types, spillContext, memoryContext.newLocalMemoryContext(GenericPartitioningSpiller.class.getSimpleName()))));
-            spillers[partition] = spiller;
+            spillers.set(partition, spiller);
         }
         return spiller.get();
     }

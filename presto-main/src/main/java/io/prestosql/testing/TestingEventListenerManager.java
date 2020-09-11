@@ -13,7 +13,10 @@
  */
 package io.prestosql.testing;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
+import io.prestosql.eventlistener.EventListenerConfig;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.eventlistener.EventListenerFactory;
@@ -21,41 +24,65 @@ import io.prestosql.spi.eventlistener.QueryCompletedEvent;
 import io.prestosql.spi.eventlistener.QueryCreatedEvent;
 import io.prestosql.spi.eventlistener.SplitCompletedEvent;
 
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 public class TestingEventListenerManager
         extends EventListenerManager
 {
-    private final AtomicReference<Optional<EventListener>> configuredEventListener = new AtomicReference<>(Optional.empty());
+    public static TestingEventListenerManager emptyEventListenerManager()
+    {
+        return new TestingEventListenerManager(new EventListenerConfig());
+    }
+
+    private final Set<EventListener> configuredEventListeners = Collections.synchronizedSet(new HashSet<>());
+
+    @Inject
+    public TestingEventListenerManager(EventListenerConfig config)
+    {
+        super(config);
+    }
 
     @Override
     public void addEventListenerFactory(EventListenerFactory eventListenerFactory)
     {
-        configuredEventListener.set(Optional.of(eventListenerFactory.create(ImmutableMap.of())));
+        configuredEventListeners.add(eventListenerFactory.create(ImmutableMap.of()));
+    }
+
+    @Override
+    public void addEventListener(EventListener eventListener)
+    {
+        this.configuredEventListeners.add(eventListener);
     }
 
     @Override
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
-        if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().queryCompleted(queryCompletedEvent);
+        for (EventListener listener : configuredEventListeners) {
+            listener.queryCompleted(queryCompletedEvent);
         }
     }
 
     @Override
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
-        if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().queryCreated(queryCreatedEvent);
+        for (EventListener listener : configuredEventListeners) {
+            listener.queryCreated(queryCreatedEvent);
         }
     }
 
     @Override
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
-        if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().splitCompleted(splitCompletedEvent);
+        for (EventListener listener : configuredEventListeners) {
+            listener.splitCompleted(splitCompletedEvent);
         }
+    }
+
+    @VisibleForTesting
+    public Set<EventListener> getConfiguredEventListeners()
+    {
+        return configuredEventListeners;
     }
 }

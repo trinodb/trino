@@ -21,7 +21,8 @@ import javax.validation.constraints.NotNull;
 public class MemoryConfig
 {
     private int splitsPerNode = Runtime.getRuntime().availableProcessors();
-    private DataSize maxDataPerNode = new DataSize(128, DataSize.Unit.MEGABYTE);
+    private DataSize maxDataPerNode = DataSize.of(128, DataSize.Unit.MEGABYTE);
+    private boolean enableLazyDynamicFiltering = true;
 
     @NotNull
     public int getSplitsPerNode()
@@ -46,6 +47,18 @@ public class MemoryConfig
     public MemoryConfig setMaxDataPerNode(DataSize maxDataPerNode)
     {
         this.maxDataPerNode = maxDataPerNode;
+        return this;
+    }
+
+    public boolean isEnableLazyDynamicFiltering()
+    {
+        return enableLazyDynamicFiltering;
+    }
+
+    @Config("memory.enable-lazy-dynamic-filtering")
+    public MemoryConfig setEnableLazyDynamicFiltering(boolean enableLazyDynamicFiltering)
+    {
+        this.enableLazyDynamicFiltering = enableLazyDynamicFiltering;
         return this;
     }
 }

@@ -31,21 +31,20 @@ import java.util.UUID;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static org.joda.time.DateTimeZone.UTC;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestCompactionSetCreator
 {
     private static final long MAX_SHARD_ROWS = 100;
-    private static final DataSize MAX_SHARD_SIZE = new DataSize(100, DataSize.Unit.BYTE);
-    private static final Table tableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.empty(), false);
-    private static final Table temporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.of(1), false);
-    private static final Table bucketedTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.empty(), false);
-    private static final Table bucketedTemporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.of(1), false);
+    private static final DataSize MAX_SHARD_SIZE = DataSize.ofBytes(100);
+    private static final Table tableInfo = new Table(1L, Optional.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.empty(), false);
+    private static final Table temporalTableInfo = new Table(1L, Optional.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.of(1), false);
+    private static final Table bucketedTableInfo = new Table(1L, Optional.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.empty(), false);
+    private static final Table bucketedTemporalTableInfo = new Table(1L, Optional.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.of(1), false);
 
-    private final CompactionSetCreator compactionSetCreator = new CompactionSetCreator(new TemporalFunction(UTC), MAX_SHARD_SIZE, MAX_SHARD_ROWS);
+    private final CompactionSetCreator compactionSetCreator = new CompactionSetCreator(MAX_SHARD_SIZE, MAX_SHARD_ROWS);
 
     @Test
     public void testNonTemporalOrganizationSetSimple()
@@ -105,11 +104,11 @@ public class TestCompactionSetCreator
         long day3 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 2).toMillis();
 
         List<ShardIndexInfo> inputShards = ImmutableList.of(
-                shardWithTemporalRange(TIMESTAMP, day1, day1),
-                shardWithTemporalRange(TIMESTAMP, day2, day2),
-                shardWithTemporalRange(TIMESTAMP, day2, day2),
-                shardWithTemporalRange(TIMESTAMP, day1, day1),
-                shardWithTemporalRange(TIMESTAMP, day3, day3));
+                shardWithTemporalRange(TIMESTAMP_MILLIS, day1, day1),
+                shardWithTemporalRange(TIMESTAMP_MILLIS, day2, day2),
+                shardWithTemporalRange(TIMESTAMP_MILLIS, day2, day2),
+                shardWithTemporalRange(TIMESTAMP_MILLIS, day1, day1),
+                shardWithTemporalRange(TIMESTAMP_MILLIS, day3, day3));
 
         Set<OrganizationSet> actual = compactionSetCreator.createCompactionSets(temporalTableInfo, inputShards);
         assertEquals(actual.size(), 2);
@@ -129,13 +128,13 @@ public class TestCompactionSetCreator
         long day4 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 3).toMillis();
 
         List<ShardIndexInfo> inputShards = ImmutableList.of(
-                shardWithTemporalRange(TIMESTAMP, day1, day3), // day2
-                shardWithTemporalRange(TIMESTAMP, day2, day2), // day2
-                shardWithTemporalRange(TIMESTAMP, day1, day1), // day1
-                shardWithTemporalRange(TIMESTAMP, day1 + 100, day2 + 100), // day1
-                shardWithTemporalRange(TIMESTAMP, day1 - 100, day2 - 100), // day1
-                shardWithTemporalRange(TIMESTAMP, day2 - 100, day3 - 100),  // day2
-                shardWithTemporalRange(TIMESTAMP, day1, day4)); // day2
+                shardWithTemporalRange(TIMESTAMP_MILLIS, day1, day3), // day2
+                shardWithTemporalRange(TIMESTAMP_MILLIS, day2, day2), // day2
+                shardWithTemporalRange(TIMESTAMP_MILLIS, day1, day1), // day1
+                shardWithTemporalRange(TIMESTAMP_MILLIS, day1 + 100, day2 + 100), // day1
+                shardWithTemporalRange(TIMESTAMP_MILLIS, day1 - 100, day2 - 100), // day1
+                shardWithTemporalRange(TIMESTAMP_MILLIS, day2 - 100, day3 - 100),  // day2
+                shardWithTemporalRange(TIMESTAMP_MILLIS, day1, day4)); // day2
 
         long tableId = temporalTableInfo.getTableId();
         Set<OrganizationSet> compactionSets = compactionSetCreator.createCompactionSets(temporalTableInfo, inputShards);

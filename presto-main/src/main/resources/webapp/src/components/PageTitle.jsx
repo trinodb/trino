@@ -44,8 +44,13 @@ export class PageTitle extends React.Component<Props, State> {
 
     refreshLoop() {
         clearTimeout(this.timeoutId);
-        fetch("/v1/info")
-            .then(response => response.json())
+        fetch("/ui/api/cluster")
+            .then(response => {
+                if (response.status === 401) {
+                    location.reload();
+                }
+                return response.json();
+            })
             .then(info => {
                 this.setState({
                     info: info,
@@ -57,15 +62,15 @@ export class PageTitle extends React.Component<Props, State> {
                 $('#no-connection-modal').modal('hide');
                 this.resetTimer();
             })
-            .catch(error => {
+            .catch(fail => {
                 this.setState({
                     noConnection: true,
                     lightShown: !this.state.lightShown,
-                    errorText: error
+                    errorText: fail
                 });
                 this.resetTimer();
 
-                if (!this.state.modalShown && (error || (Date.now() - this.state.lastSuccess) > 30 * 1000)) {
+                if (!this.state.modalShown && (fail || (Date.now() - this.state.lastSuccess) > 30 * 1000)) {
                     //$FlowFixMe$ Bootstrap 3 plugin
                     $('#no-connection-modal').modal();
                     this.setState({modalShown: true});
@@ -140,6 +145,13 @@ export class PageTitle extends React.Component<Props, State> {
                                          </span>
                                         &nbsp;
                                         <span className="text" id="uptime">{info.uptime}</span>
+                                    </span>
+                                </li>
+                                <li>
+                                    <span className="navbar-cluster-info">
+                                        <span className="text" id="logout">
+                                            <a className="btn btn-logout" href="logout">Log Out</a>
+                                        </span>
                                     </span>
                                 </li>
                             </ul>

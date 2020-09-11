@@ -17,10 +17,8 @@ import io.prestosql.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
 
 public class TestTeradataFunctions
         extends AbstractTestFunctions
@@ -28,7 +26,7 @@ public class TestTeradataFunctions
     @BeforeClass
     public void setUp()
     {
-        functionAssertions.addFunctions(extractFunctions(new TeradataFunctionsPlugin().getFunctions()));
+        functionAssertions.installPlugin(new TeradataFunctionsPlugin());
     }
 
     @Test
@@ -46,13 +44,6 @@ public class TestTeradataFunctions
         assertFunction("INDEX(NULL, '')", BIGINT, null);
         assertFunction("INDEX('', NULL)", BIGINT, null);
         assertFunction("INDEX(NULL, NULL)", BIGINT, null);
-    }
-
-    @Test
-    public void testSubstring()
-    {
-        assertFunction("SUBSTRING('Quadratically', 5)", createVarcharType(13), "ratically");
-        assertFunction("SUBSTRING('Quadratically', 5, 6)", createVarcharType(13), "ratica");
     }
 
     @Test

@@ -1,0 +1,2 @@
+# This file exists so that we can provide environment (AKA "profile")-specific tempto configuration.
+# Docker does not allow to re-bind a file inside a folder that is also a volume, unless the file already exists.

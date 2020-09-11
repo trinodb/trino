@@ -15,25 +15,39 @@ package io.prestosql.parquet.reader;
 
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
-import org.apache.parquet.io.api.Binary;
+import org.joda.time.DateTimeZone;
 
 import static io.prestosql.parquet.ParquetTimestampUtils.getTimestampMillis;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static java.util.Objects.requireNonNull;
 
 public class TimestampColumnReader
         extends PrimitiveColumnReader
 {
-    public TimestampColumnReader(RichColumnDescriptor descriptor)
+    private final DateTimeZone timeZone;
+
+    public TimestampColumnReader(RichColumnDescriptor descriptor, DateTimeZone timeZone)
     {
         super(descriptor);
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            Binary binary = valuesReader.readBytes();
-            type.writeLong(blockBuilder, getTimestampMillis(binary));
+            long utcMillis = getTimestampMillis(valuesReader.readBytes());
+            if (type instanceof TimestampWithTimeZoneType) {
+                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
+            }
+            else {
+                utcMillis = timeZone.convertUTCToLocal(utcMillis);
+                type.writeLong(blockBuilder, utcMillis * MICROSECONDS_PER_MILLISECOND);
+            }
         }
         else if (isValueNull()) {
             blockBuilder.appendNull();

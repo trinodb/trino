@@ -13,37 +13,23 @@
  */
 package io.prestosql.type;
 
-import io.prestosql.spi.PrestoException;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.AbstractType;
+import io.prestosql.spi.type.AbstractVariableWidthType;
 import io.prestosql.spi.type.TypeSignature;
 
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-
 public class CodePointsType
-        extends AbstractType
+        extends AbstractVariableWidthType
 {
     public static final CodePointsType CODE_POINTS = new CodePointsType();
     public static final String NAME = "CodePoints";
 
-    protected CodePointsType()
+    private CodePointsType()
     {
         super(new TypeSignature(NAME), int[].class);
-    }
-
-    @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
-    {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "CodePoints type cannot be serialized");
-    }
-
-    @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
-    {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "CodePoints type cannot be serialized");
     }
 
     @Override
@@ -56,5 +42,25 @@ public class CodePointsType
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Object getObject(Block block, int position)
+    {
+        if (block.isNull(position)) {
+            return null;
+        }
+
+        Slice slice = block.getSlice(position, 0, block.getSliceLength(position));
+        int[] codePoints = new int[slice.length() / Integer.BYTES];
+        slice.getBytes(0, Slices.wrappedIntArray(codePoints));
+        return codePoints;
+    }
+
+    @Override
+    public void writeObject(BlockBuilder blockBuilder, Object value)
+    {
+        Slice slice = Slices.wrappedIntArray((int[]) value);
+        blockBuilder.writeBytes(slice, 0, slice.length()).closeEntry();
     }
 }

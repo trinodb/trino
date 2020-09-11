@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 
 import java.util.Map;
 
@@ -28,9 +28,9 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.util.Locale.ENGLISH;
 
 final class MetadataUtil
 {
@@ -52,13 +52,13 @@ final class MetadataUtil
     public static final class TestingTypeDeserializer
             extends FromStringDeserializer<Type>
     {
-        private final Map<String, Type> types = new ImmutableMap.Builder<String, Type>()
-                .put(StandardTypes.BOOLEAN, BOOLEAN)
-                .put(StandardTypes.BIGINT, BIGINT)
-                .put(StandardTypes.DOUBLE, DOUBLE)
-                .put(StandardTypes.TIMESTAMP, TIMESTAMP)
-                .put(StandardTypes.DATE, DATE)
-                .put(StandardTypes.VARCHAR, createUnboundedVarcharType())
+        private final Map<TypeId, Type> types = new ImmutableMap.Builder<TypeId, Type>()
+                .put(BOOLEAN.getTypeId(), BOOLEAN)
+                .put(BIGINT.getTypeId(), BIGINT)
+                .put(DOUBLE.getTypeId(), DOUBLE)
+                .put(createTimestampWithTimeZoneType(3).getTypeId(), createTimestampWithTimeZoneType(3))
+                .put(DATE.getTypeId(), DATE)
+                .put(VARCHAR.getTypeId(), createUnboundedVarcharType())
                 .build();
 
         public TestingTypeDeserializer()
@@ -69,9 +69,9 @@ final class MetadataUtil
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            Type type = types.get(value.toLowerCase(ENGLISH));
+            Type type = types.get(TypeId.of(value));
             if (type == null) {
-                throw new IllegalArgumentException(String.valueOf("Unknown type " + value));
+                throw new IllegalArgumentException("Unknown type " + value);
             }
             return type;
         }

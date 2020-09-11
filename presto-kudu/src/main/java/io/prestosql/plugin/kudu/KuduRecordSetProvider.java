@@ -17,6 +17,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.RecordSet;
 
@@ -38,8 +39,7 @@ public class KuduRecordSetProvider
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle,
-            ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
         requireNonNull(split, "split is null");
         requireNonNull(columns, "columns is null");

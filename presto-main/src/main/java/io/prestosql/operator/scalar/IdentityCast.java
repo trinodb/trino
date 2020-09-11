@@ -14,21 +14,18 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 
 public class IdentityCast
         extends SqlOperator
@@ -40,20 +37,19 @@ public class IdentityCast
         super(OperatorType.CAST,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
-                parseTypeSignature("T"),
-                ImmutableList.of(parseTypeSignature("T")));
+                new TypeSignature("T"),
+                ImmutableList.of(new TypeSignature("T")),
+                false);
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        checkArgument(boundVariables.getTypeVariables().size() == 1, "Expected only one type");
-        Type type = boundVariables.getTypeVariable("T");
+        Type type = functionBinding.getTypeVariable("T");
         MethodHandle identity = MethodHandles.identity(type.getJavaType());
         return new ScalarFunctionImplementation(
-                false,
-                ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                identity,
-                isDeterministic());
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL),
+                identity);
     }
 }

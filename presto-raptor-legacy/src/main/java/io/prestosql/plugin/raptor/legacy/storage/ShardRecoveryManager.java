@@ -58,9 +58,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.airlift.units.DataSize.succinctDataSize;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
@@ -126,7 +124,7 @@ public class ShardRecoveryManager
     @PostConstruct
     public void start()
     {
-        if (!backupStore.isPresent()) {
+        if (backupStore.isEmpty()) {
             return;
         }
         if (started.compareAndSet(false, true)) {
@@ -237,7 +235,7 @@ public class ShardRecoveryManager
 
         Duration duration = nanosSince(start);
         DataSize size = succinctBytes(stagingFile.length());
-        DataSize rate = dataRate(size, duration).convertToMostSuccinctDataSize();
+        DataSize rate = dataRate(size, duration).succinct();
         stats.addShardRecoveryDataRate(rate, size, duration);
 
         log.info("Copied shard %s from backup in %s (%s at %s/s)", shardUuid, duration, size, rate);
@@ -418,7 +416,7 @@ public class ShardRecoveryManager
         public MissingShardsQueue(PrioritizedFifoExecutor<MissingShardRunnable> shardRecoveryExecutor)
         {
             requireNonNull(shardRecoveryExecutor, "shardRecoveryExecutor is null");
-            this.queuedMissingShards = CacheBuilder.newBuilder().build(new CacheLoader<MissingShard, ListenableFuture<?>>()
+            this.queuedMissingShards = CacheBuilder.newBuilder().build(new CacheLoader<>()
             {
                 @Override
                 public ListenableFuture<?> load(MissingShard missingShard)
@@ -448,7 +446,7 @@ public class ShardRecoveryManager
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
             rate = 0;
         }
-        return succinctDataSize(rate, BYTE);
+        return succinctBytes(Math.round(rate));
     }
 
     private static File temporarySuffix(File file)
@@ -465,7 +463,7 @@ public class ShardRecoveryManager
 
     private static <T> FutureCallback<T> failureCallback(Consumer<Throwable> callback)
     {
-        return new FutureCallback<T>()
+        return new FutureCallback<>()
         {
             @Override
             public void onSuccess(T result) {}

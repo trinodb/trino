@@ -13,15 +13,28 @@
  */
 package io.prestosql.plugin.memory;
 
+import com.google.common.collect.ImmutableSet;
+import io.prestosql.Session;
+import io.prestosql.execution.QueryStats;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.operator.OperatorStats;
+import io.prestosql.spi.QueryId;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
-import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.ResultWithQueryId;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
@@ -30,9 +43,15 @@ import static org.testng.Assert.assertTrue;
 public class TestMemorySmoke
         extends AbstractTestQueryFramework
 {
-    public TestMemorySmoke()
+    private static final long LINEITEM_COUNT = 60175;
+    private static final long ORDERS_COUNT = 15000;
+    private static final long PART_COUNT = 2000;
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(MemoryQueryRunner::createQueryRunner);
+        return MemoryQueryRunner.createQueryRunner();
     }
 
     @Test
@@ -66,6 +85,133 @@ public class TestMemorySmoke
         assertQueryResult("INSERT INTO test_select SELECT * FROM tpch.tiny.nation", 25L);
 
         assertQueryResult("SELECT count(*) FROM test_select", 75L);
+    }
+
+    @Test
+    public void testJoinDynamicFilteringNone()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                .build();
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                session,
+                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0");
+        assertEquals(result.getResult().getRowCount(), 0);
+
+        // Probe-side is not scanned at all, due to dynamic filtering:
+        Set<Long> rowsRead = getOperatorRowsRead(runner, result.getQueryId());
+        assertEquals(rowsRead, ImmutableSet.of(0L, ORDERS_COUNT));
+    }
+
+    @Test
+    public void testJoinLargeBuildSideNoDynamicFiltering()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                .build();
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                session,
+                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey");
+        assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
+
+        // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
+        Set<Long> rowsRead = getOperatorRowsRead(runner, result.getQueryId());
+        assertEquals(rowsRead, ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
+    }
+
+    @Test
+    public void testPartitionedJoinNoDynamicFiltering()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.PARTITIONED.name())
+                .build();
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                session,
+                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0");
+        assertEquals(result.getResult().getRowCount(), 0);
+
+        // Probe-side is fully scanned, because local dynamic filtering does not work for partitioned joins:
+        Set<Long> rowsRead = getOperatorRowsRead(runner, result.getQueryId());
+        assertEquals(rowsRead, ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
+    }
+
+    @Test
+    public void testJoinDynamicFilteringSingleValue()
+    {
+        assertQueryResult("SELECT orderkey FROM orders WHERE comment = 'nstructions sleep furiously among '", 1L);
+        assertQueryResult("SELECT COUNT() FROM lineitem WHERE orderkey = 1", 6L);
+
+        assertQueryResult("SELECT partkey FROM part WHERE comment = 'onic deposits'", 1552L);
+        assertQueryResult("SELECT COUNT() FROM lineitem WHERE partkey = 1552", 39L);
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                .build();
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+
+        // Join lineitem with a single row of orders
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                session,
+                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.comment = 'nstructions sleep furiously among '");
+        assertEquals(result.getResult().getRowCount(), 6);
+        assertEquals(getOperatorRowsRead(runner, result.getQueryId()), ImmutableSet.of(6L, ORDERS_COUNT));
+
+        // Join lineitem with a single row of part
+        result = runner.executeWithQueryId(
+                session,
+                "SELECT l.comment FROM  lineitem l, part p WHERE p.partkey = l.partkey AND p.comment = 'onic deposits'");
+        assertEquals(result.getResult().getRowCount(), 39);
+        assertEquals(getOperatorRowsRead(runner, result.getQueryId()), ImmutableSet.of(39L, PART_COUNT));
+    }
+
+    @Test
+    public void testJoinDynamicFilteringBlockProbeSide()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                .build();
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        // Wait for both build sides to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                session,
+                "SELECT l.comment" +
+                        " FROM  lineitem l, part p, orders o" +
+                        " WHERE l.orderkey = o.orderkey AND o.comment = 'nstructions sleep furiously among '" +
+                        " AND p.partkey = l.partkey AND p.comment = 'onic deposits'");
+        assertEquals(result.getResult().getRowCount(), 1);
+        assertEquals(getOperatorRowsRead(runner, result.getQueryId()), ImmutableSet.of(1L, ORDERS_COUNT, PART_COUNT));
+    }
+
+    private static Set<Long> getOperatorRowsRead(DistributedQueryRunner runner, QueryId queryId)
+    {
+        QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
+        return stats.getOperatorSummaries()
+                .stream()
+                .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
+                .map(OperatorStats::getInputPositions)
+                .collect(toImmutableSet());
+    }
+
+    @Test
+    public void testJoinDynamicFilteringMultiJoin()
+    {
+        assertUpdate("CREATE TABLE t0 (k0 integer, v0 real)");
+        assertUpdate("CREATE TABLE t1 (k1 integer, v1 real)");
+        assertUpdate("CREATE TABLE t2 (k2 integer, v2 real)");
+        assertUpdate("INSERT INTO t0 VALUES (1, 1.0)", 1);
+        assertUpdate("INSERT INTO t1 VALUES (1, 2.0)", 1);
+        assertUpdate("INSERT INTO t2 VALUES (1, 3.0)", 1);
+
+        String query = "SELECT k0, k1, k2 FROM t0, t1, t2 WHERE (k0 = k1) AND (k0 = k2) AND (v0 + v1 = v2)";
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
+                .build();
+        assertQuery(session, query, "SELECT 1, 1, 1");
     }
 
     @Test
@@ -182,6 +328,24 @@ public class TestMemorySmoke
         assertQueryFails("DROP VIEW test_view", "line 1:1: View 'memory.default.test_view' does not exist");
     }
 
+    @Test
+    public void testRenameView()
+    {
+        @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
+
+        assertUpdate("CREATE VIEW test_view_to_be_renamed AS " + query);
+        assertQueryFails("ALTER VIEW test_view_to_be_renamed RENAME TO memory.test_schema_not_exist.test_view_renamed", "Schema test_schema_not_exist not found");
+        assertUpdate("ALTER VIEW test_view_to_be_renamed RENAME TO test_view_renamed");
+        assertQuery("SELECT * FROM test_view_renamed", query);
+
+        assertUpdate("CREATE SCHEMA test_different_schema");
+        assertUpdate("ALTER VIEW test_view_renamed RENAME TO test_different_schema.test_view_renamed");
+        assertQuery("SELECT * FROM test_different_schema.test_view_renamed", query);
+
+        assertUpdate("DROP VIEW test_different_schema.test_view_renamed");
+        assertUpdate("DROP SCHEMA test_different_schema");
+    }
+
     private List<QualifiedObjectName> listMemoryTables()
     {
         return getQueryRunner().listTables(getSession(), "memory", "default");
@@ -195,10 +359,10 @@ public class TestMemorySmoke
         for (int i = 0; i < expected.length; i++) {
             MaterializedRow materializedRow = rows.getMaterializedRows().get(i);
             int fieldCount = materializedRow.getFieldCount();
-            assertTrue(fieldCount == 1, format("Expected only one column, but got '%d'", fieldCount));
+            assertEquals(fieldCount, 1, format("Expected only one column, but got '%d'", fieldCount));
             Object value = materializedRow.getField(0);
             assertEquals(value, expected[i]);
-            assertTrue(materializedRow.getFieldCount() == 1);
+            assertEquals(materializedRow.getFieldCount(), 1);
         }
     }
 }

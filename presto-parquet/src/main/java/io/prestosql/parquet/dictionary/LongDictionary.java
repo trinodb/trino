@@ -19,6 +19,7 @@ import org.apache.parquet.column.values.plain.PlainValuesReader.LongPlainValuesR
 import java.io.IOException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.parquet.ParquetReaderUtils.toInputStream;
 
 public class LongDictionary
         extends Dictionary
@@ -31,7 +32,7 @@ public class LongDictionary
         super(dictionaryPage.getEncoding());
         content = new long[dictionaryPage.getDictionarySize()];
         LongPlainValuesReader longReader = new LongPlainValuesReader();
-        longReader.initFromPage(dictionaryPage.getDictionarySize(), dictionaryPage.getSlice().getBytes(), 0);
+        longReader.initFromPage(dictionaryPage.getDictionarySize(), toInputStream(dictionaryPage));
         for (int i = 0; i < content.length; i++) {
             content[i] = longReader.readLong();
         }

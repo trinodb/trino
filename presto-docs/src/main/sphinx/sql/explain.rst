@@ -18,7 +18,7 @@ Description
 -----------
 
 Show the logical or distributed execution plan of a statement, or validate the statement.
-Use ``TYPE DISTRIBUTED`` option to display fragmented plan. Each plan fragment is executed by
+The distributed plan is shown by default. Each plan fragment of the distributed plan is executed by
 a single or multiple Presto nodes. Fragments separation represent the data exchange between Presto nodes.
 Fragment type specifies how the fragment is executed by Presto nodes and how the data is
 distributed between fragments:
@@ -44,58 +44,98 @@ distributed between fragments:
 Examples
 --------
 
+EXPLAIN (TYPE LOGICAL)
+^^^^^^^^^^^^^^^^^^^^^^
+
 Logical plan:
 
 .. code-block:: none
 
-    presto:tiny> EXPLAIN SELECT regionkey, count(*) FROM nation GROUP BY 1;
-                                                    Query Plan
-    ----------------------------------------------------------------------------------------------------------
-     - Output[regionkey, _col1] => [regionkey:bigint, count:bigint]
-             _col1 := count
-         - RemoteExchange[GATHER] => regionkey:bigint, count:bigint
-             - Aggregate(FINAL)[regionkey] => [regionkey:bigint, count:bigint]
-                    count := "count"("count_8")
-                 - LocalExchange[HASH][$hashvalue] ("regionkey") => regionkey:bigint, count_8:bigint, $hashvalue:bigint
-                     - RemoteExchange[REPARTITION][$hashvalue_9] => regionkey:bigint, count_8:bigint, $hashvalue_9:bigint
-                         - Project[] => [regionkey:bigint, count_8:bigint, $hashvalue_10:bigint]
-                                 $hashvalue_10 := "combine_hash"(BIGINT '0', COALESCE("$operator$hash_code"("regionkey"), 0))
-                             - Aggregate(PARTIAL)[regionkey] => [regionkey:bigint, count_8:bigint]
-                                     count_8 := "count"(*)
-                                 - TableScan[tpch:tpch:nation:sf0.1, originalConstraint = true] => [regionkey:bigint]
-                                         regionkey := tpch:regionkey
+    presto:tiny> EXPLAIN (TYPE LOGICAL) SELECT regionkey, count(*) FROM nation GROUP BY 1;
+                                                       Query Plan
+    -----------------------------------------------------------------------------------------------------------------
+     Output[regionkey, _col1]
+     │   Layout: [regionkey:bigint, count:bigint]
+     │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+     │   _col1 := count
+     └─ RemoteExchange[GATHER]
+        │   Layout: [regionkey:bigint, count:bigint]
+        │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+        └─ Aggregate(FINAL)[regionkey]
+           │   Layout: [regionkey:bigint, count:bigint]
+           │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+           │   count := count("count_8")
+           └─ LocalExchange[HASH][$hashvalue] ("regionkey")
+              │   Layout: [regionkey:bigint, count_8:bigint, $hashvalue:bigint]
+              │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+              └─ RemoteExchange[REPARTITION][$hashvalue_9]
+                 │   Layout: [regionkey:bigint, count_8:bigint, $hashvalue_9:bigint]
+                 │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                 └─ Project[]
+                    │   Layout: [regionkey:bigint, count_8:bigint, $hashvalue_10:bigint]
+                    │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+                    │   $hashvalue_10 := "combine_hash"(bigint '0', COALESCE("$operator$hash_code"("regionkey"), 0))
+                    └─ Aggregate(PARTIAL)[regionkey]
+                       │   Layout: [regionkey:bigint, count_8:bigint]
+                       │   count_8 := count(*)
+                       └─ TableScan[tpch:nation:sf0.01]
+                              Layout: [regionkey:bigint]
+                              Estimates: {rows: 25 (225B), cpu: 225, memory: 0B, network: 0B}
+                              regionkey := tpch:regionkey
+
+EXPLAIN (TYPE DISTRIBUTED)
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Distributed plan:
 
 .. code-block:: none
 
     presto:tiny> EXPLAIN (TYPE DISTRIBUTED) SELECT regionkey, count(*) FROM nation GROUP BY 1;
-                                              Query Plan
-    ----------------------------------------------------------------------------------------------
+                                                  Query Plan
+    ------------------------------------------------------------------------------------------------------
      Fragment 0 [SINGLE]
          Output layout: [regionkey, count]
          Output partitioning: SINGLE []
-         - Output[regionkey, _col1] => [regionkey:bigint, count:bigint]
-                 _col1 := count
-             - RemoteSource[1] => [regionkey:bigint, count:bigint]
+         Stage Execution Strategy: UNGROUPED_EXECUTION
+         Output[regionkey, _col1]
+         │   Layout: [regionkey:bigint, count:bigint]
+         │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+         │   _col1 := count
+         └─ RemoteSource[1]
+                Layout: [regionkey:bigint, count:bigint]
 
      Fragment 1 [HASH]
          Output layout: [regionkey, count]
          Output partitioning: SINGLE []
-         - Aggregate(FINAL)[regionkey] => [regionkey:bigint, count:bigint]
-                 count := "count"("count_8")
-             - LocalExchange[HASH][$hashvalue] ("regionkey") => regionkey:bigint, count_8:bigint, $hashvalue:bigint
-                 - RemoteSource[2] => [regionkey:bigint, count_8:bigint, $hashvalue_9:bigint]
+         Stage Execution Strategy: UNGROUPED_EXECUTION
+         Aggregate(FINAL)[regionkey]
+         │   Layout: [regionkey:bigint, count:bigint]
+         │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+         │   count := count("count_8")
+         └─ LocalExchange[HASH][$hashvalue] ("regionkey")
+            │   Layout: [regionkey:bigint, count_8:bigint, $hashvalue:bigint]
+            │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+            └─ RemoteSource[2]
+                   Layout: [regionkey:bigint, count_8:bigint, $hashvalue_9:bigint]
 
      Fragment 2 [SOURCE]
          Output layout: [regionkey, count_8, $hashvalue_10]
          Output partitioning: HASH [regionkey][$hashvalue_10]
-         - Project[] => [regionkey:bigint, count_8:bigint, $hashvalue_10:bigint]
-                 $hashvalue_10 := "combine_hash"(BIGINT '0', COALESCE("$operator$hash_code"("regionkey"), 0))
-             - Aggregate(PARTIAL)[regionkey] => [regionkey:bigint, count_8:bigint]
-                     count_8 := "count"(*)
-                 - TableScan[tpch:tpch:nation:sf0.1, originalConstraint = true] => [regionkey:bigint]
-                         regionkey := tpch:regionkey
+         Stage Execution Strategy: UNGROUPED_EXECUTION
+         Project[]
+         │   Layout: [regionkey:bigint, count_8:bigint, $hashvalue_10:bigint]
+         │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+         │   $hashvalue_10 := "combine_hash"(bigint '0', COALESCE("$operator$hash_code"("regionkey"), 0))
+         └─ Aggregate(PARTIAL)[regionkey]
+            │   Layout: [regionkey:bigint, count_8:bigint]
+            │   count_8 := count(*)
+            └─ TableScan[tpch:nation:sf0.01, grouped = false]
+                   Layout: [regionkey:bigint]
+                   Estimates: {rows: 25 (225B), cpu: 225, memory: 0B, network: 0B}
+                   regionkey := tpch:regionkey
+
+EXPLAIN (TYPE VALIDATE)
+^^^^^^^^^^^^^^^^^^^^^^^
 
 Validate:
 
@@ -106,49 +146,119 @@ Validate:
     -------
      true
 
+EXPLAIN (TYPE IO)
+^^^^^^^^^^^^^^^^^
+
 IO:
 
 .. code-block:: none
 
 
-    presto:hive> EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_nation SELECT * FROM nation WHERE regionkey = 2;
+    presto:hive> EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_lineitem SELECT * FROM lineitem WHERE shipdate = '2020-02-01' AND quantity > 10;
                 Query Plan
     -----------------------------------
-     {
-       "inputTableColumnInfos" : [ {
-         "table" : {
-           "catalog" : "hive",
-           "schemaTable" : {
-             "schema" : "tpch",
-             "table" : "nation"
-           }
-         },
-         "columns" : [ {
-           "columnName" : "regionkey",
-           "type" : "bigint",
-           "domain" : {
-             "nullsAllowed" : false,
-             "ranges" : [ {
-               "low" : {
-                 "value" : "2",
-                 "bound" : "EXACTLY"
-               },
-               "high" : {
-                 "value" : "2",
-                 "bound" : "EXACTLY"
-               }
-             } ]
-           }
-         } ]
-       } ],
-       "outputTable" : {
-         "catalog" : "hive",
-         "schemaTable" : {
-           "schema" : "tpch",
-           "table" : "test_nation"
-         }
+    {
+       inputTableColumnInfos: [
+          {
+             table: {
+                catalog: "hive",
+                schemaTable: {
+                   schema: "tpch",
+                   table: "test_orders"
+                }
+             },
+             columnConstraints: [
+                {
+                   columnName: "orderkey",
+                   type: "bigint",
+                   domain: {
+                      nullsAllowed: false,
+                      ranges: [
+                         {
+                            low: {
+                               value: "1",
+                               bound: "EXACTLY"
+                            },
+                            high: {
+                               value: "1",
+                               bound: "EXACTLY"
+                            }
+                         },
+                         {
+                            low: {
+                               value: "2",
+                               bound: "EXACTLY"
+                            },
+                            high: {
+                               value: "2",
+                               bound: "EXACTLY"
+                            }
+                         }
+                      ]
+                   }
+                },
+                {
+                   columnName: "processing",
+                   type: "boolean",
+                   domain: {
+                      nullsAllowed: false,
+                      ranges: [
+                         {
+                            low: {
+                               value: "false",
+                               bound: "EXACTLY"
+                            },
+                            high: {
+                               value: "false",
+                               bound: "EXACTLY"
+                            }
+                         }
+                      ]
+                   }
+                },
+                {
+                   columnName: "custkey",
+                   type: "bigint",
+                   domain: {
+                      nullsAllowed: false,
+                      ranges: [
+                         {
+                            low: {
+                               bound: "ABOVE"
+                            },
+                            high: {
+                               value: "10",
+                               bound: "EXACTLY"
+                            }
+                         }
+                      ]
+                   }
+                }
+             ],
+             estimate: {
+                outputRowCount: 2,
+                outputSizeInBytes: 40,
+                cpuCost: 40,
+                maxMemory: 0,
+                networkCost: 0
+             }
+          }
+       ],
+       outputTable: {
+          catalog: "hive",
+          schemaTable: {
+             schema: "tpch",
+             table: "test_orders"
+          }
+       },
+       estimate: {
+          outputRowCount: "NaN",
+          outputSizeInBytes: "NaN",
+          cpuCost: "NaN",
+          maxMemory: "NaN",
+          networkCost: "NaN"
        }
-     }
+    }
 
 
 See Also

@@ -161,7 +161,7 @@ public class SqlTaskExecution
                 notificationExecutor);
         try (SetThreadName ignored = new SetThreadName("Task-%s", task.getTaskId())) {
             // The scheduleDriversForTaskLifeCycle method calls enqueueDriverSplitRunner, which registers a callback with access to this object.
-            // The call back is accessed from another thread, so this code can not be placed in the constructor.
+            // The call back is accessed from another thread, so this code cannot be placed in the constructor.
             task.scheduleDriversForTaskLifeCycle();
             task.addSources(sources);
             return task;
@@ -286,7 +286,7 @@ public class SqlTaskExecution
     public void addSources(List<TaskSource> sources)
     {
         requireNonNull(sources, "sources is null");
-        checkState(!Thread.holdsLock(this), "Can not add sources while holding a lock on the %s", getClass().getSimpleName());
+        checkState(!Thread.holdsLock(this), "Cannot add sources while holding a lock on the %s", getClass().getSimpleName());
 
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             // update our record of sources and schedule drivers for new partitioned splits
@@ -305,7 +305,7 @@ public class SqlTaskExecution
                     continue;
                 }
                 Optional<PlanNodeId> sourceId = driver.getSourceId();
-                if (!sourceId.isPresent()) {
+                if (sourceId.isEmpty()) {
                     continue;
                 }
                 TaskSource sourceUpdate = updatedUnpartitionedSources.get(sourceId.get());
@@ -434,7 +434,7 @@ public class SqlTaskExecution
                 // This is why getSchedulingPlanNode returns an Optional.
                 while (true) {
                     Optional<PlanNodeId> optionalSchedulingPlanNode = schedulingLifespan.getSchedulingPlanNode();
-                    if (!optionalSchedulingPlanNode.isPresent()) {
+                    if (optionalSchedulingPlanNode.isEmpty()) {
                         break;
                     }
                     PlanNodeId schedulingPlanNode = optionalSchedulingPlanNode.get();
@@ -551,7 +551,7 @@ public class SqlTaskExecution
         // when driver completes, update state and fire events
         for (int i = 0; i < finishedFutures.size(); i++) {
             ListenableFuture<?> finishedFuture = finishedFutures.get(i);
-            final DriverSplitRunner splitRunner = runners.get(i);
+            DriverSplitRunner splitRunner = runners.get(i);
 
             // record new driver
             status.incrementRemainingDriver(splitRunner.getLifespan());
@@ -641,6 +641,7 @@ public class SqlTaskExecution
 
         // are there still pages in the output buffer
         if (!outputBuffer.isFinished()) {
+            taskStateMachine.transitionToFlushing();
             return;
         }
 
@@ -823,7 +824,7 @@ public class SqlTaskExecution
             // Before it advances to the next item, it checks whether the previous returned driver group is done scheduling.
             // If so, the completed SchedulingLifespan is removed so that it will not be returned again.
             Iterator<SchedulingLifespan> lifespansIterator = lifespans.values().iterator();
-            return new AbstractIterator<SchedulingLifespan>()
+            return new AbstractIterator<>()
             {
                 SchedulingLifespan lastSchedulingLifespan;
 

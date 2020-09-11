@@ -21,6 +21,8 @@ import io.prestosql.plugin.hive.metastore.DecimalStatistics;
 import io.prestosql.plugin.hive.metastore.DoubleStatistics;
 import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
 import io.prestosql.plugin.hive.metastore.IntegerStatistics;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.statistics.ColumnStatisticType;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -32,18 +34,87 @@ import java.util.OptionalLong;
 
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createZeroStatistics;
+import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
-import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.prestosql.plugin.hive.util.Statistics.ReduceOperator.ADD;
 import static io.prestosql.plugin.hive.util.Statistics.ReduceOperator.SUBTRACT;
+import static io.prestosql.plugin.hive.util.Statistics.createHiveColumnStatistics;
 import static io.prestosql.plugin.hive.util.Statistics.merge;
 import static io.prestosql.plugin.hive.util.Statistics.reduce;
+import static io.prestosql.spi.predicate.Utils.nativeValueToBlock;
+import static io.prestosql.spi.statistics.ColumnStatisticType.MAX_VALUE;
+import static io.prestosql.spi.statistics.ColumnStatisticType.MIN_VALUE;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.RealType.REAL;
+import static java.lang.Float.floatToIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStatistics
 {
+    @Test
+    public void testCreateRealHiveColumnStatistics()
+    {
+        HiveColumnStatistics statistics;
+
+        statistics = createRealColumnStatistics(ImmutableMap.of(
+                MIN_VALUE, nativeValueToBlock(REAL, (long) floatToIntBits(-2391f)),
+                MAX_VALUE, nativeValueToBlock(REAL, (long) floatToIntBits(42f))));
+        assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.of(-2391d), OptionalDouble.of(42)));
+
+        statistics = createRealColumnStatistics(ImmutableMap.of(
+                MIN_VALUE, nativeValueToBlock(REAL, (long) floatToIntBits(Float.NEGATIVE_INFINITY)),
+                MAX_VALUE, nativeValueToBlock(REAL, (long) floatToIntBits(Float.POSITIVE_INFINITY))));
+        assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.empty(), OptionalDouble.empty()));
+
+        statistics = createRealColumnStatistics(ImmutableMap.of(
+                MIN_VALUE, nativeValueToBlock(REAL, (long) floatToIntBits(Float.NaN)),
+                MAX_VALUE, nativeValueToBlock(REAL, (long) floatToIntBits(Float.NaN))));
+        assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.empty(), OptionalDouble.empty()));
+
+        statistics = createRealColumnStatistics(ImmutableMap.of(
+                MIN_VALUE, nativeValueToBlock(REAL, (long) floatToIntBits(-15f)),
+                MAX_VALUE, nativeValueToBlock(REAL, (long) floatToIntBits(-0f))));
+        assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.of(-15d), OptionalDouble.of(-0d))); // TODO should we distinguish between -0 and 0?
+    }
+
+    private static HiveColumnStatistics createRealColumnStatistics(ImmutableMap<ColumnStatisticType, Block> computedStatistics)
+    {
+        return createHiveColumnStatistics(SESSION, computedStatistics, REAL, 1);
+    }
+
+    @Test
+    public void testCreateDoubleHiveColumnStatistics()
+    {
+        HiveColumnStatistics statistics;
+
+        statistics = createDoubleColumnStatistics(ImmutableMap.of(
+                MIN_VALUE, nativeValueToBlock(DOUBLE, -2391d),
+                MAX_VALUE, nativeValueToBlock(DOUBLE, 42d)));
+        assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.of(-2391d), OptionalDouble.of(42)));
+
+        statistics = createDoubleColumnStatistics(ImmutableMap.of(
+                MIN_VALUE, nativeValueToBlock(DOUBLE, Double.NEGATIVE_INFINITY),
+                MAX_VALUE, nativeValueToBlock(DOUBLE, Double.POSITIVE_INFINITY)));
+        assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.empty(), OptionalDouble.empty()));
+
+        statistics = createDoubleColumnStatistics(ImmutableMap.of(
+                MIN_VALUE, nativeValueToBlock(DOUBLE, Double.NaN),
+                MAX_VALUE, nativeValueToBlock(DOUBLE, Double.NaN)));
+        assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.empty(), OptionalDouble.empty()));
+
+        statistics = createDoubleColumnStatistics(ImmutableMap.of(
+                MIN_VALUE, nativeValueToBlock(DOUBLE, -15d),
+                MAX_VALUE, nativeValueToBlock(DOUBLE, -0d)));
+        assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.of(-15d), OptionalDouble.of(-0d))); // TODO should we distinguish between -0 and 0?
+    }
+
+    private static HiveColumnStatistics createDoubleColumnStatistics(ImmutableMap<ColumnStatisticType, Block> computedStatistics)
+    {
+        return createHiveColumnStatistics(SESSION, computedStatistics, DOUBLE, 1);
+    }
+
     @Test
     public void testReduce()
     {
@@ -219,16 +290,16 @@ public class TestStatistics
     {
         Map<String, HiveColumnStatistics> first = ImmutableMap.of(
                 "column1", createIntegerColumnStatistics(OptionalLong.of(1), OptionalLong.of(2), OptionalLong.of(3), OptionalLong.of(4)),
-                "column2", createDoubleColumnStatistics(OptionalDouble.of(2), OptionalDouble.of(3), OptionalLong.of(4), OptionalLong.of(5)),
+                "column2", HiveColumnStatistics.createDoubleColumnStatistics(OptionalDouble.of(2), OptionalDouble.of(3), OptionalLong.of(4), OptionalLong.of(5)),
                 "column3", createBinaryColumnStatistics(OptionalLong.of(5), OptionalLong.of(5), OptionalLong.of(10)),
                 "column4", createBooleanColumnStatistics(OptionalLong.of(1), OptionalLong.of(2), OptionalLong.of(3)));
         Map<String, HiveColumnStatistics> second = ImmutableMap.of(
                 "column5", createIntegerColumnStatistics(OptionalLong.of(1), OptionalLong.of(2), OptionalLong.of(3), OptionalLong.of(4)),
-                "column2", createDoubleColumnStatistics(OptionalDouble.of(1), OptionalDouble.of(4), OptionalLong.of(4), OptionalLong.of(6)),
+                "column2", HiveColumnStatistics.createDoubleColumnStatistics(OptionalDouble.of(1), OptionalDouble.of(4), OptionalLong.of(4), OptionalLong.of(6)),
                 "column3", createBinaryColumnStatistics(OptionalLong.of(6), OptionalLong.of(5), OptionalLong.of(10)),
                 "column6", createBooleanColumnStatistics(OptionalLong.of(1), OptionalLong.of(2), OptionalLong.of(3)));
         Map<String, HiveColumnStatistics> expected = ImmutableMap.of(
-                "column2", createDoubleColumnStatistics(OptionalDouble.of(1), OptionalDouble.of(4), OptionalLong.of(8), OptionalLong.of(6)),
+                "column2", HiveColumnStatistics.createDoubleColumnStatistics(OptionalDouble.of(1), OptionalDouble.of(4), OptionalLong.of(8), OptionalLong.of(6)),
                 "column3", createBinaryColumnStatistics(OptionalLong.of(6), OptionalLong.of(10), OptionalLong.of(20)));
         assertThat(merge(first, second)).isEqualTo(expected);
         assertThat(merge(ImmutableMap.of(), ImmutableMap.of())).isEqualTo(ImmutableMap.of());

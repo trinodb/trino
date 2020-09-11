@@ -29,14 +29,12 @@ import static io.prestosql.spi.type.Decimals.isLongDecimal;
 import static io.prestosql.spi.type.Decimals.isShortDecimal;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 public final class SequencePageBuilder
 {
-    private SequencePageBuilder()
-    {
-    }
+    private SequencePageBuilder() {}
 
     public static Page createSequencePage(List<? extends Type> types, int length)
     {
@@ -68,7 +66,7 @@ public final class SequencePageBuilder
             else if (type.equals(DATE)) {
                 blocks[i] = BlockAssertions.createDateSequenceBlock(initialValue, initialValue + length);
             }
-            else if (type.equals(TIMESTAMP)) {
+            else if (type.equals(TIMESTAMP_MILLIS)) {
                 blocks[i] = BlockAssertions.createTimestampSequenceBlock(initialValue, initialValue + length);
             }
             else if (isShortDecimal(type)) {

@@ -15,40 +15,49 @@ package io.prestosql.testing;
 
 import io.prestosql.GroupByHashPageIndexerFactory;
 import io.prestosql.PagesIndexPageSorter;
-import io.prestosql.block.BlockEncodingManager;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.ConnectorAwareNodeManager;
-import io.prestosql.connector.ConnectorId;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.InMemoryNodeManager;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.PagesIndex;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
+import io.prestosql.spi.VersionEmbedder;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.type.TypeManager;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.JoinCompiler;
-import io.prestosql.type.TypeRegistry;
+import io.prestosql.type.InternalTypeManager;
+import io.prestosql.version.EmbedVersion;
 
-public class TestingConnectorContext
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+
+public final class TestingConnectorContext
         implements ConnectorContext
 {
-    private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new ConnectorId("test"));
-    private final TypeManager typeManager = new TypeRegistry();
+    private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new CatalogName("test"));
+    private final VersionEmbedder versionEmbedder = new EmbedVersion("testversion");
+    private final TypeManager typeManager;
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
-    private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()));
+    private final PageIndexerFactory pageIndexerFactory;
 
     public TestingConnectorContext()
     {
-        // associate typeManager with a function registry
-        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        Metadata metadata = createTestMetadataManager();
+        pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(metadata));
+        typeManager = new InternalTypeManager(metadata);
     }
 
     @Override
     public NodeManager getNodeManager()
     {
         return nodeManager;
+    }
+
+    @Override
+    public VersionEmbedder getVersionEmbedder()
+    {
+        return versionEmbedder;
     }
 
     @Override
@@ -67,5 +76,11 @@ public class TestingConnectorContext
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public ClassLoader duplicatePluginClassLoader()
+    {
+        return getClass().getClassLoader();
     }
 }

@@ -14,6 +14,7 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.aggregation.LambdaProvider;
 import io.prestosql.operator.window.FrameInfo;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.function.WindowFunction;
@@ -30,27 +31,32 @@ public class WindowFunctionDefinition
     private final Type type;
     private final FrameInfo frameInfo;
     private final List<Integer> argumentChannels;
+    private final boolean ignoreNulls;
+    private final List<LambdaProvider> lambdaProviders;
 
-    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, List<Integer> inputs)
+    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, boolean ignoreNulls, List<LambdaProvider> lambdaProviders, List<Integer> inputs)
     {
-        return new WindowFunctionDefinition(functionSupplier, type, frameInfo, inputs);
+        return new WindowFunctionDefinition(functionSupplier, type, frameInfo, ignoreNulls, lambdaProviders, inputs);
     }
 
-    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, Integer... inputs)
+    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, boolean ignoreNulls, List<LambdaProvider> lambdaProviders, Integer... inputs)
     {
-        return window(functionSupplier, type, frameInfo, Arrays.asList(inputs));
+        return window(functionSupplier, type, frameInfo, ignoreNulls, lambdaProviders, Arrays.asList(inputs));
     }
 
-    WindowFunctionDefinition(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, List<Integer> argumentChannels)
+    WindowFunctionDefinition(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, boolean ignoreNulls, List<LambdaProvider> lambdaProviders, List<Integer> argumentChannels)
     {
         requireNonNull(functionSupplier, "functionSupplier is null");
         requireNonNull(type, "type is null");
         requireNonNull(frameInfo, "frameInfo is null");
+        requireNonNull(lambdaProviders, "lambdaProviders is null");
         requireNonNull(argumentChannels, "inputs is null");
 
         this.functionSupplier = functionSupplier;
         this.type = type;
         this.frameInfo = frameInfo;
+        this.ignoreNulls = ignoreNulls;
+        this.lambdaProviders = lambdaProviders;
         this.argumentChannels = ImmutableList.copyOf(argumentChannels);
     }
 
@@ -66,6 +72,6 @@ public class WindowFunctionDefinition
 
     public WindowFunction createWindowFunction()
     {
-        return functionSupplier.createWindowFunction(argumentChannels);
+        return functionSupplier.createWindowFunction(argumentChannels, ignoreNulls, lambdaProviders);
     }
 }

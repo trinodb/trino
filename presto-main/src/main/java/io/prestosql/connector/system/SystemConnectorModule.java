@@ -18,7 +18,6 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
-import com.google.inject.multibindings.MultibindingsScanner;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import io.prestosql.connector.ConnectorManager;
 import io.prestosql.connector.system.jdbc.AttributeJdbcTable;
@@ -45,17 +44,18 @@ public class SystemConnectorModule
     @Override
     public void configure(Binder binder)
     {
-        binder.install(MultibindingsScanner.asModule());
-
         Multibinder<SystemTable> globalTableBinder = Multibinder.newSetBinder(binder, SystemTable.class);
         globalTableBinder.addBinding().to(NodeSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(QuerySystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(TaskSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(CatalogSystemTable.class).in(Scopes.SINGLETON);
+        globalTableBinder.addBinding().to(TableCommentSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(SchemaPropertiesSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(TablePropertiesSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(ColumnPropertiesSystemTable.class).in(Scopes.SINGLETON);
+        globalTableBinder.addBinding().to(AnalyzePropertiesSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(TransactionsSystemTable.class).in(Scopes.SINGLETON);
+        globalTableBinder.addBinding().to(RuleStatsSystemTable.class).in(Scopes.SINGLETON);
 
         globalTableBinder.addBinding().to(AttributeJdbcTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(CatalogJdbcTable.class).in(Scopes.SINGLETON);
@@ -90,8 +90,8 @@ public class SystemConnectorModule
         @Inject
         public SystemConnectorRegistrar(ConnectorManager manager, GlobalSystemConnectorFactory globalSystemConnectorFactory)
         {
-            manager.addConnectorFactory(globalSystemConnectorFactory);
-            manager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
+            manager.addConnectorFactory(globalSystemConnectorFactory, globalSystemConnectorFactory.getClass()::getClassLoader);
+            manager.createCatalog(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
         }
     }
 }

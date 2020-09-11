@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
@@ -33,7 +32,7 @@ public class PruneProjectColumns
 
     @Override
     protected Optional<PlanNode> pushDownProjectOff(
-            PlanNodeIdAllocator idAllocator,
+            Context context,
             ProjectNode childProjectNode,
             Set<Symbol> referencedOutputs)
     {

@@ -20,7 +20,8 @@ import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.hive.authentication.KerberosTicketUtils.getTicketGrantingTicket;
+import static io.prestosql.plugin.base.authentication.KerberosTicketUtils.getRefreshTime;
+import static io.prestosql.plugin.base.authentication.KerberosTicketUtils.getTicketGrantingTicket;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.security.UserGroupInformationShim.getSubject;
 
@@ -29,11 +30,10 @@ public class CachingKerberosHadoopAuthentication
 {
     private final KerberosHadoopAuthentication delegate;
 
-    private final Object lock = new Object();
-    @GuardedBy("lock")
+    @GuardedBy("this")
     private UserGroupInformation userGroupInformation;
-    @GuardedBy("lock")
-    private long nextRefreshTime = Long.MIN_VALUE;
+    @GuardedBy("this")
+    private long nextRefreshTime;
 
     public CachingKerberosHadoopAuthentication(KerberosHadoopAuthentication delegate)
     {
@@ -41,27 +41,13 @@ public class CachingKerberosHadoopAuthentication
     }
 
     @Override
-    public UserGroupInformation getUserGroupInformation()
+    public synchronized UserGroupInformation getUserGroupInformation()
     {
-        synchronized (lock) {
-            if (refreshIsNeeded()) {
-                refreshUgi();
-            }
-            return userGroupInformation;
+        if (nextRefreshTime < System.currentTimeMillis() || userGroupInformation == null) {
+            userGroupInformation = requireNonNull(delegate.getUserGroupInformation(), "delegate.getUserGroupInformation() is null");
+            nextRefreshTime = calculateNextRefreshTime(userGroupInformation);
         }
-    }
-
-    @GuardedBy("lock")
-    private void refreshUgi()
-    {
-        userGroupInformation = delegate.getUserGroupInformation();
-        nextRefreshTime = calculateNextRefreshTime(userGroupInformation);
-    }
-
-    @GuardedBy("lock")
-    private boolean refreshIsNeeded()
-    {
-        return nextRefreshTime < System.currentTimeMillis() || userGroupInformation == null;
+        return userGroupInformation;
     }
 
     private static long calculateNextRefreshTime(UserGroupInformation userGroupInformation)
@@ -69,6 +55,6 @@ public class CachingKerberosHadoopAuthentication
         Subject subject = getSubject(userGroupInformation);
         checkArgument(subject != null, "subject must be present in kerberos based UGI");
         KerberosTicket tgtTicket = getTicketGrantingTicket(subject);
-        return KerberosTicketUtils.getRefreshTime(tgtTicket);
+        return getRefreshTime(tgtTicket);
     }
 }

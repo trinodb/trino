@@ -23,8 +23,12 @@ import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionMetadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AccumulatorCompiler;
 import io.prestosql.operator.aggregation.AggregationMetadata;
@@ -39,14 +43,17 @@ import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.CallSiteBinder;
 import io.prestosql.sql.gen.SqlTypeBytecodeExpression;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
@@ -59,6 +66,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.and;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static io.airlift.bytecode.expression.BytecodeExpressions.or;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.Signature.orderableTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -71,39 +79,76 @@ import static io.prestosql.operator.aggregation.minmaxby.TwoNullableValueStateMa
 import static io.prestosql.operator.aggregation.minmaxby.TwoNullableValueStateMapping.getStateSerializer;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.gen.BytecodeUtils.loadConstant;
 import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.prestosql.util.CompilerUtils.defineClass;
 import static io.prestosql.util.CompilerUtils.makeClassName;
 import static io.prestosql.util.Reflection.methodHandle;
+import static java.util.Arrays.stream;
 
 public abstract class AbstractMinMaxBy
         extends SqlAggregationFunction
 {
     private final boolean min;
 
-    protected AbstractMinMaxBy(boolean min)
+    protected AbstractMinMaxBy(boolean min, String description)
     {
-        super((min ? "min" : "max") + "_by",
-                ImmutableList.of(orderableTypeParameter("K"), typeVariable("V")),
-                ImmutableList.of(),
-                parseTypeSignature("V"),
-                ImmutableList.of(parseTypeSignature("V"), parseTypeSignature("K")));
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                (min ? "min" : "max") + "_by",
+                                ImmutableList.of(orderableTypeParameter("K"), typeVariable("V")),
+                                ImmutableList.of(),
+                                new TypeSignature("V"),
+                                ImmutableList.of(new TypeSignature("V"), new TypeSignature("K")),
+                                false),
+                        true,
+                        ImmutableList.of(
+                                new FunctionArgumentDefinition(true),
+                                new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        description,
+                        AGGREGATE),
+                true,
+                false);
         this.min = min;
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        Type keyType = boundVariables.getTypeVariable("K");
-        Type valueType = boundVariables.getTypeVariable("V");
-        return generateAggregation(valueType, keyType, functionRegistry);
+        return FunctionDependencyDeclaration.builder()
+                .addOperatorSignature(min ? LESS_THAN : GREATER_THAN, ImmutableList.of(new TypeSignature("K"), new TypeSignature("K")))
+                .build();
     }
 
-    private InternalAggregationFunction generateAggregation(Type valueType, Type keyType, FunctionRegistry functionRegistry)
+    @Override
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
     {
-        Class<?> stateClazz = getStateClass(keyType.getJavaType(), valueType.getJavaType());
+        Type keyType = functionBinding.getTypeVariable("K");
+        Type valueType = functionBinding.getTypeVariable("V");
+
+        Class<?> stateClass = getStateClass(keyType.getJavaType(), valueType.getJavaType());
+        if (valueType.getJavaType().isPrimitive()) {
+            Map<String, Type> stateFieldTypes = ImmutableMap.of("First", keyType, "Second", valueType);
+            return ImmutableList.of(StateCompiler.getSerializedType(stateClass, stateFieldTypes).getTypeSignature());
+        }
+
+        return ImmutableList.of(getStateSerializer(keyType, valueType).getSerializedType().getTypeSignature());
+    }
+
+    @Override
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        Type keyType = functionBinding.getTypeVariable("K");
+        Type valueType = functionBinding.getTypeVariable("V");
+        return generateAggregation(valueType, keyType, functionDependencies);
+    }
+
+    private InternalAggregationFunction generateAggregation(Type valueType, Type keyType, FunctionDependencies functionDependencies)
+    {
+        Class<?> stateClass = getStateClass(keyType.getJavaType(), valueType.getJavaType());
         DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
 
         // Generate states and serializers:
@@ -115,14 +160,14 @@ public abstract class AbstractMinMaxBy
         AccumulatorStateSerializer<?> stateSerializer;
         if (valueType.getJavaType().isPrimitive()) {
             Map<String, Type> stateFieldTypes = ImmutableMap.of("First", keyType, "Second", valueType);
-            stateFactory = StateCompiler.generateStateFactory(stateClazz, stateFieldTypes, classLoader);
-            stateSerializer = StateCompiler.generateStateSerializer(stateClazz, stateFieldTypes, classLoader);
+            stateFactory = StateCompiler.generateStateFactory(stateClass, stateFieldTypes, classLoader);
+            stateSerializer = StateCompiler.generateStateSerializer(stateClass, stateFieldTypes, classLoader);
         }
         else {
             // StateCompiler checks type compatibility.
             // Given "Second" in this case is always a Block, we only need to make sure the getter and setter of the Blocks are properly generated.
             // We deliberately make "SecondBlock" an array type so that the compiler will treat it as a block to workaround the sanity check.
-            stateFactory = StateCompiler.generateStateFactory(stateClazz, ImmutableMap.of("First", keyType, "SecondBlock", new ArrayType(valueType)), classLoader);
+            stateFactory = StateCompiler.generateStateFactory(stateClass, ImmutableMap.of("First", keyType, "SecondBlock", new ArrayType(valueType)), classLoader);
 
             // States can be generated by StateCompiler given the they are simply classes with getters and setters.
             // However, serializers have logic in it. Creating serializers is better than generating them.
@@ -135,33 +180,35 @@ public abstract class AbstractMinMaxBy
 
         CallSiteBinder binder = new CallSiteBinder();
         OperatorType operator = min ? LESS_THAN : GREATER_THAN;
-        MethodHandle compareMethod = functionRegistry.getScalarFunctionImplementation(functionRegistry.resolveOperator(operator, ImmutableList.of(keyType, keyType))).getMethodHandle();
+        MethodHandle compareMethod = functionDependencies.getOperatorInvoker(operator, ImmutableList.of(keyType, keyType), Optional.empty()).getMethodHandle();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName("processMaxOrMinBy"),
                 type(Object.class));
         definition.declareDefaultConstructor(a(PRIVATE));
-        generateInputMethod(definition, binder, compareMethod, keyType, valueType, stateClazz);
-        generateCombineMethod(definition, binder, compareMethod, keyType, valueType, stateClazz);
-        generateOutputMethod(definition, binder, valueType, stateClazz);
+        generateInputMethod(definition, binder, compareMethod, keyType, valueType, stateClass);
+        generateCombineMethod(definition, binder, compareMethod, valueType, stateClass);
+        generateOutputMethod(definition, binder, valueType, stateClass);
         Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), classLoader);
-        MethodHandle inputMethod = methodHandle(generatedClass, "input", stateClazz, Block.class, Block.class, int.class);
-        MethodHandle combineMethod = methodHandle(generatedClass, "combine", stateClazz, stateClazz);
-        MethodHandle outputMethod = methodHandle(generatedClass, "output", stateClazz, BlockBuilder.class);
-        AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(getSignature().getName(), valueType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
+        MethodHandle inputMethod = methodHandle(generatedClass, "input", stateClass, Block.class, Block.class, int.class);
+        MethodHandle combineMethod = methodHandle(generatedClass, "combine", stateClass, stateClass);
+        MethodHandle outputMethod = methodHandle(generatedClass, "output", stateClass, BlockBuilder.class);
+        String name = getFunctionMetadata().getSignature().getName();
+        AggregationMetadata aggregationMetadata = new AggregationMetadata(
+                generateAggregationName(name, valueType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(valueType, keyType),
                 inputMethod,
+                Optional.empty(),
                 combineMethod,
                 outputMethod,
                 ImmutableList.of(new AccumulatorStateDescriptor(
-                        stateClazz,
+                        stateClass,
                         stateSerializer,
                         stateFactory)),
                 valueType);
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(getSignature().getName(), inputTypes, ImmutableList.of(intermediateType), valueType, true, false, factory);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(aggregationMetadata, classLoader);
+        return new InternalAggregationFunction(name, inputTypes, ImmutableList.of(intermediateType), valueType, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value, Type key)
@@ -169,7 +216,7 @@ public abstract class AbstractMinMaxBy
         return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INPUT_CHANNEL, key), new ParameterMetadata(BLOCK_INDEX));
     }
 
-    private void generateInputMethod(ClassDefinition definition, CallSiteBinder binder, MethodHandle compareMethod, Type keyType, Type valueType, Class<?> stateClass)
+    private static void generateInputMethod(ClassDefinition definition, CallSiteBinder binder, MethodHandle compareMethod, Type keyType, Type valueType, Class<?> stateClass)
     {
         Parameter state = arg("state", stateClass);
         Parameter value = arg("value", Block.class);
@@ -179,13 +226,13 @@ public abstract class AbstractMinMaxBy
         SqlTypeBytecodeExpression keySqlType = constantType(binder, keyType);
 
         BytecodeBlock ifBlock = new BytecodeBlock()
-                .append(state.invoke("setFirst", void.class, keySqlType.getValue(key, position)))
+                .append(invokeMethod(stateClass, state, "setFirst", keySqlType.getValue(key, position)))
                 .append(state.invoke("setFirstNull", void.class, constantBoolean(false)))
                 .append(state.invoke("setSecondNull", void.class, value.invoke("isNull", boolean.class, position)));
         BytecodeNode setValueNode;
         if (valueType.getJavaType().isPrimitive()) {
             SqlTypeBytecodeExpression valueSqlType = constantType(binder, valueType);
-            setValueNode = state.invoke("setSecond", void.class, valueSqlType.getValue(value, position));
+            setValueNode = invokeMethod(stateClass, state, "setSecond", valueSqlType.getValue(value, position));
         }
         else {
             // Do not get value directly given it creates object overhead.
@@ -203,25 +250,27 @@ public abstract class AbstractMinMaxBy
                         state.invoke("isFirstNull", boolean.class),
                         and(
                                 not(key.invoke("isNull", boolean.class, position)),
-                                loadConstant(binder, compareMethod, MethodHandle.class).invoke("invokeExact", boolean.class, keySqlType.getValue(key, position), state.invoke("getFirst", keyType.getJavaType())))))
+                                loadConstant(binder, compareMethod, MethodHandle.class).invoke(
+                                        "invokeExact",
+                                        boolean.class,
+                                        keySqlType.getValue(key, position).cast(compareMethod.type().parameterType(0)),
+                                        invokeMethod(stateClass, state, "getFirst").cast(compareMethod.type().parameterType(1))))))
                 .ifTrue(ifBlock))
                 .ret();
     }
 
-    private void generateCombineMethod(ClassDefinition definition, CallSiteBinder binder, MethodHandle compareMethod, Type keyType, Type valueType, Class<?> stateClass)
+    private static void generateCombineMethod(ClassDefinition definition, CallSiteBinder binder, MethodHandle compareMethod, Type valueType, Class<?> stateClass)
     {
         Parameter state = arg("state", stateClass);
         Parameter otherState = arg("otherState", stateClass);
         MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "combine", type(void.class), state, otherState);
 
-        Class<?> keyJavaType = keyType.getJavaType();
-
         BytecodeBlock ifBlock = new BytecodeBlock()
-                .append(state.invoke("setFirst", void.class, otherState.invoke("getFirst", keyJavaType)))
+                .append(invokeMethod(stateClass, state, "setFirst", invokeMethod(stateClass, otherState, "getFirst")))
                 .append(state.invoke("setFirstNull", void.class, otherState.invoke("isFirstNull", boolean.class)))
                 .append(state.invoke("setSecondNull", void.class, otherState.invoke("isSecondNull", boolean.class)));
         if (valueType.getJavaType().isPrimitive()) {
-            ifBlock.append(state.invoke("setSecond", void.class, otherState.invoke("getSecond", valueType.getJavaType())));
+            ifBlock.append(invokeMethod(stateClass, state, "setSecond", otherState.invoke("getSecond", valueType.getJavaType())));
         }
         else {
             ifBlock.append(new BytecodeBlock()
@@ -235,12 +284,31 @@ public abstract class AbstractMinMaxBy
                                 state.invoke("isFirstNull", boolean.class),
                                 and(
                                         not(otherState.invoke("isFirstNull", boolean.class)),
-                                        loadConstant(binder, compareMethod, MethodHandle.class).invoke("invokeExact", boolean.class, otherState.invoke("getFirst", keyJavaType), state.invoke("getFirst", keyJavaType)))))
+                                        loadConstant(binder, compareMethod, MethodHandle.class).invoke(
+                                                "invokeExact",
+                                                boolean.class,
+                                                invokeMethod(stateClass, otherState, "getFirst").cast(compareMethod.type().parameterType(0)),
+                                                invokeMethod(stateClass, state, "getFirst").cast(compareMethod.type().parameterType(1))))))
                         .ifTrue(ifBlock))
                 .ret();
     }
 
-    private void generateOutputMethod(ClassDefinition definition, CallSiteBinder binder, Type valueType, Class<?> stateClass)
+    private static BytecodeExpression invokeMethod(Class<?> instanceType, Parameter instance, String methodName, BytecodeExpression... arguments)
+    {
+        Method method = getMethod(instanceType, methodName);
+        Class<?>[] parameterTypes = method.getParameterTypes();
+        checkArgument(parameterTypes.length == arguments.length, "Expected %s arguments, but got %s", parameterTypes.length, arguments.length);
+
+        ImmutableList.Builder<BytecodeExpression> castedArguments = ImmutableList.builder();
+        for (int i = 0; i < arguments.length; i++) {
+            BytecodeExpression argument = arguments[i];
+            Class<?> parameterType = parameterTypes[i];
+            castedArguments.add(argument.cast(parameterType));
+        }
+        return instance.invoke(method, castedArguments.build());
+    }
+
+    private static void generateOutputMethod(ClassDefinition definition, CallSiteBinder binder, Type valueType, Class<?> stateClass)
     {
         Parameter state = arg("state", stateClass);
         Parameter out = arg("out", BlockBuilder.class);
@@ -259,5 +327,13 @@ public abstract class AbstractMinMaxBy
         }
         ifStatement.ifFalse(valueSqlType.writeValue(out, getValueExpression));
         method.getBody().append(ifStatement).ret();
+    }
+
+    private static Method getMethod(Class<?> stateClass, String name)
+    {
+        return stream(stateClass.getMethods())
+                .filter(method -> method.getName().equals(name))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("State class does not have a method named " + name));
     }
 }

@@ -27,7 +27,6 @@ import io.airlift.units.Duration;
 import io.prestosql.execution.SplitRunner;
 import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskManagerConfig;
-import io.prestosql.server.ServerConfig;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.version.EmbedVersion;
 import org.weakref.jmx.Managed;
@@ -68,6 +67,8 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.prestosql.execution.executor.MultilevelSplitQueue.computeLevel;
 import static io.prestosql.util.MoreMath.min;
+import static io.prestosql.version.EmbedVersion.testingVersionEmbedder;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -170,13 +171,13 @@ public class TaskExecutor
     @VisibleForTesting
     public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new EmbedVersion(new ServerConfig()), new MultilevelSplitQueue(2), ticker);
+        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, testingVersionEmbedder(), new MultilevelSplitQueue(2), ticker);
     }
 
     @VisibleForTesting
     public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, MultilevelSplitQueue splitQueue, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new EmbedVersion(new ServerConfig()), splitQueue, ticker);
+        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, testingVersionEmbedder(), splitQueue, ticker);
     }
 
     @VisibleForTesting
@@ -257,7 +258,7 @@ public class TaskExecutor
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(utilizationSupplier, "utilizationSupplier is null");
-        checkArgument(!maxDriversPerTask.isPresent() || maxDriversPerTask.getAsInt() <= maximumNumberOfDriversPerTask,
+        checkArgument(maxDriversPerTask.isEmpty() || maxDriversPerTask.getAsInt() <= maximumNumberOfDriversPerTask,
                 "maxDriversPerTask cannot be greater than the configured value");
 
         log.debug("Task scheduled " + taskId);
@@ -463,7 +464,7 @@ public class TaskExecutor
             try (SetThreadName runnerName = new SetThreadName("SplitRunner-%s", runnerId)) {
                 while (!closed && !Thread.currentThread().isInterrupted()) {
                     // select next worker
-                    final PrioritizedSplitRunner split;
+                    PrioritizedSplitRunner split;
                     try {
                         split = waitingSplits.take();
                     }
@@ -511,7 +512,7 @@ public class TaskExecutor
                         if (!split.isDestroyed()) {
                             if (t instanceof PrestoException) {
                                 PrestoException e = (PrestoException) t;
-                                log.error("Error processing %s: %s: %s", split.getInfo(), e.getErrorCode().getName(), e.getMessage());
+                                log.error(t, "Error processing %s: %s: %s", split.getInfo(), e.getErrorCode().getName(), e.getMessage());
                             }
                             else {
                                 log.error(t, "Error processing %s", split.getInfo());
@@ -806,14 +807,14 @@ public class TaskExecutor
             if (duration.compareTo(LONG_SPLIT_WARNING_THRESHOLD) >= 0) {
                 maxActiveSplitCount++;
                 stackTrace.append("\n");
-                stackTrace.append(String.format("\"%s\" tid=%s", splitInfo.getThreadId(), splitInfo.getThread().getId())).append("\n");
+                stackTrace.append(format("\"%s\" tid=%s", splitInfo.getThreadId(), splitInfo.getThread().getId())).append("\n");
                 for (StackTraceElement traceElement : splitInfo.getThread().getStackTrace()) {
                     stackTrace.append("\tat ").append(traceElement).append("\n");
                 }
             }
         }
 
-        return String.format(message, maxActiveSplitCount, LONG_SPLIT_WARNING_THRESHOLD).concat(stackTrace.toString());
+        return format(message, maxActiveSplitCount, LONG_SPLIT_WARNING_THRESHOLD).concat(stackTrace.toString());
     }
 
     @Managed

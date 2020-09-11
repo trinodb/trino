@@ -13,22 +13,10 @@
  */
 package io.prestosql.metadata;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
-public class RemoteTransactionHandle
+public enum RemoteTransactionHandle
         implements ConnectorTransactionHandle
 {
-    @JsonCreator
-    public RemoteTransactionHandle()
-    {
-    }
-
-    @JsonProperty
-    public String getDummyValue()
-    {
-        // Necessary for Jackson serialization
-        return null;
-    }
+    INSTANCE
 }

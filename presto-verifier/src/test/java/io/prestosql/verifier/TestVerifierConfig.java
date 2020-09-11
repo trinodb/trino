@@ -15,7 +15,6 @@ package io.prestosql.verifier;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
@@ -23,6 +22,9 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.prestosql.verifier.QueryType.CREATE;
 import static io.prestosql.verifier.QueryType.MODIFY;
 import static io.prestosql.verifier.QueryType.READ;
@@ -32,7 +34,7 @@ public class TestVerifierConfig
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(VerifierConfig.class)
+        assertRecordedDefaults(recordDefaults(VerifierConfig.class)
                 .setTestUsernameOverride(null)
                 .setControlUsernameOverride(null)
                 .setTestPasswordOverride(null)
@@ -50,8 +52,8 @@ public class TestVerifierConfig
                 .setTestGateway(null)
                 .setControlTimeout(new Duration(10, TimeUnit.MINUTES))
                 .setTestTimeout(new Duration(1, TimeUnit.HOURS))
-                .setBlacklist("")
-                .setWhitelist("")
+                .setBannedQueries("")
+                .setAllowedQueries("")
                 .setMaxRowCount(10_000)
                 .setMaxQueries(1_000_000)
                 .setAlwaysReport(false)
@@ -94,8 +96,8 @@ public class TestVerifierConfig
                 .put("run-id", "my_run_id")
                 .put("event-client", "file,human-readable")
                 .put("thread-count", "1")
-                .put("blacklist", "1,2")
-                .put("whitelist", "3,4")
+                .put("banned-queries", "1,2")
+                .put("allowed-queries", "3,4")
                 .put("verbose-results-comparison", "true")
                 .put("max-row-count", "1")
                 .put("max-queries", "1")
@@ -144,8 +146,8 @@ public class TestVerifierConfig
                 .setRunId("my_run_id")
                 .setEventClients("file,human-readable")
                 .setThreadCount(1)
-                .setBlacklist("1,2")
-                .setWhitelist("3,4")
+                .setBannedQueries("1,2")
+                .setAllowedQueries("3,4")
                 .setMaxRowCount(1)
                 .setMaxQueries(1)
                 .setAlwaysReport(true)
@@ -184,6 +186,6 @@ public class TestVerifierConfig
                 .setTestTeardownRetries(7)
                 .setRunTearDownOnResultMismatch(true);
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

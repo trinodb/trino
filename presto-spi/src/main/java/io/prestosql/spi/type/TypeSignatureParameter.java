@@ -24,22 +24,32 @@ public class TypeSignatureParameter
     private final ParameterKind kind;
     private final Object value;
 
-    public static TypeSignatureParameter of(TypeSignature typeSignature)
+    public static TypeSignatureParameter typeParameter(TypeSignature typeSignature)
     {
         return new TypeSignatureParameter(ParameterKind.TYPE, typeSignature);
     }
 
-    public static TypeSignatureParameter of(long longLiteral)
+    public static TypeSignatureParameter numericParameter(long longLiteral)
     {
         return new TypeSignatureParameter(ParameterKind.LONG, longLiteral);
     }
 
-    public static TypeSignatureParameter of(NamedTypeSignature namedTypeSignature)
+    public static TypeSignatureParameter namedTypeParameter(NamedTypeSignature namedTypeSignature)
     {
         return new TypeSignatureParameter(ParameterKind.NAMED_TYPE, namedTypeSignature);
     }
 
-    public static TypeSignatureParameter of(String variable)
+    public static TypeSignatureParameter namedField(String name, TypeSignature type)
+    {
+        return new TypeSignatureParameter(ParameterKind.NAMED_TYPE, new NamedTypeSignature(Optional.of(new RowFieldName(name)), type));
+    }
+
+    public static TypeSignatureParameter anonymousField(TypeSignature type)
+    {
+        return new TypeSignatureParameter(ParameterKind.NAMED_TYPE, new NamedTypeSignature(Optional.empty(), type));
+    }
+
+    public static TypeSignatureParameter typeVariable(String variable)
     {
         return new TypeSignatureParameter(ParameterKind.VARIABLE, variable);
     }
@@ -54,6 +64,24 @@ public class TypeSignatureParameter
     public String toString()
     {
         return value.toString();
+    }
+
+    public String jsonValue()
+    {
+        String prefix = "";
+        if (kind == ParameterKind.VARIABLE) {
+            prefix = "@";
+        }
+
+        String valueJson;
+        if (value instanceof TypeSignature) {
+            TypeSignature typeSignature = (TypeSignature) value;
+            valueJson = typeSignature.jsonValue();
+        }
+        else {
+            valueJson = value.toString();
+        }
+        return prefix + valueJson;
     }
 
     public ParameterKind getKind()
@@ -149,7 +177,7 @@ public class TypeSignatureParameter
 
         TypeSignatureParameter other = (TypeSignatureParameter) o;
 
-        return Objects.equals(this.kind, other.kind) &&
+        return this.kind == other.kind &&
                 Objects.equals(this.value, other.value);
     }
 

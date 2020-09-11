@@ -30,8 +30,8 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordCursor
@@ -40,10 +40,12 @@ public class JdbcRecordCursor
     private static final Logger log = Logger.get(JdbcRecordCursor.class);
 
     private final JdbcColumnHandle[] columnHandles;
+    private final ReadFunction[] readFunctions;
     private final BooleanReadFunction[] booleanReadFunctions;
     private final DoubleReadFunction[] doubleReadFunctions;
     private final LongReadFunction[] longReadFunctions;
     private final SliceReadFunction[] sliceReadFunctions;
+    private final ObjectReadFunction[] objectReadFunctions;
 
     private final JdbcClient jdbcClient;
     private final Connection connection;
@@ -51,43 +53,52 @@ public class JdbcRecordCursor
     private final ResultSet resultSet;
     private boolean closed;
 
-    public JdbcRecordCursor(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordCursor(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
 
         this.columnHandles = columnHandles.toArray(new JdbcColumnHandle[0]);
 
+        readFunctions = new ReadFunction[columnHandles.size()];
         booleanReadFunctions = new BooleanReadFunction[columnHandles.size()];
         doubleReadFunctions = new DoubleReadFunction[columnHandles.size()];
         longReadFunctions = new LongReadFunction[columnHandles.size()];
         sliceReadFunctions = new SliceReadFunction[columnHandles.size()];
-
-        for (int i = 0; i < this.columnHandles.length; i++) {
-            ColumnMapping columnMapping = jdbcClient.toPrestoType(session, columnHandles.get(i).getJdbcTypeHandle())
-                    .orElseThrow(() -> new VerifyException("Unsupported column type"));
-            Class<?> javaType = columnMapping.getType().getJavaType();
-            ReadFunction readFunction = columnMapping.getReadFunction();
-
-            if (javaType == boolean.class) {
-                booleanReadFunctions[i] = (BooleanReadFunction) readFunction;
-            }
-            else if (javaType == double.class) {
-                doubleReadFunctions[i] = (DoubleReadFunction) readFunction;
-            }
-            else if (javaType == long.class) {
-                longReadFunctions[i] = (LongReadFunction) readFunction;
-            }
-            else if (javaType == Slice.class) {
-                sliceReadFunctions[i] = (SliceReadFunction) readFunction;
-            }
-            else {
-                throw new IllegalStateException(format("Unsupported java type %s", javaType));
-            }
-        }
+        objectReadFunctions = new ObjectReadFunction[columnHandles.size()];
 
         try {
-            connection = jdbcClient.getConnection(split);
-            statement = jdbcClient.buildSql(session, connection, split, columnHandles);
+            connection = jdbcClient.getConnection(JdbcIdentity.from(session), split);
+
+            for (int i = 0; i < this.columnHandles.length; i++) {
+                JdbcColumnHandle columnHandle = columnHandles.get(i);
+                ColumnMapping columnMapping = jdbcClient.toPrestoType(session, connection, columnHandle.getJdbcTypeHandle())
+                        .orElseThrow(() -> new VerifyException("Unsupported column type"));
+                verify(
+                        columnHandle.getColumnType().equals(columnMapping.getType()),
+                        "Type mismatch: column handle has type %s but %s is mapped to %s",
+                        columnHandle.getColumnType(), columnHandle.getJdbcTypeHandle(), columnMapping.getType());
+                Class<?> javaType = columnMapping.getType().getJavaType();
+                ReadFunction readFunction = columnMapping.getReadFunction();
+                readFunctions[i] = readFunction;
+
+                if (javaType == boolean.class) {
+                    booleanReadFunctions[i] = (BooleanReadFunction) readFunction;
+                }
+                else if (javaType == double.class) {
+                    doubleReadFunctions[i] = (DoubleReadFunction) readFunction;
+                }
+                else if (javaType == long.class) {
+                    longReadFunctions[i] = (LongReadFunction) readFunction;
+                }
+                else if (javaType == Slice.class) {
+                    sliceReadFunctions[i] = (SliceReadFunction) readFunction;
+                }
+                else {
+                    objectReadFunctions[i] = (ObjectReadFunction) readFunction;
+                }
+            }
+
+            statement = jdbcClient.buildSql(session, connection, split, table, columnHandles);
             log.debug("Executing: %s", statement.toString());
             resultSet = statement.executeQuery();
         }
@@ -180,7 +191,13 @@ public class JdbcRecordCursor
     @Override
     public Object getObject(int field)
     {
-        throw new UnsupportedOperationException();
+        checkState(!closed, "cursor is closed");
+        try {
+            return objectReadFunctions[field].readObject(resultSet, field + 1);
+        }
+        catch (SQLException | RuntimeException e) {
+            throw handleSqlException(e);
+        }
     }
 
     @Override
@@ -190,12 +207,7 @@ public class JdbcRecordCursor
         checkArgument(field < columnHandles.length, "Invalid field index");
 
         try {
-            // JDBC is kind of dumb: we need to read the field and then ask
-            // if it was null, which means we are wasting effort here.
-            // We could save the result of the field access if it matters.
-            resultSet.getObject(field + 1);
-
-            return resultSet.wasNull();
+            return readFunctions[field].isNull(resultSet, field + 1);
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
@@ -215,9 +227,11 @@ public class JdbcRecordCursor
         try (Connection connection = this.connection;
                 Statement statement = this.statement;
                 ResultSet resultSet = this.resultSet) {
-            jdbcClient.abortReadConnection(connection);
+            if (connection != null) {
+                jdbcClient.abortReadConnection(connection);
+            }
         }
-        catch (SQLException e) {
+        catch (SQLException | RuntimeException e) {
             // ignore exception from close
         }
     }

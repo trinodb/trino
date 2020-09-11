@@ -14,18 +14,19 @@
 package io.prestosql.sql.query;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.LogicalPlanner;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.plan.FilterNode;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.util.MorePredicates.isInstanceOfAny;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 
 public class TestFilteredAggregations
@@ -49,52 +50,52 @@ public class TestFilteredAggregations
     @Test
     public void testAddPredicateForFilterClauses()
     {
-        assertions.assertQuery(
-                "SELECT sum(x) FILTER(WHERE x > 0) FROM (VALUES 1, 1, 0, 2, 3, 3) t(x)",
-                "VALUES (BIGINT '10')");
+        assertThat(assertions.query(
+                "SELECT sum(x) FILTER(WHERE x > 0) FROM (VALUES 1, 1, 0, 2, 3, 3) t(x)"))
+                .matches("VALUES (BIGINT '10')");
 
-        assertions.assertQuery(
-                "SELECT sum(x) FILTER(WHERE x > 0), sum(x) FILTER(WHERE x < 3) FROM (VALUES 1, 1, 0, 5, 3, 8) t(x)",
-                "VALUES (BIGINT '18', BIGINT '2')");
+        assertThat(assertions.query(
+                "SELECT sum(x) FILTER(WHERE x > 0), sum(x) FILTER(WHERE x < 3) FROM (VALUES 1, 1, 0, 5, 3, 8) t(x)"))
+                .matches("VALUES (BIGINT '18', BIGINT '2')");
 
-        assertions.assertQuery(
-                "SELECT sum(x) FILTER(WHERE x > 1), sum(x) FROM (VALUES 1, 1, 0, 2, 3, 3) t(x)",
-                "VALUES (BIGINT '8', BIGINT '10')");
+        assertThat(assertions.query(
+                "SELECT sum(x) FILTER(WHERE x > 1), sum(x) FROM (VALUES 1, 1, 0, 2, 3, 3) t(x)"))
+                .matches("VALUES (BIGINT '8', BIGINT '10')");
     }
 
     @Test
     public void testGroupAll()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT count(DISTINCT x) FILTER (WHERE x > 1) " +
-                        "FROM (VALUES 1, 1, 1, 2, 3, 3) t(x)",
-                "VALUES BIGINT '2'");
+                        "FROM (VALUES 1, 1, 1, 2, 3, 3) t(x)"))
+                .matches("VALUES BIGINT '2'");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT count(DISTINCT x) FILTER (WHERE x > 1), sum(DISTINCT x) " +
-                        "FROM (VALUES 1, 1, 1, 2, 3, 3) t(x)",
-                "VALUES (BIGINT '2', BIGINT '6')");
+                        "FROM (VALUES 1, 1, 1, 2, 3, 3) t(x)"))
+                .matches("VALUES (BIGINT '2', BIGINT '6')");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT count(DISTINCT x) FILTER (WHERE x > 1), sum(DISTINCT y) FILTER (WHERE x < 3)" +
                         "FROM (VALUES " +
                         "(1, 10)," +
                         "(1, 20)," +
                         "(1, 20)," +
                         "(2, 20)," +
-                        "(3, 30)) t(x, y)",
-                "VALUES (BIGINT '2', BIGINT '30')");
+                        "(3, 30)) t(x, y)"))
+                .matches("VALUES (BIGINT '2', BIGINT '30')");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT count(x) FILTER (WHERE x > 1), sum(DISTINCT x) " +
-                        "FROM (VALUES 1, 2, 3, 3) t(x)",
-                "VALUES (BIGINT '3', BIGINT '6')");
+                        "FROM (VALUES 1, 2, 3, 3) t(x)"))
+                .matches("VALUES (BIGINT '3', BIGINT '6')");
     }
 
     @Test
     public void testGroupingSets()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT k, count(DISTINCT x) FILTER (WHERE y = 100), count(DISTINCT x) FILTER (WHERE y = 200) FROM " +
                         "(VALUES " +
                         "   (1, 1, 100)," +
@@ -108,8 +109,8 @@ public class TestFilteredAggregations
                         "   (2, 30, 300)," +
                         "   (2, 40, 100)" +
                         ") t(k, x, y) " +
-                        "GROUP BY GROUPING SETS ((), (k))",
-                "VALUES " +
+                        "GROUP BY GROUPING SETS ((), (k))"))
+                .matches("VALUES " +
                         "(1, BIGINT '2', BIGINT '1'), " +
                         "(2, BIGINT '4', BIGINT '1'), " +
                         "(CAST(NULL AS INTEGER), BIGINT '5', BIGINT '2')");
@@ -153,7 +154,7 @@ public class TestFilteredAggregations
     private void assertPlanContainsNoFilter(String sql)
     {
         assertFalse(
-                searchFrom(plan(sql, LogicalPlanner.Stage.OPTIMIZED).getRoot())
+                searchFrom(plan(sql, OPTIMIZED).getRoot())
                         .where(isInstanceOfAny(FilterNode.class))
                         .matches(),
                 "Unexpected node for query: " + sql);

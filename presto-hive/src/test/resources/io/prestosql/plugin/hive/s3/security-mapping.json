@@ -1,0 +1,54 @@
+{
+  "mappings": [
+    {
+      "prefix": "s3://bar/abc",
+      "iamRole": "arn:aws:iam::123456789101:role/allow_path"
+    },
+    {
+      "prefix": "s3://bar",
+      "allowedIamRoles": [
+        "arn:aws:iam::123456789101:role/allow_bucket_1",
+        "arn:aws:iam::123456789101:role/allow_bucket_2",
+        "arn:aws:iam::123456789101:role/allow_bucket_3"
+      ]
+    },
+    {
+      "prefix": "s3://xyz",
+      "iamRole": "arn:aws:iam::123456789101:role/allow_default",
+      "allowedIamRoles": [
+        "arn:aws:iam::123456789101:role/allow_foo",
+        "arn:aws:iam::123456789101:role/allow_bar"
+      ]
+    },
+    {
+      "prefix": "s3://foo",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret"
+    },
+    {
+      "user": "alice",
+      "iamRole": "alice_role"
+    },
+    {
+      "user": "bob|charlie",
+      "iamRole": "bob_and_charlie_role"
+    },
+    {
+      "group": "finance",
+      "iamRole": "finance_role"
+    },
+    {
+      "group": "hr|eng",
+      "iamRole": "hr_and_eng_group"
+    },
+    {
+      "user": "danny",
+      "group": "hq",
+      "iamRole": "danny_hq_role"
+    },
+    {
+      "useClusterDefault": "false",
+      "iamRole": "arn:aws:iam::123456789101:role/default"
+    }
+  ]
+}

@@ -17,16 +17,17 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
-import com.google.inject.multibindings.MultibindingsScanner;
 import com.google.inject.multibindings.ProvidesIntoSet;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
+import io.prestosql.plugin.base.classloader.ForClassLoaderSafe;
 import io.prestosql.plugin.kudu.procedures.RangePartitionProcedures;
 import io.prestosql.plugin.kudu.properties.KuduTableProperties;
 import io.prestosql.plugin.kudu.schema.NoSchemaEmulation;
 import io.prestosql.plugin.kudu.schema.SchemaEmulation;
 import io.prestosql.plugin.kudu.schema.SchemaEmulationByTableNameConvention;
+import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.type.TypeManager;
@@ -50,20 +51,19 @@ public class KuduModule
     @Override
     protected void configure()
     {
-        install(MultibindingsScanner.asModule());
-
         bind(TypeManager.class).toInstance(typeManager);
 
         bind(KuduConnector.class).in(Scopes.SINGLETON);
         bind(KuduMetadata.class).in(Scopes.SINGLETON);
         bind(KuduTableProperties.class).in(Scopes.SINGLETON);
         bind(ConnectorSplitManager.class).to(KuduSplitManager.class).in(Scopes.SINGLETON);
-        bind(ConnectorRecordSetProvider.class).to(KuduRecordSetProvider.class)
-                .in(Scopes.SINGLETON);
         bind(ConnectorPageSourceProvider.class).to(KuduPageSourceProvider.class)
                 .in(Scopes.SINGLETON);
         bind(ConnectorPageSinkProvider.class).to(KuduPageSinkProvider.class).in(Scopes.SINGLETON);
         bind(KuduHandleResolver.class).in(Scopes.SINGLETON);
+        bind(KuduSessionProperties.class).in(Scopes.SINGLETON);
+        bind(ConnectorNodePartitioningProvider.class).annotatedWith(ForClassLoaderSafe.class).to(KuduNodePartitioningProvider.class).in(Scopes.SINGLETON);
+        bind(ConnectorNodePartitioningProvider.class).to(ClassLoaderSafeNodePartitioningProvider.class).in(Scopes.SINGLETON);
         bind(KuduRecordSetProvider.class).in(Scopes.SINGLETON);
         configBinder(binder()).bindConfig(KuduClientConfig.class);
 

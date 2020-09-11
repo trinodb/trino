@@ -20,12 +20,12 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.ColumnarMap;
 import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.MapBlockBuilder;
-import io.prestosql.spi.block.MethodHandleUtil;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 import org.testng.annotations.Test;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodType;
 import java.util.Arrays;
 
 import static io.prestosql.block.ColumnarTestUtils.alternatingNullValues;
@@ -35,10 +35,11 @@ import static io.prestosql.block.ColumnarTestUtils.createTestDictionaryBlock;
 import static io.prestosql.block.ColumnarTestUtils.createTestDictionaryExpectedValues;
 import static io.prestosql.block.ColumnarTestUtils.createTestRleBlock;
 import static io.prestosql.block.ColumnarTestUtils.createTestRleExpectedValues;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.block.ColumnarMap.toColumnarMap;
-import static io.prestosql.spi.block.MethodHandleUtil.compose;
-import static io.prestosql.spi.block.MethodHandleUtil.nativeValueGetter;
+import static io.prestosql.spi.type.StandardTypes.MAP;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -54,9 +55,9 @@ public class TestColumnarMap
             expectedValues[mapIndex] = new Slice[MAP_SIZES[mapIndex]][];
             for (int entryIndex = 0; entryIndex < MAP_SIZES[mapIndex]; entryIndex++) {
                 Slice[] entry = new Slice[2];
-                entry[0] = Slices.utf8Slice(String.format("key.%d.%d", mapIndex, entryIndex));
+                entry[0] = Slices.utf8Slice(format("key.%d.%d", mapIndex, entryIndex));
                 if (entryIndex % 3 != 1) {
-                    entry[1] = Slices.utf8Slice(String.format("value.%d.%d", mapIndex, entryIndex));
+                    entry[1] = Slices.utf8Slice(format("value.%d.%d", mapIndex, entryIndex));
                 }
                 expectedValues[mapIndex][entryIndex] = entry;
             }
@@ -119,8 +120,7 @@ public class TestColumnarMap
 
         Block keysBlock = columnarMap.getKeysBlock();
         Block valuesBlock = columnarMap.getValuesBlock();
-        int keysPosition = 0;
-        int valuesPosition = 0;
+        int elementsPosition = 0;
         for (int position = 0; position < expectedValues.length; position++) {
             Slice[][] expectedMap = expectedValues[position];
             assertEquals(columnarMap.isNull(position), expectedMap == null);
@@ -130,16 +130,18 @@ public class TestColumnarMap
             }
 
             assertEquals(columnarMap.getEntryCount(position), expectedMap.length);
+            assertEquals(columnarMap.getOffset(position), elementsPosition);
+
             for (int i = 0; i < columnarMap.getEntryCount(position); i++) {
                 Slice[] expectedEntry = expectedMap[i];
 
                 Slice expectedKey = expectedEntry[0];
-                assertBlockPosition(keysBlock, keysPosition, expectedKey);
-                keysPosition++;
+                assertBlockPosition(keysBlock, elementsPosition, expectedKey);
 
                 Slice expectedValue = expectedEntry[1];
-                assertBlockPosition(valuesBlock, valuesPosition, expectedValue);
-                valuesPosition++;
+                assertBlockPosition(valuesBlock, elementsPosition, expectedValue);
+
+                elementsPosition++;
             }
         }
     }
@@ -175,19 +177,8 @@ public class TestColumnarMap
 
     private static BlockBuilder createMapBuilder(int expectedEntries)
     {
-        MethodHandle varcharNativeEquals = MethodHandleUtil.methodHandle(Slice.class, "equals", Object.class).asType(MethodType.methodType(boolean.class, Slice.class, Slice.class));
-        MethodHandle varcharBlockNativeEquals = compose(varcharNativeEquals, nativeValueGetter(VARCHAR));
-        MethodHandle varcharBlockEquals = compose(varcharNativeEquals, nativeValueGetter(VARCHAR), nativeValueGetter(VARCHAR));
-
-        return new MapBlockBuilder(
-                VARCHAR,
-                VARCHAR,
-                varcharBlockNativeEquals,
-                varcharBlockEquals,
-                MethodHandleUtil.methodHandle(Slice.class, "hashCode").asType(MethodType.methodType(long.class, Slice.class)),
-                MethodHandleUtil.methodHandle(TestColumnarMap.class, "blockVarcharHashCode", Block.class, int.class),
-                null,
-                expectedEntries);
+        MapType mapType = (MapType) createTestMetadataManager().getType(new TypeSignature(MAP, TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature()), TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature())));
+        return new MapBlockBuilder(mapType, null, expectedEntries);
     }
 
     @SuppressWarnings("unused")

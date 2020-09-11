@@ -1,15 +1,11 @@
 Accumulo Connector
 ==================
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Overview
 --------
 
-The Accumulo connector supports reading and writing data from Apache Accumulo.
+The Accumulo connector supports reading and writing data from
+`Apache Accumulo <https://accumulo.apache.org/>`_.
 Please read this page thoroughly to understand the capabilities and features of the connector.
 
 Installing the Iterator Dependency
@@ -18,20 +14,15 @@ Installing the Iterator Dependency
 The Accumulo connector uses custom Accumulo iterators in
 order to push various information in a SQL predicate clause to Accumulo for
 server-side filtering, known as *predicate pushdown*. In order
-for the server-side iterators to work, you need to add the ``presto-accumulo``
-jar file to Accumulo's ``lib/ext`` directory on each TabletServer node.
+for the server-side iterators to work, you need to add the ``presto-accumulo-iterators``
+JAR file to Accumulo's ``lib/ext`` directory on each TabletServer node.
 
 .. code-block:: bash
 
     # For each TabletServer node:
-    scp $PRESTO_HOME/plugins/accumulo/presto-accumulo-*.jar [tabletserver_address]:$ACCUMULO_HOME/lib/ext
+    scp $PRESTO_HOME/plugins/accumulo/presto-accumulo-iterators-*.jar [tabletserver_address]:$ACCUMULO_HOME/lib/ext
 
     # TabletServer should pick up new JAR files in ext directory, but may require restart
-
-Note that this uses Java 8.  If your Accumulo cluster is using Java 7,
-you'll receive an ``Unsupported major.minor version 52.0`` error in your TabletServer logs when you
-attempt to create an indexed table.  You'll instead need to use the *presto-accumulo-iterators* jar file
-that is located at `https://github.com/bloomberg/presto-accumulo <https://github.com/bloomberg/presto-accumulo>`_.
 
 Connector Configuration
 -----------------------
@@ -80,7 +71,7 @@ working with data. By default, the first column of the table definition
 is set to the Accumulo row ID. This should be the primary key of your
 table, and keep in mind that any ``INSERT`` statements containing the same
 row ID is effectively an UPDATE as far as Accumulo is concerned, as any
-previous data in the cell will be overwritten. The row ID can be
+previous data in the cell is overwritten. The row ID can be
 any valid Presto datatype. If the first column is not your primary key, you
 can set the row ID column using the ``row_id`` table property within the ``WITH``
 clause of your table definition.
@@ -107,7 +98,7 @@ Simply issue a ``CREATE TABLE`` statement to create a new Presto/Accumulo table:
      age       | bigint  |       | Accumulo column age:age. Indexed: false
      birthday  | date    |       | Accumulo column birthday:birthday. Indexed: false
 
-This command will create a new Accumulo table with the ``recordkey`` column
+This command creates a new Accumulo table with the ``recordkey`` column
 as the Accumulo row ID. The name, age, and birthday columns are mapped to
 auto-generated column family and qualifier values (which, in practice,
 are both identical to the Presto column name).
@@ -120,7 +111,7 @@ non-row ID column. This sets the mapping of the Presto column name to
 the corresponding Accumulo column family and column qualifier.
 
 If you don't specify the ``column_mapping`` table property, then the
-connector will auto-generate column names (respecting any configured locality groups).
+connector auto-generates column names (respecting any configured locality groups).
 Auto-generation of column names is only available for internal tables, so if your
 table is external you must specify the column_mapping property.
 
@@ -158,7 +149,7 @@ You can then issue ``INSERT`` statements to put data into Accumulo.
 .. note::
 
     While issuing ``INSERT`` statements is convenient,
-    this method of loading data into Accumulo is low-throughput. You'll want
+    this method of loading data into Accumulo is low-throughput. You want
     to use the Accumulo APIs to write ``Mutations`` directly to the tables.
     See the section on `Loading Data <#loading-data>`__ for more details.
 
@@ -181,7 +172,7 @@ You can then issue ``INSERT`` statements to put data into Accumulo.
     (2 rows)
 
 As you'd expect, rows inserted into Accumulo via the shell or
-programatically will also show up when queried. (The Accumulo shell
+programmatically will also show up when queried. (The Accumulo shell
 thinks "-5321" is an option and not a number... so we'll just make TBL a
 little younger.)
 
@@ -234,8 +225,8 @@ non-row ID columns, you should consider using the **indexing**
 feature built into the Accumulo connector. This feature can drastically
 reduce query runtime when selecting a handful of values from the table,
 and the heavy lifting is done for you when loading data via Presto
-``INSERT`` statements (though, keep in mind writing data to Accumulo via
-``INSERT`` does not have high throughput).
+``INSERT`` statements. Keep in mind writing data to Accumulo via
+``INSERT`` does not have high throughput.
 
 To enable indexing, add the ``index_columns`` table property and specify
 a comma-delimited list of Presto column names you wish to index (we use the
@@ -291,8 +282,8 @@ queries this index table
 When issuing a query with a ``WHERE`` clause against indexed columns,
 the connector searches the index table for all row IDs that contain the
 value within the predicate. These row IDs are bundled into a Presto
-split as single-value ``Range`` objects (the number of row IDs per split
-is controlled by the value of ``accumulo.index_rows_per_split``) and
+split as single-value ``Range`` objects, the number of row IDs per split
+is controlled by the value of ``accumulo.index_rows_per_split``, and
 passed to a Presto worker to be configured in the ``BatchScanner`` which
 scans the data table.
 
@@ -327,21 +318,21 @@ External Tables
 By default, the tables created using SQL statements via Presto are
 *internal* tables, that is both the Presto table metadata and the
 Accumulo tables are managed by Presto. When you create an internal
-table, the Accumulo table is created as well. You will receive an error
+table, the Accumulo table is created as well. You receive an error
 if the Accumulo table already exists. When an internal table is dropped
-via Presto, the Accumulo table (and any index tables) are dropped as
+via Presto, the Accumulo table, and any index tables, are dropped as
 well.
 
 To change this behavior, set the ``external`` property to ``true`` when
-issuing the ``CREATE`` statement. This will make the table an *external*
-table, and a ``DROP TABLE`` command will **only** delete the metadata
+issuing the ``CREATE`` statement. This makes the table an *external*
+table, and a ``DROP TABLE`` command **only** deletes the metadata
 associated with the table.  If the Accumulo tables do not already exist,
-they will be created by the connector.
+they are created by the connector.
 
 Creating an external table *will* set any configured locality groups as well
-as the iterators on the index and metrics tables (if the table is indexed).
-In short, the only difference between an external table and an internal table
-is the connector will delete the Accumulo tables when a ``DROP TABLE`` command
+as the iterators on the index and metrics tables, if the table is indexed.
+In short, the only difference between an external table and an internal table,
+is that the connector deletes the Accumulo tables when a ``DROP TABLE`` command
 is issued.
 
 External tables can be a bit more difficult to work with, as the data is stored
@@ -395,7 +386,7 @@ After creating the table, usage of the table continues as usual:
 
     DROP TABLE external_table;
 
-After dropping the table, the table will still exist in Accumulo because it is *external*.
+After dropping the table, the table still exists in Accumulo because it is *external*.
 
 .. code-block:: none
 
@@ -408,7 +399,7 @@ After dropping the table, the table will still exist in Accumulo because it is *
     trace
 
 If we wanted to add a new column to the table, we can create the table again and specify a new column.
-Any existing rows in the table will have a value of NULL. This command will re-configure the Accumulo
+Any existing rows in the table have a value of NULL. This command re-configures the Accumulo
 tables, setting the locality groups and iterator configuration.
 
 .. code-block:: sql
@@ -514,12 +505,12 @@ Serializers
 
 The Presto connector for Accumulo has a pluggable serializer framework
 for handling I/O between Presto and Accumulo. This enables end-users the
-ability to programatically serialized and deserialize their special data
+ability to programmatically serialized and deserialize their special data
 formats within Accumulo, while abstracting away the complexity of the
 connector itself.
 
 There are two types of serializers currently available; a ``string``
-serializer that treats values as Java ``String`` and a ``lexicoder``
+serializer that treats values as Java ``String``, and a ``lexicoder``
 serializer that leverages Accumulo's Lexicoder API to store values. The
 default serializer is the ``lexicoder`` serializer, as this serializer
 does not require expensive conversion operations back and forth between
@@ -611,11 +602,11 @@ specifying the fully-qualified Java class name in the connector configuration.
 Metadata Management
 -------------------
 
-Metadata for the Presto/Accumulo tables is stored in ZooKeeper. You can
-(and should) issue SQL statements in Presto to create and drop tables.
+Metadata for the Presto/Accumulo tables is stored in ZooKeeper. You can,
+and should, issue SQL statements in Presto to create and drop tables.
 This is the easiest method of creating the metadata required to make the
 connector work. It is best to not mess with the metadata, but here are
-the details of how it is stored. Information is power.
+the details of how it is stored.
 
 A root node in ZooKeeper holds all the mappings, and the format is as
 follows:
@@ -651,7 +642,7 @@ For example:
 
 1. We're starting with an internal table ``foo.bar`` that was created with the below DDL.
 If you have not previously defined a table property for ``column_mapping`` (like this example),
-be sure to describe the table **before** deleting the metadata.  We'll need the column mappings
+be sure to describe the table **before** deleting the metadata.  We need the column mappings
 when creating the external table.
 
 .. code-block:: sql
@@ -682,7 +673,7 @@ metadata root of ``/presto-accumulo``
     [zk: localhost:2181(CONNECTED) 1] delete /presto-accumulo/foo/bar
 
 3. Re-create the table using the same DDL as before, but adding the ``external=true`` property.
-Note that if you had not previously defined the column_mapping, you'll need to add the property
+Note that if you had not previously defined the column_mapping, you need to add the property
 to the new DDL (external tables require this property to be set).  The column mappings are in
 the output of the ``DESCRIBE`` statement.
 

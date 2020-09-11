@@ -28,6 +28,7 @@ import {
     initializeGraph,
     initializeSvg,
     isQueryEnded,
+    parseAndFormatDataSize,
     parseDataSize,
     parseDuration
 } from "../utils";
@@ -63,7 +64,7 @@ class OperatorSummary extends React.Component {
                             Output
                         </td>
                         <td>
-                            {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
+                            {formatCount(operator.outputPositions) + " rows (" + parseAndFormatDataSize(operator.outputDataSize) + ")"}
                         </td>
                     </tr>
                     <tr>
@@ -95,7 +96,7 @@ class OperatorSummary extends React.Component {
                             Input
                         </td>
                         <td>
-                            {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")"}
+                            {formatCount(operator.inputPositions) + " rows (" + parseAndFormatDataSize(operator.inputDataSize) + ")"}
                         </td>
                     </tr>
                     </tbody>
@@ -243,7 +244,7 @@ class OperatorDetail extends React.Component {
                                         Input
                                     </td>
                                     <td>
-                                        {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")"}
+                                        {formatCount(operator.inputPositions) + " rows (" + parseAndFormatDataSize(operator.inputDataSize) + ")"}
                                     </td>
                                 </tr>
                                 <tr>
@@ -259,7 +260,7 @@ class OperatorDetail extends React.Component {
                                         Output
                                     </td>
                                     <td>
-                                        {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
+                                        {formatCount(operator.outputPositions) + " rows (" + parseAndFormatDataSize(operator.outputDataSize) + ")"}
                                     </td>
                                 </tr>
                                 <tr>
@@ -561,7 +562,7 @@ export class StageDetail extends React.Component {
             }
         }
 
-        $.get('/v1/query/' + queryId, query => {
+        $.get('/ui/api/query/' + queryId, query => {
             this.setState({
                 initialized: true,
                 ended: query.finalQueryInfo,
@@ -570,7 +571,7 @@ export class StageDetail extends React.Component {
                 query: query,
             });
             this.resetTimer();
-        }).error(() => {
+        }).fail(() => {
             this.setState({
                 initialized: true,
             });
@@ -580,6 +581,7 @@ export class StageDetail extends React.Component {
 
     componentDidMount() {
         this.refreshLoop();
+        new window.ClipboardJS('.copy-button');
     }
 
     findStage(stageId, currentStage) {

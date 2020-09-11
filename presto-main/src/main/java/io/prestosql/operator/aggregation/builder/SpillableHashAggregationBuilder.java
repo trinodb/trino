@@ -106,8 +106,9 @@ public class SpillableHashAggregationBuilder
     public Work<?> processPage(Page page)
     {
         checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
-        // hashAggregationBuilder is constructed with yieldForMemoryReservation = false
-        // Therefore the processing of the returned Work should always be true
+        // hashAggregationBuilder is constructed with non yielding UpdateMemory instance.
+        // Therefore the processing of the returned Work should always be true.
+        // It is not possible to spill during processing of a page.
         return hashAggregationBuilder.processPage(page);
     }
 
@@ -124,15 +125,6 @@ public class SpillableHashAggregationBuilder
             localUserMemoryContext.setBytes(emptyHashAggregationBuilderSize);
             localRevocableMemoryContext.setBytes(hashAggregationBuilder.getSizeInMemory() - emptyHashAggregationBuilderSize);
         }
-    }
-
-    public long getSizeInMemory()
-    {
-        // TODO: we could skip memory reservation for hashAggregationBuilder.getGroupIdsSortingSize()
-        // if before building result from hashAggregationBuilder we would convert it to "read only" version.
-        // Read only version of GroupByHash from hashAggregationBuilder could be compacted by dropping
-        // most of it's field, freeing up some memory that could be used for sorting.
-        return hashAggregationBuilder.getSizeInMemory() + hashAggregationBuilder.getGroupIdsSortingSize();
     }
 
     @Override
@@ -205,17 +197,29 @@ public class SpillableHashAggregationBuilder
             }
         }
 
-        if (!spiller.isPresent()) {
+        if (spiller.isEmpty()) {
             return hashAggregationBuilder.buildResult();
         }
 
-        if (shouldMergeWithMemory(getSizeInMemory())) {
+        if (shouldMergeWithMemory(getSizeInMemoryWhenUnspilling())) {
             return mergeFromDiskAndMemory();
         }
         else {
             getFutureValue(spillToDisk());
             return mergeFromDisk();
         }
+    }
+
+    /**
+     * Estimates future memory usage, during unspilling.
+     */
+    private long getSizeInMemoryWhenUnspilling()
+    {
+        // TODO: we could skip memory reservation for hashAggregationBuilder.getGroupIdsSortingSize()
+        // if before building result from hashAggregationBuilder we would convert it to "read only" version.
+        // Read only version of GroupByHash from hashAggregationBuilder could be compacted by dropping
+        // most of it's field, freeing up some memory that could be used for sorting.
+        return hashAggregationBuilder.getSizeInMemory() + hashAggregationBuilder.getGroupIdsSortingSize();
     }
 
     @Override
@@ -241,7 +245,7 @@ public class SpillableHashAggregationBuilder
         checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
         hashAggregationBuilder.setOutputPartial();
 
-        if (!spiller.isPresent()) {
+        if (spiller.isEmpty()) {
             spiller = Optional.of(spillerFactory.create(
                     hashAggregationBuilder.buildTypes(),
                     operatorContext.getSpillContext(),
@@ -305,7 +309,7 @@ public class SpillableHashAggregationBuilder
                 hashChannel,
                 operatorContext,
                 sortedPages,
-                operatorContext.newLocalSystemMemoryContext(SpillableHashAggregationBuilder.class.getSimpleName()),
+                operatorContext.aggregateSystemMemoryContext(),
                 memoryLimitForMerge,
                 hashAggregationBuilder.getKeyChannels(),
                 joinCompiler));
@@ -331,8 +335,11 @@ public class SpillableHashAggregationBuilder
                 operatorContext,
                 Optional.of(DataSize.succinctBytes(0)),
                 joinCompiler,
-                false,
-                false);
+                () -> {
+                    updateMemory();
+                    // TODO: Support GroupByHash yielding in spillable hash aggregation (https://github.com/prestosql/presto/issues/460)
+                    return true;
+                });
         emptyHashAggregationBuilderSize = hashAggregationBuilder.getSizeInMemory();
     }
 }

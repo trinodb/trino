@@ -19,7 +19,9 @@ import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
@@ -39,15 +41,21 @@ public class MongoPageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
+            List<ColumnHandle> columns,
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
-        MongoSplit mongodbSplit = (MongoSplit) split;
+        MongoTableHandle tableHandle = (MongoTableHandle) table;
 
         ImmutableList.Builder<MongoColumnHandle> handles = ImmutableList.builder();
         for (ColumnHandle handle : requireNonNull(columns, "columns is null")) {
             handles.add((MongoColumnHandle) handle);
         }
 
-        return new MongoPageSource(mongoSession, mongodbSplit, handles.build());
+        return new MongoPageSource(mongoSession, tableHandle, handles.build());
     }
 }

@@ -25,7 +25,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 
-public class TestingOperatorContext
+public final class TestingOperatorContext
 {
     public static OperatorContext create(ScheduledExecutorService scheduledExecutor)
     {

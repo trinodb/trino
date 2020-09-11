@@ -17,18 +17,11 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public class LocalFileHandleResolver
         implements ConnectorHandleResolver
 {
-    @Override
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
-    {
-        return LocalFileTableLayoutHandle.class;
-    }
-
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {

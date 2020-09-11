@@ -33,4 +33,6 @@ public interface SchemaEmulation
     SchemaTableName fromRawName(String rawName);
 
     String getPrefixForTablesOfSchema(String schemaName);
+
+    List<String> filterTablesForDefaultSchema(List<String> rawTables);
 }

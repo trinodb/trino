@@ -15,12 +15,16 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.hive.s3.HiveS3Config;
-import io.prestosql.plugin.hive.s3.PrestoS3ConfigurationUpdater;
-import io.prestosql.plugin.hive.s3.S3ConfigurationUpdater;
+import io.prestosql.plugin.hive.s3.PrestoS3ConfigurationInitializer;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.testng.annotations.Test;
+
+import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
+import static org.testng.Assert.assertFalse;
 import static org.testng.util.Strings.isNullOrEmpty;
 
 public abstract class AbstractTestHiveFileSystemS3
@@ -29,32 +33,59 @@ public abstract class AbstractTestHiveFileSystemS3
     private String awsAccessKey;
     private String awsSecretKey;
     private String writableBucket;
+    private String testDirectory;
 
-    protected void setup(String host, int port, String databaseName, String awsAccessKey, String awsSecretKey, String writableBucket, boolean s3SelectPushdownEnabled)
+    protected void setup(
+            String host,
+            int port,
+            String databaseName,
+            String awsAccessKey,
+            String awsSecretKey,
+            String writableBucket,
+            String testDirectory,
+            boolean s3SelectPushdownEnabled)
     {
         checkArgument(!isNullOrEmpty(host), "Expected non empty host");
         checkArgument(!isNullOrEmpty(databaseName), "Expected non empty databaseName");
         checkArgument(!isNullOrEmpty(awsAccessKey), "Expected non empty awsAccessKey");
         checkArgument(!isNullOrEmpty(awsSecretKey), "Expected non empty awsSecretKey");
         checkArgument(!isNullOrEmpty(writableBucket), "Expected non empty writableBucket");
+        checkArgument(!isNullOrEmpty(testDirectory), "Expected non empty testDirectory");
         this.awsAccessKey = awsAccessKey;
         this.awsSecretKey = awsSecretKey;
         this.writableBucket = writableBucket;
+        this.testDirectory = testDirectory;
 
-        super.setup(host, port, databaseName, this::createHdfsConfiguration, s3SelectPushdownEnabled);
+        setup(host, port, databaseName, s3SelectPushdownEnabled, createHdfsConfiguration());
     }
 
-    HdfsConfiguration createHdfsConfiguration(HiveClientConfig config)
+    private HdfsConfiguration createHdfsConfiguration()
     {
-        S3ConfigurationUpdater s3Config = new PrestoS3ConfigurationUpdater(new HiveS3Config()
+        ConfigurationInitializer s3Config = new PrestoS3ConfigurationInitializer(new HiveS3Config()
                 .setS3AwsAccessKey(awsAccessKey)
                 .setS3AwsSecretKey(awsSecretKey));
-        return new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config, s3Config, ignored -> {}), ImmutableSet.of());
+        HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(s3Config));
+        return new HiveHdfsConfiguration(initializer, ImmutableSet.of());
     }
 
     @Override
     protected Path getBasePath()
     {
-        return new Path(format("s3://%s/", writableBucket));
+        // HDP 3.1 does not understand s3:// out of the box.
+        return new Path(format("s3a://%s/%s/", writableBucket, testDirectory));
+    }
+
+    @Test
+    public void testIgnoreHadoopFolderMarker()
+            throws Exception
+    {
+        Path basePath = getBasePath();
+        FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
+
+        String markerFileName = "test_table_$folder$";
+        Path filePath = new Path(basePath, markerFileName);
+        fs.create(filePath).close();
+
+        assertFalse(Arrays.stream(fs.listStatus(basePath)).anyMatch(file -> file.getPath().getName().equalsIgnoreCase(markerFileName)));
     }
 }

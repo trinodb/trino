@@ -15,7 +15,6 @@ package io.prestosql.spi.connector;
 
 import io.prestosql.spi.Page;
 
-import java.io.IOException;
 import java.util.Iterator;
 
 import static java.util.Objects.requireNonNull;
@@ -24,9 +23,9 @@ public class FixedPageSource
         implements ConnectorPageSource
 {
     private final Iterator<Page> pages;
+    private final long memoryUsageBytes;
 
     private long completedBytes;
-    private long memoryUsageBytes;
     private boolean closed;
 
     public FixedPageSource(Iterable<Page> pages)
@@ -42,7 +41,6 @@ public class FixedPageSource
 
     @Override
     public void close()
-            throws IOException
     {
         closed = true;
     }

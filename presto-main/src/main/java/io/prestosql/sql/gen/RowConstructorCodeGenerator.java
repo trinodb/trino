@@ -18,12 +18,12 @@ import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.SpecialForm;
 
 import java.util.List;
 
@@ -31,14 +31,25 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static java.util.Objects.requireNonNull;
 
 public class RowConstructorCodeGenerator
         implements BytecodeGenerator
 {
-    @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type rowType, List<RowExpression> arguments)
+    private final Type rowType;
+    private final List<RowExpression> arguments;
+
+    public RowConstructorCodeGenerator(SpecialForm specialForm)
     {
-        BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for " + rowType.toString());
+        requireNonNull(specialForm, "specialForm is null");
+        rowType = specialForm.getType();
+        arguments = specialForm.getArguments();
+    }
+
+    @Override
+    public BytecodeNode generateExpression(BytecodeGeneratorContext context)
+    {
+        BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for " + rowType);
         CallSiteBinder binder = context.getCallSiteBinder();
         Scope scope = context.getScope();
         List<Type> types = rowType.getTypeParameters();

@@ -13,13 +13,17 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.testing.AbstractTestAggregations;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 
 public class TestAggregations
         extends AbstractTestAggregations
 {
-    public TestAggregations()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder().build());
+        return TpchQueryRunnerBuilder.builder().build();
     }
 }

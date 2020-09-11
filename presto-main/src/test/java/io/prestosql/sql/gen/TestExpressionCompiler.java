@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.gen;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
@@ -21,29 +20,37 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.joni.Regex;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import io.prestosql.operator.scalar.BitwiseFunctions;
-import io.prestosql.operator.scalar.DateTimeFunctions;
 import io.prestosql.operator.scalar.FunctionAssertions;
 import io.prestosql.operator.scalar.JoniRegexpFunctions;
 import io.prestosql.operator.scalar.JsonFunctions;
 import io.prestosql.operator.scalar.JsonPath;
 import io.prestosql.operator.scalar.MathFunctions;
 import io.prestosql.operator.scalar.StringFunctions;
+import io.prestosql.operator.scalar.timestamp.ExtractDay;
+import io.prestosql.operator.scalar.timestamp.ExtractDayOfWeek;
+import io.prestosql.operator.scalar.timestamp.ExtractDayOfYear;
+import io.prestosql.operator.scalar.timestamp.ExtractHour;
+import io.prestosql.operator.scalar.timestamp.ExtractMinute;
+import io.prestosql.operator.scalar.timestamp.ExtractMonth;
+import io.prestosql.operator.scalar.timestamp.ExtractQuarter;
+import io.prestosql.operator.scalar.timestamp.ExtractSecond;
+import io.prestosql.operator.scalar.timestamp.ExtractWeekOfYear;
+import io.prestosql.operator.scalar.timestamp.ExtractYear;
+import io.prestosql.operator.scalar.timestamp.ExtractYearOfWeek;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.tree.Extract.Field;
+import io.prestosql.type.JoniRegexp;
 import io.prestosql.type.LikeFunctions;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -64,8 +71,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.stream.LongStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -75,28 +84,29 @@ import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_HOUR;
+import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static io.prestosql.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UnknownType.UNKNOWN;
-import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static java.lang.Math.cos;
 import static java.lang.Runtime.getRuntime;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.Executors.newFixedThreadPool;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.joda.time.DateTimeZone.UTC;
@@ -188,7 +198,7 @@ public class TestExpressionCompiler
         futures = new ArrayList<>();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown(Method method)
     {
         assertTrue(Futures.allAsList(futures).isDone(), "Expression test futures are not complete");
@@ -208,8 +218,8 @@ public class TestExpressionCompiler
         assertExecute("10000000000 + 1", BIGINT, 10000000001L);
         assertExecute("4.2", createDecimalType(2, 1), new SqlDecimal(BigInteger.valueOf(42), 2, 1));
         assertExecute("DECIMAL '4.2'", createDecimalType(2, 1), new SqlDecimal(BigInteger.valueOf(42), 2, 1));
-        assertExecute("X' 1 f'", VARBINARY, new SqlVarbinary(Slices.wrappedBuffer((byte) 0x1f).getBytes()));
-        assertExecute("X' '", VARBINARY, new SqlVarbinary(new byte[0]));
+        assertExecute("X' 1 f'", VARBINARY, sqlVarbinary(0x1F));
+        assertExecute("X' '", VARBINARY, sqlVarbinary());
         assertExecute("bound_integer", INTEGER, 1234);
         assertExecute("bound_long", BIGINT, 1234L);
         assertExecute("bound_string", VARCHAR, "hello");
@@ -218,8 +228,8 @@ public class TestExpressionCompiler
         assertExecute("bound_timestamp", BIGINT, new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC).getMillis());
         assertExecute("bound_pattern", VARCHAR, "%el%");
         assertExecute("bound_null_string", VARCHAR, null);
-        assertExecute("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z")));
-        assertExecute("bound_binary_literal", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xab}));
+        assertExecute("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.newInstance(3, new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), 0, TimeZoneKey.getTimeZoneKey("Z")));
+        assertExecute("bound_binary_literal", VARBINARY, sqlVarbinary(0xAB));
 
         // todo enable when null output type is supported
         // assertExecute("null", null);
@@ -621,6 +631,35 @@ public class TestExpressionCompiler
         Futures.allAsList(futures).get();
     }
 
+    @Test
+    public void testNestedColumnFilter()
+    {
+        assertFilter("bound_row.nested_column_0 = 1234", true);
+        assertFilter("bound_row.nested_column_0 = 1223", false);
+        assertFilter("bound_row.nested_column_1 = 34", true);
+        assertFilter("bound_row.nested_column_1 = 33", false);
+        assertFilter("bound_row.nested_column_2 = 'hello'", true);
+        assertFilter("bound_row.nested_column_2 = 'value1'", false);
+        assertFilter("bound_row.nested_column_3 = 12.34", true);
+        assertFilter("bound_row.nested_column_3 = 34.34", false);
+        assertFilter("bound_row.nested_column_4 = true", true);
+        assertFilter("bound_row.nested_column_4 = false", false);
+        assertFilter("bound_row.nested_column_6.nested_nested_column = 'innerFieldValue'", true);
+        assertFilter("bound_row.nested_column_6.nested_nested_column != 'innerFieldValue'", false);
+
+        // combination of types in one filter
+        assertFilter(
+                ImmutableList.of(
+                        "bound_row.nested_column_0 = 1234", "bound_row.nested_column_7 >= 1234",
+                        "bound_row.nested_column_1 = 34", "bound_row.nested_column_8 >= 33",
+                        "bound_row.nested_column_2 = 'hello'", "bound_row.nested_column_9 >= 'hello'",
+                        "bound_row.nested_column_3 = 12.34", "bound_row.nested_column_10 >= 12.34",
+                        "bound_row.nested_column_4 = true", "NOT (bound_row.nested_column_11 = false)",
+                        "bound_row.nested_column_6.nested_nested_column = 'innerFieldValue'", "bound_row.nested_column_13.nested_nested_column LIKE 'innerFieldValue'")
+                        .stream().collect(joining(" AND ")),
+                true);
+    }
+
     private static VarcharType varcharType(String... values)
     {
         return varcharType(Arrays.asList(values));
@@ -663,7 +702,7 @@ public class TestExpressionCompiler
                 for (Integer third : intRights) {
                     assertExecute(generateExpression("%s between %s and %s", first, second, third),
                             BOOLEAN,
-                            first == null || second == null || third == null ? null : second <= first && first <= third);
+                            between(first, second, third, (min, value) -> min <= value, (value, max) -> value <= max));
                 }
             }
         }
@@ -680,7 +719,7 @@ public class TestExpressionCompiler
                 for (Integer third : intRights) {
                     assertExecute(generateExpression("%s between %s and %s", first, second, third),
                             BOOLEAN,
-                            first == null || second == null || third == null ? null : second <= first && first <= third);
+                            between(first, second, third, (min, value) -> min <= value, (value, max) -> value <= max));
                 }
             }
         }
@@ -697,7 +736,7 @@ public class TestExpressionCompiler
                 for (Integer third : intRights) {
                     assertExecute(generateExpression("%s between %s and %s", first, second, third),
                             BOOLEAN,
-                            first == null || second == null || third == null ? null : second <= first && first <= third);
+                            between(first, second, third, (min, value) -> min <= value, (value, max) -> value <= max));
                 }
             }
         }
@@ -714,7 +753,7 @@ public class TestExpressionCompiler
                 for (String third : stringRights) {
                     assertExecute(generateExpression("%s between %s and %s", first, second, third),
                             BOOLEAN,
-                            first == null || second == null || third == null ? null : second.compareTo(first) <= 0 && first.compareTo(third) <= 0);
+                            between(first, second, third, (min, value) -> min.compareTo(value) <= 0, (value, max) -> value.compareTo(max) <= 0));
                 }
             }
         }
@@ -731,7 +770,7 @@ public class TestExpressionCompiler
                 for (Long third : longRights) {
                     assertExecute(generateExpression("%s between %s and %s", first, second, third),
                             BOOLEAN,
-                            first == null || second == null || third == null ? null : second.compareTo(new BigDecimal(first)) <= 0 && first <= third);
+                            between(first, second, third, (min, value) -> min.compareTo(new BigDecimal(value)) <= 0, (value, max) -> value <= max));
                 }
             }
         }
@@ -748,12 +787,30 @@ public class TestExpressionCompiler
                 for (BigDecimal third : decimalRights) {
                     assertExecute(generateExpression("%s between %s and %s", first, second, third),
                             BOOLEAN,
-                            first == null || second == null || third == null ? null : second <= first.doubleValue() && first.compareTo(third) <= 0);
+                            between(first, second, third, (min, value) -> min <= value.doubleValue(), (value, max) -> value.compareTo(max) <= 0));
                 }
             }
         }
 
         Futures.allAsList(futures).get();
+    }
+
+    private static <V, L, H> Boolean between(V value, L min, H max, BiPredicate<L, V> greaterThanOrEquals, BiPredicate<V, H> lessThanOrEquals)
+    {
+        if (value == null) {
+            return null;
+        }
+
+        Boolean greaterOrEqualToMin = min == null ? null : greaterThanOrEquals.test(min, value);
+        Boolean lessThanOrEqualToMax = max == null ? null : lessThanOrEquals.test(value, max);
+
+        if (greaterOrEqualToMin == null) {
+            return Objects.equals(lessThanOrEqualToMax, Boolean.FALSE) ? false : null;
+        }
+        if (lessThanOrEqualToMax == null) {
+            return Objects.equals(greaterOrEqualToMin, Boolean.FALSE) ? false : null;
+        }
+        return greaterOrEqualToMin && lessThanOrEqualToMax;
     }
 
     @Test
@@ -826,7 +883,7 @@ public class TestExpressionCompiler
         assertExecute("try_cast('foo' as varchar)", VARCHAR, "foo");
         assertExecute("try_cast('foo' as bigint)", BIGINT, null);
         assertExecute("try_cast('foo' as integer)", INTEGER, null);
-        assertExecute("try_cast('2001-08-22' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 8, 22, 0, 0, 0, 0, TEST_SESSION));
+        assertExecute("try_cast('2001-08-22' as timestamp)", TIMESTAMP_MILLIS, sqlTimestampOf(3, 2001, 8, 22, 0, 0, 0, 0));
         assertExecute("try_cast(bound_string as bigint)", BIGINT, null);
         assertExecute("try_cast(cast(null as varchar) as bigint)", BIGINT, null);
         assertExecute("try_cast(bound_long / 13  as bigint)", BIGINT, 94L);
@@ -1274,6 +1331,18 @@ public class TestExpressionCompiler
         assertExecute("bound_timestamp_with_timezone in (" + timestampValues + ")", BOOLEAN, true);
         assertExecute("bound_timestamp_with_timezone in (TIMESTAMP '1970-01-01 01:01:00.0+02:00')", BOOLEAN, false);
 
+        String shortDecimalValues = range(2000, 7000)
+                .mapToObj(value -> format("decimal '%s'", value))
+                .collect(joining(", "));
+        assertExecute("bound_short_decimal in (1234, " + shortDecimalValues + ")", BOOLEAN, true);
+        assertExecute("bound_short_decimal in (" + shortDecimalValues + ")", BOOLEAN, false);
+
+        String longDecimalValues = range(2000, 7000)
+                .mapToObj(value -> format("decimal '123456789012345678901234567890%s'", value))
+                .collect(joining(", "));
+        assertExecute("bound_long_decimal in (1234, " + longDecimalValues + ")", BOOLEAN, true);
+        assertExecute("bound_long_decimal in (" + longDecimalValues + ")", BOOLEAN, false);
+
         Futures.allAsList(futures).get();
     }
 
@@ -1374,7 +1443,7 @@ public class TestExpressionCompiler
                         expected = null;
                     }
                     else {
-                        expected = StringFunctions.substr(utf8Slice(value), start, length).toStringUtf8();
+                        expected = StringFunctions.substring(utf8Slice(value), start, length).toStringUtf8();
                     }
                     VarcharType expectedType = value != null ? createVarcharType(value.length()) : VARCHAR;
 
@@ -1444,8 +1513,8 @@ public class TestExpressionCompiler
     public void testFunctionWithSessionCall()
             throws Exception
     {
-        assertExecute("now()", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(TEST_SESSION.getStartTime(), TEST_SESSION.getTimeZoneKey()));
-        assertExecute("current_timestamp", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(TEST_SESSION.getStartTime(), TEST_SESSION.getTimeZoneKey()));
+        assertExecute("now()", TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.newInstance(3, TEST_SESSION.getStart(), TEST_SESSION.getTimeZoneKey().getZoneId()));
+        assertExecute("current_timestamp", TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.newInstance(3, TEST_SESSION.getStart(), TEST_SESSION.getTimeZoneKey().getZoneId()));
 
         Futures.allAsList(futures).get();
     }
@@ -1456,20 +1525,20 @@ public class TestExpressionCompiler
     {
         for (DateTime left : dateTimeValues) {
             for (Field field : Field.values()) {
-                Long expected = null;
-                Long millis = null;
-                if (left != null) {
-                    millis = left.getMillis();
-                    expected = callExtractFunction(TEST_SESSION.toConnectorSession(), millis, field);
+                if (field == TIMEZONE_MINUTE || field == TIMEZONE_HOUR) {
+                    continue;
                 }
-                DateTimeZone zone = getDateTimeZone(TEST_SESSION.getTimeZoneKey());
-                long zoneOffsetMinutes = millis != null ? MILLISECONDS.toMinutes(zone.getOffset(millis)) : 0;
+                Long expected = null;
+                Long micros = null;
+                if (left != null) {
+                    micros = left.getMillis() * MICROSECONDS_PER_MILLISECOND;
+                    expected = callExtractFunction(TEST_SESSION.toConnectorSession(), micros, field);
+                }
                 String expressionPattern = format(
-                        "extract(%s from from_unixtime(%%s / 1000.0E0, %s, %s))",
+                        "extract(%s from from_unixtime(cast(%s as double) / 1000000))",
                         field,
-                        zoneOffsetMinutes / 60,
-                        zoneOffsetMinutes % 60);
-                assertExecute(generateExpression(expressionPattern, millis), BIGINT, expected);
+                        micros);
+                assertExecute(generateExpression(expressionPattern, micros), BIGINT, expected);
             }
         }
 
@@ -1481,35 +1550,31 @@ public class TestExpressionCompiler
     {
         switch (field) {
             case YEAR:
-                return DateTimeFunctions.yearFromTimestamp(session, value);
+                return ExtractYear.extract(value);
             case QUARTER:
-                return DateTimeFunctions.quarterFromTimestamp(session, value);
+                return ExtractQuarter.extract(value);
             case MONTH:
-                return DateTimeFunctions.monthFromTimestamp(session, value);
+                return ExtractMonth.extract(value);
             case WEEK:
-                return DateTimeFunctions.weekFromTimestamp(session, value);
+                return ExtractWeekOfYear.extract(value);
             case DAY:
             case DAY_OF_MONTH:
-                return DateTimeFunctions.dayFromTimestamp(session, value);
+                return ExtractDay.extract(value);
             case DAY_OF_WEEK:
             case DOW:
-                return DateTimeFunctions.dayOfWeekFromTimestamp(session, value);
+                return ExtractDayOfWeek.extract(value);
             case YEAR_OF_WEEK:
             case YOW:
-                return DateTimeFunctions.yearOfWeekFromTimestamp(session, value);
+                return ExtractYearOfWeek.extract(value);
             case DAY_OF_YEAR:
             case DOY:
-                return DateTimeFunctions.dayOfYearFromTimestamp(session, value);
+                return ExtractDayOfYear.extract(value);
             case HOUR:
-                return DateTimeFunctions.hourFromTimestamp(session, value);
+                return ExtractHour.extract(value);
             case MINUTE:
-                return DateTimeFunctions.minuteFromTimestamp(session, value);
+                return ExtractMinute.extract(value);
             case SECOND:
-                return DateTimeFunctions.secondFromTimestamp(value);
-            case TIMEZONE_MINUTE:
-                return DateTimeFunctions.timeZoneMinuteFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
-            case TIMEZONE_HOUR:
-                return DateTimeFunctions.timeZoneHourFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getTimeZoneKey()));
+                return ExtractSecond.extract(value);
         }
         throw new AssertionError("Unhandled field: " + field);
     }
@@ -1522,7 +1587,7 @@ public class TestExpressionCompiler
             for (String pattern : stringLefts) {
                 Boolean expected = null;
                 if (value != null && pattern != null) {
-                    Regex regex = LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"));
+                    JoniRegexp regex = LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"));
                     expected = LikeFunctions.likeVarchar(utf8Slice(value), regex);
                 }
                 assertExecute(generateExpression("%s like %s", value, pattern), BOOLEAN, expected);
@@ -1792,17 +1857,21 @@ public class TestExpressionCompiler
                 ImmutableList.of(type));
     }
 
-    private static List<String> formatExpression(String expressionPattern, Object left, final String leftType, Object right, final String rightType)
+    private static List<String> formatExpression(String expressionPattern, Object left, String leftType, Object right, String rightType)
     {
         return formatExpression(expressionPattern,
                 Arrays.asList(left, right),
                 ImmutableList.of(leftType, rightType));
     }
 
-    private static List<String> formatExpression(String expressionPattern,
-            Object first, String firstType,
-            Object second, String secondType,
-            Object third, String thirdType)
+    private static List<String> formatExpression(
+            String expressionPattern,
+            Object first,
+            String firstType,
+            Object second,
+            String secondType,
+            Object third,
+            String thirdType)
     {
         return formatExpression(expressionPattern,
                 Arrays.asList(first, second, third),
@@ -1811,7 +1880,7 @@ public class TestExpressionCompiler
 
     private static List<String> formatExpression(String expressionPattern, List<Object> values, List<String> types)
     {
-        Preconditions.checkArgument(values.size() == types.size());
+        checkArgument(values.size() == types.size());
 
         List<Set<String>> unrolledValues = new ArrayList<>();
         for (int i = 0; i < values.size(); i++) {

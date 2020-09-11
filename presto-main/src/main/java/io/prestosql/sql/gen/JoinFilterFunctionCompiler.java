@@ -29,6 +29,7 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
+import io.airlift.jmx.CacheStatsMBean;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.InternalJoinFilterFunction;
 import io.prestosql.operator.JoinFilterFunction;
@@ -195,7 +196,7 @@ public class JoinFilterFunctionCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize),
-                metadata.getFunctionRegistry(),
+                metadata,
                 compiledLambdaMap);
 
         BytecodeNode visitorBody = compiler.compile(filter, scope);
@@ -228,7 +229,7 @@ public class JoinFilterFunctionCompiler
                     compiledLambdaMap.build(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata.getFunctionRegistry());
+                    metadata);
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }
@@ -251,12 +252,12 @@ public class JoinFilterFunctionCompiler
     }
 
     private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(
-            final CallSiteBinder callSiteBinder,
-            final Variable leftPosition,
-            final Variable leftPage,
-            final Variable rightPosition,
-            final Variable rightPage,
-            final int leftBlocksSize)
+            CallSiteBinder callSiteBinder,
+            Variable leftPosition,
+            Variable leftPage,
+            Variable rightPosition,
+            Variable rightPage,
+            int leftBlocksSize)
     {
         return new InputReferenceCompiler(
                 (scope, field) -> {
@@ -276,7 +277,7 @@ public class JoinFilterFunctionCompiler
 
         public JoinFilterCacheKey(RowExpression filter, int leftBlocksSize)
         {
-            this.filter = requireNonNull(filter, "filter can not be null");
+            this.filter = requireNonNull(filter, "filter cannot be null");
             this.leftBlocksSize = leftBlocksSize;
         }
 

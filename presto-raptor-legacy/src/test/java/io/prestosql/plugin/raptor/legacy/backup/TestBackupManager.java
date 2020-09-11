@@ -116,7 +116,7 @@ public class TestBackupManager
         Files.write("hello world", file, UTF_8);
 
         try {
-            backupManager.submit(FAILURE_UUID, file).get(1, SECONDS);
+            backupManager.submit(FAILURE_UUID, file).get(10, SECONDS);
             fail("expected exception");
         }
         catch (ExecutionException wrapper) {
@@ -140,7 +140,7 @@ public class TestBackupManager
         Files.write("hello world", file, UTF_8);
 
         try {
-            backupManager.submit(CORRUPTION_UUID, file).get(1, SECONDS);
+            backupManager.submit(CORRUPTION_UUID, file).get(10, SECONDS);
             fail("expected exception");
         }
         catch (ExecutionException wrapper) {

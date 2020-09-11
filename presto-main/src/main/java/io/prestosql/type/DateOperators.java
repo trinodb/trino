@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.BlockIndex;
 import io.prestosql.spi.function.BlockPosition;
 import io.prestosql.spi.function.IsNull;
@@ -28,14 +27,10 @@ import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.AbstractIntType;
 import io.prestosql.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
-
-import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
@@ -47,17 +42,13 @@ import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.util.DateTimeUtils.parseDate;
 import static io.prestosql.util.DateTimeUtils.printDate;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 public final class DateOperators
 {
-    private DateOperators()
-    {
-    }
+    private DateOperators() {}
 
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
@@ -103,43 +94,6 @@ public final class DateOperators
         return left >= right;
     }
 
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(@SqlType(StandardTypes.DATE) long value, @SqlType(StandardTypes.DATE) long min, @SqlType(StandardTypes.DATE) long max)
-    {
-        return min <= value && value <= max;
-    }
-
-    @ScalarOperator(CAST)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long castToTimestamp(ConnectorSession session, @SqlType(StandardTypes.DATE) long value)
-    {
-        if (session.isLegacyTimestamp()) {
-            long utcMillis = TimeUnit.DAYS.toMillis(value);
-
-            // date is encoded as milliseconds at midnight in UTC
-            // convert to midnight in the session timezone
-            ISOChronology chronology = getChronology(session.getTimeZoneKey());
-            return utcMillis - chronology.getZone().getOffset(utcMillis);
-        }
-        else {
-            return TimeUnit.DAYS.toMillis(value);
-        }
-    }
-
-    @ScalarOperator(CAST)
-    @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long castToTimestampWithTimeZone(ConnectorSession session, @SqlType(StandardTypes.DATE) long value)
-    {
-        long utcMillis = TimeUnit.DAYS.toMillis(value);
-
-        // date is encoded as milliseconds at midnight in UTC
-        // convert to midnight in the session timezone
-        ISOChronology chronology = getChronology(session.getTimeZoneKey());
-        long millis = utcMillis - chronology.getZone().getOffset(utcMillis);
-        return packDateTimeWithZone(millis, session.getTimeZoneKey());
-    }
-
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -157,7 +111,7 @@ public final class DateOperators
         try {
             return parseDate(trim(value).toStringUtf8());
         }
-        catch (IllegalArgumentException e) {
+        catch (IllegalArgumentException | ArithmeticException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to date: " + value.toStringUtf8(), e);
         }
     }
@@ -170,7 +124,7 @@ public final class DateOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class DateDistinctFromOperator
+    public static final class DateDistinctFromOperator
     {
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isDistinctFrom(

@@ -14,16 +14,15 @@
 package io.prestosql.memory;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.prestosql.memory.LocalMemoryManager.validateHeapHeadroom;
 import static io.prestosql.memory.NodeMemoryConfig.AVAILABLE_HEAP_MEMORY;
 
 public class TestNodeMemoryConfig
@@ -31,11 +30,11 @@ public class TestNodeMemoryConfig
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(NodeMemoryConfig.class)
-                .setMaxQueryMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE))
-                .setMaxQueryTotalMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
-                .setHeapHeadroom(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
-                .setReservedPoolEnabled(true));
+        assertRecordedDefaults(recordDefaults(NodeMemoryConfig.class)
+                .setMaxQueryMemoryPerNode(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.1)))
+                .setMaxQueryTotalMemoryPerNode(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)))
+                .setHeapHeadroom(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)))
+                .setReservedPoolDisabled(true));
     }
 
     @Test
@@ -45,26 +44,15 @@ public class TestNodeMemoryConfig
                 .put("query.max-memory-per-node", "1GB")
                 .put("query.max-total-memory-per-node", "3GB")
                 .put("memory.heap-headroom-per-node", "1GB")
-                .put("experimental.reserved-pool-enabled", "false")
+                .put("experimental.reserved-pool-disabled", "false")
                 .build();
 
         NodeMemoryConfig expected = new NodeMemoryConfig()
-                .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE))
-                .setMaxQueryTotalMemoryPerNode(new DataSize(3, GIGABYTE))
-                .setHeapHeadroom(new DataSize(1, GIGABYTE))
-                .setReservedPoolEnabled(false);
+                .setMaxQueryMemoryPerNode(DataSize.of(1, GIGABYTE))
+                .setMaxQueryTotalMemoryPerNode(DataSize.of(3, GIGABYTE))
+                .setHeapHeadroom(DataSize.of(1, GIGABYTE))
+                .setReservedPoolDisabled(false);
 
         assertFullMapping(properties, expected);
-    }
-
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testInvalidValues()
-    {
-        NodeMemoryConfig config = new NodeMemoryConfig();
-        config.setMaxQueryTotalMemoryPerNode(new DataSize(1, GIGABYTE));
-        config.setHeapHeadroom(new DataSize(3.1, GIGABYTE));
-        // In this case we have 4GB - 1GB = 3GB available memory for the general pool
-        // and the heap headroom and the config is more than that.
-        validateHeapHeadroom(config, new DataSize(4, GIGABYTE).toBytes());
     }
 }

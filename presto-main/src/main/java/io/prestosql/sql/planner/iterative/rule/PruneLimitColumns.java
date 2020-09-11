@@ -13,7 +13,9 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -33,8 +35,15 @@ public class PruneLimitColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, LimitNode limitNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(Context context, LimitNode limitNode, Set<Symbol> referencedOutputs)
     {
-        return restrictChildOutputs(idAllocator, limitNode, referencedOutputs);
+        Set<Symbol> prunedLimitInputs = ImmutableSet.<Symbol>builder()
+                .addAll(referencedOutputs)
+                .addAll(limitNode.getTiesResolvingScheme()
+                        .map(OrderingScheme::getOrderBy)
+                        .orElse(ImmutableList.of()))
+                .build();
+
+        return restrictChildOutputs(context.getIdAllocator(), limitNode, prunedLimitInputs);
     }
 }

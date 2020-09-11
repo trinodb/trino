@@ -15,9 +15,11 @@ package io.prestosql.cost;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.JoinNode.EquiJoinClause;
@@ -84,10 +86,10 @@ public class TestJoinStatsRule
             RIGHT_JOIN_COLUMN_STATS,
             RIGHT_OTHER_COLUMN_STATS);
 
-    private static final MetadataManager METADATA = createTestMetadataManager();
+    private static final Metadata METADATA = createTestMetadataManager();
     private static final StatsNormalizer NORMALIZER = new StatsNormalizer();
     private static final JoinStatsRule JOIN_STATS_RULE = new JoinStatsRule(
-            new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA), NORMALIZER),
+            new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA, new TypeAnalyzer(new SqlParser(), METADATA)), NORMALIZER),
             NORMALIZER,
             1.0);
     private static final TypeProvider TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
@@ -103,7 +105,8 @@ public class TestJoinStatsRule
     public void testStatsForInnerJoin()
     {
         double innerJoinRowCount = LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS;
-        PlanNodeStatsEstimate innerJoinStats = planNodeStats(innerJoinRowCount,
+        PlanNodeStatsEstimate innerJoinStats = planNodeStats(
+                innerJoinRowCount,
                 symbolStatistics(LEFT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
                 symbolStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
                 LEFT_OTHER_COLUMN_STATS, RIGHT_OTHER_COLUMN_STATS);
@@ -116,7 +119,8 @@ public class TestJoinStatsRule
     {
         double innerJoinRowCount = LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS // driver join clause
                 * UNKNOWN_FILTER_COEFFICIENT; // auxiliary join clause
-        PlanNodeStatsEstimate innerJoinStats = planNodeStats(innerJoinRowCount,
+        PlanNodeStatsEstimate innerJoinStats = planNodeStats(
+                innerJoinRowCount,
                 symbolStatistics(LEFT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
                 symbolStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
                 LEFT_OTHER_COLUMN_STATS, RIGHT_OTHER_COLUMN_STATS);
@@ -127,7 +131,9 @@ public class TestJoinStatsRule
             Symbol leftOtherColumnSymbol = pb.symbol(LEFT_OTHER_COLUMN, BIGINT);
             Symbol rightOtherColumnSymbol = pb.symbol(RIGHT_OTHER_COLUMN, DOUBLE);
             return pb
-                    .join(INNER, pb.values(leftJoinColumnSymbol, leftOtherColumnSymbol),
+                    .join(
+                            INNER,
+                            pb.values(leftJoinColumnSymbol, leftOtherColumnSymbol),
                             pb.values(rightJoinColumnSymbol, rightOtherColumnSymbol),
                             new EquiJoinClause(leftJoinColumnSymbol, rightJoinColumnSymbol), new EquiJoinClause(leftJoinColumnSymbol, rightJoinColumnSymbol));
         }).withSourceStats(0, LEFT_STATS)
@@ -153,7 +159,9 @@ public class TestJoinStatsRule
             Symbol leftJoinColumnSymbol2 = pb.symbol(LEFT_JOIN_COLUMN_2, BIGINT);
             Symbol rightJoinColumnSymbol2 = pb.symbol(RIGHT_JOIN_COLUMN_2, DOUBLE);
             return pb
-                    .join(INNER, pb.values(leftJoinColumnSymbol, leftJoinColumnSymbol2),
+                    .join(
+                            INNER,
+                            pb.values(leftJoinColumnSymbol, leftJoinColumnSymbol2),
                             pb.values(rightJoinColumnSymbol, rightJoinColumnSymbol2),
                             new EquiJoinClause(leftJoinColumnSymbol2, rightJoinColumnSymbol2), new EquiJoinClause(leftJoinColumnSymbol, rightJoinColumnSymbol));
         }).withSourceStats(0, planNodeStats(LEFT_ROWS_COUNT, LEFT_JOIN_COLUMN_STATS, LEFT_JOIN_COLUMN_2_STATS))
@@ -181,10 +189,13 @@ public class TestJoinStatsRule
             Symbol rightJoinColumnSymbol2 = pb.symbol(RIGHT_JOIN_COLUMN_2, DOUBLE);
             ComparisonExpression leftJoinColumnLessThanTen = new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, leftJoinColumnSymbol.toSymbolReference(), new LongLiteral("10"));
             return pb
-                    .join(INNER, pb.values(leftJoinColumnSymbol, leftJoinColumnSymbol2),
+                    .join(
+                            INNER,
+                            pb.values(leftJoinColumnSymbol, leftJoinColumnSymbol2),
                             pb.values(rightJoinColumnSymbol, rightJoinColumnSymbol2),
                             ImmutableList.of(new EquiJoinClause(leftJoinColumnSymbol2, rightJoinColumnSymbol2), new EquiJoinClause(leftJoinColumnSymbol, rightJoinColumnSymbol)),
-                            ImmutableList.of(leftJoinColumnSymbol, leftJoinColumnSymbol2, rightJoinColumnSymbol, rightJoinColumnSymbol2),
+                            ImmutableList.of(leftJoinColumnSymbol, leftJoinColumnSymbol2),
+                            ImmutableList.of(rightJoinColumnSymbol, rightJoinColumnSymbol2),
                             Optional.of(leftJoinColumnLessThanTen));
         }).withSourceStats(0, planNodeStats(LEFT_ROWS_COUNT, LEFT_JOIN_COLUMN_STATS, LEFT_JOIN_COLUMN_2_STATS))
                 .withSourceStats(1, planNodeStats(RIGHT_ROWS_COUNT, RIGHT_JOIN_COLUMN_STATS, RIGHT_JOIN_COLUMN_2_STATS))
@@ -194,7 +205,8 @@ public class TestJoinStatsRule
     @Test
     public void testJoinComplementStats()
     {
-        PlanNodeStatsEstimate expected = planNodeStats(LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4),
+        PlanNodeStatsEstimate expected = planNodeStats(
+                LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4),
                 symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4), 5),
                 LEFT_OTHER_COLUMN_STATS);
         PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
@@ -311,10 +323,12 @@ public class TestJoinStatsRule
     public void testAddJoinComplementStats()
     {
         double statsToAddNdv = 5;
-        PlanNodeStatsEstimate statsToAdd = planNodeStats(RIGHT_ROWS_COUNT,
+        PlanNodeStatsEstimate statsToAdd = planNodeStats(
+                RIGHT_ROWS_COUNT,
                 symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 5.0, 0.2, statsToAddNdv));
 
-        PlanNodeStatsEstimate addedStats = planNodeStats(TOTAL_ROWS_COUNT,
+        PlanNodeStatsEstimate addedStats = planNodeStats(
+                TOTAL_ROWS_COUNT,
                 symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, (LEFT_ROWS_COUNT * LEFT_JOIN_COLUMN_NULLS + RIGHT_ROWS_COUNT * 0.2) / TOTAL_ROWS_COUNT, LEFT_JOIN_COLUMN_NDV),
                 symbolStatistics(LEFT_OTHER_COLUMN, 42, 42, (0.42 * LEFT_ROWS_COUNT + RIGHT_ROWS_COUNT) / TOTAL_ROWS_COUNT, 1));
 
@@ -338,7 +352,9 @@ public class TestJoinStatsRule
             Symbol leftOtherColumnSymbol = pb.symbol(leftOtherColumn, BIGINT);
             Symbol rightOtherColumnSymbol = pb.symbol(rightOtherColumn, DOUBLE);
             return pb
-                    .join(joinType, pb.values(leftJoinColumnSymbol, leftOtherColumnSymbol),
+                    .join(
+                            joinType,
+                            pb.values(leftJoinColumnSymbol, leftOtherColumnSymbol),
                             pb.values(rightJoinColumnSymbol, rightOtherColumnSymbol),
                             new EquiJoinClause(leftJoinColumnSymbol, rightJoinColumnSymbol));
         }).withSourceStats(0, leftStats)

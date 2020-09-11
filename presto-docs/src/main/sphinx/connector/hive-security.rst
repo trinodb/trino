@@ -1,16 +1,11 @@
-===========================
-Hive Security Configuration
-===========================
-
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
+=====================================
+Hive Connector Security Configuration
+=====================================
 
 Authorization
 =============
 
-You can enable authorization checks for the :doc:`/connector/hive` by setting
+You can enable authorization checks for the :doc:`hive` by setting
 the ``hive.security`` property in the Hive catalog properties file. This
 property must be one of the following values:
 
@@ -54,13 +49,14 @@ Hive does not exactly follow the SQL standard, there are the following
 limitations and differences:
 
 * ``CREATE ROLE role WITH ADMIN`` is not supported.
-* The ``admin`` role must be enabled to execute ``CREATE ROLE`` or ``DROP ROLE``.
+* The ``admin`` role must be enabled to execute ``CREATE ROLE``, ``DROP ROLE`` or ``CREATE SCHEMA``.
 * ``GRANT role TO user GRANTED BY someone`` is not supported.
 * ``REVOKE role FROM user GRANTED BY someone`` is not supported.
-* By default, all a user's roles except ``admin`` are enabled in a new user session.
+* By default, all a user's roles, except ``admin``, are enabled in a new user session.
 * One particular role can be selected by executing ``SET ROLE role``.
 * ``SET ROLE ALL`` enables all of a user's roles except ``admin``.
 * The ``admin`` role must be enabled explicitly by executing ``SET ROLE admin``.
+* ``GRANT privilege ON SCHEMA schema`` is not supported. Schema ownership can be changed with ``ALTER SCHEMA schema SET AUTHORIZATION user``
 
 Authentication
 ==============
@@ -83,10 +79,11 @@ Lists)` to provide additional security for data.
 
 .. warning::
 
-  Access to the Presto coordinator should be secured using Kerberos when using
-  Kerberos authentication to Hadoop services. Failure to secure access to the
-  Presto coordinator could result in unauthorized access to sensitive data on
-  the Hadoop cluster.
+  Access to the Presto coordinator should be secured e.g., using Kerberos or password
+  authentication, when using Kerberos authentication to Hadoop services.
+  Failure to secure access to the Presto coordinator could result in unauthorized
+  access to sensitive data on the Hadoop cluster. Refer to :doc:`/security` for
+  further information.
 
   See :doc:`/security/server` and :doc:`/security/cli`
   for information on setting up Kerberos authentication.
@@ -95,7 +92,7 @@ Kerberos Support
 ================
 
 In order to use the Hive connector with a Hadoop cluster that uses ``kerberos``
-authentication, you will need to configure the connector to work with two
+authentication, you need to configure the connector to work with two
 services on the Hadoop cluster:
 
 * The Hive metastore Thrift service
@@ -125,9 +122,11 @@ Property Name                                      Description
 ================================================== ============================================================
 ``hive.metastore.authentication.type``             Hive metastore authentication type.
 
+``hive.metastore.thrift.impersonation.enabled``    Enable Hive metastore end user impersonation.
+
 ``hive.metastore.service.principal``               The Kerberos principal of the Hive metastore service.
 
-``hive.metastore.client.principal``                The Kerberos principal that Presto will use when connecting
+``hive.metastore.client.principal``                The Kerberos principal that Presto uses when connecting
                                                    to the Hive metastore service.
 
 ``hive.metastore.client.keytab``                   Hive metastore client keytab location.
@@ -137,22 +136,30 @@ Property Name                                      Description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 One of ``NONE`` or ``KERBEROS``. When using the default value of ``NONE``,
-Kerberos authentication is disabled and no other properties need to be
+Kerberos authentication is disabled, and no other properties need to be
 configured.
 
-When set to ``KERBEROS`` the Hive connector will connect to the Hive metastore
+When set to ``KERBEROS`` the Hive connector connects to the Hive metastore
 Thrift service using SASL and authenticate using Kerberos.
 
 This property is optional; the default is ``NONE``.
+
+``hive.metastore.thrift.impersonation.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Enable end-user Hive metastore impersonation.
+
+This property is optional; the default is ``false``.
+See :ref:`hive-security-metastore-impersonation` for more information.
 
 ``hive.metastore.service.principal``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Kerberos principal of the Hive metastore service. The Presto coordinator
-will use this to authenticate the Hive metastore.
+uses this to authenticate the Hive metastore.
 
 The ``_HOST`` placeholder can be used in this property value. When connecting
-to the Hive metastore, the Hive connector will substitute in the hostname of
+to the Hive metastore, the Hive connector substitutes in the hostname of
 the **metastore** server it is connecting to. This is useful if the metastore
 runs on multiple hosts.
 
@@ -163,11 +170,11 @@ This property is optional; no default value.
 ``hive.metastore.client.principal``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Kerberos principal that Presto will use when connecting to the Hive
+The Kerberos principal that Presto uses when connecting to the Hive
 metastore.
 
 The ``_HOST`` placeholder can be used in this property value. When connecting
-to the Hive metastore, the Hive connector will substitute in the hostname of
+to the Hive metastore, the Hive connector substitutes in the hostname of
 the **worker** node Presto is running on. This is useful if each worker node
 has its own Kerberos principal.
 
@@ -178,10 +185,11 @@ This property is optional; no default value.
 
 .. warning::
 
-    The principal specified by ``hive.metastore.client.principal`` must have
+    Unless :ref:`hive-security-metastore-impersonation` is enabled,
+    the principal specified by ``hive.metastore.client.principal`` must have
     sufficient privileges to remove files and directories within the
     ``hive/warehouse`` directory. If the principal does not, only the metadata
-    will be removed, and the data will continue to consume disk space.
+    is removed, and the data continues to consume disk space.
 
     This occurs because the Hive metastore is responsible for deleting the
     internal table data. When the metastore is configured to use Kerberos
@@ -214,15 +222,16 @@ Example configuration with ``KERBEROS`` authentication
 .. code-block:: none
 
     hive.metastore.authentication.type=KERBEROS
+    hive.metastore.thrift.impersonation.enabled=true
     hive.metastore.service.principal=hive/hive-metastore-host.example.com@EXAMPLE.COM
     hive.metastore.client.principal=presto@EXAMPLE.COM
     hive.metastore.client.keytab=/etc/presto/hive.keytab
 
 When the authentication type for the Hive metastore Thrift service is
-``KERBEROS``, Presto will connect as the Kerberos principal specified by the
-property ``hive.metastore.client.principal``. Presto will authenticate this
+``KERBEROS``, Presto connects as the Kerberos principal specified by the
+property ``hive.metastore.client.principal``. Presto authenticates this
 principal using the keytab specified by the ``hive.metastore.client.keytab``
-property, and will verify that the identity of the metastore matches
+property, and verifies that the identity of the metastore matches
 ``hive.metastore.service.principal``.
 
 Keytab files must be distributed to every node in the cluster that runs Presto.
@@ -244,17 +253,19 @@ Property Name                                      Description
 
 ``hive.hdfs.impersonation.enabled``                Enable HDFS end-user impersonation.
 
-``hive.hdfs.presto.principal``                     The Kerberos principal that Presto will use when connecting
+``hive.hdfs.presto.principal``                     The Kerberos principal that Presto uses when connecting
                                                    to HDFS.
 
 ``hive.hdfs.presto.keytab``                        HDFS client keytab location.
+
+``hive.hdfs.wire-encryption.enabled``              Enable HDFS wire encryption.
 ================================================== ============================================================
 
 ``hive.hdfs.authentication.type``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 One of ``NONE`` or ``KERBEROS``. When using the default value of ``NONE``,
-Kerberos authentication is disabled and no other properties need to be
+Kerberos authentication is disabled, and no other properties need to be
 configured.
 
 When set to ``KERBEROS``, the Hive connector authenticates to HDFS using
@@ -275,10 +286,10 @@ This property is optional; the default is ``false``.
 ``hive.hdfs.presto.principal``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Kerberos principal that Presto will use when connecting to HDFS.
+The Kerberos principal Presto uses when connecting to HDFS.
 
 The ``_HOST`` placeholder can be used in this property value. When connecting
-to HDFS, the Hive connector will substitute in the hostname of the **worker**
+to HDFS, the Hive connector substitutes in the hostname of the **worker**
 node Presto is running on. This is useful if each worker node has its own
 Kerberos principal.
 
@@ -295,6 +306,13 @@ The path to the keytab file that contains a key for the principal specified by
 system user running Presto.
 
 This property is optional; no default value.
+
+``hive.hdfs.wire-encryption.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In a Kerberized Hadoop cluster that uses HDFS wire encryption, this should be
+set to ``true`` to enable Presto to access HDFS. Note that using wire encryption
+may impact query execution performance.
 
 .. _hive-security-simple:
 
@@ -321,8 +339,8 @@ Example configuration with ``KERBEROS`` authentication
     hive.hdfs.presto.keytab=/etc/presto/hdfs.keytab
 
 When the authentication type is ``KERBEROS``, Presto accesses HDFS as the
-principal specified by the ``hive.hdfs.presto.principal`` property. Presto will
-authenticate this principal using the keytab specified by the
+principal specified by the ``hive.hdfs.presto.principal`` property. Presto
+authenticates this principal using the keytab specified by the
 ``hive.hdfs.presto.keytab`` keytab.
 
 Keytab files must be distributed to every node in the cluster that runs Presto.
@@ -349,7 +367,7 @@ HDFS Permissions and ACLs are explained in the `HDFS Permissions Guide
 .. _hive-security-simple-impersonation:
 
 ``NONE`` authentication with HDFS impersonation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: none
 
@@ -376,7 +394,7 @@ section :ref:`configuring-hadoop-impersonation`. Kerberos is not used.
 When using ``KERBEROS`` authentication with impersonation, Presto impersonates
 the user who is running the query when accessing HDFS. The principal
 specified by the ``hive.hdfs.presto.principal`` property must be allowed to
-impersonate this user, as discussed in the section
+impersonate the current Presto user, as discussed in the section
 :ref:`configuring-hadoop-impersonation`. Presto authenticates
 ``hive.hdfs.presto.principal`` using the keytab specified by
 ``hive.hdfs.presto.keytab``.
@@ -385,19 +403,43 @@ Keytab files must be distributed to every node in the cluster that runs Presto.
 
 :ref:`Additional Information About Keytab Files.<hive-security-additional-keytab>`
 
+.. _hive-security-metastore-impersonation:
+
 Impersonation Accessing the Hive Metastore
 ------------------------------------------
 
-Presto does not currently support impersonating the end user when accessing the
-Hive metastore.
+Presto supports impersonating the end user when accessing the Hive metastore.
+Metastore impersonation can be enabled with
+
+.. code-block:: none
+
+    hive.metastore.thrift.impersonation.enabled=true
+
+When using ``KERBEROS`` Metastore authentication with impersonation, the principal
+specified by the ``hive.metastore.client.principal`` property must be allowed to
+impersonate the current Presto user, as discussed in the section
+:ref:`configuring-hadoop-impersonation`.
+
+The impersonation is applied when:
+
+* modifying (creating or deleting) a database (schema),
+* getting information about a single table,
+* creating or modifying a table.
+
+Impersonation is not applied when for the following operations. In case of the following operations,
+Presto is fully responsible for doing all relevant security checks.
+
+* listing databases (schemas),
+* listing tables,
+* listing roles, grants,
+* changing roles, grants.
 
 .. _configuring-hadoop-impersonation:
 
 Impersonation in Hadoop
 -----------------------
 
-In order to use :ref:`hive-security-simple-impersonation` or
-:ref:`hive-security-kerberos-impersonation`, the Hadoop cluster must be
+In order to use impersonation, the Hadoop cluster must be
 configured to allow the user or principal that Presto is running as to
 impersonate the users who log in to Presto. Impersonation in Hadoop is
 configured in the file :file:`core-site.xml`. A complete description of the
@@ -411,16 +453,16 @@ Additional Information About Keytab Files
 
 Keytab files contain encryption keys that are used to authenticate principals
 to the Kerberos :abbr:`KDC (Key Distribution Center)`. These encryption keys
-must be stored securely; you should take the same precautions to protect them
-that you would to protect ssh private keys.
+must be stored securely; you need to take the same precautions to protect them
+that you take to protect ssh private keys.
 
 In particular, access to keytab files should be limited to the accounts that
 actually need to use them to authenticate. In practice, this is the user that
 the Presto process runs as. The ownership and permissions on keytab files
-should be set to prevent other users from reading or modifying the files.
+need to be set to prevent other users from reading or modifying the files.
 
 Keytab files need to be distributed to every node running Presto. Under common
-deployment situations, the Hive connector configuration will be the same on all
+deployment situations, the Hive connector configuration is the same on all
 nodes. This means that the keytab needs to be in the same location on every
 node.
 
@@ -444,6 +486,8 @@ These rules govern who is considered an owner of a schema.
 
 * ``user`` (optional): regex to match against user name.
 
+* ``group`` (optional): regex to match against every user group the user belongs to.
+
 * ``schema`` (optional): regex to match against schema name.
 
 * ``owner`` (required): boolean indicating ownership.
@@ -454,6 +498,8 @@ Table Rules
 These rules govern the privileges granted on specific tables.
 
 * ``user`` (optional): regex to match against user name.
+
+* ``group`` (optional): regex to match against every user group the user belongs to.
 
 * ``schema`` (optional): regex to match against schema name.
 
@@ -469,6 +515,8 @@ These rules govern who may set session properties.
 
 * ``user`` (optional): regex to match against user name.
 
+* ``group`` (optional): regex to match against every user group the user belongs to.
+
 * ``property`` (optional): regex to match against session property name.
 
 * ``allowed`` (required): boolean indicating whether this session property may be set.
@@ -482,6 +530,11 @@ See below for an example.
         {
           "user": "admin",
           "schema": ".*",
+          "owner": true
+        },
+        {
+          "group": "finance|human_resources",
+          "schema": "employees",
           "owner": true
         },
         {
@@ -520,21 +573,3 @@ See below for an example.
         }
       ]
     }
-
-HDFS wire encryption
---------------------
-
-In a Kerberized Hadoop cluster with enabled HDFS wire encryption you can enable
-Presto to access HDFS by using below property.
-
-===================================== ==========================================
-Property Name                         Description
-===================================== ==========================================
-``hive.hdfs.wire-encryption.enabled`` Enables HDFS wire encryption.
-                                      Possible values are ``true`` or ``false``.
-===================================== ==========================================
-
-.. note::
-
-    Depending on Presto installation configuration, using wire encryption may
-    impact query execution performance.

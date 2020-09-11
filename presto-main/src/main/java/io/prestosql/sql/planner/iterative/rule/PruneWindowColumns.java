@@ -15,7 +15,6 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -37,7 +36,7 @@ public class PruneWindowColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, WindowNode windowNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(Context context, WindowNode windowNode, Set<Symbol> referencedOutputs)
     {
         Map<Symbol, WindowNode.Function> referencedFunctions = Maps.filterKeys(
                 windowNode.getWindowFunctions(),
@@ -60,14 +59,12 @@ public class PruneWindowColumns
         windowNode.getHashSymbol().ifPresent(referencedInputs::add);
 
         for (WindowNode.Function windowFunction : referencedFunctions.values()) {
-            referencedInputs.addAll(SymbolsExtractor.extractUnique(windowFunction.getFunctionCall()));
-            windowFunction.getFrame().getStartValue().ifPresent(referencedInputs::add);
-            windowFunction.getFrame().getEndValue().ifPresent(referencedInputs::add);
+            referencedInputs.addAll(SymbolsExtractor.extractUnique(windowFunction));
         }
 
         PlanNode prunedWindowNode = new WindowNode(
                 windowNode.getId(),
-                restrictOutputs(idAllocator, windowNode.getSource(), referencedInputs.build())
+                restrictOutputs(context.getIdAllocator(), windowNode.getSource(), referencedInputs.build())
                         .orElse(windowNode.getSource()),
                 windowNode.getSpecification(),
                 referencedFunctions,

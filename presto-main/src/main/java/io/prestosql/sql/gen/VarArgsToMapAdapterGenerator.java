@@ -44,11 +44,9 @@ import static io.prestosql.util.CompilerUtils.defineClass;
 import static io.prestosql.util.CompilerUtils.makeClassName;
 import static io.prestosql.util.Failures.checkCondition;
 
-public class VarArgsToMapAdapterGenerator
+public final class VarArgsToMapAdapterGenerator
 {
-    private VarArgsToMapAdapterGenerator()
-    {
-    }
+    private VarArgsToMapAdapterGenerator() {}
 
     /**
      * Generate byte code that
@@ -76,7 +74,7 @@ public class VarArgsToMapAdapterGenerator
         MethodDefinition methodDefinition = classDefinition.declareMethod(a(PUBLIC, STATIC), "varArgsToMap", type(returnType), parameterList);
         BytecodeBlock body = methodDefinition.getBody();
 
-        // ImmutableMap.Builder can not be used here because it doesn't allow nulls.
+        // ImmutableMap.Builder cannot be used here because it doesn't allow nulls.
         Variable map = methodDefinition.getScope().declareVariable(
                 "map",
                 methodDefinition.getBody(),

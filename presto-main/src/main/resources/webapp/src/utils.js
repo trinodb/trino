@@ -231,7 +231,7 @@ export function getChildren(nodeInfo: any)
         case 'sample':
         case 'tablewriter':
         case 'delete':
-        case 'metadatadelete':
+        case 'tableDelete':
         case 'tablecommit':
         case 'groupid':
         case 'unnest':
@@ -444,6 +444,16 @@ export function parseDataSize(value: string): ?number {
         default:
             return null;
     }
+}
+
+export function parseAndFormatDataSize(value: string): string {
+    const parsed = parseDataSize(value);
+
+    if (parsed == null) {
+        return "";
+    }
+
+    return formatDataSize(parsed);
 }
 
 export function parseDuration(value: string): ?number {

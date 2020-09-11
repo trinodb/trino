@@ -18,7 +18,6 @@ import com.google.inject.Module;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
@@ -39,11 +38,6 @@ public class JdbcPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new JdbcConnectorFactory(name, module, getClassLoader()));
-    }
-
-    private static ClassLoader getClassLoader()
-    {
-        return firstNonNull(Thread.currentThread().getContextClassLoader(), JdbcPlugin.class.getClassLoader());
+        return ImmutableList.of(new JdbcConnectorFactory(name, module));
     }
 }

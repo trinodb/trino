@@ -1,0 +1,33 @@
+{
+    "catalogs": [
+        {
+            "allow": true
+        }
+    ],
+    "schemas": [
+        {
+            "schema": "secret",
+            "owner": false
+        },
+        {
+            "user": "admin",
+            "schema": ".*",
+            "owner": true
+        },
+        {
+            "group": "staff",
+            "schema": "staff",
+            "owner": true
+        },
+        {
+            "group": "staff|guests",
+            "schema": "authenticated",
+            "owner": true
+        },
+        {
+            "user": "bob",
+            "schema": "bob",
+            "owner": true
+        }
+    ]
+}

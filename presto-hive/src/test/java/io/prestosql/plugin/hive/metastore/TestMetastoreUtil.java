@@ -17,13 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
-import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Order;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.SkewedInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
+import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -152,19 +152,5 @@ public class TestMetastoreUtil
         expected.remove(COLUMN_NAME_DELIMITER);
         Properties actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
         assertEquals(actual, expected);
-    }
-
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Writing to skewed table/partition is not supported")
-    public void testTableRoundTripUnsupported()
-    {
-        Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA);
-        ThriftMetastoreUtil.toMetastoreApiTable(table, null);
-    }
-
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Writing to skewed table/partition is not supported")
-    public void testPartitionRoundTripUnsupported()
-    {
-        Partition partition = ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS);
-        ThriftMetastoreUtil.toMetastoreApiPartition(partition);
     }
 }

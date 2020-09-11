@@ -14,17 +14,17 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.withVariadicBound;
 import static io.prestosql.operator.scalar.JsonToRowCast.JSON_TO_ROW;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 public final class JsonStringToRowCast
         extends SqlScalarFunction
@@ -34,38 +34,25 @@ public final class JsonStringToRowCast
 
     private JsonStringToRowCast()
     {
-        super(new Signature(
-                JSON_STRING_TO_ROW_NAME,
-                SCALAR,
-                ImmutableList.of(withVariadicBound("T", "row")),
-                ImmutableList.of(),
-                parseTypeSignature("T"),
-                ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)),
-                false));
+        super(new FunctionMetadata(
+                new Signature(
+                        JSON_STRING_TO_ROW_NAME,
+                        ImmutableList.of(withVariadicBound("T", "row")),
+                        ImmutableList.of(),
+                        new TypeSignature("T"),
+                        ImmutableList.of(VARCHAR.getTypeSignature()),
+                        false),
+                true,
+                ImmutableList.of(new FunctionArgumentDefinition(false)),
+                true,
+                true,
+                "",
+                SCALAR));
     }
 
     @Override
-    public String getDescription()
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        // Internal function, doesn't need a description
-        return null;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public final boolean isHidden()
-    {
-        return true;
-    }
-
-    @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        return JSON_TO_ROW.specialize(boundVariables, arity, typeManager, functionRegistry);
+        return JSON_TO_ROW.specialize(functionBinding);
     }
 }

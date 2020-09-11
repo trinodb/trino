@@ -42,6 +42,7 @@ import java.util.function.BiPredicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -59,7 +60,7 @@ import static java.util.stream.Collectors.toList;
 @ThreadSafe
 public class QueryContext
 {
-    private static final long GUARANTEED_MEMORY = new DataSize(1, MEGABYTE).toBytes();
+    private static final long GUARANTEED_MEMORY = DataSize.of(1, MEGABYTE).toBytes();
 
     private final QueryId queryId;
     private final GcMonitor gcMonitor;
@@ -67,7 +68,7 @@ public class QueryContext
     private final ScheduledExecutorService yieldExecutor;
     private final long maxSpill;
     private final SpillSpaceTracker spillSpaceTracker;
-    private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap();
+    private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap<>();
 
     // TODO: This field should be final. However, due to the way QueryContext is constructed the memory limit is not known in advance
     @GuardedBy("this")
@@ -241,6 +242,16 @@ public class QueryContext
         }, directExecutor());
     }
 
+    public synchronized void setMaxUserMemory(long maxUserMemory)
+    {
+        this.maxUserMemory = maxUserMemory;
+    }
+
+    public synchronized void setMaxTotalMemory(long maxTotalMemory)
+    {
+        this.maxTotalMemory = maxTotalMemory;
+    }
+
     public synchronized MemoryPool getMemoryPool()
     {
         return memoryPool;
@@ -279,8 +290,7 @@ public class QueryContext
     public TaskContext getTaskContextByTaskId(TaskId taskId)
     {
         TaskContext taskContext = taskContexts.get(taskId);
-        verify(taskContext != null, "task does not exist");
-        return taskContext;
+        return verifyNotNull(taskContext, "task does not exist");
     }
 
     private static class QueryMemoryReservationHandler
@@ -347,6 +357,7 @@ public class QueryContext
         String topConsumers = queryAllocations.entrySet().stream()
                 .sorted(comparingByValue(Comparator.reverseOrder()))
                 .limit(3)
+                .filter(e -> e.getValue() >= 0)
                 .collect(toImmutableMap(Entry::getKey, e -> succinctBytes(e.getValue())))
                 .toString();
 

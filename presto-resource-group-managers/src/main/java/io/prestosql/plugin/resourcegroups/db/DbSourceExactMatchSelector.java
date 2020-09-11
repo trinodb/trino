@@ -15,8 +15,8 @@ package io.prestosql.plugin.resourcegroups.db;
 
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.prestosql.plugin.resourcegroups.ResourceGroupIdTemplate;
 import io.prestosql.plugin.resourcegroups.ResourceGroupSelector;
-import io.prestosql.plugin.resourcegroups.VariableMap;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.resourcegroups.SelectionContext;
 import io.prestosql.spi.resourcegroups.SelectionCriteria;
@@ -25,8 +25,8 @@ import org.jdbi.v3.core.JdbiException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.plugin.resourcegroups.VariableMap.emptyVariableMap;
 import static java.util.Objects.requireNonNull;
 
 public class DbSourceExactMatchSelector
@@ -45,9 +45,9 @@ public class DbSourceExactMatchSelector
     }
 
     @Override
-    public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria)
+    public Optional<SelectionContext<ResourceGroupIdTemplate>> match(SelectionCriteria criteria)
     {
-        if (!criteria.getSource().isPresent()) {
+        if (criteria.getSource().isEmpty()) {
             return Optional.empty();
         }
         try {
@@ -62,13 +62,16 @@ public class DbSourceExactMatchSelector
                 return Optional.empty();
             }
 
+            ResourceGroupId groupId;
             try {
-                return Optional.of(new SelectionContext<>(resourceGroupIdCodec.fromJson(resourceGroupId), emptyVariableMap()));
+                groupId = resourceGroupIdCodec.fromJson(resourceGroupId);
             }
             catch (IllegalArgumentException e) {
                 log.warn("Failed to decode resource group from DB: %s", resourceGroupId);
                 return Optional.empty();
             }
+
+            return Optional.of(new SelectionContext<>(groupId, toTemplate(groupId)));
         }
         catch (JdbiException e) {
             if (daoOfflineStart.compareAndSet(null, System.nanoTime())) {
@@ -77,5 +80,12 @@ public class DbSourceExactMatchSelector
 
             return Optional.empty();
         }
+    }
+
+    private static ResourceGroupIdTemplate toTemplate(ResourceGroupId groupId)
+    {
+        ResourceGroupIdTemplate template = new ResourceGroupIdTemplate(groupId.toString());
+        checkArgument(template.getVariableNames().isEmpty(), "Group ID contains variable references: %s", groupId);
+        return template;
     }
 }

@@ -14,10 +14,12 @@
 package io.prestosql.plugin.kudu.properties;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.ArrayType;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
@@ -27,8 +29,6 @@ import org.apache.kudu.client.LocatedTablet;
 import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.Partition;
 import org.apache.kudu.client.PartitionSchema;
-import org.apache.kudu.shaded.com.google.common.base.Predicates;
-import org.apache.kudu.shaded.com.google.common.collect.Iterators;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -40,7 +40,6 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -53,7 +52,7 @@ import static io.prestosql.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -80,13 +79,13 @@ public final class KuduTableProperties
     private final List<PropertyMetadata<?>> columnProperties;
 
     @Inject
-    public KuduTableProperties(TypeManager typeManager)
+    public KuduTableProperties()
     {
         tableProperties = ImmutableList.of(
                 new PropertyMetadata<>(
                         PARTITION_BY_HASH_COLUMNS,
                         "Columns for optional first hash partition level",
-                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
                         false,
@@ -102,7 +101,7 @@ public final class KuduTableProperties
                 new PropertyMetadata<>(
                         PARTITION_BY_HASH_COLUMNS_2,
                         "Columns for optional second hash partition level",
-                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
                         false,
@@ -118,7 +117,7 @@ public final class KuduTableProperties
                 new PropertyMetadata<>(
                         PARTITION_BY_RANGE_COLUMNS,
                         "Columns for optional range partition level",
-                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
                         false,
@@ -174,8 +173,10 @@ public final class KuduTableProperties
     {
         requireNonNull(tableProperties);
 
-        List<String> hashColumns = (List) tableProperties.get(PARTITION_BY_HASH_COLUMNS);
-        List<String> hashColumns2 = (List) tableProperties.get(PARTITION_BY_HASH_COLUMNS_2);
+        @SuppressWarnings("unchecked")
+        List<String> hashColumns = (List<String>) tableProperties.get(PARTITION_BY_HASH_COLUMNS);
+        @SuppressWarnings("unchecked")
+        List<String> hashColumns2 = (List<String>) tableProperties.get(PARTITION_BY_HASH_COLUMNS_2);
 
         PartitionDesign design = new PartitionDesign();
         if (!hashColumns.isEmpty()) {
@@ -192,7 +193,8 @@ public final class KuduTableProperties
             throw new PrestoException(GENERIC_USER_ERROR, "Table property " + PARTITION_BY_HASH_COLUMNS_2 + " is only allowed if there is also " + PARTITION_BY_HASH_COLUMNS);
         }
 
-        List<String> rangeColumns = (List) tableProperties.get(PARTITION_BY_RANGE_COLUMNS);
+        @SuppressWarnings("unchecked")
+        List<String> rangeColumns = (List<String>) tableProperties.get(PARTITION_BY_RANGE_COLUMNS);
         if (!rangeColumns.isEmpty()) {
             RangePartitionDefinition range = new RangePartitionDefinition();
             range.setColumns(rangeColumns);
@@ -335,10 +337,7 @@ public final class KuduTableProperties
         List<RangePartition> rangePartitions = new ArrayList<>();
         if (!table.getPartitionSchema().getRangeSchema().getColumns().isEmpty()) {
             try {
-                Iterator var4 = table.getTabletsLocations(deadline).iterator();
-
-                while (var4.hasNext()) {
-                    LocatedTablet tablet = (LocatedTablet) var4.next();
+                for (LocatedTablet tablet : table.getTabletsLocations(deadline)) {
                     Partition partition = tablet.getPartition();
                     if (Iterators.all(partition.getHashBuckets().iterator(), Predicates.equalTo(0))) {
                         RangePartition rangePartition = buildRangePartition(table, partition);
@@ -373,7 +372,7 @@ public final class KuduTableProperties
             PartitionSchema.RangeSchema rangeSchema = partitionSchema.getRangeSchema();
             List<Integer> rangeColumns = rangeSchema.getColumns();
 
-            final int numColumns = rangeColumns.size();
+            int numColumns = rangeColumns.size();
 
             PartialRow bound = KeyEncoderAccessor.decodeRangePartitionKey(schema, partitionSchema, rangeKey);
 

@@ -32,8 +32,7 @@ public class TestPruneMarkDistinctColumns
     public void testMarkerSymbolNotReferenced()
     {
         tester().assertThat(new PruneMarkDistinctColumns())
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol key = p.symbol("key");
                     Symbol key2 = p.symbol("key2");
                     Symbol mark = p.symbol("mark");
@@ -52,8 +51,7 @@ public class TestPruneMarkDistinctColumns
     public void testSourceSymbolNotReferenced()
     {
         tester().assertThat(new PruneMarkDistinctColumns())
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol key = p.symbol("key");
                     Symbol mark = p.symbol("mark");
                     Symbol hash = p.symbol("hash");
@@ -81,8 +79,7 @@ public class TestPruneMarkDistinctColumns
     public void testKeySymbolNotReferenced()
     {
         tester().assertThat(new PruneMarkDistinctColumns())
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol key = p.symbol("key");
                     Symbol mark = p.symbol("mark");
                     return p.project(
@@ -96,8 +93,7 @@ public class TestPruneMarkDistinctColumns
     public void testAllOutputsReferenced()
     {
         tester().assertThat(new PruneMarkDistinctColumns())
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol key = p.symbol("key");
                     Symbol mark = p.symbol("mark");
                     return p.project(

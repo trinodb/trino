@@ -17,13 +17,13 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
-import io.prestosql.plugin.redis.util.EmbeddedRedis;
 import io.prestosql.plugin.redis.util.JsonEncoder;
+import io.prestosql.plugin.redis.util.RedisServer;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.tests.StandaloneQueryRunner;
+import io.prestosql.testing.StandaloneQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -49,34 +49,31 @@ public class TestMinimalFunctionality
             .setSchema("default")
             .build();
 
-    private EmbeddedRedis embeddedRedis;
+    private RedisServer redisServer;
     private String tableName;
     private StandaloneQueryRunner queryRunner;
 
     @BeforeClass
     public void startRedis()
-            throws Exception
     {
-        embeddedRedis = EmbeddedRedis.createEmbeddedRedis();
-        embeddedRedis.start();
+        redisServer = new RedisServer();
     }
 
     @AfterClass(alwaysRun = true)
     public void stopRedis()
     {
-        embeddedRedis.close();
-        embeddedRedis = null;
+        redisServer.close();
+        redisServer = null;
     }
 
     @BeforeMethod
     public void spinUp()
-            throws Exception
     {
         this.tableName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
 
         this.queryRunner = new StandaloneQueryRunner(SESSION);
 
-        installRedisPlugin(embeddedRedis, queryRunner,
+        installRedisPlugin(redisServer, queryRunner,
                 ImmutableMap.<SchemaTableName, RedisTableDescription>builder()
                         .put(createEmptyTableDescription(new SchemaTableName("default", tableName)))
                         .build());
@@ -94,7 +91,7 @@ public class TestMinimalFunctionality
         JsonEncoder jsonEncoder = new JsonEncoder();
         for (long i = 0; i < count; i++) {
             Object value = ImmutableMap.of("id", Long.toString(i), "value", UUID.randomUUID().toString());
-            try (Jedis jedis = embeddedRedis.getJedisPool().getResource()) {
+            try (Jedis jedis = redisServer.getJedisPool().getResource()) {
                 jedis.set(tableName + ":" + i, jsonEncoder.toString(value));
             }
         }

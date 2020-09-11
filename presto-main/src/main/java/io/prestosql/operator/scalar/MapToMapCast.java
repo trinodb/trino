@@ -16,33 +16,37 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.operator.aggregation.TypedSet;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.primitives.Primitives.unwrap;
+import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.block.MethodHandleUtil.compose;
-import static io.prestosql.spi.block.MethodHandleUtil.nativeValueGetter;
 import static io.prestosql.spi.block.MethodHandleUtil.nativeValueWriter;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.util.Failures.internalError;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.permuteArguments;
@@ -71,58 +75,72 @@ public final class MapToMapCast
     public MapToMapCast()
     {
         super(CAST,
-                ImmutableList.of(typeVariable("FK"), typeVariable("FV"), typeVariable("TK"), typeVariable("TV")),
+                ImmutableList.of(
+                        castableToTypeParameter("FK", new TypeSignature("TK")),
+                        castableToTypeParameter("FV", new TypeSignature("TV")),
+                        typeVariable("TK"),
+                        typeVariable("TV")),
                 ImmutableList.of(),
-                parseTypeSignature("map(TK,TV)"),
-                ImmutableList.of(parseTypeSignature("map(FK,FV)")));
+                mapType(new TypeSignature("TK"), new TypeSignature("TV")),
+                ImmutableList.of(mapType(new TypeSignature("FK"), new TypeSignature("FV"))),
+                true);
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        checkArgument(arity == 1, "Expected arity to be 1");
-        Type fromKeyType = boundVariables.getTypeVariable("FK");
-        Type fromValueType = boundVariables.getTypeVariable("FV");
-        Type toKeyType = boundVariables.getTypeVariable("TK");
-        Type toValueType = boundVariables.getTypeVariable("TV");
-        Type toMapType = typeManager.getParameterizedType(
-                "map",
-                ImmutableList.of(
-                        TypeSignatureParameter.of(toKeyType.getTypeSignature()),
-                        TypeSignatureParameter.of(toValueType.getTypeSignature())));
+        return FunctionDependencyDeclaration.builder()
+                .addCastSignature(new TypeSignature("FK"), new TypeSignature("TK"))
+                .addCastSignature(new TypeSignature("FV"), new TypeSignature("TV"))
+                .build();
+    }
 
-        MethodHandle keyProcessor = buildProcessor(functionRegistry, fromKeyType, toKeyType, true);
-        MethodHandle valueProcessor = buildProcessor(functionRegistry, fromValueType, toValueType, false);
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
+        Type fromKeyType = functionBinding.getTypeVariable("FK");
+        Type fromValueType = functionBinding.getTypeVariable("FV");
+        Type toKeyType = functionBinding.getTypeVariable("TK");
+        Type toValueType = functionBinding.getTypeVariable("TV");
+        Type toMapType = functionBinding.getBoundSignature().getReturnType();
+
+        MethodHandle keyProcessor = buildProcessor(functionDependencies, fromKeyType, toKeyType, true);
+        MethodHandle valueProcessor = buildProcessor(functionDependencies, fromValueType, toValueType, false);
         MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType);
-        return new ScalarFunctionImplementation(true, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), target, true);
+        return new ScalarFunctionImplementation(NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
     }
 
     /**
      * The signature of the returned MethodHandle is (Block fromMap, int position, ConnectorSession session, BlockBuilder mapBlockBuilder)void.
      * The processor will get the value from fromMap, cast it and write to toBlock.
      */
-    private MethodHandle buildProcessor(FunctionRegistry functionRegistry, Type fromType, Type toType, boolean isKey)
+    private MethodHandle buildProcessor(FunctionDependencies functionDependencies, Type fromType, Type toType, boolean isKey)
     {
-        MethodHandle getter = nativeValueGetter(fromType);
-
-        // Adapt cast that takes ([ConnectorSession,] ?) to one that takes (?, ConnectorSession), where ? is the return type of getter.
-        ScalarFunctionImplementation castImplementation = functionRegistry.getScalarFunctionImplementation(functionRegistry.getCoercion(fromType, toType));
-        MethodHandle cast = castImplementation.getMethodHandle();
+        // Get block position cast, with optional connector session
+        FunctionMetadata functionMetadata = functionDependencies.getCastMetadata(fromType, toType);
+        InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), functionMetadata.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL, true, false);
+        MethodHandle cast = functionDependencies.getCastInvoker(fromType, toType, Optional.of(invocationConvention)).getMethodHandle();
+        // Normalize cast to have connector session as first argument
         if (cast.type().parameterArray()[0] != ConnectorSession.class) {
             cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);
         }
-        cast = permuteArguments(cast, methodType(cast.type().returnType(), cast.type().parameterArray()[1], cast.type().parameterArray()[0]), 1, 0);
-        MethodHandle target = compose(cast, getter);
+        // Change cast signature to (Block.class, int.class, ConnectorSession.class):T
+        cast = permuteArguments(cast, methodType(cast.type().returnType(), Block.class, int.class, ConnectorSession.class), 2, 0, 1);
 
-        // If the key cast function is nullable, check the result is not null.
-        if (isKey && castImplementation.isNullable()) {
-            target = compose(nullChecker(target.type().returnType()), target);
+        // If the key cast function is nullable, check the result is not null
+        if (isKey && functionMetadata.isNullable()) {
+            cast = compose(nullChecker(cast.type().returnType()), cast);
         }
 
+        // get write method with signature: (T, BlockBuilder.class):void
         MethodHandle writer = nativeValueWriter(toType);
-        writer = permuteArguments(writer, methodType(void.class, writer.type().parameterArray()[1], writer.type().parameterArray()[0]), 1, 0);
+        writer = permuteArguments(writer, methodType(void.class, writer.type().parameterArray()[1], BlockBuilder.class), 1, 0);
 
-        return compose(writer, target.asType(methodType(unwrap(target.type().returnType()), target.type().parameterArray())));
+        // ensure cast returns type expected by the writer
+        cast = cast.asType(methodType(writer.type().parameterType(0), cast.type().parameterArray()));
+
+        return compose(writer, cast);
     }
 
     /**

@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -38,10 +37,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
-import static com.google.common.collect.Iterables.transform;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -278,7 +276,7 @@ public class DriverContext
         }
     }
 
-    public long getPphysicalWrittenDataSize()
+    public long getPhysicalWrittenDataSize()
     {
         return operatorContexts.stream()
                 .mapToLong(OperatorContext::getPhysicalWrittenDataSize)
@@ -295,6 +293,15 @@ public class DriverContext
         return blockedMonitor.get() != null;
     }
 
+    public List<OperatorStats> getOperatorStats()
+    {
+        return operatorContexts.stream()
+                .flatMap(operatorContext -> operatorContext
+                        .getNestedOperatorStats()
+                        .stream())
+                .collect(toImmutableList());
+    }
+
     public DriverStats getDriverStats()
     {
         long totalScheduledTime = overallTiming.getWallNanos();
@@ -306,7 +313,7 @@ public class DriverContext
             totalBlockedTime += blockedMonitor.getBlockedTime();
         }
 
-        List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats));
+        List<OperatorStats> operators = getOperatorStats();
         OperatorStats inputOperator = getFirst(operators, null);
 
         DataSize physicalInputDataSize;
@@ -327,11 +334,11 @@ public class DriverContext
         long outputPositions;
         if (inputOperator != null) {
             physicalInputDataSize = inputOperator.getPhysicalInputDataSize();
-            physicalInputPositions = inputOperator.getInputPositions();
+            physicalInputPositions = inputOperator.getPhysicalInputPositions();
             physicalInputReadTime = inputOperator.getAddInputWall();
 
             internalNetworkInputDataSize = inputOperator.getInternalNetworkInputDataSize();
-            internalNetworkInputPositions = inputOperator.getInputPositions();
+            internalNetworkInputPositions = inputOperator.getInternalNetworkInputPositions();
             internalNetworkInputReadTime = inputOperator.getAddInputWall();
 
             rawInputDataSize = inputOperator.getRawInputDataSize();
@@ -346,22 +353,22 @@ public class DriverContext
             outputPositions = outputOperator.getOutputPositions();
         }
         else {
-            physicalInputDataSize = new DataSize(0, BYTE);
+            physicalInputDataSize = DataSize.ofBytes(0);
             physicalInputPositions = 0;
             physicalInputReadTime = new Duration(0, MILLISECONDS);
 
-            internalNetworkInputDataSize = new DataSize(0, BYTE);
+            internalNetworkInputDataSize = DataSize.ofBytes(0);
             internalNetworkInputPositions = 0;
             internalNetworkInputReadTime = new Duration(0, MILLISECONDS);
 
-            rawInputDataSize = new DataSize(0, BYTE);
+            rawInputDataSize = DataSize.ofBytes(0);
             rawInputPositions = 0;
             rawInputReadTime = new Duration(0, MILLISECONDS);
 
-            processedInputDataSize = new DataSize(0, BYTE);
+            processedInputDataSize = DataSize.ofBytes(0);
             processedInputPositions = 0;
 
-            outputDataSize = new DataSize(0, BYTE);
+            outputDataSize = DataSize.ofBytes(0);
             outputPositions = 0;
         }
 
@@ -382,7 +389,7 @@ public class DriverContext
             elapsedTime = new Duration(endNanos - createNanos, NANOSECONDS);
         }
         else {
-            elapsedTime = new Duration(0, NANOSECONDS);
+            elapsedTime = new Duration(System.nanoTime() - createNanos, NANOSECONDS);
         }
 
         ImmutableSet.Builder<BlockedReason> builder = ImmutableSet.builder();
@@ -408,21 +415,21 @@ public class DriverContext
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 blockedMonitor != null,
                 builder.build(),
-                physicalInputDataSize.convertToMostSuccinctDataSize(),
+                physicalInputDataSize.succinct(),
                 physicalInputPositions,
                 physicalInputReadTime,
-                internalNetworkInputDataSize.convertToMostSuccinctDataSize(),
+                internalNetworkInputDataSize.succinct(),
                 internalNetworkInputPositions,
                 internalNetworkInputReadTime,
-                rawInputDataSize.convertToMostSuccinctDataSize(),
+                rawInputDataSize.succinct(),
                 rawInputPositions,
                 rawInputReadTime,
-                processedInputDataSize.convertToMostSuccinctDataSize(),
+                processedInputDataSize.succinct(),
                 processedInputPositions,
-                outputDataSize.convertToMostSuccinctDataSize(),
+                outputDataSize.succinct(),
                 outputPositions,
                 succinctBytes(physicalWrittenDataSize),
-                ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats)));
+                operators);
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
@@ -475,11 +482,5 @@ public class DriverContext
         {
             return nanosBetween(start, System.nanoTime());
         }
-    }
-
-    @VisibleForTesting
-    public MemoryTrackingContext getDriverMemoryContext()
-    {
-        return driverMemoryContext;
     }
 }

@@ -1,3 +1,5 @@
+.. _lambda_expressions:
+
 ==================
 Lambda Expressions
 ==================
@@ -15,5 +17,5 @@ Lambda expressions are written with ``->``::
 
 Most SQL expressions can be used in a lambda body, with a few exceptions:
 
-* Subqueries are not supported. ``x -> 2 + (SELECT 3)``
-* Aggregations are not supported. ``x -> max(y)``
+* Subqueries are not supported: ``x -> 2 + (SELECT 3)``
+* Aggregations are not supported: ``x -> max(y)``

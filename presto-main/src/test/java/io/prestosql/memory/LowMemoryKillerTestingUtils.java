@@ -18,8 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.prestosql.client.NodeVersion;
-import io.prestosql.metadata.PrestoNode;
-import io.prestosql.spi.Node;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spi.memory.MemoryPoolInfo;
@@ -29,24 +28,23 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.prestosql.memory.LocalMemoryManager.RESERVED_POOL;
 
-public class LowMemoryKillerTestingUtils
+public final class LowMemoryKillerTestingUtils
 {
     private LowMemoryKillerTestingUtils() {}
 
     static List<MemoryInfo> toNodeMemoryInfoList(long maxReservedPoolBytes, long maxGeneralPoolBytes, String reservedQuery, Map<String, Map<String, Long>> queries)
     {
-        Map<Node, NodeReservation> nodeReservations = new HashMap<>();
+        Map<InternalNode, NodeReservation> nodeReservations = new HashMap<>();
 
         for (Map.Entry<String, Map<String, Long>> entry : queries.entrySet()) {
             QueryId queryId = new QueryId(entry.getKey());
             Map<String, Long> reservationByNode = entry.getValue();
 
             for (Map.Entry<String, Long> nodeEntry : reservationByNode.entrySet()) {
-                PrestoNode node = new PrestoNode(nodeEntry.getKey(), URI.create("http://localhost"), new NodeVersion("version"), false);
+                InternalNode node = new InternalNode(nodeEntry.getKey(), URI.create("http://localhost"), new NodeVersion("version"), false);
                 long bytes = nodeEntry.getValue();
                 if (bytes == 0) {
                     continue;
@@ -61,7 +59,7 @@ public class LowMemoryKillerTestingUtils
         }
 
         ImmutableList.Builder<MemoryInfo> result = ImmutableList.builder();
-        for (Map.Entry<Node, NodeReservation> entry : nodeReservations.entrySet()) {
+        for (Map.Entry<InternalNode, NodeReservation> entry : nodeReservations.entrySet()) {
             NodeReservation nodeReservation = entry.getValue();
             ImmutableMap.Builder<MemoryPoolId, MemoryPoolInfo> pools = ImmutableMap.builder();
             if (nodeReservation.getGeneral().getTotalReservedBytes() > 0) {
@@ -86,7 +84,7 @@ public class LowMemoryKillerTestingUtils
                                 ImmutableMap.of(),
                                 ImmutableMap.of()));
             }
-            result.add(new MemoryInfo(new DataSize(maxReservedPoolBytes + maxGeneralPoolBytes, BYTE), pools.build()));
+            result.add(new MemoryInfo(7, DataSize.ofBytes(maxReservedPoolBytes + maxGeneralPoolBytes), pools.build()));
         }
         return result.build();
     }

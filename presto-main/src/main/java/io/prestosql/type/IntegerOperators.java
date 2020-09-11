@@ -33,7 +33,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.DIVIDE;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
@@ -57,9 +56,7 @@ import static java.lang.String.format;
 
 public final class IntegerOperators
 {
-    private IntegerOperators()
-    {
-    }
+    private IntegerOperators() {}
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.INTEGER)
@@ -105,7 +102,7 @@ public final class IntegerOperators
             return left / right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, e);
+            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
@@ -117,7 +114,7 @@ public final class IntegerOperators
             return left % right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, e);
+            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
@@ -175,13 +172,6 @@ public final class IntegerOperators
     public static boolean greaterThanOrEqual(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
         return left >= right;
-    }
-
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(@SqlType(StandardTypes.INTEGER) long value, @SqlType(StandardTypes.INTEGER) long min, @SqlType(StandardTypes.INTEGER) long max)
-    {
-        return min <= value && value <= max;
     }
 
     @ScalarOperator(CAST)
@@ -253,7 +243,7 @@ public final class IntegerOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class IntegerDistinctFromOperator
+    public static final class IntegerDistinctFromOperator
     {
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isDistinctFrom(

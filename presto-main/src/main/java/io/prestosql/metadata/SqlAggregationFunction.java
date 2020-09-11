@@ -16,21 +16,24 @@ package io.prestosql.metadata;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.operator.aggregation.AggregationFromAnnotationsParser;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public abstract class SqlAggregationFunction
         implements SqlFunction
 {
-    private final Signature signature;
-    private final boolean hidden;
+    private final FunctionMetadata functionMetadata;
+    private final boolean orderSensitive;
+    private final boolean decomposable;
 
     public static List<SqlAggregationFunction> createFunctionByAnnotations(Class<?> aggregationDefinition)
     {
@@ -41,78 +44,55 @@ public abstract class SqlAggregationFunction
     {
         return AggregationFromAnnotationsParser.parseFunctionDefinitions(aggregationDefinition)
                 .stream()
-                .map(x -> (SqlAggregationFunction) x)
+                .map(SqlAggregationFunction.class::cast)
                 .collect(toImmutableList());
     }
 
-    protected SqlAggregationFunction(
-            String name,
-            List<TypeVariableConstraint> typeVariableConstraints,
-            List<LongVariableConstraint> longVariableConstraints,
-            TypeSignature returnType,
-            List<TypeSignature> argumentTypes)
+    protected SqlAggregationFunction(FunctionMetadata functionMetadata, boolean decomposable, boolean orderSensitive)
     {
-        this(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, AGGREGATE);
-    }
-
-    protected SqlAggregationFunction(
-            String name,
-            List<TypeVariableConstraint> typeVariableConstraints,
-            List<LongVariableConstraint> longVariableConstraints,
-            TypeSignature returnType,
-            List<TypeSignature> argumentTypes,
-            FunctionKind kind)
-    {
-        this(createSignature(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, kind), false);
-    }
-
-    protected SqlAggregationFunction(Signature signature, boolean hidden)
-    {
-        this.signature = requireNonNull(signature, "signature is null");
-        this.hidden = hidden;
-    }
-
-    private static Signature createSignature(
-            String name,
-            List<TypeVariableConstraint> typeVariableConstraints,
-            List<LongVariableConstraint> longVariableConstraints,
-            TypeSignature returnType,
-            List<TypeSignature> argumentTypes,
-            FunctionKind kind)
-    {
-        requireNonNull(name, "name is null");
-        requireNonNull(typeVariableConstraints, "typeVariableConstraints is null");
-        requireNonNull(longVariableConstraints, "longVariableConstraints is null");
-        requireNonNull(returnType, "returnType is null");
-        requireNonNull(argumentTypes, "argumentTypes is null");
-        checkArgument(kind == AGGREGATE, "kind must be an aggregate");
-        return new Signature(
-                name,
-                kind,
-                ImmutableList.copyOf(typeVariableConstraints),
-                ImmutableList.copyOf(longVariableConstraints),
-                returnType,
-                ImmutableList.copyOf(argumentTypes),
-                false);
+        this.functionMetadata = requireNonNull(functionMetadata, "functionMetadata is null");
+        checkArgument(functionMetadata.isDeterministic(), "Aggregation function must be deterministic");
+        this.orderSensitive = orderSensitive;
+        this.decomposable = decomposable;
     }
 
     @Override
-    public final Signature getSignature()
+    public FunctionMetadata getFunctionMetadata()
     {
-        return signature;
+        return functionMetadata;
     }
 
-    @Override
-    public boolean isHidden()
+    public AggregationFunctionMetadata getAggregationMetadata(FunctionBinding functionBinding)
     {
-        return hidden;
+        if (!decomposable) {
+            return new AggregationFunctionMetadata(orderSensitive, Optional.empty());
+        }
+
+        List<TypeSignature> intermediateTypes = getIntermediateTypes(functionBinding);
+        TypeSignature intermediateType;
+        if (intermediateTypes.size() == 1) {
+            intermediateType = getOnlyElement(intermediateTypes);
+        }
+        else {
+            intermediateType = new TypeSignature(StandardTypes.ROW, intermediateTypes.stream()
+                    .map(TypeSignatureParameter::anonymousField)
+                    .collect(toImmutableList()));
+        }
+        return new AggregationFunctionMetadata(orderSensitive, Optional.of(intermediateType));
     }
 
-    @Override
-    public boolean isDeterministic()
+    protected List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
     {
-        return true;
+        throw new UnsupportedOperationException();
     }
 
-    public abstract InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        return specialize(functionBinding);
+    }
+
+    protected InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

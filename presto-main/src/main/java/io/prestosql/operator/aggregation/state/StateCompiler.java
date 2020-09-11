@@ -34,6 +34,7 @@ import io.prestosql.array.ByteBigArray;
 import io.prestosql.array.DoubleBigArray;
 import io.prestosql.array.IntBigArray;
 import io.prestosql.array.LongBigArray;
+import io.prestosql.array.ObjectBigArray;
 import io.prestosql.array.SliceBigArray;
 import io.prestosql.operator.aggregation.GroupedAccumulator;
 import io.prestosql.spi.block.Block;
@@ -93,11 +94,9 @@ import static io.prestosql.util.CompilerUtils.defineClass;
 import static io.prestosql.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
 
-public class StateCompiler
+public final class StateCompiler
 {
-    private StateCompiler()
-    {
-    }
+    private StateCompiler() {}
 
     private static Class<?> getBigArrayType(Class<?> type)
     {
@@ -122,14 +121,29 @@ public class StateCompiler
         if (type.equals(Block.class)) {
             return BlockBigArray.class;
         }
-        // TODO: support more reference types
-        throw new IllegalArgumentException("Unsupported type: " + type.getName());
+        return ObjectBigArray.class;
     }
 
-    public static Set<Class<?>> getSupportedFieldTypes()
+    public static Type getSerializedType(Class<?> clazz)
     {
-        // byte.class and int.class are needed for TriStateBooleanState and Object/SliceBlockPositionState respectively
-        return ImmutableSet.of(byte.class, boolean.class, long.class, double.class, int.class, Slice.class, Block.class);
+        return getSerializedType(clazz, ImmutableMap.of());
+    }
+
+    public static Type getSerializedType(Class<?> clazz, Map<String, Type> fieldTypes)
+    {
+        AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
+        if (metadata != null && metadata.stateSerializerClass() != void.class) {
+            try {
+                AccumulatorStateSerializer<?> stateSerializer = (AccumulatorStateSerializer<?>) metadata.stateSerializerClass().getConstructor().newInstance();
+                return stateSerializer.getSerializedType();
+            }
+            catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        List<StateField> fields = enumerateFields(clazz, fieldTypes);
+        return getSerializedType(fields);
     }
 
     public static <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
@@ -170,7 +184,7 @@ public class StateCompiler
         generateSerialize(definition, callSiteBinder, clazz, fields);
         generateDeserialize(definition, callSiteBinder, clazz, fields);
 
-        Class<? extends AccumulatorStateSerializer> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), classLoader);
+        Class<?> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), classLoader);
         try {
             return (AccumulatorStateSerializer<T>) serializerClass.getConstructor().newInstance();
         }
@@ -183,21 +197,23 @@ public class StateCompiler
     {
         BytecodeBlock body = definition.declareMethod(a(PUBLIC), "getSerializedType", type(Type.class)).getBody();
 
-        Type type;
-        if (fields.size() > 1) {
-            List<Type> types = fields.stream().map(StateField::getSqlType).collect(toImmutableList());
-            type = RowType.anonymous(types);
-        }
-        else if (fields.size() == 1) {
-            type = getOnlyElement(fields).getSqlType();
-        }
-        else {
-            type = UNKNOWN;
-        }
+        Type type = getSerializedType(fields);
 
         body.comment("return %s", type.getTypeSignature())
                 .append(constantType(callSiteBinder, type))
                 .retObject();
+    }
+
+    private static Type getSerializedType(List<StateField> fields)
+    {
+        if (fields.size() > 1) {
+            List<Type> types = fields.stream().map(StateField::getSqlType).collect(toImmutableList());
+            return RowType.anonymous(types);
+        }
+        if (fields.size() == 1) {
+            return getOnlyElement(fields).getSqlType();
+        }
+        return UNKNOWN;
     }
 
     private static <T> AccumulatorStateMetadata getMetadataAnnotation(Class<T> clazz)
@@ -398,7 +414,7 @@ public class StateCompiler
                 .push(groupedStateClass)
                 .retObject();
 
-        Class<? extends AccumulatorStateFactory> factoryClass = defineClass(definition, AccumulatorStateFactory.class, classLoader);
+        Class<?> factoryClass = defineClass(definition, AccumulatorStateFactory.class, classLoader);
         try {
             return (AccumulatorStateFactory<T>) factoryClass.getConstructor().newInstance();
         }
@@ -574,15 +590,13 @@ public class StateCompiler
     private static List<StateField> enumerateFields(Class<?> clazz, Map<String, Type> fieldTypes)
     {
         ImmutableList.Builder<StateField> builder = ImmutableList.builder();
-        final Set<Class<?>> primitiveClasses = ImmutableSet.of(byte.class, boolean.class, long.class, double.class, int.class);
-        Set<Class<?>> supportedClasses = getSupportedFieldTypes();
+        Set<Class<?>> primitiveClasses = ImmutableSet.of(byte.class, boolean.class, long.class, double.class, int.class);
         for (Method method : clazz.getMethods()) {
             if (method.getName().equals("getEstimatedSize")) {
                 continue;
             }
             if (method.getName().startsWith("get")) {
                 Class<?> type = method.getReturnType();
-                checkArgument(supportedClasses.contains(type), type.getName() + " is not supported");
                 String name = method.getName().substring(3);
                 builder.add(new StateField(name, type, getInitialValue(method), method.getName(), Optional.ofNullable(fieldTypes.get(name))));
             }
@@ -595,7 +609,7 @@ public class StateCompiler
         }
 
         // We need this ordering because the serializer and deserializer are on different machines, and so the ordering of fields must be stable
-        Ordering<StateField> ordering = new Ordering<StateField>()
+        Ordering<StateField> ordering = new Ordering<>()
         {
             @Override
             public int compare(StateField left, StateField right)
@@ -713,7 +727,7 @@ public class StateCompiler
             checkArgument(sqlType != null, "sqlType is null");
             if (sqlType.isPresent()) {
                 checkArgument(
-                        (sqlType.get().getJavaType() == type) ||
+                        type.isAssignableFrom(sqlType.get().getJavaType()) ||
                                 ((type == byte.class) && TINYINT.equals(sqlType.get())) ||
                                 ((type == int.class) && INTEGER.equals(sqlType.get())),
                         "Stack type (%s) and provided sql type (%s) are incompatible", type.getName(), sqlType.get().getDisplayName());
@@ -729,24 +743,22 @@ public class StateCompiler
             if (stackType == long.class) {
                 return Optional.of(BIGINT);
             }
-            else if (stackType == double.class) {
+            if (stackType == double.class) {
                 return Optional.of(DOUBLE);
             }
-            else if (stackType == boolean.class) {
+            if (stackType == boolean.class) {
                 return Optional.of(BOOLEAN);
             }
-            else if (stackType == byte.class) {
+            if (stackType == byte.class) {
                 return Optional.of(TINYINT);
             }
-            else if (stackType == int.class) {
+            if (stackType == int.class) {
                 return Optional.of(INTEGER);
             }
-            else if (stackType == Slice.class) {
+            if (stackType == Slice.class) {
                 return Optional.of(VARBINARY);
             }
-            else {
-                return Optional.empty();
-            }
+            return Optional.empty();
         }
 
         String getGetterName()
@@ -771,7 +783,7 @@ public class StateCompiler
 
         Type getSqlType()
         {
-            if (!sqlType.isPresent()) {
+            if (sqlType.isEmpty()) {
                 throw new IllegalArgumentException("Unsupported type: " + type);
             }
             return sqlType.get();
@@ -791,12 +803,10 @@ public class StateCompiler
             if (initialValue instanceof Number) {
                 return constantNumber((Number) initialValue);
             }
-            else if (initialValue instanceof Boolean) {
+            if (initialValue instanceof Boolean) {
                 return constantBoolean((boolean) initialValue);
             }
-            else {
-                throw new IllegalArgumentException("Unsupported initial value type: " + initialValue.getClass());
-            }
+            throw new IllegalArgumentException("Unsupported initial value type: " + initialValue.getClass());
         }
     }
 }

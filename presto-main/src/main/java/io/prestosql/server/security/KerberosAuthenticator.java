@@ -15,6 +15,7 @@ package io.prestosql.server.security;
 
 import com.sun.security.auth.module.Krb5LoginModule;
 import io.airlift.log.Logger;
+import io.prestosql.spi.security.Identity;
 import org.ietf.jgss.GSSContext;
 import org.ietf.jgss.GSSCredential;
 import org.ietf.jgss.GSSException;
@@ -30,7 +31,7 @@ import javax.security.auth.login.AppConfigurationEntry;
 import javax.security.auth.login.Configuration;
 import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
-import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.container.ContainerRequestContext;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -40,9 +41,13 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static io.prestosql.server.security.UserMapping.createUserMapping;
+import static java.util.Objects.requireNonNull;
 import static javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag.REQUIRED;
 import static org.ietf.jgss.GSSCredential.ACCEPT_ONLY;
 import static org.ietf.jgss.GSSCredential.INDEFINITE_LIFETIME;
@@ -57,18 +62,29 @@ public class KerberosAuthenticator
     private final GSSManager gssManager = GSSManager.getInstance();
     private final LoginContext loginContext;
     private final GSSCredential serverCredential;
+    private final UserMapping userMapping;
 
     @Inject
     public KerberosAuthenticator(KerberosConfig config)
     {
-        System.setProperty("java.security.krb5.conf", config.getKerberosConfig().getAbsolutePath());
+        requireNonNull(config, "config is null");
+        this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
+
+        String newValue = config.getKerberosConfig().getAbsolutePath();
+        String currentValue = System.getProperty("java.security.krb5.conf");
+        checkState(
+                currentValue == null || Objects.equals(currentValue, newValue),
+                "Refusing to set system property 'java.security.krb5.conf' to '%s', it is already set to '%s'",
+                newValue,
+                currentValue);
+        System.setProperty("java.security.krb5.conf", newValue);
 
         try {
             String hostname = Optional.ofNullable(config.getPrincipalHostname())
                     .orElseGet(() -> getLocalHost().getCanonicalHostName())
                     .toLowerCase(Locale.US);
 
-            String servicePrincipal = config.getServiceName() + "/" + hostname;
+            String servicePrincipal = config.getNameType().makeServicePrincipal(config.getServiceName(), hostname);
             loginContext = new LoginContext("", null, null, new Configuration()
             {
                 @Override
@@ -93,8 +109,9 @@ public class KerberosAuthenticator
             });
             loginContext.login();
 
+            GSSName gssName = config.getNameType().getGSSName(gssManager, config.getServiceName(), hostname);
             serverCredential = doAs(loginContext.getSubject(), () -> gssManager.createCredential(
-                    gssManager.createName(config.getServiceName() + "@" + hostname, GSSName.NT_HOSTBASED_SERVICE),
+                    gssName,
                     INDEFINITE_LIFETIME,
                     new Oid[] {
                             new Oid("1.2.840.113554.1.2.2"), // kerberos 5
@@ -119,34 +136,43 @@ public class KerberosAuthenticator
     }
 
     @Override
-    public Principal authenticate(HttpServletRequest request)
+    public Identity authenticate(ContainerRequestContext request)
             throws AuthenticationException
     {
-        String header = request.getHeader(AUTHORIZATION);
+        String header = request.getHeaders().getFirst(AUTHORIZATION);
 
         String requestSpnegoToken = null;
 
+        Principal principal = null;
         if (header != null) {
             String[] parts = header.split("\\s+");
             if (parts.length == 2 && parts[0].equals(NEGOTIATE_SCHEME)) {
                 try {
                     requestSpnegoToken = parts[1];
-                    Optional<Principal> principal = authenticate(parts[1]);
-                    if (principal.isPresent()) {
-                        return principal.get();
-                    }
+                    principal = authenticate(parts[1]).orElse(null);
                 }
                 catch (RuntimeException e) {
-                    throw new RuntimeException("Authentication error for token: " + parts[1], e);
+                    throw new RuntimeException("Invalid Token", e);
                 }
             }
         }
 
-        if (requestSpnegoToken != null) {
-            throw new AuthenticationException("Authentication failed for token: " + requestSpnegoToken, NEGOTIATE_SCHEME);
+        if (principal == null) {
+            if (requestSpnegoToken != null) {
+                throw new AuthenticationException("Invalid Token", NEGOTIATE_SCHEME);
+            }
+            throw new AuthenticationException(null, NEGOTIATE_SCHEME);
         }
 
-        throw new AuthenticationException(null, NEGOTIATE_SCHEME);
+        try {
+            String authenticatedUser = userMapping.mapUser(principal.toString());
+            return Identity.forUser(authenticatedUser)
+                    .withPrincipal(principal)
+                    .build();
+        }
+        catch (UserMappingException e) {
+            throw new AuthenticationException(e.getMessage(), NEGOTIATE_SCHEME);
+        }
     }
 
     private Optional<Principal> authenticate(String token)

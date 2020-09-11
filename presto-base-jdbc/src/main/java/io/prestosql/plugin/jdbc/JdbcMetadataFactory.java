@@ -13,7 +13,11 @@
  */
 package io.prestosql.plugin.jdbc;
 
+import io.airlift.units.Duration;
+
 import javax.inject.Inject;
+
+import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,6 +36,6 @@ public class JdbcMetadataFactory
 
     public JdbcMetadata create()
     {
-        return new JdbcMetadata(jdbcClient, allowDropTable);
+        return new JdbcMetadata(new CachingJdbcClient(jdbcClient, new Duration(1, TimeUnit.DAYS), true), allowDropTable);
     }
 }

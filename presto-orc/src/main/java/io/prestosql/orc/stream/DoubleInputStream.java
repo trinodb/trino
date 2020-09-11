@@ -16,8 +16,6 @@ package io.prestosql.orc.stream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.orc.checkpoint.DoubleStreamCheckpoint;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
 
 import java.io.IOException;
 
@@ -26,19 +24,14 @@ import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 public class DoubleInputStream
         implements ValueInputStream<DoubleStreamCheckpoint>
 {
+    private static final int BUFFER_SIZE = 128;
     private final OrcInputStream input;
-    private final byte[] buffer = new byte[SIZE_OF_DOUBLE];
+    private final byte[] buffer = new byte[SIZE_OF_DOUBLE * BUFFER_SIZE];
     private final Slice slice = Slices.wrappedBuffer(buffer);
 
     public DoubleInputStream(OrcInputStream input)
     {
         this.input = input;
-    }
-
-    @Override
-    public Class<DoubleStreamCheckpoint> getCheckpointType()
-    {
-        return DoubleStreamCheckpoint.class;
     }
 
     @Override
@@ -63,11 +56,9 @@ public class DoubleInputStream
         return slice.getDouble(0);
     }
 
-    public void nextVector(Type type, int items, BlockBuilder builder)
+    public void next(long[] values, int items)
             throws IOException
     {
-        for (int i = 0; i < items; i++) {
-            type.writeDouble(builder, next());
-        }
+        input.readFully(Slices.wrappedLongArray(values), 0, items * SIZE_OF_DOUBLE);
     }
 }

@@ -14,15 +14,16 @@
 package io.prestosql.orc.metadata;
 
 import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
-import io.prestosql.orc.metadata.statistics.HiveBloomFilter;
+import io.prestosql.orc.metadata.statistics.BloomFilter;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.ZoneId;
 import java.util.List;
 
 public interface MetadataReader
 {
-    PostScript readPostScript(byte[] data, int offset, int length)
+    PostScript readPostScript(InputStream inputStream)
             throws IOException;
 
     Metadata readMetadata(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
@@ -31,12 +32,12 @@ public interface MetadataReader
     Footer readFooter(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException;
 
-    StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+    StripeFooter readStripeFooter(ColumnMetadata<OrcType> types, InputStream inputStream, ZoneId legacyFileTimeZone)
             throws IOException;
 
     List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException;
 
-    List<HiveBloomFilter> readBloomFilterIndexes(InputStream inputStream)
+    List<BloomFilter> readBloomFilterIndexes(InputStream inputStream)
             throws IOException;
 }

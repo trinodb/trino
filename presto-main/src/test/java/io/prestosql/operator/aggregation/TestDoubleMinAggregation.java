@@ -16,7 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
@@ -26,7 +26,7 @@ public class TestDoubleMinAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -36,7 +36,7 @@ public class TestDoubleMinAggregation
     }
 
     @Override
-    public Number getExpectedValue(int start, int length)
+    protected Number getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;
@@ -51,8 +51,8 @@ public class TestDoubleMinAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.DOUBLE);
+        return ImmutableList.of(DOUBLE);
     }
 }

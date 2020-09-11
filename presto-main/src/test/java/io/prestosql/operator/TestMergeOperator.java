@@ -19,14 +19,16 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.testing.TestingHttpClient;
+import io.airlift.node.NodeInfo;
+import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.buffer.PagesSerdeFactory;
 import io.prestosql.execution.buffer.TestingPagesSerdeFactory;
-import io.prestosql.metadata.RemoteTransactionHandle;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.RemoteSplit;
+import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.OrderingCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterMethod;
@@ -82,7 +84,7 @@ public class TestMergeOperator
 
         taskBuffers = CacheBuilder.newBuilder().build(CacheLoader.from(TestingTaskBuffer::new));
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), executor);
-        exchangeClientFactory = new ExchangeClientFactory(new ExchangeClientConfig(), httpClient, executor);
+        exchangeClientFactory = new ExchangeClientFactory(new NodeInfo("test"), new FeaturesConfig(), new ExchangeClientConfig(), httpClient, executor);
         orderingCompiler = new OrderingCompiler();
     }
 
@@ -350,7 +352,7 @@ public class TestMergeOperator
 
     private static Split createRemoteSplit(String taskId)
     {
-        return new Split(ExchangeOperator.REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(URI.create("http://localhost/" + taskId)));
+        return new Split(ExchangeOperator.REMOTE_CONNECTOR_ID, new RemoteSplit(URI.create("http://localhost/" + taskId)), Lifespan.taskWide());
     }
 
     private static List<Page> pullAvailablePages(Operator operator)

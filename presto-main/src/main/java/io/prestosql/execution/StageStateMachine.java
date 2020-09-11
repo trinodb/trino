@@ -14,6 +14,7 @@
 package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.stats.Distribution;
 import io.airlift.units.Duration;
@@ -26,13 +27,13 @@ import io.prestosql.operator.PipelineStats;
 import io.prestosql.operator.TaskStats;
 import io.prestosql.spi.eventlistener.StageGcStatistics;
 import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.util.Failures;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.net.URI;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -55,6 +56,7 @@ import static io.prestosql.execution.StageState.ABORTED;
 import static io.prestosql.execution.StageState.CANCELED;
 import static io.prestosql.execution.StageState.FAILED;
 import static io.prestosql.execution.StageState.FINISHED;
+import static io.prestosql.execution.StageState.FLUSHING;
 import static io.prestosql.execution.StageState.PLANNED;
 import static io.prestosql.execution.StageState.RUNNING;
 import static io.prestosql.execution.StageState.SCHEDULED;
@@ -74,35 +76,36 @@ public class StageStateMachine
     private static final Logger log = Logger.get(StageStateMachine.class);
 
     private final StageId stageId;
-    private final URI location;
     private final PlanFragment fragment;
     private final Session session;
+    private final Map<PlanNodeId, TableInfo> tables;
     private final SplitSchedulerStats scheduledStats;
 
     private final StateMachine<StageState> stageState;
     private final StateMachine<Optional<StageInfo>> finalStageInfo;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
-    private final AtomicReference<Optional<String>> renderedPlan = new AtomicReference<>(Optional.empty());
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
     private final Distribution getSplitDistribution = new Distribution();
 
     private final AtomicLong peakUserMemory = new AtomicLong();
+    private final AtomicLong peakRevocableMemory = new AtomicLong();
     private final AtomicLong currentUserMemory = new AtomicLong();
+    private final AtomicLong currentRevocableMemory = new AtomicLong();
     private final AtomicLong currentTotalMemory = new AtomicLong();
 
     public StageStateMachine(
             StageId stageId,
-            URI location,
             Session session,
             PlanFragment fragment,
+            Map<PlanNodeId, TableInfo> tables,
             ExecutorService executor,
             SplitSchedulerStats schedulerStats)
     {
         this.stageId = requireNonNull(stageId, "stageId is null");
-        this.location = requireNonNull(location, "location is null");
         this.session = requireNonNull(session, "session is null");
         this.fragment = requireNonNull(fragment, "fragment is null");
+        this.tables = ImmutableMap.copyOf(requireNonNull(tables, "tables is null"));
         this.scheduledStats = requireNonNull(schedulerStats, "schedulerStats is null");
 
         stageState = new StateMachine<>("stage " + stageId, executor, PLANNED, TERMINAL_STAGE_STATES);
@@ -114,11 +117,6 @@ public class StageStateMachine
     public StageId getStageId()
     {
         return stageId;
-    }
-
-    public URI getLocation()
-    {
-        return location;
     }
 
     public Session getSession()
@@ -164,7 +162,12 @@ public class StageStateMachine
 
     public boolean transitionToRunning()
     {
-        return stageState.setIf(RUNNING, currentState -> currentState != RUNNING && !currentState.isDone());
+        return stageState.setIf(RUNNING, currentState -> currentState != RUNNING && currentState != FLUSHING && !currentState.isDone());
+    }
+
+    public boolean transitionToFlushing()
+    {
+        return stageState.setIf(FLUSHING, currentState -> currentState != FLUSHING && !currentState.isDone());
     }
 
     public boolean transitionToFinished()
@@ -233,11 +236,13 @@ public class StageStateMachine
         return currentTotalMemory.get();
     }
 
-    public void updateMemoryUsage(long deltaUserMemoryInBytes, long deltaTotalMemoryInBytes)
+    public void updateMemoryUsage(long deltaUserMemoryInBytes, long deltaRevocableMemoryInBytes, long deltaTotalMemoryInBytes)
     {
-        currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
         currentUserMemory.addAndGet(deltaUserMemoryInBytes);
+        currentRevocableMemory.addAndGet(deltaRevocableMemoryInBytes);
+        currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
         peakUserMemory.updateAndGet(currentPeakValue -> max(currentUserMemory.get(), currentPeakValue));
+        peakRevocableMemory.updateAndGet(currentPeakValue -> max(currentRevocableMemory.get(), currentPeakValue));
     }
 
     public BasicStageStats getBasicStageStats(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
@@ -254,7 +259,7 @@ public class StageStateMachine
         // information, the stage could finish, and the task states would
         // never be visible.
         StageState state = stageState.get();
-        boolean isScheduled = (state == RUNNING) || state.isDone();
+        boolean isScheduled = state == RUNNING || state == FLUSHING || state.isDone();
 
         List<TaskInfo> taskInfos = ImmutableList.copyOf(taskInfosSupplier.get());
 
@@ -272,6 +277,7 @@ public class StageStateMachine
 
         long physicalInputDataSize = 0;
         long physicalInputPositions = 0;
+        long physicalInputReadTime = 0;
 
         long internalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
@@ -295,8 +301,9 @@ public class StageStateMachine
 
             long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
             long taskSystemMemory = taskStats.getSystemMemoryReservation().toBytes();
+            long taskRevocableMemory = taskStats.getRevocableMemoryReservation().toBytes();
             userMemoryReservation += taskUserMemory;
-            totalMemoryReservation += taskUserMemory + taskSystemMemory;
+            totalMemoryReservation += taskUserMemory + taskSystemMemory + taskRevocableMemory;
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
@@ -305,13 +312,14 @@ public class StageStateMachine
                 blockedReasons.addAll(taskStats.getBlockedReasons());
             }
 
+            physicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
+            physicalInputPositions += taskStats.getPhysicalInputPositions();
+            physicalInputReadTime += taskStats.getPhysicalInputReadTime().roundTo(NANOSECONDS);
+
+            internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
+            internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
+
             if (fragment.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
-                physicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
-                physicalInputPositions += taskStats.getPhysicalInputPositions();
-
-                internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
-                internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
-
                 rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
                 rawInputPositions += taskStats.getRawInputPositions();
             }
@@ -332,6 +340,7 @@ public class StageStateMachine
 
                 succinctBytes(physicalInputDataSize),
                 physicalInputPositions,
+                new Duration(physicalInputReadTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
@@ -379,8 +388,10 @@ public class StageStateMachine
 
         long cumulativeUserMemory = 0;
         long userMemoryReservation = 0;
+        long revocableMemoryReservation = 0;
         long totalMemoryReservation = 0;
         long peakUserMemoryReservation = peakUserMemory.get();
+        long peakRevocableMemoryReservation = peakRevocableMemory.get();
 
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
@@ -388,6 +399,7 @@ public class StageStateMachine
 
         long physicalInputDataSize = 0;
         long physicalInputPositions = 0;
+        long physicalInputReadTime = 0;
 
         long internalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
@@ -435,8 +447,10 @@ public class StageStateMachine
 
             long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
             long taskSystemMemory = taskStats.getSystemMemoryReservation().toBytes();
+            long taskRevocableMemory = taskStats.getRevocableMemoryReservation().toBytes();
             userMemoryReservation += taskUserMemory;
-            totalMemoryReservation += taskUserMemory + taskSystemMemory;
+            revocableMemoryReservation += taskRevocableMemory;
+            totalMemoryReservation += taskUserMemory + taskSystemMemory + taskRevocableMemory;
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
@@ -448,6 +462,7 @@ public class StageStateMachine
 
             physicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
             physicalInputPositions += taskStats.getPhysicalInputPositions();
+            physicalInputReadTime += taskStats.getPhysicalInputReadTime().roundTo(NANOSECONDS);
 
             internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
@@ -496,8 +511,10 @@ public class StageStateMachine
 
                 cumulativeUserMemory,
                 succinctBytes(userMemoryReservation),
+                succinctBytes(revocableMemoryReservation),
                 succinctBytes(totalMemoryReservation),
                 succinctBytes(peakUserMemoryReservation),
+                succinctBytes(peakRevocableMemoryReservation),
                 succinctDuration(totalScheduledTime, NANOSECONDS),
                 succinctDuration(totalCpuTime, NANOSECONDS),
                 succinctDuration(totalBlockedTime, NANOSECONDS),
@@ -506,6 +523,7 @@ public class StageStateMachine
 
                 succinctBytes(physicalInputDataSize),
                 physicalInputPositions,
+                succinctDuration(physicalInputReadTime, NANOSECONDS),
 
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
@@ -537,12 +555,12 @@ public class StageStateMachine
         }
         return new StageInfo(stageId,
                 state,
-                location,
                 fragment,
                 fragment.getTypes(),
                 stageStats,
                 taskInfos,
                 ImmutableList.of(),
+                tables,
                 failureInfo);
     }
 

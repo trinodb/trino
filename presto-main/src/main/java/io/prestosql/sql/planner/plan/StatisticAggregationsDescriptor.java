@@ -35,7 +35,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
@@ -166,8 +166,7 @@ public class StatisticAggregationsDescriptor<T>
         public void serialize(ColumnStatisticMetadata value, JsonGenerator gen, SerializerProvider serializers)
                 throws IOException
         {
-            verify(value != null, "value is null");
-            gen.writeFieldName(serialize(value));
+            gen.writeFieldName(serialize(verifyNotNull(value, "value is null")));
         }
 
         @VisibleForTesting

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
 import io.prestosql.operator.WorkProcessor.ProcessState;
 import io.prestosql.operator.WorkProcessor.TransformationState;
+import io.prestosql.operator.WorkProcessorAssertion.Transform;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
@@ -25,12 +26,18 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static io.prestosql.operator.WorkProcessor.ProcessState.Type.BLOCKED;
+import static io.prestosql.operator.WorkProcessor.ProcessState.Type.FINISHED;
+import static io.prestosql.operator.WorkProcessor.ProcessState.Type.RESULT;
+import static io.prestosql.operator.WorkProcessor.ProcessState.Type.YIELD;
 import static io.prestosql.operator.WorkProcessorAssertion.assertBlocks;
 import static io.prestosql.operator.WorkProcessorAssertion.assertFinishes;
 import static io.prestosql.operator.WorkProcessorAssertion.assertResult;
 import static io.prestosql.operator.WorkProcessorAssertion.assertUnblocks;
 import static io.prestosql.operator.WorkProcessorAssertion.assertYields;
-import static java.util.Objects.requireNonNull;
+import static io.prestosql.operator.WorkProcessorAssertion.processorFrom;
+import static io.prestosql.operator.WorkProcessorAssertion.transformationFrom;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -53,25 +60,31 @@ public class TestWorkProcessor
         assertFalse(iterator.hasNext());
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Cannot iterate over yielding WorkProcessor")
+    @Test
     public void testIteratorFailsWhenWorkProcessorHasYielded()
     {
         // iterator should fail if underlying work has yielded
         WorkProcessor<Integer> processor = processorFrom(ImmutableList.of(ProcessState.yield()));
         Iterator<Integer> iterator = processor.iterator();
-        iterator.hasNext();
+        //noinspection ResultOfMethodCallIgnored
+        assertThatThrownBy(iterator::hasNext)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Cannot iterate over yielding WorkProcessor");
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Cannot iterate over blocking WorkProcessor")
+    @Test
     public void testIteratorFailsWhenWorkProcessorIsBlocked()
     {
         // iterator should fail if underlying work is blocked
         WorkProcessor<Integer> processor = processorFrom(ImmutableList.of(ProcessState.blocked(SettableFuture.create())));
         Iterator<Integer> iterator = processor.iterator();
-        iterator.hasNext();
+        //noinspection ResultOfMethodCallIgnored
+        assertThatThrownBy(iterator::hasNext)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Cannot iterate over blocking WorkProcessor");
     }
 
-    @Test(timeOut = 5000)
+    @Test(timeOut = 10_000)
     public void testMergeSorted()
     {
         List<ProcessState<Integer>> firstStream = ImmutableList.of(
@@ -120,7 +133,7 @@ public class TestWorkProcessor
         assertFinishes(mergedStream);
     }
 
-    @Test(timeOut = 5000)
+    @Test(timeOut = 10_000)
     public void testMergeSortedEmptyStreams()
     {
         SettableFuture<?> firstFuture = SettableFuture.create();
@@ -160,7 +173,7 @@ public class TestWorkProcessor
         assertFinishes(mergedStream);
     }
 
-    @Test(timeOut = 5000)
+    @Test(timeOut = 10_000)
     public void testMergeSortedEmptyStreamsWithFinishedOnly()
     {
         List<ProcessState<Integer>> firstStream = ImmutableList.of(
@@ -180,7 +193,7 @@ public class TestWorkProcessor
         assertFinishes(mergedStream);
     }
 
-    @Test(timeOut = 5000)
+    @Test(timeOut = 10_000)
     public void testYield()
     {
         SettableFuture<?> future = SettableFuture.create();
@@ -206,12 +219,12 @@ public class TestWorkProcessor
         // processor should progress since it yielded last time
         assertResult(processor, 2);
 
+        // yield signal is still set
+        assertYields(processor);
+
         // base scenario future blocks
         assertBlocks(processor);
         assertUnblocks(processor, future);
-
-        // yield signal is still set
-        assertYields(processor);
 
         // continue to process normally
         yieldSignal.set(false);
@@ -220,7 +233,58 @@ public class TestWorkProcessor
         assertFinishes(processor);
     }
 
-    @Test(timeOut = 5000)
+    @Test(timeOut = 10_000)
+    public void testProcessStateMonitor()
+    {
+        SettableFuture<?> future = SettableFuture.create();
+
+        List<ProcessState<Integer>> baseScenario = ImmutableList.of(
+                ProcessState.ofResult(1),
+                ProcessState.yield(),
+                ProcessState.blocked(future),
+                ProcessState.finished());
+
+        ImmutableList.Builder<ProcessState.Type> actions = ImmutableList.builder();
+
+        WorkProcessor<Integer> processor = processorFrom(baseScenario)
+                .withProcessStateMonitor(state -> actions.add(state.getType()));
+
+        assertResult(processor, 1);
+        assertYields(processor);
+        assertBlocks(processor);
+        assertUnblocks(processor, future);
+        assertFinishes(processor);
+
+        assertEquals(actions.build(), ImmutableList.of(RESULT, YIELD, BLOCKED, FINISHED));
+    }
+
+    @Test(timeOut = 10_000)
+    public void testFinished()
+    {
+        AtomicBoolean finished = new AtomicBoolean();
+        SettableFuture<?> future = SettableFuture.create();
+
+        List<ProcessState<Integer>> scenario = ImmutableList.of(
+                ProcessState.ofResult(1),
+                ProcessState.yield(),
+                ProcessState.blocked(future),
+                ProcessState.ofResult(2));
+
+        WorkProcessor<Integer> processor = processorFrom(scenario)
+                .finishWhen(finished::get);
+
+        assertResult(processor, 1);
+        assertYields(processor);
+        assertBlocks(processor);
+
+        finished.set(true);
+        assertBlocks(processor);
+
+        assertUnblocks(processor, future);
+        assertFinishes(processor);
+    }
+
+    @Test(timeOut = 10_000)
     public void testFlatMap()
     {
         List<ProcessState<Integer>> baseScenario = ImmutableList.of(
@@ -238,7 +302,7 @@ public class TestWorkProcessor
         assertFinishes(processor);
     }
 
-    @Test(timeOut = 5000)
+    @Test(timeOut = 10_000)
     public void testMap()
     {
         List<ProcessState<Integer>> baseScenario = ImmutableList.of(
@@ -254,7 +318,7 @@ public class TestWorkProcessor
         assertFinishes(processor);
     }
 
-    @Test(timeOut = 5000)
+    @Test(timeOut = 10_000)
     public void testFlatTransform()
     {
         SettableFuture<?> baseFuture = SettableFuture.create();
@@ -341,7 +405,7 @@ public class TestWorkProcessor
         assertFinishes(processor);
     }
 
-    @Test(timeOut = 5000)
+    @Test(timeOut = 10_000)
     public void testTransform()
     {
         SettableFuture<?> baseFuture = SettableFuture.create();
@@ -405,7 +469,7 @@ public class TestWorkProcessor
         assertFinishes(processor);
     }
 
-    @Test(timeOut = 5000)
+    @Test(timeOut = 10_000)
     public void testCreateFrom()
     {
         SettableFuture<?> future = SettableFuture.create();
@@ -429,51 +493,5 @@ public class TestWorkProcessor
         assertYields(processor);
         assertResult(processor, 2);
         assertFinishes(processor);
-    }
-
-    private static <T, R> WorkProcessor.Transformation<T, R> transformationFrom(List<Transform<T, R>> transformations)
-    {
-        Iterator<Transform<T, R>> iterator = transformations.iterator();
-        return elementOptional -> {
-            assertTrue(iterator.hasNext());
-            return iterator.next().transform(elementOptional);
-        };
-    }
-
-    private static <T> WorkProcessor<T> processorFrom(List<ProcessState<T>> states)
-    {
-        return WorkProcessorUtils.create(processFrom(states));
-    }
-
-    private static <T> WorkProcessor.Process<T> processFrom(List<ProcessState<T>> states)
-    {
-        Iterator<ProcessState<T>> iterator = states.iterator();
-        return () -> {
-            assertTrue(iterator.hasNext());
-            return iterator.next();
-        };
-    }
-
-    private static class Transform<T, R>
-    {
-        final Optional<T> from;
-        final TransformationState<R> to;
-
-        Transform(Optional<T> from, TransformationState<R> to)
-        {
-            this.from = requireNonNull(from);
-            this.to = requireNonNull(to);
-        }
-
-        static <T, R> Transform<T, R> of(Optional<T> from, TransformationState<R> to)
-        {
-            return new Transform<>(from, to);
-        }
-
-        TransformationState<R> transform(Optional<T> from)
-        {
-            assertEquals(from, this.from);
-            return to;
-        }
     }
 }

@@ -31,6 +31,8 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getDone;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.prestosql.sql.planner.plan.SpatialJoinNode.Type.INNER;
@@ -51,6 +53,7 @@ public class SpatialJoinOperator
         private final int probeGeometryChannel;
         private final Optional<Integer> partitionChannel;
         private final PagesSpatialIndexFactory pagesSpatialIndexFactory;
+        private final ReferenceCount referenceCount;
 
         private boolean closed;
 
@@ -66,13 +69,30 @@ public class SpatialJoinOperator
         {
             checkArgument(joinType == INNER || joinType == LEFT, "unsupported join type: %s", joinType);
             this.operatorId = operatorId;
-            this.planNodeId = planNodeId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.joinType = joinType;
             this.probeTypes = ImmutableList.copyOf(probeTypes);
             this.probeOutputChannels = ImmutableList.copyOf(probeOutputChannels);
             this.probeGeometryChannel = probeGeometryChannel;
             this.partitionChannel = requireNonNull(partitionChannel, "partitionChannel is null");
-            this.pagesSpatialIndexFactory = pagesSpatialIndexFactory;
+            this.pagesSpatialIndexFactory = requireNonNull(pagesSpatialIndexFactory, "pagesSpatialIndexFactory is null");
+            this.referenceCount = new ReferenceCount(1);
+            this.referenceCount.getFreeFuture().addListener(pagesSpatialIndexFactory::destroy, directExecutor());
+        }
+
+        private SpatialJoinOperatorFactory(SpatialJoinOperatorFactory other)
+        {
+            this.operatorId = other.operatorId;
+            this.planNodeId = other.planNodeId;
+            this.joinType = other.joinType;
+            this.probeTypes = other.probeTypes;
+            this.probeOutputChannels = other.probeOutputChannels;
+            this.probeGeometryChannel = other.probeGeometryChannel;
+            this.partitionChannel = other.partitionChannel;
+            this.pagesSpatialIndexFactory = other.pagesSpatialIndexFactory;
+            this.referenceCount = other.referenceCount;
+            this.closed = false;
+            referenceCount.retain();
         }
 
         @Override
@@ -83,6 +103,7 @@ public class SpatialJoinOperator
                     operatorId,
                     planNodeId,
                     SpatialJoinOperator.class.getSimpleName());
+            referenceCount.retain();
             return new SpatialJoinOperator(
                     operatorContext,
                     joinType,
@@ -90,7 +111,8 @@ public class SpatialJoinOperator
                     probeOutputChannels,
                     probeGeometryChannel,
                     partitionChannel,
-                    pagesSpatialIndexFactory);
+                    pagesSpatialIndexFactory,
+                    referenceCount::release);
         }
 
         @Override
@@ -100,14 +122,15 @@ public class SpatialJoinOperator
                 return;
             }
 
-            pagesSpatialIndexFactory.noMoreProbeOperators();
+            referenceCount.release();
             closed = true;
         }
 
         @Override
         public OperatorFactory duplicate()
         {
-            return new SpatialJoinOperatorFactory(operatorId, planNodeId, joinType, probeTypes, probeOutputChannels, probeGeometryChannel, partitionChannel, pagesSpatialIndexFactory);
+            checkState(!closed, "Factory is already closed");
+            return new SpatialJoinOperatorFactory(this);
         }
     }
 
@@ -119,6 +142,7 @@ public class SpatialJoinOperator
     private final int probeGeometryChannel;
     private final Optional<Integer> partitionChannel;
     private final PagesSpatialIndexFactory pagesSpatialIndexFactory;
+    private final Runnable onClose;
 
     private ListenableFuture<PagesSpatialIndex> pagesSpatialIndexFuture;
     private final PageBuilder pageBuilder;
@@ -135,6 +159,7 @@ public class SpatialJoinOperator
 
     private boolean finishing;
     private boolean finished;
+    private boolean closed;
 
     public SpatialJoinOperator(
             OperatorContext operatorContext,
@@ -143,16 +168,18 @@ public class SpatialJoinOperator
             List<Integer> probeOutputChannels,
             int probeGeometryChannel,
             Optional<Integer> partitionChannel,
-            PagesSpatialIndexFactory pagesSpatialIndexFactory)
+            PagesSpatialIndexFactory pagesSpatialIndexFactory,
+            Runnable onClose)
     {
-        this.operatorContext = operatorContext;
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
-        this.joinType = joinType;
+        this.joinType = requireNonNull(joinType, "joinType is null");
         this.probeTypes = ImmutableList.copyOf(probeTypes);
         this.probeOutputChannels = ImmutableList.copyOf(probeOutputChannels);
         this.probeGeometryChannel = probeGeometryChannel;
         this.partitionChannel = requireNonNull(partitionChannel, "partitionChannel is null");
-        this.pagesSpatialIndexFactory = pagesSpatialIndexFactory;
+        this.pagesSpatialIndexFactory = requireNonNull(pagesSpatialIndexFactory, "pagesSpatialIndexFactory is null");
+        this.onClose = requireNonNull(onClose, "onClose is null");
         this.pagesSpatialIndexFuture = pagesSpatialIndexFactory.createPagesSpatialIndex();
         this.pageBuilder = new PageBuilder(ImmutableList.<Type>builder()
                 .addAll(probeOutputChannels.stream()
@@ -204,9 +231,8 @@ public class SpatialJoinOperator
                 page = pageBuilder.build();
                 pageBuilder.reset();
             }
-            pagesSpatialIndexFactory.probeOperatorFinished();
-            pagesSpatialIndexFuture = null;
             finished = true;
+            close();
             return page;
         }
 
@@ -215,7 +241,7 @@ public class SpatialJoinOperator
 
     private void processProbe()
     {
-        verify(probe != null);
+        verifyNotNull(probe);
 
         PagesSpatialIndex pagesSpatialIndex = getDone(pagesSpatialIndexFuture);
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
@@ -291,14 +317,20 @@ public class SpatialJoinOperator
     }
 
     @Override
-    public void close()
-    {
-        pagesSpatialIndexFuture = null;
-    }
-
-    @Override
     public boolean isFinished()
     {
         return finished;
+    }
+
+    @Override
+    public void close()
+    {
+        if (closed) {
+            return;
+        }
+        closed = true;
+
+        pagesSpatialIndexFuture = null;
+        onClose.run();
     }
 }

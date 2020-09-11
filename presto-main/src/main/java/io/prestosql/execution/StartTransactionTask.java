@@ -20,7 +20,6 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.transaction.IsolationLevel;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Isolation;
 import io.prestosql.sql.tree.StartTransaction;
@@ -32,7 +31,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_TRANSACTION_MODE;
+import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 
 public class StartTransactionTask
         implements DataDefinitionTask<StartTransaction>
@@ -71,18 +71,12 @@ public class StartTransactionTask
         return immediateFuture(null);
     }
 
-    @Override
-    public boolean isTransactionControl()
-    {
-        return true;
-    }
-
     private static Optional<IsolationLevel> extractIsolationLevel(StartTransaction startTransaction)
     {
         if (startTransaction.getTransactionModes().stream()
                 .filter(Isolation.class::isInstance)
                 .count() > 1) {
-            throw new SemanticException(INVALID_TRANSACTION_MODE, startTransaction, "Multiple transaction isolation levels specified");
+            throw semanticException(SYNTAX_ERROR, startTransaction, "Multiple transaction isolation levels specified");
         }
 
         return startTransaction.getTransactionModes().stream()
@@ -98,7 +92,7 @@ public class StartTransactionTask
         if (startTransaction.getTransactionModes().stream()
                 .filter(TransactionAccessMode.class::isInstance)
                 .count() > 1) {
-            throw new SemanticException(INVALID_TRANSACTION_MODE, startTransaction, "Multiple transaction read modes specified");
+            throw semanticException(SYNTAX_ERROR, startTransaction, "Multiple transaction read modes specified");
         }
 
         return startTransaction.getTransactionModes().stream()

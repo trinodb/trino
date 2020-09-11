@@ -53,7 +53,7 @@ public class TestLimitOperator
                 .addDriverContext();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();

@@ -30,6 +30,7 @@ import io.prestosql.sql.relational.ConstantExpression;
 import io.prestosql.sql.relational.InputReferenceExpression;
 import io.prestosql.sql.relational.LambdaDefinitionExpression;
 import io.prestosql.sql.relational.RowExpressionVisitor;
+import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.sql.relational.VariableReferenceExpression;
 import org.objectweb.asm.MethodVisitor;
 
@@ -80,6 +81,12 @@ class InputReferenceCompiler
     }
 
     @Override
+    public BytecodeNode visitSpecialForm(SpecialForm specialForm, Scope context)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    @Override
     public BytecodeNode visitConstant(ConstantExpression literal, Scope scope)
     {
         throw new UnsupportedOperationException("not yet implemented");
@@ -108,9 +115,9 @@ class InputReferenceCompiler
         {
             // Generate body based on block and position
             Variable wasNullVariable = scope.getVariable("wasNull");
-            Class<?> javaType = type.getJavaType();
-            if (!javaType.isPrimitive() && javaType != Slice.class) {
-                javaType = Object.class;
+            Class<?> callType = type.getJavaType();
+            if (!callType.isPrimitive() && callType != Slice.class) {
+                callType = Object.class;
             }
 
             IfStatement ifStatement = new IfStatement();
@@ -118,10 +125,14 @@ class InputReferenceCompiler
 
             ifStatement.ifTrue()
                     .putVariable(wasNullVariable, true)
-                    .pushJavaDefault(javaType);
+                    .pushJavaDefault(callType);
 
-            String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
-            ifStatement.ifFalse(constantType(callSiteBinder, type).invoke(methodName, javaType, block, position));
+            String methodName = "get" + Primitives.wrap(callType).getSimpleName();
+            BytecodeExpression value = constantType(callSiteBinder, type).invoke(methodName, callType, block, position);
+            if (callType != type.getJavaType()) {
+                value = value.cast(type.getJavaType());
+            }
+            ifStatement.ifFalse(value);
 
             this.body = ifStatement;
             this.block = block;
@@ -152,6 +163,11 @@ class InputReferenceCompiler
             blockAndPosition.append(block);
             blockAndPosition.append(position);
             return blockAndPosition;
+        }
+
+        public BytecodeExpression blockAndPositionIsNull()
+        {
+            return block.invoke("isNull", boolean.class, position);
         }
     }
 }

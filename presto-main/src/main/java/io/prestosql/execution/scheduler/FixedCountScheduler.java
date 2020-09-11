@@ -16,7 +16,7 @@ package io.prestosql.execution.scheduler;
 import com.google.common.annotations.VisibleForTesting;
 import io.prestosql.execution.RemoteTask;
 import io.prestosql.execution.SqlStageExecution;
-import io.prestosql.spi.Node;
+import io.prestosql.metadata.InternalNode;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,13 +31,13 @@ public class FixedCountScheduler
 {
     public interface TaskScheduler
     {
-        Optional<RemoteTask> scheduleTask(Node node, int partition, OptionalInt totalPartitions);
+        Optional<RemoteTask> scheduleTask(InternalNode node, int partition, OptionalInt totalPartitions);
     }
 
     private final TaskScheduler taskScheduler;
-    private final List<Node> partitionToNode;
+    private final List<InternalNode> partitionToNode;
 
-    public FixedCountScheduler(SqlStageExecution stage, List<Node> partitionToNode)
+    public FixedCountScheduler(SqlStageExecution stage, List<InternalNode> partitionToNode)
     {
         requireNonNull(stage, "stage is null");
         this.taskScheduler = stage::scheduleTask;
@@ -45,7 +45,7 @@ public class FixedCountScheduler
     }
 
     @VisibleForTesting
-    public FixedCountScheduler(TaskScheduler taskScheduler, List<Node> partitionToNode)
+    public FixedCountScheduler(TaskScheduler taskScheduler, List<InternalNode> partitionToNode)
     {
         this.taskScheduler = requireNonNull(taskScheduler, "taskScheduler is null");
         this.partitionToNode = requireNonNull(partitionToNode, "partitionToNode is null");

@@ -16,6 +16,7 @@ package io.prestosql.plugin.raptor.legacy.metadata;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
@@ -28,7 +29,6 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.getOptionalInt;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
 public class TableColumn
@@ -135,7 +135,7 @@ public class TableColumn
                     r.getString("table_name"));
 
             String typeName = r.getString("data_type");
-            Type type = typeManager.getType(parseTypeSignature(typeName));
+            Type type = typeManager.getType(TypeId.of(typeName));
 
             return new TableColumn(
                     table,

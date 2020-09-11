@@ -14,23 +14,21 @@
 package io.prestosql.split;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public interface SplitSource
         extends Closeable
 {
-    ConnectorId getConnectorId();
-
-    ConnectorTransactionHandle getTransactionHandle();
+    CatalogName getCatalogName();
 
     ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, Lifespan lifespan, int maxSize);
 
@@ -65,4 +63,6 @@ public interface SplitSource
             return lastBatch;
         }
     }
+
+    Optional<Integer> getMinScheduleSplitBatchSize();
 }

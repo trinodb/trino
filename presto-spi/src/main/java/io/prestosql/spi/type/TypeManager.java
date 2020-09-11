@@ -13,42 +13,40 @@
  */
 package io.prestosql.spi.type;
 
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorType;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 public interface TypeManager
 {
     /**
-     * Gets the type with the specified signature, or null if not found.
+     * Gets the type with the specified signature.
+     *
+     * @throws TypeNotFoundException if not found
      */
     Type getType(TypeSignature signature);
 
     /**
-     * Gets the type with the specified base type, and the given parameters, or null if not found.
+     * Gets a type given it's SQL representation
      */
-    Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters);
+    Type fromSqlType(String type);
 
     /**
-     * Gets a list of all registered types.
+     * Gets the type with the give (opaque) id
      */
-    List<Type> getTypes();
+    Type getType(TypeId id);
 
     /**
-     * Gets all registered parametric types.
+     * Gets the type with the specified base type and the given parameters.
+     *
+     * @throws TypeNotFoundException if not found
      */
-    Collection<ParametricType> getParametricTypes();
+    default Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+    {
+        return getType(new TypeSignature(baseTypeName, typeParameters));
+    }
 
-    Optional<Type> getCommonSuperType(Type firstType, Type secondType);
-
-    boolean canCoerce(Type actualType, Type expectedType);
-
-    boolean isTypeOnlyCoercion(Type actualType, Type expectedType);
-
-    Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase);
-
-    MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes);
+    MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes, InvocationConvention invocationConvention);
 }

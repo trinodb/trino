@@ -14,16 +14,16 @@
 package io.prestosql.tests.hive;
 
 import com.google.common.math.IntMath;
-import io.prestodb.tempto.ProductTest;
-import io.prestodb.tempto.Requirement;
-import io.prestodb.tempto.RequirementsProvider;
-import io.prestodb.tempto.configuration.Configuration;
-import io.prestodb.tempto.fulfillment.table.MutableTableRequirement;
-import io.prestodb.tempto.fulfillment.table.MutableTablesState;
-import io.prestodb.tempto.fulfillment.table.TableDefinition;
-import io.prestodb.tempto.fulfillment.table.hive.HiveDataSource;
-import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
-import io.prestodb.tempto.query.QueryResult;
+import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.Requirement;
+import io.prestosql.tempto.RequirementsProvider;
+import io.prestosql.tempto.configuration.Configuration;
+import io.prestosql.tempto.fulfillment.table.MutableTableRequirement;
+import io.prestosql.tempto.fulfillment.table.MutableTablesState;
+import io.prestosql.tempto.fulfillment.table.TableDefinition;
+import io.prestosql.tempto.fulfillment.table.hive.HiveDataSource;
+import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
+import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import javax.inject.Inject;
@@ -32,15 +32,15 @@ import java.math.RoundingMode;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
-import static io.prestodb.tempto.Requirements.compose;
-import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
-import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
-import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
-import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
-import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tempto.Requirements.compose;
+import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
+import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
+import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
+import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
+import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_PARTITIONING;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -67,7 +67,7 @@ public class TestHivePartitionsTable
         return compose(
                 immutableTable(NATION),
                 mutableTable(partitionedTableDefinition(), PARTITIONED_TABLE, MutableTableRequirement.State.CREATED),
-                mutableTable(partitionedTableWithVariablePartitionsDefinition(), PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS, MutableTableRequirement.State.CREATED));
+                mutableTable(partitionedTableWithVariablePartitionsDefinition(configuration.getBoolean("databases.hive.enforce_non_transactional_tables")), PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS, MutableTableRequirement.State.CREATED));
     }
 
     private static TableDefinition partitionedTableDefinition()
@@ -85,11 +85,12 @@ public class TestHivePartitionsTable
                 .build();
     }
 
-    private static TableDefinition partitionedTableWithVariablePartitionsDefinition()
+    private static TableDefinition partitionedTableWithVariablePartitionsDefinition(Optional<Boolean> createTablesAsAcid)
     {
         String createTableDdl = "CREATE TABLE %NAME%(col INT) " +
                 "PARTITIONED BY (part_col INT) " +
-                "STORED AS ORC";
+                "STORED AS ORC " +
+                (createTablesAsAcid.orElse(false) ? "TBLPROPERTIES ('transactional_properties' = 'none', 'transactional' = 'false')" : "");
 
         return HiveTableDefinition.builder(PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS)
                 .setCreateTableDDLTemplate(createTableDdl)
@@ -97,7 +98,7 @@ public class TestHivePartitionsTable
                 .build();
     }
 
-    @Test(groups = {HIVE_PARTITIONING})
+    @Test(groups = HIVE_PARTITIONING)
     public void testShowPartitionsFromHiveTable()
     {
         String tableNameInDatabase = tablesState.get(PARTITIONED_TABLE).getNameInDatabase();
@@ -119,14 +120,14 @@ public class TestHivePartitionsTable
                 .failsWithMessage("Column 'col' cannot be resolved");
     }
 
-    @Test(groups = {HIVE_PARTITIONING})
+    @Test(groups = HIVE_PARTITIONING)
     public void testShowPartitionsFromUnpartitionedTable()
     {
         assertThat(() -> query("SELECT * FROM \"nation$partitions\""))
-                .failsWithMessageMatching(".*Table hive.default.nation\\$partitions does not exist");
+                .failsWithMessageMatching(".*Table 'hive.default.nation\\$partitions' does not exist");
     }
 
-    @Test(groups = {HIVE_PARTITIONING})
+    @Test(groups = HIVE_PARTITIONING)
     public void testShowPartitionsFromHiveTableWithTooManyPartitions()
     {
         String tableName = tablesState.get(PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS).getNameInDatabase();
@@ -142,6 +143,9 @@ public class TestHivePartitionsTable
         partitionListResult = query(format("SELECT * FROM %s WHERE part_col < 7", partitionsTable));
         assertThat(partitionListResult).containsExactly(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
         assertColumnNames(partitionListResult, "part_col");
+
+        partitionListResult = query(format("SELECT a.part_col FROM (SELECT * FROM %s WHERE part_col = 1) a, (SELECT * FROM %s WHERE part_col = 1) b WHERE a.col = b.col", tableName, tableName));
+        assertThat(partitionListResult).containsExactly(row(1));
 
         partitionListResult = query(format("SELECT * FROM %s WHERE part_col < -10", partitionsTable));
         assertThat(partitionListResult).hasNoRows();

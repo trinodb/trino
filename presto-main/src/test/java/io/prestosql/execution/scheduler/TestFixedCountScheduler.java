@@ -19,8 +19,7 @@ import io.prestosql.execution.MockRemoteTaskFactory;
 import io.prestosql.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.prestosql.execution.RemoteTask;
 import io.prestosql.execution.TaskId;
-import io.prestosql.metadata.PrestoNode;
-import io.prestosql.spi.Node;
+import io.prestosql.metadata.InternalNode;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -91,10 +90,10 @@ public class TestFixedCountScheduler
         assertEquals(result.getNewTasks().stream().map(RemoteTask::getNodeId).collect(toImmutableSet()).size(), 5);
     }
 
-    private static List<Node> generateRandomNodes(int count)
+    private static List<InternalNode> generateRandomNodes(int count)
     {
         return IntStream.range(0, count)
-                .mapToObj(i -> new PrestoNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false))
+                .mapToObj(i -> new InternalNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false))
                 .collect(toImmutableList());
     }
 }

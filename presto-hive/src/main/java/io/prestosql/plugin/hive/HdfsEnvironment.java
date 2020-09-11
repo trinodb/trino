@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
-import io.prestosql.hadoop.HadoopFileSystemCache;
+import com.google.common.primitives.Shorts;
 import io.prestosql.hadoop.HadoopNative;
 import io.prestosql.plugin.hive.authentication.GenericExceptionAction;
 import io.prestosql.plugin.hive.authentication.HdfsAuthentication;
@@ -22,6 +22,7 @@ import io.prestosql.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsPermission;
 
 import javax.inject.Inject;
 
@@ -29,27 +30,30 @@ import java.io.IOException;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.Integer.parseUnsignedInt;
 import static java.util.Objects.requireNonNull;
 
 public class HdfsEnvironment
 {
     static {
         HadoopNative.requireHadoopNative();
-        HadoopFileSystemCache.initialize();
     }
 
     private final HdfsConfiguration hdfsConfiguration;
     private final HdfsAuthentication hdfsAuthentication;
+    private final FsPermission newDirectoryPermissions;
     private final boolean verifyChecksum;
 
     @Inject
     public HdfsEnvironment(
             HdfsConfiguration hdfsConfiguration,
-            HiveClientConfig config,
+            HdfsConfig config,
             HdfsAuthentication hdfsAuthentication)
     {
         this.hdfsConfiguration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
-        this.verifyChecksum = requireNonNull(config, "config is null").isVerifyChecksum();
+        requireNonNull(config, "config is null");
+        this.newDirectoryPermissions = FsPermission.createImmutable(Shorts.checkedCast(parseUnsignedInt(config.getNewDirectoryPermissions(), 8)));
+        this.verifyChecksum = config.isVerifyChecksum();
         this.hdfsAuthentication = requireNonNull(hdfsAuthentication, "hdfsAuthentication is null");
     }
 
@@ -72,6 +76,11 @@ public class HdfsEnvironment
             fileSystem.setVerifyChecksum(verifyChecksum);
             return fileSystem;
         });
+    }
+
+    public FsPermission getNewDirectoryPermissions()
+    {
+        return newDirectoryPermissions;
     }
 
     public <R, E extends Exception> R doAs(String user, GenericExceptionAction<R, E> action)

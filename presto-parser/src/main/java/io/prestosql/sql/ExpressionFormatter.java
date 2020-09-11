@@ -17,6 +17,7 @@ import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.sql.tree.AllColumns;
+import io.prestosql.sql.tree.AllRows;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
 import io.prestosql.sql.tree.ArrayConstructor;
@@ -34,6 +35,7 @@ import io.prestosql.sql.tree.Cube;
 import io.prestosql.sql.tree.CurrentPath;
 import io.prestosql.sql.tree.CurrentTime;
 import io.prestosql.sql.tree.CurrentUser;
+import io.prestosql.sql.tree.DateTimeDataType;
 import io.prestosql.sql.tree.DecimalLiteral;
 import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.DoubleLiteral;
@@ -41,8 +43,10 @@ import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Extract;
 import io.prestosql.sql.tree.FieldReference;
+import io.prestosql.sql.tree.Format;
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.GenericDataType;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.GroupingElement;
 import io.prestosql.sql.tree.GroupingOperation;
@@ -51,6 +55,7 @@ import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.IfExpression;
 import io.prestosql.sql.tree.InListExpression;
 import io.prestosql.sql.tree.InPredicate;
+import io.prestosql.sql.tree.IntervalDayTimeDataType;
 import io.prestosql.sql.tree.IntervalLiteral;
 import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
@@ -63,12 +68,13 @@ import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullIfExpression;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.NumericParameter;
 import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.Parameter;
-import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.QuantifiedComparisonExpression;
 import io.prestosql.sql.tree.Rollup;
 import io.prestosql.sql.tree.Row;
+import io.prestosql.sql.tree.RowDataType;
 import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.SimpleCaseExpression;
 import io.prestosql.sql.tree.SimpleGroupBy;
@@ -80,6 +86,7 @@ import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.TimeLiteral;
 import io.prestosql.sql.tree.TimestampLiteral;
 import io.prestosql.sql.tree.TryExpression;
+import io.prestosql.sql.tree.TypeParameter;
 import io.prestosql.sql.tree.WhenClause;
 import io.prestosql.sql.tree.Window;
 import io.prestosql.sql.tree.WindowFrame;
@@ -89,15 +96,15 @@ import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.PrimitiveIterator;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.sql.SqlFormatter.formatName;
 import static io.prestosql.sql.SqlFormatter.formatSql;
 import static java.lang.String.format;
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public final class ExpressionFormatter
@@ -107,19 +114,12 @@ public final class ExpressionFormatter
 
     private ExpressionFormatter() {}
 
-    public static String formatExpression(Expression expression, Optional<List<Expression>> parameters)
+    public static String formatExpression(Expression expression)
     {
-        return new Formatter(parameters).process(expression, null);
+        return new Formatter().process(expression, null);
     }
 
-    public static String formatQualifiedName(QualifiedName name)
-    {
-        return name.getParts().stream()
-                .map(ExpressionFormatter::formatIdentifier)
-                .collect(joining("."));
-    }
-
-    public static String formatIdentifier(String s)
+    private static String formatIdentifier(String s)
     {
         return '"' + s.replace("\"", "\"\"") + '"';
     }
@@ -127,13 +127,6 @@ public final class ExpressionFormatter
     public static class Formatter
             extends AstVisitor<String, Void>
     {
-        private final Optional<List<Expression>> parameters;
-
-        public Formatter(Optional<List<Expression>> parameters)
-        {
-            this.parameters = parameters;
-        }
-
         @Override
         protected String visitNode(Node node, Void context)
         {
@@ -173,6 +166,12 @@ public final class ExpressionFormatter
         protected String visitCurrentPath(CurrentPath node, Void context)
         {
             return "CURRENT_PATH";
+        }
+
+        @Override
+        protected String visitFormat(Format node, Void context)
+        {
+            return "format(" + joinExpressions(node.getArguments()) + ")";
         }
 
         @Override
@@ -224,11 +223,13 @@ public final class ExpressionFormatter
         @Override
         protected String visitParameter(Parameter node, Void context)
         {
-            if (parameters.isPresent()) {
-                checkArgument(node.getPosition() < parameters.get().size(), "Invalid parameter number %s.  Max value is %s", node.getPosition(), parameters.get().size() - 1);
-                return process(parameters.get().get(node.getPosition()), context);
-            }
             return "?";
+        }
+
+        @Override
+        protected String visitAllRows(AllRows node, Void context)
+        {
+            return "ALL";
         }
 
         @Override
@@ -236,7 +237,7 @@ public final class ExpressionFormatter
         {
             ImmutableList.Builder<String> valueStrings = ImmutableList.builder();
             for (Expression value : node.getValues()) {
-                valueStrings.add(formatSql(value, parameters));
+                valueStrings.add(formatSql(value));
             }
             return "ARRAY[" + Joiner.on(",").join(valueStrings.build()) + "]";
         }
@@ -244,7 +245,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitSubscriptExpression(SubscriptExpression node, Void context)
         {
-            return formatSql(node.getBase(), parameters) + "[" + formatSql(node.getIndex(), parameters) + "]";
+            return formatSql(node.getBase()) + "[" + formatSql(node.getIndex()) + "]";
         }
 
         @Override
@@ -309,13 +310,13 @@ public final class ExpressionFormatter
         @Override
         protected String visitSubqueryExpression(SubqueryExpression node, Void context)
         {
-            return "(" + formatSql(node.getQuery(), parameters) + ")";
+            return "(" + formatSql(node.getQuery()) + ")";
         }
 
         @Override
         protected String visitExists(ExistsPredicate node, Void context)
         {
-            return "(EXISTS " + formatSql(node.getSubquery(), parameters) + ")";
+            return "(EXISTS " + formatSql(node.getSubquery()) + ")";
         }
 
         @Override
@@ -332,7 +333,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitLambdaArgumentDeclaration(LambdaArgumentDeclaration node, Void context)
         {
-            return formatExpression(node.getName(), parameters);
+            return formatExpression(node.getName());
         }
 
         @Override
@@ -368,14 +369,25 @@ public final class ExpressionFormatter
                 arguments = "DISTINCT " + arguments;
             }
 
-            builder.append(formatQualifiedName(node.getName()))
+            builder.append(formatName(node.getName()))
                     .append('(').append(arguments);
 
             if (node.getOrderBy().isPresent()) {
-                builder.append(' ').append(formatOrderBy(node.getOrderBy().get(), parameters));
+                builder.append(' ').append(formatOrderBy(node.getOrderBy().get()));
             }
 
             builder.append(')');
+
+            node.getNullTreatment().ifPresent(nullTreatment -> {
+                switch (nullTreatment) {
+                    case IGNORE:
+                        builder.append(" IGNORE NULLS");
+                        break;
+                    case RESPECT:
+                        builder.append(" RESPECT NULLS");
+                        break;
+                }
+            });
 
             if (node.getFilter().isPresent()) {
                 builder.append(" FILTER ").append(visitFilter(node.getFilter().get(), context));
@@ -407,9 +419,11 @@ public final class ExpressionFormatter
 
             builder.append("\"$INTERNAL$BIND\"(");
             for (Expression value : node.getValues()) {
-                builder.append(process(value, context) + ", ");
+                builder.append(process(value, context))
+                        .append(", ");
             }
-            builder.append(process(node.getFunction(), context) + ")");
+            builder.append(process(node.getFunction(), context))
+                    .append(")");
             return builder.toString();
         }
 
@@ -484,9 +498,9 @@ public final class ExpressionFormatter
 
             switch (node.getSign()) {
                 case MINUS:
-                    // this is to avoid turning a sequence of "-" into a comment (i.e., "-- comment")
-                    String separator = value.startsWith("-") ? " " : "";
-                    return "-" + separator + value;
+                    // Unary is ambiguous with respect to negative numbers. "-1" parses as a number, but "-(1)" parses as "unaryMinus(number)"
+                    // The parentheses are needed to ensure the parsing roundtrips properly.
+                    return "-(" + value + ")";
                 case PLUS:
                     return "+" + value;
                 default:
@@ -510,10 +524,8 @@ public final class ExpressionFormatter
                     .append(" LIKE ")
                     .append(process(node.getPattern(), context));
 
-            node.getEscape().ifPresent(escape -> {
-                builder.append(" ESCAPE ")
-                        .append(process(escape, context));
-            });
+            node.getEscape().ifPresent(escape -> builder.append(" ESCAPE ")
+                    .append(process(escape, context)));
 
             builder.append(')');
 
@@ -523,18 +535,31 @@ public final class ExpressionFormatter
         @Override
         protected String visitAllColumns(AllColumns node, Void context)
         {
-            if (node.getPrefix().isPresent()) {
-                return node.getPrefix().get() + ".*";
+            StringBuilder builder = new StringBuilder();
+            if (node.getTarget().isPresent()) {
+                builder.append(process(node.getTarget().get(), context));
+                builder.append(".*");
+            }
+            else {
+                builder.append("*");
             }
 
-            return "*";
+            if (!node.getAliases().isEmpty()) {
+                builder.append(" AS (");
+                Joiner.on(", ").appendTo(builder, node.getAliases().stream()
+                        .map(alias -> process(alias, context))
+                        .collect(toList()));
+                builder.append(")");
+            }
+
+            return builder.toString();
         }
 
         @Override
         public String visitCast(Cast node, Void context)
         {
             return (node.isSafe() ? "TRY_CAST" : "CAST") +
-                    "(" + process(node.getExpression(), context) + " AS " + node.getType() + ")";
+                    "(" + process(node.getExpression(), context) + " AS " + process(node.getType(), context) + ")";
         }
 
         @Override
@@ -613,7 +638,7 @@ public final class ExpressionFormatter
                 parts.add("PARTITION BY " + joinExpressions(node.getPartitionBy()));
             }
             if (node.getOrderBy().isPresent()) {
-                parts.add(formatOrderBy(node.getOrderBy().get(), parameters));
+                parts.add(formatOrderBy(node.getOrderBy().get()));
             }
             if (node.getFrame().isPresent()) {
                 parts.add(process(node.getFrame().get(), context));
@@ -676,9 +701,94 @@ public final class ExpressionFormatter
                     .toString();
         }
 
-        public String visitGroupingOperation(GroupingOperation node, Void context)
+        @Override
+        protected String visitGroupingOperation(GroupingOperation node, Void context)
         {
             return "GROUPING (" + joinExpressions(node.getGroupingColumns()) + ")";
+        }
+
+        @Override
+        protected String visitRowDataType(RowDataType node, Void context)
+        {
+            return node.getFields().stream()
+                    .map(this::process)
+                    .collect(Collectors.joining(", ", "ROW(", ")"));
+        }
+
+        @Override
+        protected String visitRowField(RowDataType.Field node, Void context)
+        {
+            StringBuilder result = new StringBuilder();
+
+            if (node.getName().isPresent()) {
+                result.append(process(node.getName().get(), context));
+                result.append(" ");
+            }
+
+            result.append(process(node.getType(), context));
+
+            return result.toString();
+        }
+
+        @Override
+        protected String visitGenericDataType(GenericDataType node, Void context)
+        {
+            StringBuilder result = new StringBuilder();
+            result.append(node.getName());
+
+            if (!node.getArguments().isEmpty()) {
+                result.append(node.getArguments().stream()
+                        .map(this::process)
+                        .collect(Collectors.joining(", ", "(", ")")));
+            }
+
+            return result.toString();
+        }
+
+        @Override
+        protected String visitTypeParameter(TypeParameter node, Void context)
+        {
+            return process(node.getValue(), context);
+        }
+
+        @Override
+        protected String visitNumericTypeParameter(NumericParameter node, Void context)
+        {
+            return node.getValue();
+        }
+
+        @Override
+        protected String visitIntervalDataType(IntervalDayTimeDataType node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("INTERVAL ");
+            builder.append(node.getFrom());
+            if (node.getFrom() != node.getTo()) {
+                builder.append(" TO ")
+                        .append(node.getTo());
+            }
+
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitDateTimeType(DateTimeDataType node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append(node.getType().toString().toLowerCase(Locale.ENGLISH)); // TODO: normalize to upper case according to standard SQL semantics
+            if (node.getPrecision().isPresent()) {
+                builder.append("(")
+                        .append(node.getPrecision().get())
+                        .append(")");
+            }
+
+            if (node.isWithTimeZone()) {
+                builder.append(" with time zone"); // TODO: normalize to upper case according to standard SQL semantics
+            }
+
+            return builder.toString();
         }
 
         private String formatBinaryExpression(String operator, Expression left, Expression right)
@@ -716,60 +826,55 @@ public final class ExpressionFormatter
             }
             else if (codePoint <= 0xFFFF) {
                 builder.append('\\');
-                builder.append(String.format("%04X", codePoint));
+                builder.append(format("%04X", codePoint));
             }
             else {
                 builder.append("\\+");
-                builder.append(String.format("%06X", codePoint));
+                builder.append(format("%06X", codePoint));
             }
         }
         builder.append("'");
         return builder.toString();
     }
 
-    static String formatOrderBy(OrderBy orderBy, Optional<List<Expression>> parameters)
+    public static String formatOrderBy(OrderBy orderBy)
     {
-        return "ORDER BY " + formatSortItems(orderBy.getSortItems(), parameters);
+        return "ORDER BY " + formatSortItems(orderBy.getSortItems());
     }
 
-    static String formatSortItems(List<SortItem> sortItems, Optional<List<Expression>> parameters)
+    private static String formatSortItems(List<SortItem> sortItems)
     {
         return Joiner.on(", ").join(sortItems.stream()
-                .map(sortItemFormatterFunction(parameters))
+                .map(sortItemFormatterFunction())
                 .iterator());
     }
 
     static String formatGroupBy(List<GroupingElement> groupingElements)
-    {
-        return formatGroupBy(groupingElements, Optional.empty());
-    }
-
-    static String formatGroupBy(List<GroupingElement> groupingElements, Optional<List<Expression>> parameters)
     {
         ImmutableList.Builder<String> resultStrings = ImmutableList.builder();
 
         for (GroupingElement groupingElement : groupingElements) {
             String result = "";
             if (groupingElement instanceof SimpleGroupBy) {
-                List<Expression> columns = ((SimpleGroupBy) groupingElement).getExpressions();
+                List<Expression> columns = groupingElement.getExpressions();
                 if (columns.size() == 1) {
-                    result = formatExpression(getOnlyElement(columns), parameters);
+                    result = formatExpression(getOnlyElement(columns));
                 }
                 else {
-                    result = formatGroupingSet(columns, parameters);
+                    result = formatGroupingSet(columns);
                 }
             }
             else if (groupingElement instanceof GroupingSets) {
                 result = format("GROUPING SETS (%s)", Joiner.on(", ").join(
                         ((GroupingSets) groupingElement).getSets().stream()
-                                .map(e -> formatGroupingSet(e, parameters))
+                                .map(ExpressionFormatter::formatGroupingSet)
                                 .iterator()));
             }
             else if (groupingElement instanceof Cube) {
-                result = format("CUBE %s", formatGroupingSet(((Cube) groupingElement).getExpressions(), parameters));
+                result = format("CUBE %s", formatGroupingSet(groupingElement.getExpressions()));
             }
             else if (groupingElement instanceof Rollup) {
-                result = format("ROLLUP %s", formatGroupingSet(((Rollup) groupingElement).getExpressions(), parameters));
+                result = format("ROLLUP %s", formatGroupingSet(groupingElement.getExpressions()));
             }
             resultStrings.add(result);
         }
@@ -778,25 +883,22 @@ public final class ExpressionFormatter
 
     private static boolean isAsciiPrintable(int codePoint)
     {
-        if (codePoint >= 0x7F || codePoint < 0x20) {
-            return false;
-        }
-        return true;
+        return codePoint >= 0x20 && codePoint < 0x7F;
     }
 
-    private static String formatGroupingSet(List<Expression> groupingSet, Optional<List<Expression>> parameters)
+    private static String formatGroupingSet(List<Expression> groupingSet)
     {
         return format("(%s)", Joiner.on(", ").join(groupingSet.stream()
-                .map(e -> formatExpression(e, parameters))
+                .map(ExpressionFormatter::formatExpression)
                 .iterator()));
     }
 
-    private static Function<SortItem, String> sortItemFormatterFunction(Optional<List<Expression>> parameters)
+    private static Function<SortItem, String> sortItemFormatterFunction()
     {
         return input -> {
             StringBuilder builder = new StringBuilder();
 
-            builder.append(formatExpression(input.getSortKey(), parameters));
+            builder.append(formatExpression(input.getSortKey()));
 
             switch (input.getOrdering()) {
                 case ASCENDING:

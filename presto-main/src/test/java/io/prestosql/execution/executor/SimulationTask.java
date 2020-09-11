@@ -136,6 +136,7 @@ abstract class SimulationTask
             this.taskSpecification = specification;
         }
 
+        @Override
         public void schedule(TaskExecutor taskExecutor, int numSplits)
         {
             ImmutableList.Builder<SimulationSplit> splits = ImmutableList.builder();
@@ -158,6 +159,7 @@ abstract class SimulationTask
             this.splitSpecification = specification.nextSpecification();
         }
 
+        @Override
         public void schedule(TaskExecutor taskExecutor, int numSplits)
         {
             ImmutableList.Builder<SimulationSplit> splits = ImmutableList.builder();

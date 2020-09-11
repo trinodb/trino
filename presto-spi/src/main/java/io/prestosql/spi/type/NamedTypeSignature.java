@@ -65,7 +65,7 @@ public class NamedTypeSignature
     public String toString()
     {
         if (fieldName.isPresent()) {
-            return format("%s %s", fieldName.get(), typeSignature);
+            return format("\"%s\" %s", fieldName.get().getName().replace("\"", "\"\""), typeSignature);
         }
         return typeSignature.toString();
     }

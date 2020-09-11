@@ -13,7 +13,7 @@
  */
 package io.prestosql.metadata;
 
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.connector.Connector;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -23,26 +23,26 @@ import static java.util.Objects.requireNonNull;
 public class Catalog
 {
     private final String catalogName;
-    private final ConnectorId connectorId;
+    private final CatalogName connectorCatalogName;
     private final Connector connector;
 
-    private final ConnectorId informationSchemaId;
+    private final CatalogName informationSchemaId;
     private final Connector informationSchema;
 
-    private final ConnectorId systemTablesId;
+    private final CatalogName systemTablesId;
     private final Connector systemTables;
 
     public Catalog(
             String catalogName,
-            ConnectorId connectorId,
+            CatalogName connectorCatalogName,
             Connector connector,
-            ConnectorId informationSchemaId,
+            CatalogName informationSchemaId,
             Connector informationSchema,
-            ConnectorId systemTablesId,
+            CatalogName systemTablesId,
             Connector systemTables)
     {
         this.catalogName = checkCatalogName(catalogName);
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.connectorCatalogName = requireNonNull(connectorCatalogName, "connectorConnectorId is null");
         this.connector = requireNonNull(connector, "connector is null");
         this.informationSchemaId = requireNonNull(informationSchemaId, "informationSchemaId is null");
         this.informationSchema = requireNonNull(informationSchema, "informationSchema is null");
@@ -55,33 +55,33 @@ public class Catalog
         return catalogName;
     }
 
-    public ConnectorId getConnectorId()
+    public CatalogName getConnectorCatalogName()
     {
-        return connectorId;
+        return connectorCatalogName;
     }
 
-    public ConnectorId getInformationSchemaId()
+    public CatalogName getInformationSchemaId()
     {
         return informationSchemaId;
     }
 
-    public ConnectorId getSystemTablesId()
+    public CatalogName getSystemTablesId()
     {
         return systemTablesId;
     }
 
-    public Connector getConnector(ConnectorId connectorId)
+    public Connector getConnector(CatalogName catalogName)
     {
-        if (this.connectorId.equals(connectorId)) {
+        if (this.connectorCatalogName.equals(catalogName)) {
             return connector;
         }
-        if (informationSchemaId.equals(connectorId)) {
+        if (informationSchemaId.equals(catalogName)) {
             return informationSchema;
         }
-        if (systemTablesId.equals(connectorId)) {
+        if (systemTablesId.equals(catalogName)) {
             return systemTables;
         }
-        throw new IllegalArgumentException("Unknown connector id: " + connectorId);
+        throw new IllegalArgumentException("Unknown connector id: " + catalogName);
     }
 
     @Override
@@ -89,7 +89,7 @@ public class Catalog
     {
         return toStringHelper(this)
                 .add("catalogName", catalogName)
-                .add("connectorId", connectorId)
+                .add("connectorConnectorId", connectorCatalogName)
                 .toString();
     }
 }

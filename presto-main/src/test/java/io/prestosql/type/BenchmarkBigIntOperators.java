@@ -399,7 +399,7 @@ public class BenchmarkBigIntOperators
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)

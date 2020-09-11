@@ -46,7 +46,7 @@ public final class LearnVarcharClassifierAggregation
         throw new UnsupportedOperationException("LEARN must run on a single machine");
     }
 
-    @OutputFunction("Classifier<varchar>")
+    @OutputFunction("Classifier(varchar)")
     public static void output(@AggregationState LearnState state, BlockBuilder out)
     {
         LearnLibSvmVarcharClassifierAggregation.output(state, out);

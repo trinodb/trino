@@ -13,8 +13,8 @@
  */
 package io.prestosql.execution.scheduler;
 
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
-import io.prestosql.spi.Node;
 
 import java.util.Optional;
 import java.util.function.ToIntFunction;
@@ -32,13 +32,13 @@ public abstract class BucketNodeMap
 
     public abstract int getBucketCount();
 
-    public abstract Optional<Node> getAssignedNode(int bucketedId);
+    public abstract Optional<InternalNode> getAssignedNode(int bucketedId);
 
-    public abstract void assignBucketToNode(int bucketedId, Node node);
+    public abstract void assignBucketToNode(int bucketedId, InternalNode node);
 
     public abstract boolean isDynamic();
 
-    public final Optional<Node> getAssignedNode(Split split)
+    public final Optional<InternalNode> getAssignedNode(Split split)
     {
         return getAssignedNode(splitToBucket.applyAsInt(split));
     }

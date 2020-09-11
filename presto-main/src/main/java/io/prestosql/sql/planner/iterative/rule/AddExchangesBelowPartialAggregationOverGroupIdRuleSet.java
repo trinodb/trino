@@ -26,10 +26,10 @@ import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.optimizations.StreamPreferredProperties;
 import io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
@@ -128,18 +128,18 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
     private static final double ANTI_SKEWNESS_MARGIN = 3;
 
     private final Metadata metadata;
-    private final SqlParser parser;
+    private final TypeAnalyzer typeAnalyzer;
     private final TaskCountEstimator taskCountEstimator;
     private final DataSize maxPartialAggregationMemoryUsage;
 
     public AddExchangesBelowPartialAggregationOverGroupIdRuleSet(
             Metadata metadata,
-            SqlParser parser,
+            TypeAnalyzer typeAnalyzer,
             TaskCountEstimator taskCountEstimator,
             TaskManagerConfig taskManagerConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.parser = requireNonNull(parser, "parser is null");
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
         this.maxPartialAggregationMemoryUsage = requireNonNull(taskManagerConfig, "taskManagerConfig is null").getMaxPartialAggregationMemoryUsage();
     }
@@ -342,7 +342,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
             List<StreamProperties> inputProperties = resolvedPlanNode.getSources().stream()
                     .map(source -> derivePropertiesRecursively(source, context))
                     .collect(toImmutableList());
-            return deriveProperties(resolvedPlanNode, inputProperties, metadata, context.getSession(), context.getSymbolAllocator().getTypes(), parser);
+            return deriveProperties(resolvedPlanNode, inputProperties, metadata, context.getSession(), context.getSymbolAllocator().getTypes(), typeAnalyzer);
         }
     }
 }

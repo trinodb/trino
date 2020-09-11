@@ -21,9 +21,11 @@ import io.prestosql.orc.checkpoint.DoubleStreamCheckpoint;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.CompressedMetadataWriter;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.RowGroupIndex;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.Stream.StreamKind;
+import io.prestosql.orc.metadata.statistics.BloomFilter;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import io.prestosql.orc.metadata.statistics.DoubleStatisticsBuilder;
 import io.prestosql.orc.stream.DoubleOutputStream;
@@ -37,10 +39,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static java.util.Objects.requireNonNull;
@@ -51,7 +56,7 @@ public class DoubleColumnWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleColumnWriter.class).instanceSize();
     private static final ColumnEncoding COLUMN_ENCODING = new ColumnEncoding(DIRECT, 0);
 
-    private final int column;
+    private final OrcColumnId columnId;
     private final Type type;
     private final boolean compressed;
     private final DoubleOutputStream dataStream;
@@ -59,24 +64,26 @@ public class DoubleColumnWriter
 
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
 
-    private DoubleStatisticsBuilder statisticsBuilder = new DoubleStatisticsBuilder();
+    private final Supplier<DoubleStatisticsBuilder> statisticsBuilderSupplier;
+    private DoubleStatisticsBuilder statisticsBuilder;
 
     private boolean closed;
 
-    public DoubleColumnWriter(int column, Type type, CompressionKind compression, int bufferSize)
+    public DoubleColumnWriter(OrcColumnId columnId, Type type, CompressionKind compression, int bufferSize, Supplier<DoubleStatisticsBuilder> statisticsBuilderSupplier)
     {
-        checkArgument(column >= 0, "column is negative");
-        this.column = column;
+        this.columnId = requireNonNull(columnId, "columnId is null");
         this.type = requireNonNull(type, "type is null");
         this.compressed = requireNonNull(compression, "compression is null") != NONE;
         this.dataStream = new DoubleOutputStream(compression, bufferSize);
         this.presentStream = new PresentOutputStream(compression, bufferSize);
+        this.statisticsBuilderSupplier = requireNonNull(statisticsBuilderSupplier, "statisticsBuilderSupplier is null");
+        this.statisticsBuilder = statisticsBuilderSupplier.get();
     }
 
     @Override
-    public Map<Integer, ColumnEncoding> getColumnEncodings()
+    public Map<OrcColumnId, ColumnEncoding> getColumnEncodings()
     {
-        return ImmutableMap.of(column, COLUMN_ENCODING);
+        return ImmutableMap.of(columnId, COLUMN_ENCODING);
     }
 
     @Override
@@ -108,13 +115,13 @@ public class DoubleColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> finishRowGroup()
+    public Map<OrcColumnId, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
         ColumnStatistics statistics = statisticsBuilder.buildColumnStatistics();
         rowGroupColumnStatistics.add(statistics);
-        statisticsBuilder = new DoubleStatisticsBuilder();
-        return ImmutableMap.of(column, statistics);
+        statisticsBuilder = statisticsBuilderSupplier.get();
+        return ImmutableMap.of(columnId, statistics);
     }
 
     @Override
@@ -126,10 +133,10 @@ public class DoubleColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> getColumnStripeStatistics()
+    public Map<OrcColumnId, ColumnStatistics> getColumnStripeStatistics()
     {
         checkState(closed);
-        return ImmutableMap.of(column, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
+        return ImmutableMap.of(columnId, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
     }
 
     @Override
@@ -152,7 +159,7 @@ public class DoubleColumnWriter
         }
 
         Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
-        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
+        Stream stream = new Stream(columnId, StreamKind.ROW_INDEX, slice.length(), false);
         return ImmutableList.of(new StreamDataOutput(slice, stream));
     }
 
@@ -168,13 +175,31 @@ public class DoubleColumnWriter
     }
 
     @Override
+    public List<StreamDataOutput> getBloomFilters(CompressedMetadataWriter metadataWriter)
+            throws IOException
+    {
+        List<BloomFilter> bloomFilters = rowGroupColumnStatistics.stream()
+                .map(ColumnStatistics::getBloomFilter)
+                .filter(Objects::nonNull)
+                .collect(toImmutableList());
+
+        if (!bloomFilters.isEmpty()) {
+            Slice slice = metadataWriter.writeBloomFilters(bloomFilters);
+            Stream stream = new Stream(columnId, StreamKind.BLOOM_FILTER_UTF8, slice.length(), false);
+            return ImmutableList.of(new StreamDataOutput(slice, stream));
+        }
+
+        return ImmutableList.of();
+    }
+
+    @Override
     public List<StreamDataOutput> getDataStreams()
     {
         checkState(closed);
 
         ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
-        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(dataStream.getStreamDataOutput(column));
+        presentStream.getStreamDataOutput(columnId).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(dataStream.getStreamDataOutput(columnId));
         return outputDataStreams.build();
     }
 
@@ -201,6 +226,6 @@ public class DoubleColumnWriter
         dataStream.reset();
         presentStream.reset();
         rowGroupColumnStatistics.clear();
-        statisticsBuilder = new DoubleStatisticsBuilder();
+        statisticsBuilder = statisticsBuilderSupplier.get();
     }
 }

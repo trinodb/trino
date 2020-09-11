@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -32,25 +33,24 @@ import static java.util.Objects.requireNonNull;
 public class JdbcOutputTableHandle
         implements ConnectorOutputTableHandle, ConnectorInsertTableHandle
 {
-    private final String connectorId;
     private final String catalogName;
     private final String schemaName;
     private final String tableName;
     private final List<String> columnNames;
     private final List<Type> columnTypes;
+    private final Optional<List<JdbcTypeHandle>> jdbcColumnTypes;
     private final String temporaryTableName;
 
     @JsonCreator
     public JdbcOutputTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("catalogName") @Nullable String catalogName,
             @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("columnTypes") List<Type> columnTypes,
+            @JsonProperty("jdbcColumnTypes") Optional<List<JdbcTypeHandle>> jdbcColumnTypes,
             @JsonProperty("temporaryTableName") String temporaryTableName)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -61,12 +61,9 @@ public class JdbcOutputTableHandle
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.columnTypes = ImmutableList.copyOf(columnTypes);
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
+        requireNonNull(jdbcColumnTypes, "jdbcColumnTypes is null");
+        jdbcColumnTypes.ifPresent(jdbcTypeHandles -> checkArgument(jdbcTypeHandles.size() == columnNames.size(), "columnNames and jdbcColumnTypes sizes don't match"));
+        this.jdbcColumnTypes = jdbcColumnTypes.map(ImmutableList::copyOf);
     }
 
     @JsonProperty
@@ -102,6 +99,12 @@ public class JdbcOutputTableHandle
     }
 
     @JsonProperty
+    public Optional<List<JdbcTypeHandle>> getJdbcColumnTypes()
+    {
+        return jdbcColumnTypes;
+    }
+
+    @JsonProperty
     public String getTemporaryTableName()
     {
         return temporaryTableName;
@@ -117,12 +120,12 @@ public class JdbcOutputTableHandle
     public int hashCode()
     {
         return Objects.hash(
-                connectorId,
                 catalogName,
                 schemaName,
                 tableName,
                 columnNames,
                 columnTypes,
+                jdbcColumnTypes,
                 temporaryTableName);
     }
 
@@ -136,12 +139,12 @@ public class JdbcOutputTableHandle
             return false;
         }
         JdbcOutputTableHandle other = (JdbcOutputTableHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.catalogName, other.catalogName) &&
+        return Objects.equals(this.catalogName, other.catalogName) &&
                 Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName) &&
                 Objects.equals(this.columnNames, other.columnNames) &&
                 Objects.equals(this.columnTypes, other.columnTypes) &&
+                Objects.equals(this.jdbcColumnTypes, other.jdbcColumnTypes) &&
                 Objects.equals(this.temporaryTableName, other.temporaryTableName);
     }
 }

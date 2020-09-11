@@ -35,9 +35,7 @@ public final class InternalAggregationFunction
     private final List<Type> parameterTypes;
     private final List<Type> intermediateType;
     private final Type finalType;
-    private final List<Class> lambdaInterfaces;
-    private final boolean decomposable;
-    private final boolean orderSensitive;
+    private final List<Class<?>> lambdaInterfaces;
     private final AccumulatorFactoryBinder factory;
 
     public InternalAggregationFunction(
@@ -45,8 +43,6 @@ public final class InternalAggregationFunction
             List<Type> parameterTypes,
             List<Type> intermediateType,
             Type finalType,
-            boolean decomposable,
-            boolean orderSensitive,
             AccumulatorFactoryBinder factory)
     {
         this(
@@ -54,8 +50,6 @@ public final class InternalAggregationFunction
                 parameterTypes,
                 intermediateType,
                 finalType,
-                decomposable,
-                orderSensitive,
                 factory,
                 ImmutableList.of());
     }
@@ -65,18 +59,14 @@ public final class InternalAggregationFunction
             List<Type> parameterTypes,
             List<Type> intermediateType,
             Type finalType,
-            boolean decomposable,
-            boolean orderSensitive,
             AccumulatorFactoryBinder factory,
-            List<Class> lambdaInterfaces)
+            List<Class<?>> lambdaInterfaces)
     {
         this.name = requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty(), "name is empty");
         this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "parameterTypes is null"));
         this.intermediateType = requireNonNull(intermediateType, "intermediateType is null");
         this.finalType = requireNonNull(finalType, "finalType is null");
-        this.decomposable = decomposable;
-        this.orderSensitive = orderSensitive;
         this.factory = requireNonNull(factory, "factory is null");
         this.lambdaInterfaces = ImmutableList.copyOf(lambdaInterfaces);
     }
@@ -106,25 +96,9 @@ public final class InternalAggregationFunction
         }
     }
 
-    public List<Class> getLambdaInterfaces()
+    public List<Class<?>> getLambdaInterfaces()
     {
         return lambdaInterfaces;
-    }
-
-    /**
-     * Indicates that the aggregation can be decomposed, and run as partial aggregations followed by a final aggregation to combine the intermediate results
-     */
-    public boolean isDecomposable()
-    {
-        return decomposable;
-    }
-
-    /**
-     * Indicates that the aggregation is sensitive to input order
-     */
-    public boolean isOrderSensitive()
-    {
-        return orderSensitive;
     }
 
     public AccumulatorFactory bind(List<Integer> inputChannels, Optional<Integer> maskChannel)

@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -28,12 +29,9 @@ import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
-import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.ViewNotFoundException;
@@ -62,7 +60,7 @@ public class TestingMetadata
         implements ConnectorMetadata
 {
     private final ConcurrentMap<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
-    private final ConcurrentMap<SchemaTableName, String> views = new ConcurrentHashMap<>();
+    private final ConcurrentMap<SchemaTableName, ConnectorViewDefinition> views = new ConcurrentHashMap<>();
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
@@ -93,24 +91,12 @@ public class TestingMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        return ImmutableList.of();
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         requireNonNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = getTableName(tableHandle);
         ConnectorTableMetadata tableMetadata = tables.get(tableName);
-        checkArgument(tableMetadata != null, "Table %s does not exist", tableName);
+        checkArgument(tableMetadata != null, "Table '%s' does not exist", tableName);
         return tableMetadata;
     }
 
@@ -189,12 +175,12 @@ public class TestingMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         if (replace) {
-            views.put(viewName, viewData);
+            views.put(viewName, definition);
         }
-        else if (views.putIfAbsent(viewName, viewData) != null) {
+        else if (views.putIfAbsent(viewName, definition) != null) {
             throw new PrestoException(ALREADY_EXISTS, "View already exists: " + viewName);
         }
     }
@@ -220,15 +206,16 @@ public class TestingMetadata
     }
 
     @Override
-    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
     {
-        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> map = ImmutableMap.builder();
-        for (Map.Entry<SchemaTableName, String> entry : views.entrySet()) {
-            if (prefix.matches(entry.getKey())) {
-                map.put(entry.getKey(), new ConnectorViewDefinition(entry.getKey(), Optional.empty(), entry.getValue()));
-            }
-        }
-        return map.build();
+        SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new).orElseGet(SchemaTablePrefix::new);
+        return ImmutableMap.copyOf(Maps.filterKeys(views, prefix::matches));
+    }
+
+    @Override
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Optional.ofNullable(views.get(viewName));
     }
 
     @Override
@@ -274,7 +261,7 @@ public class TestingMetadata
         SchemaTableName tableName = getTableName(tableHandle);
         ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, source);
         List<ColumnMetadata> columns = new ArrayList<>(tableMetadata.getColumns());
-        columns.set(columns.indexOf(columnMetadata), new ColumnMetadata(target, columnMetadata.getType(), columnMetadata.getComment(), columnMetadata.isHidden()));
+        columns.set(columns.indexOf(columnMetadata), ColumnMetadata.builderFrom(columnMetadata).setName(target).build());
         tables.put(tableName, new ConnectorTableMetadata(tableName, ImmutableList.copyOf(columns), tableMetadata.getProperties(), tableMetadata.getComment()));
     }
 
@@ -283,6 +270,18 @@ public class TestingMetadata
 
     @Override
     public void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption) {}
+
+    @Override
+    public boolean usesLegacyTableLayouts()
+    {
+        return false;
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return new ConnectorTableProperties();
+    }
 
     public void clear()
     {

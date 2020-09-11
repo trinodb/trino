@@ -14,14 +14,12 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.Streams;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.planner.iterative.rule.Util.restrictChildOutputs;
@@ -36,7 +34,7 @@ public class PruneMarkDistinctColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, MarkDistinctNode markDistinctNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(Context context, MarkDistinctNode markDistinctNode, Set<Symbol> referencedOutputs)
     {
         if (!referencedOutputs.contains(markDistinctNode.getMarkerSymbol())) {
             return Optional.of(markDistinctNode.getSource());
@@ -46,9 +44,9 @@ public class PruneMarkDistinctColumns
                 referencedOutputs.stream()
                         .filter(symbol -> !symbol.equals(markDistinctNode.getMarkerSymbol())),
                 markDistinctNode.getDistinctSymbols().stream(),
-                markDistinctNode.getHashSymbol().map(Stream::of).orElse(Stream.empty()))
+                markDistinctNode.getHashSymbol().stream())
                 .collect(toImmutableSet());
 
-        return restrictChildOutputs(idAllocator, markDistinctNode, requiredInputs);
+        return restrictChildOutputs(context.getIdAllocator(), markDistinctNode, requiredInputs);
     }
 }

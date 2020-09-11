@@ -128,7 +128,7 @@ public class SpatialIndexBuilderOperator
         @Override
         public OperatorFactory duplicate()
         {
-            throw new UnsupportedOperationException("Spatial index build can not be duplicated");
+            throw new UnsupportedOperationException("Spatial index build cannot be duplicated");
         }
     }
 

@@ -13,36 +13,35 @@
  */
 package io.prestosql.metadata;
 
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.type.Type;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Objects.requireNonNull;
+import static java.lang.String.CASE_INSENSITIVE_ORDER;
 
-public class BoundVariables
+class BoundVariables
+        implements TypeVariables
 {
-    private final Map<String, Type> typeVariables;
-    private final Map<String, Long> longVariables;
+    private final Map<String, Type> typeVariables = new TreeMap<>(CASE_INSENSITIVE_ORDER);
+    private final Map<String, Long> longVariables = new TreeMap<>(CASE_INSENSITIVE_ORDER);
 
-    public BoundVariables(Map<String, Type> typeVariables,
-            Map<String, Long> longVariables)
-    {
-        requireNonNull(typeVariables, "typeVariableBindings is null");
-        requireNonNull(longVariables, "longVariableBindings is null");
-        this.typeVariables = ImmutableMap.copyOf(typeVariables);
-        this.longVariables = ImmutableMap.copyOf(longVariables);
-    }
-
+    @Override
     public Type getTypeVariable(String variableName)
     {
         return getValue(typeVariables, variableName);
     }
 
+    public BoundVariables setTypeVariable(String variableName, Type variableValue)
+    {
+        setValue(typeVariables, variableName, variableValue);
+        return this;
+    }
+
+    @Override
     public boolean containsTypeVariable(String variableName)
     {
         return containsValue(typeVariables, variableName);
@@ -53,11 +52,19 @@ public class BoundVariables
         return typeVariables;
     }
 
+    @Override
     public Long getLongVariable(String variableName)
     {
         return getValue(longVariables, variableName);
     }
 
+    public BoundVariables setLongVariable(String variableName, Long variableValue)
+    {
+        setValue(longVariables, variableName, variableValue);
+        return this;
+    }
+
+    @Override
     public boolean containsLongVariable(String variableName)
     {
         return containsValue(longVariables, variableName);
@@ -116,63 +123,5 @@ public class BoundVariables
                 .add("typeVariables", typeVariables)
                 .add("longVariables", longVariables)
                 .toString();
-    }
-
-    public static Builder builder()
-    {
-        return new Builder();
-    }
-
-    public static class Builder
-    {
-        private final Map<String, Type> typeVariables = new HashMap<>();
-        private final Map<String, Long> longVariables = new HashMap<>();
-
-        public Type getTypeVariable(String variableName)
-        {
-            return getValue(typeVariables, variableName);
-        }
-
-        public Builder setTypeVariable(String variableName, Type variableValue)
-        {
-            setValue(typeVariables, variableName, variableValue);
-            return this;
-        }
-
-        public boolean containsTypeVariable(String variableName)
-        {
-            return containsValue(typeVariables, variableName);
-        }
-
-        public Map<String, Type> getTypeVariables()
-        {
-            return typeVariables;
-        }
-
-        public Long getLongVariable(String variableName)
-        {
-            return getValue(longVariables, variableName);
-        }
-
-        public Builder setLongVariable(String variableName, Long variableValue)
-        {
-            setValue(longVariables, variableName, variableValue);
-            return this;
-        }
-
-        public boolean containsLongVariable(String variableName)
-        {
-            return containsValue(longVariables, variableName);
-        }
-
-        public Map<String, Long> getLongVariables()
-        {
-            return longVariables;
-        }
-
-        public BoundVariables build()
-        {
-            return new BoundVariables(typeVariables, longVariables);
-        }
     }
 }

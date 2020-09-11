@@ -22,21 +22,14 @@ import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 public class RichColumnDescriptor
         extends ColumnDescriptor
 {
-    private final PrimitiveType primitiveType;
     private final boolean required;
 
     public RichColumnDescriptor(
             ColumnDescriptor descriptor,
             PrimitiveType primitiveType)
     {
-        super(descriptor.getPath(), primitiveType.getPrimitiveTypeName(), primitiveType.getTypeLength(), descriptor.getMaxRepetitionLevel(), descriptor.getMaxDefinitionLevel());
-        this.primitiveType = primitiveType;
+        super(descriptor.getPath(), primitiveType, descriptor.getMaxRepetitionLevel(), descriptor.getMaxDefinitionLevel());
         this.required = primitiveType.getRepetition() != OPTIONAL;
-    }
-
-    public PrimitiveType getPrimitiveType()
-    {
-        return primitiveType;
     }
 
     public boolean isRequired()

@@ -18,12 +18,13 @@ import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
-import io.prestosql.server.ServerConfig;
+import io.prestosql.client.NodeVersion;
+import io.prestosql.spi.VersionEmbedder;
 
 import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Objects;
+import java.util.concurrent.Callable;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.bytecode.Access.FINAL;
@@ -39,24 +40,47 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class EmbedVersion
+        implements VersionEmbedder
 {
     private final MethodHandle runnableConstructor;
+    private final MethodHandle callableConstructor;
 
     @Inject
-    public EmbedVersion(ServerConfig serverConfig)
+    public EmbedVersion(NodeVersion version)
+    {
+        this(version.getVersion());
+    }
+
+    public EmbedVersion(String version)
+    {
+        Class<?> generatedClass = createClass(format("Presto_%s___", version));
+        this.runnableConstructor = constructorMethodHandle(generatedClass, Runnable.class);
+        this.callableConstructor = constructorMethodHandle(generatedClass, Callable.class);
+    }
+
+    private static Class<?> createClass(String baseClassName)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(baseClassName(serverConfig)),
+                makeClassName(baseClassName),
                 type(Object.class),
-                type(Runnable.class));
+                type(Runnable.class),
+                type(Callable.class));
 
+        implementRunnable(classDefinition);
+        implementCallable(classDefinition);
+
+        return defineClass(classDefinition, Runnable.class, ImmutableMap.of(), EmbedVersion.class.getClassLoader());
+    }
+
+    private static void implementRunnable(ClassDefinition classDefinition)
+    {
         FieldDefinition field = classDefinition.declareField(a(PRIVATE), "runnable", Runnable.class);
 
         Parameter parameter = arg("runnable", type(Runnable.class));
         MethodDefinition constructor = classDefinition.declareConstructor(a(PUBLIC), parameter);
         constructor.getBody()
-                .comment("super(runnable);")
+                .comment("super();")
                 .append(constructor.getThis())
                 .invokeConstructor(Object.class)
                 .append(constructor.getThis())
@@ -71,23 +95,33 @@ public class EmbedVersion
                 .getField(field)
                 .invokeInterface(Runnable.class, "run", void.class)
                 .ret();
-
-        Class<? extends Runnable> generatedClass = defineClass(classDefinition, Runnable.class, ImmutableMap.of(), getClass().getClassLoader());
-        this.runnableConstructor = constructorMethodHandle(generatedClass, Runnable.class);
     }
 
-    private static String baseClassName(ServerConfig serverConfig)
+    private static void implementCallable(ClassDefinition classDefinition)
     {
-        String builtInVersion = new ServerConfig().getPrestoVersion();
-        String configuredVersion = serverConfig.getPrestoVersion();
+        FieldDefinition field = classDefinition.declareField(a(PRIVATE), "callable", Callable.class);
 
-        String version = configuredVersion;
-        if (!Objects.equals(builtInVersion, configuredVersion)) {
-            version = format("%s__%s", builtInVersion, configuredVersion);
-        }
-        return format("Presto_%s___", version);
+        Parameter parameter = arg("callable", type(Callable.class));
+        MethodDefinition constructor = classDefinition.declareConstructor(a(PUBLIC), parameter);
+        constructor.getBody()
+                .comment("super();")
+                .append(constructor.getThis())
+                .invokeConstructor(Object.class)
+                .append(constructor.getThis())
+                .append(parameter)
+                .putField(field)
+                .ret();
+
+        MethodDefinition run = classDefinition.declareMethod(a(PUBLIC), "call", type(Object.class));
+        run.getBody()
+                .comment("callable.call();")
+                .append(run.getThis())
+                .getField(field)
+                .invokeInterface(Callable.class, "call", Object.class)
+                .ret(Object.class);
     }
 
+    @Override
     public Runnable embedVersion(Runnable runnable)
     {
         requireNonNull(runnable, "runnable is null");
@@ -98,5 +132,25 @@ public class EmbedVersion
             throwIfUnchecked(throwable);
             throw new RuntimeException(throwable);
         }
+    }
+
+    @Override
+    public <T> Callable<T> embedVersion(Callable<T> callable)
+    {
+        requireNonNull(callable, "callable is null");
+        try {
+            @SuppressWarnings("unchecked")
+            Callable<T> wrapped = (Callable<T>) callableConstructor.invoke(callable);
+            return wrapped;
+        }
+        catch (Throwable throwable) {
+            throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
+        }
+    }
+
+    public static EmbedVersion testingVersionEmbedder()
+    {
+        return new EmbedVersion("testversion");
     }
 }

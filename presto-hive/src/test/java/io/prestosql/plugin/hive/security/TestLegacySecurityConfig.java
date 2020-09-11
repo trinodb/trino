@@ -32,6 +32,8 @@ public class TestLegacySecurityConfig
                 .setAllowDropColumn(false)
                 .setAllowDropTable(false)
                 .setAllowRenameTable(false)
+                .setAllowCommentTable(false)
+                .setAllowCommentColumn(false)
                 .setAllowRenameColumn(false));
     }
 
@@ -43,6 +45,8 @@ public class TestLegacySecurityConfig
                 .put("hive.allow-drop-column", "true")
                 .put("hive.allow-drop-table", "true")
                 .put("hive.allow-rename-table", "true")
+                .put("hive.allow-comment-table", "true")
+                .put("hive.allow-comment-column", "true")
                 .put("hive.allow-rename-column", "true")
                 .build();
 
@@ -51,6 +55,8 @@ public class TestLegacySecurityConfig
                 .setAllowDropColumn(true)
                 .setAllowDropTable(true)
                 .setAllowRenameTable(true)
+                .setAllowCommentTable(true)
+                .setAllowCommentColumn(true)
                 .setAllowRenameColumn(true);
 
         assertFullMapping(properties, expected);

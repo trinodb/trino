@@ -15,8 +15,7 @@ package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
 import io.prestosql.sql.gen.ExpressionCompiler;
@@ -35,17 +34,15 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.OperatorAssertion.assertOperatorEquals;
 import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.relational.Expressions.call;
 import static io.prestosql.sql.relational.Expressions.constant;
@@ -72,7 +69,7 @@ public class TestFilterAndProjectOperator
                 .addDriverContext();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
@@ -86,43 +83,41 @@ public class TestFilterAndProjectOperator
                 .addSequencePage(100, 0, 0)
                 .build();
 
+        Metadata metadata = createTestMetadataManager();
         RowExpression filter = call(
-                Signature.internalOperator(BETWEEN, BOOLEAN.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
-                BOOLEAN,
+                metadata.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(BIGINT, BIGINT)),
                 field(1, BIGINT),
-                constant(10L, BIGINT),
-                constant(19L, BIGINT));
+                constant(9L, BIGINT));
 
         RowExpression field0 = field(0, VARCHAR);
         RowExpression add5 = call(
-                Signature.internalOperator(ADD, BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
-                BIGINT,
+                metadata.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
                 field(1, BIGINT),
                 constant(5L, BIGINT));
 
-        MetadataManager metadata = createTestMetadataManager();
         ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
         Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field0, add5));
 
-        OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+        OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 processor,
                 ImmutableList.of(VARCHAR, BIGINT),
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0);
 
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
-                .row("10", 15L)
-                .row("11", 16L)
-                .row("12", 17L)
-                .row("13", 18L)
-                .row("14", 19L)
-                .row("15", 20L)
-                .row("16", 21L)
-                .row("17", 22L)
-                .row("18", 23L)
-                .row("19", 24L)
+                .row("0", 5L)
+                .row("1", 6L)
+                .row("2", 7L)
+                .row("3", 8L)
+                .row("4", 9L)
+                .row("5", 10L)
+                .row("6", 11L)
+                .row("7", 12L)
+                .row("8", 13L)
+                .row("9", 14L)
+
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
@@ -138,22 +133,21 @@ public class TestFilterAndProjectOperator
                 .addSequencePage(100, 0, 0)
                 .build();
 
+        Metadata metadata = createTestMetadataManager();
         RowExpression filter = call(
-                Signature.internalOperator(EQUAL, BOOLEAN.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
-                BOOLEAN,
+                metadata.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
                 field(1, BIGINT),
                 constant(10L, BIGINT));
 
-        MetadataManager metadata = createTestMetadataManager();
         ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
         Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(1, BIGINT)));
 
-        OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+        OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 processor,
                 ImmutableList.of(BIGINT),
-                new DataSize(64, KILOBYTE),
+                DataSize.of(64, KILOBYTE),
                 2);
 
         List<Page> expected = rowPagesBuilder(BIGINT)

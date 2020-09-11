@@ -16,12 +16,14 @@ package io.prestosql.operator;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
@@ -62,6 +64,21 @@ public interface WorkProcessor<T>
     default WorkProcessor<T> yielding(BooleanSupplier yieldSignal)
     {
         return WorkProcessorUtils.yielding(this, yieldSignal);
+    }
+
+    default WorkProcessor<T> withProcessEntryMonitor(Runnable monitor)
+    {
+        return WorkProcessorUtils.processEntryMonitor(this, monitor);
+    }
+
+    default WorkProcessor<T> withProcessStateMonitor(Consumer<ProcessState<T>> monitor)
+    {
+        return WorkProcessorUtils.processStateMonitor(this, monitor);
+    }
+
+    default WorkProcessor<T> finishWhen(BooleanSupplier finishSignal)
+    {
+        return WorkProcessorUtils.finishWhen(this, finishSignal);
     }
 
     default <R> WorkProcessor<R> flatMap(Function<T, WorkProcessor<R>> mapper)
@@ -154,7 +171,7 @@ public interface WorkProcessor<T>
         /**
          * Processes input elements and returns current transformation state.
          *
-         * @param elementOptional an element to be transformed. Will be empty
+         * @param element an element to be transformed. Will be null
          * when there are no more elements. In such case transformation should
          * finish processing and flush any remaining data.
          * @return the current transformation state, optionally bearing a result
@@ -165,7 +182,7 @@ public interface WorkProcessor<T>
          * @see TransformationState#ofResult(Object, boolean)
          * @see TransformationState#finished()
          */
-        TransformationState<R> process(Optional<T> elementOptional);
+        TransformationState<R> process(@Nullable T element);
     }
 
     interface Process<T>
@@ -185,9 +202,9 @@ public interface WorkProcessor<T>
     @Immutable
     final class TransformationState<T>
     {
-        private static final TransformationState<?> NEEDS_MORE_DATE_STATE = new TransformationState<>(Type.NEEDS_MORE_DATA, true, Optional.empty(), Optional.empty());
-        private static final TransformationState<?> YIELD_STATE = new TransformationState<>(Type.YIELD, false, Optional.empty(), Optional.empty());
-        private static final TransformationState<?> FINISHED_STATE = new TransformationState<>(Type.FINISHED, false, Optional.empty(), Optional.empty());
+        private static final TransformationState<?> NEEDS_MORE_DATE_STATE = new TransformationState<>(Type.NEEDS_MORE_DATA, true, null, null);
+        private static final TransformationState<?> YIELD_STATE = new TransformationState<>(Type.YIELD, false, null, null);
+        private static final TransformationState<?> FINISHED_STATE = new TransformationState<>(Type.FINISHED, false, null, null);
 
         enum Type
         {
@@ -200,15 +217,17 @@ public interface WorkProcessor<T>
 
         private final Type type;
         private final boolean needsMoreData;
-        private final Optional<T> result;
-        private final Optional<ListenableFuture<?>> blocked;
+        @Nullable
+        private final T result;
+        @Nullable
+        private final ListenableFuture<?> blocked;
 
-        private TransformationState(Type type, boolean needsMoreData, Optional<T> result, Optional<ListenableFuture<?>> blocked)
+        private TransformationState(Type type, boolean needsMoreData, @Nullable T result, @Nullable ListenableFuture<?> blocked)
         {
             this.type = requireNonNull(type, "type is null");
             this.needsMoreData = needsMoreData;
-            this.result = requireNonNull(result, "result is null");
-            this.blocked = requireNonNull(blocked, "blocked is null");
+            this.result = result;
+            this.blocked = blocked;
         }
 
         /**
@@ -228,7 +247,7 @@ public interface WorkProcessor<T>
          */
         public static <T> TransformationState<T> blocked(ListenableFuture<?> blocked)
         {
-            return new TransformationState<>(Type.BLOCKED, false, Optional.empty(), Optional.of(blocked));
+            return new TransformationState<>(Type.BLOCKED, false, null, requireNonNull(blocked, "blocked is null"));
         }
 
         /**
@@ -256,7 +275,7 @@ public interface WorkProcessor<T>
          */
         public static <T> TransformationState<T> ofResult(T result, boolean needsMoreData)
         {
-            return new TransformationState<>(Type.RESULT, needsMoreData, Optional.of(result), Optional.empty());
+            return new TransformationState<>(Type.RESULT, needsMoreData, requireNonNull(result, "result is null"), null);
         }
 
         /**
@@ -278,12 +297,14 @@ public interface WorkProcessor<T>
             return needsMoreData;
         }
 
-        Optional<T> getResult()
+        @Nullable
+        T getResult()
         {
             return result;
         }
 
-        Optional<ListenableFuture<?>> getBlocked()
+        @Nullable
+        ListenableFuture<?> getBlocked()
         {
             return blocked;
         }
@@ -292,10 +313,10 @@ public interface WorkProcessor<T>
     @Immutable
     final class ProcessState<T>
     {
-        private static final ProcessState<?> YIELD_STATE = new ProcessState<>(Type.YIELD, Optional.empty(), Optional.empty());
-        private static final ProcessState<?> FINISHED_STATE = new ProcessState<>(Type.FINISHED, Optional.empty(), Optional.empty());
+        private static final ProcessState<?> YIELD_STATE = new ProcessState<>(Type.YIELD, null, null);
+        private static final ProcessState<?> FINISHED_STATE = new ProcessState<>(Type.FINISHED, null, null);
 
-        enum Type
+        public enum Type
         {
             BLOCKED,
             YIELD,
@@ -304,14 +325,16 @@ public interface WorkProcessor<T>
         }
 
         private final Type type;
-        private final Optional<T> result;
-        private final Optional<ListenableFuture<?>> blocked;
+        @Nullable
+        private final T result;
+        @Nullable
+        private final ListenableFuture<?> blocked;
 
-        private ProcessState(Type type, Optional<T> result, Optional<ListenableFuture<?>> blocked)
+        private ProcessState(Type type, @Nullable T result, @Nullable ListenableFuture<?> blocked)
         {
             this.type = requireNonNull(type, "type is null");
-            this.result = requireNonNull(result, "result is null");
-            this.blocked = requireNonNull(blocked, "blocked is null");
+            this.result = result;
+            this.blocked = blocked;
         }
 
         /**
@@ -319,7 +342,7 @@ public interface WorkProcessor<T>
          */
         public static <T> ProcessState<T> blocked(ListenableFuture<?> blocked)
         {
-            return new ProcessState<>(Type.BLOCKED, Optional.empty(), Optional.of(blocked));
+            return new ProcessState<>(Type.BLOCKED, null, requireNonNull(blocked, "blocked is null"));
         }
 
         /**
@@ -336,7 +359,7 @@ public interface WorkProcessor<T>
          */
         public static <T> ProcessState<T> ofResult(T result)
         {
-            return new ProcessState<>(Type.RESULT, Optional.of(result), Optional.empty());
+            return new ProcessState<>(Type.RESULT, requireNonNull(result, "result is null"), null);
         }
 
         /**
@@ -348,17 +371,19 @@ public interface WorkProcessor<T>
             return (ProcessState<T>) FINISHED_STATE;
         }
 
-        Type getType()
+        public Type getType()
         {
             return type;
         }
 
-        Optional<T> getResult()
+        @Nullable
+        public T getResult()
         {
             return result;
         }
 
-        Optional<ListenableFuture<?>> getBlocked()
+        @Nullable
+        public ListenableFuture<?> getBlocked()
         {
             return blocked;
         }

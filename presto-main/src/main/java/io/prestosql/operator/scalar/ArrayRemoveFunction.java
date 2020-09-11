@@ -18,12 +18,12 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -31,6 +31,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.util.Failures.internalError;
@@ -50,7 +52,11 @@ public final class ArrayRemoveFunction
     @TypeParameter("E")
     @SqlType("array(E)")
     public Block remove(
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"E", "E"},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    MethodHandle equalsFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block array,
             @SqlType("E") long value)
@@ -61,7 +67,11 @@ public final class ArrayRemoveFunction
     @TypeParameter("E")
     @SqlType("array(E)")
     public Block remove(
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"E", "E"},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    MethodHandle equalsFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block array,
             @SqlType("E") double value)
@@ -72,7 +82,11 @@ public final class ArrayRemoveFunction
     @TypeParameter("E")
     @SqlType("array(E)")
     public Block remove(
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"E", "E"},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    MethodHandle equalsFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block array,
             @SqlType("E") boolean value)
@@ -83,7 +97,11 @@ public final class ArrayRemoveFunction
     @TypeParameter("E")
     @SqlType("array(E)")
     public Block remove(
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"E", "E"},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    MethodHandle equalsFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block array,
             @SqlType("E") Object value)

@@ -28,7 +28,6 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.OrderingCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -95,7 +94,7 @@ public class LocalMergeSourceOperator
         @Override
         public OperatorFactory duplicate()
         {
-            throw new UnsupportedOperationException("Source operator factories can not be duplicated");
+            throw new UnsupportedOperationException("Source operator factories cannot be duplicated");
         }
     }
 
@@ -172,7 +171,6 @@ public class LocalMergeSourceOperator
 
     @Override
     public void close()
-            throws IOException
     {
         sources.forEach(LocalExchangeSource::close);
     }

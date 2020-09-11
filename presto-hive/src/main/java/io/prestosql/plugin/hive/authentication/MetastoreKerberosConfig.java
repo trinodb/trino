@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.authentication;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.NotNull;
 
@@ -53,6 +54,7 @@ public class MetastoreKerberosConfig
     }
 
     @NotNull
+    @FileExists
     public String getHiveMetastoreClientKeytab()
     {
         return hiveMetastoreClientKeytab;

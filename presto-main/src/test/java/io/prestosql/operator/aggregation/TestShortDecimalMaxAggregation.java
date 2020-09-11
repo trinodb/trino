@@ -18,6 +18,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.SqlDecimal;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
@@ -27,7 +28,7 @@ public class TestShortDecimalMaxAggregation
     public static final DecimalType SHORT_DECIMAL = DecimalType.createDecimalType(10, 5);
 
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = SHORT_DECIMAL.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -37,7 +38,7 @@ public class TestShortDecimalMaxAggregation
     }
 
     @Override
-    public SqlDecimal getExpectedValue(int start, int length)
+    protected SqlDecimal getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;
@@ -52,8 +53,8 @@ public class TestShortDecimalMaxAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(SHORT_DECIMAL.getTypeSignature().toString());
+        return ImmutableList.of(SHORT_DECIMAL);
     }
 }

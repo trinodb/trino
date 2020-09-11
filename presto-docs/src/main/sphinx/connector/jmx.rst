@@ -2,14 +2,15 @@
 JMX Connector
 =============
 
-The JMX connector provides the ability to query JMX information from all
+The JMX connector provides the ability to query Java Management Extensions (JMX)
+information from all
 nodes in a Presto cluster. This is very useful for monitoring or debugging.
-Java Management Extensions (JMX) provides information about the Java
+JMX provides information about the Java
 Virtual Machine and all of the software running inside it. Presto itself
 is heavily instrumented via JMX.
 
-This connector can also be configured so that chosen JMX information will
-be periodically dumped and stored in memory for later access.
+This connector can be configured so that chosen JMX information is
+periodically dumped and stored in memory for later access.
 
 Configuration
 -------------
@@ -26,13 +27,13 @@ To enable periodical dumps, define the following properties:
 .. code-block:: none
 
     connector.name=jmx
-    jmx.dump-tables=java.lang:type=Runtime,io.prestosql.execution.scheduler:name=NodeScheduler
+    jmx.dump-tables=java.lang:type=Runtime,presto.execution.scheduler:name=NodeScheduler
     jmx.dump-period=10s
     jmx.max-entries=86400
 
 ``dump-tables`` is a comma separated list of Managed Beans (MBean). It specifies
-which MBeans will be sampled and stored in memory every ``dump-period``.
-History will have limited size of ``max-entries`` of entries. Both ``dump-period``
+which MBeans is sampled and stored in memory every ``dump-period``.
+History has limited size of ``max-entries`` of entries. Both ``dump-period``
 and ``max-entries`` have default values of ``10s`` and ``86400`` accordingly.
 
 Commas in MBean names should be escaped in the following manner:
@@ -40,9 +41,8 @@ Commas in MBean names should be escaped in the following manner:
 .. code-block:: none
 
     connector.name=jmx
-    jmx.dump-tables=io.prestosql.memory:type=memorypool\\,name=general,\
-       io.prestosql.memory:type=memorypool\\,name=system,\
-       io.prestosql.memory:type=memorypool\\,name=reserved
+    jmx.dump-tables=presto.memory:name=general\\,type=memorypool,\
+       presto.memory:name=reserved\\,type=memorypool
 
 Querying JMX
 ------------
@@ -54,7 +54,7 @@ cluster. You can see all of the available MBeans by running ``SHOW TABLES``::
 
     SHOW TABLES FROM jmx.current;
 
-MBean names map to non-standard table names and must be quoted with
+MBean names map to non-standard table names, and must be quoted with
 double quotes when referencing them in a query. For example, the
 following query shows the JVM version of every node::
 
@@ -86,15 +86,15 @@ This allows matching several MBean objects within a single query. The following 
 returns information from the different Presto memory pools on each node::
 
     SELECT freebytes, node, object_name
-    FROM jmx.current."io.prestosql.memory:*type=memorypool*";
+    FROM jmx.current."presto.memory:*type=memorypool*";
 
 .. code-block:: none
 
      freebytes  |  node   |                       object_name
     ------------+---------+----------------------------------------------------------
-      214748364 | example | io.prestosql.memory:type=MemoryPool,name=reserved
-     1073741825 | example | io.prestosql.memory:type=MemoryPool,name=general
-      858993459 | example | io.prestosql.memory:type=MemoryPool,name=system
+      214748364 | example | presto.memory:type=MemoryPool,name=reserved
+     1073741825 | example | presto.memory:type=MemoryPool,name=general
+      858993459 | example | presto.memory:type=MemoryPool,name=system
     (3 rows)
 
 The ``history`` schema contains the list of tables configured in the connector properties file.

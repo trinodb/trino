@@ -17,10 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
 
@@ -29,31 +26,12 @@ import static java.util.Objects.requireNonNull;
 public class MongoSplit
         implements ConnectorSplit
 {
-    private final SchemaTableName schemaTableName;
-    private final TupleDomain<ColumnHandle> tupleDomain;
     private final List<HostAddress> addresses;
 
     @JsonCreator
-    public MongoSplit(
-            @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
-            @JsonProperty("addresses") List<HostAddress> addresses)
+    public MongoSplit(@JsonProperty("addresses") List<HostAddress> addresses)
     {
-        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-        this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
-    }
-
-    @JsonProperty
-    public SchemaTableName getSchemaTableName()
-    {
-        return schemaTableName;
-    }
-
-    @JsonProperty
-    public TupleDomain<ColumnHandle> getTupleDomain()
-    {
-        return tupleDomain;
     }
 
     @Override

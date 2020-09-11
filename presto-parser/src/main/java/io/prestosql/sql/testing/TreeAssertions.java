@@ -25,7 +25,6 @@ import io.prestosql.sql.tree.Statement;
 import javax.annotation.Nullable;
 
 import java.util.List;
-import java.util.Optional;
 
 import static io.prestosql.sql.SqlFormatter.formatSql;
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
@@ -43,11 +42,11 @@ public final class TreeAssertions
 
     public static void assertFormattedSql(SqlParser sqlParser, ParsingOptions parsingOptions, Node expected)
     {
-        String formatted = formatSql(expected, Optional.empty());
+        String formatted = formatSql(expected);
 
         // verify round-trip of formatting already-formatted SQL
         Statement actual = parseFormatted(sqlParser, parsingOptions, formatted, expected);
-        assertEquals(formatSql(actual, Optional.empty()), formatted);
+        assertEquals(formatSql(actual), formatted);
 
         // compare parsed tree with parsed tree of formatted SQL
         if (!actual.equals(expected)) {
@@ -63,23 +62,22 @@ public final class TreeAssertions
             return sqlParser.createStatement(sql, parsingOptions);
         }
         catch (ParsingException e) {
-            throw new AssertionError(format(
-                    "failed to parse formatted SQL: %s\nerror: %s\ntree: %s",
-                    sql, e.getMessage(), tree));
+            String message = format("failed to parse formatted SQL: %s\nerror: %s\ntree: %s", sql, e.getMessage(), tree);
+            throw new AssertionError(message, e);
         }
     }
 
     private static List<Node> linearizeTree(Node tree)
     {
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
-        new DefaultTraversalVisitor<Node, Void>()
+        new DefaultTraversalVisitor<Void>()
         {
             @Override
-            public Node process(Node node, @Nullable Void context)
+            public Void process(Node node, @Nullable Void context)
             {
-                Node result = super.process(node, context);
+                super.process(node, context);
                 nodes.add(node);
-                return result;
+                return null;
             }
         }.process(tree, null);
         return nodes.build();

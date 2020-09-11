@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
-import io.prestosql.type.LiteralParameter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -145,7 +145,7 @@ public final class CharacterStringCasts
         return codePoints.build();
     }
 
-    private static Slice codePointsToSliceUtf8(List<Integer> codePoints)
+    public static Slice codePointsToSliceUtf8(List<Integer> codePoints)
     {
         int length = codePoints.stream()
                 .mapToInt(SliceUtf8::lengthOfCodePoint)

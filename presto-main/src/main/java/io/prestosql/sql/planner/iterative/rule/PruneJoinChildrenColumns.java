@@ -23,18 +23,16 @@ import io.prestosql.sql.planner.plan.JoinNode;
 
 import java.util.Set;
 
-import static com.google.common.base.Predicates.not;
 import static io.prestosql.sql.planner.iterative.rule.Util.restrictChildOutputs;
 import static io.prestosql.sql.planner.plan.Patterns.join;
 
 /**
- * Non-Cross joins support output symbol selection, so make any project-off of child columns explicit in project nodes.
+ * Joins support output symbol selection, so make any project-off of child columns explicit in project nodes.
  */
 public class PruneJoinChildrenColumns
         implements Rule<JoinNode>
 {
-    private static final Pattern<JoinNode> PATTERN = join()
-            .matching(not(JoinNode::isCrossJoin));
+    private static final Pattern<JoinNode> PATTERN = join();
 
     @Override
     public Pattern<JoinNode> getPattern()

@@ -14,24 +14,23 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Math.toIntExact;
 
@@ -44,44 +43,32 @@ public class ArrayFlattenFunction
 
     private ArrayFlattenFunction()
     {
-        super(new Signature(FUNCTION_NAME,
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("E")),
-                ImmutableList.of(),
-                parseTypeSignature("array(E)"),
-                ImmutableList.of(parseTypeSignature("array(array(E))")),
-                false));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Flattens the given array";
-    }
-
-    @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        Type elementType = boundVariables.getTypeVariable("E");
-        Type arrayType = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.of(elementType.getTypeSignature())));
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(elementType).bindTo(arrayType);
-        return new ScalarFunctionImplementation(
+        super(new FunctionMetadata(
+                new Signature(
+                        FUNCTION_NAME,
+                        ImmutableList.of(typeVariable("E")),
+                        ImmutableList.of(),
+                        arrayType(new TypeSignature("E")),
+                        ImmutableList.of(arrayType(arrayType(new TypeSignature("E")))),
+                        false),
                 false,
-                ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandle,
-                isDeterministic());
+                ImmutableList.of(new FunctionArgumentDefinition(false)),
+                false,
+                true,
+                "Flattens the given array",
+                SCALAR));
+    }
+
+    @Override
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    {
+        MethodHandle methodHandle = METHOD_HANDLE
+                .bindTo(functionBinding.getTypeVariable("E"))
+                .bindTo(functionBinding.getBoundSignature().getReturnType());
+        return new ScalarFunctionImplementation(
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL),
+                methodHandle);
     }
 
     public static Block flatten(Type type, Type arrayType, Block array)

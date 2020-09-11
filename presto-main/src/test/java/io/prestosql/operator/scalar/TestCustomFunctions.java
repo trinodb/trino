@@ -47,4 +47,11 @@ public class TestCustomFunctions
         assertFunction("custom_is_null(CAST(NULL AS BIGINT))", BOOLEAN, true);
         assertFunction("custom_is_null(0)", BOOLEAN, false);
     }
+
+    @Test
+    public void testIdentityFunction()
+    {
+        assertFunction("\"identity&function\"(\"identity.function\"(123))", BIGINT, 123L);
+        assertFunction("\"identity.function\"(\"identity&function\"(123))", BIGINT, 123L);
+    }
 }

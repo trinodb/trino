@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static org.testng.Assert.assertEquals;
@@ -38,7 +39,7 @@ public class TestMetadataDao
     @BeforeMethod
     public void setup()
     {
-        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dummyHandle = dbi.open();
         dao = dbi.onDemand(MetadataDao.class);
         createTablesWithRetry(dbi);
@@ -86,7 +87,7 @@ public class TestMetadataDao
     private static void assertTable(Table info, long tableId)
     {
         assertEquals(info.getTableId(), tableId);
-        assertEquals(info.getDistributionId(), OptionalLong.empty());
+        assertEquals(info.getDistributionId(), Optional.empty());
         assertEquals(info.getDistributionName(), Optional.empty());
         assertEquals(info.getBucketCount(), OptionalInt.empty());
         assertEquals(info.getTemporalColumnId(), OptionalLong.empty());

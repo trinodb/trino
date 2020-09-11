@@ -16,10 +16,18 @@ package io.prestosql.spi.block;
 
 import io.airlift.slice.Slice;
 
+import java.util.List;
+
 public abstract class AbstractSingleMapBlock
         implements Block
 {
     abstract int getOffset();
+
+    @Override
+    public final List<Block> getChildren()
+    {
+        return List.of(getRawKeyBlock(), getRawValueBlock());
+    }
 
     abstract Block getRawKeyBlock();
 

@@ -128,11 +128,11 @@ public class Driver
         Optional<DeleteOperator> deleteOperator = Optional.empty();
         for (Operator operator : operators) {
             if (operator instanceof SourceOperator) {
-                checkArgument(!sourceOperator.isPresent(), "There must be at most one SourceOperator");
+                checkArgument(sourceOperator.isEmpty(), "There must be at most one SourceOperator");
                 sourceOperator = Optional.of((SourceOperator) operator);
             }
             else if (operator instanceof DeleteOperator) {
-                checkArgument(!deleteOperator.isPresent(), "There must be at most one DeleteOperator");
+                checkArgument(deleteOperator.isEmpty(), "There must be at most one DeleteOperator");
                 deleteOperator = Optional.of((DeleteOperator) operator);
             }
         }
@@ -182,7 +182,7 @@ public class Driver
 
     public boolean isFinished()
     {
-        checkLockNotHeld("Can not check finished status while holding the driver lock");
+        checkLockNotHeld("Cannot check finished status while holding the driver lock");
 
         // if we can get the lock, attempt a clean shutdown; otherwise someone else will shutdown
         Optional<Boolean> result = tryWithLock(this::isFinishedInternal);
@@ -203,7 +203,7 @@ public class Driver
 
     public void updateSource(TaskSource sourceUpdate)
     {
-        checkLockNotHeld("Can not update sources while holding the driver lock");
+        checkLockNotHeld("Cannot update sources while holding the driver lock");
         checkArgument(
                 sourceOperator.isPresent() && sourceOperator.get().getSourceId().equals(sourceUpdate.getPlanNodeId()),
                 "sourceUpdate is for a plan node that is different from this Driver's source node");
@@ -261,7 +261,7 @@ public class Driver
 
     public ListenableFuture<?> processFor(Duration duration)
     {
-        checkLockNotHeld("Can not process for a duration while holding the driver lock");
+        checkLockNotHeld("Cannot process for a duration while holding the driver lock");
 
         requireNonNull(duration, "duration is null");
 
@@ -298,7 +298,7 @@ public class Driver
 
     public ListenableFuture<?> process()
     {
-        checkLockNotHeld("Can not process while holding the driver lock");
+        checkLockNotHeld("Cannot process while holding the driver lock");
 
         // if the driver is blocked we don't need to continue
         SettableFuture<?> blockedFuture = driverBlockedFuture.get();
@@ -374,7 +374,7 @@ public class Driver
                 }
 
                 // if the current operator is not finished and next operator isn't blocked and needs input...
-                if (!current.isFinished() && !getBlockedFuture(next).isPresent() && next.needsInput()) {
+                if (!current.isFinished() && getBlockedFuture(next).isEmpty() && next.needsInput()) {
                     // get an output page from current operator
                     Page page = current.getOutput();
                     current.getOperatorContext().recordGetOutput(operationTimer, page);
@@ -647,16 +647,16 @@ public class Driver
         return result;
     }
 
-    // Note: task can not return null
+    // Note: task cannot return null
     private <T> Optional<T> tryWithLock(Supplier<T> task)
     {
         return tryWithLock(0, TimeUnit.MILLISECONDS, task);
     }
 
-    // Note: task can not return null
+    // Note: task cannot return null
     private <T> Optional<T> tryWithLock(long timeout, TimeUnit unit, Supplier<T> task)
     {
-        checkLockNotHeld("Lock can not be reacquired");
+        checkLockNotHeld("Lock cannot be reacquired");
 
         boolean acquired = false;
         try {

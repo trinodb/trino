@@ -21,7 +21,12 @@ import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.StringJoiner;
 
+import static io.prestosql.spi.predicate.Utils.blockToNativeValue;
+import static io.prestosql.spi.predicate.Utils.nativeValueToBlock;
+import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -59,11 +64,14 @@ public final class Marker
         if (!type.isOrderable()) {
             throw new IllegalArgumentException("type must be orderable");
         }
-        if (!valueBlock.isPresent() && bound == Bound.EXACTLY) {
-            throw new IllegalArgumentException("Can not be equal to unbounded");
+        if (valueBlock.isEmpty() && bound == Bound.EXACTLY) {
+            throw new IllegalArgumentException("Cannot be equal to unbounded");
         }
         if (valueBlock.isPresent() && valueBlock.get().getPositionCount() != 1) {
             throw new IllegalArgumentException("value block should only have one position");
+        }
+        if (valueBlock.isPresent() && isFloatingPointNaN(type, blockToNativeValue(type, valueBlock.get()))) {
+            throw new IllegalArgumentException("cannot use NaN as range bound");
         }
         this.type = type;
         this.valueBlock = valueBlock;
@@ -72,7 +80,7 @@ public final class Marker
 
     private static Marker create(Type type, Optional<Object> value, Bound bound)
     {
-        return new Marker(type, value.map(object -> Utils.nativeValueToBlock(type, object)), bound);
+        return new Marker(type, value.map(object -> nativeValueToBlock(type, object)), bound);
     }
 
     public static Marker upperUnbounded(Type type)
@@ -122,15 +130,15 @@ public final class Marker
 
     public Object getValue()
     {
-        if (!valueBlock.isPresent()) {
+        if (valueBlock.isEmpty()) {
             throw new IllegalStateException("No value to get");
         }
-        return Utils.blockToNativeValue(type, valueBlock.get());
+        return blockToNativeValue(type, valueBlock.get());
     }
 
     public Object getPrintableValue(ConnectorSession session)
     {
-        if (!valueBlock.isPresent()) {
+        if (valueBlock.isEmpty()) {
             throw new IllegalStateException("No value to get");
         }
         return type.getObjectValue(session, valueBlock.get(), 0);
@@ -144,18 +152,18 @@ public final class Marker
 
     public boolean isUpperUnbounded()
     {
-        return !valueBlock.isPresent() && bound == Bound.BELOW;
+        return valueBlock.isEmpty() && bound == Bound.BELOW;
     }
 
     public boolean isLowerUnbounded()
     {
-        return !valueBlock.isPresent() && bound == Bound.ABOVE;
+        return valueBlock.isEmpty() && bound == Bound.ABOVE;
     }
 
     private void checkTypeCompatibility(Marker marker)
     {
         if (!type.equals(marker.getType())) {
-            throw new IllegalArgumentException(String.format("Mismatched Marker types: %s vs %s", type, marker.getType()));
+            throw new IllegalArgumentException(format("Mismatched Marker types: %s vs %s", type, marker.getType()));
         }
     }
 
@@ -178,7 +186,7 @@ public final class Marker
 
     public Marker greaterAdjacent()
     {
-        if (!valueBlock.isPresent()) {
+        if (valueBlock.isEmpty()) {
             throw new IllegalStateException("No marker adjacent to unbounded");
         }
         switch (bound) {
@@ -195,7 +203,7 @@ public final class Marker
 
     public Marker lesserAdjacent()
     {
-        if (!valueBlock.isPresent()) {
+        if (valueBlock.isEmpty()) {
             throw new IllegalStateException("No marker adjacent to unbounded");
         }
         switch (bound) {
@@ -276,9 +284,24 @@ public final class Marker
         }
         Marker other = (Marker) obj;
         return Objects.equals(this.type, other.type)
-                && Objects.equals(this.bound, other.bound)
+                && this.bound == other.bound
                 && ((this.valueBlock.isPresent()) == (other.valueBlock.isPresent()))
-                && (!this.valueBlock.isPresent() || type.equalTo(this.valueBlock.get(), 0, other.valueBlock.get(), 0));
+                && (this.valueBlock.isEmpty() || type.equalTo(this.valueBlock.get(), 0, other.valueBlock.get(), 0));
+    }
+
+    @Override
+    public String toString()
+    {
+        StringJoiner stringJoiner = new StringJoiner(", ", Marker.class.getSimpleName() + "[", "]");
+        if (isLowerUnbounded()) {
+            stringJoiner.add("lower unbounded");
+        }
+        else if (isUpperUnbounded()) {
+            stringJoiner.add("upper unbounded");
+        }
+        stringJoiner.add("bound=" + bound);
+        valueBlock.ifPresent(valueBlock -> stringJoiner.add("valueBlock=..."));
+        return stringJoiner.toString();
     }
 
     public String toString(ConnectorSession session)

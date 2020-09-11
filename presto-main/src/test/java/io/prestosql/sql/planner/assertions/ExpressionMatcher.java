@@ -16,12 +16,15 @@ package io.prestosql.sql.planner.assertions;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.InPredicate;
+import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
@@ -44,10 +47,21 @@ public class ExpressionMatcher
         this.expression = expression(requireNonNull(expression));
     }
 
+    public ExpressionMatcher(Expression expression)
+    {
+        this.expression = requireNonNull(expression, "expression is null");
+        this.sql = requireNonNull(expression).toString();
+    }
+
     private Expression expression(String sql)
     {
         SqlParser parser = new SqlParser();
-        return rewriteIdentifiersToSymbolReferences(parser.createExpression(sql));
+        return rewriteIdentifiersToSymbolReferences(parser.createExpression(sql, new ParsingOptions()));
+    }
+
+    public static ExpressionMatcher inPredicate(SymbolReference value, SymbolReference valueList)
+    {
+        return new ExpressionMatcher(new InPredicate(value, valueList));
     }
 
     @Override

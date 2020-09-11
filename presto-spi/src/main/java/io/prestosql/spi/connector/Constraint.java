@@ -18,51 +18,91 @@ import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNull;
 
-public class Constraint<T>
+public class Constraint
 {
-    private final TupleDomain<T> summary;
-    private final Optional<Predicate<Map<T, NullableValue>>> predicate;
+    private final TupleDomain<ColumnHandle> summary;
+    private final Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate;
+    private final Optional<Set<ColumnHandle>> predicateColumns;
 
-    public static <V> Constraint<V> alwaysTrue()
+    public static Constraint alwaysTrue()
     {
-        return new Constraint<>(TupleDomain.<V>all(), Optional.empty());
+        return new Constraint(TupleDomain.all(), Optional.empty(), Optional.empty());
     }
 
-    public static <V> Constraint<V> alwaysFalse()
+    public static Constraint alwaysFalse()
     {
-        return new Constraint<>(TupleDomain.<V>none(), Optional.of(bindings -> false));
+        return new Constraint(TupleDomain.none(), Optional.of(bindings -> false), Optional.empty());
     }
 
-    public Constraint(TupleDomain<T> summary)
+    public Constraint(TupleDomain<ColumnHandle> summary)
     {
-        this(summary, Optional.empty());
+        this(summary, Optional.empty(), Optional.empty());
     }
 
-    public Constraint(TupleDomain<T> summary, Predicate<Map<T, NullableValue>> predicate)
+    /**
+     * @deprecated Use {@link #Constraint(TupleDomain, Predicate, Set)} instead.
+     */
+    @Deprecated
+    public Constraint(TupleDomain<ColumnHandle> summary, Predicate<Map<ColumnHandle, NullableValue>> predicate)
     {
-        this(summary, Optional.of(predicate));
+        this(summary, Optional.of(predicate), Optional.empty());
     }
 
-    public Constraint(TupleDomain<T> summary, Optional<Predicate<Map<T, NullableValue>>> predicate)
+    public Constraint(TupleDomain<ColumnHandle> summary, Predicate<Map<ColumnHandle, NullableValue>> predicate, Set<ColumnHandle> predicateColumns)
     {
-        requireNonNull(summary, "summary is null");
-        requireNonNull(predicate, "predicate is null");
-
-        this.summary = summary;
-        this.predicate = predicate;
+        this(summary, Optional.of(predicate), Optional.of(predicateColumns));
     }
 
-    public TupleDomain<T> getSummary()
+    /**
+     * @deprecated Use {@link #Constraint(TupleDomain, Optional, Optional)} instead.
+     */
+    @Deprecated
+    public Constraint(TupleDomain<ColumnHandle> summary, Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
+    {
+        this(summary, predicate, Optional.empty());
+    }
+
+    public Constraint(TupleDomain<ColumnHandle> summary, Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate, Optional<Set<ColumnHandle>> predicateColumns)
+    {
+        this.summary = requireNonNull(summary, "summary is null");
+        this.predicate = requireNonNull(predicate, "predicate is null");
+        this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null");
+
+        // TODO remove deprecated constructors and validate that predicate is present *iff* predicateColumns is present
+        if (predicateColumns.isPresent() && predicate.isEmpty()) {
+            throw new IllegalArgumentException("predicateColumns cannot be present when predicate is not present");
+        }
+    }
+
+    public TupleDomain<ColumnHandle> getSummary()
     {
         return summary;
     }
 
-    public Optional<Predicate<Map<T, NullableValue>>> predicate()
+    public Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate()
     {
         return predicate;
+    }
+
+    /**
+     * @deprecated Use {@link #getPredicateColumns()} instead.
+     */
+    @Deprecated
+    public Optional<Set<ColumnHandle>> getColumns()
+    {
+        return getPredicateColumns();
+    }
+
+    /**
+     * Set of columns the {@link #predicate()} result depends on.
+     */
+    public Optional<Set<ColumnHandle>> getPredicateColumns()
+    {
+        return predicateColumns;
     }
 }

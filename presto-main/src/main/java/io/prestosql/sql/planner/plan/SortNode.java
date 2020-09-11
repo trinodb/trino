@@ -29,11 +29,13 @@ public class SortNode
 {
     private final PlanNode source;
     private final OrderingScheme orderingScheme;
+    private final boolean partial;
 
     @JsonCreator
     public SortNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("orderingScheme") OrderingScheme orderingScheme)
+            @JsonProperty("orderingScheme") OrderingScheme orderingScheme,
+            @JsonProperty("partial") boolean partial)
     {
         super(id);
 
@@ -42,6 +44,7 @@ public class SortNode
 
         this.source = source;
         this.orderingScheme = orderingScheme;
+        this.partial = partial;
     }
 
     @Override
@@ -62,6 +65,12 @@ public class SortNode
         return source.getOutputSymbols();
     }
 
+    @JsonProperty
+    public boolean isPartial()
+    {
+        return partial;
+    }
+
     @JsonProperty("orderingScheme")
     public OrderingScheme getOrderingScheme()
     {
@@ -77,6 +86,6 @@ public class SortNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new SortNode(getId(), Iterables.getOnlyElement(newChildren), orderingScheme);
+        return new SortNode(getId(), Iterables.getOnlyElement(newChildren), orderingScheme, partial);
     }
 }

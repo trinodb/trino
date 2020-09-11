@@ -23,6 +23,8 @@ import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GroupBy;
 import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
+import io.prestosql.sql.tree.Node;
+import io.prestosql.sql.tree.Offset;
 import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.Query;
@@ -171,6 +173,7 @@ public final class QueryUtil
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty()));
     }
 
@@ -196,10 +199,18 @@ public final class QueryUtil
 
     public static Query simpleQuery(Select select, Relation from, Optional<Expression> where, Optional<OrderBy> orderBy)
     {
-        return simpleQuery(select, from, where, Optional.empty(), Optional.empty(), orderBy, Optional.empty());
+        return simpleQuery(select, from, where, Optional.empty(), Optional.empty(), orderBy, Optional.empty(), Optional.empty());
     }
 
-    public static Query simpleQuery(Select select, Relation from, Optional<Expression> where, Optional<GroupBy> groupBy, Optional<Expression> having, Optional<OrderBy> orderBy, Optional<String> limit)
+    public static Query simpleQuery(
+            Select select,
+            Relation from,
+            Optional<Expression> where,
+            Optional<GroupBy> groupBy,
+            Optional<Expression> having,
+            Optional<OrderBy> orderBy,
+            Optional<Offset> offset,
+            Optional<Node> limit)
     {
         return query(new QuerySpecification(
                 select,
@@ -208,6 +219,7 @@ public final class QueryUtil
                 groupBy,
                 having,
                 orderBy,
+                offset,
                 limit));
     }
 
@@ -232,6 +244,7 @@ public final class QueryUtil
         return new Query(
                 Optional.empty(),
                 body,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
     }

@@ -13,14 +13,12 @@
  */
 package io.prestosql.spi.statistics;
 
-import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
-import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
@@ -42,9 +40,9 @@ public class TableStatisticsMetadata
             Set<TableStatisticType> tableStatistics,
             List<String> groupingColumns)
     {
-        this.columnStatistics = unmodifiableSet(new HashSet<>(requireNonNull(columnStatistics, "columnStatistics is null")));
-        this.tableStatistics = unmodifiableSet(new HashSet<>(requireNonNull(tableStatistics, "tableStatistics is null")));
-        this.groupingColumns = unmodifiableList(new ArrayList<>(requireNonNull(groupingColumns, "groupingColumns is null")));
+        this.columnStatistics = unmodifiableSet(new LinkedHashSet<>(requireNonNull(columnStatistics, "columnStatistics is null")));
+        this.tableStatistics = unmodifiableSet(new LinkedHashSet<>(requireNonNull(tableStatistics, "tableStatistics is null")));
+        this.groupingColumns = List.copyOf(requireNonNull(groupingColumns, "groupingColumns is null"));
     }
 
     public Set<ColumnStatisticMetadata> getColumnStatistics()

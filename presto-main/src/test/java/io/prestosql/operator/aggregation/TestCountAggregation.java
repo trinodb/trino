@@ -16,6 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
@@ -25,7 +26,7 @@ public class TestCountAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -35,13 +36,13 @@ public class TestCountAggregation
     }
 
     @Override
-    public Number getExpectedValue(int start, int length)
+    protected Number getExpectedValue(int start, int length)
     {
         return (long) length;
     }
 
     @Override
-    public Object getExpectedValueIncludingNulls(int start, int length, int lengthIncludingNulls)
+    protected Object getExpectedValueIncludingNulls(int start, int length, int lengthIncludingNulls)
     {
         return (long) lengthIncludingNulls;
     }
@@ -53,7 +54,7 @@ public class TestCountAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
         return ImmutableList.of();
     }

@@ -15,10 +15,15 @@ package io.prestosql.plugin.accumulo;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.tests.AbstractTestDistributedQueries;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static io.prestosql.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
 import static org.testng.Assert.assertEquals;
@@ -37,9 +42,23 @@ import static org.testng.Assert.assertTrue;
 public class TestAccumuloDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    public TestAccumuloDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createAccumuloQueryRunner(ImmutableMap.of()));
+        return createAccumuloQueryRunner(ImmutableMap.of());
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Accumulo connector does not support column default values");
+    }
+
+    @Override
+    public void testCreateSchema()
+    {
+        // schema creation is not supported
     }
 
     @Override
@@ -66,7 +85,7 @@ public class TestAccumuloDistributedQueries
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
 
-        assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT UUID() AS uuid, orderkey, discount FROM lineitem", 0);
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT cast(uuid() AS uuid) AS uuid, orderkey, discount FROM lineitem", 0);
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
 
@@ -74,18 +93,15 @@ public class TestAccumuloDistributedQueries
         assertFalse(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
 
         this.assertCreateTableAsSelect(
-                "test_group",
                 "SELECT orderstatus, sum(totalprice) x FROM orders GROUP BY orderstatus",
                 "SELECT count(DISTINCT orderstatus) FROM orders");
 
         this.assertCreateTableAsSelect(
-                "test_with_data",
                 "SELECT * FROM orders WITH DATA",
                 "SELECT * FROM orders",
                 "SELECT count(*) FROM orders");
 
         this.assertCreateTableAsSelect(
-                "test_with_no_data",
                 "SELECT * FROM orders WITH NO DATA",
                 "SELECT * FROM orders LIMIT 0",
                 "SELECT 0");
@@ -100,7 +116,7 @@ public class TestAccumuloDistributedQueries
     @Override
     public void testInsert()
     {
-        @Language("SQL") String query = "SELECT UUID() AS uuid, orderdate, orderkey FROM orders";
+        @Language("SQL") String query = "SELECT cast(uuid() AS varchar) AS uuid, orderdate, orderkey FROM orders";
 
         assertUpdate("CREATE TABLE test_insert AS " + query + " WITH NO DATA", 0);
         assertQuery("SELECT count(*) FROM test_insert", "SELECT 0");
@@ -125,12 +141,31 @@ public class TestAccumuloDistributedQueries
         // of how they are declared in the table schema
         assertUpdate(
                 "INSERT INTO test_insert (uuid, orderkey, orderdate) " +
-                        "SELECT UUID() AS uuid, orderkey, orderdate FROM orders " +
+                        "SELECT cast(uuid() AS varchar) AS uuid, orderkey, orderdate FROM orders " +
                         "UNION ALL " +
-                        "SELECT UUID() AS uuid, orderkey, orderdate FROM orders",
+                        "SELECT cast(uuid() AS varchar) AS uuid, orderkey, orderdate FROM orders",
                 "SELECT 2 * count(*) FROM orders");
 
         assertUpdate("DROP TABLE test_insert");
+    }
+
+    @Override
+    public void testInsertWithCoercion()
+    {
+        // Override because of non-canonical varchar mapping
+    }
+
+    @Override // Overridden because we currently do not support arrays with null elements
+    public void testInsertArray()
+    {
+        assertUpdate("CREATE TABLE test_insert_array (a ARRAY<DOUBLE>, b ARRAY<BIGINT>)");
+
+        // assertUpdate("INSERT INTO test_insert_array (a) VALUES (ARRAY[null])", 1); TODO support ARRAY with null elements
+
+        assertUpdate("INSERT INTO test_insert_array (a, b) VALUES (ARRAY[1.23E1], ARRAY[1.23E1])", 1);
+        assertQuery("SELECT a[1], b[1] FROM test_insert_array", "VALUES (12.3, 12)");
+
+        assertUpdate("DROP TABLE test_insert_array");
     }
 
     @Test
@@ -149,63 +184,6 @@ public class TestAccumuloDistributedQueries
         finally {
             assertUpdate("DROP TABLE test_insert_duplicate");
         }
-    }
-
-    @Override
-    public void testBuildFilteredLeftJoin()
-    {
-        // Override because of extra UUID column in lineitem table, cannot SELECT *
-        assertQuery("SELECT "
-                + "lineitem.orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, lineitem.comment "
-                + "FROM lineitem LEFT JOIN (SELECT * FROM orders WHERE orderkey % 2 = 0) a ON lineitem.orderkey = a.orderkey");
-    }
-
-    @Override
-    @Test
-    public void testJoinWithAlias()
-    {
-        // Override because of extra UUID column in lineitem table, cannot SELECT *
-        // Cannot munge test to pass due to aliased data set 'x' containing duplicate orderkey and comment columns
-    }
-
-    @Override
-    public void testProbeFilteredLeftJoin()
-    {
-        // Override because of extra UUID column in lineitem table, cannot SELECT *
-        assertQuery("SELECT "
-                + "a.orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment "
-                + "FROM (SELECT * FROM lineitem WHERE orderkey % 2 = 0) a LEFT JOIN orders ON a.orderkey = orders.orderkey");
-    }
-
-    @Override
-    public void testLeftJoinWithEmptyInnerTable()
-    {
-        // Override because of extra UUID column in lineitem table, cannot SELECT *
-        // Use orderkey = rand() to create an empty relation
-        assertQuery("SELECT a.orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment " +
-                "FROM lineitem a LEFT JOIN(SELECT * FROM orders WHERE orderkey = rand())b ON a.orderkey = b.orderkey");
-        assertQuery("SELECT a.orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment " +
-                "FROM lineitem a LEFT JOIN (SELECT * FROM orders WHERE orderkey = rand()) b ON a.orderkey > b.orderkey");
-        assertQuery("SELECT a.orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment " +
-                " FROM lineitem a LEFT JOIN (SELECT * FROM orders WHERE orderkey = rand()) b ON 1 = 1");
-        assertQuery("SELECT a.orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment " +
-                "FROM lineitem a LEFT JOIN (SELECT * FROM orders WHERE orderkey = rand()) b ON b.orderkey > 1");
-        assertQuery("SELECT a.orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment " +
-                "FROM lineitem a LEFT JOIN (SELECT * FROM orders WHERE orderkey = rand()) b ON b.orderkey > b.totalprice");
     }
 
     @Override
@@ -362,14 +340,22 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
-    public void testDescribeOutput()
+    public void testCommentTable()
     {
-        // this connector uses a non-canonical type for varchar columns in tpch
+        // Accumulo connector currently does not support comment on table
+        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
     }
 
     @Override
-    public void testDescribeOutputNamedAndUnnamed()
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        // this connector uses a non-canonical type for varchar columns in tpch
+        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        if (typeName.startsWith("decimal(")
+                || typeName.equals("timestamp(3) with time zone")
+                || typeName.startsWith("char(")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        return Optional.of(dataMappingTestSetup);
     }
 }

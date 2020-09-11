@@ -16,8 +16,8 @@ package io.prestosql.server;
 import io.airlift.node.NodeInfo;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.client.ServerInfo;
-import io.prestosql.metadata.StaticCatalogStore;
-import io.prestosql.spi.NodeState;
+import io.prestosql.metadata.NodeState;
+import io.prestosql.server.security.ResourceSecurity;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
@@ -30,10 +30,14 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.spi.NodeState.ACTIVE;
-import static io.prestosql.spi.NodeState.SHUTTING_DOWN;
+import static io.prestosql.metadata.NodeState.ACTIVE;
+import static io.prestosql.metadata.NodeState.SHUTTING_DOWN;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_WRITE;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -46,28 +50,29 @@ public class ServerInfoResource
     private final NodeVersion version;
     private final String environment;
     private final boolean coordinator;
-    private final StaticCatalogStore catalogStore;
     private final GracefulShutdownHandler shutdownHandler;
     private final long startTime = System.nanoTime();
+    private final AtomicBoolean startupComplete = new AtomicBoolean();
 
     @Inject
-    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, StaticCatalogStore catalogStore, GracefulShutdownHandler shutdownHandler)
+    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, GracefulShutdownHandler shutdownHandler)
     {
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.coordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
-        this.catalogStore = requireNonNull(catalogStore, "catalogStore is null");
         this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
     }
 
+    @ResourceSecurity(PUBLIC)
     @GET
     @Produces(APPLICATION_JSON)
     public ServerInfo getInfo()
     {
-        boolean starting = !catalogStore.areCatalogsLoaded();
+        boolean starting = !startupComplete.get();
         return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)));
     }
 
+    @ResourceSecurity(MANAGEMENT_WRITE)
     @PUT
     @Path("state")
     @Consumes(APPLICATION_JSON)
@@ -95,6 +100,7 @@ public class ServerInfoResource
         }
     }
 
+    @ResourceSecurity(PUBLIC)
     @GET
     @Path("state")
     @Produces(APPLICATION_JSON)
@@ -108,6 +114,7 @@ public class ServerInfoResource
         }
     }
 
+    @ResourceSecurity(PUBLIC)
     @GET
     @Path("coordinator")
     @Produces(TEXT_PLAIN)
@@ -118,5 +125,10 @@ public class ServerInfoResource
         }
         // return 404 to allow load balancers to only send traffic to the coordinator
         return Response.status(Response.Status.NOT_FOUND).build();
+    }
+
+    public void startupComplete()
+    {
+        checkState(startupComplete.compareAndSet(false, true), "Server startup already marked as complete");
     }
 }

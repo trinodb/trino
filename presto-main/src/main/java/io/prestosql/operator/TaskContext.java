@@ -15,6 +15,7 @@ package io.prestosql.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -32,12 +33,16 @@ import io.prestosql.memory.QueryContext;
 import io.prestosql.memory.QueryContextVisitor;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.memory.context.MemoryTrackingContext;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -50,7 +55,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -102,6 +106,9 @@ public class TaskContext
 
     private final MemoryTrackingContext taskMemoryContext;
 
+    @GuardedBy("this")
+    private final Map<DynamicFilterId, Domain> dynamicTupleDomains = new HashMap<>();
+
     public static TaskContext createTaskContext(
             QueryContext queryContext,
             TaskStateMachine taskStateMachine,
@@ -119,7 +126,8 @@ public class TaskContext
         return taskContext;
     }
 
-    private TaskContext(QueryContext queryContext,
+    private TaskContext(
+            QueryContext queryContext,
             TaskStateMachine taskStateMachine,
             GcMonitor gcMonitor,
             Executor notificationExecutor,
@@ -236,12 +244,17 @@ public class TaskContext
 
     public DataSize getMemoryReservation()
     {
-        return new DataSize(taskMemoryContext.getUserMemory(), BYTE);
+        return DataSize.ofBytes(taskMemoryContext.getUserMemory());
     }
 
     public DataSize getSystemMemoryReservation()
     {
-        return new DataSize(taskMemoryContext.getSystemMemory(), BYTE);
+        return DataSize.ofBytes(taskMemoryContext.getSystemMemory());
+    }
+
+    public DataSize getRevocableMemoryReservation()
+    {
+        return DataSize.ofBytes(taskMemoryContext.getRevocableMemory());
     }
 
     /**
@@ -369,6 +382,18 @@ public class TaskContext
         return toIntExact(max(0, endFullGcCount - startFullGcCount));
     }
 
+    public synchronized void collectDynamicFilterDomains(Map<DynamicFilterId, Domain> dynamicFilterDomains)
+    {
+        for (Map.Entry<DynamicFilterId, Domain> entry : dynamicFilterDomains.entrySet()) {
+            dynamicTupleDomains.merge(entry.getKey(), entry.getValue(), Domain::intersect);
+        }
+    }
+
+    public synchronized Map<DynamicFilterId, Domain> getDynamicTupleDomains()
+    {
+        return ImmutableMap.copyOf(dynamicTupleDomains);
+    }
+
     public TaskStats getTaskStats()
     {
         // check for end state to avoid callback ordering problems
@@ -392,6 +417,7 @@ public class TaskContext
 
         long physicalInputDataSize = 0;
         long physicalInputPositions = 0;
+        long physicalInputReadTime = 0;
 
         long internalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
@@ -427,6 +453,7 @@ public class TaskContext
             if (pipeline.isInputPipeline()) {
                 physicalInputDataSize += pipeline.getPhysicalInputDataSize().toBytes();
                 physicalInputPositions += pipeline.getPhysicalInputPositions();
+                physicalInputReadTime += pipeline.getPhysicalInputReadTime().roundTo(NANOSECONDS);
 
                 internalNetworkInputDataSize += pipeline.getInternalNetworkInputDataSize().toBytes();
                 internalNetworkInputPositions += pipeline.getInternalNetworkInputPositions();
@@ -458,7 +485,7 @@ public class TaskContext
             elapsedTime = new Duration(endNanos - createNanos, NANOSECONDS);
         }
         else {
-            elapsedTime = new Duration(0, NANOSECONDS);
+            elapsedTime = new Duration(System.nanoTime() - createNanos, NANOSECONDS);
         }
 
         int fullGcCount = getFullGcCount();
@@ -510,6 +537,7 @@ public class TaskContext
                 blockedReasons,
                 succinctBytes(physicalInputDataSize),
                 physicalInputPositions,
+                new Duration(physicalInputReadTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
                 succinctBytes(rawInputDataSize),

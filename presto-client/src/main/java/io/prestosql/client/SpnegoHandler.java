@@ -44,9 +44,11 @@ import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 import java.util.Base64;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.CharMatcher.whitespace;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
@@ -74,6 +76,7 @@ public class SpnegoHandler
     private static final Oid SPNEGO_OID = createOid("1.3.6.1.5.5.2");
     private static final Oid KERBEROS_OID = createOid("1.2.840.113554.1.2.2");
 
+    private final String servicePrincipalPattern;
     private final String remoteServiceName;
     private final boolean useCanonicalHostname;
     private final Optional<String> principal;
@@ -84,6 +87,7 @@ public class SpnegoHandler
     private Session clientSession;
 
     public SpnegoHandler(
+            String servicePrincipalPattern,
             String remoteServiceName,
             boolean useCanonicalHostname,
             Optional<String> principal,
@@ -91,13 +95,23 @@ public class SpnegoHandler
             Optional<File> keytab,
             Optional<File> credentialCache)
     {
+        this.servicePrincipalPattern = requireNonNull(servicePrincipalPattern, "servicePrincipalPattern is null");
         this.remoteServiceName = requireNonNull(remoteServiceName, "remoteServiceName is null");
         this.useCanonicalHostname = useCanonicalHostname;
         this.principal = requireNonNull(principal, "principal is null");
         this.keytab = requireNonNull(keytab, "keytab is null");
         this.credentialCache = requireNonNull(credentialCache, "credentialCache is null");
 
-        kerberosConfig.ifPresent(file -> System.setProperty("java.security.krb5.conf", file.getAbsolutePath()));
+        kerberosConfig.ifPresent(file -> {
+            String newValue = file.getAbsolutePath();
+            String currentValue = System.getProperty("java.security.krb5.conf");
+            checkState(
+                    currentValue == null || Objects.equals(currentValue, newValue),
+                    "Refusing to set system property 'java.security.krb5.conf' to '%s', it is already set to '%s'",
+                    newValue,
+                    currentValue);
+            System.setProperty("java.security.krb5.conf", newValue);
+        });
     }
 
     @Override
@@ -133,7 +147,7 @@ public class SpnegoHandler
     private Request authenticate(Request request)
     {
         String hostName = request.url().host();
-        String principal = makeServicePrincipal(remoteServiceName, hostName, useCanonicalHostname);
+        String principal = makeServicePrincipal(servicePrincipalPattern, remoteServiceName, hostName, useCanonicalHostname);
         byte[] token = generateToken(principal);
 
         String credential = format("%s %s", NEGOTIATE, Base64.getEncoder().encodeToString(token));
@@ -157,7 +171,7 @@ public class SpnegoHandler
                 result.requestMutualAuth(true);
                 result.requestConf(true);
                 result.requestInteg(true);
-                result.requestCredDeleg(false);
+                result.requestCredDeleg(true);
                 return result;
             });
 
@@ -237,13 +251,13 @@ public class SpnegoHandler
         return new Session(loginContext, clientCredential);
     }
 
-    private static String makeServicePrincipal(String serviceName, String hostName, boolean useCanonicalHostname)
+    private static String makeServicePrincipal(String servicePrincipalPattern, String serviceName, String hostName, boolean useCanonicalHostname)
     {
         String serviceHostName = hostName;
         if (useCanonicalHostname) {
             serviceHostName = canonicalizeServiceHostName(hostName);
         }
-        return format("%s@%s", serviceName, serviceHostName.toLowerCase(Locale.US));
+        return servicePrincipalPattern.replaceAll("\\$\\{SERVICE}", serviceName).replaceAll("\\$\\{HOST}", serviceHostName.toLowerCase(Locale.US));
     }
 
     private static String canonicalizeServiceHostName(String hostName)

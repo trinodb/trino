@@ -18,10 +18,12 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.List;
 import java.util.function.BiConsumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class GroupByIdBlock
@@ -222,8 +224,20 @@ public class GroupByIdBlock
     }
 
     @Override
+    public boolean isLoaded()
+    {
+        return block.isLoaded();
+    }
+
+    @Override
     public Block getLoadedBlock()
     {
         return block.getLoadedBlock();
+    }
+
+    @Override
+    public final List<Block> getChildren()
+    {
+        return singletonList(block);
     }
 }

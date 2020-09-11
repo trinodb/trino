@@ -15,22 +15,20 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.stream.LongStream;
 
 import static io.prestosql.block.BlockAssertions.createLongRepeatBlock;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static org.testng.Assert.assertEquals;
 
 public class TestArrayMaxNAggregation
         extends AbstractTestAggregationFunction
@@ -58,7 +56,7 @@ public class TestArrayMaxNAggregation
     }
 
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         return new Block[] {createLongArraySequenceBlock(start, start + length), createLongRepeatBlock(2, length)};
     }
@@ -70,13 +68,13 @@ public class TestArrayMaxNAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of("array(bigint)", StandardTypes.BIGINT);
+        return ImmutableList.of(new ArrayType(BIGINT), BIGINT);
     }
 
     @Override
-    public Object getExpectedValue(int start, int length)
+    protected Object getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;
@@ -98,18 +96,14 @@ public class TestArrayMaxNAggregation
 
     private void testInvalidAggregation(Long[] x, int n)
     {
-        try {
-            testAggregation(null, createLongArraysBlock(x), createLongRepeatBlock(n, x.length));
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode().getName(), INVALID_FUNCTION_ARGUMENT.name());
-        }
+        assertInvalidAggregation(() ->
+                testAggregation(null, createLongArraysBlock(x), createLongRepeatBlock(n, x.length)));
     }
 
     private void testCustomAggregation(Long[] values, int n)
     {
         PriorityQueue<Long> heap = new PriorityQueue<>(n);
-        Arrays.stream(values).filter(x -> x != null).forEach(heap::add);
+        Arrays.stream(values).filter(Objects::nonNull).forEach(heap::add);
         ImmutableList.Builder<List<Long>> expected = new ImmutableList.Builder<>();
         for (int i = heap.size() - 1; i >= 0; i--) {
             expected.add(ImmutableList.of(heap.remove()));

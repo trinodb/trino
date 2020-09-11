@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.kudu.KuduClientSession.DEFAULT_SCHEMA;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -234,28 +235,24 @@ public class SchemaEmulationByTableNameConvention
             if (dotIndex == -1) {
                 return new SchemaTableName(DEFAULT_SCHEMA, rawName);
             }
-            else if (dotIndex == 0 || dotIndex == rawName.length() - 1) {
+            if (dotIndex == 0 || dotIndex == rawName.length() - 1) {
                 return null; // illegal rawName ignored
             }
             return new SchemaTableName(rawName.substring(0, dotIndex), rawName.substring(dotIndex + 1));
         }
-        else {
-            if (rawName.startsWith(commonPrefix)) {
-                int start = commonPrefix.length();
-                int dotIndex = rawName.indexOf('.', start);
-                if (dotIndex == -1 || dotIndex == start || dotIndex == rawName.length() - 1) {
-                    return null; // illegal rawName ignored
-                }
-                String schema = rawName.substring(start, dotIndex);
-                if (DEFAULT_SCHEMA.equalsIgnoreCase(schema)) {
-                    return null; // illegal rawName ignored
-                }
-                return new SchemaTableName(schema, rawName.substring(dotIndex + 1));
+        if (rawName.startsWith(commonPrefix)) {
+            int start = commonPrefix.length();
+            int dotIndex = rawName.indexOf('.', start);
+            if (dotIndex == -1 || dotIndex == start || dotIndex == rawName.length() - 1) {
+                return null; // illegal rawName ignored
             }
-            else {
-                return new SchemaTableName(DEFAULT_SCHEMA, rawName);
+            String schema = rawName.substring(start, dotIndex);
+            if (DEFAULT_SCHEMA.equalsIgnoreCase(schema)) {
+                return null; // illegal rawName ignored
             }
+            return new SchemaTableName(schema, rawName.substring(dotIndex + 1));
         }
+        return new SchemaTableName(DEFAULT_SCHEMA, rawName);
     }
 
     @Override
@@ -267,5 +264,13 @@ public class SchemaEmulationByTableNameConvention
         else {
             return commonPrefix + schemaName + ".";
         }
+    }
+
+    @Override
+    public List<String> filterTablesForDefaultSchema(List<String> rawTables)
+    {
+        return rawTables.stream()
+                .filter(table -> !table.contains("."))
+                .collect(toImmutableList());
     }
 }

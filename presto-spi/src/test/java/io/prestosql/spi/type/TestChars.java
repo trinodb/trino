@@ -16,15 +16,47 @@ package io.prestosql.spi.type;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.Chars.byteCountWithoutTrailingSpace;
+import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public class TestChars
 {
+    @Test
+    public void testPadSpaces()
+    {
+        String nonBmp = "\uD83D\uDE81"; // surrogate pair
+        verify(nonBmp.codePoints().count() == 1, "nonBmp must be a single character (code point) string");
+        verify(nonBmp.length() == 2, "nonBmp must be encoded as surrogate pairs (2 Java characters)");
+
+        testPadSpaces("", 0, "");
+        testPadSpaces("", 1, " ");
+        testPadSpaces("", 3, "   ");
+        testPadSpaces("ab", 3, "ab ");
+        testPadSpaces("abc", 3, "abc");
+        testPadSpaces(nonBmp, 3, nonBmp + "  ");
+        testPadSpaces(nonBmp + nonBmp, 3, nonBmp + nonBmp + " ");
+        testPadSpaces(nonBmp + nonBmp + nonBmp, 3, nonBmp + nonBmp + nonBmp);
+
+        assertThatThrownBy(() -> padSpaces(nonBmp + nonBmp + nonBmp + nonBmp, createCharType(3))).hasMessage("pad length is smaller than text length");
+        assertThatThrownBy(() -> padSpaces(utf8Slice(nonBmp + nonBmp + nonBmp + nonBmp), createCharType(3))).hasMessage("pad length is smaller than slice length");
+        assertThatThrownBy(() -> padSpaces(utf8Slice(nonBmp + nonBmp + nonBmp + nonBmp), 3)).hasMessage("pad length is smaller than slice length");
+    }
+
+    private void testPadSpaces(String input, int length, String expected)
+    {
+        assertEquals(padSpaces(input, createCharType(length)), expected);
+        assertEquals(padSpaces(utf8Slice(input), createCharType(length)), utf8Slice(expected));
+        assertEquals(padSpaces(utf8Slice(input), length), utf8Slice(expected));
+    }
+
     @Test
     public void testTruncateToLengthAndTrimSpaces()
     {

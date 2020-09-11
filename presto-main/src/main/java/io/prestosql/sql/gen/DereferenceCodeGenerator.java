@@ -19,35 +19,45 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.ConstantExpression;
 import io.prestosql.sql.relational.RowExpression;
-
-import java.util.List;
+import io.prestosql.sql.relational.SpecialForm;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static java.util.Objects.requireNonNull;
 
 public class DereferenceCodeGenerator
         implements BytecodeGenerator
 {
-    @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments)
+    private final Type returnType;
+    private final RowExpression base;
+    private final int index;
+
+    public DereferenceCodeGenerator(SpecialForm specialForm)
     {
-        checkArgument(arguments.size() == 2);
+        requireNonNull(specialForm, "specialForm is null");
+        returnType = specialForm.getType();
+        checkArgument(specialForm.getArguments().size() == 2);
+        base = specialForm.getArguments().get(0);
+        index = (int) ((ConstantExpression) specialForm.getArguments().get(1)).getValue();
+    }
+
+    @Override
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generator)
+    {
         CallSiteBinder callSiteBinder = generator.getCallSiteBinder();
 
         BytecodeBlock block = new BytecodeBlock().comment("DEREFERENCE").setDescription("DEREFERENCE");
         Variable wasNull = generator.wasNull();
         Variable rowBlock = generator.getScope().createTempVariable(Block.class);
-        int index = (int) ((ConstantExpression) arguments.get(1)).getValue();
 
         // clear the wasNull flag before evaluating the row value
         block.putVariable(wasNull, false);
-        block.append(generator.generate(arguments.get(0))).putVariable(rowBlock);
+        block.append(generator.generate(base)).putVariable(rowBlock);
 
         IfStatement ifRowBlockIsNull = new IfStatement("if row block is null...")
                 .condition(wasNull);

@@ -23,9 +23,10 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.GrantorSpecification;
+import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.PrincipalSpecification;
 import io.prestosql.sql.tree.QualifiedName;
@@ -34,12 +35,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.StandardErrorCode.MISSING_CATALOG_NAME;
+import static io.prestosql.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
+import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -54,7 +56,7 @@ public final class MetadataUtil
         schemaName.ifPresent(name -> checkLowerCase(name, "schemaName"));
         tableName.ifPresent(name -> checkLowerCase(name, "tableName"));
 
-        checkArgument(schemaName.isPresent() || !tableName.isPresent(), "tableName specified but schemaName is missing");
+        checkArgument(schemaName.isPresent() || tableName.isEmpty(), "tableName specified but schemaName is missing");
     }
 
     public static String checkCatalogName(String catalogName)
@@ -98,15 +100,16 @@ public final class MetadataUtil
         return null;
     }
 
-    public static String createCatalogName(Session session, Node node)
+    public static String getSessionCatalog(Metadata metadata, Session session, Node node)
     {
-        Optional<String> sessionCatalog = session.getCatalog();
+        String catalog = session.getCatalog().orElseThrow(() ->
+                semanticException(MISSING_CATALOG_NAME, node, "Session catalog must be set"));
 
-        if (!sessionCatalog.isPresent()) {
-            throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Session catalog must be set");
+        if (metadata.getCatalogHandle(session, catalog).isEmpty()) {
+            throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
         }
 
-        return sessionCatalog.get();
+        return catalog;
     }
 
     public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
@@ -117,7 +120,7 @@ public final class MetadataUtil
         if (schema.isPresent()) {
             List<String> parts = schema.get().getParts();
             if (parts.size() > 2) {
-                throw new SemanticException(INVALID_SCHEMA_NAME, node, "Too many parts in schema name: %s", schema.get());
+                throw semanticException(SYNTAX_ERROR, node, "Too many parts in schema name: %s", schema.get());
             }
             if (parts.size() == 2) {
                 catalogName = parts.get(0);
@@ -126,10 +129,10 @@ public final class MetadataUtil
         }
 
         if (catalogName == null) {
-            throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+            throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
         }
         if (schemaName == null) {
-            throw new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set");
+            throw semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set");
         }
 
         return new CatalogSchemaName(catalogName, schemaName);
@@ -146,9 +149,9 @@ public final class MetadataUtil
         List<String> parts = Lists.reverse(name.getParts());
         String objectName = parts.get(0);
         String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().orElseThrow(() ->
-                new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set"));
+                semanticException(MISSING_SCHEMA_NAME, node, "Schema must be specified when session schema is not set"));
         String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog().orElseThrow(() ->
-                new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set"));
+                semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set"));
 
         return new QualifiedObjectName(catalogName, schemaName, objectName);
     }
@@ -183,43 +186,30 @@ public final class MetadataUtil
         }
     }
 
+    public static PrincipalSpecification createPrincipal(PrestoPrincipal principal)
+    {
+        PrincipalType type = principal.getType();
+        switch (type) {
+            case USER:
+                return new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(principal.getName()));
+            case ROLE:
+                return new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(principal.getName()));
+            default:
+                throw new IllegalArgumentException("Unsupported type: " + type);
+        }
+    }
+
     public static boolean tableExists(Metadata metadata, Session session, String table)
     {
-        if (!session.getCatalog().isPresent() || !session.getSchema().isPresent()) {
+        if (session.getCatalog().isEmpty() || session.getSchema().isEmpty()) {
             return false;
         }
         QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), table);
         return metadata.getTableHandle(session, name).isPresent();
     }
 
-    public static class SchemaMetadataBuilder
-    {
-        public static SchemaMetadataBuilder schemaMetadataBuilder()
-        {
-            return new SchemaMetadataBuilder();
-        }
-
-        private final ImmutableMap.Builder<SchemaTableName, ConnectorTableMetadata> tables = ImmutableMap.builder();
-
-        public SchemaMetadataBuilder table(ConnectorTableMetadata tableMetadata)
-        {
-            tables.put(tableMetadata.getTable(), tableMetadata);
-            return this;
-        }
-
-        public ImmutableMap<SchemaTableName, ConnectorTableMetadata> build()
-        {
-            return tables.build();
-        }
-    }
-
     public static class TableMetadataBuilder
     {
-        public static TableMetadataBuilder tableMetadataBuilder(String schemaName, String tableName)
-        {
-            return new TableMetadataBuilder(new SchemaTableName(schemaName, tableName));
-        }
-
         public static TableMetadataBuilder tableMetadataBuilder(SchemaTableName tableName)
         {
             return new TableMetadataBuilder(tableName);
@@ -249,7 +239,11 @@ public final class MetadataUtil
 
         public TableMetadataBuilder hiddenColumn(String columnName, Type type)
         {
-            columns.add(new ColumnMetadata(columnName, type, null, true));
+            columns.add(ColumnMetadata.builder()
+                    .setName(columnName)
+                    .setType(type)
+                    .setHidden(true)
+                    .build());
             return this;
         }
 

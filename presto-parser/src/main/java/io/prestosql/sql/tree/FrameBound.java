@@ -103,7 +103,7 @@ public class FrameBound
             return false;
         }
         FrameBound o = (FrameBound) obj;
-        return Objects.equals(type, o.type) &&
+        return type == o.type &&
                 Objects.equals(value, o.value);
     }
 
@@ -120,5 +120,16 @@ public class FrameBound
                 .add("type", type)
                 .add("value", value)
                 .toString();
+    }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        FrameBound otherNode = (FrameBound) other;
+        return type == otherNode.type;
     }
 }

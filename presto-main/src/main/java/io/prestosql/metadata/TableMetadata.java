@@ -13,7 +13,7 @@
  */
 package io.prestosql.metadata;
 
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -24,21 +24,26 @@ import static java.util.Objects.requireNonNull;
 
 public class TableMetadata
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final ConnectorTableMetadata metadata;
 
-    public TableMetadata(ConnectorId connectorId, ConnectorTableMetadata metadata)
+    public TableMetadata(CatalogName catalogName, ConnectorTableMetadata metadata)
     {
-        requireNonNull(connectorId, "catalog is null");
+        requireNonNull(catalogName, "catalog is null");
         requireNonNull(metadata, "metadata is null");
 
-        this.connectorId = connectorId;
+        this.catalogName = catalogName;
         this.metadata = metadata;
     }
 
-    public ConnectorId getConnectorId()
+    public QualifiedObjectName getQualifiedName()
     {
-        return connectorId;
+        return new QualifiedObjectName(catalogName.getCatalogName(), metadata.getTable().getSchemaName(), metadata.getTable().getTableName());
+    }
+
+    public CatalogName getCatalogName()
+    {
+        return catalogName;
     }
 
     public ConnectorTableMetadata getMetadata()
@@ -61,6 +66,6 @@ public class TableMetadata
         return getColumns().stream()
                 .filter(columnMetadata -> columnMetadata.getName().equals(name))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(String.format("Invalid column name: %s", name)));
+                .orElseThrow(() -> new IllegalArgumentException("Invalid column name: " + name));
     }
 }

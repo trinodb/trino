@@ -14,16 +14,19 @@
 package io.prestosql.plugin.thrift.integration;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.tests.AbstractTestIndexedQueries;
+import io.prestosql.testing.AbstractTestIndexedQueries;
+import io.prestosql.testing.QueryRunner;
 
 import static io.prestosql.plugin.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
 
 public class TestThriftDistributedQueriesIndexed
         extends AbstractTestIndexedQueries
 {
-    public TestThriftDistributedQueriesIndexed()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createThriftQueryRunner(2, 2, true, ImmutableMap.of()));
+        return createThriftQueryRunner(2, true, ImmutableMap.of());
     }
 
     @Override

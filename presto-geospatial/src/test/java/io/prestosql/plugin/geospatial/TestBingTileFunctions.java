@@ -17,7 +17,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.Type;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -26,7 +25,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
-import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.prestosql.plugin.geospatial.BingTile.fromCoordinates;
 import static io.prestosql.plugin.geospatial.BingTileType.BING_TILE;
@@ -45,11 +43,7 @@ public class TestBingTileFunctions
     @BeforeClass
     protected void registerFunctions()
     {
-        GeoPlugin plugin = new GeoPlugin();
-        for (Type type : plugin.getTypes()) {
-            functionAssertions.getTypeRegistry().addType(type);
-        }
-        functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
+        functionAssertions.installPlugin(new GeoPlugin());
         functionAssertions.getMetadata().addFunctions(ImmutableList.of(APPLY_FUNCTION));
     }
 
@@ -66,7 +60,6 @@ public class TestBingTileFunctions
 
     @Test
     public void testArrayOfBingTiles()
-            throws Exception
     {
         assertFunction("array [bing_tile(1, 2, 10), bing_tile(3, 4, 11)]",
                 new ArrayType(BING_TILE),

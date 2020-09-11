@@ -13,16 +13,17 @@
  */
 package io.prestosql.tests.cassandra;
 
-import io.prestodb.tempto.ProductTest;
-import io.prestodb.tempto.Requirement;
-import io.prestodb.tempto.RequirementsProvider;
-import io.prestodb.tempto.configuration.Configuration;
+import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.Requirement;
+import io.prestosql.tempto.RequirementsProvider;
+import io.prestosql.tempto.configuration.Configuration;
 import org.testng.annotations.Test;
 
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
-import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.CASSANDRA;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.cassandra.CassandraTpchTableDefinitions.CASSANDRA_NATION;
 import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
 import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
@@ -38,23 +39,23 @@ public class TestInvalidSelect
         return immutableTable(CASSANDRA_NATION);
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testInvalidTable()
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, "bogus");
         assertThat(() -> query(format("SELECT * FROM %s", tableName)))
-                .failsWithMessage(format("Table %s does not exist", tableName));
+                .failsWithMessage(format("Table '%s' does not exist", tableName));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testInvalidSchema()
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, "does_not_exist", "bogus");
         assertThat(() -> query(format("SELECT * FROM %s", tableName)))
-                .failsWithMessage("Schema does_not_exist does not exist");
+                .failsWithMessage("Schema 'does_not_exist' does not exist");
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testInvalidColumn()
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, CASSANDRA_NATION.getName());

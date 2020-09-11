@@ -30,7 +30,7 @@ public class TestQueryMonitorConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(QueryMonitorConfig.class)
-                .setMaxOutputStageJsonSize(new DataSize(16, Unit.MEGABYTE)));
+                .setMaxOutputStageJsonSize(DataSize.of(16, Unit.MEGABYTE)));
     }
 
     @Test
@@ -41,7 +41,7 @@ public class TestQueryMonitorConfig
                 .build();
 
         QueryMonitorConfig expected = new QueryMonitorConfig()
-                .setMaxOutputStageJsonSize(new DataSize(512, Unit.KILOBYTE));
+                .setMaxOutputStageJsonSize(DataSize.of(512, Unit.KILOBYTE));
 
         assertFullMapping(properties, expected);
     }

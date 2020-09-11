@@ -15,14 +15,19 @@ package io.prestosql.type;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.BlockBuilderStatus;
+import io.prestosql.spi.block.ByteArrayBlockBuilder;
+import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.AbstractFixedWidthType;
+import io.prestosql.spi.type.AbstractType;
+import io.prestosql.spi.type.FixedWidthType;
 import io.prestosql.spi.type.TypeSignature;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class UnknownType
-        extends AbstractFixedWidthType
+        extends AbstractType
+        implements FixedWidthType
 {
     public static final UnknownType UNKNOWN = new UnknownType();
     public static final String NAME = "unknown";
@@ -32,7 +37,40 @@ public final class UnknownType
         // We never access the native container for UNKNOWN because its null check is always true.
         // The actual native container type does not matter here.
         // We choose boolean to represent UNKNOWN because it's the smallest primitive type.
-        super(new TypeSignature(NAME), boolean.class, 1);
+        super(new TypeSignature(NAME), boolean.class);
+    }
+
+    @Override
+    public int getFixedSize()
+    {
+        return Byte.BYTES;
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    {
+        int maxBlockSizeInBytes;
+        if (blockBuilderStatus == null) {
+            maxBlockSizeInBytes = PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+        }
+        else {
+            maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
+        }
+        return new ByteArrayBlockBuilder(
+                blockBuilderStatus,
+                Math.min(expectedEntries, maxBlockSizeInBytes / getFixedSize()));
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        return createBlockBuilder(blockBuilderStatus, expectedEntries, getFixedSize());
+    }
+
+    @Override
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    {
+        return new ByteArrayBlockBuilder(null, positionCount);
     }
 
     @Override

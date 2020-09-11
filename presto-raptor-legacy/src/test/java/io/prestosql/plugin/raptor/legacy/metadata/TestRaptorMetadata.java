@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.MetadataUtil.TableMetadataBuilder;
 import io.prestosql.plugin.raptor.legacy.NodeSupplier;
 import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
-import io.prestosql.plugin.raptor.legacy.RaptorConnectorId;
 import io.prestosql.plugin.raptor.legacy.RaptorMetadata;
 import io.prestosql.plugin.raptor.legacy.RaptorPartitioningHandle;
 import io.prestosql.plugin.raptor.legacy.RaptorSessionProperties;
@@ -36,11 +35,13 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.type.TypeManager;
 import io.prestosql.testing.TestingConnectorSession;
 import io.prestosql.testing.TestingNodeManager;
-import io.prestosql.type.TypeRegistry;
+import io.prestosql.type.InternalTypeManager;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.util.BooleanMapper;
@@ -55,11 +56,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Ticker.systemTicker;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.plugin.raptor.legacy.RaptorTableProperties.BUCKETED_ON_PROPERTY;
 import static io.prestosql.plugin.raptor.legacy.RaptorTableProperties.BUCKET_COUNT_PROPERTY;
@@ -73,6 +75,8 @@ import static io.prestosql.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -85,8 +89,9 @@ public class TestRaptorMetadata
 {
     private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
     private static final SchemaTableName DEFAULT_TEST_LINEITEMS = new SchemaTableName("test", "lineitems");
-    private static final ConnectorSession SESSION = new TestingConnectorSession(
-            new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties());
+    private static final ConnectorSession SESSION = TestingConnectorSession.builder()
+            .setPropertyMetadata(new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties())
+            .build();
 
     private DBI dbi;
     private Handle dummyHandle;
@@ -96,18 +101,17 @@ public class TestRaptorMetadata
     @BeforeMethod
     public void setupDatabase()
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
-        dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
-        dbi.registerMapper(new Distribution.Mapper(typeRegistry));
+        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager());
+        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        dbi.registerMapper(new TableColumn.Mapper(typeManager));
+        dbi.registerMapper(new Distribution.Mapper(typeManager));
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 
-        RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
         NodeManager nodeManager = new TestingNodeManager();
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
         shardManager = createShardManager(dbi, nodeSupplier, systemTicker());
-        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager);
+        metadata = new RaptorMetadata(dbi, shardManager);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -380,8 +384,9 @@ public class TestRaptorMetadata
 
         ConnectorNewTableLayout layout = metadata.getNewTableLayout(SESSION, ordersTable).get();
         assertEquals(layout.getPartitionColumns(), ImmutableList.of("orderkey", "custkey"));
-        assertInstanceOf(layout.getPartitioning(), RaptorPartitioningHandle.class);
-        RaptorPartitioningHandle partitioning = (RaptorPartitioningHandle) layout.getPartitioning();
+        assertTrue(layout.getPartitioning().isPresent());
+        assertInstanceOf(layout.getPartitioning().get(), RaptorPartitioningHandle.class);
+        RaptorPartitioningHandle partitioning = (RaptorPartitioningHandle) layout.getPartitioning().get();
         assertEquals(partitioning.getDistributionId(), 1);
 
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, ordersTable, Optional.of(layout));
@@ -589,34 +594,34 @@ public class TestRaptorMetadata
         SchemaTableName test2 = new SchemaTableName("test", "test_view2");
 
         // create views
-        metadata.createView(SESSION, test1, "test1", false);
-        metadata.createView(SESSION, test2, "test2", false);
+        metadata.createView(SESSION, test1, testingViewDefinition("test1"), false);
+        metadata.createView(SESSION, test2, testingViewDefinition("test2"), false);
 
         // verify listing
         List<SchemaTableName> list = metadata.listViews(SESSION, Optional.of("test"));
         assertEqualsIgnoreOrder(list, ImmutableList.of(test1, test2));
 
         // verify getting data
-        Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
+        Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(SESSION, Optional.of("test"));
         assertEquals(views.keySet(), ImmutableSet.of(test1, test2));
-        assertEquals(views.get(test1).getViewData(), "test1");
-        assertEquals(views.get(test2).getViewData(), "test2");
+        assertEquals(views.get(test1).getOriginalSql(), "test1");
+        assertEquals(views.get(test2).getOriginalSql(), "test2");
 
         // drop first view
         metadata.dropView(SESSION, test1);
 
-        views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
-        assertEquals(views.keySet(), ImmutableSet.of(test2));
+        assertThat(metadata.getViews(SESSION, Optional.of("test")))
+                .containsOnlyKeys(test2);
 
         // drop second view
         metadata.dropView(SESSION, test2);
 
-        views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
-        assertTrue(views.isEmpty());
+        assertThat(metadata.getViews(SESSION, Optional.of("test")))
+                .isEmpty();
 
         // verify listing everything
-        views = metadata.getViews(SESSION, new SchemaTablePrefix());
-        assertTrue(views.isEmpty());
+        assertThat(metadata.getViews(SESSION, Optional.empty()))
+                .isEmpty();
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
@@ -624,13 +629,13 @@ public class TestRaptorMetadata
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
         try {
-            metadata.createView(SESSION, test, "test", false);
+            metadata.createView(SESSION, test, testingViewDefinition("test"), false);
         }
         catch (Exception e) {
             fail("should have succeeded");
         }
 
-        metadata.createView(SESSION, test, "test", false);
+        metadata.createView(SESSION, test, testingViewDefinition("test"), false);
     }
 
     @Test
@@ -638,10 +643,12 @@ public class TestRaptorMetadata
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
 
-        metadata.createView(SESSION, test, "aaa", true);
-        metadata.createView(SESSION, test, "bbb", true);
+        metadata.createView(SESSION, test, testingViewDefinition("aaa"), true);
+        metadata.createView(SESSION, test, testingViewDefinition("bbb"), true);
 
-        assertEquals(metadata.getViews(SESSION, test.toSchemaTablePrefix()).get(test).getViewData(), "bbb");
+        assertThat(metadata.getView(SESSION, test))
+                .map(ConnectorViewDefinition::getOriginalSql)
+                .contains("bbb");
     }
 
     @Test
@@ -826,6 +833,18 @@ public class TestRaptorMetadata
             }
         }
         return builder.build();
+    }
+
+    private static ConnectorViewDefinition testingViewDefinition(String sql)
+    {
+        return new ConnectorViewDefinition(
+                sql,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())),
+                Optional.empty(),
+                Optional.empty(),
+                true);
     }
 
     private static void assertTableEqual(ConnectorTableMetadata actual, ConnectorTableMetadata expected)

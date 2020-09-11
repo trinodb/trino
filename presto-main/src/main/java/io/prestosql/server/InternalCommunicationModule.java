@@ -14,21 +14,11 @@
 package io.prestosql.server;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.spnego.KerberosConfig;
 
-import java.io.UncheckedIOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.Locale;
-
-import static com.google.common.base.Verify.verify;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.prestosql.server.InternalCommunicationConfig.INTERNAL_COMMUNICATION_KERBEROS_ENABLED;
-import static io.prestosql.server.security.KerberosConfig.HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB;
+import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 
 public class InternalCommunicationModule
         extends AbstractConfigurationAwareModule
@@ -38,42 +28,14 @@ public class InternalCommunicationModule
     {
         InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
         configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
+            config.setHttp2Enabled(internalCommunicationConfig.isHttp2Enabled());
             config.setKeyStorePath(internalCommunicationConfig.getKeyStorePath());
             config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
+            config.setTrustStorePath(internalCommunicationConfig.getTrustStorePath());
+            config.setTrustStorePassword(internalCommunicationConfig.getTrustStorePassword());
         });
 
-        install(installModuleIf(InternalCommunicationConfig.class, InternalCommunicationConfig::isKerberosEnabled, kerberosInternalCommunicationModule()));
-    }
-
-    private Module kerberosInternalCommunicationModule()
-    {
-        return binder -> {
-            InternalCommunicationConfig clientKerberosConfig = buildConfigObject(InternalCommunicationConfig.class);
-            io.prestosql.server.security.KerberosConfig serverKerberosConfig = buildConfigObject(io.prestosql.server.security.KerberosConfig.class);
-            verify(serverKerberosConfig.getKeytab() != null, "%s must be set when %s is true", HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB, INTERNAL_COMMUNICATION_KERBEROS_ENABLED);
-
-            configBinder(binder).bindConfigGlobalDefaults(KerberosConfig.class, kerberosConfig -> {
-                kerberosConfig.setConfig(serverKerberosConfig.getKerberosConfig());
-                kerberosConfig.setKeytab(serverKerberosConfig.getKeytab());
-                kerberosConfig.setUseCanonicalHostname(clientKerberosConfig.isKerberosUseCanonicalHostname());
-            });
-
-            String kerberosPrincipal = serverKerberosConfig.getServiceName() + "/" + getLocalCanonicalHostName();
-            configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, httpClientConfig -> {
-                httpClientConfig.setAuthenticationEnabled(true);
-                httpClientConfig.setKerberosPrincipal(kerberosPrincipal);
-                httpClientConfig.setKerberosRemoteServiceName(serverKerberosConfig.getServiceName());
-            });
-        };
-    }
-
-    private static String getLocalCanonicalHostName()
-    {
-        try {
-            return InetAddress.getLocalHost().getCanonicalHostName().toLowerCase(Locale.US);
-        }
-        catch (UnknownHostException e) {
-            throw new UncheckedIOException(e);
-        }
+        binder.bind(InternalAuthenticationManager.class);
+        httpClientBinder(binder).bindGlobalFilter(InternalAuthenticationManager.class);
     }
 }

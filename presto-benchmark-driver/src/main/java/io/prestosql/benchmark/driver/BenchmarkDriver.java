@@ -33,7 +33,8 @@ public class BenchmarkDriver
     private final BenchmarkResultsStore resultsStore;
     private final BenchmarkQueryRunner queryRunner;
 
-    public BenchmarkDriver(BenchmarkResultsStore resultsStore,
+    public BenchmarkDriver(
+            BenchmarkResultsStore resultsStore,
             ClientSession clientSession,
             Iterable<BenchmarkQuery> queries,
             int warm,
@@ -46,7 +47,7 @@ public class BenchmarkDriver
         this.clientSession = requireNonNull(clientSession, "clientSession is null");
         this.queries = ImmutableList.copyOf(requireNonNull(queries, "queries is null"));
 
-        queryRunner = new BenchmarkQueryRunner(warm, runs, debug, maxFailures, clientSession.getServer(), socksProxy);
+        queryRunner = new BenchmarkQueryRunner(warm, runs, debug, maxFailures, clientSession.getServer(), socksProxy, clientSession.getUser());
     }
 
     public void run(Suite suite)

@@ -17,7 +17,8 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.drift.transport.netty.client.DriftNettyClientModule;
-import io.prestosql.plugin.thrift.util.RebindSafeMBeanServer;
+import io.prestosql.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
+import io.prestosql.plugin.base.jmx.MBeanServerModule;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
@@ -25,12 +26,8 @@ import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
-import javax.management.MBeanServer;
-
 import java.util.Map;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
-import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftConnectorFactory
@@ -60,33 +57,23 @@ public class ThriftConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        try {
-            Bootstrap app = new Bootstrap(
-                    new MBeanModule(),
-                    new ConnectorObjectNameGeneratorModule(catalogName),
-                    new DriftNettyClientModule(),
-                    binder -> {
-                        binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(getPlatformMBeanServer()));
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                    },
-                    locationModule,
-                    new ThriftModule());
+        Bootstrap app = new Bootstrap(
+                new MBeanModule(),
+                new MBeanServerModule(),
+                new ConnectorObjectNameGeneratorModule(catalogName, "io.prestosql.plugin.thrift", "presto.plugin.thrift"),
+                new DriftNettyClientModule(),
+                binder -> {
+                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                },
+                locationModule,
+                new ThriftModule());
 
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
 
-            return injector.getInstance(ThriftConnector.class);
-        }
-        catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Interrupted while creating connector", ie);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
+        return injector.getInstance(ThriftConnector.class);
     }
 }

@@ -13,30 +13,42 @@
  */
 package io.prestosql.sql.gen;
 
-import com.google.common.base.Preconditions;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
-import io.prestosql.metadata.Signature;
-import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.SpecialForm;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
+import static java.util.Objects.requireNonNull;
 
 public class IfCodeGenerator
         implements BytecodeGenerator
 {
-    @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
-    {
-        Preconditions.checkArgument(arguments.size() == 3);
+    private final RowExpression condition;
+    private final RowExpression trueValue;
+    private final RowExpression falseValue;
 
+    public IfCodeGenerator(SpecialForm specialForm)
+    {
+        requireNonNull(specialForm, "specialForm is null");
+        List<RowExpression> arguments = specialForm.getArguments();
+        checkArgument(arguments.size() == 3);
+        condition = arguments.get(0);
+        trueValue = arguments.get(1);
+        falseValue = arguments.get(2);
+    }
+
+    @Override
+    public BytecodeNode generateExpression(BytecodeGeneratorContext context)
+    {
         Variable wasNull = context.wasNull();
-        BytecodeBlock condition = new BytecodeBlock()
-                .append(context.generate(arguments.get(0)))
+        BytecodeBlock conditionBlock = new BytecodeBlock()
+                .append(context.generate(condition))
                 .comment("... and condition value was not null")
                 .append(wasNull)
                 .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)
@@ -44,8 +56,8 @@ public class IfCodeGenerator
                 .append(wasNull.set(constantFalse()));
 
         return new IfStatement()
-                .condition(condition)
-                .ifTrue(context.generate(arguments.get(1)))
-                .ifFalse(context.generate(arguments.get(2)));
+                .condition(conditionBlock)
+                .ifTrue(context.generate(trueValue))
+                .ifFalse(context.generate(falseValue));
     }
 }

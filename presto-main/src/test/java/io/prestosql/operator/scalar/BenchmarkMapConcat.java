@@ -15,9 +15,7 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
@@ -29,6 +27,7 @@ import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -55,8 +54,10 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.block.BlockAssertions.createSlicesBlock;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.util.StructuralTestUtil.mapType;
@@ -99,7 +100,7 @@ public class BenchmarkMapConcat
         @Setup
         public void setup()
         {
-            MetadataManager metadata = MetadataManager.createTestMetadataManager();
+            Metadata metadata = createTestMetadataManager();
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
             List<String> leftKeys;
@@ -137,15 +138,8 @@ public class BenchmarkMapConcat
 
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
 
-            Signature signature = new Signature(
-                    name,
-                    FunctionKind.SCALAR,
-                    mapType.getTypeSignature(),
-                    mapType.getTypeSignature(),
-                    mapType.getTypeSignature());
             projectionsBuilder.add(new CallExpression(
-                    signature,
-                    mapType,
+                    metadata.resolveFunction(QualifiedName.of(name), fromTypes(mapType, mapType)),
                     ImmutableList.of(field(0, mapType), field(1, mapType))));
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
@@ -204,7 +198,7 @@ public class BenchmarkMapConcat
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();

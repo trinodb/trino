@@ -14,14 +14,16 @@
 package io.prestosql.spi.type;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
-import io.prestosql.spi.block.FixedWidthBlockBuilder;
+import io.prestosql.spi.block.Int128ArrayBlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.prestosql.spi.block.Int128ArrayBlock.INT128_BYTES;
 import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
 import static io.prestosql.spi.type.Decimals.decodeUnscaledValue;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
@@ -52,8 +54,7 @@ final class LongDecimalType
         else {
             maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
         }
-        return new FixedWidthBlockBuilder(
-                getFixedSize(),
+        return new Int128ArrayBlockBuilder(
                 blockBuilderStatus,
                 Math.min(expectedEntries, maxBlockSizeInBytes / getFixedSize()));
     }
@@ -67,7 +68,7 @@ final class LongDecimalType
     @Override
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new FixedWidthBlockBuilder(getFixedSize(), positionCount);
+        return new Int128ArrayBlockBuilder(null, positionCount);
     }
 
     @Override
@@ -76,7 +77,7 @@ final class LongDecimalType
         if (block.isNull(position)) {
             return null;
         }
-        Slice slice = block.getSlice(position, 0, getFixedSize());
+        Slice slice = getSlice(block, position);
         return new SqlDecimal(decodeUnscaledValue(slice), getPrecision(), getScale());
     }
 
@@ -111,7 +112,8 @@ final class LongDecimalType
             blockBuilder.appendNull();
         }
         else {
-            block.writeBytesTo(position, 0, getFixedSize(), blockBuilder);
+            blockBuilder.writeLong(block.getLong(position, 0));
+            blockBuilder.writeLong(block.getLong(position, SIZE_OF_LONG));
             blockBuilder.closeEntry();
         }
     }
@@ -125,12 +127,19 @@ final class LongDecimalType
     @Override
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
-        blockBuilder.writeBytes(value, offset, length).closeEntry();
+        if (length != INT128_BYTES) {
+            throw new IllegalStateException("Expected entry size to be exactly " + INT128_BYTES + " but was " + length);
+        }
+        blockBuilder.writeLong(value.getLong(offset));
+        blockBuilder.writeLong(value.getLong(offset + SIZE_OF_LONG));
+        blockBuilder.closeEntry();
     }
 
     @Override
     public Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, getFixedSize());
+        return Slices.wrappedLongArray(
+                block.getLong(position, 0),
+                block.getLong(position, SIZE_OF_LONG));
     }
 }

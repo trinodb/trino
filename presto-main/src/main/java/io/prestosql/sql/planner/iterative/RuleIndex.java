@@ -61,8 +61,8 @@ public class RuleIndex
 
         public Builder register(Rule<?> rule)
         {
-            Pattern pattern = getFirstPattern(rule.getPattern());
-            if (pattern instanceof TypeOfPattern<?>) {
+            Pattern<?> pattern = getFirstPattern(rule.getPattern());
+            if (pattern instanceof TypeOfPattern) {
                 rulesByRootType.put(((TypeOfPattern<?>) pattern).expectedClass(), rule);
             }
             else {

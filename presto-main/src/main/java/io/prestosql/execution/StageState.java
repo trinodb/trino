@@ -44,6 +44,11 @@ public enum StageState
      */
     RUNNING(false, false),
     /**
+     * Stage has finished executing and output being consumed.
+     * In this state, at-least one of the tasks is flushing and the non-flushing tasks are finished
+     */
+    FLUSHING(false, false),
+    /**
      * Stage has finished executing and all output has been consumed.
      */
     FINISHED(true, false),
@@ -87,5 +92,30 @@ public enum StageState
     public boolean isFailure()
     {
         return failureState;
+    }
+
+    public boolean canScheduleMoreTasks()
+    {
+        switch (this) {
+            case PLANNED:
+            case SCHEDULING:
+                // workers are still being added to the query
+                return true;
+            case SCHEDULING_SPLITS:
+            case SCHEDULED:
+            case RUNNING:
+            case FLUSHING:
+            case FINISHED:
+            case CANCELED:
+                // no more workers will be added to the query
+                return false;
+            case ABORTED:
+            case FAILED:
+                // DO NOT complete a FAILED or ABORTED stage.  This will cause the
+                // stage above to finish normally, which will result in a query
+                // completing successfully when it should fail..
+                return true;
+        }
+        return true;
     }
 }

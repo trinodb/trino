@@ -25,9 +25,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 @SuppressWarnings("UnusedDeclaration")
 public final class CompilerOperations
 {
-    private CompilerOperations()
-    {
-    }
+    private CompilerOperations() {}
 
     public static boolean longGreaterThanZero(long value)
     {
@@ -67,6 +65,9 @@ public final class CompilerOperations
     public static boolean testMask(@Nullable Block masks, int index)
     {
         if (masks != null) {
+            if (masks.isNull(index)) {
+                return false;
+            }
             return BOOLEAN.getBoolean(masks, index);
         }
         return true;

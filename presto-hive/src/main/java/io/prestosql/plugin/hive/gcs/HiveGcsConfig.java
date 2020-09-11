@@ -15,12 +15,14 @@ package io.prestosql.plugin.hive.gcs;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.validation.FileExists;
 
 public class HiveGcsConfig
 {
     private boolean useGcsAccessToken;
     private String jsonKeyFilePath;
 
+    @FileExists
     public String getJsonKeyFilePath()
     {
         return jsonKeyFilePath;

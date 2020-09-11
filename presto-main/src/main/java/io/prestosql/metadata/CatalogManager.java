@@ -14,7 +14,7 @@
 package io.prestosql.metadata;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -38,10 +38,10 @@ public class CatalogManager
         checkState(catalogs.put(catalog.getCatalogName(), catalog) == null, "Catalog '%s' is already registered", catalog.getCatalogName());
     }
 
-    public Optional<ConnectorId> removeCatalog(String catalogName)
+    public Optional<CatalogName> removeCatalog(String catalogName)
     {
         return Optional.ofNullable(catalogs.remove(catalogName))
-                .map(Catalog::getConnectorId);
+                .map(Catalog::getConnectorCatalogName);
     }
 
     public List<Catalog> getCatalogs()

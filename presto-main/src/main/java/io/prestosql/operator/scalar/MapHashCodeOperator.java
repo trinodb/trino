@@ -1,4 +1,3 @@
-package io.prestosql.operator.scalar;
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,26 +11,27 @@ package io.prestosql.operator.scalar;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static io.prestosql.metadata.Signature.comparableTypeParameter;
-import static io.prestosql.metadata.Signature.internalOperator;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.type.TypeUtils.hashPosition;
 import static io.prestosql.util.Reflection.methodHandle;
 
@@ -46,25 +46,37 @@ public class MapHashCodeOperator
         super(HASH_CODE,
                 ImmutableList.of(comparableTypeParameter("K"), comparableTypeParameter("V")),
                 ImmutableList.of(),
-                parseTypeSignature(StandardTypes.BIGINT),
-                ImmutableList.of(parseTypeSignature("map(K,V)")));
+                BIGINT.getTypeSignature(),
+                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),
+                false);
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
     {
-        Type keyType = boundVariables.getTypeVariable("K");
-        Type valueType = boundVariables.getTypeVariable("V");
+        Type keyType = functionBinding.getTypeVariable("K");
+        Type valueType = functionBinding.getTypeVariable("V");
 
-        MethodHandle keyHashCodeFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(HASH_CODE, BIGINT, ImmutableList.of(keyType))).getMethodHandle();
-        MethodHandle valueHashCodeFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(HASH_CODE, BIGINT, ImmutableList.of(valueType))).getMethodHandle();
+        return FunctionDependencyDeclaration.builder()
+                .addOperator(HASH_CODE, ImmutableList.of(keyType))
+                .addOperator(HASH_CODE, ImmutableList.of(valueType))
+                .build();
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        Type keyType = functionBinding.getTypeVariable("K");
+        Type valueType = functionBinding.getTypeVariable("V");
+
+        MethodHandle keyHashCodeFunction = functionDependencies.getOperatorInvoker(HASH_CODE, ImmutableList.of(keyType), Optional.empty()).getMethodHandle();
+        MethodHandle valueHashCodeFunction = functionDependencies.getOperatorInvoker(HASH_CODE, ImmutableList.of(valueType), Optional.empty()).getMethodHandle();
 
         MethodHandle method = METHOD_HANDLE.bindTo(keyHashCodeFunction).bindTo(valueHashCodeFunction).bindTo(keyType).bindTo(valueType);
         return new ScalarFunctionImplementation(
-                false,
-                ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                method,
-                isDeterministic());
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL),
+                method);
     }
 
     @UsedByGeneratedCode

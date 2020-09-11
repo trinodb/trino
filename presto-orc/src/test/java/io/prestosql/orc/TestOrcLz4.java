@@ -13,20 +13,17 @@
  */
 package io.prestosql.orc;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
-
-import java.util.Map;
 
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.io.Resources.toByteArray;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcEncoding.ORC;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.orc.metadata.CompressionKind.LZ4;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -36,7 +33,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestOrcLz4
 {
-    private static final DataSize SIZE = new DataSize(1, MEGABYTE);
+    private static final DataSize SIZE = DataSize.of(1, MEGABYTE);
 
     @Test
     public void testReadLz4()
@@ -46,37 +43,34 @@ public class TestOrcLz4
         // TODO: use Apache ORC library in OrcTester
         byte[] data = toByteArray(getResource("apache-lz4.orc"));
 
-        OrcReader orcReader = new OrcReader(new InMemoryOrcDataSource(data), ORC, SIZE, SIZE, SIZE, SIZE);
+        OrcReader orcReader = new OrcReader(new InMemoryOrcDataSource(data), new OrcReaderOptions());
 
         assertEquals(orcReader.getCompressionKind(), LZ4);
         assertEquals(orcReader.getFooter().getNumberOfRows(), 10_000);
 
-        Map<Integer, Type> includedColumns = ImmutableMap.<Integer, Type>builder()
-                .put(0, BIGINT)
-                .put(1, INTEGER)
-                .put(2, BIGINT)
-                .build();
-
         OrcRecordReader reader = orcReader.createRecordReader(
-                includedColumns,
+                orcReader.getRootColumn().getNestedColumns(),
+                ImmutableList.of(BIGINT, INTEGER, BIGINT),
                 OrcPredicate.TRUE,
                 DateTimeZone.UTC,
                 newSimpleAggregatedMemoryContext(),
-                INITIAL_BATCH_SIZE);
+                INITIAL_BATCH_SIZE,
+                RuntimeException::new);
 
         int rows = 0;
         while (true) {
-            int batchSize = reader.nextBatch();
-            if (batchSize <= 0) {
+            Page page = reader.nextPage();
+            if (page == null) {
                 break;
             }
-            rows += batchSize;
+            page = page.getLoadedPage();
+            rows += page.getPositionCount();
 
-            Block xBlock = reader.readBlock(BIGINT, 0);
-            Block yBlock = reader.readBlock(INTEGER, 1);
-            Block zBlock = reader.readBlock(BIGINT, 2);
+            Block xBlock = page.getBlock(0);
+            Block yBlock = page.getBlock(1);
+            Block zBlock = page.getBlock(2);
 
-            for (int position = 0; position < batchSize; position++) {
+            for (int position = 0; position < page.getPositionCount(); position++) {
                 BIGINT.getLong(xBlock, position);
                 INTEGER.getLong(yBlock, position);
                 BIGINT.getLong(zBlock, position);
@@ -93,7 +87,7 @@ public class TestOrcLz4
 
         public InMemoryOrcDataSource(byte[] data)
         {
-            super(new OrcDataSourceId("memory"), data.length, SIZE, SIZE, SIZE, false);
+            super(new OrcDataSourceId("memory"), data.length, new OrcReaderOptions());
             this.data = data;
         }
 

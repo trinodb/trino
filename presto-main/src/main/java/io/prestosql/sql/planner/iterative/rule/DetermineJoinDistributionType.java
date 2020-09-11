@@ -17,7 +17,7 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
 import io.prestosql.cost.CostComparator;
-import io.prestosql.cost.PlanNodeCostEstimate;
+import io.prestosql.cost.LocalCostEstimate;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.cost.StatsProvider;
 import io.prestosql.cost.TaskCountEstimator;
@@ -31,7 +31,6 @@ import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static io.prestosql.SystemSessionProperties.getJoinDistributionType;
 import static io.prestosql.SystemSessionProperties.getJoinMaxBroadcastTableSize;
@@ -50,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 public class DetermineJoinDistributionType
         implements Rule<JoinNode>
 {
-    private static final Pattern<JoinNode> PATTERN = join().matching(joinNode -> !joinNode.getDistributionType().isPresent());
+    private static final Pattern<JoinNode> PATTERN = join().matching(joinNode -> joinNode.getDistributionType().isEmpty());
 
     private final CostComparator costComparator;
     private final TaskCountEstimator taskCountEstimator;
@@ -84,15 +83,12 @@ public class DetermineJoinDistributionType
             return false;
         }
 
-        Optional<DataSize> joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
-        if (!joinMaxBroadcastTableSize.isPresent()) {
-            return true;
-        }
+        DataSize joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
 
         PlanNode buildSide = joinNode.getRight();
         PlanNodeStatsEstimate buildSideStatsEstimate = context.getStatsProvider().getStats(buildSide);
         double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide.getOutputSymbols(), context.getSymbolAllocator().getTypes());
-        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.get().toBytes();
+        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.toBytes();
     }
 
     private PlanNode getCostBasedJoin(JoinNode joinNode, Context context)
@@ -156,7 +152,7 @@ public class DetermineJoinDistributionType
     {
         TypeProvider types = context.getSymbolAllocator().getTypes();
         StatsProvider stats = context.getStatsProvider();
-        boolean replicated = possibleJoinNode.getDistributionType().get().equals(REPLICATED);
+        boolean replicated = possibleJoinNode.getDistributionType().get() == REPLICATED;
         /*
          *   HACK!
          *
@@ -177,15 +173,17 @@ public class DetermineJoinDistributionType
          *   always goes to the right), determining JOIN type is not that simple. As when
          *   choosing REPLICATED over REPARTITIONED join the cost of exchanging and building
          *   the hash table scales with the number of nodes where the build side is replicated.
+         *
+         *   TODO Decision about the distribution should be based on LocalCostEstimate only when PlanCostEstimate cannot be calculated. Otherwise cost comparator cannot take query.max-memory into account.
          */
-        int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount();
-        PlanNodeCostEstimate cost = calculateJoinCostWithoutOutput(
+        int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount(context.getSession());
+        LocalCostEstimate cost = calculateJoinCostWithoutOutput(
                 possibleJoinNode.getLeft(),
                 possibleJoinNode.getRight(),
                 stats,
                 types,
                 replicated,
                 estimatedSourceDistributedTaskCount);
-        return new PlanNodeWithCost(cost, possibleJoinNode);
+        return new PlanNodeWithCost(cost.toPlanCost(), possibleJoinNode);
     }
 }

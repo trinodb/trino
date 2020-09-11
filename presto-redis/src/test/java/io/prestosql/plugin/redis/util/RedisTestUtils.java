@@ -22,7 +22,7 @@ import io.prestosql.plugin.redis.RedisPlugin;
 import io.prestosql.plugin.redis.RedisTableDescription;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.TestingPrestoClient;
+import io.prestosql.testing.TestingPrestoClient;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,14 +35,14 @@ public final class RedisTestUtils
 {
     private RedisTestUtils() {}
 
-    public static void installRedisPlugin(EmbeddedRedis embeddedRedis, QueryRunner queryRunner, Map<SchemaTableName, RedisTableDescription> tableDescriptions)
+    public static void installRedisPlugin(RedisServer redisServer, QueryRunner queryRunner, Map<SchemaTableName, RedisTableDescription> tableDescriptions)
     {
         RedisPlugin redisPlugin = new RedisPlugin();
         redisPlugin.setTableDescriptionSupplier(() -> tableDescriptions);
         queryRunner.installPlugin(redisPlugin);
 
         Map<String, String> redisConfig = ImmutableMap.of(
-                "redis.nodes", embeddedRedis.getConnectString() + ":" + embeddedRedis.getPort(),
+                "redis.nodes", redisServer.getHostAndPort().toString(),
                 "redis.table-names", Joiner.on(",").join(tableDescriptions.keySet()),
                 "redis.default-schema", "default",
                 "redis.hide-internal-columns", "true",
@@ -50,9 +50,9 @@ public final class RedisTestUtils
         queryRunner.createCatalog("redis", "redis", redisConfig);
     }
 
-    public static void loadTpchTable(EmbeddedRedis embeddedRedis, TestingPrestoClient prestoClient, String tableName, QualifiedObjectName tpchTableName, String dataFormat)
+    public static void loadTpchTable(RedisServer redisServer, TestingPrestoClient prestoClient, String tableName, QualifiedObjectName tpchTableName, String dataFormat)
     {
-        RedisLoader tpchLoader = new RedisLoader(prestoClient.getServer(), prestoClient.getDefaultSession(), embeddedRedis.getJedisPool(), tableName, dataFormat);
+        RedisLoader tpchLoader = new RedisLoader(prestoClient.getServer(), prestoClient.getDefaultSession(), redisServer.getJedisPool(), tableName, dataFormat);
         tpchLoader.execute(format("SELECT * from %s", tpchTableName));
     }
 

@@ -2,15 +2,10 @@
 Presto Concepts
 ===============
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Overview
 --------
 
-To understand Presto you must first understand the terms and concepts
+To understand Presto, you must first understand the terms and concepts
 used throughout the Presto documentation.
 
 While it's easy to understand statements and queries, as an end-user
@@ -23,6 +18,14 @@ of drivers which process data.
 This section provides a solid definition for the core concepts
 referenced throughout Presto, and these sections are sorted from most
 general to most specific.
+
+.. note::
+
+    The book `Presto: The Definitive Guide
+    <https://prestosql.io/presto-the-definitive-guide.html>`_ and the research
+    paper `Presto: SQL on Everything <https://prestosql.io/paper.html>`_ can
+    provide further information about Presto and the concepts in use.
+
 
 Server Types
 ------------
@@ -43,7 +46,7 @@ instance of Presto can be configured to perform both roles.
 
 The coordinator keeps track of the activity on each worker and
 coordinates the execution of a query. The coordinator creates
-a logical model of a query involving a series of stages which is then
+a logical model of a query involving a series of stages, which is then
 translated into a series of connected tasks running on a cluster of
 Presto workers.
 
@@ -52,7 +55,7 @@ Coordinators communicate with workers and clients using a REST API.
 Worker
 ^^^^^^
 
-A Presto worker is a server in a Presto installation which is responsible
+A Presto worker is a server in a Presto installation, which is responsible
 for executing tasks and processing data. Worker nodes fetch data from
 connectors and exchange intermediate data with each other. The coordinator
 is responsible for fetching results from the workers and returning the
@@ -79,7 +82,7 @@ Connector
 A connector adapts Presto to a data source such as Hive or a
 relational database. You can think of a connector the same way you
 think of a driver for a database. It is an implementation of Presto's
-:doc:`SPI </develop/spi-overview>` which allows Presto to interact
+:doc:`SPI </develop/spi-overview>`, which allows Presto to interact
 with a resource using a standard API.
 
 Presto contains several built-in connectors: a connector for
@@ -91,14 +94,14 @@ data. Many third-party developers have contributed connectors so that
 Presto can access data in a variety of data sources.
 
 Every catalog is associated with a specific connector. If you examine
-a catalog configuration file, you will see that each contains a
-mandatory property ``connector.name`` which is used by the catalog
+a catalog configuration file, you see that each contains a
+mandatory property ``connector.name``, which is used by the catalog
 manager to create a connector for a given catalog. It is possible
 to have more than one catalog use the same connector to access two
 different instances of a similar database. For example, if you have
 two Hive clusters, you can configure two catalogs in a single Presto
 cluster that both use the Hive connector, allowing you to query data
-from both Hive clusters (even within the same SQL query).
+from both Hive clusters, even within the same SQL query.
 
 Catalog
 ^^^^^^^
@@ -112,7 +115,7 @@ Hive data source.
 
 When addressing a table in Presto, the fully-qualified table name is
 always rooted in a catalog. For example, a fully-qualified table name
-of ``hive.test_data.test`` would refer to the ``test`` table in the
+of ``hive.test_data.test`` refers to the ``test`` table in the
 ``test_data`` schema in the ``hive`` catalog.
 
 Catalogs are defined in properties files stored in the Presto
@@ -131,14 +134,14 @@ the underlying data source.
 Table
 ^^^^^
 
-A table is a set of unordered rows which are organized into named columns
+A table is a set of unordered rows, which are organized into named columns
 with types. This is the same as in any relational database. The mapping
 from source data to tables is defined by the connector.
 
 Query Execution Model
 ---------------------
 
-Presto executes SQL statements and turns these statements into queries
+Presto executes SQL statements and turns these statements into queries,
 that are executed across a distributed cluster of coordinator and workers.
 
 Statement
@@ -146,7 +149,7 @@ Statement
 
 Presto executes ANSI-compatible SQL statements.  When the Presto
 documentation refers to a statement, it is referring to statements as
-defined in the ANSI SQL standard which consists of clauses,
+defined in the ANSI SQL standard, which consists of clauses,
 expressions, and predicates.
 
 Some readers might be curious why this section lists separate concepts
@@ -160,7 +163,7 @@ Query
 ^^^^^
 
 When Presto parses a statement, it converts it into a query and creates
-a distributed query plan which is then realized as a series of
+a distributed query plan, which is then realized as a series of
 interconnected stages running on Presto workers. When you retrieve
 information about a query in Presto, you receive a snapshot of every
 component that is involved in producing a result set in response to a
@@ -179,12 +182,12 @@ Stage
 When Presto executes a query, it does so by breaking up the execution
 into a hierarchy of stages. For example, if Presto needs to aggregate
 data from one billion rows stored in Hive, it does so by creating a
-root stage to aggregate the output of several other stages all of
+root stage to aggregate the output of several other stages, all of
 which are designed to implement different sections of a distributed
 query plan.
 
 The hierarchy of stages that comprises a query resembles a tree.
-Every query has a root stage which is responsible for aggregating
+Every query has a root stage, which is responsible for aggregating
 the output from other stages. Stages are what the coordinator uses to
 model a distributed query plan, but stages themselves don't run on
 Presto workers.
@@ -195,12 +198,12 @@ Task
 As mentioned in the previous section, stages model a particular
 section of a distributed query plan, but stages themselves don't
 execute on Presto workers. To understand how a stage is executed,
-you'll need to understand that a stage is implemented as a series of
+you need to understand that a stage is implemented as a series of
 tasks distributed over a network of Presto workers.
 
 Tasks are the "work horse" in the Presto architecture as a distributed
-query plan is deconstructed into a series of stages which are then
-translated to tasks which then act upon or process splits. A Presto
+query plan is deconstructed into a series of stages, which are then
+translated to tasks, which then act upon or process splits. A Presto
 task has inputs and outputs, and just as a stage can be executed in
 parallel by a series of tasks, a task is executing in parallel with a
 series of drivers.
@@ -208,14 +211,14 @@ series of drivers.
 Split
 ^^^^^
 
-Tasks operate on splits which are sections of a larger data
+Tasks operate on splits, which are sections of a larger data
 set. Stages at the lowest level of a distributed query plan retrieve
 data via splits from connectors, and intermediate stages at a higher
 level of a distributed query plan retrieve data from other stages.
 
-When Presto is scheduling a query, the coordinator will query a
+When Presto is scheduling a query, the coordinator queries a
 connector for a list of all splits that are available for a table.
-The coordinator keeps track of which machines are running which tasks
+The coordinator keeps track of which machines are running which tasks,
 and what splits are being processed by which tasks.
 
 Driver
@@ -223,7 +226,7 @@ Driver
 
 Tasks contain one or more parallel drivers. Drivers act upon data and
 combine operators to produce output that is then aggregated by a task
-and then delivered to another task in a another stage. A driver is a
+and then delivered to another task in another stage. A driver is a
 sequence of operator instances, or you can think of a driver as a
 physical set of operators in memory. It is the lowest level of
 parallelism in the Presto architecture. A driver has one input and

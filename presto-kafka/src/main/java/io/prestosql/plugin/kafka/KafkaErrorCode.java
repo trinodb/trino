@@ -18,14 +18,15 @@ import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.ErrorType;
 
 import static io.prestosql.spi.ErrorType.EXTERNAL;
+import static io.prestosql.spi.ErrorType.INTERNAL_ERROR;
 
-/**
- * Kafka connector specific error codes.
- */
 public enum KafkaErrorCode
         implements ErrorCodeSupplier
 {
-    KAFKA_SPLIT_ERROR(0, EXTERNAL);
+    KAFKA_SPLIT_ERROR(0, EXTERNAL),
+    KAFKA_SCHEMA_ERROR(1, EXTERNAL),
+    KAFKA_PRODUCER_ERROR(2, INTERNAL_ERROR)
+    /**/;
 
     private final ErrorCode errorCode;
 

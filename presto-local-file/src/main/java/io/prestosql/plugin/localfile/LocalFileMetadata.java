@@ -20,27 +20,23 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static io.prestosql.plugin.localfile.LocalFileColumnHandle.SERVER_ADDRESS_COLUMN_NAME;
 import static io.prestosql.plugin.localfile.LocalFileColumnHandle.SERVER_ADDRESS_ORDINAL_POSITION;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class LocalFileMetadata
@@ -82,21 +78,6 @@ public class LocalFileMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         return localFileTables.getTables();
-    }
-
-    @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        LocalFileTableHandle tableHandle = (LocalFileTableHandle) table;
-        ConnectorTableLayout layout = new ConnectorTableLayout(new LocalFileTableLayoutHandle(tableHandle, constraint.getSummary()));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        LocalFileTableLayoutHandle layout = (LocalFileTableLayoutHandle) handle;
-        return new ConnectorTableLayout(layout);
     }
 
     @Override
@@ -144,23 +125,43 @@ public class LocalFileMetadata
         return columns.build();
     }
 
-    @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
-    {
-        return emptyList();
-    }
-
-    @Override
-    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        return emptyMap();
-    }
-
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        if (!prefix.getTable().isPresent()) {
+        if (prefix.getTable().isEmpty()) {
             return listTables(session, prefix.getSchema());
         }
         return ImmutableList.of(prefix.toSchemaTableName());
+    }
+
+    @Override
+    public boolean usesLegacyTableLayouts()
+    {
+        return false;
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return new ConnectorTableProperties();
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    {
+        LocalFileTableHandle handle = (LocalFileTableHandle) table;
+
+        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        if (oldDomain.equals(newDomain)) {
+            return Optional.empty();
+        }
+
+        handle = new LocalFileTableHandle(
+                handle.getSchemaTableName(),
+                handle.getTimestampColumn(),
+                handle.getServerAddressColumn(),
+                newDomain);
+
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
     }
 }

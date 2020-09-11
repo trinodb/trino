@@ -14,23 +14,22 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.AbstractTestAggregationFunction;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static io.prestosql.block.BlockAssertions.createBlockOfReals;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.Float.floatToRawIntBits;
 
 @Test(singleThreaded = true)
@@ -42,9 +41,8 @@ public class TestRealAverageAggregation
     @BeforeClass
     public void setUp()
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        avgFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature("avg", FunctionKind.AGGREGATE, parseTypeSignature(StandardTypes.REAL), parseTypeSignature(StandardTypes.REAL)));
+        avgFunction = createTestMetadataManager().getAggregateFunctionImplementation(
+                metadata.resolveFunction(QualifiedName.of("avg"), fromTypes(REAL)));
     }
 
     @Test
@@ -72,7 +70,7 @@ public class TestRealAverageAggregation
     }
 
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = REAL.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -88,13 +86,13 @@ public class TestRealAverageAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.REAL);
+        return ImmutableList.of(REAL);
     }
 
     @Override
-    public Object getExpectedValue(int start, int length)
+    protected Object getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;

@@ -5,16 +5,16 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>90</version>
+        <version>102</version>
     </parent>
 
     <groupId>io.prestosql</groupId>
     <artifactId>presto-root</artifactId>
-    <version>303-SNAPSHOT</version>
-    <packaging>pom</packaging>
+    <version>341</version>
 
     <name>presto-root</name>
     <description>Presto</description>
+    <packaging>pom</packaging>
     <url>https://prestosql.io</url>
 
     <inceptionYear>2012</inceptionYear>
@@ -30,7 +30,7 @@
     <scm>
         <connection>scm:git:git://github.com/prestosql/presto.git</connection>
         <url>https://github.com/prestosql/presto</url>
-        <tag>HEAD</tag>
+        <tag>341</tag>
     </scm>
 
     <properties>
@@ -40,24 +40,23 @@
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
 
-        <air.java.version>1.8.0-151</air.java.version>
-        <air.maven.version>3.3.9</air.maven.version>
+        <project.build.targetJdk>11</project.build.targetJdk>
+        <air.modernizer.java-version>8</air.modernizer.java-version>
 
+        <dep.accumulo.version>1.7.4</dep.accumulo.version>
+        <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.178</dep.airlift.version>
+        <dep.airlift.version>200</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.slice.version>0.36</dep.slice.version>
-        <dep.aws-sdk.version>1.11.445</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.11.749</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
+        <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
-        <dep.joda.version>2.10</dep.joda.version>
-        <dep.tempto.version>1.50</dep.tempto.version>
-        <dep.testng.version>6.10</dep.testng.version>
-        <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
-        <dep.logback.version>1.2.3</dep.logback.version>
-        <dep.jmxutils.version>1.20</dep.jmxutils.version>
-        <dep.gcs.version>1.9.10</dep.gcs.version>
+        <dep.tempto.version>181</dep.tempto.version>
+        <dep.gcs.version>2.0.0</dep.gcs.version>
+        <dep.errorprone.version>2.4.0</dep.errorprone.version>
+        <dep.joda.version>2.10.6</dep.joda.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -69,207 +68,95 @@
         <air.test.timezone>America/Bahia_Banderas</air.test.timezone>
         <air.test.parallel>methods</air.test.parallel>
         <air.test.thread-count>2</air.test.thread-count>
-        <air.test.jvmsize>2g</air.test.jvmsize>
+        <!-- Be conservative about memory allotment, because tests start background process (e.g. docker containers) -->
+        <air.test.jvmsize>3g</air.test.jvmsize>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
     </properties>
 
     <modules>
-        <module>presto-atop</module>
-        <module>presto-spi</module>
-        <module>presto-array</module>
-        <module>presto-jmx</module>
-        <module>presto-record-decoder</module>
-        <module>presto-kafka</module>
-        <module>presto-redis</module>
         <module>presto-accumulo</module>
-        <module>presto-cassandra</module>
-        <module>presto-blackhole</module>
-        <module>presto-memory</module>
-        <module>presto-orc</module>
-        <module>presto-parquet</module>
-        <module>presto-rcfile</module>
-        <module>presto-hive</module>
-        <module>presto-hive-hadoop2</module>
-        <module>presto-teradata-functions</module>
-        <module>presto-example-http</module>
-        <module>presto-local-file</module>
-        <module>presto-tpch</module>
-        <module>presto-tpcds</module>
-        <module>presto-raptor-legacy</module>
+        <module>presto-accumulo-iterators</module>
+        <module>presto-array</module>
+        <module>presto-atop</module>
         <module>presto-base-jdbc</module>
-        <module>presto-mysql</module>
-        <module>presto-postgresql</module>
-        <module>presto-redshift</module>
-        <module>presto-sqlserver</module>
-        <module>presto-mongodb</module>
+        <module>presto-benchmark</module>
+        <module>presto-benchmark-driver</module>
+        <module>presto-benchto-benchmarks</module>
+        <module>presto-bigquery</module>
+        <module>presto-blackhole</module>
+        <module>presto-cassandra</module>
+        <module>presto-cli</module>
         <module>presto-client</module>
-        <module>presto-parser</module>
-        <module>presto-main</module>
-        <module>presto-ml</module>
+        <module>presto-docs</module>
+        <module>presto-druid</module>
+        <module>presto-elasticsearch</module>
+        <module>presto-example-http</module>
         <module>presto-geospatial</module>
         <module>presto-geospatial-toolkit</module>
-        <module>presto-benchmark</module>
-        <module>presto-tests</module>
-        <module>presto-product-tests</module>
+        <module>presto-google-sheets</module>
+        <module>presto-hive</module>
+        <module>presto-hive-hadoop2</module>
+        <module>presto-iceberg</module>
         <module>presto-jdbc</module>
-        <module>presto-cli</module>
-        <module>presto-benchmark-driver</module>
-        <module>presto-server</module>
-        <module>presto-server-rpm</module>
-        <module>presto-docs</module>
-        <module>presto-verifier</module>
-        <module>presto-testing-server-launcher</module>
-        <module>presto-plugin-toolkit</module>
-        <module>presto-resource-group-managers</module>
+        <module>presto-jmx</module>
+        <module>presto-kafka</module>
+        <module>presto-kinesis</module>
+        <module>presto-kudu</module>
+        <module>presto-local-file</module>
+        <module>presto-main</module>
+        <module>presto-matching</module>
+        <module>presto-memory</module>
+        <module>presto-memory-context</module>
+        <module>presto-memsql</module>
+        <module>presto-ml</module>
+        <module>presto-mongodb</module>
+        <module>presto-mysql</module>
+        <module>presto-oracle</module>
+        <module>presto-orc</module>
+        <module>presto-parquet</module>
+        <module>presto-parser</module>
         <module>presto-password-authenticators</module>
+        <module>presto-phoenix</module>
+        <module>presto-pinot</module>
+        <module>presto-plugin-toolkit</module>
+        <module>presto-postgresql</module>
+        <module>presto-product-tests</module>
+        <module>presto-product-tests-launcher</module>
+        <module>presto-prometheus</module>
+        <module>presto-proxy</module>
+        <module>presto-raptor-legacy</module>
+        <module>presto-rcfile</module>
+        <module>presto-record-decoder</module>
+        <module>presto-redis</module>
+        <module>presto-redshift</module>
+        <module>presto-resource-group-managers</module>
+        <module>presto-server</module>
+        <module>presto-server-main</module>
+        <module>presto-server-rpm</module>
         <module>presto-session-property-managers</module>
-        <module>presto-benchto-benchmarks</module>
+        <module>presto-spi</module>
+        <module>presto-sqlserver</module>
+        <module>presto-teradata-functions</module>
+        <module>presto-test-jdbc-compatibility</module>
+        <module>presto-testing</module>
+        <module>presto-testing-kafka</module>
+        <module>presto-testng-services</module>
+        <module>presto-tests</module>
+        <module>presto-thrift</module>
         <module>presto-thrift-api</module>
         <module>presto-thrift-testing-server</module>
-        <module>presto-thrift</module>
-        <module>presto-matching</module>
-        <module>presto-memory-context</module>
-        <module>presto-proxy</module>
-        <module>presto-kudu</module>
-        <module>presto-elasticsearch</module>
+        <module>presto-tpcds</module>
+        <module>presto-tpch</module>
+        <module>presto-verifier</module>
     </modules>
 
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-spi</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-spi</artifactId>
-                <version>${project.version}</version>
-                <type>test-jar</type>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-resource-group-managers</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-resource-group-managers</artifactId>
-                <version>${project.version}</version>
-                <type>test-jar</type>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-password-authenticators</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-session-property-managers</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
+            <!-- PrestoSQL -->
             <dependency>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-array</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-plugin-toolkit</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-record-decoder</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-orc</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-parquet</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-rcfile</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-hive</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-hive-hadoop2</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-example-http</artifactId>
-                <version>${project.version}</version>
-                <type>zip</type>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-local-file</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-hive</artifactId>
-                <version>${project.version}</version>
-                <type>test-jar</type>
-            </dependency>
-
-            <dependency>
-                <groupId>com.teradata</groupId>
-                <artifactId>re2j-td</artifactId>
-                <version>1.4</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-tpch</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-tpcds</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-blackhole</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-memory</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -281,25 +168,19 @@
 
             <dependency>
                 <groupId>io.prestosql</groupId>
-                <artifactId>presto-mysql</artifactId>
+                <artifactId>presto-benchmark</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.prestosql</groupId>
-                <artifactId>presto-geospatial</artifactId>
+                <artifactId>presto-benchto-benchmarks</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.prestosql</groupId>
-                <artifactId>presto-geospatial-toolkit</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-raptor-legacy</artifactId>
+                <artifactId>presto-blackhole</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -317,15 +198,64 @@
 
             <dependency>
                 <groupId>io.prestosql</groupId>
-                <artifactId>presto-parser</artifactId>
+                <artifactId>presto-elasticsearch</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.prestosql</groupId>
-                <artifactId>presto-parser</artifactId>
+                <artifactId>presto-example-http</artifactId>
+                <version>${project.version}</version>
+                <type>zip</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-geospatial</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-geospatial-toolkit</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-hive</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-hive</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-hive-hadoop2</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-iceberg</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-jdbc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-local-file</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -349,20 +279,106 @@
 
             <dependency>
                 <groupId>io.prestosql</groupId>
+                <artifactId>presto-memory</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
                 <artifactId>presto-memory-context</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.prestosql</groupId>
-                <artifactId>presto-elasticsearch</artifactId>
+                <artifactId>presto-mongodb</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.prestosql</groupId>
-                <artifactId>presto-jdbc</artifactId>
+                <artifactId>presto-mysql</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-orc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-parquet</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-parser</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-parser</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-password-authenticators</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-pinot</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-plugin-toolkit</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-product-tests</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-raptor-legacy</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-rcfile</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-record-decoder</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-resource-group-managers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-resource-group-managers</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
             </dependency>
 
             <dependency>
@@ -379,26 +395,28 @@
 
             <dependency>
                 <groupId>io.prestosql</groupId>
-                <artifactId>presto-tests</artifactId>
+                <artifactId>presto-session-property-managers</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.prestosql</groupId>
-                <artifactId>presto-benchmark</artifactId>
+                <artifactId>presto-session-property-managers</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-spi</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.prestosql</groupId>
-                <artifactId>presto-benchto-benchmarks</artifactId>
+                <artifactId>presto-spi</artifactId>
                 <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-product-tests</artifactId>
-                <version>${project.version}</version>
+                <type>test-jar</type>
             </dependency>
 
             <dependency>
@@ -408,21 +426,34 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql.hadoop</groupId>
-                <artifactId>hadoop-apache</artifactId>
-                <version>2.7.4-7</version>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-testing</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql.hive</groupId>
-                <artifactId>hive-apache</artifactId>
-                <version>2.3.4-1</version>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-testing-kafka</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql.orc</groupId>
-                <artifactId>orc-protobuf</artifactId>
-                <version>8</version>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-testng-services</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-tests</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-thrift</artifactId>
+                <version>${project.version}</version>
+                <type>zip</type>
             </dependency>
 
             <dependency>
@@ -446,51 +477,132 @@
 
             <dependency>
                 <groupId>io.prestosql</groupId>
-                <artifactId>presto-thrift</artifactId>
+                <artifactId>presto-tpcds</artifactId>
                 <version>${project.version}</version>
-                <type>zip</type>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.hive</groupId>
-                <artifactId>hive-dwrf</artifactId>
-                <version>0.8.2</version>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-tpch</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
+            <!-- PrestoSQL external -->
+            <dependency>
+                <groupId>io.prestosql.cassandra</groupId>
+                <artifactId>cassandra-driver</artifactId>
+                <version>3.1.4-2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql.hadoop</groupId>
+                <artifactId>hadoop-apache</artifactId>
+                <version>3.2.0-9</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql.hive</groupId>
+                <artifactId>hive-apache</artifactId>
+                <version>3.1.2-1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql.hive</groupId>
+                <artifactId>hive-apache-jdbc</artifactId>
+                <version>0.13.1-7</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql.orc</groupId>
+                <artifactId>orc-protobuf</artifactId>
+                <version>10</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql.tempto</groupId>
+                <artifactId>tempto-core</artifactId>
+                <version>${dep.tempto.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.datastax.cassandra</groupId>
+                        <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql.tempto</groupId>
+                <artifactId>tempto-kafka</artifactId>
+                <version>${dep.tempto.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.datastax.cassandra</groupId>
+                        <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql.tempto</groupId>
+                <artifactId>tempto-ldap</artifactId>
+                <version>${dep.tempto.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.datastax.cassandra</groupId>
+                        <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql.tempto</groupId>
+                <artifactId>tempto-runner</artifactId>
+                <version>${dep.tempto.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.datastax.cassandra</groupId>
+                        <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql.tpcds</groupId>
+                <artifactId>tpcds</artifactId>
+                <version>1.3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql.tpch</groupId>
+                <artifactId>tpch</artifactId>
+                <version>1.0</version>
+            </dependency>
+
+            <!-- Airlift -->
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor</artifactId>
-                <version>0.13</version>
+                <version>0.16</version>
             </dependency>
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>log</artifactId>
+                <artifactId>bootstrap</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>log-manager</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>json</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>security</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>units</artifactId>
-                <version>1.3</version>
+                <artifactId>bytecode</artifactId>
+                <version>1.2</version>
             </dependency>
 
             <dependency>
@@ -507,31 +619,25 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
+                <artifactId>dbpool</artifactId>
+                <version>${dep.airlift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
                 <artifactId>discovery</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>testing</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>node</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>bootstrap</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
                 <artifactId>event</artifactId>
+                <version>${dep.airlift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>http-client</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
@@ -561,25 +667,49 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>trace-token</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>dbpool</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
                 <artifactId>jmx-http</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>http-client</artifactId>
+                <artifactId>joni</artifactId>
+                <version>2.1.5.3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>json</artifactId>
+                <version>${dep.airlift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>log</artifactId>
+                <version>${dep.airlift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>log-manager</artifactId>
+                <version>${dep.airlift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>node</artifactId>
+                <version>${dep.airlift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>parameternames</artifactId>
+                <version>1.4</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>security</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
@@ -591,20 +721,26 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>bytecode</artifactId>
-                <version>1.1</version>
+                <artifactId>testing</artifactId>
+                <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>joni</artifactId>
-                <version>2.1.5.1</version>
+                <artifactId>trace-token</artifactId>
+                <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>joda-to-java-time-bridge</artifactId>
-                <version>3</version>
+                <artifactId>units</artifactId>
+                <version>1.6</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift.discovery</groupId>
+                <artifactId>discovery-server</artifactId>
+                <version>1.29</version>
             </dependency>
 
             <dependency>
@@ -644,193 +780,42 @@
             </dependency>
 
             <dependency>
-                <groupId>io.airlift.tpch</groupId>
-                <artifactId>tpch</artifactId>
-                <version>0.10</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.teradata.tpcds</groupId>
-                <artifactId>tpcds</artifactId>
-                <version>1.2</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.google.code.findbugs</groupId>
-                        <artifactId>annotations</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>org.ow2.asm</groupId>
-                <artifactId>asm</artifactId>
-                <version>6.2.1</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.h2database</groupId>
-                <artifactId>h2</artifactId>
-                <version>1.4.197</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.sonatype.aether</groupId>
-                <artifactId>aether-api</artifactId>
-                <version>1.13.1</version>
-            </dependency>
-
-            <dependency>
                 <groupId>io.airlift.resolver</groupId>
                 <artifactId>resolver</artifactId>
-                <version>1.4</version>
+                <version>1.5</version>
             </dependency>
 
+            <!-- 3rd party -->
             <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>airline</artifactId>
-                <version>0.8</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.openjdk.jol</groupId>
-                <artifactId>jol-core</artifactId>
-                <version>0.2</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.jetbrains</groupId>
-                <artifactId>annotations</artifactId>
-                <version>13.0</version>
-            </dependency>
-
-            <dependency>
-                <groupId>it.unimi.dsi</groupId>
-                <artifactId>fastutil</artifactId>
-                <version>6.5.9</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.thirdparty</groupId>
-                <artifactId>libsvm</artifactId>
-                <version>3.18.1</version>
-            </dependency>
-
-            <dependency>
-                <groupId>mysql</groupId>
-                <artifactId>mysql-connector-java</artifactId>
-                <version>5.1.44</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.postgresql</groupId>
-                <artifactId>postgresql</artifactId>
-                <version>42.2.5</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.pcollections</groupId>
-                <artifactId>pcollections</artifactId>
-                <version>2.1.2</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.antlr</groupId>
-                <artifactId>antlr4-runtime</artifactId>
-                <version>${dep.antlr.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.microsoft.sqlserver</groupId>
-                <artifactId>mssql-jdbc</artifactId>
-                <version>7.0.0.jre8</version>
-            </dependency>
-
-            <dependency>
-                <groupId>jline</groupId>
-                <artifactId>jline</artifactId>
-                <version>2.14.6</version>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>amazon-kinesis-client</artifactId>
+                <version>1.6.3</version>
                 <exclusions>
                     <exclusion>
-                        <groupId>org.fusesource.jansi</groupId>
-                        <artifactId>jansi</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>org.jdbi</groupId>
-                <artifactId>jdbi</artifactId>
-                <version>2.78</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.jdbi</groupId>
-                <artifactId>jdbi3-core</artifactId>
-                <version>${dep.jdbi3.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.jdbi</groupId>
-                <artifactId>jdbi3-sqlobject</artifactId>
-                <version>${dep.jdbi3.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.squareup.okhttp3</groupId>
-                <artifactId>okhttp</artifactId>
-                <version>${dep.okhttp.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.squareup.okhttp3</groupId>
-                <artifactId>okhttp-urlconnection</artifactId>
-                <version>${dep.okhttp.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.squareup.okhttp3</groupId>
-                <artifactId>mockwebserver</artifactId>
-                <version>${dep.okhttp.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.jsonwebtoken</groupId>
-                <artifactId>jjwt</artifactId>
-                <version>0.9.0</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.thrift</groupId>
-                <artifactId>libthrift</artifactId>
-                <version>0.9.3</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.httpcomponents</groupId>
-                        <artifactId>httpcore</artifactId>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>org.apache.httpcomponents</groupId>
-                        <artifactId>httpclient</artifactId>
+                        <groupId>commons-lang</groupId>
+                        <artifactId>commons-lang</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>joda-time</groupId>
+                        <artifactId>joda-time</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.protobuf</groupId>
+                        <artifactId>protobuf-java</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.amazonaws</groupId>
+                        <artifactId>aws-java-sdk</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.amazonaws</groupId>
+                        <artifactId>aws-java-sdk-core</artifactId>
                     </exclusion>
                 </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>net.sf.opencsv</groupId>
-                <artifactId>opencsv</artifactId>
-                <version>2.3</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.commons</groupId>
-                <artifactId>commons-math3</artifactId>
-                <version>3.6.1</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift.discovery</groupId>
-                <artifactId>discovery-server</artifactId>
-                <version>1.29</version>
             </dependency>
 
             <dependency>
@@ -851,6 +836,12 @@
 
             <dependency>
                 <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-dynamodb</artifactId>
+                <version>${dep.aws-sdk.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.amazonaws</groupId>
                 <artifactId>aws-java-sdk-glue</artifactId>
                 <version>${dep.aws-sdk.version}</version>
                 <exclusions>
@@ -861,6 +852,22 @@
                     <exclusion>
                         <groupId>joda-time</groupId>
                         <artifactId>joda-time</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-kinesis</artifactId>
+                <version>${dep.aws-sdk.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>joda-time</groupId>
+                        <artifactId>joda-time</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -882,161 +889,25 @@
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>testing-mysql-server</artifactId>
-                <version>5.7.22-1</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.google.cloud.bigdataoss</groupId>
-                <artifactId>util</artifactId>
-                <version>${dep.gcs.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.google.cloud.bigdataoss</groupId>
-                <artifactId>gcsio</artifactId>
-                <version>${dep.gcs.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.google.cloud.bigdataoss</groupId>
-                <artifactId>util-hadoop</artifactId>
-                <version>hadoop2-${dep.gcs.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.google.cloud.bigdataoss</groupId>
-                <artifactId>gcs-connector</artifactId>
-                <version>hadoop2-${dep.gcs.version}</version>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-sts</artifactId>
+                <version>${dep.aws-sdk.version}</version>
                 <exclusions>
                     <exclusion>
-                        <artifactId>log4j</artifactId>
-                        <groupId>log4j</groupId>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-log4j12</artifactId>
+                        <groupId>joda-time</groupId>
+                        <artifactId>joda-time</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>testing-postgresql-server</artifactId>
-                <version>9.6.3-3</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.xerial.snappy</groupId>
-                <artifactId>snappy-java</artifactId>
-                <version>1.1.2.6</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.github.luben</groupId>
-                <artifactId>zstd-jni</artifactId>
-                <version>1.3.5-4</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.zookeeper</groupId>
-                <artifactId>zookeeper</artifactId>
-                <version>3.4.13</version>
-                <exclusions>
-                    <exclusion>
-                        <artifactId>jline</artifactId>
-                        <groupId>jline</groupId>
-                    </exclusion>
-                    <exclusion>
-                        <artifactId>log4j</artifactId>
-                        <groupId>log4j</groupId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-log4j12</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>org.jgrapht</groupId>
-                <artifactId>jgrapht-core</artifactId>
-                <version>0.9.0</version>
-            </dependency>
-
-            <dependency>
-                <groupId>redis.clients</groupId>
-                <artifactId>jedis</artifactId>
-                <version>2.6.2</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.orange.redis-embedded</groupId>
-                <artifactId>embedded-redis</artifactId>
-                <version>0.6</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestodb.tempto</groupId>
-                <artifactId>tempto-core</artifactId>
-                <version>${dep.tempto.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.datastax.cassandra</groupId>
-                        <artifactId>cassandra-driver-core</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.google.code.findbugs</groupId>
-                        <artifactId>annotations</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestodb.tempto</groupId>
-                <artifactId>tempto-ldap</artifactId>
-                <version>${dep.tempto.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.datastax.cassandra</groupId>
-                        <artifactId>cassandra-driver-core</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestodb.tempto</groupId>
-                <artifactId>tempto-kafka</artifactId>
-                <version>${dep.tempto.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.datastax.cassandra</groupId>
-                        <artifactId>cassandra-driver-core</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-log4j12</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestodb.tempto</groupId>
-                <artifactId>tempto-runner</artifactId>
-                <version>${dep.tempto.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.datastax.cassandra</groupId>
-                        <artifactId>cassandra-driver-core</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql.hive</groupId>
-                <artifactId>hive-apache-jdbc</artifactId>
-                <version>0.13.1-6</version>
+                <groupId>com.clearspring.analytics</groupId>
+                <artifactId>stream</artifactId>
+                <version>2.9.5</version>
             </dependency>
 
             <dependency>
@@ -1052,21 +923,164 @@
             </dependency>
 
             <dependency>
-                <groupId>org.apache.lucene</groupId>
-                <artifactId>lucene-analyzers-common</artifactId>
-                <version>7.2.1</version>
+                <groupId>com.facebook.thirdparty</groupId>
+                <artifactId>libsvm</artifactId>
+                <version>3.18.1</version>
+            </dependency>
+
+            <!-- TODO: move this to Airbase -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-cbor</artifactId>
+                <version>${dep.jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.cloud.bigdataoss</groupId>
+                <artifactId>gcs-connector</artifactId>
+                <version>hadoop2-${dep.gcs.version}</version>
                 <exclusions>
                     <exclusion>
-                        <groupId>org.apache.lucene</groupId>
-                        <artifactId>lucene-core</artifactId>
+                        <groupId>log4j</groupId>
+                        <artifactId>log4j</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>org.locationtech.jts</groupId>
-                <artifactId>jts-core</artifactId>
-                <version>1.15.0</version>
+                <groupId>com.google.cloud.bigdataoss</groupId>
+                <artifactId>gcsio</artifactId>
+                <version>${dep.gcs.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.cloud.bigdataoss</groupId>
+                <artifactId>util</artifactId>
+                <version>${dep.gcs.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.cloud.bigdataoss</groupId>
+                <artifactId>util-hadoop</artifactId>
+                <version>hadoop2-${dep.gcs.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.errorprone</groupId>
+                <artifactId>error_prone_annotations</artifactId>
+                <version>${dep.errorprone.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.h2database</groupId>
+                <artifactId>h2</artifactId>
+                <version>1.4.200</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.microsoft.sqlserver</groupId>
+                <artifactId>mssql-jdbc</artifactId>
+                <version>7.0.0.jre8</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.qubole.rubix</groupId>
+                <artifactId>rubix-presto-shaded</artifactId>
+                <version>0.3.16</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>mockwebserver</artifactId>
+                <version>${dep.okhttp.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp</artifactId>
+                <version>${dep.okhttp.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp-urlconnection</artifactId>
+                <version>${dep.okhttp.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.teradata</groupId>
+                <artifactId>re2j-td</artifactId>
+                <version>1.4</version>
+            </dependency>
+
+            <dependency>
+                <groupId>info.picocli</groupId>
+                <artifactId>picocli</artifactId>
+                <version>4.5.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt</artifactId>
+                <version>0.9.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>it.unimi.dsi</groupId>
+                <artifactId>fastutil</artifactId>
+                <version>8.3.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>javax.xml.bind</groupId>
+                <artifactId>jaxb-api</artifactId>
+                <version>2.3.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>mysql</groupId>
+                <artifactId>mysql-connector-java</artifactId>
+                <version>5.1.48</version>
+            </dependency>
+
+            <dependency>
+                <groupId>net.jodah</groupId>
+                <artifactId>failsafe</artifactId>
+                <version>2.4.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>net.sf.opencsv</groupId>
+                <artifactId>opencsv</artifactId>
+                <version>2.3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.alluxio</groupId>
+                <artifactId>alluxio-shaded-client</artifactId>
+                <version>2.3.0</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>log4j</groupId>
+                        <artifactId>log4j</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1090,21 +1104,69 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql.cassandra</groupId>
-                <artifactId>cassandra-server</artifactId>
-                <version>2.1.16-2</version>
+                <groupId>org.antlr</groupId>
+                <artifactId>antlr4-runtime</artifactId>
+                <version>${dep.antlr.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.avro</groupId>
+                <artifactId>avro</artifactId>
+                <version>1.9.2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>1.20</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-math3</artifactId>
+                <version>3.6.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.kafka</groupId>
+                <artifactId>kafka-clients</artifactId>
+                <version>2.4.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.thrift</groupId>
+                <artifactId>libthrift</artifactId>
+                <version>0.9.3-1</version>
                 <exclusions>
                     <exclusion>
-                        <groupId>io.netty</groupId>
-                        <artifactId>netty-all</artifactId>
+                        <groupId>org.apache.httpcomponents</groupId>
+                        <artifactId>httpcore</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.httpcomponents</groupId>
+                        <artifactId>httpclient</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql.cassandra</groupId>
-                <artifactId>cassandra-driver</artifactId>
-                <version>3.1.4-2</version>
+                <groupId>org.apache.zookeeper</groupId>
+                <artifactId>zookeeper</artifactId>
+                <version>3.4.14</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>jline</groupId>
+                        <artifactId>jline</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>log4j</groupId>
+                        <artifactId>log4j</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->
@@ -1112,6 +1174,86 @@
                 <groupId>org.javassist</groupId>
                 <artifactId>javassist</artifactId>
                 <version>3.22.0-GA</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jdbi</groupId>
+                <artifactId>jdbi</artifactId>
+                <version>2.78</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jdbi</groupId>
+                <artifactId>jdbi3-core</artifactId>
+                <version>${dep.jdbi3.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jdbi</groupId>
+                <artifactId>jdbi3-sqlobject</artifactId>
+                <version>${dep.jdbi3.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jetbrains</groupId>
+                <artifactId>annotations</artifactId>
+                <version>19.0.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jgrapht</groupId>
+                <artifactId>jgrapht-core</artifactId>
+                <version>0.9.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.locationtech.jts</groupId>
+                <artifactId>jts-core</artifactId>
+                <version>1.16.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.openjdk.jol</groupId>
+                <artifactId>jol-core</artifactId>
+                <version>0.2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm</artifactId>
+                <version>6.2.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.pcollections</groupId>
+                <artifactId>pcollections</artifactId>
+                <version>2.1.2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>42.2.5</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.sonatype.aether</groupId>
+                <artifactId>aether-api</artifactId>
+                <version>1.13.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>1.14.3</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.xerial.snappy</groupId>
+                <artifactId>snappy-java</artifactId>
+                <version>1.1.7.3</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -1160,12 +1302,6 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>io.airlift.maven.plugins</groupId>
-                    <artifactId>sphinx-maven-plugin</artifactId>
-                    <version>2.1</version>
-                </plugin>
-
-                <plugin>
                     <groupId>io.airlift.drift</groupId>
                     <artifactId>drift-maven-plugin</artifactId>
                     <version>${dep.drift.version}</version>
@@ -1189,14 +1325,33 @@
                     <artifactId>maven-enforcer-plugin</artifactId>
                     <configuration>
                         <rules>
+                            <compound implementation="com.github.ferstl.maven.pomenforcers.CompoundPedanticEnforcer">
+                                <enforcers>POM_SECTION_ORDER,MODULE_ORDER,DEPENDENCY_MANAGEMENT_ORDER,DEPENDENCY_ORDER</enforcers>
+                                <pomSectionPriorities>modelVersion,parent,groupId,artifactId,version,name,description,packaging,url,inceptionYear,licenses,scm,properties,modules</pomSectionPriorities>
+                                <dependenciesGroupIdPriorities>io.prestosql,io.airlift</dependenciesGroupIdPriorities>
+                                <dependenciesOrderBy>scope,groupId,artifactId</dependenciesOrderBy>
+                                <dependenciesScopePriorities>compile,runtime,provided,test</dependenciesScopePriorities>
+                                <dependencyManagementOrderBy>groupId,artifactId</dependencyManagementOrderBy>
+                                <dependencyManagementGroupIdPriorities>io.prestosql,io.airlift</dependencyManagementGroupIdPriorities>
+                            </compound>
                             <requireUpperBoundDeps>
                                 <excludes combine.children="append">
                                     <!-- TODO: fix this in Airlift resolver -->
                                     <exclude>org.codehaus.plexus:plexus-utils</exclude>
+                                    <exclude>com.google.guava:guava</exclude>
+                                    <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
+                                    <exclude>com.google.j2objc:j2objc-annotations</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
                         </rules>
                     </configuration>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.github.ferstl</groupId>
+                            <artifactId>pedantic-pom-enforcers</artifactId>
+                            <version>1.3.2</version>
+                        </dependency>
+                    </dependencies>
                 </plugin>
 
                 <plugin>
@@ -1206,6 +1361,12 @@
                         <preparationGoals>clean verify -DskipTests</preparationGoals>
                     </configuration>
                 </plugin>
+
+                <plugin>
+                    <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
+                    <artifactId>provisio-maven-plugin</artifactId>
+                    <version>1.0.9</version>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -1213,14 +1374,13 @@
             <plugin>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
-                <version>6</version>
+                <version>9</version>
                 <extensions>true</extensions>
             </plugin>
 
             <plugin>
-                <groupId>io.takari.maven.plugins</groupId>
+                <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
                 <artifactId>provisio-maven-plugin</artifactId>
-                <version>0.1.40</version>
                 <extensions>true</extensions>
             </plugin>
 
@@ -1235,9 +1395,11 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <configuration combine.children="append">
+                <configuration>
                     <includes>
+                        <!-- Tests classes should start with "Test", but we do also want to include tests incorrectly named, with "Test" at the end -->
                         <include>**/Test*.java</include>
+                        <include>**/*Test.java</include>
                         <include>**/Benchmark*.java</include>
                     </includes>
                     <excludes>
@@ -1286,6 +1448,49 @@
                                 </goals>
                             </execution>
                         </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>errorprone-compiler-presto</id><!-- airbase defines "errorprone-compiler" profile but set up this ourselves -->
+
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <!--suppress MavenModelInspection -->
+                        <configuration combine.children="merge">
+                            <compilerArgs>
+                                <arg>-XDcompilePolicy=simple</arg>
+                                <!-- TODO enable more checks, i.e. remove "-XepDisableAllChecks" -->
+                                <arg>
+                                    -Xplugin:ErrorProne
+                                    -XepExcludedPaths:.*/target/generated-(|test-)sources/.*
+                                    -XepDisableAllChecks
+                                    -Xep:ArrayToString:ERROR
+                                    -Xep:BadInstanceof:ERROR
+                                    -Xep:BoxedPrimitiveConstructor:ERROR
+                                    -Xep:ClassCanBeStatic:ERROR
+                                    -Xep:CompareToZero:ERROR
+                                    -Xep:EqualsIncompatibleType:ERROR
+                                    -Xep:GetClassOnClass:ERROR
+                                    -Xep:InconsistentHashCode:ERROR
+                                    -Xep:MissingOverride:ERROR
+                                    -Xep:NullOptional:ERROR
+                                    -Xep:ObjectToString:ERROR
+                                </arg>
+                            </compilerArgs>
+                            <annotationProcessorPaths>
+                                <path>
+                                    <groupId>com.google.errorprone</groupId>
+                                    <artifactId>error_prone_core</artifactId>
+                                    <version>${dep.errorprone.version}</version>
+                                </path>
+                            </annotationProcessorPaths>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>

@@ -13,77 +13,68 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.google.common.collect.Lists;
-import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
-import io.prestosql.metadata.Signature;
-import io.prestosql.spi.Plugin;
+import com.google.common.primitives.Ints;
+import io.prestosql.block.BlockAssertions;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.operator.PagesIndex;
+import io.prestosql.operator.window.PagesWindowIndex;
+import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.function.WindowIndex;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
-import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.createArgs;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.getFinalBlock;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.makeValidityAssertion;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 
 public abstract class AbstractTestAggregationFunction
 {
-    protected TypeRegistry typeRegistry;
-    protected FunctionRegistry functionRegistry;
+    protected Metadata metadata;
 
     @BeforeClass
     public final void initTestAggregationFunction()
     {
-        typeRegistry = new TypeRegistry();
-        functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        metadata = createTestMetadataManager();
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroyTestAggregationFunction()
     {
-        functionRegistry = null;
-        typeRegistry = null;
+        metadata = null;
     }
 
-    public abstract Block[] getSequenceBlocks(int start, int length);
-
-    protected void registerFunctions(Plugin plugin)
-    {
-        functionRegistry.addFunctions(extractFunctions(plugin.getFunctions()));
-    }
-
-    protected void registerTypes(Plugin plugin)
-    {
-        for (Type type : plugin.getTypes()) {
-            typeRegistry.addType(type);
-        }
-    }
+    protected abstract Block[] getSequenceBlocks(int start, int length);
 
     protected final InternalAggregationFunction getFunction()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypeSignatures(Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature));
-        Signature signature = functionRegistry.resolveFunction(QualifiedName.of(getFunctionName()), parameterTypes);
-        return functionRegistry.getAggregateFunctionImplementation(signature);
+        ResolvedFunction resolvedFunction = metadata.resolveFunction(
+                QualifiedName.of(getFunctionName()),
+                fromTypes(getFunctionParameterTypes()));
+        return metadata.getAggregateFunctionImplementation(resolvedFunction);
     }
 
     protected abstract String getFunctionName();
 
-    protected abstract List<String> getFunctionParameterTypes();
+    protected abstract List<Type> getFunctionParameterTypes();
 
-    public abstract Object getExpectedValue(int start, int length);
+    protected abstract Object getExpectedValue(int start, int length);
 
-    public Object getExpectedValueIncludingNulls(int start, int length, int lengthIncludingNulls)
+    protected Object getExpectedValueIncludingNulls(int start, int length, int lengthIncludingNulls)
     {
         return getExpectedValue(start, length);
     }
@@ -147,7 +138,60 @@ public abstract class AbstractTestAggregationFunction
         testAggregation(getExpectedValue(2, 4), getSequenceBlocks(2, 4));
     }
 
-    public Block[] createAlternatingNullsBlock(List<Type> types, Block... sequenceBlocks)
+    @Test
+    public void testSlidingWindow()
+    {
+        // Builds trailing windows of length 0, 1, 2, 3, 4, 5, 5, 4, 3, 2, 1, 0
+        int totalPositions = 12;
+        int[] windowWidths = new int[totalPositions];
+        Object[] expectedValues = new Object[totalPositions];
+
+        for (int i = 0; i < totalPositions; ++i) {
+            int windowWidth = Integer.min(i, totalPositions - 1 - i);
+            windowWidths[i] = windowWidth;
+            expectedValues[i] = getExpectedValue(i, windowWidth);
+        }
+        Page inputPage = new Page(totalPositions, getSequenceBlocks(0, totalPositions));
+
+        InternalAggregationFunction function = getFunction();
+        List<Integer> channels = Ints.asList(createArgs(function));
+        AccumulatorFactory accumulatorFactory = function.bind(channels, Optional.empty());
+        PagesIndex pagesIndex = new PagesIndex.TestingFactory(false).newPagesIndex(function.getParameterTypes(), totalPositions);
+        pagesIndex.addPage(inputPage);
+        WindowIndex windowIndex = new PagesWindowIndex(pagesIndex, 0, totalPositions - 1);
+
+        Accumulator aggregation = accumulatorFactory.createAccumulator();
+        int oldStart = 0;
+        int oldWidth = 0;
+        for (int start = 0; start < totalPositions; ++start) {
+            int width = windowWidths[start];
+            // Note that add/removeInput's interval is inclusive on both ends
+            if (accumulatorFactory.hasRemoveInput()) {
+                for (int oldi = oldStart; oldi < oldStart + oldWidth; ++oldi) {
+                    if (oldi < start || oldi >= start + width) {
+                        aggregation.removeInput(windowIndex, channels, oldi, oldi);
+                    }
+                }
+                for (int newi = start; newi < start + width; ++newi) {
+                    if (newi < oldStart || newi >= oldStart + oldWidth) {
+                        aggregation.addInput(windowIndex, channels, newi, newi);
+                    }
+                }
+            }
+            else {
+                aggregation = accumulatorFactory.createAccumulator();
+                aggregation.addInput(windowIndex, channels, start, start + width - 1);
+            }
+            oldStart = start;
+            oldWidth = width;
+            Block block = getFinalBlock(aggregation);
+            makeValidityAssertion(expectedValues[start]).apply(
+                    BlockAssertions.getOnlyValue(aggregation.getFinalType(), block),
+                    expectedValues[start]);
+        }
+    }
+
+    protected static Block[] createAlternatingNullsBlock(List<Type> types, Block... sequenceBlocks)
     {
         Block[] alternatingNullsBlocks = new Block[sequenceBlocks.length];
         for (int i = 0; i < sequenceBlocks.length; i++) {
@@ -168,5 +212,11 @@ public abstract class AbstractTestAggregationFunction
     protected void testAggregation(Object expectedValue, Block... blocks)
     {
         assertAggregation(getFunction(), expectedValue, blocks);
+    }
+
+    protected void assertInvalidAggregation(Runnable runnable)
+    {
+        assertPrestoExceptionThrownBy(runnable::run)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 }

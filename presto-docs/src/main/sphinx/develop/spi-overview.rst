@@ -34,7 +34,7 @@ For a built-in plugin that is included in the Presto source code,
 this resource file is created whenever the ``pom.xml`` file of a plugin
 contains the following line:
 
-.. code-block:: none
+.. code-block:: xml
 
     <packaging>presto-plugin</packaging>
 

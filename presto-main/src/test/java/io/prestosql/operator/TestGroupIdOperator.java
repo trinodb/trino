@@ -58,13 +58,14 @@ public class TestGroupIdOperator
                 .addDriverContext();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
         scheduledExecutor.shutdownNow();
     }
 
+    @Test
     public void testGroupId()
     {
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, ImmutableList.of(), BIGINT, VARCHAR, BOOLEAN, BIGINT);

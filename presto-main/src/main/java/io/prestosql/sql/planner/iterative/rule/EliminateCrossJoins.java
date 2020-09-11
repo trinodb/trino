@@ -14,21 +14,21 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.optimizations.joins.JoinGraph;
-import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
 
 import java.util.HashMap;
@@ -54,6 +54,12 @@ public class EliminateCrossJoins
         implements Rule<JoinNode>
 {
     private static final Pattern<JoinNode> PATTERN = join();
+    private final Metadata metadata;
+
+    public EliminateCrossJoins(Metadata metadata)
+    {
+        this.metadata = metadata;
+    }
 
     @Override
     public Pattern<JoinNode> getPattern()
@@ -72,8 +78,8 @@ public class EliminateCrossJoins
     @Override
     public Result apply(JoinNode node, Captures captures, Context context)
     {
-        JoinGraph joinGraph = JoinGraph.buildShallowFrom(node, context.getLookup());
-        if (joinGraph.size() < 3) {
+        JoinGraph joinGraph = JoinGraph.buildFrom(metadata, node, context.getLookup(), context.getIdAllocator());
+        if (joinGraph.size() < 3 || !joinGraph.isContainsCrossJoin()) {
             return Result.empty();
         }
 
@@ -179,13 +185,14 @@ public class EliminateCrossJoins
                     result,
                     rightNode,
                     criteria.build(),
-                    ImmutableList.<Symbol>builder()
-                            .addAll(result.getOutputSymbols())
-                            .addAll(rightNode.getOutputSymbols())
-                            .build(),
+                    result.getOutputSymbols(),
+                    rightNode.getOutputSymbols(),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of(),
                     Optional.empty());
         }
 
@@ -196,13 +203,6 @@ public class EliminateCrossJoins
                     idAllocator.getNextId(),
                     result,
                     filter);
-        }
-
-        if (graph.getAssignments().isPresent()) {
-            result = new ProjectNode(
-                    idAllocator.getNextId(),
-                    result,
-                    Assignments.copyOf(graph.getAssignments().get()));
         }
 
         // If needed, introduce a projection to constrain the outputs to what was originally expected

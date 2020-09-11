@@ -24,7 +24,6 @@ import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -38,9 +37,7 @@ import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 
 public final class VarbinaryOperators
 {
-    private VarbinaryOperators()
-    {
-    }
+    private VarbinaryOperators() {}
 
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
@@ -86,13 +83,6 @@ public final class VarbinaryOperators
         return left.compareTo(right) >= 0;
     }
 
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(@SqlType(StandardTypes.VARBINARY) Slice value, @SqlType(StandardTypes.VARBINARY) Slice min, @SqlType(StandardTypes.VARBINARY) Slice max)
-    {
-        return min.compareTo(value) <= 0 && value.compareTo(max) <= 0;
-    }
-
     @ScalarOperator(HASH_CODE)
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.VARBINARY) Slice value)
@@ -104,7 +94,7 @@ public final class VarbinaryOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class VarbinaryDistinctFromOperator
+    public static final class VarbinaryDistinctFromOperator
     {
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isDistinctFrom(

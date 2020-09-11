@@ -17,29 +17,12 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
-import javax.management.MBeanServer;
-
-import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
-import static java.util.Objects.requireNonNull;
-
 public class JmxPlugin
         implements Plugin
 {
-    private final MBeanServer mBeanServer;
-
-    public JmxPlugin()
-    {
-        this(getPlatformMBeanServer());
-    }
-
-    public JmxPlugin(MBeanServer mBeanServer)
-    {
-        this.mBeanServer = requireNonNull(mBeanServer, "mBeanServer is null");
-    }
-
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new JmxConnectorFactory(mBeanServer));
+        return ImmutableList.of(new JmxConnectorFactory());
     }
 }

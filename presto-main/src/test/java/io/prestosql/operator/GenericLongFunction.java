@@ -14,20 +14,20 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionMetadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.spi.type.TypeManager;
 
 import java.lang.invoke.MethodHandle;
 import java.util.function.LongUnaryOperator;
 
-import static io.prestosql.metadata.Signature.internalScalarFunction;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.spi.type.StandardTypes.BIGINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -40,33 +40,25 @@ public final class GenericLongFunction
 
     GenericLongFunction(String suffix, LongUnaryOperator longUnaryOperator)
     {
-        super(internalScalarFunction("generic_long_" + requireNonNull(suffix, "suffix is null"), parseTypeSignature(BIGINT), parseTypeSignature(BIGINT)));
+        super(new FunctionMetadata(
+                new Signature(
+                        "generic_long_" + requireNonNull(suffix, "suffix is null"),
+                        BIGINT.getTypeSignature(),
+                        BIGINT.getTypeSignature()),
+                false,
+                ImmutableList.of(new FunctionArgumentDefinition(false)),
+                true,
+                true,
+                "generic long function for test",
+                SCALAR));
         this.longUnaryOperator = longUnaryOperator;
     }
 
     @Override
-    public boolean isHidden()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "generic long function for test";
-    }
-
-    @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(longUnaryOperator);
-        return new ScalarFunctionImplementation(false, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), methodHandle, isDeterministic());
+        return new ScalarFunctionImplementation(FAIL_ON_NULL, ImmutableList.of(NEVER_NULL), methodHandle);
     }
 
     public static long apply(LongUnaryOperator longUnaryOperator, long value)

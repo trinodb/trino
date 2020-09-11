@@ -48,7 +48,7 @@ public class ClassifierFeatureTransformer
     {
         List<Model> models = ModelUtils.deserializeModels(data);
 
-        return new ClassifierFeatureTransformer((Classifier) models.get(0), (FeatureTransformation) models.get(1));
+        return new ClassifierFeatureTransformer((Classifier<Integer>) models.get(0), (FeatureTransformation) models.get(1));
     }
 
     @Override

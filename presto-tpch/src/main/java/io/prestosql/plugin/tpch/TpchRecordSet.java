@@ -16,10 +16,6 @@ package io.prestosql.plugin.tpch;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.tpch.TpchColumn;
-import io.airlift.tpch.TpchColumnType;
-import io.airlift.tpch.TpchEntity;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.RecordCursor;
@@ -27,6 +23,10 @@ import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
+import io.prestosql.tpch.TpchColumn;
+import io.prestosql.tpch.TpchColumnType;
+import io.prestosql.tpch.TpchEntity;
+import io.prestosql.tpch.TpchTable;
 
 import java.util.Iterator;
 import java.util.List;
@@ -221,7 +221,7 @@ public class TpchRecordSet<E extends TpchEntity>
                             column -> {
                                 TpchColumnHandle tpchColumnHandle = (TpchColumnHandle) column;
                                 Type type = tpchColumnHandle.getType();
-                                TpchColumn tpchColumn = table.getColumn(tpchColumnHandle.getColumnName());
+                                TpchColumn<E> tpchColumn = table.getColumn(tpchColumnHandle.getColumnName());
                                 return NullableValue.of(type, getPrestoObject(tpchColumn, type));
                             }));
 

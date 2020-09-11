@@ -33,6 +33,7 @@ import static com.google.common.collect.Sets.union;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 @AggregationFunction("evaluate_classifier_predictions")
 public final class EvaluateClassifierPredictionsAggregation
@@ -86,7 +87,7 @@ public final class EvaluateClassifierPredictionsAggregation
         int deltaSize = 0;
         for (Map.Entry<String, Integer> entry : other.entrySet()) {
             if (!map.containsKey(entry.getKey())) {
-                deltaSize += entry.getKey().getBytes().length + SIZE_OF_INT;
+                deltaSize += entry.getKey().getBytes(UTF_8).length + SIZE_OF_INT;
             }
             map.put(entry.getKey(), map.getOrDefault(entry.getKey(), 0) + other.getOrDefault(entry.getKey(), 0));
         }

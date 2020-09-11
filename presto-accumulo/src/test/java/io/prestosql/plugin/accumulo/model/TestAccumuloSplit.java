@@ -15,7 +15,6 @@ package io.prestosql.plugin.accumulo.model;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
-import io.prestosql.plugin.accumulo.serializers.LexicoderRowSerializer;
 import org.apache.accumulo.core.data.Range;
 import org.testng.annotations.Test;
 
@@ -32,25 +31,7 @@ public class TestAccumuloSplit
     public void testJsonRoundTrip()
     {
         AccumuloSplit expected = new AccumuloSplit(
-                "schema",
-                "table",
-                "id",
-                LexicoderRowSerializer.class.getCanonicalName(),
                 ImmutableList.of(new Range(), new Range("bar", "foo"), new Range("bar", false, "baz", false)).stream().map(WrappedRange::new).collect(Collectors.toList()),
-                ImmutableList.of(
-                        new AccumuloColumnConstraint(
-                                "id",
-                                "fam1",
-                                "qual1",
-                                Optional.empty(),
-                                true),
-                        new AccumuloColumnConstraint(
-                                "bar",
-                                "fam2",
-                                "qual2",
-                                Optional.empty(),
-                                true)),
-                Optional.of("foo,bar"),
                 Optional.of("localhost:9000"));
 
         String json = codec.toJson(expected);
@@ -62,13 +43,7 @@ public class TestAccumuloSplit
     public void testJsonRoundTripEmptyThings()
     {
         AccumuloSplit expected = new AccumuloSplit(
-                "schema",
-                "table",
-                "id",
-                LexicoderRowSerializer.class.getCanonicalName(),
                 ImmutableList.of(),
-                ImmutableList.of(),
-                Optional.empty(),
                 Optional.empty());
 
         String json = codec.toJson(expected);
@@ -79,15 +54,7 @@ public class TestAccumuloSplit
     private static void assertSplit(AccumuloSplit actual, AccumuloSplit expected)
     {
         assertEquals(actual.getAddresses(), expected.getAddresses());
-        assertEquals(actual.getConstraints(), expected.getConstraints());
-        assertEquals(actual.getRowId(), expected.getRowId());
         assertEquals(actual.getHostPort(), expected.getHostPort());
         assertEquals(actual.getRanges(), expected.getRanges());
-        assertEquals(actual.getRowId(), expected.getRowId());
-        assertEquals(actual.getScanAuthorizations(), expected.getScanAuthorizations());
-        assertEquals(actual.getSchema(), expected.getSchema());
-        assertEquals(actual.getSerializerClass(), expected.getSerializerClass());
-        assertEquals(actual.getSerializerClassName(), expected.getSerializerClassName());
-        assertEquals(actual.getTable(), expected.getTable());
     }
 }

@@ -128,8 +128,22 @@ public class IntervalLiteral
         }
         IntervalLiteral other = (IntervalLiteral) obj;
         return Objects.equals(this.value, other.value) &&
-                Objects.equals(this.sign, other.sign) &&
-                Objects.equals(this.startField, other.startField) &&
+                this.sign == other.sign &&
+                this.startField == other.startField &&
                 Objects.equals(this.endField, other.endField);
+    }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        IntervalLiteral otherLiteral = (IntervalLiteral) other;
+        return Objects.equals(this.value, otherLiteral.value) &&
+                this.sign == otherLiteral.sign &&
+                this.startField == otherLiteral.startField &&
+                Objects.equals(this.endField, otherLiteral.endField);
     }
 }

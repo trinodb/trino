@@ -13,9 +13,10 @@
  */
 package io.prestosql.tests.tpch;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.testing.DistributedQueryRunner;
 
 public final class TpchQueryRunner
 {
@@ -26,7 +27,11 @@ public final class TpchQueryRunner
     {
         Logging.initialize();
         DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
-                .setSingleExtraProperty("http-server.http.port", "8080")
+                .setExtraProperties(ImmutableMap.<String, String>builder()
+                        .put("http-server.http.port", "8080")
+                        .put("sql.default-catalog", "tpch")
+                        .put("sql.default-schema", "tiny")
+                        .build())
                 .build();
         Thread.sleep(10);
         Logger log = Logger.get(TpchQueryRunner.class);

@@ -128,7 +128,6 @@ public class TestUnknownOperators
 
     @Test
     public void testIndeterminate()
-            throws Exception
     {
         assertOperator(INDETERMINATE, "null", BOOLEAN, true);
     }

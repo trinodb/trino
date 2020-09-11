@@ -19,7 +19,6 @@ import io.airlift.slice.Slices;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.FunctionDependency;
-import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
@@ -32,9 +31,7 @@ import static java.nio.charset.StandardCharsets.UTF_16BE;
 
 public final class TeradataStringFunctions
 {
-    private TeradataStringFunctions()
-    {
-    }
+    private TeradataStringFunctions() {}
 
     @Description("Returns index of first occurrence of a substring (or 0 if not found)")
     @ScalarFunction("index")
@@ -42,7 +39,6 @@ public final class TeradataStringFunctions
     public static long index(
             @FunctionDependency(
                     name = "strpos",
-                    returnType = StandardTypes.BIGINT,
                     argumentTypes = {StandardTypes.VARCHAR, StandardTypes.VARCHAR})
                     MethodHandle method,
             @SqlType(StandardTypes.VARCHAR) Slice string,
@@ -50,53 +46,6 @@ public final class TeradataStringFunctions
     {
         try {
             return (long) method.invokeExact(string, substring);
-        }
-        catch (Throwable t) {
-            throwIfInstanceOf(t, Error.class);
-            throwIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
-    }
-
-    @Description("suffix starting at given index")
-    @ScalarFunction
-    @LiteralParameters("x")
-    @SqlType("varchar(x)")
-    public static Slice substring(
-            @FunctionDependency(
-                    name = "substr",
-                    returnType = "varchar(x)",
-                    argumentTypes = {"varchar(x)", StandardTypes.BIGINT})
-                    MethodHandle method,
-            @SqlType("varchar(x)") Slice utf8,
-            @SqlType(StandardTypes.BIGINT) long start)
-    {
-        try {
-            return (Slice) method.invokeExact(utf8, start);
-        }
-        catch (Throwable t) {
-            throwIfInstanceOf(t, Error.class);
-            throwIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
-    }
-
-    @Description("substring of given length starting at an index")
-    @ScalarFunction
-    @LiteralParameters("x")
-    @SqlType("varchar(x)")
-    public static Slice substring(
-            @FunctionDependency(
-                    name = "substr",
-                    returnType = "varchar(x)",
-                    argumentTypes = {"varchar(x)", StandardTypes.BIGINT, StandardTypes.BIGINT})
-                    MethodHandle method,
-            @SqlType("varchar(x)") Slice utf8,
-            @SqlType(StandardTypes.BIGINT) long start,
-            @SqlType(StandardTypes.BIGINT) long length)
-    {
-        try {
-            return (Slice) method.invokeExact(utf8, start, length);
         }
         catch (Throwable t) {
             throwIfInstanceOf(t, Error.class);

@@ -59,13 +59,13 @@ public class InputPageProjection
         Block block = requireNonNull(page, "page is null").getBlock(0);
         requireNonNull(selectedPositions, "selectedPositions is null");
 
-        Block result;
+        // TODO: make it lazy when MergePages have better merging heuristics for small lazy pages
         if (selectedPositions.isList()) {
-            result = block.copyPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
+            block = block.copyPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
         }
         else {
-            result = block.getRegion(selectedPositions.getOffset(), selectedPositions.size());
+            block = block.getRegion(selectedPositions.getOffset(), selectedPositions.size());
         }
-        return new CompletedWork<>(result);
+        return new CompletedWork<>(block);
     }
 }

@@ -37,7 +37,7 @@ public final class PrestoProxy
                 .add(new NodeModule())
                 .add(new HttpServerModule())
                 .add(new JsonModule())
-                .add(new JaxrsModule(true))
+                .add(new JaxrsModule())
                 .add(new MBeanModule())
                 .add(new JmxModule())
                 .add(new LogJmxModule())

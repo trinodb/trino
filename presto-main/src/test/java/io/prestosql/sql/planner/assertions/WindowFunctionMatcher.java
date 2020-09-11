@@ -15,40 +15,41 @@ package io.prestosql.sql.planner.assertions;
 
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.WindowNode;
+import io.prestosql.sql.planner.plan.WindowNode.Function;
 import io.prestosql.sql.tree.FunctionCall;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.ResolvedFunction.extractFunctionName;
 import static java.util.Objects.requireNonNull;
 
 public class WindowFunctionMatcher
         implements RvalueMatcher
 {
     private final ExpectedValueProvider<FunctionCall> callMaker;
-    private final Optional<Signature> signature;
+    private final Optional<ResolvedFunction> resolvedFunction;
     private final Optional<ExpectedValueProvider<WindowNode.Frame>> frameMaker;
 
     /**
      * @param callMaker Always validates the function call
-     * @param signature Optionally validates the signature
+     * @param resolvedFunction Optionally validates the signature
      * @param frameMaker Optionally validates the frame
      */
     public WindowFunctionMatcher(
             ExpectedValueProvider<FunctionCall> callMaker,
-            Optional<Signature> signature,
+            Optional<ResolvedFunction> resolvedFunction,
             Optional<ExpectedValueProvider<WindowNode.Frame>> frameMaker)
     {
         this.callMaker = requireNonNull(callMaker, "functionCall is null");
-        this.signature = requireNonNull(signature, "signature is null");
+        this.resolvedFunction = requireNonNull(resolvedFunction, "resolvedFunction is null");
         this.frameMaker = requireNonNull(frameMaker, "frameMaker is null");
     }
 
@@ -65,20 +66,28 @@ public class WindowFunctionMatcher
         FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
         Optional<WindowNode.Frame> expectedFrame = frameMaker.map(maker -> maker.getExpectedValue(symbolAliases));
 
-        List<Symbol> matchedOutputs = windowNode.getWindowFunctions().entrySet().stream()
-                .filter(assignment ->
-                        expectedCall.equals(assignment.getValue().getFunctionCall())
-                                && signature.map(assignment.getValue().getSignature()::equals).orElse(true)
-                                && expectedFrame.map(assignment.getValue().getFrame()::equals).orElse(true))
-                .map(Map.Entry::getKey)
-                .collect(toImmutableList());
-
-        checkState(matchedOutputs.size() <= 1, "Ambiguous function calls in %s", windowNode);
-
-        if (matchedOutputs.isEmpty()) {
-            return Optional.empty();
+        for (Map.Entry<Symbol, Function> assignment : windowNode.getWindowFunctions().entrySet()) {
+            Function function = assignment.getValue();
+            boolean signatureMatches = resolvedFunction.map(assignment.getValue().getResolvedFunction()::equals).orElse(true);
+            if (signatureMatches && windowFunctionMatches(function, expectedCall, expectedFrame)) {
+                checkState(result.isEmpty(), "Ambiguous function calls in %s", windowNode);
+                result = Optional.of(assignment.getKey());
+            }
         }
-        return Optional.of(matchedOutputs.get(0));
+
+        return result;
+    }
+
+    private boolean windowFunctionMatches(Function windowFunction, FunctionCall expectedCall, Optional<WindowNode.Frame> expectedFrame)
+    {
+        if (expectedCall.getWindow().isPresent()) {
+            return false;
+        }
+
+        return resolvedFunction.map(windowFunction.getResolvedFunction()::equals).orElse(true) &&
+                expectedFrame.map(windowFunction.getFrame()::equals).orElse(true) &&
+                Objects.equals(extractFunctionName(expectedCall.getName()), windowFunction.getResolvedFunction().getSignature().getName()) &&
+                Objects.equals(expectedCall.getArguments(), windowFunction.getArguments());
     }
 
     @Override
@@ -88,7 +97,7 @@ public class WindowFunctionMatcher
         return toStringHelper(this)
                 .omitNullValues()
                 .add("callMaker", callMaker)
-                .add("signature", signature.orElse(null))
+                .add("signature", resolvedFunction.orElse(null))
                 .add("frameMaker", frameMaker.orElse(null))
                 .toString();
     }

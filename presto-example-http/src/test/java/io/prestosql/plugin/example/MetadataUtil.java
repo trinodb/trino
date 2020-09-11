@@ -35,9 +35,7 @@ import static java.util.Locale.ENGLISH;
 
 public final class MetadataUtil
 {
-    private MetadataUtil()
-    {
-    }
+    private MetadataUtil() {}
 
     public static final JsonCodec<Map<String, List<ExampleTable>>> CATALOG_CODEC;
     public static final JsonCodec<ExampleTable> TABLE_CODEC;

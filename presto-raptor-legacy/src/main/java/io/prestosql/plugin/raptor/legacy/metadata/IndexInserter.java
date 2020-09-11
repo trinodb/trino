@@ -128,7 +128,7 @@ class IndexInserter
             statement.setInt(3, bucketNumber.getAsInt());
         }
         else {
-            checkArgument(!bucketNumber.isPresent(), "shard bucket present for non-bucketed table");
+            checkArgument(bucketNumber.isEmpty(), "shard bucket present for non-bucketed table");
             statement.setBytes(3, intArrayToBytes(nodeIds));
         }
 

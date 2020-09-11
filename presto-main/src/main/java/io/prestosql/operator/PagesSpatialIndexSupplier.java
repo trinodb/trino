@@ -39,8 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Verify.verify;
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static com.google.common.base.Verify.verifyNotNull;
 import static io.prestosql.geospatial.serde.GeometrySerde.deserialize;
 import static io.prestosql.operator.PagesSpatialIndex.EMPTY_INDEX;
 import static io.prestosql.operator.SyntheticAddress.decodePosition;
@@ -115,7 +114,7 @@ public class PagesSpatialIndexSupplier
 
             Slice slice = block.getSlice(blockPosition, 0, block.getSliceLength(blockPosition));
             OGCGeometry ogcGeometry = deserialize(slice);
-            verify(ogcGeometry != null);
+            verifyNotNull(ogcGeometry);
             if (ogcGeometry.isEmpty()) {
                 continue;
             }
@@ -125,7 +124,7 @@ public class PagesSpatialIndexSupplier
                 continue;
             }
 
-            if (!radiusChannel.isPresent()) {
+            if (radiusChannel.isEmpty()) {
                 // If radiusChannel is supplied, this is a distance query, for which our acceleration won't help.
                 accelerateGeometry(ogcGeometry, relateOperator);
             }
@@ -180,7 +179,7 @@ public class PagesSpatialIndexSupplier
     // doesn't include memory used by channels and addresses which are shared with PagesIndex
     public DataSize getEstimatedSize()
     {
-        return new DataSize(memorySizeInBytes, BYTE);
+        return DataSize.ofBytes(memorySizeInBytes);
     }
 
     @Override

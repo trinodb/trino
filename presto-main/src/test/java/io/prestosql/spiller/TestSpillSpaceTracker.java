@@ -24,7 +24,7 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestSpillSpaceTracker
 {
-    private static final DataSize MAX_DATA_SIZE = new DataSize(10, MEGABYTE);
+    private static final DataSize MAX_DATA_SIZE = DataSize.of(10, MEGABYTE);
     private SpillSpaceTracker spillSpaceTracker;
 
     @BeforeMethod
@@ -38,11 +38,11 @@ public class TestSpillSpaceTracker
     {
         assertEquals(spillSpaceTracker.getCurrentBytes(), 0);
         assertEquals(spillSpaceTracker.getMaxBytes(), MAX_DATA_SIZE.toBytes());
-        long reservedBytes = new DataSize(5, MEGABYTE).toBytes();
+        long reservedBytes = DataSize.of(5, MEGABYTE).toBytes();
         spillSpaceTracker.reserve(reservedBytes);
         assertEquals(spillSpaceTracker.getCurrentBytes(), reservedBytes);
 
-        long otherReservedBytes = new DataSize(2, MEGABYTE).toBytes();
+        long otherReservedBytes = DataSize.of(2, MEGABYTE).toBytes();
         spillSpaceTracker.reserve(otherReservedBytes);
         assertEquals(spillSpaceTracker.getCurrentBytes(), (reservedBytes + otherReservedBytes));
 

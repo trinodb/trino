@@ -14,19 +14,37 @@
 package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
+import io.prestosql.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider;
+import org.apache.hadoop.hive.common.ValidTxnList;
+import org.apache.hadoop.hive.metastore.api.CheckLockRequest;
+import org.apache.hadoop.hive.metastore.api.ClientCapabilities;
+import org.apache.hadoop.hive.metastore.api.ClientCapability;
 import org.apache.hadoop.hive.metastore.api.ColumnStatistics;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsDesc;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
+import org.apache.hadoop.hive.metastore.api.CommitTxnRequest;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.GetPrincipalsInRoleRequest;
+import org.apache.hadoop.hive.metastore.api.GetPrincipalsInRoleResponse;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalRequest;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalResponse;
+import org.apache.hadoop.hive.metastore.api.GetTableRequest;
+import org.apache.hadoop.hive.metastore.api.GetValidWriteIdsRequest;
 import org.apache.hadoop.hive.metastore.api.GrantRevokeRoleRequest;
 import org.apache.hadoop.hive.metastore.api.GrantRevokeRoleResponse;
 import org.apache.hadoop.hive.metastore.api.GrantRevokeType;
+import org.apache.hadoop.hive.metastore.api.HeartbeatTxnRangeRequest;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
+import org.apache.hadoop.hive.metastore.api.LockRequest;
+import org.apache.hadoop.hive.metastore.api.LockResponse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.hadoop.hive.metastore.api.OpenTxnRequest;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PartitionsStatsRequest;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
@@ -36,33 +54,40 @@ import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.TableStatsRequest;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
+import org.apache.hadoop.hive.metastore.txn.TxnUtils;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
-import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.transport.TTransport;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.reflect.Reflection.newProxy;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftHiveMetastoreClient
-        implements HiveMetastoreClient
+        implements ThriftMetastoreClient
 {
-    private final TTransport transport;
-    private final ThriftHiveMetastore.Client client;
+    private static final Logger log = Logger.get(ThriftHiveMetastoreClient.class);
 
-    public ThriftHiveMetastoreClient(TTransport transport)
+    private static final ParameterNamesProvider PARAMETER_NAMES_PROVIDER = new AirliftParameterNamesProvider(ThriftHiveMetastore.Iface.class, ThriftHiveMetastore.Client.class);
+
+    private final TTransport transport;
+    protected final ThriftHiveMetastore.Iface client;
+    private final String hostname;
+
+    public ThriftHiveMetastoreClient(TTransport transport, String hostname)
     {
         this.transport = requireNonNull(transport, "transport is null");
-        this.client = new ThriftHiveMetastore.Client(new TBinaryProtocol(transport));
-    }
-
-    public ThriftHiveMetastoreClient(TProtocol protocol)
-    {
-        this.transport = protocol.getTransport();
-        this.client = new ThriftHiveMetastore.Client(protocol);
+        ThriftHiveMetastore.Client client = new ThriftHiveMetastore.Client(new TBinaryProtocol(transport));
+        if (log.isDebugEnabled()) {
+            this.client = newProxy(ThriftHiveMetastore.Iface.class, new LoggingInvocationHandler(client, PARAMETER_NAMES_PROVIDER, log::debug));
+        }
+        else {
+            this.client = client;
+        }
+        this.hostname = requireNonNull(hostname, "hostname is null");
     }
 
     @Override
@@ -97,6 +122,13 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         return client.get_table_names_by_filter(databaseName, filter, (short) -1);
+    }
+
+    @Override
+    public List<String> getTableNamesByType(String databaseName, String tableType)
+            throws TException
+    {
+        return client.get_tables_by_type(databaseName, ".*", tableType);
     }
 
     @Override
@@ -135,10 +167,10 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public void alterTable(String databaseName, String tableName, Table newTable)
+    public void alterTableWithEnvironmentContext(String databaseName, String tableName, Table newTable, EnvironmentContext context)
             throws TException
     {
-        client.alter_table(databaseName, tableName, newTable);
+        client.alter_table_with_environment_context(databaseName, tableName, newTable, context);
     }
 
     @Override
@@ -146,6 +178,17 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         return client.get_table(databaseName, tableName);
+    }
+
+    @Override
+    public Table getTableWithCapabilities(String databaseName, String tableName)
+            throws TException
+    {
+        GetTableRequest request = new GetTableRequest();
+        request.setDbName(databaseName);
+        request.setTblName(tableName);
+        request.setCapabilities(new ClientCapabilities(ImmutableList.of(ClientCapability.INSERT_ONLY_TABLES)));
+        return client.get_table_req(request).getTable();
     }
 
     @Override
@@ -379,6 +422,15 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
+    public List<RolePrincipalGrant> listGrantedPrincipals(String role)
+            throws TException
+    {
+        GetPrincipalsInRoleRequest request = new GetPrincipalsInRoleRequest(role);
+        GetPrincipalsInRoleResponse response = client.get_principals_in_role(request);
+        return ImmutableList.copyOf(response.getPrincipalGrants());
+    }
+
+    @Override
     public List<RolePrincipalGrant> listRoleGrants(String principalName, PrincipalType principalType)
             throws TException
     {
@@ -392,5 +444,71 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         client.set_ugi(userName, new ArrayList<>());
+    }
+
+    @Override
+    public long openTransaction(String user)
+            throws TException
+    {
+        OpenTxnRequest request = new OpenTxnRequest(1, user, hostname);
+        return client.open_txns(request).getTxn_ids().get(0);
+    }
+
+    @Override
+    public void commitTransaction(long transactionId)
+            throws TException
+    {
+        client.commit_txn(new CommitTxnRequest(transactionId));
+    }
+
+    @Override
+    public void sendTransactionHeartbeat(long transactionId)
+            throws TException
+    {
+        HeartbeatTxnRangeRequest rqst = new HeartbeatTxnRangeRequest(transactionId, transactionId);
+        client.heartbeat_txn_range(rqst);
+    }
+
+    @Override
+    public LockResponse acquireLock(LockRequest lockRequest)
+            throws TException
+    {
+        return client.lock(lockRequest);
+    }
+
+    @Override
+    public LockResponse checkLock(long lockId)
+            throws TException
+    {
+        return client.check_lock(new CheckLockRequest(lockId));
+    }
+
+    @Override
+    public String getValidWriteIds(List<String> tableList, long currentTransactionId)
+            throws TException
+    {
+        // Pass currentTxn as 0L to get the recent snapshot of valid transactions in Hive
+        // Do not pass currentTransactionId instead as it will break Hive's listing of delta directories if major compaction
+        // deletes deleta directories for valid transactions that existed at the time transaction is opened
+        ValidTxnList validTransactions = TxnUtils.createValidReadTxnList(client.get_open_txns(), 0L);
+        GetValidWriteIdsRequest request = new GetValidWriteIdsRequest(tableList, validTransactions.toString());
+        return TxnUtils.createValidTxnWriteIdList(
+                currentTransactionId,
+                client.get_valid_write_ids(request).getTblValidWriteIds())
+                .toString();
+    }
+
+    @Override
+    public String get_config_value(String name, String defaultValue)
+            throws TException
+    {
+        return client.get_config_value(name, defaultValue);
+    }
+
+    @Override
+    public String getDelegationToken(String userName)
+            throws TException
+    {
+        return client.get_delegation_token(userName, userName);
     }
 }

@@ -18,7 +18,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockEncodingSerde;
@@ -37,6 +36,7 @@ import java.util.TreeMap;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.prestosql.block.BlockSerdeUtil.writeBlock;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.OperatorAssertion.toRow;
 import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static io.prestosql.spi.block.SortOrder.ASC_NULLS_LAST;
@@ -55,7 +55,7 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestType
 {
-    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+    private final BlockEncodingSerde blockEncodingSerde = createTestMetadataManager().getBlockEncodingSerde();
 
     private final Class<?> objectValueType;
     private final Block testBlock;
@@ -269,6 +269,7 @@ public abstract class AbstractTestType
         }
         else if (type.getJavaType() == Slice.class) {
             assertEquals(type.getSlice(block, position), expectedStackValue);
+            assertEquals(type.getObject(block, position), expectedStackValue);
             try {
                 type.getBoolean(block, position);
                 fail("Expected IllegalStateException or UnsupportedOperationException");
@@ -287,14 +288,8 @@ public abstract class AbstractTestType
             }
             catch (IllegalStateException | UnsupportedOperationException expected) {
             }
-            try {
-                type.getObject(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
         }
-        else {
+        else if (type.getJavaType() == Block.class) {
             SliceOutput actualSliceOutput = new DynamicSliceOutput(100);
             writeBlock(blockEncodingSerde, actualSliceOutput, (Block) type.getObject(block, position));
             SliceOutput expectedSliceOutput = new DynamicSliceOutput(actualSliceOutput.size());
@@ -320,6 +315,27 @@ public abstract class AbstractTestType
             }
             try {
                 type.getSlice(block, position);
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+        }
+        else {
+            assertEquals(type.getObject(block, position), expectedStackValue);
+            try {
+                type.getBoolean(block, position);
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                type.getLong(block, position);
+                fail("Expected IllegalStateException or UnsupportedOperationException");
+            }
+            catch (IllegalStateException | UnsupportedOperationException expected) {
+            }
+            try {
+                type.getDouble(block, position);
                 fail("Expected IllegalStateException or UnsupportedOperationException");
             }
             catch (IllegalStateException | UnsupportedOperationException expected) {
@@ -515,7 +531,7 @@ public abstract class AbstractTestType
             Type valueType = mapType.getValueType();
             Object keyNonNullValue = getNonNullValueForType(keyType);
             Object valueNonNullValue = getNonNullValueForType(valueType);
-            Map map = ImmutableMap.of(keyNonNullValue, valueNonNullValue);
+            Map<?, ?> map = ImmutableMap.of(keyNonNullValue, valueNonNullValue);
             return mapBlockOf(keyType, valueType, map);
         }
         if (type instanceof RowType) {

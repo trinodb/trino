@@ -15,6 +15,7 @@ package io.prestosql.operator.aggregation.builder;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.operator.OperatorContext;
 import io.prestosql.operator.WorkProcessor;
@@ -44,7 +45,7 @@ public class MergingHashAggregationBuilder
     private final WorkProcessor<Page> sortedPages;
     private InMemoryHashAggregationBuilder hashAggregationBuilder;
     private final List<Type> groupByTypes;
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
     private final long memoryLimitForMerge;
     private final int overwriteIntermediateChannelOffset;
     private final JoinCompiler joinCompiler;
@@ -57,7 +58,7 @@ public class MergingHashAggregationBuilder
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             WorkProcessor<Page> sortedPages,
-            LocalMemoryContext systemMemoryContext,
+            AggregatedMemoryContext aggregatedMemoryContext,
             long memoryLimitForMerge,
             int overwriteIntermediateChannelOffset,
             JoinCompiler joinCompiler)
@@ -75,7 +76,7 @@ public class MergingHashAggregationBuilder
         this.operatorContext = operatorContext;
         this.sortedPages = sortedPages;
         this.groupByTypes = groupByTypes;
-        this.systemMemoryContext = systemMemoryContext;
+        this.memoryContext = aggregatedMemoryContext.newLocalMemoryContext(MergingHashAggregationBuilder.class.getSimpleName());
         this.memoryLimitForMerge = memoryLimitForMerge;
         this.overwriteIntermediateChannelOffset = overwriteIntermediateChannelOffset;
         this.joinCompiler = joinCompiler;
@@ -85,12 +86,13 @@ public class MergingHashAggregationBuilder
 
     public WorkProcessor<Page> buildResult()
     {
-        return sortedPages.flatTransform(new Transformation<Page, WorkProcessor<Page>>()
+        return sortedPages.flatTransform(new Transformation<>()
         {
             boolean reset = true;
             long memorySize;
 
-            public TransformationState<WorkProcessor<Page>> process(Optional<Page> inputPageOptional)
+            @Override
+            public TransformationState<WorkProcessor<Page>> process(Page inputPage)
             {
                 if (reset) {
                     rebuildHashAggregationBuilder();
@@ -98,19 +100,18 @@ public class MergingHashAggregationBuilder
                     reset = false;
                 }
 
-                boolean inputFinished = !inputPageOptional.isPresent();
+                boolean inputFinished = inputPage == null;
                 if (inputFinished && memorySize == 0) {
                     // no more pages and aggregation builder is empty
                     return TransformationState.finished();
                 }
 
                 if (!inputFinished) {
-                    Page inputPage = inputPageOptional.get();
                     boolean done = hashAggregationBuilder.processPage(inputPage).process();
                     // TODO: this class does not yield wrt memory limit; enable it
                     verify(done);
                     memorySize = hashAggregationBuilder.getSizeInMemory();
-                    systemMemoryContext.setBytes(memorySize);
+                    memoryContext.setBytes(memorySize);
 
                     if (!shouldProduceOutput(memorySize)) {
                         return TransformationState.needsMoreData();
@@ -149,7 +150,7 @@ public class MergingHashAggregationBuilder
                 Optional.of(DataSize.succinctBytes(0)),
                 Optional.of(overwriteIntermediateChannelOffset),
                 joinCompiler,
-                false,
-                false);
+                // TODO: merging should also yield on memory reservations
+                () -> true);
     }
 }

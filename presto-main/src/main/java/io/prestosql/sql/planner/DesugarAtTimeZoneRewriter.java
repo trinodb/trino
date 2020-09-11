@@ -13,78 +13,106 @@
  */
 package io.prestosql.sql.planner;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimeWithTimeZoneType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.AtTimeZone;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.Map;
 
-import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static java.util.Collections.emptyList;
+import static io.prestosql.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static java.util.Objects.requireNonNull;
 
-public class DesugarAtTimeZoneRewriter
+public final class DesugarAtTimeZoneRewriter
 {
-    public static Expression rewrite(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes)
+    public static Expression rewrite(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(expressionTypes), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(expressionTypes, metadata), expression);
     }
 
     private DesugarAtTimeZoneRewriter() {}
 
-    public static Expression rewrite(Expression expression, Session session, Metadata metadata, SqlParser sqlParser, SymbolAllocator symbolAllocator)
+    public static Expression rewrite(Expression expression, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, SymbolAllocator symbolAllocator)
     {
         requireNonNull(metadata, "metadata is null");
-        requireNonNull(sqlParser, "sqlParser is null");
+        requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
         if (expression instanceof SymbolReference) {
             return expression;
         }
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression, emptyList(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
 
-        return rewrite(expression, expressionTypes);
+        return rewrite(expression, expressionTypes, metadata);
     }
 
     private static class Visitor
             extends ExpressionRewriter<Void>
     {
         private final Map<NodeRef<Expression>, Type> expressionTypes;
+        private final Metadata metadata;
 
-        public Visitor(Map<NodeRef<Expression>, Type> expressionTypes)
+        public Visitor(Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata)
         {
             this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
+            this.metadata = metadata;
         }
 
         @Override
         public Expression rewriteAtTimeZone(AtTimeZone node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
+            Type valueType = getType(node.getValue());
             Expression value = treeRewriter.rewrite(node.getValue(), context);
-            Type type = getType(node.getValue());
-            if (type.equals(TIME)) {
-                value = new Cast(value, TIME_WITH_TIME_ZONE.getDisplayName());
-            }
-            else if (type.equals(TIMESTAMP)) {
-                value = new Cast(value, TIMESTAMP_WITH_TIME_ZONE.getDisplayName());
+
+            Type timeZoneType = getType(node.getTimeZone());
+            Expression timeZone = treeRewriter.rewrite(node.getTimeZone(), context);
+
+            if (valueType instanceof TimeType) {
+                return new FunctionCallBuilder(metadata)
+                        .setName(QualifiedName.of("$at_timezone"))
+                        .addArgument(createTimeWithTimeZoneType(((TimeType) valueType).getPrecision()), new Cast(value, toSqlType(createTimeWithTimeZoneType(((TimeType) valueType).getPrecision()))))
+                        .addArgument(getType(node.getTimeZone()), treeRewriter.rewrite(node.getTimeZone(), context))
+                        .build();
             }
 
-            return new FunctionCall(QualifiedName.of("at_timezone"), ImmutableList.of(value, treeRewriter.rewrite(node.getTimeZone(), context)));
+            if (valueType instanceof TimeWithTimeZoneType) {
+                return new FunctionCallBuilder(metadata)
+                        .setName(QualifiedName.of("$at_timezone"))
+                        .addArgument(valueType, value)
+                        .addArgument(getType(node.getTimeZone()), treeRewriter.rewrite(node.getTimeZone(), context))
+                        .build();
+            }
+
+            if (valueType instanceof TimestampType) {
+                return new FunctionCallBuilder(metadata)
+                        .setName(QualifiedName.of("at_timezone"))
+                        .addArgument(createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision()), new Cast(value, toSqlType(createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision()))))
+                        .addArgument(timeZoneType, timeZone)
+                        .build();
+            }
+
+            if (valueType instanceof TimestampWithTimeZoneType) {
+                return new FunctionCallBuilder(metadata)
+                        .setName(QualifiedName.of("at_timezone"))
+                        .addArgument(valueType, value)
+                        .addArgument(timeZoneType, timeZone)
+                        .build();
+            }
+
+            throw new IllegalArgumentException("Unexpected type: " + valueType);
         }
 
         private Type getType(Expression expression)

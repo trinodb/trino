@@ -16,7 +16,7 @@ package io.prestosql;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.security.BasicPrincipal;
@@ -27,6 +27,7 @@ import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.sql.SqlPath;
 import io.prestosql.transaction.TransactionId;
 
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -42,6 +43,7 @@ public final class SessionRepresentation
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
     private final String user;
+    private final Set<String> groups;
     private final Optional<String> principal;
     private final Optional<String> source;
     private final Optional<String> catalog;
@@ -55,10 +57,10 @@ public final class SessionRepresentation
     private final Optional<String> clientInfo;
     private final Set<String> clientTags;
     private final Set<String> clientCapabilities;
-    private final long startTime;
+    private final Instant start;
     private final ResourceEstimates resourceEstimates;
     private final Map<String, String> systemProperties;
-    private final Map<ConnectorId, Map<String, String>> catalogProperties;
+    private final Map<CatalogName, Map<String, String>> catalogProperties;
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> preparedStatements;
@@ -69,6 +71,7 @@ public final class SessionRepresentation
             @JsonProperty("transactionId") Optional<TransactionId> transactionId,
             @JsonProperty("clientTransactionSupport") boolean clientTransactionSupport,
             @JsonProperty("user") String user,
+            @JsonProperty("groups") Set<String> groups,
             @JsonProperty("principal") Optional<String> principal,
             @JsonProperty("source") Optional<String> source,
             @JsonProperty("catalog") Optional<String> catalog,
@@ -83,9 +86,9 @@ public final class SessionRepresentation
             @JsonProperty("clientTags") Set<String> clientTags,
             @JsonProperty("clientCapabilities") Set<String> clientCapabilities,
             @JsonProperty("resourceEstimates") ResourceEstimates resourceEstimates,
-            @JsonProperty("startTime") long startTime,
+            @JsonProperty("start") Instant start,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
-            @JsonProperty("catalogProperties") Map<ConnectorId, Map<String, String>> catalogProperties,
+            @JsonProperty("catalogProperties") Map<CatalogName, Map<String, String>> catalogProperties,
             @JsonProperty("unprocessedCatalogProperties") Map<String, Map<String, String>> unprocessedCatalogProperties,
             @JsonProperty("roles") Map<String, SelectedRole> roles,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements)
@@ -94,6 +97,7 @@ public final class SessionRepresentation
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.clientTransactionSupport = clientTransactionSupport;
         this.user = requireNonNull(user, "user is null");
+        this.groups = requireNonNull(groups, "groups is null");
         this.principal = requireNonNull(principal, "principal is null");
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -108,13 +112,13 @@ public final class SessionRepresentation
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
         this.clientCapabilities = requireNonNull(clientCapabilities, "clientCapabilities is null");
         this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
-        this.startTime = startTime;
+        this.start = start;
         this.systemProperties = ImmutableMap.copyOf(systemProperties);
         this.roles = ImmutableMap.copyOf(roles);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
 
-        ImmutableMap.Builder<ConnectorId, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
-        for (Entry<ConnectorId, Map<String, String>> entry : catalogProperties.entrySet()) {
+        ImmutableMap.Builder<CatalogName, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
+        for (Entry<CatalogName, Map<String, String>> entry : catalogProperties.entrySet()) {
             catalogPropertiesBuilder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
         }
         this.catalogProperties = catalogPropertiesBuilder.build();
@@ -148,6 +152,12 @@ public final class SessionRepresentation
     public String getUser()
     {
         return user;
+    }
+
+    @JsonProperty
+    public Set<String> getGroups()
+    {
+        return groups;
     }
 
     @JsonProperty
@@ -229,9 +239,9 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
-    public long getStartTime()
+    public Instant getStart()
     {
-        return startTime;
+        return start;
     }
 
     @JsonProperty
@@ -247,7 +257,7 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
-    public Map<ConnectorId, Map<String, String>> getCatalogProperties()
+    public Map<CatalogName, Map<String, String>> getCatalogProperties()
     {
         return catalogProperties;
     }
@@ -281,7 +291,12 @@ public final class SessionRepresentation
                 new QueryId(queryId),
                 transactionId,
                 clientTransactionSupport,
-                new Identity(user, principal.map(BasicPrincipal::new), roles, extraCredentials),
+                Identity.forUser(user)
+                        .withGroups(groups)
+                        .withPrincipal(principal.map(BasicPrincipal::new))
+                        .withRoles(roles)
+                        .withExtraCredentials(extraCredentials)
+                        .build(),
                 source,
                 catalog,
                 schema,
@@ -295,7 +310,7 @@ public final class SessionRepresentation
                 clientTags,
                 clientCapabilities,
                 resourceEstimates,
-                startTime,
+                start,
                 systemProperties,
                 catalogProperties,
                 unprocessedCatalogProperties,

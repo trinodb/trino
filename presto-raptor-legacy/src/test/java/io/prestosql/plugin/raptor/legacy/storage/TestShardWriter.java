@@ -17,20 +17,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.prestosql.RowPagesBuilder;
-import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcRecordReader;
+import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeSignatureParameter;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -44,6 +40,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.raptor.legacy.storage.OrcTestingUtil.createReader;
 import static io.prestosql.plugin.raptor.legacy.storage.OrcTestingUtil.fileOrcDataSource;
 import static io.prestosql.plugin.raptor.legacy.storage.OrcTestingUtil.octets;
@@ -52,12 +49,13 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.tests.StructuralTestUtil.arrayBlockOf;
-import static io.prestosql.tests.StructuralTestUtil.arrayBlocksEqual;
-import static io.prestosql.tests.StructuralTestUtil.mapBlockOf;
-import static io.prestosql.tests.StructuralTestUtil.mapBlocksEqual;
+import static io.prestosql.testing.StructuralTestUtil.arrayBlockOf;
+import static io.prestosql.testing.StructuralTestUtil.arrayBlocksEqual;
+import static io.prestosql.testing.StructuralTestUtil.mapBlockOf;
+import static io.prestosql.testing.StructuralTestUtil.mapBlocksEqual;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestShardWriter
@@ -83,16 +81,12 @@ public class TestShardWriter
     public void testWriter()
             throws Exception
     {
-        TypeManager typeManager = new TypeRegistry();
-        // associate typeManager with a function registry
-        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-
         List<Long> columnIds = ImmutableList.of(1L, 2L, 4L, 6L, 7L, 8L, 9L, 10L);
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
-        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.of(createVarcharType(10).getTypeSignature()),
-                TypeSignatureParameter.of(BOOLEAN.getTypeSignature())));
+        Type mapType = createTestMetadataManager().getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.typeParameter(createVarcharType(10).getTypeSignature()),
+                TypeSignatureParameter.typeParameter(BOOLEAN.getTypeSignature())));
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10), VARBINARY, DOUBLE, BOOLEAN, arrayType, mapType, arrayOfArrayType);
         File file = new File(directory, System.nanoTime() + ".orc");
 
@@ -116,28 +110,29 @@ public class TestShardWriter
             assertEquals(reader.getFileRowCount(), reader.getReaderRowCount());
             assertEquals(reader.getFilePosition(), reader.getFilePosition());
 
-            assertEquals(reader.nextBatch(), 3);
+            Page page = reader.nextPage();
+            assertEquals(page.getPositionCount(), 3);
             assertEquals(reader.getReaderPosition(), 0);
             assertEquals(reader.getFilePosition(), reader.getFilePosition());
 
-            Block column0 = reader.readBlock(BIGINT, 0);
+            Block column0 = page.getBlock(0);
             assertEquals(column0.isNull(0), false);
             assertEquals(column0.isNull(1), true);
             assertEquals(column0.isNull(2), false);
             assertEquals(BIGINT.getLong(column0, 0), 123L);
             assertEquals(BIGINT.getLong(column0, 2), 456L);
 
-            Block column1 = reader.readBlock(createVarcharType(10), 1);
+            Block column1 = page.getBlock(1);
             assertEquals(createVarcharType(10).getSlice(column1, 0), utf8Slice("hello"));
             assertEquals(createVarcharType(10).getSlice(column1, 1), utf8Slice("world"));
             assertEquals(createVarcharType(10).getSlice(column1, 2), utf8Slice("bye \u2603"));
 
-            Block column2 = reader.readBlock(VARBINARY, 2);
+            Block column2 = page.getBlock(2);
             assertEquals(VARBINARY.getSlice(column2, 0), wrappedBuffer(bytes1));
             assertEquals(column2.isNull(1), true);
             assertEquals(VARBINARY.getSlice(column2, 2), wrappedBuffer(bytes3));
 
-            Block column3 = reader.readBlock(DOUBLE, 3);
+            Block column3 = page.getBlock(3);
             assertEquals(column3.isNull(0), false);
             assertEquals(column3.isNull(1), false);
             assertEquals(column3.isNull(2), false);
@@ -145,21 +140,21 @@ public class TestShardWriter
             assertEquals(DOUBLE.getDouble(column3, 1), Double.POSITIVE_INFINITY);
             assertEquals(DOUBLE.getDouble(column3, 2), Double.NaN);
 
-            Block column4 = reader.readBlock(BOOLEAN, 4);
+            Block column4 = page.getBlock(4);
             assertEquals(column4.isNull(0), false);
             assertEquals(column4.isNull(1), true);
             assertEquals(column4.isNull(2), false);
             assertEquals(BOOLEAN.getBoolean(column4, 0), true);
             assertEquals(BOOLEAN.getBoolean(column4, 2), false);
 
-            Block column5 = reader.readBlock(arrayType, 5);
+            Block column5 = page.getBlock(5);
             assertEquals(column5.getPositionCount(), 3);
 
             assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column5, 0), arrayBlockOf(BIGINT, 1, 2)));
             assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column5, 1), arrayBlockOf(BIGINT, 3, null)));
             assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column5, 2), arrayBlockOf(BIGINT)));
 
-            Block column6 = reader.readBlock(mapType, 6);
+            Block column6 = page.getBlock(6);
             assertEquals(column6.getPositionCount(), 3);
 
             assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column6, 0), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true)));
@@ -168,27 +163,27 @@ public class TestShardWriter
             assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, object, k2));
             assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column6, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", false)));
 
-            Block column7 = reader.readBlock(arrayOfArrayType, 7);
+            Block column7 = page.getBlock(7);
             assertEquals(column7.getPositionCount(), 3);
 
             assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column7, 0), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5))));
             assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column7, 1), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 6, 7))));
             assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column7, 2), arrayBlockOf(arrayType, arrayBlockOf(BIGINT))));
 
-            assertEquals(reader.nextBatch(), -1);
+            assertNull(reader.nextPage());
             assertEquals(reader.getReaderPosition(), 3);
             assertEquals(reader.getFilePosition(), reader.getFilePosition());
 
             OrcFileMetadata orcFileMetadata = METADATA_CODEC.fromJson(reader.getUserMetadata().get(OrcFileMetadata.KEY).getBytes());
-            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeSignature>builder()
-                    .put(1L, BIGINT.getTypeSignature())
-                    .put(2L, createVarcharType(10).getTypeSignature())
-                    .put(4L, VARBINARY.getTypeSignature())
-                    .put(6L, DOUBLE.getTypeSignature())
-                    .put(7L, BOOLEAN.getTypeSignature())
-                    .put(8L, arrayType.getTypeSignature())
-                    .put(9L, mapType.getTypeSignature())
-                    .put(10L, arrayOfArrayType.getTypeSignature())
+            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeId>builder()
+                    .put(1L, BIGINT.getTypeId())
+                    .put(2L, createVarcharType(10).getTypeId())
+                    .put(4L, VARBINARY.getTypeId())
+                    .put(6L, DOUBLE.getTypeId())
+                    .put(7L, BOOLEAN.getTypeId())
+                    .put(8L, arrayType.getTypeId())
+                    .put(9L, mapType.getTypeId())
+                    .put(10L, arrayOfArrayType.getTypeId())
                     .build()));
         }
 

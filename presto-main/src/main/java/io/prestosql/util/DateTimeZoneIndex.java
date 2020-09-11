@@ -26,9 +26,7 @@ import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeys;
 
 public final class DateTimeZoneIndex
 {
-    private DateTimeZoneIndex()
-    {
-    }
+    private DateTimeZoneIndex() {}
 
     private static final DateTimeZone[] DATE_TIME_ZONES;
     private static final ISOChronology[] CHRONOLOGIES;
@@ -81,10 +79,13 @@ public final class DateTimeZoneIndex
 
     public static int extractZoneOffsetMinutes(long dateTimeWithTimeZone)
     {
-        short zoneKey = unpackZoneKey(dateTimeWithTimeZone).getKey();
+        return extractZoneOffsetMinutes(unpackMillisUtc(dateTimeWithTimeZone), unpackZoneKey(dateTimeWithTimeZone).getKey());
+    }
 
+    public static int extractZoneOffsetMinutes(long epochMillis, short zoneKey)
+    {
         if (FIXED_ZONE_OFFSET[zoneKey] == VARIABLE_ZONE) {
-            return DATE_TIME_ZONES[zoneKey].getOffset(unpackMillisUtc(dateTimeWithTimeZone)) / 60_000;
+            return DATE_TIME_ZONES[zoneKey].getOffset(epochMillis) / 60_000;
         }
         else {
             return FIXED_ZONE_OFFSET[zoneKey];

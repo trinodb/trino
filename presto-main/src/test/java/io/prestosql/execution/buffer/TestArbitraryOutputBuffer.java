@@ -27,11 +27,13 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.execution.buffer.BufferResult.emptyResults;
 import static io.prestosql.execution.buffer.BufferState.OPEN;
 import static io.prestosql.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
@@ -52,6 +54,8 @@ import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutp
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -86,13 +90,13 @@ public class TestArbitraryOutputBuffer
     public void testInvalidConstructorArg()
     {
         try {
-            createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY).withBuffer(FIRST, BROADCAST_PARTITION_ID).withNoMoreBufferIds(), new DataSize(0, BYTE));
+            createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY).withBuffer(FIRST, BROADCAST_PARTITION_ID).withNoMoreBufferIds(), DataSize.ofBytes(0));
             fail("Expected IllegalStateException");
         }
         catch (IllegalArgumentException ignored) {
         }
         try {
-            createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), new DataSize(0, BYTE));
+            createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), DataSize.ofBytes(0));
             fail("Expected IllegalStateException");
         }
         catch (IllegalArgumentException ignored) {
@@ -422,6 +426,54 @@ public class TestArbitraryOutputBuffer
         addPage(buffer, createPage(33));
         assertTrue(future.isDone());
         assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(33)));
+    }
+
+    @Test
+    public void testResumeFromPreviousPosition()
+    {
+        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(ARBITRARY);
+        OutputBufferId[] ids = new OutputBufferId[5];
+        for (int i = 0; i < ids.length; i++) {
+            ids[i] = new OutputBufferId(i);
+            outputBuffers = outputBuffers.withBuffer(ids[i], i);
+        }
+
+        ArbitraryOutputBuffer buffer = createArbitraryBuffer(outputBuffers, sizeOfPages(5));
+        assertFalse(buffer.isFinished());
+
+        Map<OutputBufferId, ListenableFuture<BufferResult>> firstReads = new HashMap<>();
+        for (OutputBufferId id : ids) {
+            firstReads.put(id, buffer.get(id, 0L, sizeOfPages(1)));
+        }
+        // All must be blocked initially
+        assertThat(firstReads.values()).noneMatch(Future::isDone);
+
+        List<ListenableFuture<BufferResult>> secondReads = new ArrayList<>();
+
+        for (int i = 0; i < ids.length; i++) {
+            // add one page
+            addPage(buffer, createPage(33));
+            assertThat(secondReads).allMatch(future -> !future.isDone(), "No secondary reads should complete until after all first reads");
+            List<OutputBufferId> completedIds = firstReads.entrySet().stream()
+                    .filter(entry -> entry.getValue().isDone())
+                    .map(Map.Entry::getKey)
+                    .collect(toList());
+            assertEquals(completedIds.size(), 1, "One completed buffer read per page addition");
+            OutputBufferId completed = completedIds.get(0);
+
+            BufferResult result = getFuture(firstReads.remove(completed), NO_WAIT);
+            // Store completion order of first for follow up sequence
+            secondReads.add(buffer.get(completed, result.getNextToken(), sizeOfPages(1)));
+        }
+        // Test sanity
+        assertEquals(secondReads.size(), ids.length);
+
+        // Completion order should be identical to the first iteration at this point
+        for (int i = 0; i < ids.length; i++) {
+            // add one page
+            addPage(buffer, createPage(33));
+            assertTrue(secondReads.get(i).isDone(), "Invalid second read completion order at index: " + i);
+        }
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "No more buffers already set")
@@ -926,7 +978,6 @@ public class TestArbitraryOutputBuffer
 
     @Test
     public void testForceFreeMemory()
-            throws Throwable
     {
         ArbitraryOutputBuffer buffer = createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), sizeOfPages(10));
         for (int i = 0; i < 3; i++) {

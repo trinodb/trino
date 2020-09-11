@@ -13,33 +13,57 @@
  */
 package io.prestosql.sql.planner;
 
+import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
+import java.util.List;
 
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestDeterminismEvaluator
 {
+    private final Metadata metadata = MetadataManager.createTestMetadataManager();
+
     @Test
     public void testSanity()
     {
-        assertFalse(DeterminismEvaluator.isDeterministic(function("rand")));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("random")));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("shuffle")));
-        assertTrue(DeterminismEvaluator.isDeterministic(function("abs", input("symbol"))));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("abs", function("rand"))));
-        assertTrue(DeterminismEvaluator.isDeterministic(function("abs", function("abs", input("symbol")))));
+        assertFalse(DeterminismEvaluator.isDeterministic(function("rand"), metadata));
+        assertFalse(DeterminismEvaluator.isDeterministic(function("random"), metadata));
+        assertFalse(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new NullLiteral())), metadata));
+        assertFalse(DeterminismEvaluator.isDeterministic(function("uuid"), metadata));
+        assertTrue(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))), metadata));
+        assertFalse(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(function("rand"))), metadata));
+        assertTrue(DeterminismEvaluator.isDeterministic(
+                function(
+                        "abs",
+                        ImmutableList.of(DOUBLE),
+                        ImmutableList.of(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))))),
+                metadata));
     }
 
-    private static FunctionCall function(String name, Expression... inputs)
+    private FunctionCall function(String name)
     {
-        return new FunctionCall(QualifiedName.of(name), Arrays.asList(inputs));
+        return function(name, ImmutableList.of(), ImmutableList.of());
+    }
+
+    private FunctionCall function(String name, List<Type> types, List<Expression> arguments)
+    {
+        return new FunctionCallBuilder(metadata)
+                .setName(QualifiedName.of(name))
+                .setArguments(types, arguments)
+                .build();
     }
 
     private static Identifier input(String symbol)

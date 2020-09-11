@@ -13,7 +13,6 @@
  */
 package io.prestosql.jdbc;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
 import io.airlift.security.pem.PemReader;
@@ -21,7 +20,6 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.server.testing.TestingPrestoServer;
-import io.prestosql.sql.parser.SqlParserOptions;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -42,7 +40,6 @@ import java.util.Properties;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.io.Resources.getResource;
 import static io.jsonwebtoken.JwsHeader.KEY_ID;
-import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
 import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
@@ -74,19 +71,15 @@ public class TestPrestoDriverAuth
         hmac222 = getMimeDecoder().decode(asCharSource(new File(keyDir, "222.key"), US_ASCII).read().getBytes(US_ASCII));
         privateKey33 = PemReader.loadPrivateKey(new File(keyDir, "33.privateKey"), Optional.empty());
 
-        server = new TestingPrestoServer(
-                true,
-                ImmutableMap.<String, String>builder()
+        server = TestingPrestoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
                         .put("http-server.authentication.type", "JWT")
-                        .put("http.authentication.jwt.key-file", new File(keyDir, "${KID}.key").toString())
+                        .put("http.authentication.jwt.key-file", new File(keyDir, "${KID}.key").getPath())
                         .put("http-server.https.enabled", "true")
                         .put("http-server.https.keystore.path", getResource("localhost.keystore").getPath())
                         .put("http-server.https.keystore.key", "changeit")
-                        .build(),
-                null,
-                null,
-                new SqlParserOptions(),
-                ImmutableList.of());
+                        .build())
+                .build();
         server.installPlugin(new TpchPlugin());
         server.createCatalog(TEST_CATALOG, "tpch");
         waitForNodeRefresh(server);
@@ -94,8 +87,9 @@ public class TestPrestoDriverAuth
 
     @AfterClass(alwaysRun = true)
     public void teardown()
+            throws Exception
     {
-        closeQuietly(server);
+        server.close();
     }
 
     @Test
@@ -245,7 +239,7 @@ public class TestPrestoDriverAuth
         properties.setProperty("SSL", "true");
         properties.setProperty("SSLTrustStorePath", getResource("localhost.truststore").getPath());
         properties.setProperty("SSLTrustStorePassword", "changeit");
-        properties.putAll(additionalProperties);
+        additionalProperties.forEach(properties::setProperty);
         return DriverManager.getConnection(url, properties);
     }
 }

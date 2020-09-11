@@ -21,16 +21,13 @@ import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.TableLayout;
-import io.prestosql.metadata.TableLayoutResult;
+import io.prestosql.metadata.TableProperties;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.DiscretePredicates;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.DeterminismEvaluator;
 import io.prestosql.sql.planner.LiteralEncoder;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
@@ -55,6 +52,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -74,7 +72,7 @@ public class MetadataQueryOptimizer
         requireNonNull(metadata, "metadata is null");
 
         this.metadata = metadata;
-        this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+        this.literalEncoder = new LiteralEncoder(metadata);
     }
 
     @Override
@@ -107,13 +105,13 @@ public class MetadataQueryOptimizer
         {
             // supported functions are only MIN/MAX/APPROX_DISTINCT or distinct aggregates
             for (Aggregation aggregation : node.getAggregations().values()) {
-                if (!ALLOWED_FUNCTIONS.contains(aggregation.getCall().getName().toString()) && !aggregation.getCall().isDistinct()) {
+                if (!ALLOWED_FUNCTIONS.contains(aggregation.getResolvedFunction().getSignature().getName()) && !aggregation.isDistinct()) {
                     return context.defaultRewrite(node);
                 }
             }
 
             Optional<TableScanNode> result = findTableScan(node.getSource());
-            if (!result.isPresent()) {
+            if (result.isEmpty()) {
                 return context.defaultRewrite(node);
             }
 
@@ -137,18 +135,8 @@ public class MetadataQueryOptimizer
 
             // Materialize the list of partitions and replace the TableScan node
             // with a Values node
-            TableLayout layout = null;
-            if (!tableScan.getLayout().isPresent()) {
-                List<TableLayoutResult> layouts = metadata.getLayouts(session, tableScan.getTable(), Constraint.alwaysTrue(), Optional.empty());
-                if (layouts.size() == 1) {
-                    layout = Iterables.getOnlyElement(layouts).getLayout();
-                }
-            }
-            else {
-                layout = metadata.getLayout(session, tableScan.getLayout().get());
-            }
-
-            if (layout == null || !layout.getDiscretePredicates().isPresent()) {
+            TableProperties layout = metadata.getTableProperties(session, tableScan.getTable());
+            if (layout.getDiscretePredicates().isEmpty()) {
                 return context.defaultRewrite(node);
             }
             DiscretePredicates predicates = layout.getDiscretePredicates().get();
@@ -186,7 +174,7 @@ public class MetadataQueryOptimizer
             return SimplePlanRewriter.rewriteWith(new Replacer(valuesNode), node);
         }
 
-        private static Optional<TableScanNode> findTableScan(PlanNode source)
+        private Optional<TableScanNode> findTableScan(PlanNode source)
         {
             while (true) {
                 // allow any chain of linear transformations
@@ -200,7 +188,7 @@ public class MetadataQueryOptimizer
                 else if (source instanceof ProjectNode) {
                     // verify projections are deterministic
                     ProjectNode project = (ProjectNode) source;
-                    if (!Iterables.all(project.getAssignments().getExpressions(), DeterminismEvaluator::isDeterministic)) {
+                    if (!Iterables.all(project.getAssignments().getExpressions(), expression -> isDeterministic(expression, metadata))) {
                         return Optional.empty();
                     }
                     source = project.getSource();

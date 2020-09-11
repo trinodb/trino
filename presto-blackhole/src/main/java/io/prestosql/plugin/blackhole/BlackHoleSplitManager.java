@@ -13,32 +13,26 @@
  */
 package io.prestosql.plugin.blackhole;
 
-import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
+
+import static java.util.Collections.nCopies;
 
 public final class BlackHoleSplitManager
         implements ConnectorSplitManager
 {
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        BlackHoleTableLayoutHandle layout = (BlackHoleTableLayoutHandle) layoutHandle;
-
-        ImmutableList.Builder<BlackHoleSplit> builder = ImmutableList.builder();
-
-        for (int i = 0; i < layout.getSplitCount(); i++) {
-            builder.add(
-                    new BlackHoleSplit(
-                            layout.getPagesPerSplit(),
-                            layout.getRowsPerPage(),
-                            layout.getFieldsLength(),
-                            layout.getPageProcessingDelay()));
-        }
-        return new FixedSplitSource(builder.build());
+        int splitCount = ((BlackHoleTableHandle) table).getSplitCount();
+        return new FixedSplitSource(nCopies(splitCount, BlackHoleSplit.INSTANCE));
     }
 }

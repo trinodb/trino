@@ -16,7 +16,7 @@ package io.prestosql.spi.type;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import java.util.Optional;
 
 public final class BigintType
         extends AbstractLongType
@@ -25,7 +25,7 @@ public final class BigintType
 
     private BigintType()
     {
-        super(parseTypeSignature(StandardTypes.BIGINT));
+        super(new TypeSignature(StandardTypes.BIGINT));
     }
 
     @Override
@@ -49,5 +49,11 @@ public final class BigintType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        return Optional.of(new Range(Long.MIN_VALUE, Long.MAX_VALUE));
     }
 }

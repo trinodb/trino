@@ -33,11 +33,6 @@ public class SphericalGeographyType
         super(new TypeSignature(SPHERICAL_GEOGRAPHY_TYPE_NAME), Slice.class);
     }
 
-    protected SphericalGeographyType(TypeSignature signature)
-    {
-        super(signature, Slice.class);
-    }
-
     @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {

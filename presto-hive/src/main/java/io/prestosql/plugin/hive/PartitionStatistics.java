@@ -46,7 +46,7 @@ public class PartitionStatistics
             @JsonProperty("columnStatistics") Map<String, HiveColumnStatistics> columnStatistics)
     {
         this.basicStatistics = requireNonNull(basicStatistics, "basicStatistics is null");
-        this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics can not be null"));
+        this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics cannot be null"));
     }
 
     @JsonProperty

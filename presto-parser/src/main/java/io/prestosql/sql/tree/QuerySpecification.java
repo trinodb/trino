@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class QuerySpecification
@@ -31,7 +32,8 @@ public class QuerySpecification
     private final Optional<GroupBy> groupBy;
     private final Optional<Expression> having;
     private final Optional<OrderBy> orderBy;
-    private final Optional<String> limit;
+    private final Optional<Offset> offset;
+    private final Optional<Node> limit;
 
     public QuerySpecification(
             Select select,
@@ -40,9 +42,10 @@ public class QuerySpecification
             Optional<GroupBy> groupBy,
             Optional<Expression> having,
             Optional<OrderBy> orderBy,
-            Optional<String> limit)
+            Optional<Offset> offset,
+            Optional<Node> limit)
     {
-        this(Optional.empty(), select, from, where, groupBy, having, orderBy, limit);
+        this(Optional.empty(), select, from, where, groupBy, having, orderBy, offset, limit);
     }
 
     public QuerySpecification(
@@ -53,9 +56,10 @@ public class QuerySpecification
             Optional<GroupBy> groupBy,
             Optional<Expression> having,
             Optional<OrderBy> orderBy,
-            Optional<String> limit)
+            Optional<Offset> offset,
+            Optional<Node> limit)
     {
-        this(Optional.of(location), select, from, where, groupBy, having, orderBy, limit);
+        this(Optional.of(location), select, from, where, groupBy, having, orderBy, offset, limit);
     }
 
     private QuerySpecification(
@@ -66,7 +70,8 @@ public class QuerySpecification
             Optional<GroupBy> groupBy,
             Optional<Expression> having,
             Optional<OrderBy> orderBy,
-            Optional<String> limit)
+            Optional<Offset> offset,
+            Optional<Node> limit)
     {
         super(location);
         requireNonNull(select, "select is null");
@@ -75,7 +80,13 @@ public class QuerySpecification
         requireNonNull(groupBy, "groupBy is null");
         requireNonNull(having, "having is null");
         requireNonNull(orderBy, "orderBy is null");
+        requireNonNull(offset, "offset is null");
         requireNonNull(limit, "limit is null");
+        checkArgument(
+                !limit.isPresent()
+                        || limit.get() instanceof FetchFirst
+                        || limit.get() instanceof Limit,
+                "limit must be optional of either FetchFirst or Limit type");
 
         this.select = select;
         this.from = from;
@@ -83,6 +94,7 @@ public class QuerySpecification
         this.groupBy = groupBy;
         this.having = having;
         this.orderBy = orderBy;
+        this.offset = offset;
         this.limit = limit;
     }
 
@@ -116,7 +128,12 @@ public class QuerySpecification
         return orderBy;
     }
 
-    public Optional<String> getLimit()
+    public Optional<Offset> getOffset()
+    {
+        return offset;
+    }
+
+    public Optional<Node> getLimit()
     {
         return limit;
     }
@@ -137,6 +154,8 @@ public class QuerySpecification
         groupBy.ifPresent(nodes::add);
         having.ifPresent(nodes::add);
         orderBy.ifPresent(nodes::add);
+        offset.ifPresent(nodes::add);
+        limit.ifPresent(nodes::add);
         return nodes.build();
     }
 
@@ -150,6 +169,7 @@ public class QuerySpecification
                 .add("groupBy", groupBy)
                 .add("having", having.orElse(null))
                 .add("orderBy", orderBy)
+                .add("offset", offset.orElse(null))
                 .add("limit", limit.orElse(null))
                 .toString();
     }
@@ -170,12 +190,19 @@ public class QuerySpecification
                 Objects.equals(groupBy, o.groupBy) &&
                 Objects.equals(having, o.having) &&
                 Objects.equals(orderBy, o.orderBy) &&
+                Objects.equals(offset, o.offset) &&
                 Objects.equals(limit, o.limit);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(select, from, where, groupBy, having, orderBy, limit);
+        return Objects.hash(select, from, where, groupBy, having, orderBy, offset, limit);
+    }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
     }
 }

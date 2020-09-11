@@ -15,9 +15,10 @@ package io.prestosql.connector.system;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Objects;
 
@@ -28,31 +29,25 @@ import static java.util.Objects.requireNonNull;
 public class SystemTableHandle
         implements ConnectorTableHandle
 {
-    private final ConnectorId connectorId;
     private final String schemaName;
     private final String tableName;
+    private final TupleDomain<ColumnHandle> constraint;
 
     @JsonCreator
     public SystemTableHandle(
-            @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName)
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
+        this.constraint = requireNonNull(constraint, "constraint is null");
     }
 
-    public static SystemTableHandle fromSchemaTableName(ConnectorId connectorId, SchemaTableName tableName)
+    public static SystemTableHandle fromSchemaTableName(SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
-        return new SystemTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
-    }
-
-    @JsonProperty
-    public ConnectorId getConnectorId()
-    {
-        return connectorId;
+        return new SystemTableHandle(tableName.getSchemaName(), tableName.getTableName(), TupleDomain.all());
     }
 
     @JsonProperty
@@ -72,16 +67,22 @@ public class SystemTableHandle
         return new SchemaTableName(schemaName, tableName);
     }
 
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getConstraint()
+    {
+        return constraint;
+    }
+
     @Override
     public String toString()
     {
-        return connectorId + ":" + schemaName + "." + tableName;
+        return schemaName + "." + tableName;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schemaName, tableName);
+        return Objects.hash(schemaName, tableName, constraint);
     }
 
     @Override
@@ -93,9 +94,9 @@ public class SystemTableHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final SystemTableHandle other = (SystemTableHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.tableName, other.tableName);
+        SystemTableHandle other = (SystemTableHandle) obj;
+        return Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.tableName, other.tableName) &&
+                Objects.equals(this.constraint, other.constraint);
     }
 }

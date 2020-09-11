@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.hive.metastore;
 
+import io.prestosql.plugin.hive.HiveMetastoreClosure;
+import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.spi.connector.SchemaTableName;
 
 import java.util.List;
@@ -24,15 +26,17 @@ import static java.util.Objects.requireNonNull;
 
 public class HivePageSinkMetadataProvider
 {
-    private final ExtendedHiveMetastore delegate;
+    private final HiveIdentity identity;
+    private final HiveMetastoreClosure delegate;
     private final SchemaTableName schemaTableName;
     private final Optional<Table> table;
     private final Map<List<String>, Optional<Partition>> modifiedPartitions;
 
-    public HivePageSinkMetadataProvider(HivePageSinkMetadata pageSinkMetadata, ExtendedHiveMetastore delegate)
+    public HivePageSinkMetadataProvider(HivePageSinkMetadata pageSinkMetadata, HiveMetastoreClosure delegate, HiveIdentity identity)
     {
         requireNonNull(pageSinkMetadata, "pageSinkMetadata is null");
         this.delegate = delegate;
+        this.identity = requireNonNull(identity, "identity is null");
         this.schemaTableName = pageSinkMetadata.getSchemaTableName();
         this.table = pageSinkMetadata.getTable();
         this.modifiedPartitions = pageSinkMetadata.getModifiedPartitions();
@@ -45,13 +49,13 @@ public class HivePageSinkMetadataProvider
 
     public Optional<Partition> getPartition(List<String> partitionValues)
     {
-        if (!table.isPresent() || table.get().getPartitionColumns().isEmpty()) {
+        if (table.isEmpty() || table.get().getPartitionColumns().isEmpty()) {
             throw new IllegalArgumentException(
                     format("Unexpected call to getPartition. Table name: %s", schemaTableName));
         }
         Optional<Partition> modifiedPartition = modifiedPartitions.get(partitionValues);
         if (modifiedPartition == null) {
-            return delegate.getPartition(schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues);
+            return delegate.getPartition(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues);
         }
         else {
             return modifiedPartition;

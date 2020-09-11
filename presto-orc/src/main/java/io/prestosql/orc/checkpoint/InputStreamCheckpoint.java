@@ -25,9 +25,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
  */
 public final class InputStreamCheckpoint
 {
-    private InputStreamCheckpoint()
-    {
-    }
+    private InputStreamCheckpoint() {}
 
     public static long createInputStreamCheckpoint(boolean compressed, ColumnPositionsList positionsList)
     {

@@ -13,12 +13,14 @@
  */
 package io.prestosql.sql.planner;
 
+import io.prestosql.metadata.FunctionMetadata;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,25 +31,35 @@ public final class DeterminismEvaluator
 {
     private DeterminismEvaluator() {}
 
-    public static boolean isDeterministic(Expression expression)
+    public static boolean isDeterministic(Expression expression, Metadata metadata)
     {
+        return isDeterministic(expression, functionCall -> metadata.getFunctionMetadata(metadata.decodeFunction(functionCall.getName())));
+    }
+
+    public static boolean isDeterministic(Expression expression, Function<FunctionCall, FunctionMetadata> functionMetadataSupplier)
+    {
+        requireNonNull(functionMetadataSupplier, "functionMetadataSupplier is null");
         requireNonNull(expression, "expression is null");
 
         AtomicBoolean deterministic = new AtomicBoolean(true);
-        new Visitor().process(expression, deterministic);
+        new Visitor(functionMetadataSupplier).process(expression, deterministic);
         return deterministic.get();
     }
 
     private static class Visitor
-            extends DefaultExpressionTraversalVisitor<Void, AtomicBoolean>
+            extends DefaultExpressionTraversalVisitor<AtomicBoolean>
     {
+        private final Function<FunctionCall, FunctionMetadata> functionMetadataSupplier;
+
+        public Visitor(Function<FunctionCall, FunctionMetadata> functionMetadataSupplier)
+        {
+            this.functionMetadataSupplier = functionMetadataSupplier;
+        }
+
         @Override
         protected Void visitFunctionCall(FunctionCall node, AtomicBoolean deterministic)
         {
-            // TODO: total hack to figure out if a function is deterministic. martint should fix this when he refactors the planning code
-            if (node.getName().equals(QualifiedName.of("rand")) ||
-                    node.getName().equals(QualifiedName.of("random")) ||
-                    node.getName().equals(QualifiedName.of("shuffle"))) {
+            if (!functionMetadataSupplier.apply(node).isDeterministic()) {
                 deterministic.set(false);
             }
             return super.visitFunctionCall(node, deterministic);

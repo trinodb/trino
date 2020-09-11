@@ -48,7 +48,8 @@ import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDIN
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -76,8 +77,8 @@ public class ColumnRangesSystemTable
                 .collect(toImmutableList());
         List<ColumnMetadata> systemTableColumns = indexedRaptorColumns.stream()
                 .flatMap(column -> Stream.of(
-                        new ColumnMetadata(column.getColumnName() + MIN_COLUMN_SUFFIX, column.getDataType(), null, false),
-                        new ColumnMetadata(column.getColumnName() + MAX_COLUMN_SUFFIX, column.getDataType(), null, false)))
+                        new ColumnMetadata(column.getColumnName() + MIN_COLUMN_SUFFIX, column.getDataType()),
+                        new ColumnMetadata(column.getColumnName() + MAX_COLUMN_SUFFIX, column.getDataType())))
                 .collect(toImmutableList());
         SchemaTableName tableName = new SchemaTableName(sourceTable.getSchemaName(), sourceTable.getTableName() + COLUMN_RANGES_TABLE_SUFFIX);
         this.tableMetadata = new ConnectorTableMetadata(tableName, systemTableColumns);
@@ -125,10 +126,19 @@ public class ColumnRangesSystemTable
                 for (int i = 0; i < columnTypes.size(); ++i) {
                     BlockBuilder blockBuilder = pageListBuilder.nextBlockBuilder();
                     Type columnType = columnTypes.get(i);
-                    if (columnType.equals(BIGINT) || columnType.equals(DATE) || columnType.equals(TIMESTAMP)) {
+                    if (columnType.equals(BIGINT) || columnType.equals(DATE)) {
                         long value = resultSet.getLong(i + 1);
                         if (!resultSet.wasNull()) {
                             columnType.writeLong(blockBuilder, value);
+                        }
+                        else {
+                            blockBuilder.appendNull();
+                        }
+                    }
+                    else if (columnType.equals(TIMESTAMP_MILLIS)) {
+                        long value = resultSet.getLong(i + 1);
+                        if (!resultSet.wasNull()) {
+                            columnType.writeLong(blockBuilder, value * MICROSECONDS_PER_MILLISECOND);
                         }
                         else {
                             blockBuilder.appendNull();
@@ -162,7 +172,7 @@ public class ColumnRangesSystemTable
         // Exclude INTEGER because we don't collect column stats for INTEGER type.
         // Exclude DOUBLE because Java double is not completely compatible with MySQL double
         // Exclude VARCHAR because they can be truncated
-        return type.equals(BOOLEAN) || type.equals(BIGINT) || type.equals(DATE) || type.equals(TIMESTAMP);
+        return type.equals(BOOLEAN) || type.equals(BIGINT) || type.equals(DATE) || type.equals(TIMESTAMP_MILLIS);
     }
 
     private static String getColumnRangesMetadataSqlQuery(RaptorTableHandle raptorTableHandle, List<TableColumn> raptorColumns)

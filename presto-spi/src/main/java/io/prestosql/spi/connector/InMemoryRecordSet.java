@@ -16,6 +16,8 @@ package io.prestosql.spi.connector;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 
 import java.util.ArrayList;
@@ -28,12 +30,15 @@ import java.util.List;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.Decimals.isLongDecimal;
+import static io.prestosql.spi.type.Decimals.isShortDecimal;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class InMemoryRecordSet
@@ -44,7 +49,7 @@ public class InMemoryRecordSet
 
     public InMemoryRecordSet(Collection<? extends Type> types, Iterable<? extends List<?>> records)
     {
-        this.types = Collections.unmodifiableList(new ArrayList<>(types));
+        this.types = List.copyOf(types);
         this.records = records;
     }
 
@@ -195,8 +200,7 @@ public class InMemoryRecordSet
 
         private Builder(Collection<Type> types)
         {
-            requireNonNull(types, "types is null");
-            this.types = Collections.unmodifiableList(new ArrayList<>(types));
+            this.types = List.copyOf(requireNonNull(types, "types is null"));
             checkArgument(!this.types.isEmpty(), "types is empty");
         }
 
@@ -212,17 +216,17 @@ public class InMemoryRecordSet
 
                 Type type = types.get(i);
                 if (BOOLEAN.equals(type)) {
-                    checkArgument(value instanceof Boolean, "Expected value %d to be an instance of Boolean, but is a %s", i, value.getClass().getSimpleName());
+                    checkArgument(value instanceof Boolean, "Expected value %s to be an instance of Boolean, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (INTEGER.equals(type)) {
-                    checkArgument(value instanceof Integer, "Expected value %d to be an instance of Integer, but is a %s", i, value.getClass().getSimpleName());
+                    checkArgument(value instanceof Integer, "Expected value %s to be an instance of Integer, but is a %s", i, value.getClass().getSimpleName());
                 }
-                else if (BIGINT.equals(type) || DATE.equals(type) || TIMESTAMP.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                else if (BIGINT.equals(type) || DATE.equals(type) || TIMESTAMP_MILLIS.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
                     checkArgument(value instanceof Integer || value instanceof Long,
                             "Expected value %d to be an instance of Integer or Long, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (DOUBLE.equals(type)) {
-                    checkArgument(value instanceof Double, "Expected value %d to be an instance of Double, but is a %s", i, value.getClass().getSimpleName());
+                    checkArgument(value instanceof Double, "Expected value %s to be an instance of Double, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (VARCHAR.equals(type)) {
                     checkArgument(value instanceof String || value instanceof byte[],
@@ -232,15 +236,28 @@ public class InMemoryRecordSet
                     checkArgument(value instanceof Slice,
                             "Expected value %d to be an instance of Slice, but is a %s", i, value.getClass().getSimpleName());
                 }
-                else if (type.getTypeSignature().getBase().equals("array")) {
+                else if (type instanceof ArrayType) {
                     checkArgument(value instanceof Block,
                             "Expected value %d to be an instance of Block, but is a %s", i, value.getClass().getSimpleName());
+                }
+                else if (type instanceof RowType) {
+                    checkArgument(value instanceof Block,
+                            "Expected value %d to be an instance of Block, but is a %s", i, value.getClass().getSimpleName());
+                }
+                else if (isShortDecimal(type)) {
+                    checkArgument(value instanceof Long,
+                            "Expected value %d to be an instance of Long, but is a %s", i, value.getClass().getSimpleName());
+                }
+                else if (isLongDecimal(type)) {
+                    checkArgument(value instanceof Slice,
+                            "Expected value %d to be an instance of Slice, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else {
                     throw new IllegalStateException("Unsupported column type " + types.get(i));
                 }
             }
             // Immutable list does not allow nulls
+            // noinspection Java9CollectionFactory
             records.add(Collections.unmodifiableList(new ArrayList<>(Arrays.asList(values))));
             return this;
         }
@@ -254,7 +271,7 @@ public class InMemoryRecordSet
     private static void checkArgument(boolean test, String message, Object... args)
     {
         if (!test) {
-            throw new IllegalArgumentException(String.format(message, args));
+            throw new IllegalArgumentException(format(message, args));
         }
     }
 
@@ -288,7 +305,7 @@ public class InMemoryRecordSet
                 completedBytes += ((Block) value).getSizeInBytes();
             }
             else if (value instanceof Slice) {
-                completedBytes += ((Slice) value).getBytes().length;
+                completedBytes += ((Slice) value).length();
             }
             else {
                 throw new IllegalArgumentException("Unknown type: " + value.getClass());

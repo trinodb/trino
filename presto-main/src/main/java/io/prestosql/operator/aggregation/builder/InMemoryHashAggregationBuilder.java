@@ -19,7 +19,6 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.prestosql.array.IntBigArray;
-import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.operator.GroupByHash;
 import io.prestosql.operator.GroupByIdBlock;
 import io.prestosql.operator.HashCollisionsCounter;
@@ -58,12 +57,9 @@ public class InMemoryHashAggregationBuilder
 {
     private final GroupByHash groupByHash;
     private final List<Aggregator> aggregators;
-    private final OperatorContext operatorContext;
     private final boolean partial;
     private final OptionalLong maxPartialMemory;
-    private final LocalMemoryContext systemMemoryContext;
-    private final LocalMemoryContext localUserMemoryContext;
-    private final boolean useSystemMemory;
+    private final UpdateMemory updateMemory;
 
     private boolean full;
 
@@ -77,8 +73,7 @@ public class InMemoryHashAggregationBuilder
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
             JoinCompiler joinCompiler,
-            boolean yieldForMemoryReservation,
-            boolean useSystemMemory)
+            UpdateMemory updateMemory)
     {
         this(accumulatorFactories,
                 step,
@@ -90,8 +85,7 @@ public class InMemoryHashAggregationBuilder
                 maxPartialMemory,
                 Optional.empty(),
                 joinCompiler,
-                yieldForMemoryReservation,
-                useSystemMemory);
+                updateMemory);
     }
 
     public InMemoryHashAggregationBuilder(
@@ -105,22 +99,8 @@ public class InMemoryHashAggregationBuilder
             Optional<DataSize> maxPartialMemory,
             Optional<Integer> overwriteIntermediateChannelOffset,
             JoinCompiler joinCompiler,
-            boolean yieldForMemoryReservation,
-            boolean useSystemMemory)
+            UpdateMemory updateMemory)
     {
-        UpdateMemory updateMemory;
-        if (yieldForMemoryReservation) {
-            updateMemory = this::updateMemoryWithYieldInfo;
-        }
-        else {
-            // Report memory usage but do not yield for memory.
-            // This is specially used for spillable hash aggregation operator.
-            // TODO: revisit this when spillable hash aggregation operator is turned on
-            updateMemory = () -> {
-                updateMemoryWithYieldInfo();
-                return true;
-            };
-        }
         this.groupByHash = createGroupByHash(
                 groupByTypes,
                 Ints.toArray(groupByChannels),
@@ -129,12 +109,9 @@ public class InMemoryHashAggregationBuilder
                 isDictionaryAggregationEnabled(operatorContext.getSession()),
                 joinCompiler,
                 updateMemory);
-        this.operatorContext = operatorContext;
         this.partial = step.isOutputPartial();
         this.maxPartialMemory = maxPartialMemory.map(dataSize -> OptionalLong.of(dataSize.toBytes())).orElseGet(OptionalLong::empty);
-        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(InMemoryHashAggregationBuilder.class.getSimpleName());
-        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
-        this.useSystemMemory = useSystemMemory;
+        this.updateMemory = requireNonNull(updateMemory, "updateMemory is null");
 
         // wrapper each function with an aggregator
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
@@ -151,10 +128,7 @@ public class InMemoryHashAggregationBuilder
     }
 
     @Override
-    public void close()
-    {
-        updateMemory(0);
-    }
+    public void close() {}
 
     @Override
     public Work<?> processPage(Page page)
@@ -178,7 +152,7 @@ public class InMemoryHashAggregationBuilder
     @Override
     public void updateMemory()
     {
-        updateMemoryWithYieldInfo();
+        updateMemory.update();
     }
 
     @Override
@@ -221,7 +195,18 @@ public class InMemoryHashAggregationBuilder
         for (Aggregator aggregator : aggregators) {
             sizeInMemory += aggregator.getEstimatedSize();
         }
+
+        updateIsFull(sizeInMemory);
         return sizeInMemory;
+    }
+
+    private void updateIsFull(long sizeInMemory)
+    {
+        if (!partial || maxPartialMemory.isEmpty()) {
+            return;
+        }
+
+        full = sizeInMemory > maxPartialMemory.getAsLong();
     }
 
     /**
@@ -281,7 +266,7 @@ public class InMemoryHashAggregationBuilder
 
     private WorkProcessor<Page> buildResult(IntIterator groupIds)
     {
-        final PageBuilder pageBuilder = new PageBuilder(buildTypes());
+        PageBuilder pageBuilder = new PageBuilder(buildTypes());
         return WorkProcessor.create(() -> {
             if (!groupIds.hasNext()) {
                 return ProcessState.finished();
@@ -314,39 +299,6 @@ public class InMemoryHashAggregationBuilder
             types.add(aggregator.getType());
         }
         return types;
-    }
-
-    /**
-     * Update memory usage with extra memory needed.
-     *
-     * @return true to if the reservation is within the limit
-     */
-    // TODO: update in the interface after the new memory tracking framework is landed
-    // Essentially we would love to have clean interfaces to support both pushing and pulling memory usage
-    // The following implementation is a hybrid model, where the push model is going to call the pull model causing reentrancy
-    private boolean updateMemoryWithYieldInfo()
-    {
-        long memorySize = getSizeInMemory();
-        if (partial && maxPartialMemory.isPresent()) {
-            updateMemory(memorySize);
-            full = (memorySize > maxPartialMemory.getAsLong());
-            return true;
-        }
-        // Operator/driver will be blocked on memory after we call setBytes.
-        // If memory is not available, once we return, this operator will be blocked until memory is available.
-        updateMemory(memorySize);
-        // If memory is not available, inform the caller that we cannot proceed for allocation.
-        return operatorContext.isWaitingForMemory().isDone();
-    }
-
-    private void updateMemory(long memorySize)
-    {
-        if (useSystemMemory) {
-            systemMemoryContext.setBytes(memorySize);
-        }
-        else {
-            localUserMemoryContext.setBytes(memorySize);
-        }
     }
 
     private IntIterator consecutiveGroupIds()

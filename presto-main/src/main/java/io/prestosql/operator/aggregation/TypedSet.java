@@ -22,12 +22,17 @@ import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodType;
+import java.util.Optional;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.prestosql.type.TypeUtils.hashPosition;
 import static io.prestosql.type.TypeUtils.positionEqualsPosition;
+import static io.prestosql.util.Failures.internalError;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -35,17 +40,18 @@ import static java.util.Objects.requireNonNull;
 public class TypedSet
 {
     @VisibleForTesting
-    public static final DataSize MAX_FUNCTION_MEMORY = new DataSize(4, MEGABYTE);
+    public static final DataSize MAX_FUNCTION_MEMORY = DataSize.of(4, MEGABYTE);
 
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedSet.class).instanceSize();
     private static final int INT_ARRAY_LIST_INSTANCE_SIZE = ClassLayout.parseClass(IntArrayList.class).instanceSize();
     private static final float FILL_RATIO = 0.75f;
-    static final long FOUR_MEGABYTES = MAX_FUNCTION_MEMORY.toBytes();
 
     private final Type elementType;
+    private final Optional<MethodHandle> elementIsDistinctFrom;
     private final IntArrayList blockPositionByHash;
     private final BlockBuilder elementBlock;
     private final String functionName;
+    private final long maxBlockMemoryInBytes;
 
     private int initialElementBlockOffset;
     private long initialElementBlockSizeInBytes;
@@ -61,15 +67,29 @@ public class TypedSet
 
     public TypedSet(Type elementType, int expectedSize, String functionName)
     {
-        this(elementType, elementType.createBlockBuilder(null, expectedSize), expectedSize, functionName);
+        // TODO revise other usages of TypedSet and determine whether they should use equality or distinctness semantics
+        this(elementType, Optional.empty(), elementType.createBlockBuilder(null, expectedSize), expectedSize, functionName);
     }
 
-    public TypedSet(Type elementType, BlockBuilder blockBuilder, int expectedSize, String functionName)
+    public TypedSet(Type elementType, MethodHandle elementIsDistinctFrom, int expectedSize, String functionName)
+    {
+        this(elementType, Optional.of(elementIsDistinctFrom), elementType.createBlockBuilder(null, expectedSize), expectedSize, functionName);
+    }
+
+    public TypedSet(Type elementType, Optional<MethodHandle> elementIsDistinctFrom, BlockBuilder blockBuilder, int expectedSize, String functionName)
+    {
+        this(elementType, elementIsDistinctFrom, blockBuilder, expectedSize, functionName, Optional.of(MAX_FUNCTION_MEMORY));
+    }
+
+    public TypedSet(Type elementType, Optional<MethodHandle> elementIsDistinctFrom, BlockBuilder blockBuilder, int expectedSize, String functionName, Optional<DataSize> maxBlockMemory)
     {
         checkArgument(expectedSize >= 0, "expectedSize must not be negative");
         this.elementType = requireNonNull(elementType, "elementType must not be null");
+        this.elementIsDistinctFrom = requireNonNull(elementIsDistinctFrom, "elementIsDistinctFrom is null");
+        elementIsDistinctFrom.ifPresent(methodHandle -> checkArgument(methodHandle.type().equals(MethodType.methodType(boolean.class, Block.class, int.class, Block.class, int.class))));
         this.elementBlock = requireNonNull(blockBuilder, "blockBuilder must not be null");
         this.functionName = functionName;
+        this.maxBlockMemoryInBytes = maxBlockMemory.map(DataSize::toBytes).orElse(Long.MAX_VALUE);
 
         initialElementBlockOffset = elementBlock.getPositionCount();
         initialElementBlockSizeInBytes = elementBlock.getSizeInBytes();
@@ -102,7 +122,7 @@ public class TypedSet
             return containsNullElement;
         }
         else {
-            return blockPositionByHash.get(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
+            return blockPositionByHash.getInt(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
         }
     }
 
@@ -117,7 +137,7 @@ public class TypedSet
         }
 
         int hashPosition = getHashPositionOfElement(block, position);
-        if (blockPositionByHash.get(hashPosition) == EMPTY_SLOT) {
+        if (blockPositionByHash.getInt(hashPosition) == EMPTY_SLOT) {
             addNewElement(hashPosition, block, position);
         }
     }
@@ -129,7 +149,7 @@ public class TypedSet
 
     public int positionOf(Block block, int position)
     {
-        return blockPositionByHash.get(getHashPositionOfElement(block, position));
+        return blockPositionByHash.getInt(getHashPositionOfElement(block, position));
     }
 
     /**
@@ -139,13 +159,13 @@ public class TypedSet
     {
         int hashPosition = getMaskedHash(hashPosition(elementType, block, position));
         while (true) {
-            int blockPosition = blockPositionByHash.get(hashPosition);
-            // Doesn't have this element
+            int blockPosition = blockPositionByHash.getInt(hashPosition);
             if (blockPosition == EMPTY_SLOT) {
+                // Doesn't have this element
                 return hashPosition;
             }
-            // Already has this element
-            else if (positionEqualsPosition(elementType, elementBlock, blockPosition, block, position)) {
+            if (isContainedAt(block, position, blockPosition)) {
+                // Already has this element
                 return hashPosition;
             }
 
@@ -153,10 +173,24 @@ public class TypedSet
         }
     }
 
+    private boolean isContainedAt(Block block, int position, int atPosition)
+    {
+        if (elementIsDistinctFrom.isPresent()) {
+            try {
+                boolean isNotDistinctFrom = !(boolean) elementIsDistinctFrom.get().invokeExact((Block) elementBlock, atPosition, block, position);
+                return isNotDistinctFrom;
+            }
+            catch (Throwable t) {
+                throw internalError(t);
+            }
+        }
+        return positionEqualsPosition(elementType, elementBlock, atPosition, block, position);
+    }
+
     private void addNewElement(int hashPosition, Block block, int position)
     {
         elementType.appendTo(block, position, elementBlock);
-        if (elementBlock.getSizeInBytes() - initialElementBlockSizeInBytes > FOUR_MEGABYTES) {
+        if (elementBlock.getSizeInBytes() - initialElementBlockSizeInBytes > maxBlockMemoryInBytes) {
             throw new PrestoException(
                     EXCEEDED_FUNCTION_MEMORY_LIMIT,
                     format("The input to %s is too large. More than %s of memory is needed to hold the intermediate hash set.\n",

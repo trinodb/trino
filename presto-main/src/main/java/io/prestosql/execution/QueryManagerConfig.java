@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -24,6 +25,7 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 @DefunctConfig({
@@ -32,6 +34,8 @@ import java.util.concurrent.TimeUnit;
         "experimental.big-query-initial-hash-partitions",
         "experimental.max-concurrent-big-queries",
         "experimental.max-queued-big-queries",
+        "query-manager.initialization-required-workers",
+        "query-manager.initialization-timeout",
         "query.remote-task.max-consecutive-error-count"})
 public class QueryManagerConfig
 {
@@ -45,6 +49,8 @@ public class QueryManagerConfig
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
     private int maxStageCount = 100;
+    private int stageCountWarningThreshold = 50;
+
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
     private int queryManagerExecutorPoolSize = 5;
@@ -56,9 +62,7 @@ public class QueryManagerConfig
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
-
-    private int initializationRequiredWorkers = 1;
-    private Duration initializationTimeout = new Duration(5, TimeUnit.MINUTES);
+    private Optional<DataSize> queryMaxScanPhysicalBytes = Optional.empty();
 
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
@@ -186,6 +190,20 @@ public class QueryManagerConfig
         return this;
     }
 
+    @Min(1)
+    public int getStageCountWarningThreshold()
+    {
+        return stageCountWarningThreshold;
+    }
+
+    @Config("query.stage-count-warning-threshold")
+    @ConfigDescription("Emit a warning when stage count exceeds this threshold")
+    public QueryManagerConfig setStageCountWarningThreshold(int stageCountWarningThreshold)
+    {
+        this.stageCountWarningThreshold = stageCountWarningThreshold;
+        return this;
+    }
+
     @MinDuration("5s")
     @NotNull
     public Duration getClientTimeout()
@@ -280,6 +298,19 @@ public class QueryManagerConfig
         return this;
     }
 
+    @NotNull
+    public Optional<DataSize> getQueryMaxScanPhysicalBytes()
+    {
+        return queryMaxScanPhysicalBytes;
+    }
+
+    @Config("query.max-scan-physical-bytes")
+    public QueryManagerConfig setQueryMaxScanPhysicalBytes(DataSize queryMaxScanPhysicalBytes)
+    {
+        this.queryMaxScanPhysicalBytes = Optional.ofNullable(queryMaxScanPhysicalBytes);
+        return this;
+    }
+
     @Min(1)
     public int getRemoteTaskMaxCallbackThreads()
     {
@@ -303,34 +334,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryExecutionPolicy(String queryExecutionPolicy)
     {
         this.queryExecutionPolicy = queryExecutionPolicy;
-        return this;
-    }
-
-    @Min(1)
-    public int getInitializationRequiredWorkers()
-    {
-        return initializationRequiredWorkers;
-    }
-
-    @Config("query-manager.initialization-required-workers")
-    @ConfigDescription("Minimum number of workers that must be available before the cluster will accept queries")
-    public QueryManagerConfig setInitializationRequiredWorkers(int initializationRequiredWorkers)
-    {
-        this.initializationRequiredWorkers = initializationRequiredWorkers;
-        return this;
-    }
-
-    @NotNull
-    public Duration getInitializationTimeout()
-    {
-        return initializationTimeout;
-    }
-
-    @Config("query-manager.initialization-timeout")
-    @ConfigDescription("After this time, the cluster will accept queries even if the minimum required workers are not available")
-    public QueryManagerConfig setInitializationTimeout(Duration initializationTimeout)
-    {
-        this.initializationTimeout = initializationTimeout;
         return this;
     }
 

@@ -50,10 +50,10 @@ public class GenericSpiller
             AggregatedMemoryContext aggregatedMemoryContext,
             SingleStreamSpillerFactory singleStreamSpillerFactory)
     {
-        this.types = requireNonNull(types, "types can not be null");
-        this.spillContext = requireNonNull(spillContext, "spillContext can not be null");
-        this.aggregatedMemoryContext = requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext can not be null");
-        this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory can not be null");
+        this.types = requireNonNull(types, "types cannot be null");
+        this.spillContext = requireNonNull(spillContext, "spillContext cannot be null");
+        this.aggregatedMemoryContext = requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext cannot be null");
+        this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory cannot be null");
     }
 
     @Override

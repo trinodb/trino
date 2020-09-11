@@ -13,186 +13,22 @@
  */
 package io.prestosql.plugin.mysql;
 
-import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.mysql.TestingMySqlServer;
-import io.prestosql.Session;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
-import io.prestosql.tests.DistributedQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Map;
-
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
+import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 
-@Test
 public class TestMySqlIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends BaseMySqlIntegrationSmokeTest
 {
-    private final TestingMySqlServer mysqlServer;
-
-    public TestMySqlIntegrationSmokeTest()
-            throws Exception
-    {
-        this(new TestingMySqlServer("testuser", "testpass", "tpch", "test_database"));
-    }
-
-    public TestMySqlIntegrationSmokeTest(TestingMySqlServer mysqlServer)
-    {
-        super(() -> createMySqlQueryRunner(mysqlServer, ORDERS));
-        this.mysqlServer = mysqlServer;
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        mysqlServer.close();
-    }
-
     @Override
-    public void testDescribeTable()
-    {
-        // we need specific implementation of this tests due to specific Presto<->Mysql varchar length mapping.
-        MaterializedResult actualColumns = computeActual("DESC ORDERS").toTestTypes();
-
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar(255)", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar(255)", "", "")
-                .row("clerk", "varchar(255)", "", "")
-                .row("shippriority", "integer", "", "")
-                .row("comment", "varchar(255)", "", "")
-                .build();
-        assertEquals(actualColumns, expectedColumns);
-    }
-
-    @Test
-    public void testDropTable()
-    {
-        assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
-
-        assertUpdate("DROP TABLE test_drop");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
-    }
-
-    @Test
-    public void testViews()
-            throws SQLException
-    {
-        execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
-        assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
-        execute("DROP VIEW IF EXISTS tpch.test_view");
-    }
-
-    @Test
-    public void testInsert()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        execute("CREATE TABLE tpch.test_insert (x bigint, y varchar(100))");
-        assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
-        assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y");
-        assertUpdate("DROP TABLE test_insert");
-    }
-
-    @Test
-    public void testNameEscaping()
-    {
-        Session session = testSessionBuilder()
-                .setCatalog("mysql")
-                .setSchema("test_database")
-                .build();
-
-        assertFalse(getQueryRunner().tableExists(session, "test_table"));
-
-        assertUpdate(session, "CREATE TABLE test_table AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(session, "test_table"));
-
-        assertQuery(session, "SELECT * FROM test_table", "SELECT 123");
-
-        assertUpdate(session, "DROP TABLE test_table");
-        assertFalse(getQueryRunner().tableExists(session, "test_table"));
-    }
-
-    @Test
-    public void testMySqlTinyint1()
-            throws Exception
-    {
-        execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
-
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM mysql_test_tinyint1");
-        MaterializedResult expected = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("c_tinyint", "tinyint", "", "")
-                .build();
-
-        assertEquals(actual, expected);
-
-        execute("INSERT INTO tpch.mysql_test_tinyint1 VALUES (127), (-128)");
-        MaterializedResult materializedRows = computeActual("SELECT * FROM tpch.mysql_test_tinyint1 WHERE c_tinyint = 127");
-        assertEquals(materializedRows.getRowCount(), 1);
-        MaterializedRow row = getOnlyElement(materializedRows);
-
-        assertEquals(row.getFields().size(), 1);
-        assertEquals(row.getField(0), (byte) 127);
-
-        assertUpdate("DROP TABLE mysql_test_tinyint1");
-    }
-
-    @Test
-    public void testCharTrailingSpace()
-            throws Exception
-    {
-        execute("CREATE TABLE tpch.char_trailing_space (x char(10))");
-        assertUpdate("INSERT INTO char_trailing_space VALUES ('test')", 1);
-
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test'", "VALUES 'test'");
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test  '", "VALUES 'test'");
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test        '", "VALUES 'test'");
-
-        assertEquals(getQueryRunner().execute("SELECT * FROM char_trailing_space WHERE x = char ' test'").getRowCount(), 0);
-
-        Map<String, String> properties = ImmutableMap.of("deprecated.legacy-char-to-varchar-coercion", "true");
-        Map<String, String> connectorProperties = ImmutableMap.of("connection-url", mysqlServer.getJdbcUrl());
-
-        try (QueryRunner queryRunner = new DistributedQueryRunner(getSession(), 3, properties);) {
-            queryRunner.installPlugin(new MySqlPlugin());
-            queryRunner.createCatalog("mysql", "mysql", connectorProperties);
-
-            assertEquals(queryRunner.execute("SELECT * FROM char_trailing_space WHERE x = char 'test'").getRowCount(), 0);
-            assertEquals(queryRunner.execute("SELECT * FROM char_trailing_space WHERE x = char 'test  '").getRowCount(), 0);
-            assertEquals(queryRunner.execute("SELECT * FROM char_trailing_space WHERE x = char 'test       '").getRowCount(), 0);
-
-            MaterializedResult result = queryRunner.execute("SELECT * FROM char_trailing_space WHERE x = char 'test      '");
-            assertEquals(result.getRowCount(), 1);
-            assertEquals(result.getMaterializedRows().get(0).getField(0), "test      ");
-        }
-
-        assertUpdate("DROP TABLE char_trailing_space");
-    }
-
-    private void execute(String sql)
-            throws SQLException
-    {
-        try (Connection connection = DriverManager.getConnection(mysqlServer.getJdbcUrl());
-                Statement statement = connection.createStatement()) {
-            statement.execute(sql);
-        }
+        mysqlServer = new TestingMySqlServer(false);
+        return createMySqlQueryRunner(mysqlServer, CUSTOMER, NATION, ORDERS, REGION);
     }
 }

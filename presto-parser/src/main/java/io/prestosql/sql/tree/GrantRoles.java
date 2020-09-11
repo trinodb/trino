@@ -29,39 +29,39 @@ public class GrantRoles
 {
     private final Set<Identifier> roles;
     private final Set<PrincipalSpecification> grantees;
-    private final boolean withAdminOption;
+    private final boolean adminOption;
     private final Optional<GrantorSpecification> grantor;
 
     public GrantRoles(
             NodeLocation location,
             Set<Identifier> roles,
             Set<PrincipalSpecification> grantees,
-            boolean withAdminOption,
+            boolean adminOption,
             Optional<GrantorSpecification> grantor)
     {
-        this(Optional.of(location), roles, grantees, withAdminOption, grantor);
+        this(Optional.of(location), roles, grantees, adminOption, grantor);
     }
 
     public GrantRoles(
             Set<Identifier> roles,
             Set<PrincipalSpecification> grantees,
-            boolean withAdminOption,
+            boolean adminOption,
             Optional<GrantorSpecification> grantor)
     {
-        this(Optional.empty(), roles, grantees, withAdminOption, grantor);
+        this(Optional.empty(), roles, grantees, adminOption, grantor);
     }
 
     private GrantRoles(
             Optional<NodeLocation> location,
             Set<Identifier> roles,
             Set<PrincipalSpecification> grantees,
-            boolean withAdminOption,
+            boolean adminOption,
             Optional<GrantorSpecification> grantor)
     {
         super(location);
         this.roles = ImmutableSet.copyOf(requireNonNull(roles, "roles is null"));
         this.grantees = ImmutableSet.copyOf(requireNonNull(grantees, "grantees is null"));
-        this.withAdminOption = withAdminOption;
+        this.adminOption = adminOption;
         this.grantor = requireNonNull(grantor, "grantor is null");
     }
 
@@ -75,9 +75,9 @@ public class GrantRoles
         return grantees;
     }
 
-    public boolean isWithAdminOption()
+    public boolean isAdminOption()
     {
-        return withAdminOption;
+        return adminOption;
     }
 
     public Optional<GrantorSpecification> getGrantor()
@@ -107,7 +107,7 @@ public class GrantRoles
             return false;
         }
         GrantRoles grantRoles = (GrantRoles) o;
-        return withAdminOption == grantRoles.withAdminOption &&
+        return adminOption == grantRoles.adminOption &&
                 Objects.equals(roles, grantRoles.roles) &&
                 Objects.equals(grantees, grantRoles.grantees) &&
                 Objects.equals(grantor, grantRoles.grantor);
@@ -116,7 +116,7 @@ public class GrantRoles
     @Override
     public int hashCode()
     {
-        return Objects.hash(roles, grantees, withAdminOption, grantor);
+        return Objects.hash(roles, grantees, adminOption, grantor);
     }
 
     @Override
@@ -125,7 +125,7 @@ public class GrantRoles
         return toStringHelper(this)
                 .add("roles", roles)
                 .add("grantees", grantees)
-                .add("withAdminOption", withAdminOption)
+                .add("adminOption", adminOption)
                 .add("grantor", grantor)
                 .toString();
     }

@@ -18,12 +18,10 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.sql.SqlFormatter;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Prepare;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.transaction.TransactionManager;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface DataDefinitionTask<T extends Statement>
 {
@@ -33,15 +31,16 @@ public interface DataDefinitionTask<T extends Statement>
 
     default String explain(T statement, List<Expression> parameters)
     {
-        if (statement instanceof Prepare) {
-            return SqlFormatter.formatSql(statement, Optional.empty());
+        StringBuilder builder = new StringBuilder();
+
+        builder.append(SqlFormatter.formatSql(statement));
+
+        if (!parameters.isEmpty()) {
+            builder.append("\n")
+                    .append("Parameters: ")
+                    .append(parameters);
         }
 
-        return SqlFormatter.formatSql(statement, Optional.of(parameters));
-    }
-
-    default boolean isTransactionControl()
-    {
-        return false;
+        return builder.toString();
     }
 }

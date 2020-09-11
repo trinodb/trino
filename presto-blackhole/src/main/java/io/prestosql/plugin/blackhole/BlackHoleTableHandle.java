@@ -141,7 +141,7 @@ public final class BlackHoleTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(getSchemaName(), getTableName());
+        return Objects.hash(schemaName, tableName, columnHandles, splitCount, pagesPerSplit, rowsPerPage, fieldsLength, pageProcessingDelay);
     }
 
     @Override
@@ -154,7 +154,19 @@ public final class BlackHoleTableHandle
             return false;
         }
         BlackHoleTableHandle other = (BlackHoleTableHandle) obj;
-        return Objects.equals(this.getSchemaName(), other.getSchemaName()) &&
-                Objects.equals(this.getTableName(), other.getTableName());
+        return Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.tableName, other.tableName) &&
+                Objects.equals(this.columnHandles, other.columnHandles) &&
+                this.splitCount == other.splitCount &&
+                this.pagesPerSplit == other.pagesPerSplit &&
+                this.rowsPerPage == other.rowsPerPage &&
+                this.fieldsLength == other.fieldsLength &&
+                Objects.equals(this.pageProcessingDelay, other.pageProcessingDelay);
+    }
+
+    @Override
+    public String toString()
+    {
+        return schemaName + ":" + tableName;
     }
 }

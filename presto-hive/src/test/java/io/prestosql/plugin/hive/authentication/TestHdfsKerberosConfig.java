@@ -14,25 +14,42 @@
 package io.prestosql.plugin.hive.authentication;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
+
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestHdfsKerberosConfig
 {
     @Test
-    public void testExplicitPropertyMappings()
+    public void testDefaults()
     {
+        assertRecordedDefaults(recordDefaults(HdfsKerberosConfig.class)
+                .setHdfsPrestoPrincipal(null)
+                .setHdfsPrestoKeytab(null));
+    }
+
+    @Test
+    public void testExplicitPropertyMappings()
+            throws IOException
+    {
+        Path keytab = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.hdfs.presto.principal", "presto@EXAMPLE.COM")
-                .put("hive.hdfs.presto.keytab", "/tmp/presto.keytab")
+                .put("hive.hdfs.presto.keytab", keytab.toString())
                 .build();
 
         HdfsKerberosConfig expected = new HdfsKerberosConfig()
                 .setHdfsPrestoPrincipal("presto@EXAMPLE.COM")
-                .setHdfsPrestoKeytab("/tmp/presto.keytab");
+                .setHdfsPrestoKeytab(keytab.toString());
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

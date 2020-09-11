@@ -7,6 +7,9 @@ String Operators
 
 The ``||`` operator performs concatenation.
 
+The ``LIKE`` statement can be used for pattern matching and is documented in
+:ref:`like_operator`.
+
 String Functions
 ----------------
 
@@ -42,6 +45,11 @@ String Functions
     This function provides the same functionality as the
     SQL-standard concatenation operator (``||``).
 
+.. function:: format(format, args...) -> varchar
+    :noindex:
+
+    See :func:`format`.
+
 .. function:: hamming_distance(string1, string2) -> bigint
 
     Returns the Hamming distance of ``string1`` and ``string2``,
@@ -73,11 +81,27 @@ String Functions
 
     Removes leading whitespace from ``string``.
 
+.. function:: luhn_check(string) -> boolean
+
+    Tests whether a ``string`` of digits is valid according to the
+    `Luhn algorithm <https://en.wikipedia.org/wiki/Luhn_algorithm>`_.
+
+.. function:: position(substring IN string) -> bigint
+
+    Returns the starting position of the first instance of ``substring`` in
+    ``string``. Positions start with ``1``. If not found, ``0`` is returned.
+
+    .. note::
+
+        This SQL-standard function has special syntax and uses the
+        ``IN`` keyword for the arguments. See also :func:`strpos`.
+
 .. function:: replace(string, search) -> varchar
 
     Removes all instances of ``search`` from ``string``.
 
 .. function:: replace(string, search, replace) -> varchar
+    :noindex:
 
     Replaces all instances of ``search`` with ``replace`` in ``string``.
 
@@ -101,6 +125,7 @@ String Functions
     Splits ``string`` on ``delimiter`` and returns an array.
 
 .. function:: split(string, delimiter, limit) -> array(varchar)
+    :noindex:
 
     Splits ``string`` on ``delimiter`` and returns an array of size at most
     ``limit``. The last element in the array always contain everything
@@ -130,22 +155,60 @@ String Functions
     Returns the starting position of the first instance of ``substring`` in
     ``string``. Positions start with ``1``. If not found, ``0`` is returned.
 
-.. function:: position(substring IN string) -> bigint
+.. function:: strpos(string, substring, instance) -> bigint
+    :noindex:
 
-    Returns the starting position of the first instance of ``substring`` in
-    ``string``. Positions start with ``1``. If not found, ``0`` is returned.
+    Returns the position of the N-th ``instance`` of ``substring`` in ``string``.
+    When ``instance`` is a negative number the search will start from the end of ``string``.
+    Positions start with ``1``. If not found, ``0`` is returned.
+
+.. function:: starts_with(string, substring) -> boolean
+
+    Tests whether ``substring`` is a prefix of ``string``.
 
 .. function:: substr(string, start) -> varchar
+
+    This is an alias for :func:`substring`.
+
+.. function:: substring(string, start) -> varchar
 
     Returns the rest of ``string`` from the starting position ``start``.
     Positions start with ``1``. A negative starting position is interpreted
     as being relative to the end of the string.
 
 .. function:: substr(string, start, length) -> varchar
+    :noindex:
+
+    This is an alias for :func:`substring`.
+
+.. function:: substring(string, start, length) -> varchar
+    :noindex:
 
     Returns a substring from ``string`` of length ``length`` from the starting
     position ``start``. Positions start with ``1``. A negative starting
     position is interpreted as being relative to the end of the string.
+
+.. function:: translate(source, from, to) -> varchar
+
+   Returns the ``source`` string translated by replacing characters found in the
+   ``from`` string with the corresponding characters in the ``to`` string.  If the ``from``
+   string contains duplicates, only the first is used.  If the ``source`` character
+   does not exist in the ``from`` string, the ``source`` character will be copied
+   without translation.  If the index of the matching character in the ``from``
+   string is beyond the length of the ``to`` string, the ``source`` character will
+   be omitted from the resulting string.
+
+   Here are some examples illustrating the translate function::
+
+       SELECT translate('abcd', '', ''); -- 'abcd'
+       SELECT translate('abcd', 'a', 'z'); -- 'zbcd'
+       SELECT translate('abcda', 'a', 'z'); -- 'zbcdz'
+       SELECT translate('Palhoça', 'ç','c'); -- 'Palhoca'
+       SELECT translate('abcd', 'b', U&'\+01F600'); -- a😀cd
+       SELECT translate('abcd', 'a', ''); -- 'bcd'
+       SELECT translate('abcd', 'a', 'zy'); -- 'zbcd'
+       SELECT translate('abcd', 'ac', 'z'); -- 'zbd'
+       SELECT translate('abcd', 'aac', 'zq'); -- 'zbd'
 
 .. function:: trim(string) -> varchar
 
@@ -160,6 +223,7 @@ String Functions
     Returns the stem of ``word`` in the English language.
 
 .. function:: word_stem(word, lang) -> varchar
+    :noindex:
 
     Returns the stem of ``word`` in the ``lang`` language.
 
@@ -171,6 +235,7 @@ Unicode Functions
     Transforms ``string`` with NFC normalization form.
 
 .. function:: normalize(string, form) -> varchar
+    :noindex:
 
     Transforms ``string`` with the specified normalization form.
     ``form`` must be be one of the following keywords:
@@ -199,8 +264,9 @@ Unicode Functions
     are replaced with the Unicode replacement character ``U+FFFD``.
 
 .. function:: from_utf8(binary, replace) -> varchar
+    :noindex:
 
     Decodes a UTF-8 encoded string from ``binary``. Invalid UTF-8 sequences
-    are replaced with `replace`. The replacement string `replace` must either
+    are replaced with ``replace``. The replacement string ``replace`` must either
     be a single character or empty (in which case invalid characters are
     removed).

@@ -26,9 +26,7 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public final class BenchmarkQueryRunner
 {
-    private BenchmarkQueryRunner()
-    {
-    }
+    private BenchmarkQueryRunner() {}
 
     public static LocalQueryRunner createLocalQueryRunnerHashEnabled()
     {
@@ -49,7 +47,7 @@ public final class BenchmarkQueryRunner
         extraSessionProperties.forEach(sessionBuilder::setSystemProperty);
 
         Session session = sessionBuilder.build();
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
+        LocalQueryRunner localQueryRunner = LocalQueryRunner.create(session);
 
         // add tpch
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());

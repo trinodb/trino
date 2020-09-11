@@ -15,7 +15,7 @@ package io.prestosql.sql.relational;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.type.Type;
 
 import java.util.List;
@@ -26,30 +26,27 @@ import static java.util.Objects.requireNonNull;
 public final class CallExpression
         extends RowExpression
 {
-    private final Signature signature;
-    private final Type returnType;
+    private final ResolvedFunction resolvedFunction;
     private final List<RowExpression> arguments;
 
-    public CallExpression(Signature signature, Type returnType, List<RowExpression> arguments)
+    public CallExpression(ResolvedFunction resolvedFunction, List<RowExpression> arguments)
     {
-        requireNonNull(signature, "signature is null");
+        requireNonNull(resolvedFunction, "resolvedFunction is null");
         requireNonNull(arguments, "arguments is null");
-        requireNonNull(returnType, "returnType is null");
 
-        this.signature = signature;
-        this.returnType = returnType;
+        this.resolvedFunction = resolvedFunction;
         this.arguments = ImmutableList.copyOf(arguments);
     }
 
-    public Signature getSignature()
+    public ResolvedFunction getResolvedFunction()
     {
-        return signature;
+        return resolvedFunction;
     }
 
     @Override
     public Type getType()
     {
-        return returnType;
+        return resolvedFunction.getSignature().getReturnType();
     }
 
     public List<RowExpression> getArguments()
@@ -60,26 +57,27 @@ public final class CallExpression
     @Override
     public String toString()
     {
-        return signature.getName() + "(" + Joiner.on(", ").join(arguments) + ")";
+        return resolvedFunction.getSignature().getName() + "(" + Joiner.on(", ").join(arguments) + ")";
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        CallExpression that = (CallExpression) o;
+        return Objects.equals(resolvedFunction, that.resolvedFunction) &&
+                Objects.equals(arguments, that.arguments);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(signature, arguments);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        CallExpression other = (CallExpression) obj;
-        return Objects.equals(this.signature, other.signature) && Objects.equals(this.arguments, other.arguments);
+        return Objects.hash(resolvedFunction, arguments);
     }
 
     @Override

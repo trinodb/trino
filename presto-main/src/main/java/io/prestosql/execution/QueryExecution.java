@@ -16,13 +16,15 @@ package io.prestosql.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.Session;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.prestosql.execution.QueryPreparer.PreparedQuery;
 import io.prestosql.execution.QueryTracker.TrackedQuery;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.memory.VersionedMemoryPoolId;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Plan;
 
@@ -34,27 +36,43 @@ import java.util.function.Consumer;
 import static java.util.Objects.requireNonNull;
 
 public interface QueryExecution
-        extends ManagedQueryExecution, TrackedQuery
+        extends TrackedQuery
 {
     QueryState getState();
 
     ListenableFuture<QueryState> getStateChange(QueryState currentState);
 
+    void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
+
     void addOutputInfoListener(Consumer<QueryOutputInfo> listener);
 
     Plan getQueryPlan();
 
+    BasicQueryInfo getBasicQueryInfo();
+
     QueryInfo getQueryInfo();
+
+    Slug getSlug();
+
+    Duration getTotalCpuTime();
+
+    DataSize getUserMemoryReservation();
+
+    DataSize getTotalMemoryReservation();
 
     VersionedMemoryPoolId getMemoryPool();
 
     void setMemoryPool(VersionedMemoryPoolId poolId);
+
+    void start();
 
     void cancelQuery();
 
     void cancelStage(StageId stageId);
 
     void recordHeartbeat();
+
+    boolean shouldWaitForMinWorkers();
 
     /**
      * Add a listener for the final query info.  This notification is guaranteed to be fired only once.
@@ -65,7 +83,7 @@ public interface QueryExecution
 
     interface QueryExecutionFactory<T extends QueryExecution>
     {
-        T createQueryExecution(String query, Session session, PreparedQuery preparedQuery, ResourceGroupId resourceGroup, WarningCollector warningCollector);
+        T createQueryExecution(PreparedQuery preparedQuery, QueryStateMachine stateMachine, Slug slug, WarningCollector warningCollector);
     }
 
     /**

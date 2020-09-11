@@ -20,7 +20,7 @@ import static io.prestosql.SystemSessionProperties.isParseDecimalLiteralsAsDoubl
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 
-public class ParsingUtil
+public final class ParsingUtil
 {
     public static ParsingOptions createParsingOptions(Session session)
     {

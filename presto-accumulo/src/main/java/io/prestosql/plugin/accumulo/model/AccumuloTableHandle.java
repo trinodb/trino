@@ -16,12 +16,15 @@ package io.prestosql.plugin.accumulo.model;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.plugin.accumulo.metadata.AccumuloTable;
 import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -39,22 +42,36 @@ public final class AccumuloTableHandle
     private final String schema;
     private final String serializerClassName;
     private final String table;
+    private final TupleDomain<ColumnHandle> constraint;
+
+    public AccumuloTableHandle(
+            String schema,
+            String table,
+            String rowId,
+            boolean external,
+            String serializerClassName,
+            Optional<String> scanAuthorizations)
+    {
+        this(schema, table, rowId, TupleDomain.all(), external, serializerClassName, scanAuthorizations);
+    }
 
     @JsonCreator
     public AccumuloTableHandle(
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
             @JsonProperty("rowId") String rowId,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("external") boolean external,
             @JsonProperty("serializerClassName") String serializerClassName,
             @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations)
     {
-        this.external = requireNonNull(external, "external is null");
+        this.external = external;
         this.rowId = requireNonNull(rowId, "rowId is null");
         this.scanAuthorizations = scanAuthorizations;
         this.schema = requireNonNull(schema, "schema is null");
         this.serializerClassName = requireNonNull(serializerClassName, "serializerClassName is null");
         this.table = requireNonNull(table, "table is null");
+        this.constraint = requireNonNull(constraint, "constraints is null");
     }
 
     @JsonProperty
@@ -104,9 +121,21 @@ public final class AccumuloTableHandle
         return external;
     }
 
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getConstraint()
+    {
+        return constraint;
+    }
+
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schema, table);
+    }
+
+    @JsonIgnore
+    public String getFullTableName()
+    {
+        return AccumuloTable.getFullTableName(schema, table);
     }
 
     @Override

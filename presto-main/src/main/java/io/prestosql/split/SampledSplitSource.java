@@ -15,13 +15,13 @@ package io.prestosql.split;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import javax.annotation.Nullable;
 
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -42,15 +42,9 @@ public class SampledSplitSource
 
     @Nullable
     @Override
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return splitSource.getConnectorId();
-    }
-
-    @Override
-    public ConnectorTransactionHandle getTransactionHandle()
-    {
-        return splitSource.getTransactionHandle();
+        return splitSource.getCatalogName();
     }
 
     @Override
@@ -74,5 +68,11 @@ public class SampledSplitSource
     public boolean isFinished()
     {
         return splitSource.isFinished();
+    }
+
+    @Override
+    public Optional<Integer> getMinScheduleSplitBatchSize()
+    {
+        return splitSource.getMinScheduleSplitBatchSize();
     }
 }

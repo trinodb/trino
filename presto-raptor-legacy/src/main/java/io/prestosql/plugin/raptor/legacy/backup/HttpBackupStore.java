@@ -14,8 +14,7 @@
 package io.prestosql.plugin.raptor.legacy.backup;
 
 import com.google.common.io.ByteStreams;
-import com.google.common.io.Files;
-import io.airlift.http.client.BodyGenerator;
+import io.airlift.http.client.FileBodyGenerator;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
@@ -23,6 +22,7 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.slice.XxHash64;
+import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.PrestoException;
 
 import javax.inject.Inject;
@@ -32,7 +32,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -65,11 +64,11 @@ public class HttpBackupStore
     public HttpBackupStore(
             @ForHttpBackup HttpClient httpClient,
             @ForHttpBackup Supplier<URI> baseUriSupplier,
-            @ForHttpBackup String environment)
+            NodeManager nodeManager)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.baseUriSupplier = requireNonNull(baseUriSupplier, "baseUriSupplier is null");
-        this.environment = requireNonNull(environment, "environment is null");
+        this.environment = requireNonNull(nodeManager, "nodeManager is null").getEnvironment();
     }
 
     @Override
@@ -80,7 +79,7 @@ public class HttpBackupStore
                 .addHeader(CONTENT_TYPE, APPLICATION_BINARY.toString())
                 .addHeader(CONTENT_XXH64, format("%016x", xxHash64(source)))
                 .setUri(shardUri(uuid))
-                .setBodyGenerator(new FileBodyGenerator(source))
+                .setBodyGenerator(new FileBodyGenerator(source.toPath()))
                 .build();
 
         try {
@@ -200,25 +199,6 @@ public class HttpBackupStore
         }
     }
 
-    // TODO: move to Airlift
-    private static class FileBodyGenerator
-            implements BodyGenerator
-    {
-        private final File file;
-
-        private FileBodyGenerator(File file)
-        {
-            this.file = requireNonNull(file, "file is null");
-        }
-
-        @Override
-        public void write(OutputStream out)
-                throws Exception
-        {
-            Files.copy(file, out);
-        }
-    }
-
     private static class FileResponseHandler
             implements ResponseHandler<StatusResponse, IOException>
     {
@@ -258,7 +238,7 @@ public class HttpBackupStore
 
         private static StatusResponse createStatusResponse(Response response)
         {
-            return new StatusResponse(response.getStatusCode(), response.getStatusMessage(), response.getHeaders());
+            return new StatusResponse(response.getStatusCode(), response.getHeaders());
         }
     }
 }

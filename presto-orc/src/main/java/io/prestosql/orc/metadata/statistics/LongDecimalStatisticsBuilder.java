@@ -102,6 +102,7 @@ public class LongDecimalStatisticsBuilder
                 null,
                 null,
                 null,
+                null,
                 decimalStatistics.orElse(null),
                 null,
                 null);
@@ -114,7 +115,7 @@ public class LongDecimalStatisticsBuilder
             DecimalStatistics partialStatistics = columnStatistics.getDecimalStatistics();
             if (columnStatistics.getNumberOfValues() > 0) {
                 if (partialStatistics == null) {
-                    // there are non null values but no statistics, so we can not say anything about the data
+                    // there are non null values but no statistics, so we cannot say anything about the data
                     return Optional.empty();
                 }
                 decimalStatisticsBuilder.addDecimalStatistics(columnStatistics.getNumberOfValues(), partialStatistics);

@@ -28,6 +28,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.toSymbolReferences;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -35,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 class FunctionCallProvider
         implements ExpectedValueProvider<FunctionCall>
 {
-    private boolean isWindowFunction;
+    private final boolean isWindowFunction;
     private final QualifiedName name;
     private final Optional<WindowFrame> frame;
     private final boolean distinct;
@@ -83,10 +84,13 @@ class FunctionCallProvider
                 frame.isPresent() ? frame.get().toString() : "");
     }
 
+    @Override
     public FunctionCall getExpectedValue(SymbolAliases aliases)
     {
         List<Expression> symbolReferences = toSymbolReferences(args, aliases);
         if (isWindowFunction) {
+            verify(!distinct, "window does not support distinct");
+            verify(orderBy.isEmpty(), "window does not support order by");
             return new ExpectedWindowFunctionCall(symbolReferences);
         }
 
@@ -100,7 +104,7 @@ class FunctionCallProvider
                     .collect(Collectors.toList())));
         }
 
-        return new FunctionCall(name, Optional.empty(), Optional.empty(), orderByClause, distinct, symbolReferences);
+        return new FunctionCall(Optional.empty(), name, Optional.empty(), Optional.empty(), orderByClause, distinct, Optional.empty(), symbolReferences);
     }
 
     private class ExpectedWindowFunctionCall
@@ -108,7 +112,7 @@ class FunctionCallProvider
     {
         private ExpectedWindowFunctionCall(List<Expression> args)
         {
-            super(name, distinct, args);
+            super(name, args);
         }
 
         @Override

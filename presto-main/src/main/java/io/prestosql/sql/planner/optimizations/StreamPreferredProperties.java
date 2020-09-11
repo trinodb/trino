@@ -62,7 +62,7 @@ public class StreamPreferredProperties
         this.exactColumnOrder = exactColumnOrder;
         this.orderSensitive = orderSensitive;
 
-        checkArgument(!orderSensitive || !partitioningColumns.isPresent(), "An order sensitive context can not prefer partitioning");
+        checkArgument(!orderSensitive || partitioningColumns.isEmpty(), "An order sensitive context cannot prefer partitioning");
     }
 
     public static StreamPreferredProperties any()
@@ -158,7 +158,7 @@ public class StreamPreferredProperties
     public boolean isSatisfiedBy(StreamProperties actualProperties)
     {
         // is there a specific preference
-        if (!distribution.isPresent() && !partitioningColumns.isPresent()) {
+        if (distribution.isEmpty() && partitioningColumns.isEmpty()) {
             return true;
         }
 
@@ -229,7 +229,7 @@ public class StreamPreferredProperties
         ImmutableList.Builder<Symbol> newPartitioningColumns = ImmutableList.builder();
         for (Symbol partitioningColumn : partitioning) {
             Optional<Symbol> translated = translator.apply(partitioningColumn);
-            if (!translated.isPresent()) {
+            if (translated.isEmpty()) {
                 return Optional.empty();
             }
             newPartitioningColumns.add(translated.get());
@@ -254,7 +254,7 @@ public class StreamPreferredProperties
 
     public StreamPreferredProperties constrainTo(Iterable<Symbol> symbols)
     {
-        if (!partitioningColumns.isPresent()) {
+        if (partitioningColumns.isEmpty()) {
             return this;
         }
 

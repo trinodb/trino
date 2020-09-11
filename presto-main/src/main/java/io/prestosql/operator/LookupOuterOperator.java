@@ -35,11 +35,6 @@ public class LookupOuterOperator
     public static class LookupOuterOperatorFactory
             implements OperatorFactory
     {
-        private enum State
-        {
-            NOT_CREATED, CREATED, CLOSED
-        }
-
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final List<Type> probeOutputTypes;
@@ -102,7 +97,7 @@ public class LookupOuterOperator
         @Override
         public OperatorFactory duplicate()
         {
-            throw new UnsupportedOperationException("Source operator factories can not be duplicated");
+            throw new UnsupportedOperationException("Source operator factories cannot be duplicated");
         }
     }
 

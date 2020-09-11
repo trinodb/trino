@@ -13,25 +13,23 @@
  */
 package io.prestosql.elasticsearch;
 
-import io.airlift.json.JsonCodec;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.DistributedQueryRunner;
-import io.prestosql.tests.TestingPrestoClient;
+import io.prestosql.testing.TestingPrestoClient;
+import io.prestosql.tpch.TpchTable;
+import org.apache.http.HttpHost;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestHighLevelClient;
 
-import java.io.File;
-import java.net.URI;
-import java.net.URL;
-import java.util.HashMap;
 import java.util.Map;
 
-import static com.google.common.io.Resources.getResource;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -39,7 +37,6 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertNotNull;
 
 public final class ElasticsearchQueryRunner
 {
@@ -47,88 +44,71 @@ public final class ElasticsearchQueryRunner
 
     private static final Logger LOG = Logger.get(ElasticsearchQueryRunner.class);
     private static final String TPCH_SCHEMA = "tpch";
-    private static final int NODE_COUNT = 2;
 
-    public static DistributedQueryRunner createElasticsearchQueryRunner(EmbeddedElasticsearchNode embeddedElasticsearchNode, Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createElasticsearchQueryRunner(
+            HostAndPort address,
+            Iterable<TpchTable<?>> tables,
+            Map<String, String> extraProperties,
+            Map<String, String> extraConnectorProperties)
             throws Exception
     {
+        RestHighLevelClient client = null;
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setNodeCount(NODE_COUNT)
+                    .setExtraProperties(extraProperties)
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            embeddedElasticsearchNode.start();
+            TestingElasticsearchConnectorFactory testFactory = new TestingElasticsearchConnectorFactory();
 
-            ElasticsearchTableDescriptionProvider tableDescriptions = createTableDescriptions(queryRunner.getCoordinator().getMetadata());
-
-            TestingElasticsearchConnectorFactory testFactory = new TestingElasticsearchConnectorFactory(tableDescriptions);
-
-            installElasticsearchPlugin(queryRunner, testFactory);
+            installElasticsearchPlugin(address, queryRunner, testFactory, extraConnectorProperties);
 
             TestingPrestoClient prestoClient = queryRunner.getClient();
 
             LOG.info("Loading data...");
+
+            client = new RestHighLevelClient(RestClient.builder(HttpHost.create(address.toString())));
             long startTime = System.nanoTime();
             for (TpchTable<?> table : tables) {
-                loadTpchTopic(embeddedElasticsearchNode, prestoClient, table);
+                loadTpchTopic(client, prestoClient, table);
             }
             LOG.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
 
             return queryRunner;
         }
         catch (Exception e) {
-            closeAllSuppress(e, queryRunner, embeddedElasticsearchNode);
+            closeAllSuppress(e, queryRunner, client);
             throw e;
         }
     }
 
-    private static ElasticsearchTableDescriptionProvider createTableDescriptions(Metadata metadata)
-            throws Exception
+    private static void installElasticsearchPlugin(HostAndPort address, QueryRunner queryRunner, TestingElasticsearchConnectorFactory factory, Map<String, String> extraConnectorProperties)
     {
-        JsonCodec<ElasticsearchTableDescription> codec = new CodecSupplier<>(ElasticsearchTableDescription.class, metadata).get();
-
-        URL metadataUrl = getResource(ElasticsearchQueryRunner.class, "/queryrunner");
-        assertNotNull(metadataUrl, "metadataUrl is null");
-        URI metadataUri = metadataUrl.toURI();
-
-        ElasticsearchConnectorConfig config = new ElasticsearchConnectorConfig()
-                .setTableDescriptionDirectory(new File(metadataUri))
-                .setDefaultSchema(TPCH_SCHEMA);
-        return new ElasticsearchTableDescriptionProvider(config, codec);
-    }
-
-    private static void installElasticsearchPlugin(QueryRunner queryRunner, TestingElasticsearchConnectorFactory factory)
-            throws Exception
-    {
-        ElasticsearchPlugin plugin = new ElasticsearchPlugin();
-        plugin.setConnectorFactory(factory);
-        queryRunner.installPlugin(plugin);
-
-        URL metadataUrl = getResource(ElasticsearchQueryRunner.class, "/queryrunner");
-        assertNotNull(metadataUrl, "metadataUrl is null");
-        URI metadataUri = metadataUrl.toURI();
-        Map<String, String> config = new HashMap<>();
-        config.put("elasticsearch.default-schema-name", TPCH_SCHEMA);
-        config.put("elasticsearch.table-description-directory", metadataUri.toString());
-        config.put("elasticsearch.scroll-size", "1000");
-        config.put("elasticsearch.scroll-timeout", "1m");
-        config.put("elasticsearch.max-hits", "1000000");
-        config.put("elasticsearch.request-timeout", "2m");
-        config.put("elasticsearch.max-request-retries", "3");
-        config.put("elasticsearch.max-request-retry-time", "5s");
+        queryRunner.installPlugin(new ElasticsearchPlugin(factory));
+        Map<String, String> config = ImmutableMap.<String, String>builder()
+                .put("elasticsearch.host", address.getHost())
+                .put("elasticsearch.port", Integer.toString(address.getPort()))
+                // Node discovery relies on the publish_address exposed via the Elasticseach API
+                // This doesn't work well within a docker environment that maps ES's port to a random public port
+                .put("elasticsearch.ignore-publish-address", "true")
+                .put("elasticsearch.default-schema-name", TPCH_SCHEMA)
+                .put("elasticsearch.scroll-size", "1000")
+                .put("elasticsearch.scroll-timeout", "1m")
+                .put("elasticsearch.request-timeout", "2m")
+                .putAll(extraConnectorProperties)
+                .build();
 
         queryRunner.createCatalog("elasticsearch", "elasticsearch", config);
     }
 
-    private static void loadTpchTopic(EmbeddedElasticsearchNode embeddedElasticsearchNode, TestingPrestoClient prestoClient, TpchTable<?> table)
+    private static void loadTpchTopic(RestHighLevelClient client, TestingPrestoClient prestoClient, TpchTable<?> table)
     {
         long start = System.nanoTime();
         LOG.info("Running import for %s", table.getTableName());
-        ElasticsearchLoader loader = new ElasticsearchLoader(embeddedElasticsearchNode.getClient(), table.getTableName().toLowerCase(ENGLISH), prestoClient.getServer(), prestoClient.getDefaultSession());
+        ElasticsearchLoader loader = new ElasticsearchLoader(client, table.getTableName().toLowerCase(ENGLISH), prestoClient.getServer(), prestoClient.getDefaultSession());
         loader.execute(format("SELECT * from %s", new QualifiedObjectName(TPCH_SCHEMA, TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH))));
         LOG.info("Imported %s in %s", table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
@@ -141,9 +121,17 @@ public final class ElasticsearchQueryRunner
     public static void main(String[] args)
             throws Exception
     {
+        // To start Elasticsearch:
+        // docker run -p 9200:9200 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.6.2
+
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createElasticsearchQueryRunner(EmbeddedElasticsearchNode.createEmbeddedElasticsearchNode(), TpchTable.getTables());
-        Thread.sleep(10);
+
+        DistributedQueryRunner queryRunner = createElasticsearchQueryRunner(
+                HostAndPort.fromParts("localhost", 9200),
+                TpchTable.getTables(),
+                ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of());
+
         Logger log = Logger.get(ElasticsearchQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

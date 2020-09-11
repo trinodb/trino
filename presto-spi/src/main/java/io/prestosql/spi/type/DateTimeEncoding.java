@@ -19,18 +19,23 @@ import static java.util.Objects.requireNonNull;
 
 public final class DateTimeEncoding
 {
-    private DateTimeEncoding()
-    {
-    }
+    private DateTimeEncoding() {}
 
     private static final int TIME_ZONE_MASK = 0xFFF;
     private static final int MILLIS_SHIFT = 12;
 
     private static long pack(long millisUtc, short timeZoneKey)
     {
+        if (millisUtc << MILLIS_SHIFT >> MILLIS_SHIFT != millisUtc) {
+            throw new IllegalArgumentException("Millis overflow: " + millisUtc);
+        }
+
         return (millisUtc << MILLIS_SHIFT) | (timeZoneKey & TIME_ZONE_MASK);
     }
 
+    /**
+     * @throws TimeZoneNotSupportedException when {@code zoneId} does not identity a time zone
+     */
     public static long packDateTimeWithZone(long millisUtc, String zoneId)
     {
         return packDateTimeWithZone(millisUtc, getTimeZoneKey(zoneId));
@@ -47,6 +52,11 @@ public final class DateTimeEncoding
         return pack(millisUtc, timeZoneKey.getKey());
     }
 
+    public static long packDateTimeWithZone(long millisUtc, short timeZoneKey)
+    {
+        return pack(millisUtc, timeZoneKey);
+    }
+
     public static long unpackMillisUtc(long dateTimeWithTimeZone)
     {
         return dateTimeWithTimeZone >> MILLIS_SHIFT;
@@ -60,5 +70,26 @@ public final class DateTimeEncoding
     public static long updateMillisUtc(long newMillsUtc, long dateTimeWithTimeZone)
     {
         return pack(newMillsUtc, (short) (dateTimeWithTimeZone & TIME_ZONE_MASK));
+    }
+
+    public static long packTimeWithTimeZone(long nanos, int offsetMinutes)
+    {
+        // offset is encoded as a 2s complement 11-bit number
+        return (nanos << 11) | (offsetMinutes & 0b111_1111_1111);
+    }
+
+    public static long unpackTimeNanos(long packedTimeWithTimeZone)
+    {
+        return packedTimeWithTimeZone >>> 11;
+    }
+
+    public static int unpackOffsetMinutes(long packedTimeWithTimeZone)
+    {
+        int unpacked = (int) (packedTimeWithTimeZone & 0b11_1111_1111);
+        if ((packedTimeWithTimeZone & 0b100_0000_0000) != 0) {
+            // extend sign up to int
+            unpacked |= 0b1111_1111_1111_1111_1111_1100_0000_0000;
+        }
+        return unpacked;
     }
 }

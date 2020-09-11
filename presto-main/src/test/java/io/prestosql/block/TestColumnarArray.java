@@ -35,6 +35,7 @@ import static io.prestosql.block.ColumnarTestUtils.createTestRleBlock;
 import static io.prestosql.block.ColumnarTestUtils.createTestRleExpectedValues;
 import static io.prestosql.spi.block.ColumnarArray.toColumnarArray;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestColumnarArray
@@ -49,7 +50,7 @@ public class TestColumnarArray
             expectedValues[i] = new Slice[ARRAY_SIZES[i]];
             for (int j = 0; j < ARRAY_SIZES[i]; j++) {
                 if (j % 3 != 1) {
-                    expectedValues[i][j] = Slices.utf8Slice(String.format("%d.%d", i, j));
+                    expectedValues[i][j] = Slices.utf8Slice(format("%d.%d", i, j));
                 }
             }
         }
@@ -115,6 +116,7 @@ public class TestColumnarArray
             T expectedArray = expectedValues[position];
             assertEquals(columnarArray.isNull(position), expectedArray == null);
             assertEquals(columnarArray.getLength(position), expectedArray == null ? 0 : Array.getLength(expectedArray));
+            assertEquals(elementsPosition, columnarArray.getOffset(position));
 
             for (int i = 0; i < columnarArray.getLength(position); i++) {
                 Object expectedElement = Array.get(expectedArray, i);

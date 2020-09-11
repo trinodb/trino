@@ -29,7 +29,7 @@ import io.airlift.bytecode.ParameterizedType;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.aggregation.AccumulatorCompiler;
 import io.prestosql.operator.aggregation.LambdaProvider;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -39,6 +39,7 @@ import io.prestosql.sql.relational.InputReferenceExpression;
 import io.prestosql.sql.relational.LambdaDefinitionExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.RowExpressionVisitor;
+import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.sql.relational.VariableReferenceExpression;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
@@ -71,18 +72,16 @@ import static java.util.Objects.requireNonNull;
 import static org.objectweb.asm.Type.getMethodType;
 import static org.objectweb.asm.Type.getType;
 
-public class LambdaBytecodeGenerator
+public final class LambdaBytecodeGenerator
 {
-    private LambdaBytecodeGenerator()
-    {
-    }
+    private LambdaBytecodeGenerator() {}
 
     public static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
             ClassDefinition containerClassDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpression expression,
-            FunctionRegistry functionRegistry)
+            Metadata metadata)
     {
         Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(expression));
         ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
@@ -96,7 +95,7 @@ public class LambdaBytecodeGenerator
                     compiledLambdaMap.build(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    functionRegistry);
+                    metadata);
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }
@@ -114,7 +113,7 @@ public class LambdaBytecodeGenerator
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            FunctionRegistry functionRegistry)
+            Metadata metadata)
     {
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         ImmutableMap.Builder<String, ParameterAndType> parameterMapBuilder = ImmutableMap.builder();
@@ -132,7 +131,7 @@ public class LambdaBytecodeGenerator
                 callSiteBinder,
                 cachedInstanceBinder,
                 variableReferenceCompiler(parameterMapBuilder.build()),
-                functionRegistry,
+                metadata,
                 compiledLambdaMap);
 
         return defineLambdaMethod(
@@ -180,7 +179,7 @@ public class LambdaBytecodeGenerator
             BytecodeGeneratorContext context,
             List<RowExpression> captureExpressions,
             CompiledLambda compiledLambda,
-            Class lambdaInterface)
+            Class<?> lambdaInterface)
     {
         if (!lambdaInterface.isAnnotationPresent(FunctionalInterface.class)) {
             // lambdaInterface is checked to be annotated with FunctionalInterface when generating ScalarFunctionImplementation
@@ -229,7 +228,7 @@ public class LambdaBytecodeGenerator
         return block;
     }
 
-    public static Class<? extends LambdaProvider> compileLambdaProvider(LambdaDefinitionExpression lambdaExpression, FunctionRegistry functionRegistry, Class lambdaInterface)
+    public static Class<? extends LambdaProvider> compileLambdaProvider(LambdaDefinitionExpression lambdaExpression, Metadata metadata, Class<?> lambdaInterface)
     {
         ClassDefinition lambdaProviderClassDefinition = new ClassDefinition(
                 a(PUBLIC, Access.FINAL),
@@ -247,7 +246,7 @@ public class LambdaBytecodeGenerator
                 callSiteBinder,
                 cachedInstanceBinder,
                 lambdaExpression,
-                functionRegistry);
+                metadata);
 
         MethodDefinition method = lambdaProviderClassDefinition.declareMethod(
                 a(PUBLIC),
@@ -264,7 +263,7 @@ public class LambdaBytecodeGenerator
                 callSiteBinder,
                 cachedInstanceBinder,
                 variableReferenceCompiler(ImmutableMap.of()),
-                functionRegistry,
+                metadata,
                 compiledLambdaMap);
 
         BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
@@ -272,7 +271,7 @@ public class LambdaBytecodeGenerator
                 scope,
                 callSiteBinder,
                 cachedInstanceBinder,
-                functionRegistry);
+                metadata);
 
         body.append(
                 generateLambda(
@@ -300,7 +299,7 @@ public class LambdaBytecodeGenerator
         return defineClass(lambdaProviderClassDefinition, LambdaProvider.class, callSiteBinder.getBindings(), AccumulatorCompiler.class.getClassLoader());
     }
 
-    private static Method getSingleApplyMethod(Class lambdaFunctionInterface)
+    private static Method getSingleApplyMethod(Class<?> lambdaFunctionInterface)
     {
         checkCondition(lambdaFunctionInterface.isAnnotationPresent(FunctionalInterface.class), COMPILER_ERROR, "Lambda function interface is required to be annotated with FunctionalInterface");
 
@@ -314,7 +313,7 @@ public class LambdaBytecodeGenerator
 
     private static RowExpressionVisitor<BytecodeNode, Scope> variableReferenceCompiler(Map<String, ParameterAndType> parameterMap)
     {
-        return new RowExpressionVisitor<BytecodeNode, Scope>()
+        return new RowExpressionVisitor<>()
         {
             @Override
             public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
@@ -324,6 +323,12 @@ public class LambdaBytecodeGenerator
 
             @Override
             public BytecodeNode visitCall(CallExpression call, Scope scope)
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public BytecodeNode visitSpecialForm(SpecialForm specialForm, Scope context)
             {
                 throw new UnsupportedOperationException();
             }

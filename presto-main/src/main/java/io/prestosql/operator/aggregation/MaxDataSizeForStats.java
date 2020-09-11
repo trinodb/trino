@@ -38,7 +38,7 @@ public final class MaxDataSizeForStats
     private MaxDataSizeForStats() {}
 
     @InputFunction
-    @TypeParameter(value = "T")
+    @TypeParameter("T")
     public static void input(@AggregationState NullableLongState state, @BlockPosition @SqlType("T") Block block, @BlockIndex int index)
     {
         update(state, block.getEstimatedDataSizeForStats(index));

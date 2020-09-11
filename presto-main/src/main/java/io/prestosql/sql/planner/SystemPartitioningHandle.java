@@ -19,12 +19,12 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSelector;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.operator.BucketPartitionFunction;
 import io.prestosql.operator.HashGenerator;
 import io.prestosql.operator.InterpretedHashGenerator;
 import io.prestosql.operator.PartitionFunction;
 import io.prestosql.operator.PrecomputedHashGenerator;
-import io.prestosql.spi.Node;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.BucketFunction;
 import io.prestosql.spi.connector.ConnectorPartitioningHandle;
@@ -136,8 +136,8 @@ public final class SystemPartitioningHandle
 
     public NodePartitionMap getNodePartitionMap(Session session, NodeScheduler nodeScheduler)
     {
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(null);
-        List<Node> nodes;
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(Optional.empty());
+        List<InternalNode> nodes;
         if (partitioning == SystemPartitioning.COORDINATOR_ONLY) {
             nodes = ImmutableList.of(nodeSelector.selectCurrentNode());
         }
@@ -184,14 +184,12 @@ public final class SystemPartitioningHandle
                 if (isHashPrecomputed) {
                     return new HashBucketFunction(new PrecomputedHashGenerator(0), bucketCount);
                 }
-                else {
-                    int[] hashChannels = new int[partitionChannelTypes.size()];
-                    for (int i = 0; i < partitionChannelTypes.size(); i++) {
-                        hashChannels[i] = i;
-                    }
-
-                    return new HashBucketFunction(new InterpretedHashGenerator(partitionChannelTypes, hashChannels), bucketCount);
+                int[] hashChannels = new int[partitionChannelTypes.size()];
+                for (int i = 0; i < partitionChannelTypes.size(); i++) {
+                    hashChannels[i] = i;
                 }
+
+                return new HashBucketFunction(new InterpretedHashGenerator(partitionChannelTypes, hashChannels), bucketCount);
             }
         },
         ROUND_ROBIN {

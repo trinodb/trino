@@ -38,8 +38,8 @@ public class BackupStats
 
     public void addCopyShardDataRate(DataSize size, Duration duration)
     {
-        DataSize rate = dataRate(size, duration).convertToMostSuccinctDataSize();
-        copyToBackupBytesPerSecond.add(Math.round(rate.toBytes()));
+        DataSize rate = dataRate(size, duration).succinct();
+        copyToBackupBytesPerSecond.add(rate.toBytes());
         copyToBackupShardSizeBytes.add(size.toBytes());
         copyToBackupTimeInMilliSeconds.add(duration.toMillis());
     }

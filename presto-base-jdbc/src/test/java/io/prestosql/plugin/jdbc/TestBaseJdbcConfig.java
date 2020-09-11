@@ -14,20 +14,31 @@
 package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testng.Assert.assertEquals;
 
 public class TestBaseJdbcConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(BaseJdbcConfig.class)
+        assertRecordedDefaults(recordDefaults(BaseJdbcConfig.class)
                 .setConnectionUrl(null)
-                .setConnectionUser(null)
-                .setConnectionPassword(null));
+                .setCaseInsensitiveNameMatching(false)
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
+                .setJdbcTypesMappedToVarchar("")
+                .setMetadataCacheTtl(Duration.valueOf("0m"))
+                .setCacheMissing(false));
     }
 
     @Test
@@ -35,15 +46,23 @@ public class TestBaseJdbcConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("connection-url", "jdbc:h2:mem:config")
-                .put("connection-user", "user")
-                .put("connection-password", "password")
+                .put("case-insensitive-name-matching", "true")
+                .put("case-insensitive-name-matching.cache-ttl", "1s")
+                .put("jdbc-types-mapped-to-varchar", "mytype,struct_type1")
+                .put("metadata.cache-ttl", "1s")
+                .put("metadata.cache-missing", "true")
                 .build();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
                 .setConnectionUrl("jdbc:h2:mem:config")
-                .setConnectionUser("user")
-                .setConnectionPassword("password");
+                .setCaseInsensitiveNameMatching(true)
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
+                .setJdbcTypesMappedToVarchar("mytype, struct_type1")
+                .setMetadataCacheTtl(Duration.valueOf("1s"))
+                .setCacheMissing(true);
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
+
+        assertEquals(expected.getJdbcTypesMappedToVarchar(), ImmutableSet.of("mytype", "struct_type1"));
     }
 }

@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator.annotations;
 
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,8 +30,11 @@ public final class LiteralImplementationDependency
     }
 
     @Override
-    public Long resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public void declareDependencies(FunctionDependencyDeclarationBuilder builder) {}
+
+    @Override
+    public Object resolve(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        return boundVariables.getLongVariable(literalName);
+        return functionBinding.getLongVariable(literalName);
     }
 }

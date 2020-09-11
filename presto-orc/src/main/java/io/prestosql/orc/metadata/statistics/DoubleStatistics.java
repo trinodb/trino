@@ -39,7 +39,7 @@ public class DoubleStatistics
     {
         checkArgument(minimum == null || !minimum.isNaN(), "minimum is NaN");
         checkArgument(maximum == null || !maximum.isNaN(), "maximum is NaN");
-        checkArgument(minimum == null || maximum == null || minimum <= maximum, "minimum is not less than maximum");
+        checkArgument(minimum == null || maximum == null || minimum <= maximum, "minimum is not less than or equal to maximum: %s, %s", minimum, maximum);
 
         this.hasMinimum = minimum != null;
         this.minimum = hasMinimum ? minimum : 0;

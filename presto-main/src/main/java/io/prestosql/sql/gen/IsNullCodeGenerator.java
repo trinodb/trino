@@ -13,29 +13,33 @@
  */
 package io.prestosql.sql.gen;
 
-import com.google.common.base.Preconditions;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
-import io.prestosql.metadata.Signature;
-import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.SpecialForm;
 
-import java.util.List;
-
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.instruction.Constant.loadBoolean;
 import static io.prestosql.type.UnknownType.UNKNOWN;
+import static java.util.Objects.requireNonNull;
 
 public class IsNullCodeGenerator
         implements BytecodeGenerator
 {
-    @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
-    {
-        Preconditions.checkArgument(arguments.size() == 1);
+    private final RowExpression argument;
 
-        RowExpression argument = arguments.get(0);
+    public IsNullCodeGenerator(SpecialForm specialForm)
+    {
+        requireNonNull(specialForm, "specialForm is null");
+        checkArgument(specialForm.getArguments().size() == 1);
+        argument = specialForm.getArguments().get(0);
+    }
+
+    @Override
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext)
+    {
         if (argument.getType().equals(UNKNOWN)) {
             return loadBoolean(true);
         }

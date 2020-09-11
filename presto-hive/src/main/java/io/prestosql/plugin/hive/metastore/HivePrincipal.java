@@ -13,61 +13,89 @@
  */
 package io.prestosql.plugin.hive.metastore;
 
-import org.apache.hadoop.hive.metastore.api.PrincipalType;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.security.ConnectorIdentity;
+import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.PrincipalType;
+import io.prestosql.spi.security.SelectedRole;
 
-import javax.annotation.concurrent.Immutable;
-
-import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
-import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
-@Immutable
 public class HivePrincipal
 {
-    private static final String PUBLIC_ROLE_NAME = "public";
-
-    private final String principalName;
-    private final PrincipalType principalType;
-
-    public HivePrincipal(String principalName, PrincipalType principalType)
+    public static HivePrincipal from(ConnectorIdentity identity)
     {
-        this.principalType = principalType;
+        if (identity.getRole().isEmpty()) {
+            return ofUser(identity.getUser());
+        }
+        SelectedRole.Type type = identity.getRole().get().getType();
+        if (type == SelectedRole.Type.ALL) {
+            return ofUser(identity.getUser());
+        }
+        checkArgument(type == SelectedRole.Type.ROLE, "Expected role type to be ALL or ROLE, but got: %s", type);
+        return ofRole(identity.getRole().get().getRole().get());
+    }
 
-        if (principalType == ROLE) {
-            this.principalName = principalName.toLowerCase(Locale.US); // Hive metastore API requires role names to be in lowercase.
+    private static HivePrincipal ofUser(String user)
+    {
+        return new HivePrincipal(PrincipalType.USER, user);
+    }
+
+    private static HivePrincipal ofRole(String role)
+    {
+        return new HivePrincipal(PrincipalType.ROLE, role);
+    }
+
+    public static Set<HivePrincipal> from(Set<PrestoPrincipal> prestoPrincipals)
+    {
+        return prestoPrincipals.stream()
+                .map(HivePrincipal::from)
+                .collect(toImmutableSet());
+    }
+
+    public static HivePrincipal from(PrestoPrincipal prestoPrincipal)
+    {
+        return new HivePrincipal(prestoPrincipal.getType(), prestoPrincipal.getName());
+    }
+
+    private final PrincipalType type;
+    private final String name;
+
+    @JsonCreator
+    public HivePrincipal(@JsonProperty("type") PrincipalType type, @JsonProperty("name") String name)
+    {
+        this.type = requireNonNull(type, "type is null");
+        requireNonNull(name, "name is null");
+        if (type == PrincipalType.USER) {
+            // In Hive user names are case sensitive
+            this.name = name;
+        }
+        else if (type == PrincipalType.ROLE) {
+            // In Hive role names are case insensitive
+            this.name = name.toLowerCase(ENGLISH);
         }
         else {
-            this.principalName = principalName;
+            throw new IllegalArgumentException("Unsupported type: " + type);
         }
     }
 
-    public static HivePrincipal toHivePrincipal(String grantee)
+    @JsonProperty
+    public PrincipalType getType()
     {
-        if (grantee.equalsIgnoreCase(PUBLIC_ROLE_NAME)) {
-            return new HivePrincipal(PUBLIC_ROLE_NAME, ROLE);
-        }
-        else {
-            return new HivePrincipal(grantee, USER);
-        }
+        return type;
     }
 
-    public String getPrincipalName()
+    @JsonProperty
+    public String getName()
     {
-        return principalName;
-    }
-
-    public PrincipalType getPrincipalType()
-    {
-        return principalType;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(principalName, principalType);
+        return name;
     }
 
     @Override
@@ -79,17 +107,25 @@ public class HivePrincipal
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        HivePrincipal hivePrincipal = (HivePrincipal) o;
-        return Objects.equals(principalName, hivePrincipal.principalName) &&
-                Objects.equals(principalType, hivePrincipal.principalType);
+        HivePrincipal prestoPrincipal = (HivePrincipal) o;
+        return type == prestoPrincipal.type &&
+                Objects.equals(name, prestoPrincipal.name);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(type, name);
     }
 
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("principalName", principalName)
-                .add("principalType", principalType)
-                .toString();
+        return type + " " + name;
+    }
+
+    public PrestoPrincipal toPrestoPrincipal()
+    {
+        return new PrestoPrincipal(type, name);
     }
 }

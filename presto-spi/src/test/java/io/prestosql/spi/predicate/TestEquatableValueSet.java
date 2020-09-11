@@ -44,7 +44,7 @@ public class TestEquatableValueSet
         assertTrue(equatables.isNone());
         assertFalse(equatables.isAll());
         assertFalse(equatables.isSingleValue());
-        assertTrue(equatables.isWhiteList());
+        assertTrue(equatables.inclusive());
         assertEquals(equatables.getValues().size(), 0);
         assertEquals(equatables.complement(), EquatableValueSet.all(ID));
         assertFalse(equatables.containsValue(0L));
@@ -59,7 +59,7 @@ public class TestEquatableValueSet
         assertFalse(equatables.isNone());
         assertTrue(equatables.isAll());
         assertFalse(equatables.isSingleValue());
-        assertFalse(equatables.isWhiteList());
+        assertFalse(equatables.inclusive());
         assertEquals(equatables.getValues().size(), 0);
         assertEquals(equatables.complement(), EquatableValueSet.none(ID));
         assertTrue(equatables.containsValue(0L));
@@ -73,24 +73,24 @@ public class TestEquatableValueSet
 
         EquatableValueSet complement = (EquatableValueSet) EquatableValueSet.all(ID).subtract(equatables);
 
-        // Whitelist
+        // inclusive
         assertEquals(equatables.getType(), ID);
         assertFalse(equatables.isNone());
         assertFalse(equatables.isAll());
         assertTrue(equatables.isSingleValue());
-        assertTrue(equatables.isWhiteList());
+        assertTrue(equatables.inclusive());
         assertTrue(Iterables.elementsEqual(equatables.getValues(), ImmutableList.of(10L)));
         assertEquals(equatables.complement(), complement);
         assertFalse(equatables.containsValue(0L));
         assertFalse(equatables.containsValue(1L));
         assertTrue(equatables.containsValue(10L));
 
-        // Blacklist
+        // exclusive
         assertEquals(complement.getType(), ID);
         assertFalse(complement.isNone());
         assertFalse(complement.isAll());
         assertFalse(complement.isSingleValue());
-        assertFalse(complement.isWhiteList());
+        assertFalse(complement.inclusive());
         assertTrue(Iterables.elementsEqual(complement.getValues(), ImmutableList.of(10L)));
         assertEquals(complement.complement(), equatables);
         assertTrue(complement.containsValue(0L));
@@ -105,12 +105,12 @@ public class TestEquatableValueSet
 
         EquatableValueSet complement = (EquatableValueSet) EquatableValueSet.all(ID).subtract(equatables);
 
-        // Whitelist
+        // inclusive
         assertEquals(equatables.getType(), ID);
         assertFalse(equatables.isNone());
         assertFalse(equatables.isAll());
         assertFalse(equatables.isSingleValue());
-        assertTrue(equatables.isWhiteList());
+        assertTrue(equatables.inclusive());
         assertTrue(Iterables.elementsEqual(equatables.getValues(), ImmutableList.of(1L, 2L, 3L)));
         assertEquals(equatables.complement(), complement);
         assertFalse(equatables.containsValue(0L));
@@ -119,12 +119,12 @@ public class TestEquatableValueSet
         assertTrue(equatables.containsValue(3L));
         assertFalse(equatables.containsValue(4L));
 
-        // Blacklist
+        // exclusive
         assertEquals(complement.getType(), ID);
         assertFalse(complement.isNone());
         assertFalse(complement.isAll());
         assertFalse(complement.isSingleValue());
-        assertFalse(complement.isWhiteList());
+        assertFalse(complement.inclusive());
         assertTrue(Iterables.elementsEqual(complement.getValues(), ImmutableList.of(1L, 2L, 3L)));
         assertEquals(complement.complement(), equatables);
         assertTrue(complement.containsValue(0L));
@@ -328,7 +328,7 @@ public class TestEquatableValueSet
             throws Exception
     {
         TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde(typeManager);
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 
         ObjectMapper mapper = new ObjectMapperProvider().get()
                 .registerModule(new SimpleModule()

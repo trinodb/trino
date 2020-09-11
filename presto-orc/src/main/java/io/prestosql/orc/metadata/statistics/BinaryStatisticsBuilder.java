@@ -67,6 +67,7 @@ public class BinaryStatisticsBuilder
                 null,
                 null,
                 null,
+                null,
                 binaryStatistics.orElse(null),
                 null);
     }
@@ -78,7 +79,7 @@ public class BinaryStatisticsBuilder
             BinaryStatistics partialStatistics = columnStatistics.getBinaryStatistics();
             if (columnStatistics.getNumberOfValues() > 0) {
                 if (partialStatistics == null) {
-                    // there are non null values but no statistics, so we can not say anything about the data
+                    // there are non null values but no statistics, so we cannot say anything about the data
                     return Optional.empty();
                 }
                 binaryStatisticsBuilder.addBinaryStatistics(columnStatistics.getNumberOfValues(), partialStatistics);

@@ -15,12 +15,12 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import io.airlift.tpch.Customer;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.plugin.tpch.ColumnNaming;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.tpch.Customer;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -38,6 +38,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
+import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.URL;
@@ -48,7 +49,10 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Benchmark)
@@ -63,11 +67,8 @@ public class BenchmarkPlanner
     @State(Scope.Benchmark)
     public static class BenchmarkData
     {
-        @Param({"true", "false"})
-        private String iterativeOptimizerEnabled = "true";
-
         @Param({"optimized", "created"})
-        private String stage = LogicalPlanner.Stage.OPTIMIZED.toString();
+        private String stage = OPTIMIZED.toString();
 
         private LocalQueryRunner queryRunner;
         private List<String> queries;
@@ -81,16 +82,15 @@ public class BenchmarkPlanner
             session = testSessionBuilder()
                     .setCatalog(tpch)
                     .setSchema("sf1")
-                    .setSystemProperty("iterative_optimizer_enabled", iterativeOptimizerEnabled)
                     .build();
 
-            queryRunner = new LocalQueryRunner(session);
+            queryRunner = LocalQueryRunner.create(session);
             queryRunner.createCatalog(tpch, new TpchConnectorFactory(4), ImmutableMap.of(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name()));
 
             queries = IntStream.rangeClosed(1, 22)
                     .boxed()
                     .filter(i -> i != 15) // q15 has two queries in it
-                    .map(i -> readResource(String.format("/io/airlift/tpch/queries/q%d.sql", i)))
+                    .map(i -> readResource(format("/io/prestosql/tpch/queries/q%d.sql", i)))
                     .collect(toImmutableList());
         }
 
@@ -124,8 +124,17 @@ public class BenchmarkPlanner
         });
     }
 
+    @Test
+    public void verify()
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        BenchmarkPlanner benchmark = new BenchmarkPlanner();
+        assertEquals(benchmark.planQueries(data).size(), 21);
+    }
+
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();

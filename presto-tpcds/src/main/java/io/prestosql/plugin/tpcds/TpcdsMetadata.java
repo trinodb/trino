@@ -16,9 +16,6 @@ package io.prestosql.plugin.tpcds;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.teradata.tpcds.Table;
-import com.teradata.tpcds.column.Column;
-import com.teradata.tpcds.column.ColumnType;
 import io.prestosql.plugin.tpcds.statistics.TpcdsTableStatisticsFactory;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -39,6 +36,9 @@ import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.tpcds.Table;
+import io.prestosql.tpcds.column.Column;
+import io.prestosql.tpcds.column.ColumnType;
 
 import java.util.List;
 import java.util.Map;
@@ -74,6 +74,12 @@ public class TpcdsMetadata
     }
 
     @Override
+    public boolean schemaExists(ConnectorSession session, String schemaName)
+    {
+        return schemaNameToScaleFactor(schemaName) > 0;
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return SCHEMA_NAMES;
@@ -100,7 +106,7 @@ public class TpcdsMetadata
     public List<ConnectorTableLayoutResult> getTableLayouts(
             ConnectorSession session,
             ConnectorTableHandle table,
-            Constraint<ColumnHandle> constraint,
+            Constraint constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         TpcdsTableHandle tableHandle = (TpcdsTableHandle) table;
@@ -148,7 +154,7 @@ public class TpcdsMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         TpcdsTableHandle tpcdsTableHandle = (TpcdsTableHandle) tableHandle;
 
@@ -179,7 +185,7 @@ public class TpcdsMetadata
                 return column;
             }
         }
-        throw new IllegalArgumentException(format("Table %s does not have column %s", tableMetadata.getTable(), columnName));
+        throw new IllegalArgumentException(format("Table '%s' does not have column '%s'", tableMetadata.getTable(), columnName));
     }
 
     @Override
@@ -211,7 +217,7 @@ public class TpcdsMetadata
 
     private List<String> getSchemaNames(ConnectorSession session, Optional<String> schemaName)
     {
-        if (!schemaName.isPresent()) {
+        if (schemaName.isEmpty()) {
             return listSchemaNames(session);
         }
         if (schemaNameToScaleFactor(schemaName.get()) > 0) {

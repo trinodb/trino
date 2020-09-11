@@ -13,26 +13,21 @@
  */
 package io.prestosql.plugin.geospatial;
 
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
-import io.prestosql.plugin.hive.HdfsConfiguration;
-import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveClientConfig;
-import io.prestosql.plugin.hive.HiveHdfsConfiguration;
-import io.prestosql.plugin.hive.HivePlugin;
-import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
+import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.testing.TestingHivePlugin;
 import io.prestosql.spi.security.PrincipalType;
-import io.prestosql.tests.AbstractTestQueryFramework;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.Optional;
 
 import static io.prestosql.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
+import static io.prestosql.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
@@ -60,34 +55,36 @@ public class TestSpatialJoins
             "(7.1, 7.2, 'z', 3), " +
             "(null, 1.2, 'null', 4)";
 
-    public TestSpatialJoins()
-    {
-        super(() -> createQueryRunner());
-    }
+    private static final String MULTI_POINTS_SQL = "VALUES " +
+            "(-0.1, -0.1, 5.1, 5.1, 'x', 1), " +
+            "(7.1, 7.1, 2.1, 2.1, 'y', 2), " +
+            "(7.1, 7.2, 8, 9, 'z', 3), " +
+            "(null, 1.2, 4, null, 'null', 4)";
 
-    private static DistributedQueryRunner createQueryRunner()
+    @Override
+    protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(testSessionBuilder()
+        Session session = testSessionBuilder()
                 .setSource(TestSpatialJoins.class.getSimpleName())
                 .setCatalog("hive")
                 .setSchema("default")
-                .build(), 4);
+                .build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
         queryRunner.installPlugin(new GeoPlugin());
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
 
-        HiveClientConfig hiveClientConfig = new HiveClientConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig), ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
+        HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
 
-        FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
-        metastore.createDatabase(Database.builder()
-                .setDatabaseName("default")
-                .setOwnerName("public")
-                .setOwnerType(PrincipalType.ROLE)
-                .build());
-        queryRunner.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
+        metastore.createDatabase(
+                new HiveIdentity(SESSION),
+                Database.builder()
+                        .setDatabaseName("default")
+                        .setOwnerName("public")
+                        .setOwnerType(PrincipalType.ROLE)
+                        .build());
+        queryRunner.installPlugin(new TestingHivePlugin(metastore));
 
         queryRunner.createCatalog("hive", "hive");
         return queryRunner;
@@ -118,33 +115,33 @@ public class TestSpatialJoins
         assertQuery(session, "SELECT b.name, a.name " +
                         "FROM (" + POINTS_SQL + ") AS a (latitude, longitude, name, id), (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
                         "WHERE ST_Contains(ST_GeometryFromText(wkt), ST_Point(longitude, latitude))",
-                "SELECT * FROM (VALUES ('a', 'x'), ('b', 'y'), ('c', 'y'), ('d', 'z'))");
+                "VALUES ('a', 'x'), ('b', 'y'), ('c', 'y'), ('d', 'z')");
 
         assertQuery(session, "SELECT b.name, a.name " +
                         "FROM (" + POINTS_SQL + ") AS a (latitude, longitude, name, id) JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
                         "ON ST_Contains(ST_GeometryFromText(wkt), ST_Point(longitude, latitude))",
-                "SELECT * FROM (VALUES ('a', 'x'), ('b', 'y'), ('c', 'y'), ('d', 'z'))");
+                "VALUES ('a', 'x'), ('b', 'y'), ('c', 'y'), ('d', 'z')");
 
         assertQuery(session, "SELECT b.name, a.name " +
                         "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id), (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
                         "WHERE ST_Contains(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt))",
-                "SELECT * FROM (VALUES ('a', 'a'), ('b', 'b'), ('c', 'c'), ('d', 'd'), ('c', 'b'))");
+                "VALUES ('a', 'a'), ('b', 'b'), ('c', 'c'), ('d', 'd'), ('c', 'b')");
 
         assertQuery(session, "SELECT b.name, a.name " +
                         "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id) JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
                         "ON ST_Contains(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt))",
-                "SELECT * FROM (VALUES ('a', 'a'), ('b', 'b'), ('c', 'c'), ('d', 'd'), ('c', 'b'))");
+                "VALUES ('a', 'a'), ('b', 'b'), ('c', 'c'), ('d', 'd'), ('c', 'b')");
 
         // Test ST_Contains(probe, build)
         assertQuery(session, "SELECT b.name, a.name " +
                         "FROM (" + POLYGONS_SQL + ") AS b (wkt, name, id), (" + POINTS_SQL + ") AS a (latitude, longitude, name, id) " +
                         "WHERE ST_Contains(ST_GeometryFromText(wkt), ST_Point(longitude, latitude))",
-                "SELECT * FROM (VALUES ('a', 'x'), ('b', 'y'), ('c', 'y'), ('d', 'z'))");
+                "VALUES ('a', 'x'), ('b', 'y'), ('c', 'y'), ('d', 'z')");
 
         assertQuery(session, "SELECT b.name, a.name " +
                         "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id), (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
                         "WHERE ST_Contains(ST_GeometryFromText(a.wkt), ST_GeometryFromText(b.wkt))",
-                "SELECT * FROM (VALUES ('a', 'a'), ('b', 'b'), ('c', 'c'), ('d', 'd'), ('b', 'c'))");
+                "VALUES ('a', 'a'), ('b', 'b'), ('c', 'c'), ('d', 'd'), ('b', 'c')");
     }
 
     @Test
@@ -153,12 +150,12 @@ public class TestSpatialJoins
         assertQuery("SELECT b.name, a.name " +
                         "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id), (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
                         "WHERE ST_Contains(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt)) AND a.name != b.name",
-                "SELECT * FROM (VALUES ('c', 'b'))");
+                "VALUES ('c', 'b')");
 
         assertQuery("SELECT b.name, a.name " +
                         "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id) JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
                         "ON ST_Contains(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt)) AND a.name != b.name",
-                "SELECT * FROM (VALUES ('c', 'b'))");
+                "VALUES ('c', 'b')");
     }
 
     @Test
@@ -172,14 +169,21 @@ public class TestSpatialJoins
         assertQuery("SELECT b.name, a.name " +
                         "FROM (" + pointsX + " UNION ALL " + pointsY + ") AS a (latitude, longitude, name, id), (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
                         "WHERE ST_Contains(ST_GeometryFromText(wkt), ST_Point(longitude, latitude)) AND stateful_sleeping_sum(0.001, 100, a.id, b.id) <= 3",
-                "SELECT * FROM (VALUES ('a', 'x1'), ('a', 'x2'), ('b', 'y1'))");
+                "VALUES ('a', 'x1'), ('a', 'x2'), ('b', 'y1')");
     }
 
     private static String generatePointsSql(double minX, double minY, double maxX, double maxY, int pointCount, String prefix)
     {
-        return format("SELECT %s + n * %f, %s + n * %f, '%s' || CAST (n AS VARCHAR), n " +
-                "FROM (SELECT sequence(1, %s) as numbers) " +
-                "CROSS JOIN UNNEST (numbers) AS t(n)", minX, (maxX - minX) / pointCount, minY, (maxY - minY) / pointCount, prefix, pointCount);
+        return format(
+                "SELECT %s + n * %f, %s + n * %f, '%s' || CAST (n AS VARCHAR), n " +
+                        "FROM (SELECT sequence(1, %s) as numbers) " +
+                        "CROSS JOIN UNNEST (numbers) AS t(n)",
+                minX,
+                (maxX - minX) / pointCount,
+                minY,
+                (maxY - minY) / pointCount,
+                prefix,
+                pointCount);
     }
 
     @Test
@@ -247,19 +251,19 @@ public class TestSpatialJoins
                         "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id), (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
                         "WHERE ST_Intersects(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt)) " +
                         "   AND a.name != b.name",
-                "SELECT * FROM VALUES ('a', 'c'), ('c', 'a'), ('c', 'b'), ('b', 'c')");
+                "VALUES ('a', 'c'), ('c', 'a'), ('c', 'b'), ('b', 'c')");
 
         assertQuery("SELECT a.name, b.name " +
                         "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id) JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
                         "ON ST_Intersects(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt)) " +
                         "   AND a.name != b.name",
-                "SELECT * FROM VALUES ('a', 'c'), ('c', 'a'), ('c', 'b'), ('b', 'c')");
+                "VALUES ('a', 'c'), ('c', 'a'), ('c', 'b'), ('b', 'c')");
 
         assertQuery("SELECT a.name, b.name " +
                         "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id), (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
                         "WHERE ST_Intersects(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt)) " +
                         "   AND a.name < b.name",
-                "SELECT * FROM VALUES ('a', 'c'), ('b', 'c')");
+                "VALUES ('a', 'c'), ('b', 'c')");
     }
 
     @Test
@@ -271,8 +275,8 @@ public class TestSpatialJoins
     @Test
     public void testDistributedDistanceQuery()
     {
-        assertUpdate(format("CREATE TABLE distance_partitioning AS SELECT spatial_partitioning(ST_Point(x, y)) as v " +
-                "FROM (VALUES (0, 0, '0_0'), (1, 0, '1_0'), (3, 0, '3_0'), (10, 0, '10_0')) as a (x, y, name)"), 1);
+        assertUpdate("CREATE TABLE distance_partitioning AS SELECT spatial_partitioning(ST_Point(x, y)) as v " +
+                "FROM (VALUES (0, 0, '0_0'), (1, 0, '1_0'), (3, 0, '3_0'), (10, 0, '10_0')) as a (x, y, name)", 1);
 
         Session session = Session.builder(getSession())
                 .setSystemProperty(SPATIAL_PARTITIONING_TABLE_NAME, "distance_partitioning")
@@ -287,20 +291,20 @@ public class TestSpatialJoins
                         "FROM (VALUES (0, 0, '0_0'), (1, 0, '1_0'), (3, 0, '3_0'), (10, 0, '10_0')) as a (x, y, name), " +
                         "(VALUES (0, 1, '0_1'), (1, 1, '1_1'), (3, 1, '3_1'), (10, 1, '10_1')) as b (x, y, name) " +
                         "WHERE ST_Distance(ST_Point(a.x, a.y), ST_Point(b.x, b.y)) <= 1.5",
-                "SELECT * FROM VALUES ('0_0', '0_1'), ('0_0', '1_1'), ('1_0', '0_1'), ('1_0', '1_1'), ('3_0', '3_1'), ('10_0', '10_1')");
+                "VALUES ('0_0', '0_1'), ('0_0', '1_1'), ('1_0', '0_1'), ('1_0', '1_1'), ('3_0', '3_1'), ('10_0', '10_1')");
 
         // ST_Distance(build, probe)
         assertQuery(session, "SELECT a.name, b.name " +
                         "FROM (VALUES (0, 0, '0_0'), (1, 0, '1_0'), (3, 0, '3_0'), (10, 0, '10_0')) as a (x, y, name), " +
                         "(VALUES (0, 1, '0_1'), (1, 1, '1_1'), (3, 1, '3_1'), (10, 1, '10_1')) as b (x, y, name) " +
                         "WHERE ST_Distance(ST_Point(b.x, b.y), ST_Point(a.x, a.y)) <= 1.5",
-                "SELECT * FROM VALUES ('0_0', '0_1'), ('0_0', '1_1'), ('1_0', '0_1'), ('1_0', '1_1'), ('3_0', '3_1'), ('10_0', '10_1')");
+                "VALUES ('0_0', '0_1'), ('0_0', '1_1'), ('1_0', '0_1'), ('1_0', '1_1'), ('3_0', '3_1'), ('10_0', '10_1')");
 
         // radius expression
-        assertQuery(session, "SELECT a.name, b.name " + "FROM (VALUES (0, 0, '0_0'), (1, 0, '1_0'), (3, 0, '3_0'), (10, 0, '10_0')) as a (x, y, name), " +
+        assertQuery(session, "SELECT a.name, b.name FROM (VALUES (0, 0, '0_0'), (1, 0, '1_0'), (3, 0, '3_0'), (10, 0, '10_0')) as a (x, y, name), " +
                         "(VALUES (0, 1, '0_1'), (1, 1, '1_1'), (3, 1, '3_1'), (10, 1, '10_1')) as b (x, y, name) " +
                         "WHERE ST_Distance(ST_Point(a.x, a.y), ST_Point(b.x, b.y)) <= sqrt(b.x * b.x + b.y * b.y)",
-                "SELECT * FROM VALUES ('0_0', '0_1'), ('0_0', '1_1'), ('0_0', '3_1'), ('0_0', '10_1'), ('1_0', '1_1'), ('1_0', '3_1'), ('1_0', '10_1'), ('3_0', '3_1'), ('3_0', '10_1'), ('10_0', '10_1')");
+                "VALUES ('0_0', '0_1'), ('0_0', '1_1'), ('0_0', '3_1'), ('0_0', '10_1'), ('1_0', '1_1'), ('1_0', '3_1'), ('1_0', '10_1'), ('3_0', '3_1'), ('3_0', '10_1'), ('10_0', '10_1')");
     }
 
     @Test
@@ -317,12 +321,84 @@ public class TestSpatialJoins
         assertQuery("SELECT a.name, b.name " +
                         "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id) LEFT JOIN (VALUES (null, 'null', 1)) AS b (wkt, name, id) " +
                         "ON ST_Intersects(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt))",
-                "SELECT * FROM VALUES ('a', null), ('b', null), ('c', null), ('d', null), ('empty', null), ('null', null)");
+                "VALUES ('a', null), ('b', null), ('c', null), ('d', null), ('empty', null), ('null', null)");
 
         // Extra condition
         assertQuery("SELECT a.name, b.name " +
                         "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id) LEFT JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
                         "ON a.name > b.name AND ST_Intersects(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt))",
-                "SELECT * FROM VALUES ('a', null), ('b', null), ('c', 'a'), ('c', 'b'), ('d', null), ('empty', null), ('null', null)");
+                "VALUES ('a', null), ('b', null), ('c', 'a'), ('c', 'b'), ('d', null), ('empty', null), ('null', null)");
+    }
+
+    @Test
+    public void testBroadcastSpatialRightJoin()
+    {
+        // Test ST_Intersects(build, probe)
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id) RIGHT JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
+                        "ON ST_Intersects(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt))",
+                "VALUES ('a', 'a'), ('b', 'b'), ('c', 'c'), ('d', 'd'), ('a', 'c'), ('c', 'a'), ('c', 'b'), ('b', 'c'), (null, 'empty'), (null, 'null')");
+
+        // Empty build side
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id) RIGHT JOIN (VALUES (null, 'null', 1)) AS b (wkt, name, id) " +
+                        "ON ST_Intersects(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt))",
+                "VALUES (null, 'null')");
+
+        // Extra condition
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id) RIGHT JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
+                        "ON a.name > b.name AND ST_Intersects(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt))",
+                "VALUES (null, 'c'), (null, 'd'), ('c', 'a'), ('c', 'b'), (null, 'empty'), (null, 'null')");
+    }
+
+    @Test
+    public void testSpatialJoinOverRightJoin()
+    {
+        assertQuery("SELECT a.name, b.name, c.name " +
+                        "FROM (" + POINTS_SQL + ") AS a (latitude, longitude, name, id) " +
+                        "RIGHT JOIN (" + POINTS_SQL + ") AS b (latitude, longitude, name, id) ON a.latitude = b.latitude AND a.longitude = b.longitude AND a.latitude > 0 " +
+                        "JOIN (" + POINTS_SQL + ") AS c (latitude, longitude, name, id) ON ST_Distance(ST_Point(a.latitude, b.longitude), ST_Point(c.latitude, c.longitude)) < 1 ",
+                "VALUES ('y', 'y', 'y'), ('z', 'z', 'z')");
+    }
+
+    @Test
+    public void testSpatialJoinOverLeftJoinWithOrPredicate()
+    {
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + MULTI_POINTS_SQL + ") AS a (latitude1, longitude1, latitude2, longitude2, name, id) " +
+                        "LEFT JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
+                        "ON ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude1, a.longitude1)) OR ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude2, a.longitude2))",
+                "VALUES ('x', 'a'), ('y', 'b') , ('y', 'c'), ('z', NULL), ('null', NULL)");
+    }
+
+    @Test
+    public void testSpatialJoinOverRightJoinWithOrPredicate()
+    {
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + MULTI_POINTS_SQL + ") AS a (latitude1, longitude1, latitude2, longitude2, name, id) " +
+                        "RIGHT JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
+                        "ON ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude1, a.longitude1)) OR ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude2, a.longitude2))",
+                "VALUES ('x', 'a'), ('y', 'b') , ('y', 'c'), (NULL, 'd'), (NULL, 'empty'), (NULL, 'null')");
+    }
+
+    @Test
+    public void testSpatialJoinOverInnerJoinWithOrPredicate()
+    {
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + MULTI_POINTS_SQL + ") AS a (latitude1, longitude1, latitude2, longitude2, name, id) " +
+                        "INNER JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
+                        "ON ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude1, a.longitude1)) OR ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude2, a.longitude2))",
+                "VALUES ('x', 'a'), ('y', 'b') , ('y', 'c')");
+    }
+
+    @Test
+    public void testSpatialJoinOverFullJoinWithOrPredicate()
+    {
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + MULTI_POINTS_SQL + ") AS a (latitude1, longitude1, latitude2, longitude2, name, id) " +
+                        "FULL JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
+                        "ON ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude1, a.longitude1)) OR ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude2, a.longitude2))",
+                "VALUES ('x', 'a'), ('y', 'b'), ('y', 'c'), (NULL, 'd'), (NULL, 'empty'), ('z', NULL), (NULL, 'null'), ('null', NULL)");
     }
 }

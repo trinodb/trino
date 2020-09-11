@@ -14,6 +14,7 @@
 package io.prestosql.sql.planner;
 
 import com.google.common.primitives.Ints;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.Field;
@@ -47,8 +48,13 @@ public class SymbolAllocator
 
     public Symbol newSymbol(Symbol symbolHint)
     {
+        return newSymbol(symbolHint, null);
+    }
+
+    public Symbol newSymbol(Symbol symbolHint, String suffix)
+    {
         checkArgument(symbols.containsKey(symbolHint), "symbolHint not in symbols map");
-        return newSymbol(symbolHint.getName(), symbols.get(symbolHint));
+        return newSymbol(symbolHint.getName(), symbols.get(symbolHint), suffix);
     }
 
     public Symbol newSymbol(String nameHint, Type type)
@@ -108,7 +114,8 @@ public class SymbolAllocator
             nameHint = ((Identifier) expression).getValue();
         }
         else if (expression instanceof FunctionCall) {
-            nameHint = ((FunctionCall) expression).getName().getSuffix();
+            FunctionCall functionCall = (FunctionCall) expression;
+            nameHint = ResolvedFunction.extractFunctionName(functionCall.getName());
         }
         else if (expression instanceof SymbolReference) {
             nameHint = ((SymbolReference) expression).getName();

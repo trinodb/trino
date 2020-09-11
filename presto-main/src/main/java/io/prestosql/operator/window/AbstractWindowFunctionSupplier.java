@@ -14,7 +14,9 @@
 package io.prestosql.operator.window;
 
 import io.prestosql.metadata.Signature;
+import io.prestosql.operator.aggregation.LambdaProvider;
 import io.prestosql.spi.function.WindowFunction;
+import io.prestosql.type.FunctionType;
 
 import java.util.List;
 
@@ -26,11 +28,13 @@ public abstract class AbstractWindowFunctionSupplier
 {
     private final Signature signature;
     private final String description;
+    private final List<Class<?>> lambdaInterfaces;
 
-    protected AbstractWindowFunctionSupplier(Signature signature, String description)
+    protected AbstractWindowFunctionSupplier(Signature signature, String description, List<Class<?>> lambdaInterfaces)
     {
         this.signature = requireNonNull(signature, "signature is null");
         this.description = description;
+        this.lambdaInterfaces = lambdaInterfaces;
     }
 
     @Override
@@ -46,21 +50,32 @@ public abstract class AbstractWindowFunctionSupplier
     }
 
     @Override
-    public final WindowFunction createWindowFunction(List<Integer> argumentChannels)
+    public List<Class<?>> getLambdaInterfaces()
+    {
+        return lambdaInterfaces;
+    }
+
+    @Override
+    public final WindowFunction createWindowFunction(List<Integer> argumentChannels, boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
     {
         requireNonNull(argumentChannels, "inputs is null");
-        checkArgument(argumentChannels.size() == signature.getArgumentTypes().size(),
+
+        long argumentCount = signature.getArgumentTypes().stream()
+                .filter(type -> !type.getBase().equalsIgnoreCase(FunctionType.NAME))
+                .count();
+
+        checkArgument(argumentChannels.size() == argumentCount,
                 "Expected %s arguments for function %s, but got %s",
-                signature.getArgumentTypes().size(),
+                argumentCount,
                 signature.getName(),
                 argumentChannels.size());
 
-        return newWindowFunction(argumentChannels);
+        return newWindowFunction(argumentChannels, ignoreNulls, lambdaProviders);
     }
 
     /**
      * Create window function instance using the supplied arguments.  The
      * inputs have already validated.
      */
-    protected abstract WindowFunction newWindowFunction(List<Integer> inputs);
+    protected abstract WindowFunction newWindowFunction(List<Integer> inputs, boolean ignoreNulls, List<LambdaProvider> lambdaProviders);
 }

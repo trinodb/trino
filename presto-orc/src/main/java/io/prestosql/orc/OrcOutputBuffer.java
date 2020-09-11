@@ -17,12 +17,12 @@ import com.google.common.annotations.VisibleForTesting;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.snappy.SnappyCompressor;
+import io.airlift.compress.zstd.ZstdCompressor;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.prestosql.orc.checkpoint.InputStreamCheckpoint;
 import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.orc.zstd.ZstdJniCompressor;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -43,7 +43,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 public class OrcOutputBuffer
         extends SliceOutput
@@ -99,7 +98,7 @@ public class OrcOutputBuffer
             this.compressor = new Lz4Compressor();
         }
         else if (compression == CompressionKind.ZSTD) {
-            this.compressor = new ZstdJniCompressor();
+            this.compressor = new ZstdCompressor();
         }
         else {
             throw new IllegalArgumentException("Unsupported compression " + compression);
@@ -242,7 +241,7 @@ public class OrcOutputBuffer
         // Write huge chunks direct to OutputStream
         if (length >= DIRECT_FLUSH_SIZE) {
             flushBufferToOutputStream();
-            writeDirectlyToOutputStream((byte[]) source.getBase(), sourceIndex + (int) (source.getAddress() - ARRAY_BYTE_BASE_OFFSET), length);
+            writeDirectlyToOutputStream(source.byteArray(), sourceIndex + source.byteArrayOffset(), length);
             bufferOffset += length;
         }
         else {

@@ -16,32 +16,40 @@ package io.prestosql.tests.utils;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
 import io.airlift.units.Duration;
-import io.prestodb.tempto.query.QueryResult;
+import io.prestosql.tempto.query.QueryResult;
 
 import java.util.function.Supplier;
 
-import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.fail;
 
-public class QueryAssertions
+public final class QueryAssertions
 {
     public static void assertContainsEventually(Supplier<QueryResult> all, QueryResult expectedSubset, Duration timeout)
+    {
+        assertEventually(timeout, () -> assertContains(all.get(), expectedSubset));
+    }
+
+    public static void assertEventually(Duration timeout, Runnable assertion)
     {
         long start = System.nanoTime();
         while (!Thread.currentThread().isInterrupted()) {
             try {
-                assertContains(all.get(), expectedSubset);
+                assertion.run();
                 return;
             }
-            catch (AssertionError e) {
-                if (nanosSince(start).compareTo(timeout) > 0) {
+            catch (Exception | AssertionError e) {
+                if (Duration.nanosSince(start).compareTo(timeout) > 0) {
                     throw e;
                 }
             }
-            sleepUninterruptibly(50, MILLISECONDS);
+            try {
+                Thread.sleep(50);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
         }
     }
 

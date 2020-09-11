@@ -19,8 +19,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -32,11 +30,10 @@ import static org.testng.Assert.assertTrue;
 public class TestMemoryContexts
 {
     private static final ListenableFuture<?> NOT_BLOCKED = Futures.immediateFuture(null);
-    private static final long GUARANTEED_MEMORY = new DataSize(1, MEGABYTE).toBytes();
+    private static final long GUARANTEED_MEMORY = DataSize.of(1, MEGABYTE).toBytes();
 
     @Test
     public void testLocalMemoryContextClose()
-            throws IOException
     {
         TestMemoryReservationHandler reservationHandler = new TestMemoryReservationHandler(1_000);
         AggregatedMemoryContext aggregateContext = newRootAggregatedMemoryContext(reservationHandler, GUARANTEED_MEMORY);

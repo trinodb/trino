@@ -15,31 +15,22 @@ package io.prestosql.block;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-final class ColumnarTestUtils
+public final class ColumnarTestUtils
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new BlockEncodingManager(TYPE_MANAGER);
-
-    static {
-        // associate TYPE_MANAGER with a function registry
-        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
+    private static final Metadata METADATA = createTestMetadataManager();
 
     private ColumnarTestUtils() {}
 
@@ -109,6 +100,7 @@ final class ColumnarTestUtils
 
     public static <T> T[] alternatingNullValues(T[] objects)
     {
+        @SuppressWarnings("unchecked")
         T[] objectsWithNulls = (T[]) Array.newInstance(objects.getClass().getComponentType(), objects.length * 2 + 1);
         for (int i = 0; i < objects.length; i++) {
             objectsWithNulls[i * 2] = null;
@@ -121,8 +113,8 @@ final class ColumnarTestUtils
     private static Block copyBlock(Block block)
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BLOCK_ENCODING_SERDE.writeBlock(sliceOutput, block);
-        return BLOCK_ENCODING_SERDE.readBlock(sliceOutput.slice().getInput());
+        METADATA.getBlockEncodingSerde().writeBlock(sliceOutput, block);
+        return METADATA.getBlockEncodingSerde().readBlock(sliceOutput.slice().getInput());
     }
 
     public static DictionaryBlock createTestDictionaryBlock(Block block)

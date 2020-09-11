@@ -17,9 +17,10 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.DictionaryBlock;
-import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -37,17 +38,14 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
-import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.block.BlockAssertions.createSlicesBlock;
-import static io.prestosql.spi.block.MethodHandleUtil.compose;
-import static io.prestosql.spi.block.MethodHandleUtil.nativeValueGetter;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.TestingEnvironment.TYPE_MANAGER;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -82,20 +80,7 @@ public class BenchmarkDictionaryBlockGetSizeInBytes
 
         private static Block createMapBlock(int positionCount)
         {
-            Type keyType = VARCHAR;
-            Type valueType = VARCHAR;
-            MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType));
-            MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
-            MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
-            MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType));
-            MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
-            MapType mapType = new MapType(
-                    keyType,
-                    valueType,
-                    keyBlockNativeEquals,
-                    keyBlockEquals,
-                    keyNativeHashCode,
-                    keyBlockHashCode);
+            MapType mapType = (MapType) createTestMetadataManager().getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature()), TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature())));
             Block keyBlock = createDictionaryBlock(generateList("key", positionCount));
             Block valueBlock = createDictionaryBlock(generateList("value", positionCount));
             int[] offsets = new int[positionCount + 1];
@@ -147,7 +132,7 @@ public class BenchmarkDictionaryBlockGetSizeInBytes
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();

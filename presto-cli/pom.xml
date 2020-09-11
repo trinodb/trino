@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>303-SNAPSHOT</version>
+        <version>341</version>
     </parent>
 
     <artifactId>presto-cli</artifactId>
@@ -13,7 +13,9 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <project.build.targetJdk>8</project.build.targetJdk>
         <main-class>io.prestosql.cli.Presto</main-class>
+        <dep.jline.version>3.12.1</dep.jline.version>
     </properties>
 
     <dependencies>
@@ -29,12 +31,12 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>airline</artifactId>
+            <artifactId>concurrent</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>concurrent</artifactId>
+            <artifactId>json</artifactId>
         </dependency>
 
         <dependency>
@@ -53,14 +55,14 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <optional>true</optional>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -69,13 +71,13 @@
         </dependency>
 
         <dependency>
-            <groupId>jline</groupId>
-            <artifactId>jline</artifactId>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>json</artifactId>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli</artifactId>
         </dependency>
 
         <dependency>
@@ -84,20 +86,39 @@
         </dependency>
 
         <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
+            <groupId>org.antlr</groupId>
+            <artifactId>antlr4-runtime</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline-reader</artifactId>
+            <version>${dep.jline.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline-terminal</artifactId>
+            <version>${dep.jline.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline-terminal-jna</artifactId>
+            <version>${dep.jline.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- for testing -->
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>mockwebserver</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>mockwebserver</artifactId>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

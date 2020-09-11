@@ -16,9 +16,8 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
@@ -31,6 +30,8 @@ import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.relational.LambdaDefinitionExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.VariableReferenceExpression;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.type.FunctionType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -55,19 +56,18 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.call;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.util.StructuralTestUtil.mapType;
-import static java.lang.String.format;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
@@ -107,7 +107,7 @@ public class BenchmarkTransformValue
         @Setup
         public void setup()
         {
-            MetadataManager metadata = MetadataManager.createTestMetadataManager();
+            Metadata metadata = createTestMetadataManager();
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Type elementType;
@@ -129,25 +129,16 @@ public class BenchmarkTransformValue
                     throw new UnsupportedOperationException();
             }
             MapType mapType = mapType(elementType, elementType);
-            MapType returnType = mapType(elementType, BOOLEAN);
-            Signature signature = new Signature(
-                    name,
-                    FunctionKind.SCALAR,
-                    returnType.getTypeSignature(),
-                    mapType.getTypeSignature(),
-                    parseTypeSignature(format("function(%s, %s, boolean)", type, type)));
-            Signature greaterThan = new Signature(
-                    "$operator$" + GREATER_THAN.name(),
-                    FunctionKind.SCALAR,
-                    BOOLEAN.getTypeSignature(),
-                    elementType.getTypeSignature(),
-                    elementType.getTypeSignature());
-            projectionsBuilder.add(call(signature, returnType, ImmutableList.of(
+            ResolvedFunction resolvedFunction = metadata.resolveFunction(
+                    QualifiedName.of(name),
+                    fromTypes(mapType, new FunctionType(ImmutableList.of(elementType), elementType)));
+            ResolvedFunction greaterThan = metadata.resolveOperator(GREATER_THAN, ImmutableList.of(elementType, elementType));
+            projectionsBuilder.add(call(resolvedFunction, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(
                             ImmutableList.of(elementType, elementType),
                             ImmutableList.of("x", "y"),
-                            call(greaterThan, BOOLEAN, ImmutableList.of(
+                            call(greaterThan, ImmutableList.of(
                                     new VariableReferenceExpression("y", elementType),
                                     constant(compareValue, elementType)))))));
             Block block = createChannel(POSITIONS, mapType, elementType);
@@ -199,7 +190,7 @@ public class BenchmarkTransformValue
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();

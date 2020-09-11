@@ -16,18 +16,16 @@ package io.prestosql.operator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.RowPagesBuilder;
-import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.HashAggregationOperator.HashAggregationOperatorFactory;
-import io.prestosql.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spiller.SpillerFactory;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.testing.TestingTaskContext;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -37,6 +35,7 @@ import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
@@ -57,11 +56,12 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.BenchmarkHashAndStreamingAggregationOperators.Context.ROWS_PER_PAGE;
 import static io.prestosql.operator.BenchmarkHashAndStreamingAggregationOperators.Context.TOTAL_PAGES;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -79,12 +79,10 @@ import static org.testng.Assert.assertEquals;
 @Measurement(iterations = 10, time = 2, timeUnit = SECONDS)
 public class BenchmarkHashAndStreamingAggregationOperators
 {
-    private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    private static final Metadata metadata = createTestMetadataManager();
 
-    private static final InternalAggregationFunction LONG_SUM = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
-            new Signature("sum", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
-    private static final InternalAggregationFunction COUNT = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
-            new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
+    private static final InternalAggregationFunction LONG_SUM = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(BIGINT)));
+    private static final InternalAggregationFunction COUNT = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of()));
 
     @State(Thread)
     public static class Context
@@ -133,9 +131,16 @@ public class BenchmarkHashAndStreamingAggregationOperators
             }
         }
 
+        @TearDown
+        public void cleanup()
+        {
+            executor.shutdownNow();
+            scheduledExecutor.shutdownNow();
+        }
+
         private OperatorFactory createStreamingAggregationOperatorFactory()
         {
-            return new StreamingAggregationOperatorFactory(
+            return StreamingAggregationOperator.createOperatorFactory(
                     0,
                     new PlanNodeId("test"),
                     ImmutableList.of(VARCHAR),
@@ -144,12 +149,12 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     AggregationNode.Step.SINGLE,
                     ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
                             LONG_SUM.bind(ImmutableList.of(1), Optional.empty())),
-                    new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()));
+                    new JoinCompiler(createTestMetadataManager()));
         }
 
         private OperatorFactory createHashAggregationOperatorFactory(Optional<Integer> hashChannel)
         {
-            JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
+            JoinCompiler joinCompiler = new JoinCompiler(createTestMetadataManager());
             SpillerFactory spillerFactory = (types, localSpillContext, aggregatedMemoryContext) -> null;
 
             return new HashAggregationOperatorFactory(
@@ -165,7 +170,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     hashChannel,
                     Optional.empty(),
                     100_000,
-                    Optional.of(new DataSize(16, MEGABYTE)),
+                    Optional.of(DataSize.of(16, MEGABYTE)),
                     false,
                     succinctBytes(8),
                     succinctBytes(Integer.MAX_VALUE),
@@ -183,7 +188,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
 
         public TaskContext createTaskContext()
         {
-            return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(2, GIGABYTE));
+            return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.of(2, GIGABYTE));
         }
 
         public OperatorFactory getOperatorFactory()
@@ -258,6 +263,8 @@ public class BenchmarkHashAndStreamingAggregationOperators
 
         List<Page> outputPages = benchmark(context);
         assertEquals(TOTAL_PAGES * ROWS_PER_PAGE / rowsPerGroup, outputPages.stream().mapToInt(Page::getPositionCount).sum());
+
+        context.cleanup();
     }
 
     public static void main(String[] args)

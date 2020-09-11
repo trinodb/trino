@@ -22,7 +22,6 @@ import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
 
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.planner.iterative.rule.Util.restrictChildOutputs;
@@ -44,20 +43,13 @@ public class PruneAggregationSourceColumns
     {
         Set<Symbol> requiredInputs = Streams.concat(
                 aggregationNode.getGroupingKeys().stream(),
-                aggregationNode.getHashSymbol().map(Stream::of).orElse(Stream.empty()),
+                aggregationNode.getHashSymbol().stream(),
                 aggregationNode.getAggregations().values().stream()
-                        .flatMap(PruneAggregationSourceColumns::getAggregationInputs))
+                        .flatMap(aggregation -> SymbolsExtractor.extractUnique(aggregation).stream()))
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(context.getIdAllocator(), aggregationNode, requiredInputs)
                 .map(Result::ofPlanNode)
                 .orElse(Result.empty());
-    }
-
-    private static Stream<Symbol> getAggregationInputs(AggregationNode.Aggregation aggregation)
-    {
-        return Streams.concat(
-                SymbolsExtractor.extractUnique(aggregation.getCall()).stream(),
-                aggregation.getMask().map(Stream::of).orElse(Stream.empty()));
     }
 }

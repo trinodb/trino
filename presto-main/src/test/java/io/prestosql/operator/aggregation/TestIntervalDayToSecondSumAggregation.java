@@ -16,7 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 import io.prestosql.type.SqlIntervalDayTime;
 
 import java.util.List;
@@ -27,7 +27,7 @@ public class TestIntervalDayToSecondSumAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = INTERVAL_DAY_TIME.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -37,7 +37,7 @@ public class TestIntervalDayToSecondSumAggregation
     }
 
     @Override
-    public SqlIntervalDayTime getExpectedValue(int start, int length)
+    protected SqlIntervalDayTime getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;
@@ -57,8 +57,8 @@ public class TestIntervalDayToSecondSumAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.INTERVAL_DAY_TO_SECOND);
+        return ImmutableList.of(INTERVAL_DAY_TIME);
     }
 }

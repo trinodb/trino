@@ -17,14 +17,14 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysFalse;
 
-public class MorePredicates
+public final class MorePredicates
 {
     private MorePredicates() {}
 
-    public static <T> Predicate<T> isInstanceOfAny(Class... classes)
+    public static <T> Predicate<T> isInstanceOfAny(Class<?>... classes)
     {
         Predicate<T> predicate = alwaysFalse();
-        for (Class clazz : classes) {
+        for (Class<?> clazz : classes) {
             predicate = predicate.or(clazz::isInstance);
         }
         return predicate;

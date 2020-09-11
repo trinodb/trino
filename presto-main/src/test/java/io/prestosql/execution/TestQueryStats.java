@@ -29,8 +29,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
@@ -49,7 +49,9 @@ public class TestQueryStats
                     new Duration(16, NANOSECONDS),
                     new Duration(17, NANOSECONDS),
                     succinctBytes(181L),
+                    1811,
                     succinctBytes(182L),
+                    1822,
                     succinctBytes(18L),
                     succinctBytes(19L),
                     110L,
@@ -59,6 +61,7 @@ public class TestQueryStats
                     new Duration(114, NANOSECONDS),
                     succinctBytes(116L),
                     117L,
+                    1833,
                     succinctBytes(118L),
                     new Duration(119, NANOSECONDS),
                     120L,
@@ -71,6 +74,7 @@ public class TestQueryStats
                     succinctBytes(128L),
                     succinctBytes(129L),
                     succinctBytes(130L),
+                    succinctBytes(131L),
                     Optional.empty(),
                     null),
             new OperatorStats(
@@ -84,7 +88,9 @@ public class TestQueryStats
                     new Duration(26, NANOSECONDS),
                     new Duration(27, NANOSECONDS),
                     succinctBytes(281L),
+                    2811,
                     succinctBytes(282L),
+                    2822,
                     succinctBytes(28L),
                     succinctBytes(29L),
                     210L,
@@ -94,6 +100,7 @@ public class TestQueryStats
                     new Duration(214, NANOSECONDS),
                     succinctBytes(216L),
                     217L,
+                    2833,
                     succinctBytes(218L),
                     new Duration(219, NANOSECONDS),
                     220L,
@@ -106,6 +113,7 @@ public class TestQueryStats
                     succinctBytes(228L),
                     succinctBytes(229L),
                     succinctBytes(230L),
+                    succinctBytes(231L),
                     Optional.empty(),
                     null),
             new OperatorStats(
@@ -119,7 +127,9 @@ public class TestQueryStats
                     new Duration(36, NANOSECONDS),
                     new Duration(37, NANOSECONDS),
                     succinctBytes(381L),
+                    3811,
                     succinctBytes(382L),
+                    3822,
                     succinctBytes(38L),
                     succinctBytes(39L),
                     310L,
@@ -129,6 +139,7 @@ public class TestQueryStats
                     new Duration(314, NANOSECONDS),
                     succinctBytes(316L),
                     317L,
+                    3833,
                     succinctBytes(318L),
                     new Duration(319, NANOSECONDS),
                     320L,
@@ -141,6 +152,7 @@ public class TestQueryStats
                     succinctBytes(328L),
                     succinctBytes(329L),
                     succinctBytes(330L),
+                    succinctBytes(331L),
                     Optional.empty(),
                     null));
 
@@ -152,9 +164,9 @@ public class TestQueryStats
             new Duration(6, NANOSECONDS),
             new Duration(5, NANOSECONDS),
             new Duration(31, NANOSECONDS),
+            new Duration(32, NANOSECONDS),
             new Duration(41, NANOSECONDS),
-            new Duration(7, NANOSECONDS),
-            new Duration(8, NANOSECONDS),
+            new Duration(33, NANOSECONDS),
 
             new Duration(100, NANOSECONDS),
             new Duration(200, NANOSECONDS),
@@ -170,12 +182,16 @@ public class TestQueryStats
             16,
 
             17.0,
-            new DataSize(18, BYTE),
-            new DataSize(19, BYTE),
-            new DataSize(20, BYTE),
-            new DataSize(21, BYTE),
-            new DataSize(22, BYTE),
-            new DataSize(23, BYTE),
+            DataSize.ofBytes(18),
+            DataSize.ofBytes(19),
+            DataSize.ofBytes(20),
+            DataSize.ofBytes(21),
+            DataSize.ofBytes(22),
+            DataSize.ofBytes(30),
+            DataSize.ofBytes(23),
+            DataSize.ofBytes(24),
+            DataSize.ofBytes(25),
+            DataSize.ofBytes(26),
 
             true,
             new Duration(20, NANOSECONDS),
@@ -184,22 +200,23 @@ public class TestQueryStats
             false,
             ImmutableSet.of(),
 
-            new DataSize(241, BYTE),
+            DataSize.ofBytes(241),
             251,
+            new Duration(23, NANOSECONDS),
 
-            new DataSize(242, BYTE),
+            DataSize.ofBytes(242),
             252,
 
-            new DataSize(24, BYTE),
+            DataSize.ofBytes(24),
             25,
 
-            new DataSize(26, BYTE),
+            DataSize.ofBytes(26),
             27,
 
-            new DataSize(28, BYTE),
+            DataSize.ofBytes(28),
             29,
 
-            new DataSize(30, BYTE),
+            DataSize.ofBytes(30),
 
             ImmutableList.of(new StageGcStatistics(
                     101,
@@ -209,6 +226,8 @@ public class TestQueryStats
                     105,
                     106,
                     107)),
+
+            DynamicFiltersStats.EMPTY,
 
             operatorSummaries);
 
@@ -232,11 +251,12 @@ public class TestQueryStats
 
         assertEquals(actual.getElapsedTime(), new Duration(6, NANOSECONDS));
         assertEquals(actual.getQueuedTime(), new Duration(5, NANOSECONDS));
+        assertEquals(actual.getResourceWaitingTime(), new Duration(31, NANOSECONDS));
+        assertEquals(actual.getDispatchingTime(), new Duration(32, NANOSECONDS));
         assertEquals(actual.getExecutionTime(), new Duration(41, NANOSECONDS));
-        assertEquals(actual.getAnalysisTime(), new Duration(7, NANOSECONDS));
-        assertEquals(actual.getDistributedPlanningTime(), new Duration(8, NANOSECONDS));
+        assertEquals(actual.getAnalysisTime(), new Duration(33, NANOSECONDS));
 
-        assertEquals(actual.getTotalPlanningTime(), new Duration(100, NANOSECONDS));
+        assertEquals(actual.getPlanningTime(), new Duration(100, NANOSECONDS));
         assertEquals(actual.getFinishingTime(), new Duration(200, NANOSECONDS));
 
         assertEquals(actual.getTotalTasks(), 9);
@@ -250,34 +270,37 @@ public class TestQueryStats
         assertEquals(actual.getCompletedDrivers(), 16);
 
         assertEquals(actual.getCumulativeUserMemory(), 17.0);
-        assertEquals(actual.getUserMemoryReservation(), new DataSize(18, BYTE));
-        assertEquals(actual.getTotalMemoryReservation(), new DataSize(19, BYTE));
-        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(20, BYTE));
-        assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(21, BYTE));
-        assertEquals(actual.getPeakTaskUserMemory(), new DataSize(22, BYTE));
-        assertEquals(actual.getPeakTaskTotalMemory(), new DataSize(23, BYTE));
-        assertEquals(actual.getSpilledDataSize(), new DataSize(690, BYTE));
+        assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(18));
+        assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(19));
+        assertEquals(actual.getTotalMemoryReservation(), DataSize.ofBytes(20));
+        assertEquals(actual.getPeakUserMemoryReservation(), DataSize.ofBytes(21));
+        assertEquals(actual.getPeakRevocableMemoryReservation(), DataSize.ofBytes(22));
+        assertEquals(actual.getPeakTotalMemoryReservation(), DataSize.ofBytes(23));
+        assertEquals(actual.getPeakTaskUserMemory(), DataSize.ofBytes(24));
+        assertEquals(actual.getPeakTaskRevocableMemory(), DataSize.ofBytes(25));
+        assertEquals(actual.getPeakTaskTotalMemory(), DataSize.ofBytes(26));
+        assertEquals(actual.getSpilledDataSize(), DataSize.ofBytes(693));
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(20, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(21, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(23, NANOSECONDS));
 
-        assertEquals(actual.getPhysicalInputDataSize(), new DataSize(241, BYTE));
+        assertEquals(actual.getPhysicalInputDataSize(), DataSize.ofBytes(241));
         assertEquals(actual.getPhysicalInputPositions(), 251);
 
-        assertEquals(actual.getInternalNetworkInputDataSize(), new DataSize(242, BYTE));
+        assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(242));
         assertEquals(actual.getInternalNetworkInputPositions(), 252);
 
-        assertEquals(actual.getRawInputDataSize(), new DataSize(24, BYTE));
+        assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(24));
         assertEquals(actual.getRawInputPositions(), 25);
 
-        assertEquals(actual.getProcessedInputDataSize(), new DataSize(26, BYTE));
+        assertEquals(actual.getProcessedInputDataSize(), DataSize.ofBytes(26));
         assertEquals(actual.getProcessedInputPositions(), 27);
 
-        assertEquals(actual.getOutputDataSize(), new DataSize(28, BYTE));
+        assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(28));
         assertEquals(actual.getOutputPositions(), 29);
 
-        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(30, BYTE));
+        assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(30));
 
         assertEquals(actual.getStageGcStatistics().size(), 1);
         StageGcStatistics gcStatistics = actual.getStageGcStatistics().get(0);
@@ -291,5 +314,7 @@ public class TestQueryStats
 
         assertEquals(420, actual.getWrittenPositions());
         assertEquals(58, actual.getLogicalWrittenDataSize().toBytes());
+
+        assertEquals(DynamicFiltersStats.EMPTY, actual.getDynamicFiltersStats());
     }
 }

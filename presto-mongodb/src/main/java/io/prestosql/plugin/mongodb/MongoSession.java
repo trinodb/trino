@@ -18,7 +18,11 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Primitives;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.MongoClient;
 import com.mongodb.client.FindIterable;
@@ -37,6 +41,7 @@ import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RowFieldName;
 import io.prestosql.spi.type.StandardTypes;
@@ -44,6 +49,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.spi.type.VarcharType;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 
@@ -58,15 +64,22 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -103,6 +116,7 @@ public class MongoSession
     private final MongoClient client;
 
     private final String schemaCollection;
+    private final boolean caseInsensitiveNameMatching;
     private final int cursorBatchSize;
 
     private final LoadingCache<SchemaTableName, MongoTable> tableCache;
@@ -112,9 +126,10 @@ public class MongoSession
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.client = requireNonNull(client, "client is null");
-        this.schemaCollection = config.getSchemaCollection();
+        this.schemaCollection = requireNonNull(config.getSchemaCollection(), "config.getSchemaCollection() is null");
+        this.caseInsensitiveNameMatching = config.isCaseInsensitiveNameMatching();
         this.cursorBatchSize = config.getCursorBatchSize();
-        this.implicitPrefix = config.getImplicitRowFieldPrefix();
+        this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");
 
         this.tableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(1, HOURS)  // TODO: Configure
@@ -129,15 +144,18 @@ public class MongoSession
 
     public List<String> getAllSchemas()
     {
-        return ImmutableList.copyOf(client.listDatabaseNames());
+        return ImmutableList.copyOf(client.listDatabaseNames()).stream()
+                .map(name -> name.toLowerCase(ENGLISH))
+                .collect(toImmutableList());
     }
 
     public Set<String> getAllTables(String schema)
             throws SchemaNotFoundException
     {
+        String schemaName = toRemoteSchemaName(schema);
         ImmutableSet.Builder<String> builder = ImmutableSet.builder();
 
-        builder.addAll(ImmutableList.copyOf(client.getDatabase(schema).listCollectionNames()).stream()
+        builder.addAll(ImmutableList.copyOf(client.getDatabase(schemaName).listCollectionNames()).stream()
                 .filter(name -> !name.equals(schemaCollection))
                 .filter(name -> !SYSTEM_TABLES.contains(name))
                 .collect(toSet()));
@@ -194,7 +212,7 @@ public class MongoSession
         String typeString = columnMeta.getString(FIELDS_TYPE_KEY);
         boolean hidden = columnMeta.getBoolean(FIELDS_HIDDEN_KEY, false);
 
-        Type type = typeManager.getType(TypeSignature.parseTypeSignature(typeString));
+        Type type = typeManager.fromSqlType(typeString);
 
         return new MongoColumnHandle(name, type, hidden);
     }
@@ -215,22 +233,27 @@ public class MongoSession
 
     private MongoCollection<Document> getCollection(String schema, String table)
     {
-        return client.getDatabase(schema).getCollection(table);
+        String schemaName = toRemoteSchemaName(schema);
+        String tableName = toRemoteTableName(schemaName, table);
+        return client.getDatabase(schemaName).getCollection(tableName);
     }
 
     public List<MongoIndex> getIndexes(SchemaTableName tableName)
     {
+        if (isView(tableName)) {
+            return ImmutableList.of();
+        }
         return MongoIndex.parse(getCollection(tableName).listIndexes());
     }
 
-    public MongoCursor<Document> execute(MongoSplit split, List<MongoColumnHandle> columns)
+    public MongoCursor<Document> execute(MongoTableHandle tableHandle, List<MongoColumnHandle> columns)
     {
         Document output = new Document();
         for (MongoColumnHandle column : columns) {
             output.append(column.getName(), 1);
         }
-        MongoCollection<Document> collection = getCollection(split.getSchemaTableName());
-        FindIterable<Document> iterable = collection.find(buildQuery(split.getTupleDomain())).projection(output);
+        MongoCollection<Document> collection = getCollection(tableHandle.getSchemaTableName());
+        FindIterable<Document> iterable = collection.find(buildQuery(tableHandle.getConstraint())).projection(output);
 
         if (cursorBatchSize != 0) {
             iterable.batchSize(cursorBatchSize);
@@ -246,39 +269,48 @@ public class MongoSession
         if (tupleDomain.getDomains().isPresent()) {
             for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
                 MongoColumnHandle column = (MongoColumnHandle) entry.getKey();
-                query.putAll(buildPredicate(column, entry.getValue()));
+                Optional<Document> predicate = buildPredicate(column, entry.getValue());
+                predicate.ifPresent(query::putAll);
             }
         }
 
         return query;
     }
 
-    private static Document buildPredicate(MongoColumnHandle column, Domain domain)
+    private static Optional<Document> buildPredicate(MongoColumnHandle column, Domain domain)
     {
         String name = column.getName();
         Type type = column.getType();
         if (domain.getValues().isNone() && domain.isNullAllowed()) {
-            return documentOf(name, isNullPredicate());
+            return Optional.of(documentOf(name, isNullPredicate()));
         }
         if (domain.getValues().isAll() && !domain.isNullAllowed()) {
-            return documentOf(name, isNotNullPredicate());
+            return Optional.of(documentOf(name, isNotNullPredicate()));
         }
 
         List<Object> singleValues = new ArrayList<>();
         List<Document> disjuncts = new ArrayList<>();
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             if (range.isSingleValue()) {
-                singleValues.add(translateValue(range.getSingleValue(), type));
+                Optional<Object> translated = translateValue(range.getSingleValue(), type);
+                if (translated.isEmpty()) {
+                    return Optional.empty();
+                }
+                singleValues.add(translated.get());
             }
             else {
                 Document rangeConjuncts = new Document();
                 if (!range.getLow().isLowerUnbounded()) {
+                    Optional<Object> translated = translateValue(range.getLow().getValue(), type);
+                    if (translated.isEmpty()) {
+                        return Optional.empty();
+                    }
                     switch (range.getLow().getBound()) {
                         case ABOVE:
-                            rangeConjuncts.put(GT_OP, translateValue(range.getLow().getValue(), type));
+                            rangeConjuncts.put(GT_OP, translated.get());
                             break;
                         case EXACTLY:
-                            rangeConjuncts.put(GTE_OP, translateValue(range.getLow().getValue(), type));
+                            rangeConjuncts.put(GTE_OP, translated.get());
                             break;
                         case BELOW:
                             throw new IllegalArgumentException("Low Marker should never use BELOW bound: " + range);
@@ -287,14 +319,18 @@ public class MongoSession
                     }
                 }
                 if (!range.getHigh().isUpperUnbounded()) {
+                    Optional<Object> translated = translateValue(range.getHigh().getValue(), type);
+                    if (translated.isEmpty()) {
+                        return Optional.empty();
+                    }
                     switch (range.getHigh().getBound()) {
                         case ABOVE:
                             throw new IllegalArgumentException("High Marker should never use ABOVE bound: " + range);
                         case EXACTLY:
-                            rangeConjuncts.put(LTE_OP, translateValue(range.getHigh().getValue(), type));
+                            rangeConjuncts.put(LTE_OP, translated.get());
                             break;
                         case BELOW:
-                            rangeConjuncts.put(LT_OP, translateValue(range.getHigh().getValue(), type));
+                            rangeConjuncts.put(LT_OP, translated.get());
                             break;
                         default:
                             throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
@@ -318,23 +354,42 @@ public class MongoSession
             disjuncts.add(isNullPredicate());
         }
 
-        return orPredicate(disjuncts.stream()
+        return Optional.of(orPredicate(disjuncts.stream()
                 .map(disjunct -> new Document(name, disjunct))
-                .collect(toList()));
+                .collect(toImmutableList())));
     }
 
-    private static Object translateValue(Object source, Type type)
+    private static Optional<Object> translateValue(Object prestoNativeValue, Type type)
     {
-        if (source instanceof Slice) {
-            if (type instanceof ObjectIdType) {
-                return new ObjectId(((Slice) source).getBytes());
-            }
-            else {
-                return ((Slice) source).toStringUtf8();
-            }
+        requireNonNull(prestoNativeValue, "prestoNativeValue is null");
+        requireNonNull(type, "type is null");
+        checkArgument(Primitives.wrap(type.getJavaType()).isInstance(prestoNativeValue), "%s (%s) is not a valid representation for %s", prestoNativeValue, prestoNativeValue.getClass(), type);
+
+        if (type == TINYINT) {
+            return Optional.of((long) SignedBytes.checkedCast(((Long) prestoNativeValue)));
         }
 
-        return source;
+        if (type == SMALLINT) {
+            return Optional.of((long) Shorts.checkedCast(((Long) prestoNativeValue)));
+        }
+
+        if (type == IntegerType.INTEGER) {
+            return Optional.of((long) toIntExact(((Long) prestoNativeValue)));
+        }
+
+        if (type == BIGINT) {
+            return Optional.of(prestoNativeValue);
+        }
+
+        if (type instanceof ObjectIdType) {
+            return Optional.of(new ObjectId(((Slice) prestoNativeValue).getBytes()));
+        }
+
+        if (type instanceof VarcharType) {
+            return Optional.of(((Slice) prestoNativeValue).toStringUtf8());
+        }
+
+        return Optional.empty();
     }
 
     private static Document documentOf(String key, Object value)
@@ -365,8 +420,8 @@ public class MongoSession
     private Document getTableMetadata(SchemaTableName schemaTableName)
             throws TableNotFoundException
     {
-        String schemaName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
+        String schemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
+        String tableName = toRemoteTableName(schemaName, schemaTableName.getTableName());
 
         MongoDatabase db = client.getDatabase(schemaName);
         MongoCollection<Document> schema = db.getCollection(schemaCollection);
@@ -380,7 +435,7 @@ public class MongoSession
             }
             else {
                 Document metadata = new Document(TABLE_NAME_KEY, tableName);
-                metadata.append(FIELDS_KEY, guessTableFields(schemaTableName));
+                metadata.append(FIELDS_KEY, guessTableFields(schemaName, tableName));
 
                 schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
                 schema.insertOne(metadata);
@@ -444,11 +499,12 @@ public class MongoSession
 
     private boolean deleteTableMetadata(SchemaTableName schemaTableName)
     {
-        String schemaName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
+        String schemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
+        String tableName = toRemoteTableName(schemaName, schemaTableName.getTableName());
 
         MongoDatabase db = client.getDatabase(schemaName);
-        if (!collectionExists(db, tableName)) {
+        if (!collectionExists(db, tableName) &&
+                db.getCollection(schemaCollection).find(new Document(TABLE_NAME_KEY, tableName)).first().isEmpty()) {
             return false;
         }
 
@@ -458,11 +514,8 @@ public class MongoSession
         return result.getDeletedCount() == 1;
     }
 
-    private List<Document> guessTableFields(SchemaTableName schemaTableName)
+    private List<Document> guessTableFields(String schemaName, String tableName)
     {
-        String schemaName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
-
         MongoDatabase db = client.getDatabase(schemaName);
         Document doc = db.getCollection(tableName).find().first();
         if (doc == null) {
@@ -512,7 +565,7 @@ public class MongoSession
             typeSignature = DOUBLE.getTypeSignature();
         }
         else if (value instanceof Date) {
-            typeSignature = TIMESTAMP.getTypeSignature();
+            typeSignature = TIMESTAMP_MILLIS.getTypeSignature();
         }
         else if (value instanceof ObjectId) {
             typeSignature = OBJECT_ID.getTypeSignature();
@@ -522,22 +575,22 @@ public class MongoSession
                     .map(this::guessFieldType)
                     .collect(toList());
 
-            if (subTypes.isEmpty() || subTypes.stream().anyMatch(t -> !t.isPresent())) {
+            if (subTypes.isEmpty() || subTypes.stream().anyMatch(Optional::isEmpty)) {
                 return Optional.empty();
             }
 
             Set<TypeSignature> signatures = subTypes.stream().map(Optional::get).collect(toSet());
             if (signatures.size() == 1) {
                 typeSignature = new TypeSignature(StandardTypes.ARRAY, signatures.stream()
-                        .map(TypeSignatureParameter::of)
+                        .map(TypeSignatureParameter::typeParameter)
                         .collect(Collectors.toList()));
             }
             else {
                 // TODO: presto cli doesn't handle empty field name row type yet
                 typeSignature = new TypeSignature(StandardTypes.ROW,
                         IntStream.range(0, subTypes.size())
-                                .mapToObj(idx -> TypeSignatureParameter.of(
-                                        new NamedTypeSignature(Optional.of(new RowFieldName(String.format("%s%d", implicitPrefix, idx + 1), false)), subTypes.get(idx).get())))
+                                .mapToObj(idx -> TypeSignatureParameter.namedTypeParameter(
+                                        new NamedTypeSignature(Optional.of(new RowFieldName(format("%s%d", implicitPrefix, idx + 1))), subTypes.get(idx).get())))
                                 .collect(toList()));
             }
         }
@@ -546,15 +599,59 @@ public class MongoSession
 
             for (String key : ((Document) value).keySet()) {
                 Optional<TypeSignature> fieldType = guessFieldType(((Document) value).get(key));
-                if (!fieldType.isPresent()) {
-                    return Optional.empty();
+                if (fieldType.isPresent()) {
+                    parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(key)), fieldType.get())));
                 }
-
-                parameters.add(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName(key, false)), fieldType.get())));
             }
-            typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
+            if (!parameters.isEmpty()) {
+                typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
+            }
         }
 
         return Optional.ofNullable(typeSignature);
+    }
+
+    private String toRemoteSchemaName(String schemaName)
+    {
+        verify(schemaName.equals(schemaName.toLowerCase(ENGLISH)), "schemaName not in lower-case: %s", schemaName);
+        if (!caseInsensitiveNameMatching) {
+            return schemaName;
+        }
+        for (String remoteSchemaName : client.listDatabaseNames()) {
+            if (schemaName.equals(remoteSchemaName.toLowerCase(ENGLISH))) {
+                return remoteSchemaName;
+            }
+        }
+        return schemaName;
+    }
+
+    private String toRemoteTableName(String schemaName, String tableName)
+    {
+        verify(tableName.equals(tableName.toLowerCase(ENGLISH)), "tableName not in lower-case: %s", tableName);
+        if (!caseInsensitiveNameMatching) {
+            return tableName;
+        }
+        for (String remoteTableName : client.getDatabase(schemaName).listCollectionNames()) {
+            if (tableName.equals(remoteTableName.toLowerCase(ENGLISH))) {
+                return remoteTableName;
+            }
+        }
+        return tableName;
+    }
+
+    private boolean isView(SchemaTableName tableName)
+    {
+        Document listCollectionsCommand = new Document(new ImmutableMap.Builder<String, Object>()
+                .put("listCollections", 1.0)
+                .put("filter", documentOf("name", tableName.getTableName()))
+                .put("nameOnly", true)
+                .build());
+        Document cursor = client.getDatabase(tableName.getSchemaName()).runCommand(listCollectionsCommand).get("cursor", Document.class);
+        List<Document> firstBatch = cursor.get("firstBatch", List.class);
+        if (firstBatch.isEmpty()) {
+            return false;
+        }
+        String type = firstBatch.get(0).getString("type");
+        return "view".equals(type);
     }
 }

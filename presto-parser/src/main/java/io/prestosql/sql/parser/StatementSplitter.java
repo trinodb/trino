@@ -15,8 +15,8 @@ package io.prestosql.sql.parser;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.TokenSource;
 
@@ -104,10 +104,10 @@ public class StatementSplitter
         }
     }
 
-    private static TokenSource getLexer(String sql, Set<String> terminators)
+    public static TokenSource getLexer(String sql, Set<String> terminators)
     {
         requireNonNull(sql, "sql is null");
-        CharStream stream = new CaseInsensitiveStream(new ANTLRInputStream(sql));
+        CharStream stream = new CaseInsensitiveStream(CharStreams.fromString(sql));
         return new DelimiterLexer(stream, terminators);
     }
 

@@ -18,10 +18,16 @@ import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.PutObjectResult;
 import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.amazonaws.services.s3.model.StorageClass;
+
+import java.util.Date;
 
 import static java.net.HttpURLConnection.HTTP_OK;
 
@@ -32,6 +38,8 @@ public class MockAmazonS3
     private int getObjectMetadataHttpCode = HTTP_OK;
     private GetObjectMetadataRequest getObjectMetadataRequest;
     private CannedAccessControlList acl;
+    private boolean hasGlacierObjects;
+    private boolean hasHadoopFolderMarkerObjects;
 
     public void setGetObjectHttpErrorCode(int getObjectHttpErrorCode)
     {
@@ -46,6 +54,16 @@ public class MockAmazonS3
     public CannedAccessControlList getAcl()
     {
         return this.acl;
+    }
+
+    public void setHasGlacierObjects(boolean hasGlacierObjects)
+    {
+        this.hasGlacierObjects = hasGlacierObjects;
+    }
+
+    public void setHasHadoopFolderMarkerObjects(boolean hasHadoopFolderMarkerObjects)
+    {
+        this.hasHadoopFolderMarkerObjects = hasHadoopFolderMarkerObjects;
     }
 
     public GetObjectMetadataRequest getGetObjectMetadataRequest()
@@ -81,6 +99,55 @@ public class MockAmazonS3
     {
         this.acl = putObjectRequest.getCannedAcl();
         return new PutObjectResult();
+    }
+
+    @Override
+    public ListObjectsV2Result listObjectsV2(ListObjectsV2Request listObjectsV2Request)
+    {
+        final String continuationToken = "continue";
+
+        ListObjectsV2Result listingV2 = new ListObjectsV2Result();
+
+        if (continuationToken.equals(listObjectsV2Request.getContinuationToken())) {
+            S3ObjectSummary standardTwo = new S3ObjectSummary();
+            standardTwo.setStorageClass(StorageClass.Standard.toString());
+            standardTwo.setKey("test/standardTwo");
+            standardTwo.setLastModified(new Date());
+            listingV2.getObjectSummaries().add(standardTwo);
+
+            if (hasGlacierObjects) {
+                S3ObjectSummary glacier = new S3ObjectSummary();
+                glacier.setStorageClass(StorageClass.Glacier.toString());
+                glacier.setKey("test/glacier");
+                glacier.setLastModified(new Date());
+                listingV2.getObjectSummaries().add(glacier);
+
+                S3ObjectSummary deepArchive = new S3ObjectSummary();
+                deepArchive.setStorageClass(StorageClass.DeepArchive.toString());
+                deepArchive.setKey("test/deepArchive");
+                deepArchive.setLastModified(new Date());
+                listingV2.getObjectSummaries().add(deepArchive);
+            }
+        }
+        else {
+            S3ObjectSummary standardOne = new S3ObjectSummary();
+            standardOne.setStorageClass(StorageClass.Standard.toString());
+            standardOne.setKey("test/standardOne");
+            standardOne.setLastModified(new Date());
+            listingV2.getObjectSummaries().add(standardOne);
+            listingV2.setTruncated(true);
+            listingV2.setNextContinuationToken(continuationToken);
+
+            if (hasHadoopFolderMarkerObjects) {
+                S3ObjectSummary hadoopFolderMarker = new S3ObjectSummary();
+                hadoopFolderMarker.setStorageClass(StorageClass.Standard.toString());
+                hadoopFolderMarker.setKey("test/test_$folder$");
+                hadoopFolderMarker.setLastModified(new Date());
+                listingV2.getObjectSummaries().add(hadoopFolderMarker);
+            }
+        }
+
+        return listingV2;
     }
 
     @Override

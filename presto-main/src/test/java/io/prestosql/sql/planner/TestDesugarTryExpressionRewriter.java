@@ -14,18 +14,22 @@
 package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.scalar.TryFunction;
+import io.prestosql.sql.planner.assertions.ExpressionVerifier;
+import io.prestosql.sql.planner.assertions.SymbolAliases;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.DecimalLiteral;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.TryExpression;
+import io.prestosql.type.FunctionType;
 import org.testng.annotations.Test;
 
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestDesugarTryExpressionRewriter
         extends BaseRuleTest
@@ -34,18 +38,27 @@ public class TestDesugarTryExpressionRewriter
     public void testTryExpressionDesugaringRewriter()
     {
         // 1 + try(2)
-        Expression before = new ArithmeticBinaryExpression(
+        Expression initial = new ArithmeticBinaryExpression(
                 ADD,
                 new DecimalLiteral("1"),
                 new TryExpression(new DecimalLiteral("2")));
+        Expression rewritten = DesugarTryExpressionRewriter.rewrite(
+                initial,
+                tester().getMetadata(),
+                tester().getTypeAnalyzer(),
+                tester().getSession(),
+                new SymbolAllocator());
 
         // 1 + try_function(() -> 2)
-        Expression after = new ArithmeticBinaryExpression(
+        Expression expected = new ArithmeticBinaryExpression(
                 ADD,
                 new DecimalLiteral("1"),
-                new FunctionCall(
-                        QualifiedName.of("$internal$try"),
-                        ImmutableList.of(new LambdaExpression(ImmutableList.of(), new DecimalLiteral("2")))));
-        assertEquals(DesugarTryExpressionRewriter.rewrite(before), after);
+                new FunctionCallBuilder(tester().getMetadata())
+                        .setName(QualifiedName.of(TryFunction.NAME))
+                        .addArgument(new FunctionType(ImmutableList.of(), createDecimalType(1)), new LambdaExpression(ImmutableList.of(), new DecimalLiteral("2")))
+                        .build());
+
+        ExpressionVerifier verifier = new ExpressionVerifier(new SymbolAliases());
+        assertTrue(verifier.process(rewritten, expected));
     }
 }

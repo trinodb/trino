@@ -2,9 +2,13 @@
 
 schemas = [
     # (new_schema, source_schema)
-    ('tpcds_10gb_orc', 'tpcds.sf10'),
-    ('tpcds_100gb_orc', 'tpcds.sf100'),
-    ('tpcds_1tb_orc', 'tpcds.sf1000'),
+    ('tpcds_sf10_orc', 'tpcds.sf10'),
+    ('tpcds_sf30_orc', 'tpcds.sf30'),
+    ('tpcds_sf100_orc', 'tpcds.sf100'),
+    ('tpcds_sf300_orc', 'tpcds.sf300'),
+    ('tpcds_sf1000_orc', 'tpcds.sf1000'),
+    ('tpcds_sf3000_orc', 'tpcds.sf3000'),
+    ('tpcds_sf10000_orc', 'tpcds.sf10000'),
 ]
 
 tables = [
@@ -43,7 +47,7 @@ for (new_schema, source_schema) in schemas:
     else:
         raise ValueError(new_schema)
 
-    print 'CREATE SCHEMA hive.%s;' % (new_schema,)
+    print('CREATE SCHEMA hive.{};'.format(new_schema,))
     for table in tables:
-        print 'CREATE TABLE "hive"."%s"."%s" WITH (format = \'%s\') AS SELECT * FROM %s."%s";' % \
-              (new_schema, table, format, source_schema, table)
+        print('CREATE TABLE "hive"."{}"."{}" WITH (format = \'{}\') AS SELECT * FROM {}."{}";'.format(
+              new_schema, table, format, source_schema, table))

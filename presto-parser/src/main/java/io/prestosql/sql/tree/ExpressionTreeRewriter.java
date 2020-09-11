@@ -27,7 +27,7 @@ public final class ExpressionTreeRewriter<C>
     private final ExpressionRewriter<C> rewriter;
     private final AstVisitor<Expression, ExpressionTreeRewriter.Context<C>> visitor;
 
-    public static <C, T extends Expression> T rewriteWith(ExpressionRewriter<C> rewriter, T node)
+    public static <T extends Expression> T rewriteWith(ExpressionRewriter<Void> rewriter, T node)
     {
         return new ExpressionTreeRewriter<>(rewriter).rewrite(node, null);
     }
@@ -73,14 +73,9 @@ public final class ExpressionTreeRewriter<C>
         @Override
         protected Expression visitExpression(Expression node, Context<C> context)
         {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteExpression(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            throw new UnsupportedOperationException("not yet implemented: " + getClass().getSimpleName() + " for " + node.getClass().getName());
+            // RewritingVisitor must have explicit support for each expression type, with a dedicated visit method,
+            // so visitExpression() should never be called.
+            throw new UnsupportedOperationException("visit() not implemented for " + node.getClass().getName());
         }
 
         @Override
@@ -539,7 +534,7 @@ public final class ExpressionTreeRewriter<C>
 
             if (!sameElements(node.getArguments(), arguments) || !sameElements(rewrittenWindow, node.getWindow())
                     || !sameElements(filter, node.getFilter())) {
-                return new FunctionCall(node.getName(), rewrittenWindow, filter, node.getOrderBy().map(orderBy -> rewriteOrderBy(orderBy, context)), node.isDistinct(), arguments);
+                return new FunctionCall(node.getLocation(), node.getName(), rewrittenWindow, filter, node.getOrderBy().map(orderBy -> rewriteOrderBy(orderBy, context)), node.isDistinct(), node.getNullTreatment(), arguments);
             }
             return node;
         }
@@ -804,9 +799,117 @@ public final class ExpressionTreeRewriter<C>
             }
 
             Expression expression = rewrite(node.getExpression(), context.get());
+            DataType type = rewrite(node.getType(), context.get());
 
-            if (node.getExpression() != expression) {
-                return new Cast(expression, node.getType(), node.isSafe(), node.isTypeOnly());
+            if (node.getExpression() != expression || node.getType() != type) {
+                return new Cast(expression, type, node.isSafe(), node.isTypeOnly());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitRowDataType(RowDataType node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteRowDataType(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            ImmutableList.Builder<RowDataType.Field> rewritten = ImmutableList.builder();
+            for (RowDataType.Field field : node.getFields()) {
+                DataType dataType = rewrite(field.getType(), context.get());
+
+                Optional<Identifier> name = field.getName();
+
+                if (field.getName().isPresent()) {
+                    Identifier identifier = field.getName().get();
+                    Identifier rewrittenIdentifier = rewrite(identifier, context.get());
+
+                    if (identifier != rewrittenIdentifier) {
+                        name = Optional.of(rewrittenIdentifier);
+                    }
+                }
+
+                if (dataType != field.getType() || name != field.getName()) {
+                    rewritten.add(new RowDataType.Field(field.getLocation(), name, dataType));
+                }
+                else {
+                    rewritten.add(field);
+                }
+            }
+
+            List<RowDataType.Field> fields = rewritten.build();
+
+            if (!sameElements(fields, node.getFields())) {
+                return new RowDataType(node.getLocation(), fields);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitGenericDataType(GenericDataType node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteGenericDataType(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Identifier name = rewrite(node.getName(), context.get());
+
+            ImmutableList.Builder<DataTypeParameter> arguments = ImmutableList.builder();
+            for (DataTypeParameter argument : node.getArguments()) {
+                if (argument instanceof NumericParameter) {
+                    arguments.add(argument);
+                }
+                else if (argument instanceof TypeParameter) {
+                    TypeParameter parameter = (TypeParameter) argument;
+                    DataType value = (DataType) process(parameter.getValue(), context);
+
+                    if (value != parameter.getValue()) {
+                        arguments.add(new TypeParameter(value));
+                    }
+                    else {
+                        arguments.add(argument);
+                    }
+                }
+            }
+
+            List<DataTypeParameter> rewrittenArguments = arguments.build();
+
+            if (name != node.getName() || !sameElements(rewrittenArguments, node.getArguments())) {
+                return new GenericDataType(node.getLocation(), name, rewrittenArguments);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitIntervalDataType(IntervalDayTimeDataType node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteIntervalDayTimeDataType(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitDateTimeType(DateTimeDataType node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteDateTimeDataType(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
             }
 
             return node;
@@ -896,6 +999,24 @@ public final class ExpressionTreeRewriter<C>
 
             return node;
         }
+
+        @Override
+        protected Expression visitFormat(Format node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteFormat(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            List<Expression> arguments = rewrite(node.getArguments(), context);
+            if (!sameElements(node.getArguments(), arguments)) {
+                return new Format(arguments);
+            }
+
+            return node;
+        }
     }
 
     public static class Context<C>
@@ -925,7 +1046,7 @@ public final class ExpressionTreeRewriter<C>
         if (!a.isPresent() && !b.isPresent()) {
             return true;
         }
-        else if (a.isPresent() != b.isPresent()) {
+        if (a.isPresent() != b.isPresent()) {
             return false;
         }
 

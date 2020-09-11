@@ -15,13 +15,9 @@ package io.prestosql.orc.stream;
 
 import io.airlift.slice.SliceOutput;
 import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
 
 import java.io.IOException;
 
-import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.INT;
-import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.LONG;
-import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.SHORT;
 import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.FIFTY_SIX;
 import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.FORTY;
 import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.FORTY_EIGHT;
@@ -35,9 +31,7 @@ import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.TWENTY_SIX;
 // This is based on the Apache Hive ORC code
 public final class LongDecode
 {
-    private LongDecode()
-    {
-    }
+    private LongDecode() {}
 
     enum FixedBitSizes
     {
@@ -158,33 +152,6 @@ public final class LongDecode
     public static long zigzagDecode(long value)
     {
         return (value >>> 1) ^ -(value & 1);
-    }
-
-    public static long readDwrfLong(OrcInputStream input, OrcTypeKind type, boolean signed, boolean usesVInt)
-            throws IOException
-    {
-        if (usesVInt) {
-            return readVInt(signed, input);
-        }
-        else if (type == SHORT) {
-            return input.read() | (input.read() << 8);
-        }
-        else if (type == INT) {
-            return input.read() | (input.read() << 8) | (input.read() << 16) | (input.read() << 24);
-        }
-        else if (type == LONG) {
-            return ((long) input.read()) |
-                    (((long) input.read()) << 8) |
-                    (((long) input.read()) << 16) |
-                    (((long) input.read()) << 24) |
-                    (((long) input.read()) << 32) |
-                    (((long) input.read()) << 40) |
-                    (((long) input.read()) << 48) |
-                    (((long) input.read()) << 56);
-        }
-        else {
-            throw new IllegalArgumentException(type + " type is not supported");
-        }
     }
 
     public static void writeVLong(SliceOutput buffer, long value, boolean signed)

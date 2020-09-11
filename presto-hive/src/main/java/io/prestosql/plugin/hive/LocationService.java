@@ -25,17 +25,17 @@ import static java.util.Objects.requireNonNull;
 
 public interface LocationService
 {
-    LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName);
+    LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Path> externalLocation);
 
     LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table);
 
     /**
      * targetPath and writePath will be root directory of all partition and table paths
-     * that may be returned by {@link #getTableWriteInfo(LocationHandle)} and {@link #getPartitionWriteInfo(LocationHandle, Optional, String)} method.
+     * that may be returned by {@link #getTableWriteInfo(LocationHandle, boolean)} and {@link #getPartitionWriteInfo(LocationHandle, Optional, String)} method.
      */
     WriteInfo getQueryWriteInfo(LocationHandle locationHandle);
 
-    WriteInfo getTableWriteInfo(LocationHandle locationHandle);
+    WriteInfo getTableWriteInfo(LocationHandle locationHandle, boolean overwrite);
 
     /**
      * If {@code partition} is present, returns {@code WriteInfo} for appending existing partition;

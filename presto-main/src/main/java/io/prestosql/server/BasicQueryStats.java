@@ -29,6 +29,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Lightweight version of QueryStats. Parts of the web UI depend on the fields
@@ -49,19 +50,15 @@ public class BasicQueryStats
     private final int runningDrivers;
     private final int completedDrivers;
 
-    private final DataSize physicalInputDataSize;
-    private final long physicalInputPositions;
-
-    private final DataSize internalNetworkInputDataSize;
-    private final long internalNetworkInputPositions;
-
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
+    private final DataSize physicalInputDataSize;
 
     private final double cumulativeUserMemory;
     private final DataSize userMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
+    private final DataSize peakTotalMemoryReservation;
     private final Duration totalCpuTime;
     private final Duration totalScheduledTime;
 
@@ -81,16 +78,14 @@ public class BasicQueryStats
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
-            @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
-            @JsonProperty("physicalInputPositions") long physicalInputPositions,
-            @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
-            @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
+            @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
+            @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
@@ -113,19 +108,15 @@ public class BasicQueryStats
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
-        this.physicalInputDataSize = requireNonNull(physicalInputDataSize);
-        this.physicalInputPositions = physicalInputPositions;
-
-        this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize);
-        this.internalNetworkInputPositions = internalNetworkInputPositions;
-
         this.rawInputDataSize = requireNonNull(rawInputDataSize);
         this.rawInputPositions = rawInputPositions;
+        this.physicalInputDataSize = physicalInputDataSize;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.userMemoryReservation = userMemoryReservation;
         this.totalMemoryReservation = totalMemoryReservation;
         this.peakUserMemoryReservation = peakUserMemoryReservation;
+        this.peakTotalMemoryReservation = peakTotalMemoryReservation;
         this.totalCpuTime = totalCpuTime;
         this.totalScheduledTime = totalScheduledTime;
 
@@ -146,21 +137,47 @@ public class BasicQueryStats
                 queryStats.getQueuedDrivers(),
                 queryStats.getRunningDrivers(),
                 queryStats.getCompletedDrivers(),
-                queryStats.getPhysicalInputDataSize(),
-                queryStats.getPhysicalInputPositions(),
-                queryStats.getInternalNetworkInputDataSize(),
-                queryStats.getInternalNetworkInputPositions(),
                 queryStats.getRawInputDataSize(),
                 queryStats.getRawInputPositions(),
+                queryStats.getPhysicalInputDataSize(),
                 queryStats.getCumulativeUserMemory(),
                 queryStats.getUserMemoryReservation(),
                 queryStats.getTotalMemoryReservation(),
                 queryStats.getPeakUserMemoryReservation(),
+                queryStats.getPeakTotalMemoryReservation(),
                 queryStats.getTotalCpuTime(),
                 queryStats.getTotalScheduledTime(),
                 queryStats.isFullyBlocked(),
                 queryStats.getBlockedReasons(),
                 queryStats.getProgressPercentage());
+    }
+
+    public static BasicQueryStats immediateFailureQueryStats()
+    {
+        DateTime now = DateTime.now();
+        return new BasicQueryStats(
+                now,
+                now,
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                0,
+                0,
+                0,
+                0,
+                DataSize.ofBytes(0),
+                0,
+                DataSize.ofBytes(0),
+                0,
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                false,
+                ImmutableSet.of(),
+                OptionalDouble.empty());
     }
 
     @JsonProperty
@@ -218,30 +235,6 @@ public class BasicQueryStats
     }
 
     @JsonProperty
-    public DataSize getPhysicalInputDataSize()
-    {
-        return physicalInputDataSize;
-    }
-
-    @JsonProperty
-    public long getPhysicalInputPositions()
-    {
-        return physicalInputPositions;
-    }
-
-    @JsonProperty
-    public DataSize getInternalNetworkInputDataSize()
-    {
-        return internalNetworkInputDataSize;
-    }
-
-    @JsonProperty
-    public long getInternalNetworkInputPositions()
-    {
-        return internalNetworkInputPositions;
-    }
-
-    @JsonProperty
     public DataSize getRawInputDataSize()
     {
         return rawInputDataSize;
@@ -251,6 +244,12 @@ public class BasicQueryStats
     public long getRawInputPositions()
     {
         return rawInputPositions;
+    }
+
+    @JsonProperty
+    public DataSize getPhysicalInputDataSize()
+    {
+        return physicalInputDataSize;
     }
 
     @JsonProperty
@@ -275,6 +274,12 @@ public class BasicQueryStats
     public DataSize getPeakUserMemoryReservation()
     {
         return peakUserMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getPeakTotalMemoryReservation()
+    {
+        return peakTotalMemoryReservation;
     }
 
     @JsonProperty

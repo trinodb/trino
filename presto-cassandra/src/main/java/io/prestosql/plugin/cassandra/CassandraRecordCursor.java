@@ -18,24 +18,27 @@ import com.datastax.driver.core.Row;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.plugin.cassandra.CassandraType.TIMESTAMP;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static java.lang.Float.floatToRawIntBits;
 
 public class CassandraRecordCursor
         implements RecordCursor
 {
-    private final List<FullCassandraType> fullCassandraTypes;
+    private final List<CassandraType> cassandraTypes;
     private final ResultSet rs;
     private Row currentRow;
     private long count;
 
-    public CassandraRecordCursor(CassandraSession cassandraSession, List<FullCassandraType> fullCassandraTypes, String cql)
+    public CassandraRecordCursor(CassandraSession cassandraSession, List<CassandraType> cassandraTypes, String cql)
     {
-        this.fullCassandraTypes = fullCassandraTypes;
+        this.cassandraTypes = cassandraTypes;
         rs = cassandraSession.execute(cql);
         currentRow = null;
     }
@@ -95,11 +98,17 @@ public class CassandraRecordCursor
         switch (getCassandraType(i)) {
             case INT:
                 return currentRow.getInt(i);
+            case SMALLINT:
+                return currentRow.getShort(i);
+            case TINYINT:
+                return currentRow.getByte(i);
             case BIGINT:
             case COUNTER:
                 return currentRow.getLong(i);
             case TIMESTAMP:
-                return currentRow.getTimestamp(i).getTime();
+                return packDateTimeWithZone(currentRow.getTimestamp(i).getTime(), TimeZoneKey.UTC_KEY);
+            case DATE:
+                return currentRow.getDate(i).getDaysSinceEpoch();
             case FLOAT:
                 return floatToRawIntBits(currentRow.getFloat(i));
             default:
@@ -109,13 +118,16 @@ public class CassandraRecordCursor
 
     private CassandraType getCassandraType(int i)
     {
-        return fullCassandraTypes.get(i).getCassandraType();
+        return cassandraTypes.get(i);
     }
 
     @Override
     public Slice getSlice(int i)
     {
-        NullableValue value = CassandraType.getColumnValue(currentRow, i, fullCassandraTypes.get(i));
+        if (getCassandraType(i) == TIMESTAMP) {
+            throw new IllegalArgumentException("Timestamp column can not be accessed with getSlice");
+        }
+        NullableValue value = cassandraTypes.get(i).getColumnValue(currentRow, i);
         if (value.getValue() instanceof Slice) {
             return (Slice) value.getValue();
         }
@@ -131,7 +143,7 @@ public class CassandraRecordCursor
     @Override
     public Type getType(int i)
     {
-        return getCassandraType(i).getNativeType();
+        return getCassandraType(i).getPrestoType();
     }
 
     @Override

@@ -60,7 +60,7 @@ export class WorkerStatus extends React.Component {
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         const nodeId = getFirstParameter(window.location.search);
-        $.get('/v1/worker/' + nodeId + '/status', function (serverInfo) {
+        $.get('/ui/api/worker/' + nodeId + '/status', function (serverInfo) {
             this.setState({
                 serverInfo: serverInfo,
                 initialized: true,
@@ -68,12 +68,12 @@ export class WorkerStatus extends React.Component {
                 processCpuLoad: addToHistory(serverInfo.processCpuLoad * 100.0, this.state.processCpuLoad),
                 systemCpuLoad: addToHistory(serverInfo.systemCpuLoad * 100.0, this.state.systemCpuLoad),
                 heapPercentUsed: addToHistory(serverInfo.heapUsed * 100.0 / serverInfo.heapAvailable, this.state.heapPercentUsed),
-                nonHeapUsed: addToHistory(serverInfo.nonHeapUsed * 100.0, this.state.nonHeapUsed),
+                nonHeapUsed: addToHistory(serverInfo.nonHeapUsed, this.state.nonHeapUsed),
             });
 
             this.resetTimer();
         }.bind(this))
-            .error(function () {
+            .fail(function () {
                 this.setState({
                     initialized: true,
                 });
@@ -92,7 +92,7 @@ export class WorkerStatus extends React.Component {
         $('#nonheap-used-sparkline').sparkline(this.state.nonHeapUsed, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: formatDataSize}));
 
         $('[data-toggle="tooltip"]').tooltip();
-        new Clipboard('.copy-button');
+        new window.ClipboardJS('.copy-button');
     }
 
     static renderPoolBar(name, pool) {
@@ -104,7 +104,7 @@ export class WorkerStatus extends React.Component {
         const reserved = pool.reservedBytes;
         const revocable = pool.reservedRevocableBytes;
 
-        const percentageReservedNonRevocable = (reserved - revocable) === 0 ? 0 : Math.max(Math.round((reserved - revocable) * 100.0 / size), 15);
+        const percentageReservedNonRevocable = reserved === 0 ? 0 : Math.max(Math.round(reserved * 100.0 / size), 15);
         const percentageRevocable = revocable === 0 ? 0 : Math.max(Math.round(revocable * 100.0 / size), 15);
         const percentageFree = 100 - (percentageRevocable + percentageReservedNonRevocable);
 
@@ -129,14 +129,14 @@ export class WorkerStatus extends React.Component {
                             <div className="progress">
                                 <div className="progress-bar memory-progress-bar progress-bar-warning progress-bar-striped active" role="progressbar"
                                      style={{width: percentageReservedNonRevocable + "%"}}>
-                                    {formatDataSize(reserved - revocable)}
+                                    {formatDataSize(reserved)}
                                 </div>
                                 <div className="progress-bar memory-progress-bar progress-bar-danger progress-bar-striped active" role="progressbar"
                                      style={{width: percentageRevocable + "%"}}>
                                     {formatDataSize(revocable)}
                                 </div>
                                 <div className="progress-bar memory-progress-bar progress-bar-success" role="progressbar" style={{width: percentageFree + "%"}}>
-                                    {formatDataSize(size - reserved)}
+                                    {formatDataSize(size - reserved - revocable)}
                                 </div>
                             </div>
                         </div>
@@ -274,7 +274,7 @@ export class WorkerStatus extends React.Component {
                                             Heap Memory
                                         </td>
                                         <td className="info-text wrap-text">
-                                            <span id="internal-address">{formatDataSize(serverInfo.heapAvailable)}</span>
+                                            <span id="node-heap-available">{formatDataSize(serverInfo.heapAvailable)}</span>
                                         </td>
                                     </tr>
                                     <tr>
@@ -282,7 +282,7 @@ export class WorkerStatus extends React.Component {
                                             Processors
                                         </td>
                                         <td className="info-text wrap-text">
-                                            <span id="internal-address">{serverInfo.processors}</span>
+                                            <span id="node-processors">{serverInfo.processors}</span>
                                         </td>
                                     </tr>
                                     </tbody>

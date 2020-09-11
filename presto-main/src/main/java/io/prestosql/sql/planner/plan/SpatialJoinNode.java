@@ -111,13 +111,13 @@ public class SpatialJoinNode
         if (kdbTree.isPresent()) {
             checkArgument(leftPartitionSymbol.isPresent(), "Left partition symbol is missing");
             checkArgument(rightPartitionSymbol.isPresent(), "Right partition symbol is missing");
-            checkArgument(left.getOutputSymbols().contains(leftPartitionSymbol.get()), "Left join input does not contain left partition symbol");
-            checkArgument(right.getOutputSymbols().contains(rightPartitionSymbol.get()), "Right join input does not contain right partition symbol");
+            checkArgument(left.getOutputSymbols().contains(leftPartitionSymbol.get()), "Left side of join does not contain left partition symbol");
+            checkArgument(right.getOutputSymbols().contains(rightPartitionSymbol.get()), "Right side of join does not contain right partition symbol");
             this.distributionType = DistributionType.PARTITIONED;
         }
         else {
-            checkArgument(!leftPartitionSymbol.isPresent(), "KDB tree is missing");
-            checkArgument(!rightPartitionSymbol.isPresent(), "KDB tree is missing");
+            checkArgument(leftPartitionSymbol.isEmpty(), "Left partition symbol is missing");
+            checkArgument(rightPartitionSymbol.isEmpty(), "Right partition symbol is missing");
             this.distributionType = DistributionType.REPLICATED;
         }
     }

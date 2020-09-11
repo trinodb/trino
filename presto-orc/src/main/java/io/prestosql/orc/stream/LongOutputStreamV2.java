@@ -20,6 +20,7 @@ import io.prestosql.orc.OrcOutputBuffer;
 import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
 import io.prestosql.orc.checkpoint.LongStreamV2Checkpoint;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.Stream.StreamKind;
 import org.openjdk.jol.info.ClassLayout;
@@ -501,7 +502,7 @@ public class LongOutputStreamV2
         // base value is 7 bits and if patch is 3 bits, the actual value is
         // constructed by shifting the patch to left by 7 positions.
         // actual_value = patch << 7 | base_value
-        // So, if we align base_value then actual_value can not be reconstructed.
+        // So, if we align base_value then actual_value cannot be reconstructed.
 
         // write the number of fixed bits required in next 5 bits
         final int fb = brBits95p;
@@ -627,7 +628,7 @@ public class LongOutputStreamV2
         patchLength = gapIdx;
 
         // if the element to be patched is the first and only element then
-        // max gap will be 0, but to store the gap as 0 we need atleast 1 bit
+        // max gap will be 0, but to store the gap as 0 we need at least 1 bit
         if (maxGap == 0 && patchLength != 0) {
             patchGapWidth = 1;
         }
@@ -693,7 +694,7 @@ public class LongOutputStreamV2
         isFixedDelta = true;
     }
 
-    public void flush()
+    private void flush()
     {
         if (numLiterals == 0) {
             return;
@@ -715,7 +716,7 @@ public class LongOutputStreamV2
             return;
         }
 
-        if (fixedRunLength >= MIN_REPEAT && fixedRunLength <= MAX_SHORT_REPEAT_LENGTH) {
+        if (fixedRunLength <= MAX_SHORT_REPEAT_LENGTH) {
             writeValues(EncodingType.SHORT_REPEAT);
             return;
         }
@@ -747,9 +748,9 @@ public class LongOutputStreamV2
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column)
+    public StreamDataOutput getStreamDataOutput(OrcColumnId columnId)
     {
-        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), true));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(columnId, streamKind, toIntExact(buffer.getOutputDataSize()), true));
     }
 
     @Override

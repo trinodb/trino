@@ -14,8 +14,10 @@
 package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.tree.AstVisitor;
+import io.prestosql.sql.tree.BetweenPredicate;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Node;
@@ -28,6 +30,8 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static java.util.Collections.singletonList;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -57,13 +61,13 @@ public final class SortExpressionExtractor
      */
     private SortExpressionExtractor() {}
 
-    public static Optional<SortExpressionContext> extractSortExpression(Set<Symbol> buildSymbols, Expression filter)
+    public static Optional<SortExpressionContext> extractSortExpression(Metadata metadata, Set<Symbol> buildSymbols, Expression filter)
     {
         List<Expression> filterConjuncts = ExpressionUtils.extractConjuncts(filter);
         SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols);
 
         List<SortExpressionContext> sortExpressionCandidates = filterConjuncts.stream()
-                .filter(DeterminismEvaluator::isDeterministic)
+                .filter(expression -> DeterminismEvaluator.isDeterministic(expression, metadata))
                 .map(visitor::process)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -114,7 +118,7 @@ public final class SortExpressionExtractor
                 case LESS_THAN_OR_EQUAL:
                     Optional<SymbolReference> sortChannel = asBuildSymbolReference(buildSymbols, comparison.getRight());
                     boolean hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.getLeft());
-                    if (!sortChannel.isPresent()) {
+                    if (sortChannel.isEmpty()) {
                         sortChannel = asBuildSymbolReference(buildSymbols, comparison.getLeft());
                         hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.getRight());
                     }
@@ -125,6 +129,16 @@ public final class SortExpressionExtractor
                 default:
                     return Optional.empty();
             }
+        }
+
+        @Override
+        protected Optional<SortExpressionContext> visitBetweenPredicate(BetweenPredicate node, Void context)
+        {
+            Optional<SortExpressionContext> result = visitComparisonExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin()), context);
+            if (result.isPresent()) {
+                return result;
+            }
+            return visitComparisonExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax()), context);
         }
     }
 

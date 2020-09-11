@@ -21,9 +21,11 @@ import io.prestosql.spi.block.ByteArrayBlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 
+import java.util.Optional;
+
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Long.rotateLeft;
+import static java.lang.String.format;
 
 public final class TinyintType
         extends AbstractType
@@ -33,7 +35,7 @@ public final class TinyintType
 
     private TinyintType()
     {
-        super(parseTypeSignature(StandardTypes.TINYINT), long.class);
+        super(new TypeSignature(StandardTypes.TINYINT), long.class);
     }
 
     @Override
@@ -116,6 +118,12 @@ public final class TinyintType
     }
 
     @Override
+    public Optional<Range> getRange()
+    {
+        return Optional.of(new Range((long) Byte.MIN_VALUE, (long) Byte.MAX_VALUE));
+    }
+
+    @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {
@@ -136,10 +144,10 @@ public final class TinyintType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         if (value > Byte.MAX_VALUE) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, String.format("Value %d exceeds MAX_BYTE", value));
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_BYTE", value));
         }
-        else if (value < Byte.MIN_VALUE) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, String.format("Value %d is less than MIN_BYTE", value));
+        if (value < Byte.MIN_VALUE) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_BYTE", value));
         }
 
         blockBuilder.writeByte((int) value).closeEntry();

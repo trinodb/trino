@@ -32,6 +32,7 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.execution.StageState.FLUSHING;
 import static io.prestosql.execution.StageState.RUNNING;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -55,8 +56,10 @@ public class StageStats
 
     private final double cumulativeUserMemory;
     private final DataSize userMemoryReservation;
+    private final DataSize revocableMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
+    private final DataSize peakRevocableMemoryReservation;
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
@@ -66,6 +69,7 @@ public class StageStats
 
     private final DataSize physicalInputDataSize;
     private final long physicalInputPositions;
+    private final Duration physicalInputReadTime;
 
     private final DataSize internalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
@@ -104,8 +108,10 @@ public class StageStats
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+            @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
+            @JsonProperty("peakRevocableMemoryReservation") DataSize peakRevocableMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
@@ -115,6 +121,7 @@ public class StageStats
 
             @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
             @JsonProperty("physicalInputPositions") long physicalInputPositions,
+            @JsonProperty("physicalInputReadTime") Duration physicalInputReadTime,
 
             @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
@@ -158,8 +165,10 @@ public class StageStats
         checkArgument(cumulativeUserMemory >= 0, "cumulativeUserMemory is negative");
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
+        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
+        this.peakRevocableMemoryReservation = requireNonNull(peakRevocableMemoryReservation, "peakRevocableMemoryReservation is null");
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -170,6 +179,7 @@ public class StageStats
         this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
         checkArgument(physicalInputPositions >= 0, "physicalInputPositions is negative");
         this.physicalInputPositions = physicalInputPositions;
+        this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
 
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
         checkArgument(internalNetworkInputPositions >= 0, "internalNetworkInputPositions is negative");
@@ -268,6 +278,12 @@ public class StageStats
     }
 
     @JsonProperty
+    public DataSize getRevocableMemoryReservation()
+    {
+        return revocableMemoryReservation;
+    }
+
+    @JsonProperty
     public DataSize getTotalMemoryReservation()
     {
         return totalMemoryReservation;
@@ -277,6 +293,12 @@ public class StageStats
     public DataSize getPeakUserMemoryReservation()
     {
         return peakUserMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getPeakRevocableMemoryReservation()
+    {
+        return peakRevocableMemoryReservation;
     }
 
     @JsonProperty
@@ -319,6 +341,12 @@ public class StageStats
     public long getPhysicalInputPositions()
     {
         return physicalInputPositions;
+    }
+
+    @JsonProperty
+    public Duration getPhysicalInputReadTime()
+    {
+        return physicalInputReadTime;
     }
 
     @JsonProperty
@@ -395,7 +423,7 @@ public class StageStats
 
     public BasicStageStats toBasicStageStats(StageState stageState)
     {
-        boolean isScheduled = (stageState == RUNNING) || stageState.isDone();
+        boolean isScheduled = stageState == RUNNING || stageState == FLUSHING || stageState.isDone();
 
         OptionalDouble progressPercentage = OptionalDouble.empty();
         if (isScheduled && totalDrivers != 0) {
@@ -410,6 +438,7 @@ public class StageStats
                 completedDrivers,
                 physicalInputDataSize,
                 physicalInputPositions,
+                physicalInputReadTime,
                 internalNetworkInputDataSize,
                 internalNetworkInputPositions,
                 rawInputDataSize,

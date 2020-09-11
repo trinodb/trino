@@ -25,7 +25,7 @@ public class TestJdbcTableHandle
     @Test
     public void testJsonRoundTrip()
     {
-        assertJsonRoundTrip(TABLE_CODEC, new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable"));
+        assertJsonRoundTrip(TABLE_CODEC, new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable"));
     }
 
     @Test
@@ -33,20 +33,15 @@ public class TestJdbcTableHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable"),
-                        new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable"),
-                        new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable"),
-                        new JdbcTableHandle("connectorId", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX"))
+                        new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable"),
+                        new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable"),
+                        new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable"),
+                        new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX"))
                 .addEquivalentGroup(
-                        new JdbcTableHandle("connectorIdX", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable"),
-                        new JdbcTableHandle("connectorIdX", new SchemaTableName("schema", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable"),
-                        new JdbcTableHandle("connectorIdX", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable"),
-                        new JdbcTableHandle("connectorIdX", new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX"))
-                .addEquivalentGroup(
-                        new JdbcTableHandle("connectorId", new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable"),
-                        new JdbcTableHandle("connectorId", new SchemaTableName("schemaX", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable"),
-                        new JdbcTableHandle("connectorId", new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable"),
-                        new JdbcTableHandle("connectorId", new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX"))
+                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable"),
+                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable"),
+                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable"),
+                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX"))
                 .check();
     }
 }

@@ -20,7 +20,7 @@ import io.prestosql.sql.tree.Statement;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.util.Optional;
+import java.io.UncheckedIOException;
 
 import static com.google.common.base.Strings.repeat;
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
@@ -61,6 +61,19 @@ public class TestStatementBuilder
         printStatement("select x[1][2] from my_table");
         printStatement("select x[cast(10 * sin(x) as bigint)] from my_table");
 
+        printStatement("select * from (select * from (select * from t) x) y");
+        printStatement("select * from (select * from (table t) x) y");
+
+        printStatement("select * from t x tablesample system (10)");
+        printStatement("select * from (t x tablesample system (10)) y");
+        printStatement("select * from (t tablesample system (10)) tablesample system (10)");
+        printStatement("select * from (t x tablesample system (10)) y tablesample system (10)");
+
+        printStatement("select * from (((select q)))");
+        printStatement("select * from (select q) x");
+        printStatement("select * from ((select q) x) y");
+        printStatement("select * from (((select q) x) y) z");
+
         printStatement("select * from unnest(t.my_array)");
         printStatement("select * from unnest(array[1, 2, 3])");
         printStatement("select x from unnest(array[1, 2, 3]) t(x)");
@@ -92,6 +105,7 @@ public class TestStatementBuilder
                 ", rank() over (partition by depname order by salary desc)\n" +
                 ", sum(salary) over (order by salary rows unbounded preceding)\n" +
                 ", sum(salary) over (partition by depname order by salary rows between current row and 3 following)\n" +
+                ", sum(salary) over (partition by depname order by salary rows between current row and empno following)\n" +
                 ", sum(salary) over (partition by depname range unbounded preceding)\n" +
                 ", sum(salary) over (rows between 2 preceding and unbounded following)\n" +
                 "from emp");
@@ -192,6 +206,12 @@ public class TestStatementBuilder
         printStatement("alter table a.b.c drop column x");
 
         printStatement("create schema test");
+        printStatement("create schema test authorization alice");
+        printStatement("create schema test authorization alice with ( location = 'xyz' )");
+        printStatement("create schema test authorization user alice");
+        printStatement("create schema test authorization user alice with ( location = 'xyz' )");
+        printStatement("create schema test authorization role public");
+        printStatement("create schema test authorization role public with ( location = 'xyz' )");
         printStatement("create schema if not exists test");
         printStatement("create schema test with (a = 'apple', b = 123)");
 
@@ -203,12 +223,18 @@ public class TestStatementBuilder
         printStatement("alter schema foo rename to bar");
         printStatement("alter schema foo.bar rename to baz");
 
+        printStatement("alter schema foo set authorization alice");
+        printStatement("alter schema foo.bar set authorization USER alice");
+        printStatement("alter schema foo.bar set authorization ROLE public");
+
         printStatement("create table test (a boolean, b bigint, c double, d varchar, e timestamp)");
         printStatement("create table test (a boolean, b bigint comment 'test')");
         printStatement("create table if not exists baz (a timestamp, b varchar)");
         printStatement("create table test (a boolean, b bigint) with (a = 'apple', b = 'banana')");
         printStatement("create table test (a boolean, b bigint) comment 'test' with (a = 'apple')");
         printStatement("create table test (a boolean with (a = 'apple', b = 'banana'), b bigint comment 'bla' with (c = 'cherry')) comment 'test' with (a = 'apple')");
+        printStatement("comment on table test is 'test'");
+        printStatement("comment on column test.a is 'test'");
         printStatement("drop table test");
 
         printStatement("create view foo as with a as (select 123) select * from a");
@@ -273,7 +299,6 @@ public class TestStatementBuilder
 
     @Test
     public void testStatementBuilderTpch()
-            throws Exception
     {
         printTpchQuery(1, 3);
         printTpchQuery(2, 33, "part type like", "region name");
@@ -316,7 +341,7 @@ public class TestStatementBuilder
         println(statement.toString());
         println("");
 
-        println(SqlFormatter.formatSql(statement, Optional.empty()));
+        println(SqlFormatter.formatSql(statement));
         println("");
         assertFormattedSql(SQL_PARSER, statement);
 
@@ -327,7 +352,7 @@ public class TestStatementBuilder
     private static void assertSqlFormatter(String expression, String formatted)
     {
         Expression originalExpression = SQL_PARSER.createExpression(expression, new ParsingOptions());
-        String real = SqlFormatter.formatSql(originalExpression, Optional.empty());
+        String real = SqlFormatter.formatSql(originalExpression);
         assertEquals(real, formatted);
     }
 
@@ -339,13 +364,11 @@ public class TestStatementBuilder
     }
 
     private static String getTpchQuery(int q)
-            throws IOException
     {
         return readResource("tpch/queries/" + q + ".sql");
     }
 
     private static void printTpchQuery(int query, Object... values)
-            throws IOException
     {
         String sql = getTpchQuery(query);
 
@@ -360,9 +383,13 @@ public class TestStatementBuilder
     }
 
     private static String readResource(String name)
-            throws IOException
     {
-        return Resources.toString(Resources.getResource(name), UTF_8);
+        try {
+            return Resources.toString(Resources.getResource(name), UTF_8);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private static String fixTpchQuery(String s)

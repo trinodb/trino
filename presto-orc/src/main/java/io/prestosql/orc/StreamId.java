@@ -13,41 +13,36 @@
  */
 package io.prestosql.orc;
 
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.Stream.StreamKind;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public final class StreamId
 {
-    private final int column;
-    private final int sequence;
+    private final OrcColumnId columnId;
     private final StreamKind streamKind;
 
     public StreamId(Stream stream)
     {
-        this.column = stream.getColumn();
-        this.sequence = stream.getSequence();
+        requireNonNull(stream, "stream is null");
+        this.columnId = stream.getColumnId();
         this.streamKind = stream.getStreamKind();
     }
 
-    public StreamId(int column, int sequence, StreamKind streamKind)
+    public StreamId(OrcColumnId columnId, StreamKind streamKind)
     {
-        this.column = column;
-        this.sequence = sequence;
+        this.columnId = columnId;
         this.streamKind = streamKind;
     }
 
-    public int getColumn()
+    public OrcColumnId getColumnId()
     {
-        return column;
-    }
-
-    public int getSequence()
-    {
-        return sequence;
+        return columnId;
     }
 
     public StreamKind getStreamKind()
@@ -58,29 +53,28 @@ public final class StreamId
     @Override
     public int hashCode()
     {
-        return Objects.hash(column, sequence, streamKind);
+        return Objects.hash(columnId, streamKind);
     }
 
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(Object o)
     {
-        if (this == obj) {
+        if (this == o) {
             return true;
         }
-        if (obj == null || getClass() != obj.getClass()) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
-        StreamId other = (StreamId) obj;
-        return column == other.column && sequence == other.sequence && streamKind == other.streamKind;
+        StreamId streamId = (StreamId) o;
+        return Objects.equals(columnId, streamId.columnId) &&
+                streamKind == streamId.streamKind;
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("column", column)
-                .add("sequence", sequence)
+                .add("columnId", columnId)
                 .add("streamKind", streamKind)
                 .toString();
     }

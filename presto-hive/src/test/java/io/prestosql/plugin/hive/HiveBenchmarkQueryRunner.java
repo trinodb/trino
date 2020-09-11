@@ -17,8 +17,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.prestosql.Session;
 import io.prestosql.benchmark.BenchmarkSuite;
+import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.testing.TestingHiveConnectorFactory;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.testing.LocalQueryRunner;
@@ -26,19 +28,17 @@ import io.prestosql.testing.LocalQueryRunner;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.prestosql.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveBenchmarkQueryRunner
 {
-    private HiveBenchmarkQueryRunner()
-    {
-    }
+    private HiveBenchmarkQueryRunner() {}
 
     public static void main(String[] args)
             throws IOException
@@ -60,30 +60,28 @@ public final class HiveBenchmarkQueryRunner
                 .setSchema("tpch")
                 .build();
 
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
+        LocalQueryRunner localQueryRunner = LocalQueryRunner.create(session);
 
         // add tpch
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
 
         // add hive
         File hiveDir = new File(tempDir, "hive_data");
-        ExtendedHiveMetastore metastore = createTestingFileHiveMetastore(hiveDir);
-        metastore.createDatabase(Database.builder()
-                .setDatabaseName("tpch")
-                .setOwnerName("public")
-                .setOwnerType(PrincipalType.ROLE)
-                .build());
+        HiveMetastore metastore = createTestingFileHiveMetastore(hiveDir);
 
-        HiveConnectorFactory hiveConnectorFactory = new HiveConnectorFactory(
-                "hive",
-                HiveBenchmarkQueryRunner.class.getClassLoader(),
-                Optional.of(metastore));
+        HiveIdentity identity = new HiveIdentity(SESSION);
+        metastore.createDatabase(identity,
+                Database.builder()
+                        .setDatabaseName("tpch")
+                        .setOwnerName("public")
+                        .setOwnerType(PrincipalType.ROLE)
+                        .build());
 
         Map<String, String> hiveCatalogConfig = ImmutableMap.<String, String>builder()
                 .put("hive.max-split-size", "10GB")
                 .build();
 
-        localQueryRunner.createCatalog("hive", hiveConnectorFactory, hiveCatalogConfig);
+        localQueryRunner.createCatalog("hive", new TestingHiveConnectorFactory(metastore), hiveCatalogConfig);
 
         localQueryRunner.execute("CREATE TABLE orders AS SELECT * FROM tpch.sf1.orders");
         localQueryRunner.execute("CREATE TABLE lineitem AS SELECT * FROM tpch.sf1.lineitem");

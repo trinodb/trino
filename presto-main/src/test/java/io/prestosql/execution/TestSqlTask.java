@@ -137,23 +137,23 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
+        assertEquals(sqlTask.getTaskStatus().getState(), TaskState.RUNNING);
+        sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
                 OptionalInt.empty());
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
-        taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        TaskInfo taskInfo = sqlTask.getTaskInfo(TaskState.RUNNING).get(1, SECONDS);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
 
-        BufferResult results = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).get();
-        assertEquals(results.isBufferComplete(), false);
+        BufferResult results = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE)).get();
+        assertFalse(results.isBufferComplete());
         assertEquals(results.getSerializedPages().size(), 1);
         assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
 
         for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
-            results = sqlTask.getTaskResults(OUT, results.getToken() + results.getSerializedPages().size(), new DataSize(1, MEGABYTE)).get();
+            results = sqlTask.getTaskResults(OUT, results.getToken() + results.getSerializedPages().size(), DataSize.of(1, MEGABYTE)).get();
         }
         assertEquals(results.getSerializedPages().size(), 0);
 
@@ -202,15 +202,15 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
+        assertEquals(sqlTask.getTaskStatus().getState(), TaskState.RUNNING);
+        sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
                 OptionalInt.empty());
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
-        taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        TaskInfo taskInfo = sqlTask.getTaskInfo(TaskState.RUNNING).get(1, SECONDS);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
 
         sqlTask.abortTaskResults(OUT);
 
@@ -230,7 +230,7 @@ public class TestSqlTask
         OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds();
         updateTask(sqlTask, EMPTY_SOURCES, outputBuffers);
 
-        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
+        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE));
         assertFalse(bufferResult.isDone());
 
         // close the sources (no splits will ever be added)
@@ -243,7 +243,7 @@ public class TestSqlTask
         bufferResult.get(1, SECONDS);
 
         // verify the buffer is closed
-        bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
+        bufferResult = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE));
         assertTrue(bufferResult.isDone());
         assertTrue(bufferResult.get().isBufferComplete());
     }
@@ -256,7 +256,7 @@ public class TestSqlTask
 
         updateTask(sqlTask, EMPTY_SOURCES, createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
-        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
+        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE));
         assertFalse(bufferResult.isDone());
 
         sqlTask.cancel();
@@ -265,7 +265,7 @@ public class TestSqlTask
         // buffer future will complete.. the event is async so wait a bit for event to propagate
         bufferResult.get(1, SECONDS);
 
-        bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
+        bufferResult = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE));
         assertTrue(bufferResult.isDone());
         assertTrue(bufferResult.get().isBufferComplete());
     }
@@ -278,7 +278,7 @@ public class TestSqlTask
 
         updateTask(sqlTask, EMPTY_SOURCES, createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
-        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
+        ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE));
         assertFalse(bufferResult.isDone());
 
         TaskState taskState = sqlTask.getTaskInfo().getTaskStatus().getState();
@@ -293,23 +293,23 @@ public class TestSqlTask
         catch (TimeoutException expected) {
             // expected
         }
-        assertFalse(sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).isDone());
+        assertFalse(sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE)).isDone());
     }
 
-    public SqlTask createInitialTask()
+    private SqlTask createInitialTask()
     {
         TaskId taskId = new TaskId("query", 0, nextTaskId.incrementAndGet());
         URI location = URI.create("fake://task/" + taskId);
 
         QueryContext queryContext = new QueryContext(new QueryId("query"),
-                new DataSize(1, MEGABYTE),
-                new DataSize(2, MEGABYTE),
-                new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
+                DataSize.of(1, MEGABYTE),
+                DataSize.of(2, MEGABYTE),
+                new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE)),
                 new TestingGcMonitor(),
                 taskNotificationExecutor,
                 driverYieldExecutor,
-                new DataSize(1, MEGABYTE),
-                new SpillSpaceTracker(new DataSize(1, GIGABYTE)));
+                DataSize.of(1, MEGABYTE),
+                new SpillSpaceTracker(DataSize.of(1, GIGABYTE)));
 
         queryContext.addTaskContext(new TaskStateMachine(taskId, taskNotificationExecutor), testSessionBuilder().build(), false, false, OptionalInt.empty());
 
@@ -321,7 +321,7 @@ public class TestSqlTask
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,
                 Functions.identity(),
-                new DataSize(32, MEGABYTE),
+                DataSize.of(32, MEGABYTE),
                 new CounterStat());
     }
 }

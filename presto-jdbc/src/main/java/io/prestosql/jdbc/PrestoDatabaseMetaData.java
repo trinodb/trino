@@ -15,6 +15,10 @@ package io.prestosql.jdbc;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
+import io.prestosql.client.ClientTypeSignature;
+import io.prestosql.client.ClientTypeSignatureParameter;
+import io.prestosql.client.Column;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -23,8 +27,12 @@ import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.Lists.newArrayList;
+import static io.prestosql.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 
@@ -58,7 +66,7 @@ public class PrestoDatabaseMetaData
     public String getURL()
             throws SQLException
     {
-        return connection.getURI().toString();
+        return "jdbc:" + connection.getURI().toString();
     }
 
     @Override
@@ -1015,7 +1023,15 @@ public class PrestoDatabaseMetaData
     public ResultSet getPrimaryKeys(String catalog, String schema, String table)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("primary keys not supported");
+        String query = "SELECT " +
+                " CAST(NULL AS varchar) TABLE_CAT, " +
+                " CAST(NULL AS varchar) TABLE_SCHEM, " +
+                " CAST(NULL AS varchar) TABLE_NAME, " +
+                " CAST(NULL AS varchar) COLUMN_NAME, " +
+                " CAST(NULL AS smallint) KEY_SEQ, " +
+                " CAST(NULL AS varchar) PK_NAME " +
+                "WHERE false";
+        return select(query);
     }
 
     @Override
@@ -1345,8 +1361,27 @@ public class PrestoDatabaseMetaData
     public ResultSet getClientInfoProperties()
             throws SQLException
     {
-        // TODO: implement this
-        throw new NotImplementedException("DatabaseMetaData", "getClientInfoProperties");
+        ClientTypeSignature varchar = new ClientTypeSignature("varchar", ImmutableList.of(ClientTypeSignatureParameter.ofLong(VARCHAR_UNBOUNDED_LENGTH)));
+
+        ImmutableList.Builder<Column> columns = ImmutableList.builder();
+        columns.add(new Column("NAME", "varchar", varchar));
+        columns.add(new Column("MAX_LEN", "integer", new ClientTypeSignature("integer")));
+        columns.add(new Column("DEFAULT_VALUE", "varchar", varchar));
+        columns.add(new Column("DESCRIPTION", "varchar", varchar));
+
+        ImmutableList.Builder<List<Object>> results = ImmutableList.builder();
+
+        Stream.of(ClientInfoProperty.values())
+                .sorted(Comparator.comparing(ClientInfoProperty::getPropertyName))
+                .forEach(clientInfoProperty -> {
+                    results.add(newArrayList(
+                            clientInfoProperty.getPropertyName(),
+                            VARCHAR_UNBOUNDED_LENGTH,
+                            null,
+                            null));
+                });
+
+        return new InMemoryPrestoResultSet(connection.getTimeZone(), columns.build(), results.build());
     }
 
     @Override

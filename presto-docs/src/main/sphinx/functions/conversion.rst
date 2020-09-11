@@ -22,6 +22,36 @@ Conversion Functions
 
     Like :func:`cast`, but returns null if the cast fails.
 
+Formatting
+----------
+
+.. function:: format(format, args...) -> varchar
+
+    Returns a formatted string using the specified `format string
+    <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/Formatter.html#syntax>`_
+    and arguments::
+
+        SELECT format('%s%%', 123);
+        -- '123%'
+
+        SELECT format('%.5f', pi());
+        -- '3.14159'
+
+        SELECT format('%03d', 8);
+        -- '008'
+
+        SELECT format('%,.2f', 1234567.89);
+        -- '1,234,567.89'
+
+        SELECT format('%-7s,%7s', 'hello', 'world');
+        -- 'hello  ,  world'
+
+        SELECT format('%2$s %3$s %1$s', 'a', 'b', 'c');
+        -- 'b c a'
+
+        SELECT format('%1$tA, %1$tB %1$te, %1$tY', date '2006-07-04');
+        -- 'Tuesday, July 4, 2006'
+
 Data Size
 ---------
 

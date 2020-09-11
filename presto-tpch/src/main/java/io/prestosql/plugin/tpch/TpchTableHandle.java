@@ -15,7 +15,9 @@ package io.prestosql.plugin.tpch;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Objects;
 
@@ -27,13 +29,23 @@ public class TpchTableHandle
 {
     private final String tableName;
     private final double scaleFactor;
+    private final TupleDomain<ColumnHandle> constraint;
+
+    public TpchTableHandle(String tableName, double scaleFactor)
+    {
+        this(tableName, scaleFactor, TupleDomain.all());
+    }
 
     @JsonCreator
-    public TpchTableHandle(@JsonProperty("tableName") String tableName, @JsonProperty("scaleFactor") double scaleFactor)
+    public TpchTableHandle(
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("scaleFactor") double scaleFactor,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
         checkArgument(scaleFactor > 0, "Scale factor must be larger than 0");
         this.scaleFactor = scaleFactor;
+        this.constraint = requireNonNull(constraint, "constraint is null");
     }
 
     @JsonProperty
@@ -48,6 +60,12 @@ public class TpchTableHandle
         return scaleFactor;
     }
 
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getConstraint()
+    {
+        return constraint;
+    }
+
     @Override
     public String toString()
     {
@@ -57,7 +75,7 @@ public class TpchTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName, scaleFactor);
+        return Objects.hash(tableName, scaleFactor, constraint);
     }
 
     @Override
@@ -71,6 +89,7 @@ public class TpchTableHandle
         }
         TpchTableHandle other = (TpchTableHandle) obj;
         return Objects.equals(this.tableName, other.tableName) &&
-                Objects.equals(this.scaleFactor, other.scaleFactor);
+                Objects.equals(this.scaleFactor, other.scaleFactor) &&
+                Objects.equals(this.constraint, other.constraint);
     }
 }

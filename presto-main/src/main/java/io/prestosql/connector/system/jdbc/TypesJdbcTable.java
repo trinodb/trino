@@ -13,6 +13,7 @@
  */
 package io.prestosql.connector.system.jdbc;
 
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -23,13 +24,11 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
-import java.util.Collection;
 
 import static io.prestosql.connector.system.jdbc.ColumnJdbcTable.columnSize;
 import static io.prestosql.connector.system.jdbc.ColumnJdbcTable.jdbcDataType;
@@ -66,12 +65,12 @@ public class TypesJdbcTable
             .column("num_prec_radix", BIGINT)
             .build();
 
-    private final TypeManager typeManager;
+    private final Metadata metadata;
 
     @Inject
-    public TypesJdbcTable(TypeManager typeManager)
+    public TypesJdbcTable(Metadata metadata)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
@@ -84,10 +83,12 @@ public class TypesJdbcTable
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
         Builder table = InMemoryRecordSet.builder(METADATA);
-        for (Type type : typeManager.getTypes()) {
+        for (Type type : metadata.getTypes()) {
             addTypeRow(table, type);
         }
-        addParametricTypeRows(table, typeManager.getParametricTypes());
+        for (ParametricType type : metadata.getParametricTypes()) {
+            addTypeRow(table, type);
+        }
         return table.build().cursor();
     }
 
@@ -114,29 +115,27 @@ public class TypesJdbcTable
                 numPrecRadix(type));
     }
 
-    private static void addParametricTypeRows(Builder builder, Collection<ParametricType> types)
+    private static void addTypeRow(Builder builder, ParametricType type)
     {
-        for (ParametricType type : types) {
-            String typeName = type.getName();
-            builder.addRow(
-                    typeName,
-                    typeName.equalsIgnoreCase("array") ? Types.ARRAY : Types.JAVA_OBJECT,
-                    null,
-                    null,
-                    null,
-                    null,
-                    DatabaseMetaData.typeNullable,
-                    false,
-                    DatabaseMetaData.typePredNone,
-                    null,
-                    false,
-                    null,
-                    null,
-                    0,
-                    0,
-                    null,
-                    null,
-                    null);
-        }
+        String typeName = type.getName();
+        builder.addRow(
+                typeName,
+                typeName.equalsIgnoreCase("array") ? Types.ARRAY : Types.JAVA_OBJECT,
+                null,
+                null,
+                null,
+                null,
+                DatabaseMetaData.typeNullable,
+                false,
+                DatabaseMetaData.typePredNone,
+                null,
+                false,
+                null,
+                null,
+                0,
+                0,
+                null,
+                null,
+                null);
     }
 }

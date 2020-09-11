@@ -51,8 +51,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.sql.planner.assertions.PlanAssert.assertPlan;
-import static io.prestosql.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
+import static io.prestosql.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.fail;
 
@@ -71,7 +72,7 @@ public class RuleAssert
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
 
-    public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
+    public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Rule<?> rule, TransactionManager transactionManager, AccessControl accessControl)
     {
         this.metadata = metadata;
         this.statsCalculator = new TestingStatsCalculator(statsCalculator);
@@ -116,10 +117,10 @@ public class RuleAssert
         RuleApplication ruleApplication = applyRule();
 
         if (ruleApplication.wasRuleApplied()) {
-            fail(String.format(
+            fail(format(
                     "Expected %s to not fire for:\n%s",
                     rule.getClass().getName(),
-                    inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata.getFunctionRegistry(), StatsAndCosts.empty(), session, 2))));
+                    inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata, StatsAndCosts.empty(), session, 2, false))));
         }
     }
 
@@ -129,7 +130,7 @@ public class RuleAssert
         TypeProvider types = ruleApplication.types;
 
         if (!ruleApplication.wasRuleApplied()) {
-            fail(String.format(
+            fail(format(
                     "%s did not fire for:\n%s",
                     rule.getClass().getName(),
                     formatPlan(plan, types)));
@@ -138,14 +139,14 @@ public class RuleAssert
         PlanNode actual = ruleApplication.getTransformedPlan();
 
         if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
-            fail(String.format(
+            fail(format(
                     "%s: rule fired but return the original plan:\n%s",
                     rule.getClass().getName(),
                     formatPlan(plan, types)));
         }
 
         if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
-            fail(String.format(
+            fail(format(
                     "%s: output schema of transformed and original plans are not equivalent\n" +
                             "\texpected: %s\n" +
                             "\tactual:   %s",
@@ -179,7 +180,7 @@ public class RuleAssert
                 .collect(toOptional());
 
         Rule.Result result;
-        if (!rule.isEnabled(context.getSession()) || !match.isPresent()) {
+        if (!rule.isEnabled(context.getSession()) || match.isEmpty()) {
             result = Rule.Result.empty();
         }
         else {
@@ -193,7 +194,7 @@ public class RuleAssert
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
-        return inTransaction(session -> textLogicalPlan(plan, types, metadata.getFunctionRegistry(), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false));
+        return inTransaction(session -> textLogicalPlan(plan, types, metadata, StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)

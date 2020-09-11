@@ -22,11 +22,10 @@ import io.prestosql.spi.connector.ColumnNotFoundException;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.predicate.Domain;
@@ -37,13 +36,11 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static io.prestosql.plugin.atop.AtopTable.AtopColumn.END_TIME;
 import static io.prestosql.plugin.atop.AtopTable.AtopColumn.START_TIME;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.util.Objects.requireNonNull;
 
 public class AtopMetadata
@@ -86,35 +83,6 @@ public class AtopMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session,
-            ConnectorTableHandle table,
-            Constraint<ColumnHandle> constraint,
-            Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        AtopTableHandle tableHandle = (AtopTableHandle) table;
-        Optional<Map<ColumnHandle, Domain>> domains = constraint.getSummary().getDomains();
-        Domain endTimeDomain = Domain.all(TIMESTAMP_WITH_TIME_ZONE);
-        Domain startTimeDomain = Domain.all(TIMESTAMP_WITH_TIME_ZONE);
-        if (domains.isPresent()) {
-            if (domains.get().containsKey(START_TIME_HANDLE)) {
-                startTimeDomain = domains.get().get(START_TIME_HANDLE);
-            }
-            if (domains.get().containsKey(END_TIME_HANDLE)) {
-                endTimeDomain = domains.get().get(END_TIME_HANDLE);
-            }
-        }
-        AtopTableLayoutHandle layoutHandle = new AtopTableLayoutHandle(tableHandle, startTimeDomain, endTimeDomain);
-        ConnectorTableLayout tableLayout = getTableLayout(session, layoutHandle);
-        return ImmutableList.of(new ConnectorTableLayoutResult(tableLayout, constraint.getSummary()));
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle tableLayoutHandle)
-    {
-        return new ConnectorTableLayout(tableLayoutHandle);
-    }
-
-    @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         AtopTableHandle atopTableHandle = (AtopTableHandle) tableHandle;
@@ -129,7 +97,7 @@ public class AtopMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        if (!schemaName.isPresent()) {
+        if (schemaName.isEmpty()) {
             return Stream.of(AtopTable.values())
                     .map(table -> new SchemaTableName(environment, table.getName()))
                     .collect(Collectors.toList());
@@ -178,5 +146,51 @@ public class AtopMetadata
         AtopTableHandle atopTableHandle = (AtopTableHandle) tableHandle;
         SchemaTableName tableName = new SchemaTableName(atopTableHandle.getSchema(), atopTableHandle.getTable().getName());
         throw new ColumnNotFoundException(tableName, columnName);
+    }
+
+    @Override
+    public boolean usesLegacyTableLayouts()
+    {
+        return false;
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return new ConnectorTableProperties();
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    {
+        AtopTableHandle handle = (AtopTableHandle) table;
+
+        Optional<Map<ColumnHandle, Domain>> domains = constraint.getSummary().getDomains();
+
+        Domain oldEndTimeDomain = handle.getEndTimeConstraint();
+        Domain oldStartTimeDomain = handle.getStartTimeConstraint();
+        Domain newEndTimeDomain = oldEndTimeDomain;
+        Domain newStartTimeDomain = oldStartTimeDomain;
+
+        if (domains.isPresent()) {
+            if (domains.get().containsKey(START_TIME_HANDLE)) {
+                newStartTimeDomain = domains.get().get(START_TIME_HANDLE).intersect(oldStartTimeDomain);
+            }
+            if (domains.get().containsKey(END_TIME_HANDLE)) {
+                newEndTimeDomain = domains.get().get(END_TIME_HANDLE).intersect(oldEndTimeDomain);
+            }
+        }
+
+        if (oldEndTimeDomain.equals(newEndTimeDomain) && oldStartTimeDomain.equals(newStartTimeDomain)) {
+            return Optional.empty();
+        }
+
+        handle = new AtopTableHandle(
+                handle.getSchema(),
+                handle.getTable(),
+                newStartTimeDomain,
+                newEndTimeDomain);
+
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
     }
 }

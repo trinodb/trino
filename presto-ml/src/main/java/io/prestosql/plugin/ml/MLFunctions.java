@@ -40,23 +40,23 @@ public final class MLFunctions
 
     @ScalarFunction("classify")
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice varcharClassify(@SqlType(MAP_BIGINT_DOUBLE) Block featuresMap, @SqlType("Classifier<varchar>") Slice modelSlice)
+    public static Slice varcharClassify(@SqlType(MAP_BIGINT_DOUBLE) Block featuresMap, @SqlType("Classifier(varchar)") Slice modelSlice)
     {
         FeatureVector features = ModelUtils.toFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
-        checkArgument(model.getType().equals(VARCHAR_CLASSIFIER), "model is not a classifier<varchar>");
-        Classifier<String> varcharClassifier = (Classifier) model;
+        checkArgument(model.getType().equals(VARCHAR_CLASSIFIER), "model is not a Classifier(varchar)");
+        Classifier<String> varcharClassifier = (Classifier<String>) model;
         return Slices.utf8Slice(varcharClassifier.classify(features));
     }
 
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
-    public static long classify(@SqlType(MAP_BIGINT_DOUBLE) Block featuresMap, @SqlType("Classifier<bigint>") Slice modelSlice)
+    public static long classify(@SqlType(MAP_BIGINT_DOUBLE) Block featuresMap, @SqlType("Classifier(bigint)") Slice modelSlice)
     {
         FeatureVector features = ModelUtils.toFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
-        checkArgument(model.getType().equals(BIGINT_CLASSIFIER), "model is not a classifier<bigint>");
-        Classifier<Integer> classifier = (Classifier) model;
+        checkArgument(model.getType().equals(BIGINT_CLASSIFIER), "model is not a Classifier(bigint)");
+        Classifier<Integer> classifier = (Classifier<Integer>) model;
         return classifier.classify(features);
     }
 

@@ -18,11 +18,9 @@ import io.prestosql.parquet.ParquetTypeUtils;
 import it.unimi.dsi.fastutil.booleans.BooleanList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
-public class ListColumnReader
+public final class ListColumnReader
 {
-    private ListColumnReader()
-    {
-    }
+    private ListColumnReader() {}
 
     /**
      * Each collection (Array or Map) has four variants of presence:
@@ -74,7 +72,7 @@ public class ListColumnReader
     {
         int size = 1;
         while (hasMoreElements(repetitionLevels, nextIndex) && !isCollectionBeginningMarker(repetitionLevels, maxRepetitionLevel, nextIndex)) {
-            // Collection elements can not only be primitive, but also can have nested structure
+            // Collection elements cannot only be primitive, but also can have nested structure
             // Counting only elements which belong to current collection, skipping inner elements of nested collections/structs
             if (repetitionLevels[nextIndex] <= maxRepetitionLevel) {
                 size++;

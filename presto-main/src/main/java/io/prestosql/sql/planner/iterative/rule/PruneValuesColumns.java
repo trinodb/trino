@@ -14,7 +14,6 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
@@ -38,7 +37,7 @@ public class PruneValuesColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, ValuesNode valuesNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(Context context, ValuesNode valuesNode, Set<Symbol> referencedOutputs)
     {
         List<Symbol> newOutputs = filteredCopy(valuesNode.getOutputSymbols(), referencedOutputs::contains);
 

@@ -32,7 +32,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.DIVIDE;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
@@ -55,9 +54,7 @@ import static java.lang.String.format;
 
 public final class TinyintOperators
 {
-    private TinyintOperators()
-    {
-    }
+    private TinyintOperators() {}
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TINYINT)
@@ -103,7 +100,7 @@ public final class TinyintOperators
             return left / right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, e);
+            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
@@ -115,7 +112,7 @@ public final class TinyintOperators
             return left % right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, e);
+            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
@@ -173,13 +170,6 @@ public final class TinyintOperators
     public static boolean greaterThanOrEqual(@SqlType(StandardTypes.TINYINT) long left, @SqlType(StandardTypes.TINYINT) long right)
     {
         return left >= right;
-    }
-
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(@SqlType(StandardTypes.TINYINT) long value, @SqlType(StandardTypes.TINYINT) long min, @SqlType(StandardTypes.TINYINT) long max)
-    {
-        return min <= value && value <= max;
     }
 
     @ScalarOperator(CAST)
@@ -248,7 +238,7 @@ public final class TinyintOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class TinyintDistinctFromOperator
+    public static final class TinyintDistinctFromOperator
     {
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isDistinctFrom(

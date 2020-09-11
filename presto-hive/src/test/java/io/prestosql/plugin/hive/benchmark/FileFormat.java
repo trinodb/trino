@@ -15,27 +15,32 @@ package io.prestosql.plugin.hive.benchmark;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.OutputStreamSliceOutput;
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcWriter;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.OutputStreamOrcDataSink;
+import io.prestosql.orc.metadata.OrcType;
+import io.prestosql.parquet.writer.ParquetSchemaConverter;
+import io.prestosql.parquet.writer.ParquetWriter;
+import io.prestosql.parquet.writer.ParquetWriterOptions;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
-import io.prestosql.plugin.hive.GenericHiveRecordCursorProvider;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveCompressionCodec;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjections;
 import io.prestosql.plugin.hive.HiveRecordCursorProvider;
+import io.prestosql.plugin.hive.HiveRecordCursorProvider.ReaderRecordCursorWithProjections;
 import io.prestosql.plugin.hive.HiveStorageFormat;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.HiveTypeName;
-import io.prestosql.plugin.hive.HiveTypeTranslator;
 import io.prestosql.plugin.hive.RecordFileWriter;
-import io.prestosql.plugin.hive.TypeTranslator;
-import io.prestosql.plugin.hive.benchmark.HiveFileFormatBenchmark.TestData;
-import io.prestosql.plugin.hive.orc.DwrfPageSourceFactory;
+import io.prestosql.plugin.hive.benchmark.BenchmarkHiveFileFormat.TestData;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
+import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.prestosql.rcfile.AircompressorCodecFactory;
 import io.prestosql.rcfile.HadoopCodecFactory;
@@ -46,14 +51,12 @@ import io.prestosql.rcfile.text.TextRcFileEncoding;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
-import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -63,19 +66,22 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
-import static io.prestosql.orc.OrcEncoding.DWRF;
-import static io.prestosql.orc.OrcEncoding.ORC;
+import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
-import static io.prestosql.plugin.hive.HdfsConfigurationInitializer.configureCompression;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
+import static io.prestosql.plugin.hive.HiveTestUtils.createGenericHiveRecordCursorProvider;
 import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static io.prestosql.plugin.hive.util.CompressionConfigUtil.configureCompression;
+import static java.lang.String.join;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
+import static org.joda.time.DateTimeZone.UTC;
 
 public enum FileFormat
 {
@@ -83,7 +89,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HivePageSourceFactory pageSourceFactory = new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats());
+            HivePageSourceFactory pageSourceFactory = new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats(), new HiveConfig().setRcfileTimeZone("UTC"));
             return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.RCBINARY);
         }
 
@@ -99,7 +105,7 @@ public enum FileFormat
             return new PrestoRcFileFormatWriter(
                     targetFile,
                     columnTypes,
-                    new BinaryRcFileEncoding(),
+                    new BinaryRcFileEncoding(UTC),
                     compressionCodec);
         }
     },
@@ -108,7 +114,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HivePageSourceFactory pageSourceFactory = new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats());
+            HivePageSourceFactory pageSourceFactory = new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats(), new HiveConfig().setRcfileTimeZone("UTC"));
             return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.RCTEXT);
         }
 
@@ -124,7 +130,7 @@ public enum FileFormat
             return new PrestoRcFileFormatWriter(
                     targetFile,
                     columnTypes,
-                    new TextRcFileEncoding(DateTimeZone.forID(session.getTimeZoneKey().getId())),
+                    new TextRcFileEncoding(),
                     compressionCodec);
         }
     },
@@ -133,7 +139,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HivePageSourceFactory pageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, false, hdfsEnvironment, new FileFormatDataSourceStats());
+            HivePageSourceFactory pageSourceFactory = new OrcPageSourceFactory(new OrcReaderOptions(), hdfsEnvironment, new FileFormatDataSourceStats(), UTC);
             return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.ORC);
         }
 
@@ -150,17 +156,16 @@ public enum FileFormat
                     targetFile,
                     columnNames,
                     columnTypes,
-                    DateTimeZone.forID(session.getTimeZoneKey().getId()),
                     compressionCodec);
         }
     },
 
-    PRESTO_DWRF {
+    PRESTO_PARQUET {
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HivePageSourceFactory pageSourceFactory = new DwrfPageSourceFactory(TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats());
-            return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.DWRF);
+            HivePageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(hdfsEnvironment, new FileFormatDataSourceStats(), new ParquetReaderConfig(), new HiveConfig().setParquetTimeZone("UTC"));
+            return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);
         }
 
         @Override
@@ -172,38 +177,7 @@ public enum FileFormat
                 HiveCompressionCodec compressionCodec)
                 throws IOException
         {
-            return new PrestoDwrfFormatWriter(
-                    targetFile,
-                    columnNames,
-                    columnTypes,
-                    DateTimeZone.forID(session.getTimeZoneKey().getId()),
-                    compressionCodec);
-        }
-
-        @Override
-        public boolean supportsDate()
-        {
-            return false;
-        }
-    },
-
-    PRESTO_PARQUET {
-        @Override
-        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
-        {
-            HivePageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats());
-            return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);
-        }
-
-        @Override
-        public FormatWriter createFileFormatWriter(
-                ConnectorSession session,
-                File targetFile,
-                List<String> columnNames,
-                List<Type> columnTypes,
-                HiveCompressionCodec compressionCodec)
-        {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.PARQUET, session);
+            return new PrestoParquetFormatWriter(targetFile, columnNames, columnTypes, compressionCodec);
         }
     },
 
@@ -211,7 +185,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HiveRecordCursorProvider cursorProvider = new GenericHiveRecordCursorProvider(hdfsEnvironment);
+            HiveRecordCursorProvider cursorProvider = createGenericHiveRecordCursorProvider(hdfsEnvironment);
             return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.RCBINARY);
         }
 
@@ -231,7 +205,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HiveRecordCursorProvider cursorProvider = new GenericHiveRecordCursorProvider(hdfsEnvironment);
+            HiveRecordCursorProvider cursorProvider = createGenericHiveRecordCursorProvider(hdfsEnvironment);
             return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.RCTEXT);
         }
 
@@ -251,7 +225,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HiveRecordCursorProvider cursorProvider = new GenericHiveRecordCursorProvider(hdfsEnvironment);
+            HiveRecordCursorProvider cursorProvider = createGenericHiveRecordCursorProvider(hdfsEnvironment);
             return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.ORC);
         }
 
@@ -267,37 +241,11 @@ public enum FileFormat
         }
     },
 
-    HIVE_DWRF {
-        @Override
-        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
-        {
-            HiveRecordCursorProvider cursorProvider = new GenericHiveRecordCursorProvider(hdfsEnvironment);
-            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.DWRF);
-        }
-
-        @Override
-        public FormatWriter createFileFormatWriter(
-                ConnectorSession session,
-                File targetFile,
-                List<String> columnNames,
-                List<Type> columnTypes,
-                HiveCompressionCodec compressionCodec)
-        {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.DWRF, session);
-        }
-
-        @Override
-        public boolean supportsDate()
-        {
-            return false;
-        }
-    },
-
     HIVE_PARQUET {
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HivePageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats());
+            HivePageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(hdfsEnvironment, new FileFormatDataSourceStats(), new ParquetReaderConfig(), new HiveConfig().setParquetTimeZone("UTC"));
             return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);
         }
 
@@ -350,14 +298,13 @@ public enum FileFormat
             ConnectorSession session, File targetFile, List<String> columnNames, List<Type> columnTypes, HiveStorageFormat format)
     {
         List<HiveColumnHandle> columnHandles = new ArrayList<>(columnNames.size());
-        TypeTranslator typeTranslator = new HiveTypeTranslator();
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle(columnName, toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty()));
+            columnHandles.add(createBaseColumn(columnName, i, toHiveType(columnType), columnType, REGULAR, Optional.empty()));
         }
 
-        RecordCursor recordCursor = cursorProvider
+        Optional<ReaderRecordCursorWithProjections> recordCursorWithProjections = cursorProvider
                 .createRecordCursor(
                         conf,
                         session,
@@ -368,11 +315,13 @@ public enum FileFormat
                         createSchema(format, columnNames, columnTypes),
                         columnHandles,
                         TupleDomain.all(),
-                        DateTimeZone.forID(session.getTimeZoneKey().getId()),
                         TYPE_MANAGER,
-                        false)
-                .get();
-        return new RecordPageSource(columnTypes, recordCursor);
+                        false);
+
+        checkState(recordCursorWithProjections.isPresent(), "recordCursorWithProjections is not present");
+        checkState(recordCursorWithProjections.get().getProjectedReaderColumns().isEmpty(), "projections should not be required");
+
+        return new RecordPageSource(columnTypes, recordCursorWithProjections.get().getRecordCursor());
     }
 
     private static ConnectorPageSource createPageSource(
@@ -384,14 +333,13 @@ public enum FileFormat
             HiveStorageFormat format)
     {
         List<HiveColumnHandle> columnHandles = new ArrayList<>(columnNames.size());
-        TypeTranslator typeTranslator = new HiveTypeTranslator();
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle(columnName, toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty()));
+            columnHandles.add(createBaseColumn(columnName, i, toHiveType(columnType), columnType, REGULAR, Optional.empty()));
         }
 
-        return pageSourceFactory
+        Optional<ReaderPageSourceWithProjections> readerPageSourceWithProjections = pageSourceFactory
                 .createPageSource(
                         conf,
                         session,
@@ -402,8 +350,12 @@ public enum FileFormat
                         createSchema(format, columnNames, columnTypes),
                         columnHandles,
                         TupleDomain.all(),
-                        DateTimeZone.forID(session.getTimeZoneKey().getId()))
-                .get();
+                        Optional.empty());
+
+        checkState(readerPageSourceWithProjections.isPresent(), "readerPageSourceWithProjections is not present");
+        checkState(readerPageSourceWithProjections.get().getProjectedReaderColumns().isEmpty(), "projection should not be required");
+
+        return readerPageSourceWithProjections.get().getConnectorPageSource();
     }
 
     private static class RecordFormatWriter
@@ -411,7 +363,8 @@ public enum FileFormat
     {
         private final RecordFileWriter recordWriter;
 
-        public RecordFormatWriter(File targetFile,
+        public RecordFormatWriter(
+                File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
                 HiveCompressionCodec compressionCodec,
@@ -429,6 +382,7 @@ public enum FileFormat
                     format.getEstimatedWriterSystemMemoryUsage(),
                     config,
                     TYPE_MANAGER,
+                    UTC,
                     session);
         }
 
@@ -450,13 +404,11 @@ public enum FileFormat
     private static Properties createSchema(HiveStorageFormat format, List<String> columnNames, List<Type> columnTypes)
     {
         Properties schema = new Properties();
-        TypeTranslator typeTranslator = new HiveTypeTranslator();
         schema.setProperty(SERIALIZATION_LIB, format.getSerDe());
         schema.setProperty(FILE_INPUT_FORMAT, format.getInputFormat());
-        schema.setProperty(META_TABLE_COLUMNS, columnNames.stream()
-                .collect(joining(",")));
+        schema.setProperty(META_TABLE_COLUMNS, join(",", columnNames));
         schema.setProperty(META_TABLE_COLUMN_TYPES, columnTypes.stream()
-                .map(type -> toHiveType(typeTranslator, type))
+                .map(HiveType::toHiveType)
                 .map(HiveType::getHiveTypeName)
                 .map(HiveTypeName::toString)
                 .collect(joining(":")));
@@ -501,18 +453,18 @@ public enum FileFormat
     {
         private final OrcWriter writer;
 
-        public PrestoOrcFormatWriter(File targetFile, List<String> columnNames, List<Type> types, DateTimeZone hiveStorageTimeZone, HiveCompressionCodec compressionCodec)
+        public PrestoOrcFormatWriter(File targetFile, List<String> columnNames, List<Type> types, HiveCompressionCodec compressionCodec)
                 throws IOException
         {
             writer = new OrcWriter(
                     new OutputStreamOrcDataSink(new FileOutputStream(targetFile)),
                     columnNames,
                     types,
-                    ORC,
+                    OrcType.createRootOrcType(columnNames, types),
                     compressionCodec.getOrcCompressionKind(),
                     new OrcWriterOptions(),
+                    false,
                     ImmutableMap.of(),
-                    hiveStorageTimeZone,
                     false,
                     BOTH,
                     new OrcWriterStats());
@@ -533,26 +485,22 @@ public enum FileFormat
         }
     }
 
-    private static class PrestoDwrfFormatWriter
+    private static class PrestoParquetFormatWriter
             implements FormatWriter
     {
-        private final OrcWriter writer;
+        private final ParquetWriter writer;
 
-        public PrestoDwrfFormatWriter(File targetFile, List<String> columnNames, List<Type> types, DateTimeZone hiveStorageTimeZone, HiveCompressionCodec compressionCodec)
+        public PrestoParquetFormatWriter(File targetFile, List<String> columnNames, List<Type> types, HiveCompressionCodec compressionCodec)
                 throws IOException
         {
-            writer = new OrcWriter(
-                    new OutputStreamOrcDataSink(new FileOutputStream(targetFile)),
-                    columnNames,
-                    types,
-                    DWRF,
-                    compressionCodec.getOrcCompressionKind(),
-                    new OrcWriterOptions(),
-                    ImmutableMap.of(),
-                    hiveStorageTimeZone,
-                    false,
-                    BOTH,
-                    new OrcWriterStats());
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames);
+
+            writer = new ParquetWriter(
+                    new FileOutputStream(targetFile),
+                    schemaConverter.getMessageType(),
+                    schemaConverter.getPrimitiveTypes(),
+                    ParquetWriterOptions.builder().build(),
+                    compressionCodec.getParquetCompressionCodec());
         }
 
         @Override

@@ -18,41 +18,10 @@ import com.google.common.hash.Hashing;
 import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;
-import java.nio.ByteBuffer;
 
 public class StatisticsHasher
 {
     private final Hasher hasher = Hashing.goodFastHash(64).newHasher();
-
-    public StatisticsHasher putByte(byte value)
-    {
-        hasher.putByte(value);
-        return this;
-    }
-
-    public StatisticsHasher putBytes(byte[] bytes)
-    {
-        hasher.putBytes(bytes);
-        return this;
-    }
-
-    public StatisticsHasher putBytes(byte[] bytes, int off, int len)
-    {
-        hasher.putBytes(bytes, off, len);
-        return this;
-    }
-
-    public StatisticsHasher putBytes(ByteBuffer bytes)
-    {
-        hasher.putBytes(bytes);
-        return this;
-    }
-
-    public StatisticsHasher putShort(short value)
-    {
-        hasher.putShort(value);
-        return this;
-    }
 
     public StatisticsHasher putInt(int value)
     {
@@ -80,28 +49,10 @@ public class StatisticsHasher
         return this;
     }
 
-    public StatisticsHasher putFloat(float value)
-    {
-        hasher.putFloat(value);
-        return this;
-    }
-
-    public StatisticsHasher putDouble(double value)
-    {
-        hasher.putDouble(value);
-        return this;
-    }
-
     public StatisticsHasher putOptionalDouble(boolean present, double value)
     {
         hasher.putBoolean(present);
         hasher.putDouble(present ? value : 0);
-        return this;
-    }
-
-    public StatisticsHasher putBoolean(boolean value)
-    {
-        hasher.putBoolean(value);
         return this;
     }
 

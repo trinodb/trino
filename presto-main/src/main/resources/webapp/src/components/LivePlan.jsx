@@ -23,6 +23,7 @@ import {
     getStageStateColor,
     initializeGraph,
     initializeSvg,
+    parseAndFormatDataSize,
     truncateString
 } from "../utils";
 import {QueryHeader} from "./QueryHeader";
@@ -92,16 +93,16 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
                     {stage.state}
                     <hr/>
                     CPU: {stats.totalCpuTime}<br />
-                    Buffered: {stats.bufferedDataSize}<br />
+                    Buffered: {parseAndFormatDataSize(stats.bufferedDataSize)}<br />
                     {stats.fullyBlocked ?
                         <div style={{color: '#ff0000'}}>Blocked: {stats.totalBlockedTime} </div> :
                         <div>Blocked: {stats.totalBlockedTime} </div>
                     }
-                    Memory: {stats.userMemoryReservation}
+                    Memory: {parseAndFormatDataSize(stats.userMemoryReservation)}
                     <br/>
                     Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers}
                     <hr/>
-                    Input: {stats.rawInputDataSize + " / " + formatRows(stats.rawInputPositions)}
+                    Input: {parseAndFormatDataSize(stats.rawInputDataSize) + " / " + formatRows(stats.rawInputPositions)}
                 </div>
             </div>
         );
@@ -124,10 +125,18 @@ class PlanNode extends React.Component<PlanNodeProps, PlanNodeState> {
     }
 
     render() {
+        // get join distribution type by matching details to a regular expression
+        var distribution = "";
+
+        var matchArray = this.props.details.match(/Distribution:\s+(\w+)/);
+        if (matchArray !== null) {
+            distribution = " (" + matchArray[1] + ")";
+        }
+
         return (
             <div style={{color: "#000"}} data-toggle="tooltip" data-placement="bottom" data-container="body" data-html="true"
                  title={"<h4>" + this.props.name + "</h4>" + this.props.identifier}>
-                <strong>{this.props.name}</strong>
+                <strong>{this.props.name + distribution}</strong>
                 <div>
                     {truncateString(this.props.identifier, 35)}
                 </div>
@@ -179,7 +188,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
 
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
-        fetch('/v1/query/' + this.props.queryId)
+        fetch('/ui/api/query/' + this.props.queryId)
             .then(response => response.json())
             .then(query => {
                 this.setState({
@@ -204,6 +213,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
 
     componentDidMount() {
         this.refreshLoop.bind(this)();
+        new window.ClipboardJS('.copy-button');
     }
 
     updateD3Stage(stage: StageNodeInfo, graph: any, allStages: Map<string, StageNodeInfo>) {
@@ -242,7 +252,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
                                 class: "plan-edge",
                                 style: "stroke-width: 4px",
                                 arrowheadClass: "plan-arrowhead",
-                                label: sourceStats.outputDataSize + " / " + formatRows(sourceStats.outputPositions),
+                                label: parseAndFormatDataSize(sourceStats.outputDataSize) + " / " + formatRows(sourceStats.outputPositions),
                                 labelStyle: "color: #fff; font-weight: bold; font-size: 24px;",
                                 labelType: "html",
                         });

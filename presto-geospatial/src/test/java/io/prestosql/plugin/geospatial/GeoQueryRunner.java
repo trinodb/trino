@@ -16,22 +16,23 @@ package io.prestosql.plugin.geospatial;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.testing.DistributedQueryRunner;
 
 import java.util.Map;
 
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
-public class GeoQueryRunner
+public final class GeoQueryRunner
 {
-    private static final int DEFAULT_WORKER_COUNT = 4;
-
     private GeoQueryRunner() {}
 
     private static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(testSessionBuilder().build(), DEFAULT_WORKER_COUNT, extraProperties);
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build())
+                .setNodeCount(4)
+                .setExtraProperties(extraProperties)
+                .build();
         queryRunner.installPlugin(new GeoPlugin());
         return queryRunner;
     }

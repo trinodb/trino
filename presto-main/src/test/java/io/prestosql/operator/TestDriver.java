@@ -19,32 +19,30 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.Duration;
-import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
+import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.ScheduledSplit;
 import io.prestosql.execution.TaskSource;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.metadata.Split;
+import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.PageConsumerOperator;
-import io.prestosql.testing.TestingTransactionHandle;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.io.Closeable;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -61,6 +59,7 @@ import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -88,7 +87,7 @@ public class TestDriver
                 .addDriverContext();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
@@ -131,7 +130,7 @@ public class TestDriver
         Driver driver = Driver.createDriver(driverContext, source, sink);
         // let these threads race
         scheduledExecutor.submit(() -> driver.processFor(new Duration(1, TimeUnit.NANOSECONDS))); // don't want to call isFinishedInternal in processFor
-        scheduledExecutor.submit(() -> driver.close());
+        scheduledExecutor.submit(driver::close);
         while (!driverContext.isDone()) {
             Uninterruptibles.sleepUninterruptibly(1, TimeUnit.MILLISECONDS);
         }
@@ -166,20 +165,15 @@ public class TestDriver
     public void testAddSourceFinish()
     {
         PlanNodeId sourceId = new PlanNodeId("source");
-        final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                new PageSourceProvider()
-                {
-                    @Override
-                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
-                    {
-                        return new FixedPageSource(rowPagesBuilder(types)
-                                .addSequencePage(10, 20, 30, 40)
-                                .build());
-                    }
-                },
-                ImmutableList.of());
+                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
+                        .addSequencePage(10, 20, 30, 40)
+                        .build()),
+                TEST_TABLE_HANDLE,
+                ImmutableList.of(),
+                DynamicFilter.EMPTY);
 
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
@@ -205,19 +199,12 @@ public class TestDriver
             throws Exception
     {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), false);
-        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
+        Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
 
         assertSame(driver.getDriverContext(), driverContext);
 
         // block thread in operator processing
-        Future<Boolean> driverProcessFor = executor.submit(new Callable<Boolean>()
-        {
-            @Override
-            public Boolean call()
-            {
-                return driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone();
-            }
-        });
+        Future<Boolean> driverProcessFor = executor.submit(() -> driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         brokenOperator.waitForLocked();
 
         driver.close();
@@ -237,19 +224,14 @@ public class TestDriver
             throws Exception
     {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), true);
-        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
+        Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
 
         assertSame(driver.getDriverContext(), driverContext);
 
         // block thread in operator close
-        Future<Boolean> driverClose = executor.submit(new Callable<Boolean>()
-        {
-            @Override
-            public Boolean call()
-            {
-                driver.close();
-                return true;
-            }
+        Future<Boolean> driverClose = executor.submit(() -> {
+            driver.close();
+            return true;
         });
         brokenOperator.waitForLocked();
 
@@ -267,16 +249,10 @@ public class TestDriver
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new AlwaysBlockedMemoryRevokingTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
                 new PlanNodeId("source"),
-                new PageSourceProvider()
-                {
-                    @Override
-                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
-                    {
-                        return new FixedPageSource(rowPagesBuilder(types)
-                                .addSequencePage(10, 20, 30, 40)
-                                .build());
-                    }
-                },
+                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
+                        .addSequencePage(10, 20, 30, 40)
+                        .build()),
+                TEST_TABLE_HANDLE,
                 ImmutableList.of());
 
         Driver driver = Driver.createDriver(driverContext, source, createSinkOperator(types));
@@ -291,34 +267,21 @@ public class TestDriver
             throws Exception
     {
         PlanNodeId sourceId = new PlanNodeId("source");
-        final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         // create a table scan operator that does not block, which will cause the driver loop to busy wait
         TableScanOperator source = new NotBlockedTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                new PageSourceProvider()
-                {
-                    @Override
-                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
-                    {
-                        return new FixedPageSource(rowPagesBuilder(types)
-                                .addSequencePage(10, 20, 30, 40)
-                                .build());
-                    }
-                },
+                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
+                        .addSequencePage(10, 20, 30, 40)
+                        .build()),
+                TEST_TABLE_HANDLE,
                 ImmutableList.of());
 
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"));
-        final Driver driver = Driver.createDriver(driverContext, source, brokenOperator);
+        Driver driver = Driver.createDriver(driverContext, source, brokenOperator);
 
         // block thread in operator processing
-        Future<Boolean> driverProcessFor = executor.submit(new Callable<Boolean>()
-        {
-            @Override
-            public Boolean call()
-            {
-                return driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone();
-            }
-        });
+        Future<Boolean> driverProcessFor = executor.submit(() -> driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         brokenOperator.waitForLocked();
 
         assertSame(driver.getDriverContext(), driverContext);
@@ -356,7 +319,7 @@ public class TestDriver
 
     private static Split newMockSplit()
     {
-        return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new MockSplit());
+        return new Split(new CatalogName("test"), new MockSplit(), Lifespan.taskWide());
     }
 
     private PageConsumerOperator createSinkOperator(List<Type> types)
@@ -367,7 +330,7 @@ public class TestDriver
     }
 
     private static class BrokenOperator
-            implements Operator, Closeable
+            implements Operator
     {
         private final OperatorContext operatorContext;
         private final ReentrantLock lock = new ReentrantLock();
@@ -482,9 +445,10 @@ public class TestDriver
                 OperatorContext operatorContext,
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
+                TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, columns);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
         }
 
         @Override
@@ -506,9 +470,10 @@ public class TestDriver
                 OperatorContext operatorContext,
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
+                TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, columns);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
         }
 
         @Override

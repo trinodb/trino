@@ -13,45 +13,140 @@
  */
 package io.prestosql.spi.connector;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.type.TypeId;
+
+import java.util.List;
 import java.util.Optional;
+import java.util.StringJoiner;
 
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorViewDefinition
 {
-    private final SchemaTableName name;
+    private final String originalSql;
+    private final Optional<String> catalog;
+    private final Optional<String> schema;
+    private final List<ViewColumn> columns;
+    private final Optional<String> comment;
     private final Optional<String> owner;
-    private final String viewData;
+    private final boolean runAsInvoker;
 
-    public ConnectorViewDefinition(SchemaTableName name, Optional<String> owner, String viewData)
+    @JsonCreator
+    public ConnectorViewDefinition(
+            @JsonProperty("originalSql") String originalSql,
+            @JsonProperty("catalog") Optional<String> catalog,
+            @JsonProperty("schema") Optional<String> schema,
+            @JsonProperty("columns") List<ViewColumn> columns,
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("owner") Optional<String> owner,
+            @JsonProperty("runAsInvoker") boolean runAsInvoker)
     {
-        this.name = requireNonNull(name, "name is null");
+        this.originalSql = requireNonNull(originalSql, "originalSql is null");
+        this.catalog = requireNonNull(catalog, "catalog is null");
+        this.schema = requireNonNull(schema, "schema is null");
+        this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
+        this.comment = requireNonNull(comment, "comment is null");
         this.owner = requireNonNull(owner, "owner is null");
-        this.viewData = requireNonNull(viewData, "viewData is null");
+        this.runAsInvoker = runAsInvoker;
+        if (catalog.isEmpty() && schema.isPresent()) {
+            throw new IllegalArgumentException("catalog must be present if schema is present");
+        }
+        if (runAsInvoker && owner.isPresent()) {
+            throw new IllegalArgumentException("owner cannot be present with runAsInvoker");
+        }
+        if (columns.isEmpty()) {
+            throw new IllegalArgumentException("columns list is empty");
+        }
     }
 
-    public SchemaTableName getName()
+    @JsonProperty
+    public String getOriginalSql()
     {
-        return name;
+        return originalSql;
     }
 
+    @JsonProperty
+    public Optional<String> getCatalog()
+    {
+        return catalog;
+    }
+
+    @JsonProperty
+    public Optional<String> getSchema()
+    {
+        return schema;
+    }
+
+    @JsonProperty
+    public List<ViewColumn> getColumns()
+    {
+        return columns;
+    }
+
+    @JsonProperty
+    public Optional<String> getComment()
+    {
+        return comment;
+    }
+
+    @JsonProperty
     public Optional<String> getOwner()
     {
         return owner;
     }
 
-    public String getViewData()
+    @JsonProperty
+    public boolean isRunAsInvoker()
     {
-        return viewData;
+        return runAsInvoker;
     }
 
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("ConnectorViewDefinition{");
-        sb.append("name=").append(name);
-        sb.append(", owner=").append(owner);
-        sb.append('}');
-        return sb.toString();
+        StringJoiner joiner = new StringJoiner(", ", "[", "]");
+        owner.ifPresent(value -> joiner.add("owner=" + value));
+        comment.ifPresent(value -> joiner.add("comment=" + value));
+        joiner.add("runAsInvoker=" + runAsInvoker);
+        joiner.add("columns=" + columns);
+        catalog.ifPresent(value -> joiner.add("catalog=" + value));
+        schema.ifPresent(value -> joiner.add("schema=" + value));
+        joiner.add("originalSql=[" + originalSql + "]");
+        return getClass().getSimpleName() + joiner.toString();
+    }
+
+    public static final class ViewColumn
+    {
+        private final String name;
+        private final TypeId type;
+
+        @JsonCreator
+        public ViewColumn(
+                @JsonProperty("name") String name,
+                @JsonProperty("type") TypeId type)
+        {
+            this.name = requireNonNull(name, "name is null");
+            this.type = requireNonNull(type, "type is null");
+        }
+
+        @JsonProperty
+        public String getName()
+        {
+            return name;
+        }
+
+        @JsonProperty
+        public TypeId getType()
+        {
+            return type;
+        }
+
+        @Override
+        public String toString()
+        {
+            return name + " " + type;
+        }
     }
 }

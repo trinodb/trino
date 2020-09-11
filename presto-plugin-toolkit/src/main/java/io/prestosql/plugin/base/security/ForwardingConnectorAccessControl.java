@@ -13,13 +13,17 @@
  */
 package io.prestosql.plugin.base.security;
 
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.ConnectorSecurityContext;
+import io.prestosql.spi.connector.SchemaRoutineName;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.ViewExpression;
+import io.prestosql.spi.type.Type;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -45,182 +49,254 @@ public abstract class ForwardingConnectorAccessControl
     protected abstract ConnectorAccessControl delegate();
 
     @Override
-    public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
     {
-        delegate().checkCanCreateSchema(transactionHandle, identity, schemaName);
+        delegate().checkCanCreateSchema(context, schemaName);
     }
 
     @Override
-    public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+    public void checkCanDropSchema(ConnectorSecurityContext context, String schemaName)
     {
-        delegate().checkCanDropSchema(transactionHandle, identity, schemaName);
+        delegate().checkCanDropSchema(context, schemaName);
     }
 
     @Override
-    public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName, String newSchemaName)
+    public void checkCanRenameSchema(ConnectorSecurityContext context, String schemaName, String newSchemaName)
     {
-        delegate().checkCanRenameSchema(transactionHandle, identity, schemaName, newSchemaName);
+        delegate().checkCanRenameSchema(context, schemaName, newSchemaName);
     }
 
     @Override
-    public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity)
+    public void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, PrestoPrincipal principal)
     {
-        delegate().checkCanShowSchemas(transactionHandle, identity);
+        delegate().checkCanSetSchemaAuthorization(context, schemaName, principal);
     }
 
     @Override
-    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> schemaNames)
+    public void checkCanShowSchemas(ConnectorSecurityContext context)
     {
-        return delegate().filterSchemas(transactionHandle, identity, schemaNames);
+        delegate().checkCanShowSchemas(context);
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public Set<String> filterSchemas(ConnectorSecurityContext context, Set<String> schemaNames)
     {
-        delegate().checkCanCreateTable(transactionHandle, identity, tableName);
+        return delegate().filterSchemas(context, schemaNames);
     }
 
     @Override
-    public void checkCanDropTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanShowCreateSchema(ConnectorSecurityContext context, String schemaName)
     {
-        delegate().checkCanDropTable(transactionHandle, identity, tableName);
+        delegate().checkCanShowCreateSchema(context, schemaName);
     }
 
     @Override
-    public void checkCanRenameTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, SchemaTableName newTableName)
+    public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        delegate().checkCanRenameTable(transactionHandle, identity, tableName, newTableName);
+        delegate().checkCanShowCreateTable(context, tableName);
     }
 
     @Override
-    public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        delegate().checkCanShowTablesMetadata(transactionHandle, identity, schemaName);
+        delegate().checkCanCreateTable(context, tableName);
     }
 
     @Override
-    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<SchemaTableName> tableNames)
+    public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        return delegate().filterTables(transactionHandle, identity, tableNames);
+        delegate().checkCanDropTable(context, tableName);
     }
 
     @Override
-    public void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName)
     {
-        delegate().checkCanAddColumn(transactionHandle, identity, tableName);
+        delegate().checkCanRenameTable(context, tableName, newTableName);
     }
 
     @Override
-    public void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        delegate().checkCanDropColumn(transactionHandle, identity, tableName);
+        delegate().checkCanSetTableComment(context, tableName);
     }
 
     @Override
-    public void checkCanRenameColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        delegate().checkCanRenameColumn(transactionHandle, identity, tableName);
+        delegate().checkCanSetColumnComment(context, tableName);
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
     {
-        delegate().checkCanSelectFromColumns(transactionHandle, identity, tableName, columnNames);
+        delegate().checkCanShowTables(context, schemaName);
     }
 
     @Override
-    public void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public Set<SchemaTableName> filterTables(ConnectorSecurityContext context, Set<SchemaTableName> tableNames)
     {
-        delegate().checkCanInsertIntoTable(transactionHandle, identity, tableName);
+        return delegate().filterTables(context, tableNames);
     }
 
     @Override
-    public void checkCanDeleteFromTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanShowColumns(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        delegate().checkCanDeleteFromTable(transactionHandle, identity, tableName);
+        delegate().checkCanShowColumns(context, tableName);
     }
 
     @Override
-    public void checkCanCreateView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName viewName)
+    public List<ColumnMetadata> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
     {
-        delegate().checkCanCreateView(transactionHandle, identity, viewName);
+        return delegate().filterColumns(context, tableName, columns);
     }
 
     @Override
-    public void checkCanDropView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName viewName)
+    public void checkCanAddColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        delegate().checkCanDropView(transactionHandle, identity, viewName);
+        delegate().checkCanAddColumn(context, tableName);
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanDropColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        delegate().checkCanCreateViewWithSelectFromColumns(transactionHandle, identity, tableName, columnNames);
+        delegate().checkCanDropColumn(context, tableName);
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String propertyName)
+    public void checkCanRenameColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        delegate().checkCanSetCatalogSessionProperty(transactionHandle, identity, propertyName);
+        delegate().checkCanRenameColumn(context, tableName);
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
+    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
-        delegate().checkCanGrantTablePrivilege(transactionHandle, identity, privilege, tableName, grantee, withGrantOption);
+        delegate().checkCanSelectFromColumns(context, tableName, columnNames);
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
+    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        delegate().checkCanGrantTablePrivilege(transactionHandle, identity, privilege, tableName, revokee, grantOptionFor);
+        delegate().checkCanInsertIntoTable(context, tableName);
     }
 
     @Override
-    public void checkCanCreateRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, Optional<PrestoPrincipal> grantor)
+    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        delegate().checkCanCreateRole(transactionHandle, identity, role, grantor);
+        delegate().checkCanDeleteFromTable(context, tableName);
     }
 
     @Override
-    public void checkCanDropRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role)
+    public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
-        delegate().checkCanDropRole(transactionHandle, identity, role);
+        delegate().checkCanCreateView(context, viewName);
     }
 
     @Override
-    public void checkCanGrantRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanRenameView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
     {
-        delegate().checkCanGrantRoles(transactionHandle, identity, roles, grantees, withAdminOption, grantor, catalogName);
+        delegate().checkCanRenameView(context, viewName, newViewName);
     }
 
     @Override
-    public void checkCanRevokeRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
-        delegate().checkCanRevokeRoles(transactionHandle, identity, roles, grantees, adminOptionFor, grantor, catalogName);
+        delegate().checkCanDropView(context, viewName);
     }
 
     @Override
-    public void checkCanSetRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, String catalogName)
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
-        delegate().checkCanSetRole(transactionHandle, identity, role, catalogName);
+        delegate().checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
     }
 
     @Override
-    public void checkCanShowRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
     {
-        delegate().checkCanShowRoles(transactionHandle, identity, catalogName);
+        delegate().checkCanSetCatalogSessionProperty(context, propertyName);
     }
 
     @Override
-    public void checkCanShowCurrentRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
-        delegate().checkCanShowCurrentRoles(transactionHandle, identity, catalogName);
+        delegate().checkCanGrantTablePrivilege(context, privilege, tableName, grantee, grantOption);
     }
 
     @Override
-    public void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
     {
-        delegate().checkCanShowRoleGrants(transactionHandle, identity, catalogName);
+        delegate().checkCanRevokeTablePrivilege(context, privilege, tableName, revokee, grantOption);
+    }
+
+    @Override
+    public void checkCanCreateRole(ConnectorSecurityContext context, String role, Optional<PrestoPrincipal> grantor)
+    {
+        delegate().checkCanCreateRole(context, role, grantor);
+    }
+
+    @Override
+    public void checkCanDropRole(ConnectorSecurityContext context, String role)
+    {
+        delegate().checkCanDropRole(context, role);
+    }
+
+    @Override
+    public void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    {
+        delegate().checkCanGrantRoles(context, roles, grantees, adminOption, grantor, catalogName);
+    }
+
+    @Override
+    public void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    {
+        delegate().checkCanRevokeRoles(context, roles, grantees, adminOption, grantor, catalogName);
+    }
+
+    @Override
+    public void checkCanSetRole(ConnectorSecurityContext context, String role, String catalogName)
+    {
+        delegate().checkCanSetRole(context, role, catalogName);
+    }
+
+    @Override
+    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
+    {
+        delegate().checkCanShowRoleAuthorizationDescriptors(context, catalogName);
+    }
+
+    @Override
+    public void checkCanShowRoles(ConnectorSecurityContext context, String catalogName)
+    {
+        delegate().checkCanShowRoles(context, catalogName);
+    }
+
+    @Override
+    public void checkCanShowCurrentRoles(ConnectorSecurityContext context, String catalogName)
+    {
+        delegate().checkCanShowCurrentRoles(context, catalogName);
+    }
+
+    @Override
+    public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
+    {
+        delegate().checkCanShowRoleGrants(context, catalogName);
+    }
+
+    @Override
+    public void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
+    {
+        delegate().checkCanExecuteProcedure(context, procedure);
+    }
+
+    @Override
+    public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        return delegate().getRowFilter(context, tableName);
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        return delegate().getColumnMask(context, tableName, columnName, type);
     }
 }

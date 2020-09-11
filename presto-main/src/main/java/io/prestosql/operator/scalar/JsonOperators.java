@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.XxHash64;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -42,6 +43,7 @@ import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.StandardTypes.BIGINT;
 import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
 import static io.prestosql.spi.type.StandardTypes.DATE;
@@ -50,11 +52,9 @@ import static io.prestosql.spi.type.StandardTypes.INTEGER;
 import static io.prestosql.spi.type.StandardTypes.JSON;
 import static io.prestosql.spi.type.StandardTypes.REAL;
 import static io.prestosql.spi.type.StandardTypes.SMALLINT;
-import static io.prestosql.spi.type.StandardTypes.TIMESTAMP;
 import static io.prestosql.spi.type.StandardTypes.TINYINT;
 import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 import static io.prestosql.util.DateTimeUtils.printDate;
-import static io.prestosql.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.JsonUtil.createJsonGenerator;
 import static io.prestosql.util.JsonUtil.createJsonParser;
@@ -333,22 +333,6 @@ public final class JsonOperators
 
     @ScalarOperator(CAST)
     @SqlType(JSON)
-    public static Slice castFromTimestamp(ConnectorSession session, @SqlType(TIMESTAMP) long value)
-    {
-        try {
-            SliceOutput output = new DynamicSliceOutput(25);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
-                jsonGenerator.writeString(printTimestampWithoutTimeZone(session.getTimeZoneKey(), value));
-            }
-            return output.slice();
-        }
-        catch (IOException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
-        }
-    }
-
-    @ScalarOperator(CAST)
-    @SqlType(JSON)
     public static Slice castFromDate(ConnectorSession session, @SqlType(DATE) long value)
     {
         try {
@@ -368,6 +352,13 @@ public final class JsonOperators
     public static long hashCode(@SqlType(JSON) Slice value)
     {
         return value.hashCode();
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(BIGINT)
+    public static long xxHash64(@SqlType(JSON) Slice value)
+    {
+        return XxHash64.hash(value);
     }
 
     @ScalarOperator(INDETERMINATE)
@@ -394,7 +385,7 @@ public final class JsonOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class JsonDistinctFromOperator
+    public static final class JsonDistinctFromOperator
     {
         @SqlType(BOOLEAN)
         public static boolean isDistinctFrom(@SqlType(JSON) Slice leftJson, @IsNull boolean leftNull, @SqlType(JSON) Slice rightJson, @IsNull boolean rightNull)

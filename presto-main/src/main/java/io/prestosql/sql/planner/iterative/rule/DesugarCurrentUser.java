@@ -13,7 +13,8 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.tree.CurrentUser;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
@@ -23,25 +24,27 @@ import io.prestosql.sql.tree.QualifiedName;
 public class DesugarCurrentUser
         extends ExpressionRewriteRuleSet
 {
-    public DesugarCurrentUser()
+    public DesugarCurrentUser(Metadata metadata)
     {
-        super(createRewrite());
+        super(createRewrite(metadata));
     }
 
-    private static ExpressionRewriter createRewrite()
+    private static ExpressionRewriter createRewrite(Metadata metadata)
     {
-        return (expression, context) -> ExpressionTreeRewriter.rewriteWith(new io.prestosql.sql.tree.ExpressionRewriter<Void>()
+        return (expression, context) -> ExpressionTreeRewriter.rewriteWith(new io.prestosql.sql.tree.ExpressionRewriter<>()
         {
             @Override
             public Expression rewriteCurrentUser(CurrentUser node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                return DesugarCurrentUser.getCall(node);
+                return getCall(node, metadata);
             }
         }, expression);
     }
 
-    public static FunctionCall getCall(CurrentUser node)
+    public static FunctionCall getCall(CurrentUser node, Metadata metadata)
     {
-        return new FunctionCall(QualifiedName.of("$current_user"), ImmutableList.of());
+        return new FunctionCallBuilder(metadata)
+                .setName(QualifiedName.of("$current_user"))
+                .build();
     }
 }

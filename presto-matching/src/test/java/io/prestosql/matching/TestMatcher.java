@@ -185,7 +185,7 @@ public class TestMatcher
     @Test
     public void contextIsPassedToPropertyFunction()
     {
-        Pattern pattern = any().with(
+        Pattern<?> pattern = any().with(
                 Property.property(
                         "non null",
                         (Object value, AtomicBoolean context) -> {
@@ -202,7 +202,7 @@ public class TestMatcher
     @Test
     public void contextIsPassedToPredicate()
     {
-        Pattern pattern = any().matching(
+        Pattern<?> pattern = any().matching(
                 (Object value, AtomicBoolean context) -> {
                     context.set(true);
                     return value != null;

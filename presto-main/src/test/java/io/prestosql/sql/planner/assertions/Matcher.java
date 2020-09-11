@@ -21,7 +21,7 @@ import io.prestosql.sql.planner.plan.PlanNode;
 public interface Matcher
 {
     /**
-     * Verifies that the PlanNode passes basic matching tests that can done
+     * Verifies that the PlanNode passes basic matching tests that can be done
      * with only the information contained in the node itself. Typically, these
      * should be limited to tests that validate the type of the node or
      * attributes of that type.

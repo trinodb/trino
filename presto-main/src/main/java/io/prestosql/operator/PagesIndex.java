@@ -20,12 +20,11 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.prestosql.Session;
 import io.prestosql.geospatial.Rectangle;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.MetadataManager;
 import io.prestosql.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.SortOrder;
@@ -36,6 +35,7 @@ import io.prestosql.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
 import io.prestosql.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import io.prestosql.sql.gen.OrderingCompiler;
 import it.unimi.dsi.fastutil.Swapper;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.openjdk.jol.info.ClassLayout;
@@ -56,10 +56,11 @@ import java.util.stream.Stream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.SyntheticAddress.decodePosition;
 import static io.prestosql.operator.SyntheticAddress.decodeSliceIndex;
 import static io.prestosql.operator.SyntheticAddress.encodeSyntheticAddress;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -79,14 +80,15 @@ public class PagesIndex
 
     private final OrderingCompiler orderingCompiler;
     private final JoinCompiler joinCompiler;
-    private final FunctionRegistry functionRegistry;
-    private final boolean groupByUsesEqualTo;
+    private final Metadata metadata;
 
     private final List<Type> types;
     private final LongArrayList valueAddresses;
     private final ObjectArrayList<Block>[] channels;
+    private final IntArrayList positionCounts;
     private final boolean eagerCompact;
 
+    private int pageCount;
     private int nextBlockToCompact;
     private int positionCount;
     private long pagesMemorySize;
@@ -95,25 +97,25 @@ public class PagesIndex
     private PagesIndex(
             OrderingCompiler orderingCompiler,
             JoinCompiler joinCompiler,
-            FunctionRegistry functionRegistry,
-            boolean groupByUsesEqualTo,
+            Metadata metadata,
             List<Type> types,
             int expectedPositions,
             boolean eagerCompact)
     {
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-        this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
-        this.groupByUsesEqualTo = groupByUsesEqualTo;
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.valueAddresses = new LongArrayList(expectedPositions);
         this.eagerCompact = eagerCompact;
 
-        //noinspection rawtypes
+        //noinspection unchecked
         channels = (ObjectArrayList<Block>[]) new ObjectArrayList[types.size()];
         for (int i = 0; i < channels.length; i++) {
             channels[i] = ObjectArrayList.wrap(new Block[1024], 0);
         }
+
+        positionCounts = new IntArrayList(1024);
 
         estimatedSize = calculateEstimatedSize();
     }
@@ -127,8 +129,8 @@ public class PagesIndex
             implements Factory
     {
         private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler();
-        private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
-        private final boolean groupByUsesEqualTo = new FeaturesConfig().isGroupByUsesEqualTo();
+        private static final Metadata METADATA = createTestMetadataManager();
+        private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(METADATA);
         private final boolean eagerCompact;
 
         public TestingFactory(boolean eagerCompact)
@@ -139,7 +141,7 @@ public class PagesIndex
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, MetadataManager.createTestMetadataManager().getFunctionRegistry(), groupByUsesEqualTo, types, expectedPositions, eagerCompact);
+            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, METADATA, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -149,8 +151,7 @@ public class PagesIndex
         private final OrderingCompiler orderingCompiler;
         private final JoinCompiler joinCompiler;
         private final boolean eagerCompact;
-        private final FunctionRegistry functionRegistry;
-        private final boolean groupByUsesEqualTo;
+        private final Metadata metadata;
 
         @Inject
         public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, FeaturesConfig featuresConfig, Metadata metadata)
@@ -158,14 +159,13 @@ public class PagesIndex
             this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
             this.eagerCompact = requireNonNull(featuresConfig, "featuresConfig is null").isPagesIndexEagerCompactionEnabled();
-            this.functionRegistry = requireNonNull(metadata, "metadata is null").getFunctionRegistry();
-            this.groupByUsesEqualTo = featuresConfig.isGroupByUsesEqualTo();
+            this.metadata = requireNonNull(metadata, "metadata is null");
         }
 
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(orderingCompiler, joinCompiler, functionRegistry, groupByUsesEqualTo, types, expectedPositions, eagerCompact);
+            return new PagesIndex(orderingCompiler, joinCompiler, metadata, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -211,7 +211,9 @@ public class PagesIndex
             return;
         }
 
+        pageCount++;
         positionCount += page.getPositionCount();
+        positionCounts.add(page.getPositionCount());
 
         int pageIndex = (channels.length > 0) ? channels[0].size() : 0;
         for (int i = 0; i < channels.length; i++) {
@@ -225,6 +227,11 @@ public class PagesIndex
 
         for (int position = 0; position < page.getPositionCount(); position++) {
             long sliceAddress = encodeSyntheticAddress(pageIndex, position);
+
+            // this uses a long[] internally, so cap size to a nice round number for safety
+            if (valueAddresses.size() >= 2_000_000_000) {
+                throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of pages index cannot exceed 2 billion entries");
+            }
             valueAddresses.add(sliceAddress);
         }
         estimatedSize = calculateEstimatedSize();
@@ -232,12 +239,12 @@ public class PagesIndex
 
     public DataSize getEstimatedSize()
     {
-        return new DataSize(estimatedSize, BYTE);
+        return DataSize.ofBytes(estimatedSize);
     }
 
     public void compact()
     {
-        if (eagerCompact) {
+        if (eagerCompact || channels.length == 0) {
             return;
         }
         for (int channel = 0; channel < types.size(); channel++) {
@@ -261,7 +268,8 @@ public class PagesIndex
         long elementsSize = (channels.length > 0) ? sizeOf(channels[0].elements()) : 0;
         long channelsArraySize = elementsSize * channels.length;
         long addressesArraySize = sizeOf(valueAddresses.elements());
-        return INSTANCE_SIZE + pagesMemorySize + channelsArraySize + addressesArraySize;
+        long positionCountsSize = sizeOf(positionCounts.elements());
+        return INSTANCE_SIZE + pagesMemorySize + channelsArraySize + addressesArraySize + positionCountsSize;
     }
 
     public Type getType(int channel)
@@ -441,8 +449,7 @@ public class PagesIndex
                 joinChannels,
                 hashChannel,
                 Optional.empty(),
-                functionRegistry,
-                groupByUsesEqualTo);
+                metadata);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(
@@ -510,8 +517,7 @@ public class PagesIndex
                 joinChannels,
                 hashChannel,
                 sortChannel,
-                functionRegistry,
-                groupByUsesEqualTo);
+                metadata);
 
         return new JoinHashSupplier(
                 session,
@@ -542,30 +548,31 @@ public class PagesIndex
 
     public Iterator<Page> getPages()
     {
-        return new AbstractIterator<Page>()
+        return new AbstractIterator<>()
         {
-            private int pageCounter;
+            private int currentPage;
 
             @Override
             protected Page computeNext()
             {
-                if (pageCounter == channels[0].size()) {
+                if (currentPage == pageCount) {
                     return endOfData();
                 }
 
+                int positions = positionCounts.getInt(currentPage);
                 Block[] blocks = Stream.of(channels)
-                        .map(channel -> channel.get(pageCounter))
+                        .map(channel -> channel.get(currentPage))
                         .toArray(Block[]::new);
-                pageCounter++;
-                return new Page(blocks);
+
+                currentPage++;
+                return new Page(positions, blocks);
             }
         };
     }
 
-    // TODO: This is similar to what OrderByOperator does, look into reusing this logic in OrderByOperator as well.
     public Iterator<Page> getSortedPages()
     {
-        return new AbstractIterator<Page>()
+        return new AbstractIterator<>()
         {
             private int currentPosition;
             private final PageBuilder pageBuilder = new PageBuilder(types);

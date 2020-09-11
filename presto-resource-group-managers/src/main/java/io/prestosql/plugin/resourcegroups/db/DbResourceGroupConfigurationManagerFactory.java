@@ -16,15 +16,15 @@ package io.prestosql.plugin.resourcegroups.db;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.prestosql.plugin.resourcegroups.VariableMap;
+import io.prestosql.plugin.base.jmx.MBeanServerModule;
+import io.prestosql.plugin.base.jmx.PrefixObjectNameGeneratorModule;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManager;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
+import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
-
-import static com.google.common.base.Throwables.throwIfUnchecked;
 
 public class DbResourceGroupConfigurationManagerFactory
         implements ResourceGroupConfigurationManagerFactory
@@ -36,26 +36,23 @@ public class DbResourceGroupConfigurationManagerFactory
     }
 
     @Override
-    public ResourceGroupConfigurationManager<VariableMap> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
+    public ResourceGroupConfigurationManager<?> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
     {
-        try {
-            Bootstrap app = new Bootstrap(
-                    new JsonModule(),
-                    new DbResourceGroupsModule(),
-                    new PrefixObjectNameGeneratorModule(),
-                    binder -> binder.bind(String.class).annotatedWith(ForEnvironment.class).toInstance(context.getEnvironment()),
-                    binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
+        Bootstrap app = new Bootstrap(
+                new MBeanModule(),
+                new MBeanServerModule(),
+                new JsonModule(),
+                new DbResourceGroupsModule(),
+                new PrefixObjectNameGeneratorModule("io.prestosql.plugin.resourcegroups.db", "presto.plugin.resourcegroups.db"),
+                binder -> binder.bind(String.class).annotatedWith(ForEnvironment.class).toInstance(context.getEnvironment()),
+                binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
 
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
-            return injector.getInstance(DbResourceGroupConfigurationManager.class);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
+
+        return injector.getInstance(DbResourceGroupConfigurationManager.class);
     }
 }

@@ -26,13 +26,12 @@ import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
@@ -50,10 +49,11 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.add;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.util.CompilerUtils.defineClass;
@@ -67,58 +67,43 @@ public final class ConcatFunction
         extends SqlScalarFunction
 {
     // TODO design new variadic functions binding mechanism that will allow to produce VARCHAR(x) where x < MAX_LENGTH.
-    public static final ConcatFunction VARCHAR_CONCAT = new ConcatFunction(createUnboundedVarcharType().getTypeSignature(), "concatenates given strings");
+    public static final ConcatFunction VARCHAR_CONCAT = new ConcatFunction(createUnboundedVarcharType().getTypeSignature(), "Concatenates given strings");
 
     public static final ConcatFunction VARBINARY_CONCAT = new ConcatFunction(VARBINARY.getTypeSignature(), "concatenates given varbinary values");
 
-    private final String description;
-
     private ConcatFunction(TypeSignature type, String description)
     {
-        super(new Signature(
-                "concat",
-                FunctionKind.SCALAR,
-                ImmutableList.of(),
-                ImmutableList.of(),
-                type,
-                ImmutableList.of(type),
-                true));
-        this.description = description;
+        super(new FunctionMetadata(
+                new Signature(
+                        "concat",
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        type,
+                        ImmutableList.of(type),
+                        true),
+                false,
+                ImmutableList.of(new FunctionArgumentDefinition(false)),
+                false,
+                true,
+                description,
+                SCALAR));
     }
 
     @Override
-    public boolean isHidden()
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return description;
-    }
-
-    @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
+        int arity = functionBinding.getArity();
         if (arity < 2) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more concatenation arguments");
         }
 
-        Class<?> clazz = generateConcat(getSignature().getReturnType(), arity);
+        Class<?> clazz = generateConcat(getFunctionMetadata().getSignature().getReturnType(), arity);
         MethodHandle methodHandle = methodHandle(clazz, "concat", nCopies(arity, Slice.class).toArray(new Class<?>[arity]));
 
         return new ScalarFunctionImplementation(
-                false,
-                nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandle,
-                isDeterministic());
+                FAIL_ON_NULL,
+                nCopies(arity, NEVER_NULL),
+                methodHandle);
     }
 
     private static Class<?> generateConcat(TypeSignature type, int arity)

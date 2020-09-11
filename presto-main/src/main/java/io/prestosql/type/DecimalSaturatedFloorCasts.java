@@ -14,17 +14,17 @@
 package io.prestosql.type;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
+import io.prestosql.metadata.PolymorphicScalarFunctionBuilder;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.Decimals.bigIntegerTenToNth;
@@ -33,7 +33,7 @@ import static io.prestosql.spi.type.Decimals.encodeUnscaledValue;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignatureParameter.typeVariable;
 import static java.lang.Math.toIntExact;
 import static java.math.BigInteger.ONE;
 import static java.math.RoundingMode.FLOOR;
@@ -42,12 +42,11 @@ public final class DecimalSaturatedFloorCasts
 {
     private DecimalSaturatedFloorCasts() {}
 
-    public static final SqlScalarFunction DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST = SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class)
+    public static final SqlScalarFunction DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST = new PolymorphicScalarFunctionBuilder(DecimalSaturatedFloorCasts.class)
             .signature(Signature.builder()
-                    .kind(SCALAR)
                     .operatorType(SATURATED_FLOOR_CAST)
-                    .argumentTypes(parseTypeSignature("decimal(source_precision,source_scale)", ImmutableSet.of("source_precision", "source_scale")))
-                    .returnType(parseTypeSignature("decimal(result_precision,result_scale)", ImmutableSet.of("result_precision", "result_scale")))
+                    .argumentTypes(new TypeSignature("decimal", typeVariable("source_precision"), typeVariable("source_scale")))
+                    .returnType(new TypeSignature("decimal", typeVariable("result_precision"), typeVariable("result_scale")))
                     .build())
             .deterministic(true)
             .choice(choice -> choice
@@ -113,11 +112,10 @@ public final class DecimalSaturatedFloorCasts
 
     private static SqlScalarFunction decimalToGenericIntegerTypeSaturatedFloorCast(Type type, long minValue, long maxValue)
     {
-        return SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalSaturatedFloorCasts.class)
                 .signature(Signature.builder()
-                        .kind(SCALAR)
                         .operatorType(SATURATED_FLOOR_CAST)
-                        .argumentTypes(parseTypeSignature("decimal(source_precision,source_scale)", ImmutableSet.of("source_precision", "source_scale")))
+                        .argumentTypes(new TypeSignature("decimal", typeVariable("source_precision"), typeVariable("source_scale")))
                         .returnType(type.getTypeSignature())
                         .build())
                 .deterministic(true)
@@ -163,12 +161,11 @@ public final class DecimalSaturatedFloorCasts
 
     private static SqlScalarFunction genericIntegerTypeToDecimalSaturatedFloorCast(Type integerType)
     {
-        return SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalSaturatedFloorCasts.class)
                 .signature(Signature.builder()
-                        .kind(SCALAR)
                         .operatorType(SATURATED_FLOOR_CAST)
                         .argumentTypes(integerType.getTypeSignature())
-                        .returnType(parseTypeSignature("decimal(result_precision,result_scale)", ImmutableSet.of("result_precision", "result_scale")))
+                        .returnType(new TypeSignature("decimal", typeVariable("result_precision"), typeVariable("result_scale")))
                         .build())
                 .deterministic(true)
                 .choice(choice -> choice

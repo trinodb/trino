@@ -14,10 +14,7 @@
 package io.prestosql.sql.planner;
 
 import com.google.common.base.Joiner;
-import io.prestosql.spi.ErrorCodeSupplier;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.testing.LocalQueryRunner;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -25,9 +22,8 @@ import org.testng.annotations.Test;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.StandardErrorCode.COMPILER_ERROR;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.util.Collections.nCopies;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestLocalExecutionPlanner
 {
@@ -36,7 +32,7 @@ public class TestLocalExecutionPlanner
     @BeforeClass
     public void setUp()
     {
-        runner = new LocalQueryRunner(TEST_SESSION);
+        runner = LocalQueryRunner.create(TEST_SESSION);
     }
 
     @AfterClass(alwaysRun = true)
@@ -47,22 +43,27 @@ public class TestLocalExecutionPlanner
     }
 
     @Test
-    public void testCompilerFailure()
+    public void testProjectionCompilerFailure()
     {
-        // structure the query this way to avoid stack overflow when parsing
         String inner = "(" + Joiner.on(" + ").join(nCopies(100, "rand()")) + ")";
         String outer = Joiner.on(" + ").join(nCopies(100, inner));
-        assertFails("SELECT " + outer, COMPILER_ERROR);
+
+        assertPrestoExceptionThrownBy(() -> runner.execute("SELECT " + outer))
+                .hasErrorCode(COMPILER_ERROR)
+                .hasMessageStartingWith("Query exceeded maximum columns");
     }
 
-    private void assertFails(@Language("SQL") String sql, ErrorCodeSupplier supplier)
+    @Test
+    public void testFilterCompilerFailure()
     {
-        try {
-            runner.execute(sql);
-            fail("expected exception");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), supplier.toErrorCode());
-        }
+        // Filter Query
+        String filterQueryInner = "FROM (SELECT rand() as c1, rand() as c2, rand() as c3)";
+        String filterQueryWhere = "WHERE c1 = rand() OR " + Joiner.on(" AND ").join(nCopies(250, "c1 = rand()"))
+                + " OR " + Joiner.on(" AND ").join(nCopies(200, " c2 = rand()"))
+                + " OR " + Joiner.on(" AND ").join(nCopies(200, " c3 = rand()"));
+
+        assertPrestoExceptionThrownBy(() -> runner.execute("SELECT * " + filterQueryInner + filterQueryWhere))
+                .hasErrorCode(COMPILER_ERROR)
+                .hasMessageStartingWith("Query exceeded maximum filters");
     }
 }

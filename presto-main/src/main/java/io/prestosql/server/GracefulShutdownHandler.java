@@ -78,15 +78,20 @@ public class GracefulShutdownHandler
             throw new UnsupportedOperationException("Cannot shutdown coordinator");
         }
 
-        if (isShutdownRequested()) {
+        if (shutdownRequested) {
             return;
         }
+        shutdownRequested = true;
 
-        setShutdownRequested(true);
-
-        //wait for a grace period to start the shutdown sequence
+        // wait for a grace period to start the shutdown sequence
         shutdownHandler.schedule(() -> {
             List<TaskInfo> activeTasks = getActiveTasks();
+
+            // wait for grace period for shutting down state to be observed by the coordinator
+            sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
+
+            // At this point no new tasks should be scheduled by coordinator on this worker node.
+            // Wait for all remaining tasks to finish.
             while (activeTasks.size() > 0) {
                 CountDownLatch countDownLatch = new CountDownLatch(activeTasks.size());
 
@@ -144,11 +149,6 @@ public class GracefulShutdownHandler
                 .stream()
                 .filter(taskInfo -> !taskInfo.getTaskStatus().getState().isDone())
                 .collect(toImmutableList());
-    }
-
-    private synchronized void setShutdownRequested(boolean shutdownRequested)
-    {
-        this.shutdownRequested = shutdownRequested;
     }
 
     public synchronized boolean isShutdownRequested()

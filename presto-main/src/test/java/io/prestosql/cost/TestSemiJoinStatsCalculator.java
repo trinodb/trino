@@ -15,7 +15,7 @@
 package io.prestosql.cost;
 
 import io.prestosql.sql.planner.Symbol;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.prestosql.cost.PlanNodeStatsAssertion.assertThat;
@@ -51,9 +51,8 @@ public class TestSemiJoinStatsCalculator
     private Symbol unknown = new Symbol("unknown");
     private Symbol fractionalNdv = new Symbol("fractionalNdv");
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
-            throws Exception
     {
         uStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(8.0)

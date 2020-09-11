@@ -21,11 +21,8 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -37,20 +34,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class ExampleMetadata
         implements ConnectorMetadata
 {
-    private final String connectorId;
-
     private final ExampleClient exampleClient;
 
     @Inject
-    public ExampleMetadata(ExampleConnectorId connectorId, ExampleClient exampleClient)
+    public ExampleMetadata(ExampleClient exampleClient)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.exampleClient = requireNonNull(exampleClient, "client is null");
     }
 
@@ -77,31 +70,13 @@ public class ExampleMetadata
             return null;
         }
 
-        return new ExampleTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
-    }
-
-    @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        ExampleTableHandle tableHandle = (ExampleTableHandle) table;
-        ConnectorTableLayout layout = new ConnectorTableLayout(new ExampleTableLayoutHandle(tableHandle));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        return new ConnectorTableLayout(handle);
+        return new ExampleTableHandle(tableName.getSchemaName(), tableName.getTableName());
     }
 
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        ExampleTableHandle exampleTableHandle = (ExampleTableHandle) table;
-        checkArgument(exampleTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
-        SchemaTableName tableName = new SchemaTableName(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());
-
-        return getTableMetadata(tableName);
+        return getTableMetadata(((ExampleTableHandle) table).toSchemaTableName());
     }
 
     @Override
@@ -123,7 +98,6 @@ public class ExampleMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ExampleTableHandle exampleTableHandle = (ExampleTableHandle) tableHandle;
-        checkArgument(exampleTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
 
         ExampleTable table = exampleClient.getTable(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());
         if (table == null) {
@@ -133,7 +107,7 @@ public class ExampleMetadata
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         int index = 0;
         for (ColumnMetadata column : table.getColumnsMetadata()) {
-            columnHandles.put(column.getName(), new ExampleColumnHandle(connectorId, column.getName(), column.getType(), index));
+            columnHandles.put(column.getName(), new ExampleColumnHandle(column.getName(), column.getType(), index));
             index++;
         }
         return columnHandles.build();
@@ -170,7 +144,7 @@ public class ExampleMetadata
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        if (!prefix.getTable().isPresent()) {
+        if (prefix.getTable().isEmpty()) {
             return listTables(session, prefix.getSchema());
         }
         return ImmutableList.of(prefix.toSchemaTableName());
@@ -180,5 +154,17 @@ public class ExampleMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         return ((ExampleColumnHandle) columnHandle).getColumnMetadata();
+    }
+
+    @Override
+    public boolean usesLegacyTableLayouts()
+    {
+        return false;
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return new ConnectorTableProperties();
     }
 }

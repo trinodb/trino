@@ -20,7 +20,6 @@ import com.google.common.collect.Ordering;
 import io.prestosql.array.ObjectBigArray;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 import it.unimi.dsi.fastutil.ints.IntIterator;
@@ -133,7 +132,6 @@ public class GroupedTopNBuilder
 
         // save the new page
         PageReference newPageReference = new PageReference(newPage);
-        memorySizeInBytes += newPageReference.getEstimatedSizeInBytes();
         int newPageId;
         if (emptyPageReferenceSlots.isEmpty()) {
             // all the previous slots are full; create a new one
@@ -195,10 +193,20 @@ public class GroupedTopNBuilder
             memorySizeInBytes += rows.getEstimatedSizeInBytes();
         }
 
-        // may compact the new page as well
-        if (newPageReference.getUsedPositionCount() * COMPACT_THRESHOLD < newPage.getPositionCount()) {
-            verify(!pagesToCompact.contains(newPageId));
-            pagesToCompact.add(newPageId);
+        // unreference new page if it was not used
+        if (newPageReference.getUsedPositionCount() == 0) {
+            pageReferences.set(newPageId, null);
+        }
+        else {
+            // assure new page is loaded
+            newPageReference.loadPage();
+            memorySizeInBytes += newPageReference.getEstimatedSizeInBytes();
+
+            // may compact the new page as well
+            if (newPageReference.getUsedPositionCount() * COMPACT_THRESHOLD < newPage.getPositionCount()) {
+                verify(!pagesToCompact.contains(newPageId));
+                pagesToCompact.add(newPageId);
+            }
         }
 
         // compact pages
@@ -223,7 +231,7 @@ public class GroupedTopNBuilder
      * The class is a pointer to a row in a page.
      * The actual position in the page is mutable because as pages are compacted, the position will change.
      */
-    private class Row
+    private static class Row
     {
         private final int pageId;
         private int position;
@@ -315,11 +323,7 @@ public class GroupedTopNBuilder
             verify(index == usedPositionCount);
 
             // compact page
-            Block[] blocks = new Block[page.getChannelCount()];
-            for (int i = 0; i < page.getChannelCount(); i++) {
-                Block block = page.getBlock(i);
-                blocks[i] = block.copyPositions(positions, 0, usedPositionCount);
-            }
+            Page newPage = page.copyPositions(positions, 0, usedPositionCount);
 
             // update all the elements in the heaps that reference the current page
             for (int i = 0; i < usedPositionCount; i++) {
@@ -327,8 +331,13 @@ public class GroupedTopNBuilder
                 // it only updates the value of the elements; while keeping the same order
                 newReference[i].reset(i);
             }
-            page = new Page(usedPositionCount, blocks);
+            page = newPage;
             reference = newReference;
+        }
+
+        public void loadPage()
+        {
+            page = page.getLoadedPage();
         }
 
         public Page getPage()

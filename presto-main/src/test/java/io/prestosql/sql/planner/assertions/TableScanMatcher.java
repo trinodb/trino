@@ -60,14 +60,8 @@ final class TableScanMatcher
         String actualTableName = tableMetadata.getTable().getTableName();
         return new MatchResult(
                 expectedTableName.equalsIgnoreCase(actualTableName) &&
-                        ((!expectedConstraint.isPresent()) ||
-                                domainsMatch(expectedConstraint, tableScanNode.getCurrentConstraint(), tableScanNode.getTable(), session, metadata)) &&
-                        hasTableLayout(tableScanNode));
-    }
-
-    private boolean hasTableLayout(TableScanNode tableScanNode)
-    {
-        return !hasTableLayout.isPresent() || hasTableLayout.get() == tableScanNode.getLayout().isPresent();
+                        ((expectedConstraint.isEmpty()) ||
+                                domainsMatch(expectedConstraint, tableScanNode.getEnforcedConstraint(), tableScanNode.getTable(), session, metadata)));
     }
 
     @Override
@@ -116,12 +110,11 @@ final class TableScanMatcher
 
         PlanMatchPattern build()
         {
-            PlanMatchPattern result = node(TableScanNode.class).with(
+            return node(TableScanNode.class).with(
                     new TableScanMatcher(
                             expectedTableName,
                             expectedConstraint,
                             hasTableLayout));
-            return result;
         }
     }
 }

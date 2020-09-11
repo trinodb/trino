@@ -15,13 +15,17 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
+import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import org.testng.annotations.Test;
 
+import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.any;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.columnReference;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -141,10 +145,12 @@ public class TestPlanMatchingFramework
     @Test
     public void testJoinMatcher()
     {
-        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
+        assertPlan(
+                "SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
+                noJoinReordering(),
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                                any(
+                                anyTree(
                                         tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey"))),
                                 anyTree(
                                         tableScan("lineitem").withAlias("LINEITEM_OK", columnReference("lineitem", "orderkey"))))));
@@ -156,7 +162,7 @@ public class TestPlanMatchingFramework
         assertPlan("SELECT l.orderkey FROM orders l, orders r WHERE l.orderkey = r.orderkey",
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("L_ORDERS_OK", "R_ORDERS_OK")),
-                                any(
+                                anyTree(
                                         tableScan("orders").withAlias("L_ORDERS_OK", columnReference("orders", "orderkey"))),
                                 anyTree(
                                         tableScan("orders").withAlias("R_ORDERS_OK", columnReference("orders", "orderkey"))))));
@@ -179,7 +185,7 @@ public class TestPlanMatchingFramework
                         values(ImmutableMap.of("VALUE", 0))));
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = ".* doesn't have column .*")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".* doesn't have column .*")
     public void testAliasNonexistentColumn()
     {
         assertMinimallyOptimizedPlan("SELECT orderkey FROM lineitem",
@@ -187,7 +193,7 @@ public class TestPlanMatchingFramework
                         node(TableScanNode.class).withAlias("ORDERKEY", columnReference("lineitem", "NXCOLUMN"))));
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = "missing expression for alias .*")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "missing expression for alias .*")
     public void testReferenceNonexistentAlias()
     {
         assertMinimallyOptimizedPlan("SELECT orderkey FROM lineitem",
@@ -238,24 +244,34 @@ public class TestPlanMatchingFramework
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"))))));
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = ".*already bound to expression.*")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".*already bound to expression.*")
     public void testDuplicateAliases()
     {
-        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
+        assertPlan(
+                "SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
+                noJoinReordering(),
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                                any(
+                        join(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
+                                anyTree(
                                         tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey"))),
                                 anyTree(
                                         tableScan("lineitem").withAlias("ORDERS_OK", columnReference("lineitem", "orderkey"))))));
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = "missing expression for alias .*")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "missing expression for alias .*")
     public void testProjectLimitsScope()
     {
         assertMinimallyOptimizedPlan("SELECT 1 + orderkey FROM lineitem",
                 output(ImmutableList.of("ORDERKEY"),
                         project(ImmutableMap.of("EXPRESSION", expression("CAST(1 AS bigint) + ORDERKEY")),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
+    }
+
+    private Session noJoinReordering()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinNode.DistributionType.PARTITIONED.name())
+                .build();
     }
 }

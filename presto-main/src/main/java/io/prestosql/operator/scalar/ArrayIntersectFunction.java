@@ -18,11 +18,20 @@ import io.prestosql.operator.aggregation.TypedSet;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.Type;
+
+import java.lang.invoke.MethodHandle;
+import java.util.Optional;
+
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 
 @ScalarFunction("array_intersect")
 @Description("Intersects elements of the two given arrays")
@@ -40,6 +49,10 @@ public final class ArrayIntersectFunction
     @SqlType("array(E)")
     public Block intersect(
             @TypeParameter("E") Type type,
+            @OperatorDependency(
+                    operator = IS_DISTINCT_FROM,
+                    argumentTypes = {"E", "E"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle elementIsDistinctFrom,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
     {
@@ -60,7 +73,7 @@ public final class ArrayIntersectFunction
             pageBuilder.reset();
         }
 
-        TypedSet rightTypedSet = new TypedSet(type, rightPositionCount, "array_intersect");
+        TypedSet rightTypedSet = new TypedSet(type, elementIsDistinctFrom, rightPositionCount, "array_intersect");
         for (int i = 0; i < rightPositionCount; i++) {
             rightTypedSet.add(rightArray, i);
         }
@@ -68,7 +81,7 @@ public final class ArrayIntersectFunction
         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
 
         // The intersected set can have at most rightPositionCount elements
-        TypedSet intersectTypedSet = new TypedSet(type, blockBuilder, rightPositionCount, "array_intersect");
+        TypedSet intersectTypedSet = new TypedSet(type, Optional.of(elementIsDistinctFrom), blockBuilder, rightPositionCount, "array_intersect");
         for (int i = 0; i < leftPositionCount; i++) {
             if (rightTypedSet.contains(leftArray, i)) {
                 intersectTypedSet.add(leftArray, i);

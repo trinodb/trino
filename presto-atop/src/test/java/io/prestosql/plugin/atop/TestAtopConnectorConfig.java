@@ -15,16 +15,18 @@ package io.prestosql.plugin.atop;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.atop.AtopConnectorConfig.AtopSecurity;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.TimeZone;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.prestosql.plugin.atop.AtopConnectorConfig.SECURITY_FILE;
-import static io.prestosql.plugin.atop.AtopConnectorConfig.SECURITY_NONE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestAtopConnectorConfig
@@ -35,7 +37,7 @@ public class TestAtopConnectorConfig
         assertRecordedDefaults(recordDefaults(AtopConnectorConfig.class)
                 .setExecutablePath("atop")
                 .setConcurrentReadersPerNode(1)
-                .setSecurity(SECURITY_NONE)
+                .setSecurity(AtopSecurity.NONE)
                 .setReadTimeout(new Duration(5, MINUTES))
                 .setMaxHistoryDays(30)
                 .setTimeZone(TimeZone.getDefault().getID()));
@@ -43,9 +45,12 @@ public class TestAtopConnectorConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path atopExecutable = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("atop.executable-path", "/test/atop")
+                .put("atop.executable-path", atopExecutable.toString())
                 .put("atop.concurrent-readers-per-node", "10")
                 .put("atop.executable-read-timeout", "1m")
                 .put("atop.security", "file")
@@ -54,9 +59,9 @@ public class TestAtopConnectorConfig
                 .build();
 
         AtopConnectorConfig expected = new AtopConnectorConfig()
-                .setExecutablePath("/test/atop")
+                .setExecutablePath(atopExecutable.toString())
                 .setConcurrentReadersPerNode(10)
-                .setSecurity(SECURITY_FILE)
+                .setSecurity(AtopSecurity.FILE)
                 .setReadTimeout(new Duration(1, MINUTES))
                 .setMaxHistoryDays(10)
                 .setTimeZone("PST");

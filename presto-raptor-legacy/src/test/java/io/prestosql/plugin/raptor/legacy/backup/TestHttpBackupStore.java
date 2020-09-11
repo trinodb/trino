@@ -25,12 +25,15 @@ import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
+import io.prestosql.spi.NodeManager;
+import io.prestosql.testing.TestingNodeManager;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import javax.inject.Singleton;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -49,7 +52,6 @@ public class TestHttpBackupStore
 
     @BeforeMethod
     public void setup()
-            throws Exception
     {
         temporary = createTempDir();
 
@@ -61,8 +63,9 @@ public class TestHttpBackupStore
                 new TestingNodeModule(),
                 new TestingHttpServerModule(),
                 new JsonModule(),
-                new JaxrsModule(true),
+                new JaxrsModule(),
                 binder -> jaxrsBinder(binder).bind(TestingHttpBackupResource.class),
+                binder -> binder.bind(NodeManager.class).toInstance(new TestingNodeManager()),
                 override(new HttpBackupModule()).with(new TestingModule()));
 
         Injector injector = app
@@ -79,7 +82,7 @@ public class TestHttpBackupStore
 
     @AfterMethod(alwaysRun = true)
     public void teardown()
-            throws Exception
+            throws IOException
     {
         deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
         if (lifeCycleManager != null) {

@@ -13,55 +13,38 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage.organization;
 
-import io.prestosql.plugin.raptor.legacy.storage.StorageManagerConfig;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
-import org.joda.time.DateTimeZone;
-
-import javax.inject.Inject;
 
 import java.time.Duration;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_DAY;
+import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class TemporalFunction
+public final class TemporalFunction
 {
-    private final DateTimeZone timeZone;
+    private TemporalFunction() {}
 
-    @Inject
-    public TemporalFunction(StorageManagerConfig config)
-    {
-        this(config.getShardDayBoundaryTimeZone());
-    }
-
-    public TemporalFunction(DateTimeZone timeZone)
-    {
-        this.timeZone = requireNonNull(timeZone, "timeZone is null");
-    }
-
-    public int getDay(Type type, Block block, int position)
+    public static int getDay(Type type, Block block, int position)
     {
         if (type.equals(DATE)) {
             return toIntExact(DATE.getLong(block, position));
         }
 
-        if (type.equals(TIMESTAMP)) {
-            long millis = TIMESTAMP.getLong(block, position);
-            long local = timeZone.convertUTCToLocal(millis);
-            long days = MILLISECONDS.toDays(local);
+        if (type.equals(TIMESTAMP_MILLIS)) {
+            long days = floorDiv(TIMESTAMP_MILLIS.getLong(block, position), MICROSECONDS_PER_DAY);
             return toIntExact(days);
         }
 
         throw new IllegalArgumentException("Wrong type for temporal column: " + type);
     }
 
-    public int getDayFromRange(ShardRange range)
+    public static int getDayFromRange(ShardRange range)
     {
         Tuple min = range.getMinTuple();
         Tuple max = range.getMaxTuple();
@@ -72,9 +55,9 @@ public class TemporalFunction
             return (int) getOnlyElement(min.getValues());
         }
 
-        if (type.equals(TIMESTAMP)) {
-            long minValue = timeZone.convertUTCToLocal((long) getOnlyElement(min.getValues()));
-            long maxValue = timeZone.convertUTCToLocal((long) getOnlyElement(max.getValues()));
+        if (type.equals(TIMESTAMP_MILLIS)) {
+            long minValue = (long) getOnlyElement(min.getValues());
+            long maxValue = (long) getOnlyElement(max.getValues());
             return determineDay(minValue, maxValue);
         }
 
@@ -86,7 +69,7 @@ public class TemporalFunction
         int startDay = toIntExact(Duration.ofMillis(rangeStart).toDays());
         int endDay = toIntExact(Duration.ofMillis(rangeEnd).toDays());
         if (startDay == endDay) {
-            return toIntExact(startDay);
+            return startDay;
         }
 
         if ((endDay - startDay) > 1) {

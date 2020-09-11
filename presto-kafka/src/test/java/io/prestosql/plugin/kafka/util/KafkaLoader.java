@@ -22,10 +22,10 @@ import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.Varchars;
-import io.prestosql.tests.AbstractTestingPrestoClient;
-import io.prestosql.tests.ResultsSession;
-import kafka.javaapi.producer.Producer;
-import kafka.producer.KeyedMessage;
+import io.prestosql.testing.AbstractTestingPrestoClient;
+import io.prestosql.testing.ResultsSession;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.operator.scalar.timestamp.VarcharToTimestampCast.castToShortTimestamp;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -44,11 +45,10 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.util.DateTimeUtils.parseTimeLiteral;
-import static io.prestosql.util.DateTimeUtils.parseTimestampWithTimeZone;
-import static io.prestosql.util.DateTimeUtils.parseTimestampWithoutTimeZone;
+import static io.prestosql.util.DateTimeUtils.convertToTimestampWithTimeZone;
+import static io.prestosql.util.DateTimeUtils.parseLegacyTime;
 import static java.util.Objects.requireNonNull;
 
 public class KafkaLoader
@@ -57,10 +57,10 @@ public class KafkaLoader
     private static final DateTimeFormatter ISO8601_FORMATTER = ISODateTimeFormat.dateTime();
 
     private final String topicName;
-    private final Producer<Long, Object> producer;
+    private final KafkaProducer<Long, Object> producer;
     private final AtomicLong count = new AtomicLong();
 
-    public KafkaLoader(Producer<Long, Object> producer,
+    public KafkaLoader(KafkaProducer<Long, Object> producer,
             String topicName,
             TestingPrestoServer prestoServer,
             Session defaultSession)
@@ -110,7 +110,7 @@ public class KafkaLoader
                         }
                     }
 
-                    producer.send(new KeyedMessage<>(topicName, count.getAndIncrement(), builder.build()));
+                    producer.send(new ProducerRecord<>(topicName, count.getAndIncrement(), builder.build()));
                 }
             }
         }
@@ -143,13 +143,13 @@ public class KafkaLoader
                 return value;
             }
             if (TIME.equals(type)) {
-                return ISO8601_FORMATTER.print(parseTimeLiteral(timeZoneKey, (String) value));
+                return ISO8601_FORMATTER.print(parseLegacyTime(timeZoneKey, (String) value));
             }
-            if (TIMESTAMP.equals(type)) {
-                return ISO8601_FORMATTER.print(parseTimestampWithoutTimeZone(timeZoneKey, (String) value));
+            if (TIMESTAMP_MILLIS.equals(type)) {
+                return ISO8601_FORMATTER.print(castToShortTimestamp(TIMESTAMP_MILLIS.getPrecision(), (String) value));
             }
             if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-                return ISO8601_FORMATTER.print(unpackMillisUtc(parseTimestampWithTimeZone(timeZoneKey, (String) value)));
+                return ISO8601_FORMATTER.print(unpackMillisUtc(convertToTimestampWithTimeZone(timeZoneKey, (String) value)));
             }
             throw new AssertionError("unhandled type: " + type);
         }

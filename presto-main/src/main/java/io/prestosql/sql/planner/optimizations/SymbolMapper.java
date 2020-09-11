@@ -18,56 +18,104 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.PartitioningScheme;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
+import io.prestosql.sql.planner.plan.DistinctLimitNode;
+import io.prestosql.sql.planner.plan.GroupIdNode;
+import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.planner.plan.RowNumberNode;
 import io.prestosql.sql.planner.plan.StatisticAggregations;
-import io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
 import io.prestosql.sql.planner.plan.TopNNode;
+import io.prestosql.sql.planner.plan.TopNRowNumberNode;
+import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.SymbolReference;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.planner.plan.AggregationNode.groupingSets;
 import static java.util.Objects.requireNonNull;
 
 public class SymbolMapper
 {
-    private final Map<Symbol, Symbol> mapping;
+    private final Function<Symbol, Symbol> mappingFunction;
 
-    public SymbolMapper(Map<Symbol, Symbol> mapping)
+    private SymbolMapper(Function<Symbol, Symbol> mappingFunction)
     {
-        this.mapping = ImmutableMap.copyOf(requireNonNull(mapping, "mapping is null"));
+        this.mappingFunction = requireNonNull(mappingFunction, "mappingFunction is null");
     }
 
+    public static SymbolMapper symbolMapper(Map<Symbol, Symbol> mapping)
+    {
+        return new SymbolMapper(symbol -> {
+            while (mapping.containsKey(symbol) && !mapping.get(symbol).equals(symbol)) {
+                symbol = mapping.get(symbol);
+            }
+            return symbol;
+        });
+    }
+
+    public static SymbolMapper symbolReallocator(Map<Symbol, Symbol> mapping, SymbolAllocator symbolAllocator)
+    {
+        return new SymbolMapper(symbol -> {
+            if (mapping.containsKey(symbol)) {
+                while (mapping.containsKey(symbol) && !mapping.get(symbol).equals(symbol)) {
+                    symbol = mapping.get(symbol);
+                }
+                // do not remap the symbol further
+                mapping.put(symbol, symbol);
+                return symbol;
+            }
+            Symbol newSymbol = symbolAllocator.newSymbol(symbol);
+            mapping.put(symbol, newSymbol);
+            // do not remap the symbol further
+            mapping.put(newSymbol, newSymbol);
+            return newSymbol;
+        });
+    }
+
+    // Return the canonical mapping for the symbol.
     public Symbol map(Symbol symbol)
     {
-        Symbol canonical = symbol;
-        while (mapping.containsKey(canonical) && !mapping.get(canonical).equals(canonical)) {
-            canonical = mapping.get(canonical);
-        }
-        return canonical;
+        return mappingFunction.apply(symbol);
     }
 
-    public Expression map(Expression value)
+    public List<Symbol> map(List<Symbol> symbols)
     {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        return symbols.stream()
+                .map(this::map)
+                .collect(toImmutableList());
+    }
+
+    public List<Symbol> mapAndDistinct(List<Symbol> symbols)
+    {
+        return symbols.stream()
+                .map(this::map)
+                .distinct()
+                .collect(toImmutableList());
+    }
+
+    public Expression map(Expression expression)
+    {
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
         {
             @Override
             public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
@@ -75,7 +123,7 @@ public class SymbolMapper
                 Symbol canonical = map(Symbol.from(node));
                 return canonical.toSymbolReference();
             }
-        }, value);
+        }, expression);
     }
 
     public AggregationNode map(AggregationNode node, PlanNode source)
@@ -83,12 +131,7 @@ public class SymbolMapper
         return map(node, source, node.getId());
     }
 
-    public AggregationNode map(AggregationNode node, PlanNode source, PlanNodeIdAllocator idAllocator)
-    {
-        return map(node, source, idAllocator.getNextId());
-    }
-
-    private AggregationNode map(AggregationNode node, PlanNode source, PlanNodeId newNodeId)
+    public AggregationNode map(AggregationNode node, PlanNode source, PlanNodeId newNodeId)
     {
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         for (Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
@@ -112,56 +155,119 @@ public class SymbolMapper
     private Aggregation map(Aggregation aggregation)
     {
         return new Aggregation(
-                (FunctionCall) map(aggregation.getCall()),
-                aggregation.getSignature(),
+                aggregation.getResolvedFunction(),
+                aggregation.getArguments().stream()
+                        .map(this::map)
+                        .collect(toImmutableList()),
+                aggregation.isDistinct(),
+                aggregation.getFilter().map(this::map),
+                aggregation.getOrderingScheme().map(this::map),
                 aggregation.getMask().map(this::map));
     }
 
-    public TopNNode map(TopNNode node, PlanNode source, PlanNodeId newNodeId)
+    public GroupIdNode map(GroupIdNode node, PlanNode source)
     {
-        ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
-        Set<Symbol> seenCanonicals = new HashSet<>(node.getOrderingScheme().getOrderBy().size());
-        for (Symbol symbol : node.getOrderingScheme().getOrderBy()) {
-            Symbol canonical = map(symbol);
-            if (seenCanonicals.add(canonical)) {
-                seenCanonicals.add(canonical);
-                symbols.add(canonical);
-                orderings.put(canonical, node.getOrderingScheme().getOrdering(symbol));
+        Map<Symbol, Symbol> newGroupingMappings = new HashMap<>();
+        ImmutableList.Builder<List<Symbol>> newGroupingSets = ImmutableList.builder();
+
+        for (List<Symbol> groupingSet : node.getGroupingSets()) {
+            ImmutableList.Builder<Symbol> newGroupingSet = ImmutableList.builder();
+            for (Symbol output : groupingSet) {
+                Symbol newOutput = map(output);
+                newGroupingMappings.putIfAbsent(
+                        newOutput,
+                        map(node.getGroupingColumns().get(output)));
+                newGroupingSet.add(newOutput);
             }
+            newGroupingSets.add(newGroupingSet.build());
         }
 
-        return new TopNNode(
-                newNodeId,
+        return new GroupIdNode(
+                node.getId(),
+                source,
+                newGroupingSets.build(),
+                newGroupingMappings,
+                mapAndDistinct(node.getAggregationArguments()),
+                map(node.getGroupIdSymbol()));
+    }
+
+    public WindowNode map(WindowNode node, PlanNode source)
+    {
+        ImmutableMap.Builder<Symbol, WindowNode.Function> newFunctions = ImmutableMap.builder();
+        node.getWindowFunctions().forEach((symbol, function) -> {
+            List<Expression> newArguments = function.getArguments().stream()
+                    .map(this::map)
+                    .collect(toImmutableList());
+            WindowNode.Frame newFrame = map(function.getFrame());
+
+            newFunctions.put(map(symbol), new WindowNode.Function(function.getResolvedFunction(), newArguments, newFrame, function.isIgnoreNulls()));
+        });
+
+        return new WindowNode(
+                node.getId(),
+                source,
+                mapAndDistinct(node.getSpecification()),
+                newFunctions.build(),
+                node.getHashSymbol().map(this::map),
+                node.getPrePartitionedInputs().stream()
+                        .map(this::map)
+                        .collect(toImmutableSet()),
+                node.getPreSortedOrderPrefix());
+    }
+
+    private WindowNode.Frame map(WindowNode.Frame frame)
+    {
+        return new WindowNode.Frame(
+                frame.getType(),
+                frame.getStartType(),
+                frame.getStartValue().map(this::map),
+                frame.getEndType(),
+                frame.getEndValue().map(this::map),
+                frame.getOriginalStartValue(),
+                frame.getOriginalEndValue());
+    }
+
+    private WindowNode.Specification mapAndDistinct(WindowNode.Specification specification)
+    {
+        return new WindowNode.Specification(
+                mapAndDistinct(specification.getPartitionBy()),
+                specification.getOrderingScheme().map(this::map));
+    }
+
+    public LimitNode map(LimitNode node, PlanNode source)
+    {
+        return new LimitNode(
+                node.getId(),
                 source,
                 node.getCount(),
-                new OrderingScheme(symbols.build(), orderings.build()),
-                node.getStep());
+                node.getTiesResolvingScheme().map(this::map),
+                node.isPartial());
     }
 
-    public TableWriterNode map(TableWriterNode node, PlanNode source)
+    public OrderingScheme map(OrderingScheme orderingScheme)
     {
-        return map(node, source, node.getId());
+        ImmutableList.Builder<Symbol> newSymbols = ImmutableList.builder();
+        ImmutableMap.Builder<Symbol, SortOrder> newOrderings = ImmutableMap.builder();
+        Set<Symbol> added = new HashSet<>(orderingScheme.getOrderBy().size());
+        for (Symbol symbol : orderingScheme.getOrderBy()) {
+            Symbol canonical = map(symbol);
+            if (added.add(canonical)) {
+                newSymbols.add(canonical);
+                newOrderings.put(canonical, orderingScheme.getOrdering(symbol));
+            }
+        }
+        return new OrderingScheme(newSymbols.build(), newOrderings.build());
     }
 
-    public TableWriterNode map(TableWriterNode node, PlanNode source, PlanNodeId newNodeId)
+    public DistinctLimitNode map(DistinctLimitNode node, PlanNode source)
     {
-        // Intentionally does not use canonicalizeAndDistinct as that would remove columns
-        ImmutableList<Symbol> columns = node.getColumns().stream()
-                .map(this::map)
-                .collect(toImmutableList());
-
-        return new TableWriterNode(
-                newNodeId,
+        return new DistinctLimitNode(
+                node.getId(),
                 source,
-                node.getTarget(),
-                map(node.getRowCountSymbol()),
-                map(node.getFragmentSymbol()),
-                columns,
-                node.getColumnNames(),
-                node.getPartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)),
-                node.getStatisticsAggregation().map(this::map),
-                node.getStatisticsAggregationDescriptor().map(this::map));
+                node.getLimit(),
+                node.isPartial(),
+                mapAndDistinct(node.getDistinctSymbols()),
+                node.getHashSymbol().map(this::map));
     }
 
     public StatisticsWriterNode map(StatisticsWriterNode node, PlanNode source)
@@ -170,9 +276,41 @@ public class SymbolMapper
                 node.getId(),
                 source,
                 node.getTarget(),
-                node.getRowCountSymbol(),
+                map(node.getRowCountSymbol()),
                 node.isRowCountEnabled(),
                 node.getDescriptor().map(this::map));
+    }
+
+    public TableWriterNode map(TableWriterNode node, PlanNode source)
+    {
+        return map(node, source, node.getId());
+    }
+
+    public TableWriterNode map(TableWriterNode node, PlanNode source, PlanNodeId newId)
+    {
+        // Intentionally does not use mapAndDistinct on columns as that would remove columns
+        return new TableWriterNode(
+                newId,
+                source,
+                node.getTarget(),
+                map(node.getRowCountSymbol()),
+                map(node.getFragmentSymbol()),
+                map(node.getColumns()),
+                node.getColumnNames(),
+                node.getNotNullColumnSymbols(),
+                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
+                node.getStatisticsAggregation().map(this::map),
+                node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)));
+    }
+
+    public PartitioningScheme map(PartitioningScheme scheme, List<Symbol> sourceLayout)
+    {
+        return new PartitioningScheme(
+                scheme.getPartitioning().translate(this::map),
+                mapAndDistinct(sourceLayout),
+                scheme.getHashColumn().map(this::map),
+                scheme.isReplicateNullsAndAny(),
+                scheme.getBucketToPartition());
     }
 
     public TableFinishNode map(TableFinishNode node, PlanNode source)
@@ -186,16 +324,6 @@ public class SymbolMapper
                 node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)));
     }
 
-    private PartitioningScheme canonicalize(PartitioningScheme scheme, PlanNode source)
-    {
-        return new PartitioningScheme(
-                scheme.getPartitioning().translate(this::map),
-                mapAndDistinct(source.getOutputSymbols()),
-                scheme.getHashColumn().map(this::map),
-                scheme.isReplicateNullsAndAny(),
-                scheme.getBucketToPartition());
-    }
-
     private StatisticAggregations map(StatisticAggregations statisticAggregations)
     {
         Map<Symbol, Aggregation> aggregations = statisticAggregations.getAggregations().entrySet().stream()
@@ -203,32 +331,46 @@ public class SymbolMapper
         return new StatisticAggregations(aggregations, mapAndDistinct(statisticAggregations.getGroupingSymbols()));
     }
 
-    private StatisticAggregationsDescriptor<Symbol> map(StatisticAggregationsDescriptor<Symbol> descriptor)
+    public RowNumberNode map(RowNumberNode node, PlanNode source)
     {
-        return descriptor.map(this::map);
+        return new RowNumberNode(
+                node.getId(),
+                source,
+                mapAndDistinct(node.getPartitionBy()),
+                node.isOrderSensitive(),
+                map(node.getRowNumberSymbol()),
+                node.getMaxRowCountPerPartition(),
+                node.getHashSymbol().map(this::map));
     }
 
-    private List<Symbol> map(List<Symbol> outputs)
+    public TopNRowNumberNode map(TopNRowNumberNode node, PlanNode source)
     {
-        return outputs.stream()
-                .map(this::map)
-                .collect(toImmutableList());
+        return new TopNRowNumberNode(
+                node.getId(),
+                source,
+                mapAndDistinct(node.getSpecification()),
+                map(node.getRowNumberSymbol()),
+                node.getMaxRowCountPerPartition(),
+                node.isPartial(),
+                node.getHashSymbol().map(this::map));
     }
 
-    private List<Symbol> mapAndDistinct(List<Symbol> outputs)
+    public TopNNode map(TopNNode node, PlanNode source)
     {
-        Set<Symbol> added = new HashSet<>();
-        ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-        for (Symbol symbol : outputs) {
-            Symbol canonical = map(symbol);
-            if (added.add(canonical)) {
-                builder.add(canonical);
-            }
-        }
-        return builder.build();
+        return map(node, source, node.getId());
     }
 
-    public static SymbolMapper.Builder builder()
+    public TopNNode map(TopNNode node, PlanNode source, PlanNodeId nodeId)
+    {
+        return new TopNNode(
+                nodeId,
+                source,
+                node.getCount(),
+                map(node.getOrderingScheme()),
+                node.getStep());
+    }
+
+    public static Builder builder()
     {
         return new Builder();
     }
@@ -237,14 +379,14 @@ public class SymbolMapper
     {
         private final ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
 
-        public SymbolMapper build()
-        {
-            return new SymbolMapper(mappings.build());
-        }
-
         public void put(Symbol from, Symbol to)
         {
             mappings.put(from, to);
+        }
+
+        public SymbolMapper build()
+        {
+            return SymbolMapper.symbolMapper(mappings.build());
         }
     }
 }

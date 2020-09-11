@@ -35,19 +35,19 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.util.Failures.checkCondition;
 import static java.lang.String.format;
 
-@Description("creates a map using entryDelimiter and keyValueDelimiter")
+@Description("Creates a map using entryDelimiter and keyValueDelimiter")
 @ScalarFunction("split_to_map")
 public class SplitToMapFunction
 {
     private final PageBuilder pageBuilder;
 
-    public SplitToMapFunction(@TypeParameter("map<varchar,varchar>") Type mapType)
+    public SplitToMapFunction(@TypeParameter("map(varchar,varchar)") Type mapType)
     {
         pageBuilder = new PageBuilder(ImmutableList.of(mapType));
     }
 
-    @SqlType("map<varchar,varchar>")
-    public Block splitToMap(@TypeParameter("map<varchar,varchar>") Type mapType, @SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice entryDelimiter, @SqlType(StandardTypes.VARCHAR) Slice keyValueDelimiter)
+    @SqlType("map(varchar,varchar)")
+    public Block splitToMap(@TypeParameter("map(varchar,varchar)") Type mapType, @SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice entryDelimiter, @SqlType(StandardTypes.VARCHAR) Slice keyValueDelimiter)
     {
         checkCondition(entryDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "entryDelimiter is empty");
         checkCondition(keyValueDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "keyValueDelimiter is empty");

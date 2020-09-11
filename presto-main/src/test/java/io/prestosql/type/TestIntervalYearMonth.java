@@ -17,6 +17,7 @@ import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -104,6 +105,9 @@ public class TestIntervalYearMonth
         assertFunction("2 * INTERVAL '6' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(12 * 12));
         assertFunction("INTERVAL '1' YEAR * 2.5", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth((int) (2.5 * 12)));
         assertFunction("2.5 * INTERVAL '1' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth((int) (2.5 * 12)));
+
+        assertInvalidFunction("INTERVAL '6' MONTH * nan()", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("nan() * INTERVAL '6' YEAR", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
@@ -114,6 +118,11 @@ public class TestIntervalYearMonth
 
         assertFunction("INTERVAL '3' YEAR / 2", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(18));
         assertFunction("INTERVAL '4' YEAR / 4.8", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(10));
+
+        assertInvalidFunction("INTERVAL '6' MONTH / nan()", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("INTERVAL '6' YEAR / nan()", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("INTERVAL '6' MONTH / 0E0", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("INTERVAL '6' YEAR / 0", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test

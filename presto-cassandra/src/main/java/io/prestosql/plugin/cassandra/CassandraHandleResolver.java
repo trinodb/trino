@@ -19,7 +19,6 @@ import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public class CassandraHandleResolver
@@ -41,12 +40,6 @@ public class CassandraHandleResolver
     public Class<? extends ConnectorSplit> getSplitClass()
     {
         return CassandraSplit.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
-    {
-        return CassandraTableLayoutHandle.class;
     }
 
     @Override

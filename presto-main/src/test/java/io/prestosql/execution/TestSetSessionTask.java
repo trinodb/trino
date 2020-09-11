@@ -15,22 +15,17 @@ package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.AnalyzePropertyManager;
 import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;
-import io.prestosql.metadata.ColumnPropertyManager;
-import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.SchemaPropertyManager;
-import io.prestosql.metadata.SessionPropertyManager;
-import io.prestosql.metadata.TablePropertyManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.LongLiteral;
@@ -39,22 +34,23 @@ import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SetSession;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.transaction.TransactionManager;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingSession.createBogusTestingCatalog;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
@@ -69,7 +65,7 @@ public class TestSetSessionTask
     private static final String MUST_BE_POSITIVE = "property must be positive";
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
-    private final MetadataManager metadata;
+    private final Metadata metadata;
 
     public TestSetSessionTask()
     {
@@ -77,16 +73,7 @@ public class TestSetSessionTask
         transactionManager = createTestTransactionManager(catalogManager);
         accessControl = new AllowAllAccessControl();
 
-        metadata = new MetadataManager(
-                new FeaturesConfig(),
-                new TypeRegistry(),
-                new BlockEncodingManager(new TypeRegistry()),
-                new SessionPropertyManager(),
-                new SchemaPropertyManager(),
-                new TablePropertyManager(),
-                new ColumnPropertyManager(),
-                new AnalyzePropertyManager(),
-                transactionManager);
+        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
 
         metadata.getSessionPropertyManager().addSystemSessionProperty(stringProperty(
                 CATALOG_NAME,
@@ -109,10 +96,10 @@ public class TestSetSessionTask
                         Integer.class,
                         null,
                         false,
-                        value -> validatePositive(value),
+                        TestSetSessionTask::validatePositive,
                         value -> value));
 
-        metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), sessionProperties);
+        metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), sessionProperties);
 
         catalogManager.registerCatalog(bogusTestingCatalog);
     }
@@ -138,9 +125,13 @@ public class TestSetSessionTask
     public void testSetSession()
     {
         testSetSession(new StringLiteral("baz"), "baz");
-        testSetSession(new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(
-                new StringLiteral("ban"),
-                new StringLiteral("ana"))), "banana");
+        testSetSession(
+                new FunctionCallBuilder(metadata)
+                        .setName(QualifiedName.of("concat"))
+                        .addArgument(VARCHAR, new StringLiteral("ban"))
+                        .addArgument(VARCHAR, new StringLiteral("ana"))
+                        .build(),
+                "banana");
     }
 
     @Test
@@ -161,10 +152,12 @@ public class TestSetSessionTask
     @Test
     public void testSetSessionWithParameters()
     {
-        List<Expression> expressionList = new ArrayList<>();
-        expressionList.add(new StringLiteral("ban"));
-        expressionList.add(new Parameter(0));
-        testSetSessionWithParameters("bar", new FunctionCall(QualifiedName.of("concat"), expressionList), "banana", ImmutableList.of(new StringLiteral("ana")));
+        FunctionCall functionCall = new FunctionCallBuilder(metadata)
+                .setName(QualifiedName.of("concat"))
+                .addArgument(VARCHAR, new StringLiteral("ban"))
+                .addArgument(VARCHAR, new Parameter(0))
+                .build();
+        testSetSessionWithParameters("bar", functionCall, "banana", ImmutableList.of(new StringLiteral("ana")));
     }
 
     private void testSetSession(Expression expression, String expectedValue)
@@ -182,6 +175,7 @@ public class TestSetSessionTask
         QualifiedName qualifiedPropName = QualifiedName.of(CATALOG_NAME, property);
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 format("set %s = 'old_value'", qualifiedPropName),
+                Optional.empty(),
                 TEST_SESSION,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
@@ -190,7 +184,8 @@ public class TestSetSessionTask
                 accessControl,
                 executor,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                Optional.empty());
         getFutureValue(new SetSessionTask().execute(new SetSession(qualifiedPropName, expression), transactionManager, metadata, accessControl, stateMachine, parameters));
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();

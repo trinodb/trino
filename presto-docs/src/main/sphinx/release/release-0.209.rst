@@ -74,4 +74,4 @@ SPI Changes
 -----------
 
 * Allow using ``Object`` as a parameter type or return type for SQL
-  functions when the correponding SQL type is an unbounded generic.
+  functions when the corresponding SQL type is an unbounded generic.

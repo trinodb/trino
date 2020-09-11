@@ -14,9 +14,6 @@
 package io.prestosql.plugin.tpcds;
 
 import com.google.common.collect.ImmutableList;
-import com.teradata.tpcds.Results;
-import com.teradata.tpcds.column.Column;
-import com.teradata.tpcds.column.ColumnType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.connector.RecordCursor;
@@ -25,6 +22,9 @@ import io.prestosql.spi.type.DecimalParseResult;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
+import io.prestosql.tpcds.Results;
+import io.prestosql.tpcds.column.Column;
+import io.prestosql.tpcds.column.ColumnType;
 import org.joda.time.Days;
 import org.joda.time.LocalDate;
 import org.joda.time.LocalTime;

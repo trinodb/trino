@@ -13,12 +13,14 @@
  */
 package io.prestosql.plugin.hive.authentication;
 
+import io.prestosql.plugin.base.authentication.KerberosAuthentication;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import javax.security.auth.Subject;
 
+import static io.prestosql.hadoop.HadoopNative.requireHadoopNative;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.getInitialConfiguration;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.security.UserGroupInformationShim.createUserGroupInformationForSubject;
@@ -30,6 +32,9 @@ public class KerberosHadoopAuthentication
 
     public static KerberosHadoopAuthentication createKerberosHadoopAuthentication(KerberosAuthentication kerberosAuthentication, HdfsConfigurationInitializer initializer)
     {
+        // Load native libraries, which are required during initialization of UserGroupInformation
+        requireHadoopNative();
+
         Configuration configuration = getInitialConfiguration();
         initializer.initializeConfiguration(configuration);
 

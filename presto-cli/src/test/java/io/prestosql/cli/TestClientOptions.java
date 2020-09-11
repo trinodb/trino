@@ -14,93 +14,118 @@
 package io.prestosql.cli;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.net.HostAndPort;
+import io.airlift.units.Duration;
 import io.prestosql.cli.ClientOptions.ClientResourceEstimate;
 import io.prestosql.cli.ClientOptions.ClientSessionProperty;
+import io.prestosql.cli.ClientOptions.OutputFormat;
 import io.prestosql.client.ClientSession;
 import org.testng.annotations.Test;
 
+import java.time.ZoneId;
 import java.util.Optional;
 
-import static io.airlift.airline.SingleCommand.singleCommand;
+import static io.prestosql.cli.Presto.createCommandLine;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TestClientOptions
 {
     @Test
-    public void testDefault()
+    public void testDefaults()
     {
-        ClientSession session = new ClientOptions().toClientSession();
+        Console console = createConsole();
+        ClientOptions options = console.clientOptions;
+        assertEquals(options.krb5ServicePrincipalPattern, "${SERVICE}@${HOST}");
+        ClientSession session = options.toClientSession();
         assertEquals(session.getServer().toString(), "http://localhost:8080");
         assertEquals(session.getSource(), "presto-cli");
+        assertEquals(session.getTimeZone(), ZoneId.systemDefault());
     }
 
     @Test
     public void testSource()
     {
-        ClientOptions options = new ClientOptions();
-        options.source = "test";
-        ClientSession session = options.toClientSession();
+        Console console = createConsole("--source=test");
+        ClientSession session = console.clientOptions.toClientSession();
         assertEquals(session.getSource(), "test");
     }
 
     @Test
     public void testTraceToken()
     {
-        ClientOptions options = new ClientOptions();
-        options.traceToken = "test token";
-        ClientSession session = options.toClientSession();
-        assertEquals(session.getTraceToken().get(), "test token");
+        Console console = createConsole("--trace-token", "test token");
+        ClientSession session = console.clientOptions.toClientSession();
+        assertEquals(session.getTraceToken(), Optional.of("test token"));
     }
 
     @Test
     public void testServerHostOnly()
     {
-        ClientOptions options = new ClientOptions();
-        options.server = "localhost";
-        ClientSession session = options.toClientSession();
-        assertEquals(session.getServer().toString(), "http://localhost:80");
+        Console console = createConsole("--server=test");
+        ClientSession session = console.clientOptions.toClientSession();
+        assertEquals(session.getServer().toString(), "http://test:80");
     }
 
     @Test
     public void testServerHostPort()
     {
-        ClientOptions options = new ClientOptions();
-        options.server = "localhost:8888";
-        ClientSession session = options.toClientSession();
-        assertEquals(session.getServer().toString(), "http://localhost:8888");
+        Console console = createConsole("--server=test:8888");
+        ClientSession session = console.clientOptions.toClientSession();
+        assertEquals(session.getServer().toString(), "http://test:8888");
     }
 
     @Test
     public void testServerHttpUri()
     {
-        ClientOptions options = new ClientOptions();
-        options.server = "http://localhost/foo";
-        ClientSession session = options.toClientSession();
-        assertEquals(session.getServer().toString(), "http://localhost/foo");
+        Console console = createConsole("--server=http://test/foo");
+        ClientSession session = console.clientOptions.toClientSession();
+        assertEquals(session.getServer().toString(), "http://test/foo");
     }
 
     @Test
     public void testServerHttpsUri()
     {
-        ClientOptions options = new ClientOptions();
-        options.server = "https://localhost/foo";
-        ClientSession session = options.toClientSession();
-        assertEquals(session.getServer().toString(), "https://localhost/foo");
+        Console console = createConsole("--server=https://test/foo");
+        ClientSession session = console.clientOptions.toClientSession();
+        assertEquals(session.getServer().toString(), "https://test/foo");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Unparseable port number: x:y")
     public void testInvalidServer()
     {
-        ClientOptions options = new ClientOptions();
-        options.server = "x:y";
-        options.toClientSession();
+        Console console = createConsole("--server=x:y");
+        console.clientOptions.toClientSession();
+    }
+
+    @Test
+    public void testOutputFormat()
+    {
+        Console console = createConsole("--output-format=JSON");
+        ClientOptions options = console.clientOptions;
+        assertEquals(options.outputFormat, OutputFormat.JSON);
+    }
+
+    @Test
+    public void testSocksProxy()
+    {
+        Console console = createConsole("--socks-proxy=abc:123");
+        ClientOptions options = console.clientOptions;
+        assertEquals(options.socksProxy, HostAndPort.fromParts("abc", 123));
+    }
+
+    @Test
+    public void testClientRequestTimeout()
+    {
+        Console console = createConsole("--client-request-timeout=7s");
+        ClientOptions options = console.clientOptions;
+        assertEquals(options.clientRequestTimeout, new Duration(7, SECONDS));
     }
 
     @Test
     public void testResourceEstimates()
     {
-        Console console = singleCommand(Console.class).parse("--resource-estimate", "resource1=1B", "--resource-estimate", "resource2=2.2h");
-
+        Console console = createConsole("--resource-estimate", "resource1=1B", "--resource-estimate", "resource2=2.2h");
         ClientOptions options = console.clientOptions;
         assertEquals(options.resourceEstimates, ImmutableList.of(
                 new ClientResourceEstimate("resource1", "1B"),
@@ -110,7 +135,7 @@ public class TestClientOptions
     @Test
     public void testExtraCredentials()
     {
-        Console console = singleCommand(Console.class).parse("--extra-credential", "test.token.foo=foo", "--extra-credential", "test.token.bar=bar");
+        Console console = createConsole("--extra-credential", "test.token.foo=foo", "--extra-credential", "test.token.bar=bar");
         ClientOptions options = console.clientOptions;
         assertEquals(options.extraCredentials, ImmutableList.of(
                 new ClientOptions.ClientExtraCredential("test.token.foo", "foo"),
@@ -120,7 +145,7 @@ public class TestClientOptions
     @Test
     public void testSessionProperties()
     {
-        Console console = singleCommand(Console.class).parse("--session", "system=system-value", "--session", "catalog.name=catalog-property");
+        Console console = createConsole("--session", "system=system-value", "--session", "catalog.name=catalog-property");
 
         ClientOptions options = console.clientOptions;
         assertEquals(options.sessionProperties, ImmutableList.of(
@@ -134,41 +159,59 @@ public class TestClientOptions
         assertEquals(new ClientSessionProperty("foo="), new ClientSessionProperty(Optional.empty(), "foo", ""));
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test
+    public void testTimeZone()
+    {
+        Console console = createConsole("--timezone=Europe/Vilnius");
+
+        ClientOptions options = console.clientOptions;
+        assertEquals(options.timeZone, ZoneId.of("Europe/Vilnius"));
+
+        ClientSession session = options.toClientSession();
+        assertEquals(session.getTimeZone(), ZoneId.of("Europe/Vilnius"));
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QInvalid session property: foo.bar.baz=value\\E")
     public void testThreePartPropertyName()
     {
         new ClientSessionProperty("foo.bar.baz=value");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QSession property name is empty\\E")
     public void testEmptyPropertyName()
     {
         new ClientSessionProperty("=value");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QSession property name contains spaces or is not ASCII: ☃\\E")
     public void testInvalidCharsetPropertyName()
     {
         new ClientSessionProperty("\u2603=value");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QSession property value contains spaces or is not ASCII: ☃\\E")
     public void testInvalidCharsetPropertyValue()
     {
         new ClientSessionProperty("name=\u2603");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QSession property catalog must not contain '=': name\\E")
     public void testEqualSignNoAllowedInPropertyCatalog()
     {
         new ClientSessionProperty(Optional.of("cat=alog"), "name", "value");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Multiple entries with same key: test.token.foo=bar and test.token.foo=foo")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QMultiple entries with same key: test.token.foo=bar and test.token.foo=foo\\E")
     public void testDuplicateExtraCredentialKey()
     {
-        Console console = singleCommand(Console.class).parse("--extra-credential", "test.token.foo=foo", "--extra-credential", "test.token.foo=bar");
-        ClientOptions options = console.clientOptions;
-        options.toClientSession();
+        Console console = createConsole("--extra-credential", "test.token.foo=foo", "--extra-credential", "test.token.foo=bar");
+        console.clientOptions.toClientSession();
+    }
+
+    private static Console createConsole(String... args)
+    {
+        Console console = new Console();
+        createCommandLine(console).parseArgs(args);
+        return console;
     }
 }

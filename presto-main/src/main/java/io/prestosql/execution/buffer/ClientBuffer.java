@@ -256,7 +256,7 @@ class ClientBuffer
      */
     private boolean loadPagesIfNecessary(PagesSupplier pagesSupplier, DataSize maxSize)
     {
-        checkState(!Thread.holdsLock(this), "Can not load pages while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot load pages while holding a lock on this");
 
         boolean dataAddedOrNoMorePages;
         List<SerializedPageReference> pageReferences;
@@ -292,7 +292,7 @@ class ClientBuffer
 
     private void processRead(PendingRead pendingRead)
     {
-        checkState(!Thread.holdsLock(this), "Can not process pending read while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot process pending read while holding a lock on this");
 
         if (pendingRead.getResultFuture().isDone()) {
             return;

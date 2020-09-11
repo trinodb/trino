@@ -13,23 +13,60 @@
  */
 package io.prestosql.spi.type;
 
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static java.lang.String.format;
 
-//
-// A time is stored as milliseconds from midnight on 1970-01-01T00:00:00 in the time zone of the session.
-// When performing calculations on a time the client's time zone must be taken into account.
-//
+/**
+ * A time is stored as picoseconds from midnight.
+ */
 public final class TimeType
         extends AbstractLongType
 {
-    public static final TimeType TIME = new TimeType();
+    public static final int MAX_PRECISION = 12;
+    public static final int DEFAULT_PRECISION = 3; // TODO: should be 6 per SQL spec
 
-    private TimeType()
+    private static final TimeType[] TYPES = new TimeType[MAX_PRECISION + 1];
+
+    static {
+        for (int precision = 0; precision <= MAX_PRECISION; precision++) {
+            TYPES[precision] = new TimeType(precision);
+        }
+    }
+
+    public static final TimeType TIME_SECONDS = createTimeType(0);
+    public static final TimeType TIME_MILLIS = createTimeType(3);
+    public static final TimeType TIME_MICROS = createTimeType(6);
+    public static final TimeType TIME_NANOS = createTimeType(9);
+    public static final TimeType TIME_PICOS = createTimeType(12);
+
+    /**
+     * @deprecated use {@link #TIME_MILLIS} instead
+     */
+    public static final TimeType TIME = new TimeType(DEFAULT_PRECISION);
+
+    private final int precision;
+
+    private TimeType(int precision)
     {
-        super(parseTypeSignature(StandardTypes.TIME));
+        super(new TypeSignature(StandardTypes.TIME, TypeSignatureParameter.numericParameter(precision)));
+        this.precision = precision;
+    }
+
+    public static TimeType createTimeType(int precision)
+    {
+        if (precision < 0 || precision > MAX_PRECISION) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIME precision must be in range [0, %s]", MAX_PRECISION));
+        }
+        return TYPES[precision];
+    }
+
+    public int getPrecision()
+    {
+        return precision;
     }
 
     @Override
@@ -39,24 +76,6 @@ public final class TimeType
             return null;
         }
 
-        if (session.isLegacyTimestamp()) {
-            return new SqlTime(block.getLong(position, 0), session.getTimeZoneKey());
-        }
-        else {
-            return new SqlTime(block.getLong(position, 0));
-        }
-    }
-
-    @Override
-    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
-    public boolean equals(Object other)
-    {
-        return other == TIME;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return getClass().hashCode();
+        return SqlTime.newInstance(precision, block.getLong(position, 0));
     }
 }

@@ -15,18 +15,11 @@ package io.prestosql.parquet;
 
 public abstract class Page
 {
-    protected final int compressedSize;
     protected final int uncompressedSize;
 
-    public Page(int compressedSize, int uncompressedSize)
+    public Page(int uncompressedSize)
     {
-        this.compressedSize = compressedSize;
         this.uncompressedSize = uncompressedSize;
-    }
-
-    public int getCompressedSize()
-    {
-        return compressedSize;
     }
 
     public int getUncompressedSize()

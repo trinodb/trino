@@ -55,7 +55,7 @@ public interface Operator
      * After calling this method operator should revoke all reserved revocable memory.
      * As soon as memory is revoked returned future should be marked as done.
      * <p>
-     * Spawned threads can not modify OperatorContext because it's not thread safe.
+     * Spawned threads cannot modify OperatorContext because it's not thread safe.
      * For this purpose implement {@link #finishMemoryRevoke()}
      * <p>
      * Since memory revoking signal is delivered asynchronously to the Operator, implementation

@@ -15,7 +15,7 @@ package io.prestosql.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
@@ -24,7 +24,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.ColumnDefinition;
 import io.prestosql.sql.tree.Expression;
@@ -36,12 +36,17 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
+import static io.prestosql.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
+import static io.prestosql.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.prestosql.sql.NodeUtils.mapFromProperties;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static io.prestosql.sql.ParameterUtils.parameterExtractor;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
 
@@ -60,42 +65,58 @@ public class AddColumnTask
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-        if (!tableHandle.isPresent()) {
-            throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
+        if (tableHandle.isEmpty()) {
+            if (!statement.isTableExists()) {
+                throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
+            }
+            return immediateFuture(null);
         }
 
-        ConnectorId connectorId = metadata.getCatalogHandle(session, tableName.getCatalogName())
+        CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
 
-        accessControl.checkCanAddColumns(session.getRequiredTransactionId(), session.getIdentity(), tableName);
+        accessControl.checkCanAddColumns(session.toSecurityContext(), tableName);
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
         ColumnDefinition element = statement.getColumn();
         Type type;
         try {
-            type = metadata.getType(parseTypeSignature(element.getType()));
+            type = metadata.getType(toTypeSignature(element.getType()));
         }
-        catch (IllegalArgumentException e) {
-            throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
+        catch (TypeNotFoundException e) {
+            throw semanticException(TYPE_NOT_FOUND, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
         }
         if (type.equals(UNKNOWN)) {
-            throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
+            throw semanticException(COLUMN_TYPE_UNKNOWN, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
         }
         if (columnHandles.containsKey(element.getName().getValue().toLowerCase(ENGLISH))) {
-            throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
+            if (!statement.isColumnNotExists()) {
+                throw semanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
+            }
+            return immediateFuture(null);
+        }
+        if (!element.isNullable() && !metadata.getConnectorCapabilities(session, catalogName).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
+            throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", catalogName.getCatalogName(), element.getName());
         }
 
         Map<String, Expression> sqlProperties = mapFromProperties(element.getProperties());
         Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
-                connectorId,
+                catalogName,
                 tableName.getCatalogName(),
                 sqlProperties,
                 session,
                 metadata,
-                parameters);
+                accessControl,
+                parameterExtractor(statement, parameters));
 
-        ColumnMetadata column = new ColumnMetadata(element.getName().getValue(), type, element.getComment().orElse(null), null, false, columnProperties);
+        ColumnMetadata column = ColumnMetadata.builder()
+                .setName(element.getName().getValue())
+                .setType(type)
+                .setNullable(element.isNullable())
+                .setComment(element.getComment())
+                .setProperties(columnProperties)
+                .build();
 
         metadata.addColumn(session, tableHandle.get(), column);
 

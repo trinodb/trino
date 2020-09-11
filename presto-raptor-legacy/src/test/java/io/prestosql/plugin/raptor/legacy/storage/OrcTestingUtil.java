@@ -13,12 +13,13 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.UnsignedBytes;
 import io.airlift.units.DataSize;
 import io.prestosql.orc.FileOrcDataSource;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcPredicate;
 import io.prestosql.orc.OrcReader;
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
@@ -26,14 +27,10 @@ import org.joda.time.DateTimeZone;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcEncoding.ORC;
 import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
 import static org.testng.Assert.assertEquals;
 
@@ -41,59 +38,43 @@ final class OrcTestingUtil
 {
     private OrcTestingUtil() {}
 
+    private static final OrcReaderOptions READER_OPTIONS = new OrcReaderOptions()
+            .withMaxReadBlockSize(DataSize.of(1, MEGABYTE))
+            .withMaxMergeDistance(DataSize.of(1, MEGABYTE))
+            .withMaxBufferSize(DataSize.of(1, MEGABYTE))
+            .withStreamBufferSize(DataSize.of(1, MEGABYTE))
+            .withTinyStripeThreshold(DataSize.of(1, MEGABYTE));
+
     public static OrcDataSource fileOrcDataSource(File file)
             throws FileNotFoundException
     {
-        return new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+        return new FileOrcDataSource(file, READER_OPTIONS);
     }
 
     public static OrcRecordReader createReader(OrcDataSource dataSource, List<Long> columnIds, List<Type> types)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+        OrcReader orcReader = new OrcReader(dataSource, READER_OPTIONS);
 
         List<String> columnNames = orcReader.getColumnNames();
         assertEquals(columnNames.size(), columnIds.size());
 
-        Map<Integer, Type> includedColumns = new HashMap<>();
-        int ordinal = 0;
-        for (long columnId : columnIds) {
-            assertEquals(columnNames.get(ordinal), String.valueOf(columnId));
-            includedColumns.put(ordinal, types.get(ordinal));
-            ordinal++;
-        }
-
-        return createRecordReader(orcReader, includedColumns);
-    }
-
-    public static OrcRecordReader createReaderNoRows(OrcDataSource dataSource)
-            throws IOException
-    {
-        OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-
-        assertEquals(orcReader.getColumnNames().size(), 0);
-
-        return createRecordReader(orcReader, ImmutableMap.of());
-    }
-
-    public static OrcRecordReader createRecordReader(OrcReader orcReader, Map<Integer, Type> includedColumns)
-    {
-        return orcReader.createRecordReader(includedColumns, OrcPredicate.TRUE, DateTimeZone.UTC, newSimpleAggregatedMemoryContext(), MAX_BATCH_SIZE);
+        return orcReader.createRecordReader(
+                orcReader.getRootColumn().getNestedColumns(),
+                types,
+                OrcPredicate.TRUE,
+                DateTimeZone.UTC,
+                newSimpleAggregatedMemoryContext(),
+                MAX_BATCH_SIZE,
+                RuntimeException::new);
     }
 
     public static byte[] octets(int... values)
     {
         byte[] bytes = new byte[values.length];
         for (int i = 0; i < bytes.length; i++) {
-            bytes[i] = octet(values[i]);
+            bytes[i] = UnsignedBytes.checkedCast(values[i]);
         }
         return bytes;
-    }
-
-    @SuppressWarnings("NumericCastThatLosesPrecision")
-    public static byte octet(int b)
-    {
-        checkArgument((b >= 0) && (b <= 0xFF), "octet not in range: %s", b);
-        return (byte) b;
     }
 }

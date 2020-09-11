@@ -114,6 +114,11 @@ public final class ColumnStatistics
         return new Builder();
     }
 
+    /**
+     * If one of the estimates below is unspecified (i.e. left as "unknown"),
+     * the optimizer may not be able to derive the statistics needed for
+     * performing cost-based query plan optimizations.
+     */
     public static final class Builder
     {
         private Estimate nullsFraction = Estimate.unknown();

@@ -16,18 +16,21 @@ package io.prestosql.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.execution.TaskState.PLANNED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -65,11 +68,14 @@ public class TaskStatus
     private final DataSize physicalWrittenDataSize;
     private final DataSize memoryReservation;
     private final DataSize systemMemoryReservation;
+    private final DataSize revocableMemoryReservation;
 
     private final long fullGcCount;
     private final Duration fullGcTime;
 
     private final List<ExecutionFailureInfo> failures;
+
+    private final Map<DynamicFilterId, Domain> dynamicFilterDomains;
 
     @JsonCreator
     public TaskStatus(
@@ -87,8 +93,10 @@ public class TaskStatus
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
+            @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("fullGcCount") long fullGcCount,
-            @JsonProperty("fullGcTime") Duration fullGcTime)
+            @JsonProperty("fullGcTime") Duration fullGcTime,
+            @JsonProperty("dynamicFilterDomains") Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
@@ -112,11 +120,13 @@ public class TaskStatus
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
+        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.failures = ImmutableList.copyOf(requireNonNull(failures, "failures is null"));
 
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
         this.fullGcCount = fullGcCount;
         this.fullGcTime = requireNonNull(fullGcTime, "fullGcTime is null");
+        this.dynamicFilterDomains = ImmutableMap.copyOf(requireNonNull(dynamicFilterDomains, "dynamicFilterDomains is null"));
     }
 
     @JsonProperty
@@ -204,6 +214,12 @@ public class TaskStatus
     }
 
     @JsonProperty
+    public DataSize getRevocableMemoryReservation()
+    {
+        return revocableMemoryReservation;
+    }
+
+    @JsonProperty
     public long getFullGcCount()
     {
         return fullGcCount;
@@ -213,6 +229,12 @@ public class TaskStatus
     public Duration getFullGcTime()
     {
         return fullGcTime;
+    }
+
+    @JsonProperty
+    public Map<DynamicFilterId, Domain> getDynamicFilterDomains()
+    {
+        return dynamicFilterDomains;
     }
 
     @Override
@@ -238,11 +260,13 @@ public class TaskStatus
                 0,
                 0,
                 false,
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
                 0,
-                new Duration(0, MILLISECONDS));
+                new Duration(0, MILLISECONDS),
+                ImmutableMap.of());
     }
 
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
@@ -262,7 +286,9 @@ public class TaskStatus
                 taskStatus.getPhysicalWrittenDataSize(),
                 taskStatus.getMemoryReservation(),
                 taskStatus.getSystemMemoryReservation(),
+                taskStatus.getRevocableMemoryReservation(),
                 taskStatus.getFullGcCount(),
-                taskStatus.getFullGcTime());
+                taskStatus.getFullGcTime(),
+                taskStatus.getDynamicFilterDomains());
     }
 }

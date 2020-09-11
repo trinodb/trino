@@ -222,6 +222,6 @@ public class LocalExchangeSource
 
     private void checkNotHoldsLock()
     {
-        checkState(!Thread.holdsLock(lock), "Can not execute this method while holding the lock");
+        checkState(!Thread.holdsLock(lock), "Cannot execute this method while holding the lock");
     }
 }

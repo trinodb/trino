@@ -15,9 +15,9 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PageBuilder;
@@ -25,17 +25,18 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.VarArgsToArrayAdapterGenerator;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.sql.gen.VarArgsToArrayAdapterGenerator.generateVarArgsToArrayAdapter;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.util.Collections.nCopies;
@@ -53,55 +54,43 @@ public final class ArrayConcatFunction
 
     private ArrayConcatFunction()
     {
-        super(new Signature(FUNCTION_NAME,
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("E")),
-                ImmutableList.of(),
-                parseTypeSignature("array(E)"),
-                ImmutableList.of(parseTypeSignature("array(E)")),
-                true));
+        super(new FunctionMetadata(
+                new Signature(
+                        FUNCTION_NAME,
+                        ImmutableList.of(typeVariable("E")),
+                        ImmutableList.of(),
+                        arrayType(new TypeSignature("E")),
+                        ImmutableList.of(arrayType(new TypeSignature("E"))),
+                        true),
+                false,
+                ImmutableList.of(new FunctionArgumentDefinition(false)),
+                false,
+                true,
+                DESCRIPTION,
+                SCALAR));
     }
 
     @Override
-    public boolean isHidden()
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return DESCRIPTION;
-    }
-
-    @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        if (arity < 2) {
+        if (functionBinding.getArity() < 2) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more arguments to " + FUNCTION_NAME);
         }
 
-        Type elementType = boundVariables.getTypeVariable("E");
+        Type elementType = functionBinding.getTypeVariable("E");
 
         VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
                 Block.class,
                 Block.class,
-                arity,
+                functionBinding.getArity(),
                 METHOD_HANDLE.bindTo(elementType),
                 USER_STATE_FACTORY.bindTo(elementType));
 
         return new ScalarFunctionImplementation(
-                false,
-                nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                FAIL_ON_NULL,
+                nCopies(functionBinding.getArity(), NEVER_NULL),
                 methodHandleAndConstructor.getMethodHandle(),
-                Optional.of(methodHandleAndConstructor.getConstructor()),
-                isDeterministic());
+                Optional.of(methodHandleAndConstructor.getConstructor()));
     }
 
     @UsedByGeneratedCode

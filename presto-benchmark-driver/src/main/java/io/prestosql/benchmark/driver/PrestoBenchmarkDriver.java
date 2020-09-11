@@ -14,56 +14,68 @@
 package io.prestosql.benchmark.driver;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.airline.Command;
-import io.airlift.airline.HelpOption;
+import com.google.common.net.HostAndPort;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
+import io.airlift.units.Duration;
+import io.prestosql.benchmark.driver.BenchmarkDriverOptions.ClientExtraCredential;
+import io.prestosql.benchmark.driver.BenchmarkDriverOptions.ClientSessionProperty;
+import io.prestosql.benchmark.driver.PrestoBenchmarkDriver.VersionProvider;
 import io.prestosql.client.ClientSession;
-
-import javax.inject.Inject;
+import picocli.CommandLine;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.IVersionProvider;
+import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Model.CommandSpec;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.Spec;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.io.ByteStreams.nullOutputStream;
-import static io.airlift.airline.SingleCommand.singleCommand;
 import static java.util.function.Function.identity;
 
-@Command(name = "presto-benchmark", description = "Presto benchmark driver")
+@Command(
+        name = "presto-benchmark-driver",
+        usageHelpAutoWidth = true,
+        versionProvider = VersionProvider.class)
 public class PrestoBenchmarkDriver
+        implements Callable<Integer>
 {
-    @Inject
-    public HelpOption helpOption;
+    @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+    public boolean usageHelpRequested;
 
-    @Inject
-    public BenchmarkDriverOptions benchmarkDriverOptions = new BenchmarkDriverOptions();
+    @Option(names = "--version", versionHelp = true, description = "Print version information and exit")
+    public boolean versionInfoRequested;
+
+    @Mixin
+    public BenchmarkDriverOptions driverOptions;
 
     public static void main(String[] args)
-            throws Exception
     {
-        new PrestoBenchmarkDriver().run(args);
+        new CommandLine(new PrestoBenchmarkDriver())
+                .registerConverter(ClientSessionProperty.class, ClientSessionProperty::new)
+                .registerConverter(ClientExtraCredential.class, ClientExtraCredential::new)
+                .registerConverter(HostAndPort.class, HostAndPort::fromString)
+                .registerConverter(Duration.class, Duration::valueOf)
+                .execute(args);
     }
 
-    protected void run(String[] args)
+    @Override
+    public Integer call()
             throws Exception
     {
-        PrestoBenchmarkDriver prestoBenchmarkDriver = singleCommand(PrestoBenchmarkDriver.class).parse(args);
-
-        if (prestoBenchmarkDriver.helpOption.showHelpIfRequested()) {
-            return;
-        }
-
-        BenchmarkDriverOptions driverOptions = prestoBenchmarkDriver.benchmarkDriverOptions;
-
         initializeLogging(driverOptions.debug);
 
         // select suites
@@ -114,6 +126,8 @@ public class PrestoBenchmarkDriver
                 benchmarkDriver.run(suite);
             }
         }
+
+        return 0;
     }
 
     protected BenchmarkResultsStore getResultsStore(List<Suite> suites, Set<BenchmarkQuery> queries)
@@ -161,12 +175,23 @@ public class PrestoBenchmarkDriver
                 logging.disableConsole();
             }
         }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
         finally {
             System.setOut(out);
             System.setErr(err);
+        }
+    }
+
+    public static class VersionProvider
+            implements IVersionProvider
+    {
+        @Spec
+        public CommandSpec spec;
+
+        @Override
+        public String[] getVersion()
+        {
+            String version = getClass().getPackage().getImplementationVersion();
+            return new String[] {spec.name() + " " + firstNonNull(version, "(version unknown)")};
         }
     }
 }

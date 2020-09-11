@@ -15,9 +15,8 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.aggregation.MaxDataSizeForStats;
 import io.prestosql.operator.aggregation.SumDataSizeForStats;
 import io.prestosql.spi.PrestoException;
@@ -26,11 +25,9 @@ import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.statistics.TableStatisticType;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.StatisticAggregations;
 import io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 
@@ -39,12 +36,14 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticsAggregationPlanner
@@ -72,15 +71,16 @@ public class StatisticsAggregationPlanner
         }
 
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> aggregations = ImmutableMap.builder();
-        FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
         for (TableStatisticType type : statisticsMetadata.getTableStatistics()) {
             if (type != ROW_COUNT) {
                 throw new PrestoException(NOT_SUPPORTED, "Table-wide statistic type not supported: " + type);
             }
-            QualifiedName count = QualifiedName.of("count");
             AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                    new FunctionCall(count, ImmutableList.of()),
-                    functionRegistry.resolveFunction(count, ImmutableList.of()),
+                    metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of()),
+                    ImmutableList.of(),
+                    false,
+                    Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
             Symbol symbol = symbolAllocator.newSymbol("rowCount", BIGINT);
             aggregations.put(symbol, aggregation);
@@ -91,9 +91,9 @@ public class StatisticsAggregationPlanner
             String columnName = columnStatisticMetadata.getColumnName();
             ColumnStatisticType statisticType = columnStatisticMetadata.getStatisticType();
             Symbol inputSymbol = columnToSymbolMap.get(columnName);
-            verify(inputSymbol != null, "inputSymbol is null");
+            verifyNotNull(inputSymbol, "inputSymbol is null");
             Type inputType = symbolAllocator.getTypes().get(inputSymbol);
-            verify(inputType != null, "inputType is null for symbol: %s", inputSymbol);
+            verifyNotNull(inputType, "inputType is null for symbol: %s", inputSymbol);
             ColumnStatisticsAggregation aggregation = createColumnAggregation(statisticType, inputSymbol, inputType);
             Symbol symbol = symbolAllocator.newSymbol(statisticType + ":" + columnName, aggregation.getOutputType());
             aggregations.put(symbol, aggregation.getAggregation());
@@ -128,13 +128,16 @@ public class StatisticsAggregationPlanner
 
     private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType, Type outputType)
     {
-        Signature signature = metadata.getFunctionRegistry().resolveFunction(functionName, TypeSignatureProvider.fromTypes(ImmutableList.of(inputType)));
-        Type resolvedType = metadata.getType(getOnlyElement(signature.getArgumentTypes()));
+        ResolvedFunction resolvedFunction = metadata.resolveFunction(functionName, fromTypes(inputType));
+        Type resolvedType = getOnlyElement(resolvedFunction.getSignature().getArgumentTypes());
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
-                        new FunctionCall(functionName, ImmutableList.of(input)),
-                        signature,
+                        resolvedFunction,
+                        ImmutableList.of(input),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
                         Optional.empty()),
                 outputType);
     }

@@ -13,9 +13,6 @@
  */
 package io.prestosql.plugin.hive.parquet;
 
-import org.testng.annotations.Test;
-
-@Test(groups = "ci")
 public class TestFullParquetReader
         extends AbstractTestParquetReader
 {

@@ -13,13 +13,14 @@
  */
 package io.prestosql.operator.aggregation;
 
-import io.prestosql.operator.aggregation.state.NullableLongState;
+import io.prestosql.operator.aggregation.minmaxby.LongLongState;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.AggregationFunction;
 import io.prestosql.spi.function.AggregationState;
 import io.prestosql.spi.function.CombineFunction;
 import io.prestosql.spi.function.InputFunction;
 import io.prestosql.spi.function.OutputFunction;
+import io.prestosql.spi.function.RemoveInputFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.StandardTypes;
@@ -31,27 +32,34 @@ public final class LongSumAggregation
     private LongSumAggregation() {}
 
     @InputFunction
-    public static void sum(@AggregationState NullableLongState state, @SqlType(StandardTypes.BIGINT) long value)
+    public static void sum(@AggregationState LongLongState state, @SqlType(StandardTypes.BIGINT) long value)
     {
-        state.setNull(false);
-        state.setLong(BigintOperators.add(state.getLong(), value));
+        state.setFirst(state.getFirst() + 1);
+        state.setSecond(BigintOperators.add(state.getSecond(), value));
+    }
+
+    @RemoveInputFunction
+    public static void removeInput(@AggregationState LongLongState state, @SqlType(StandardTypes.BIGINT) long value)
+    {
+        state.setFirst(state.getFirst() - 1);
+        state.setSecond(BigintOperators.subtract(state.getSecond(), value));
     }
 
     @CombineFunction
-    public static void combine(@AggregationState NullableLongState state, @AggregationState NullableLongState otherState)
+    public static void combine(@AggregationState LongLongState state, @AggregationState LongLongState otherState)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setLong(otherState.getLong());
-            return;
-        }
-
-        state.setLong(BigintOperators.add(state.getLong(), otherState.getLong()));
+        state.setFirst(state.getFirst() + otherState.getFirst());
+        state.setSecond(BigintOperators.add(state.getSecond(), otherState.getSecond()));
     }
 
     @OutputFunction(StandardTypes.BIGINT)
-    public static void output(@AggregationState NullableLongState state, BlockBuilder out)
+    public static void output(@AggregationState LongLongState state, BlockBuilder out)
     {
-        NullableLongState.write(BigintType.BIGINT, state, out);
+        if (state.getFirst() == 0) {
+            out.appendNull();
+        }
+        else {
+            BigintType.BIGINT.writeLong(out, state.getSecond());
+        }
     }
 }

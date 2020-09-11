@@ -101,7 +101,7 @@ public final class CachingStatsProvider
         }
 
         PlanNodeStatsEstimate groupStats = statsCalculator.calculateStats(memo.getNode(group), this, lookup, session, types);
-        verify(!memo.getStats(group).isPresent(), "Group stats already set");
+        verify(memo.getStats(group).isEmpty(), "Group stats already set");
         memo.storeStats(group, groupStats);
         return groupStats;
     }

@@ -13,11 +13,13 @@
  */
 package io.prestosql.spi.connector;
 
+import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.transaction.IsolationLevel;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Collections.emptyList;
@@ -25,6 +27,15 @@ import static java.util.Collections.emptySet;
 
 public interface Connector
 {
+    /**
+     * Get handle resolver for this connector instance. If {@code Optional.empty()} is returned,
+     * {@link ConnectorFactory#getHandleResolver()} is used instead.
+     */
+    default Optional<ConnectorHandleResolver> getHandleResolver()
+    {
+        return Optional.empty();
+    }
+
     ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly);
 
     /**
@@ -33,7 +44,13 @@ public interface Connector
      */
     ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle);
 
-    ConnectorSplitManager getSplitManager();
+    /**
+     * @throws UnsupportedOperationException if this connector does not support tables with splits
+     */
+    default ConnectorSplitManager getSplitManager()
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * @throws UnsupportedOperationException if this connector does not support reading tables page at a time
@@ -140,21 +157,25 @@ public interface Connector
     }
 
     /**
+     * @return the event listeners provided by this connector
+     */
+    default Iterable<EventListener> getEventListeners()
+    {
+        return emptySet();
+    }
+
+    /**
      * Commit the transaction. Will be called at most once and will not be called if
      * {@link #rollback(ConnectorTransactionHandle)} is called.
      */
-    default void commit(ConnectorTransactionHandle transactionHandle)
-    {
-    }
+    default void commit(ConnectorTransactionHandle transactionHandle) {}
 
     /**
      * Rollback the transaction. Will be called at most once and will not be called if
      * {@link #commit(ConnectorTransactionHandle)} is called.
      * Note: calls to this method may race with calls to the ConnectorMetadata.
      */
-    default void rollback(ConnectorTransactionHandle transactionHandle)
-    {
-    }
+    default void rollback(ConnectorTransactionHandle transactionHandle) {}
 
     /**
      * True if the connector only supports write statements in independent transactions.
@@ -172,4 +193,9 @@ public interface Connector
      * have been returned from the connector.
      */
     default void shutdown() {}
+
+    default Set<ConnectorCapabilities> getCapabilities()
+    {
+        return emptySet();
+    }
 }

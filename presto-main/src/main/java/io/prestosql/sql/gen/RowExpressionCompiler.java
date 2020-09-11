@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
-import io.prestosql.metadata.FunctionRegistry;
+import io.airlift.bytecode.Variable;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.ConstantExpression;
@@ -26,6 +28,7 @@ import io.prestosql.sql.relational.InputReferenceExpression;
 import io.prestosql.sql.relational.LambdaDefinitionExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.RowExpressionVisitor;
+import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.sql.relational.VariableReferenceExpression;
 
 import java.util.Map;
@@ -41,36 +44,26 @@ import static io.airlift.bytecode.instruction.Constant.loadLong;
 import static io.airlift.bytecode.instruction.Constant.loadString;
 import static io.prestosql.sql.gen.BytecodeUtils.loadConstant;
 import static io.prestosql.sql.gen.LambdaBytecodeGenerator.generateLambda;
-import static io.prestosql.sql.relational.Signatures.BIND;
-import static io.prestosql.sql.relational.Signatures.CAST;
-import static io.prestosql.sql.relational.Signatures.COALESCE;
-import static io.prestosql.sql.relational.Signatures.DEREFERENCE;
-import static io.prestosql.sql.relational.Signatures.IF;
-import static io.prestosql.sql.relational.Signatures.IN;
-import static io.prestosql.sql.relational.Signatures.IS_NULL;
-import static io.prestosql.sql.relational.Signatures.NULL_IF;
-import static io.prestosql.sql.relational.Signatures.ROW_CONSTRUCTOR;
-import static io.prestosql.sql.relational.Signatures.SWITCH;
 
 public class RowExpressionCompiler
 {
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
     private final RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler;
-    private final FunctionRegistry registry;
+    private final Metadata metadata;
     private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
 
     RowExpressionCompiler(
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler,
-            FunctionRegistry registry,
+            Metadata metadata,
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap)
     {
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
         this.fieldReferenceCompiler = fieldReferenceCompiler;
-        this.registry = registry;
+        this.metadata = metadata;
         this.compiledLambdaMap = compiledLambdaMap;
     }
 
@@ -79,7 +72,7 @@ public class RowExpressionCompiler
         return compile(rowExpression, scope, Optional.empty());
     }
 
-    public BytecodeNode compile(RowExpression rowExpression, Scope scope, Optional<Class> lambdaInterface)
+    public BytecodeNode compile(RowExpression rowExpression, Scope scope, Optional<Class<?>> lambdaInterface)
     {
         return rowExpression.accept(new Visitor(), new Context(scope, lambdaInterface));
     }
@@ -90,54 +83,65 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitCall(CallExpression call, Context context)
         {
+            BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
+                    RowExpressionCompiler.this,
+                    context.getScope(),
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    metadata);
+
+            return generatorContext.generateFullCall(call.getResolvedFunction(), call.getArguments());
+        }
+
+        @Override
+        public BytecodeNode visitSpecialForm(SpecialForm specialForm, Context context)
+        {
             BytecodeGenerator generator;
             // special-cased in function registry
-            if (call.getSignature().getName().equals(CAST)) {
-                generator = new CastCodeGenerator();
-            }
-            else {
-                switch (call.getSignature().getName()) {
-                    // lazy evaluation
-                    case IF:
-                        generator = new IfCodeGenerator();
-                        break;
-                    case NULL_IF:
-                        generator = new NullIfCodeGenerator();
-                        break;
-                    case SWITCH:
-                        // (SWITCH <expr> (WHEN <expr> <expr>) (WHEN <expr> <expr>) <expr>)
-                        generator = new SwitchCodeGenerator();
-                        break;
-                    // functions that take null as input
-                    case IS_NULL:
-                        generator = new IsNullCodeGenerator();
-                        break;
-                    case COALESCE:
-                        generator = new CoalesceCodeGenerator();
-                        break;
-                    // functions that require varargs and/or complex types (e.g., lists)
-                    case IN:
-                        generator = new InCodeGenerator(registry);
-                        break;
-                    // optimized implementations (shortcircuiting behavior)
-                    case "AND":
-                        generator = new AndCodeGenerator();
-                        break;
-                    case "OR":
-                        generator = new OrCodeGenerator();
-                        break;
-                    case DEREFERENCE:
-                        generator = new DereferenceCodeGenerator();
-                        break;
-                    case ROW_CONSTRUCTOR:
-                        generator = new RowConstructorCodeGenerator();
-                        break;
-                    case BIND:
-                        generator = new BindCodeGenerator(compiledLambdaMap, context.getLambdaInterface().get());
-                        break;
-                    default:
-                        generator = new FunctionCallCodeGenerator();
-                }
+            switch (specialForm.getForm()) {
+                // lazy evaluation
+                case IF:
+                    generator = new IfCodeGenerator(specialForm);
+                    break;
+                case NULL_IF:
+                    generator = new NullIfCodeGenerator(specialForm);
+                    break;
+                case SWITCH:
+                    // (SWITCH <expr> (WHEN <expr> <expr>) (WHEN <expr> <expr>) <expr>)
+                    generator = new SwitchCodeGenerator(specialForm);
+                    break;
+                case BETWEEN:
+                    generator = new BetweenCodeGenerator(specialForm);
+                    break;
+                // functions that take null as input
+                case IS_NULL:
+                    generator = new IsNullCodeGenerator(specialForm);
+                    break;
+                case COALESCE:
+                    generator = new CoalesceCodeGenerator(specialForm);
+                    break;
+                // functions that require varargs and/or complex types (e.g., lists)
+                case IN:
+                    generator = new InCodeGenerator(specialForm);
+                    break;
+                // optimized implementations (shortcircuiting behavior)
+                case AND:
+                    generator = new AndCodeGenerator(specialForm);
+                    break;
+                case OR:
+                    generator = new OrCodeGenerator(specialForm);
+                    break;
+                case DEREFERENCE:
+                    generator = new DereferenceCodeGenerator(specialForm);
+                    break;
+                case ROW_CONSTRUCTOR:
+                    generator = new RowConstructorCodeGenerator(specialForm);
+                    break;
+                case BIND:
+                    generator = new BindCodeGenerator(specialForm, compiledLambdaMap, context.getLambdaInterface().get());
+                    break;
+                default:
+                    throw new IllegalStateException("Cannot compile special form: " + specialForm.getForm());
             }
 
             BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
@@ -145,9 +149,9 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    registry);
+                    metadata);
 
-            return generator.generateExpression(call.getSignature(), generatorContext, call.getType(), call.getArguments());
+            return generator.generateExpression(generatorContext);
         }
 
         @Override
@@ -213,7 +217,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    registry);
+                    metadata);
 
             return generateLambda(
                     generatorContext,
@@ -225,16 +229,26 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Context context)
         {
+            if (reference.getName().startsWith(TEMP_PREFIX)) {
+                return context.getScope().getTempVariable(reference.getName().substring(TEMP_PREFIX.length()));
+            }
             return fieldReferenceCompiler.visitVariableReference(reference, context.getScope());
         }
+    }
+
+    private static final String TEMP_PREFIX = "$$TEMP$$";
+
+    public static VariableReferenceExpression createTempVariableReferenceExpression(Variable variable, Type type)
+    {
+        return new VariableReferenceExpression(TEMP_PREFIX + variable.getName(), type);
     }
 
     private static class Context
     {
         private final Scope scope;
-        private final Optional<Class> lambdaInterface;
+        private final Optional<Class<?>> lambdaInterface;
 
-        public Context(Scope scope, Optional<Class> lambdaInterface)
+        public Context(Scope scope, Optional<Class<?>> lambdaInterface)
         {
             this.scope = scope;
             this.lambdaInterface = lambdaInterface;
@@ -245,7 +259,7 @@ public class RowExpressionCompiler
             return scope;
         }
 
-        public Optional<Class> getLambdaInterface()
+        public Optional<Class<?>> getLambdaInterface()
         {
             return lambdaInterface;
         }

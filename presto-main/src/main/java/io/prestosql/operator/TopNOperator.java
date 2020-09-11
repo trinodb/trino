@@ -14,29 +14,41 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.memory.context.MemoryTrackingContext;
+import io.prestosql.operator.WorkProcessor.TransformationState;
+import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
+import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
-import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
-import static java.util.Collections.emptyIterator;
+import static io.prestosql.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Returns the top N rows from the source sorted according to the specified ordering in the keyChannelIndex channel.
  */
 public class TopNOperator
-        implements Operator
+        implements AdapterWorkProcessorOperator
 {
-    public static class TopNOperatorFactory
-            implements OperatorFactory
+    public static OperatorFactory createOperatorFactory(
+            int operatorId,
+            PlanNodeId planNodeId,
+            List<? extends Type> types,
+            int n,
+            List<Integer> sortChannels,
+            List<SortOrder> sortOrders)
+    {
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, sortChannels, sortOrders));
+    }
+
+    private static class Factory
+            implements AdapterWorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
@@ -46,7 +58,7 @@ public class TopNOperator
         private final List<SortOrder> sortOrders;
         private boolean closed;
 
-        public TopNOperatorFactory(
+        private Factory(
                 int operatorId,
                 PlanNodeId planNodeId,
                 List<? extends Type> types,
@@ -63,12 +75,14 @@ public class TopNOperator
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public WorkProcessorOperator create(
+                ProcessorContext processorContext,
+                WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, TopNOperator.class.getSimpleName());
             return new TopNOperator(
-                    operatorContext,
+                    processorContext.getMemoryTrackingContext(),
+                    Optional.of(sourcePages),
                     sourceTypes,
                     n,
                     sortChannels,
@@ -76,115 +90,127 @@ public class TopNOperator
         }
 
         @Override
-        public void noMoreOperators()
+        public AdapterWorkProcessorOperator createAdapterOperator(ProcessorContext processorContext)
+        {
+            checkState(!closed, "Factory is already closed");
+            return new TopNOperator(
+                    processorContext.getMemoryTrackingContext(),
+                    Optional.empty(),
+                    sourceTypes,
+                    n,
+                    sortChannels,
+                    sortOrders);
+        }
+
+        @Override
+        public int getOperatorId()
+        {
+            return operatorId;
+        }
+
+        @Override
+        public PlanNodeId getPlanNodeId()
+        {
+            return planNodeId;
+        }
+
+        @Override
+        public String getOperatorType()
+        {
+            return TopNOperator.class.getSimpleName();
+        }
+
+        @Override
+        public void close()
         {
             closed = true;
         }
 
         @Override
-        public OperatorFactory duplicate()
+        public Factory duplicate()
         {
-            return new TopNOperatorFactory(operatorId, planNodeId, sourceTypes, n, sortChannels, sortOrders);
+            return new Factory(operatorId, planNodeId, sourceTypes, n, sortChannels, sortOrders);
         }
     }
 
-    private final OperatorContext operatorContext;
-    private final LocalMemoryContext localUserMemoryContext;
+    private final TopNProcessor topNProcessor;
+    private final WorkProcessor<Page> pages;
+    private final PageBuffer pageBuffer = new PageBuffer();
 
-    private GroupedTopNBuilder topNBuilder;
-    private boolean finishing;
-
-    private Iterator<Page> outputIterator;
-
-    public TopNOperator(
-            OperatorContext operatorContext,
+    private TopNOperator(
+            MemoryTrackingContext memoryTrackingContext,
+            Optional<WorkProcessor<Page>> sourcePages,
             List<Type> types,
             int n,
             List<Integer> sortChannels,
             List<SortOrder> sortOrders)
     {
-        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
-        checkArgument(n >= 0, "n must be positive");
+        this.topNProcessor = new TopNProcessor(
+                requireNonNull(memoryTrackingContext, "memoryTrackingContext is null").aggregateUserMemoryContext(),
+                types,
+                n,
+                sortChannels,
+                sortOrders);
 
         if (n == 0) {
-            finishing = true;
-            outputIterator = emptyIterator();
+            pages = WorkProcessor.of();
         }
         else {
-            topNBuilder = new GroupedTopNBuilder(
-                    types,
-                    new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
-                    n,
-                    false,
-                    new NoChannelGroupByHash());
+            pages = sourcePages.orElse(pageBuffer.pages()).transform(new TopNPages());
         }
     }
 
     @Override
-    public OperatorContext getOperatorContext()
+    public WorkProcessor<Page> getOutputPages()
     {
-        return operatorContext;
-    }
-
-    @Override
-    public void finish()
-    {
-        finishing = true;
-    }
-
-    @Override
-    public boolean isFinished()
-    {
-        return finishing && noMoreOutput();
+        return pages;
     }
 
     @Override
     public boolean needsInput()
     {
-        return !finishing && !noMoreOutput();
+        return pageBuffer.isEmpty() && !pageBuffer.isFinished();
     }
 
     @Override
     public void addInput(Page page)
     {
-        checkState(!finishing, "Operator is already finishing");
-        boolean done = topNBuilder.processPage(requireNonNull(page, "page is null")).process();
-        // there is no grouping so work will always be done
-        verify(done);
-        updateMemoryReservation();
+        addPage(page);
     }
 
     @Override
-    public Page getOutput()
+    public void finish()
     {
-        if (!finishing || noMoreOutput()) {
-            return null;
-        }
-
-        if (outputIterator == null) {
-            // start flushing
-            outputIterator = topNBuilder.buildResult();
-        }
-
-        Page output = null;
-        if (outputIterator.hasNext()) {
-            output = outputIterator.next();
-        }
-        else {
-            outputIterator = emptyIterator();
-        }
-        updateMemoryReservation();
-        return output;
+        pageBuffer.finish();
     }
 
-    private void updateMemoryReservation()
+    private void addPage(Page page)
     {
-        localUserMemoryContext.setBytes(topNBuilder.getEstimatedSizeInBytes());
+        topNProcessor.addInput(page);
     }
 
-    private boolean noMoreOutput()
+    private class TopNPages
+            implements WorkProcessor.Transformation<Page, Page>
     {
-        return outputIterator != null && !outputIterator.hasNext();
+        @Override
+        public TransformationState<Page> process(Page inputPage)
+        {
+            if (inputPage != null) {
+                addPage(inputPage);
+                return TransformationState.needsMoreData();
+            }
+
+            // no more input, return results
+            Page page = null;
+            while (page == null && !topNProcessor.noMoreOutput()) {
+                page = topNProcessor.getOutput();
+            }
+
+            if (page != null) {
+                return TransformationState.ofResult(page, false);
+            }
+
+            return TransformationState.finished();
+        }
     }
 }

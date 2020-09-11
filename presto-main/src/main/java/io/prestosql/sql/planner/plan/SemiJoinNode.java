@@ -38,6 +38,7 @@ public class SemiJoinNode
     private final Optional<Symbol> sourceHashSymbol;
     private final Optional<Symbol> filteringSourceHashSymbol;
     private final Optional<DistributionType> distributionType;
+    private final Optional<DynamicFilterId> dynamicFilterId;
 
     @JsonCreator
     public SemiJoinNode(@JsonProperty("id") PlanNodeId id,
@@ -48,7 +49,8 @@ public class SemiJoinNode
             @JsonProperty("semiJoinOutput") Symbol semiJoinOutput,
             @JsonProperty("sourceHashSymbol") Optional<Symbol> sourceHashSymbol,
             @JsonProperty("filteringSourceHashSymbol") Optional<Symbol> filteringSourceHashSymbol,
-            @JsonProperty("distributionType") Optional<DistributionType> distributionType)
+            @JsonProperty("distributionType") Optional<DistributionType> distributionType,
+            @JsonProperty("dynamicFilterId") Optional<DynamicFilterId> dynamicFilterId)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
@@ -59,6 +61,7 @@ public class SemiJoinNode
         this.sourceHashSymbol = requireNonNull(sourceHashSymbol, "sourceHashSymbol is null");
         this.filteringSourceHashSymbol = requireNonNull(filteringSourceHashSymbol, "filteringSourceHashSymbol is null");
         this.distributionType = requireNonNull(distributionType, "distributionType is null");
+        this.dynamicFilterId = requireNonNull(dynamicFilterId, "dynamicFilterId is null");
 
         checkArgument(source.getOutputSymbols().contains(sourceJoinSymbol), "Source does not contain join symbol");
         checkArgument(filteringSource.getOutputSymbols().contains(filteringSourceJoinSymbol), "Filtering source does not contain filtering join symbol");
@@ -139,6 +142,12 @@ public class SemiJoinNode
         return visitor.visitSemiJoin(this, context);
     }
 
+    @JsonProperty
+    public Optional<DynamicFilterId> getDynamicFilterId()
+    {
+        return dynamicFilterId;
+    }
+
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
@@ -152,7 +161,8 @@ public class SemiJoinNode
                 semiJoinOutput,
                 sourceHashSymbol,
                 filteringSourceHashSymbol,
-                distributionType);
+                distributionType,
+                dynamicFilterId);
     }
 
     public SemiJoinNode withDistributionType(DistributionType distributionType)
@@ -166,6 +176,7 @@ public class SemiJoinNode
                 semiJoinOutput,
                 sourceHashSymbol,
                 filteringSourceHashSymbol,
-                Optional.of(distributionType));
+                Optional.of(distributionType),
+                dynamicFilterId);
     }
 }

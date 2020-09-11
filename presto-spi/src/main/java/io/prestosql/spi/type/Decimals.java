@@ -21,6 +21,8 @@ import io.prestosql.spi.block.BlockBuilder;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
+import java.math.RoundingMode;
+import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -129,7 +131,7 @@ public final class Decimals
         return new DecimalParseResult(value, createDecimalType(precision, scale));
     }
 
-    private static String getMatcherGroup(Matcher matcher, int group)
+    private static String getMatcherGroup(MatchResult matcher, int group)
     {
         String groupValue = matcher.group(group);
         if (groupValue == null) {
@@ -138,7 +140,6 @@ public final class Decimals
         return groupValue;
     }
 
-    @SuppressWarnings("NumericCastThatLosesPrecision")
     public static Slice encodeUnscaledValue(BigInteger unscaledValue)
     {
         return unscaledDecimal(unscaledValue);
@@ -151,14 +152,24 @@ public final class Decimals
 
     public static long encodeShortScaledValue(BigDecimal value, int scale)
     {
+        return encodeShortScaledValue(value, scale, UNNECESSARY);
+    }
+
+    public static long encodeShortScaledValue(BigDecimal value, int scale, RoundingMode roundingMode)
+    {
         checkArgument(scale >= 0);
-        return value.setScale(scale, UNNECESSARY).unscaledValue().longValueExact();
+        return value.setScale(scale, roundingMode).unscaledValue().longValueExact();
     }
 
     public static Slice encodeScaledValue(BigDecimal value, int scale)
     {
+        return encodeScaledValue(value, scale, UNNECESSARY);
+    }
+
+    public static Slice encodeScaledValue(BigDecimal value, int scale, RoundingMode roundingMode)
+    {
         checkArgument(scale >= 0);
-        return encodeScaledValue(value.setScale(scale, UNNECESSARY));
+        return encodeScaledValue(value.setScale(scale, roundingMode));
     }
 
     /**
@@ -204,7 +215,7 @@ public final class Decimals
             resultBuilder.append("0");
         }
         else {
-            resultBuilder.append(unscaledValueString.substring(0, unscaledValueString.length() - scale));
+            resultBuilder.append(unscaledValueString, 0, unscaledValueString.length() - scale);
         }
 
         // fractional part
@@ -212,9 +223,7 @@ public final class Decimals
             resultBuilder.append(".");
             if (unscaledValueString.length() < scale) {
                 // prepend zeros to fractional part if unscaled value length is shorter than scale
-                for (int i = 0; i < scale - unscaledValueString.length(); ++i) {
-                    resultBuilder.append("0");
-                }
+                resultBuilder.append("0".repeat(scale - unscaledValueString.length()));
                 resultBuilder.append(unscaledValueString);
             }
             else {

@@ -14,32 +14,19 @@
 package io.prestosql.tests;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
-import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.ColumnConstraint;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedDomain;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedMarker;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedRange;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.IoPlan;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.IoPlan.TableColumnInfo;
+import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -48,9 +35,10 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 public class TestLocalQueries
         extends AbstractTestQueries
 {
-    public TestLocalQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
-        super(TestLocalQueries::createLocalQueryRunner);
+        return createLocalQueryRunner();
     }
 
     public static LocalQueryRunner createLocalQueryRunner()
@@ -61,7 +49,9 @@ public class TestLocalQueries
                 .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true")
                 .build();
 
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
+        LocalQueryRunner localQueryRunner = LocalQueryRunner.builder(defaultSession)
+                .withDefaultSessionProperties(ImmutableMap.of(TESTING_CATALOG, TEST_CATALOG_PROPERTIES))
+                .build();
 
         // add the tpch catalog
         // local queries run directly against the generator
@@ -74,7 +64,6 @@ public class TestLocalQueries
 
         SessionPropertyManager sessionPropertyManager = localQueryRunner.getMetadata().getSessionPropertyManager();
         sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
-        sessionPropertyManager.addConnectorSessionProperties(new ConnectorId(TESTING_CATALOG), TEST_CATALOG_PROPERTIES);
 
         return localQueryRunner;
     }
@@ -116,34 +105,6 @@ public class TestLocalQueries
     }
 
     @Test
-    public void testIOExplain()
-    {
-        String query = "SELECT * FROM orders";
-        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) " + query);
-        TableColumnInfo input = new TableColumnInfo(
-                new CatalogSchemaTableName("local", "sf0.01", "orders"),
-                ImmutableSet.of(
-                        new ColumnConstraint(
-                                "orderstatus",
-                                createVarcharType(1).getTypeSignature(),
-                                new FormattedDomain(
-                                        false,
-                                        ImmutableSet.of(
-                                                new FormattedRange(
-                                                        new FormattedMarker(Optional.of("F"), EXACTLY),
-                                                        new FormattedMarker(Optional.of("F"), EXACTLY)),
-                                                new FormattedRange(
-                                                        new FormattedMarker(Optional.of("O"), EXACTLY),
-                                                        new FormattedMarker(Optional.of("O"), EXACTLY)),
-                                                new FormattedRange(
-                                                        new FormattedMarker(Optional.of("P"), EXACTLY),
-                                                        new FormattedMarker(Optional.of("P"), EXACTLY)))))));
-        assertEquals(
-                jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IoPlan(ImmutableSet.of(input), Optional.empty()));
-    }
-
-    @Test
     public void testHueQueries()
     {
         // https://github.com/cloudera/hue/blob/b49e98c1250c502be596667ce1f0fe118983b432/desktop/libs/notebook/src/notebook/connectors/jdbc.py#L205
@@ -151,5 +112,15 @@ public class TestLocalQueries
 
         // https://github.com/cloudera/hue/blob/b49e98c1250c502be596667ce1f0fe118983b432/desktop/libs/notebook/src/notebook/connectors/jdbc.py#L213
         assertQuerySucceeds(getSession(), "SELECT column_name, data_type, column_comment FROM information_schema.columns WHERE table_schema='local' AND TABLE_NAME='nation'");
+    }
+
+    @Test
+    public void testTransformValuesInTry()
+    {
+        // Test resetting of transform_values internal state after recovery from try()
+        assertQuery(
+                "SELECT json_format(CAST(try(transform_values(m, (k, v) -> k / v)) AS json)) " +
+                        "FROM (VALUES map(ARRAY[1, 2], ARRAY[0, 0]),  map(ARRAY[28], ARRAY[2]), map(ARRAY[18], ARRAY[2]), map(ARRAY[4, 5], ARRAY[1, 0]),  map(ARRAY[12], ARRAY[3])) AS t(m)",
+                "VALUES NULL, '{\"28\":14}', '{\"18\":9}', NULL, '{\"12\":4}'");
     }
 }

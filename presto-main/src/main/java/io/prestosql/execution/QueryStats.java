@@ -32,11 +32,10 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class QueryStats
 {
@@ -48,11 +47,11 @@ public class QueryStats
 
     private final Duration elapsedTime;
     private final Duration queuedTime;
-    private final Duration executionTime;
     private final Duration resourceWaitingTime;
+    private final Duration dispatchingTime;
+    private final Duration executionTime;
     private final Duration analysisTime;
-    private final Duration distributedPlanningTime;
-    private final Duration totalPlanningTime;
+    private final Duration planningTime;
     private final Duration finishingTime;
 
     private final int totalTasks;
@@ -67,11 +66,15 @@ public class QueryStats
 
     private final double cumulativeUserMemory;
     private final DataSize userMemoryReservation;
+    private final DataSize revocableMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
+    private final DataSize peakRevocableMemoryReservation;
+    private final DataSize peakNonRevocableMemoryReservation;
     private final DataSize peakTotalMemoryReservation;
-    private final DataSize peakTaskTotalMemory;
     private final DataSize peakTaskUserMemory;
+    private final DataSize peakTaskRevocableMemory;
+    private final DataSize peakTaskTotalMemory;
 
     private final boolean scheduled;
     private final Duration totalScheduledTime;
@@ -82,6 +85,7 @@ public class QueryStats
 
     private final DataSize physicalInputDataSize;
     private final long physicalInputPositions;
+    private final Duration physicalInputReadTime;
 
     private final DataSize internalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
@@ -99,6 +103,8 @@ public class QueryStats
 
     private final List<StageGcStatistics> stageGcStatistics;
 
+    private final DynamicFiltersStats dynamicFiltersStats;
+
     private final List<OperatorStats> operatorSummaries;
 
     @JsonCreator
@@ -111,10 +117,10 @@ public class QueryStats
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("resourceWaitingTime") Duration resourceWaitingTime,
+            @JsonProperty("dispatchingTime") Duration dispatchingTime,
             @JsonProperty("executionTime") Duration executionTime,
             @JsonProperty("analysisTime") Duration analysisTime,
-            @JsonProperty("distributedPlanningTime") Duration distributedPlanningTime,
-            @JsonProperty("totalPlanningTime") Duration totalPlanningTime,
+            @JsonProperty("planningTime") Duration planningTime,
             @JsonProperty("finishingTime") Duration finishingTime,
 
             @JsonProperty("totalTasks") int totalTasks,
@@ -129,10 +135,14 @@ public class QueryStats
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+            @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
+            @JsonProperty("peakRevocableMemoryReservation") DataSize peakRevocableMemoryReservation,
+            @JsonProperty("peakNonRevocableMemoryReservation") DataSize peakNonRevocableMemoryReservation,
             @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
             @JsonProperty("peakTaskUserMemory") DataSize peakTaskUserMemory,
+            @JsonProperty("peakTaskRevocableMemory") DataSize peakTaskRevocableMemory,
             @JsonProperty("peakTaskTotalMemory") DataSize peakTaskTotalMemory,
 
             @JsonProperty("scheduled") boolean scheduled,
@@ -144,6 +154,7 @@ public class QueryStats
 
             @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
             @JsonProperty("physicalInputPositions") long physicalInputPositions,
+            @JsonProperty("physicalInputReadTime") Duration physicalInputReadTime,
 
             @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
@@ -161,6 +172,8 @@ public class QueryStats
 
             @JsonProperty("stageGcStatistics") List<StageGcStatistics> stageGcStatistics,
 
+            @JsonProperty("dynamicFiltersStats") DynamicFiltersStats dynamicFiltersStats,
+
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries)
     {
         this.createTime = requireNonNull(createTime, "createTime is null");
@@ -171,10 +184,10 @@ public class QueryStats
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.resourceWaitingTime = requireNonNull(resourceWaitingTime, "resourceWaitingTime is null");
+        this.dispatchingTime = requireNonNull(dispatchingTime, "dispatchingTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
-        this.distributedPlanningTime = requireNonNull(distributedPlanningTime, "distributedPlanningTime is null");
-        this.totalPlanningTime = requireNonNull(totalPlanningTime, "totalPlanningTime is null");
+        this.planningTime = requireNonNull(planningTime, "planningTime is null");
         this.finishingTime = requireNonNull(finishingTime, "finishingTime is null");
 
         checkArgument(totalTasks >= 0, "totalTasks is negative");
@@ -197,11 +210,15 @@ public class QueryStats
         checkArgument(cumulativeUserMemory >= 0, "cumulativeUserMemory is negative");
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
+        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
+        this.peakRevocableMemoryReservation = requireNonNull(peakRevocableMemoryReservation, "peakRevocableMemoryReservation is null");
+        this.peakNonRevocableMemoryReservation = requireNonNull(peakNonRevocableMemoryReservation, "peakNonRevocableMemoryReservation is null");
         this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
-        this.peakTaskTotalMemory = requireNonNull(peakTaskTotalMemory, "peakTaskTotalMemory is null");
         this.peakTaskUserMemory = requireNonNull(peakTaskUserMemory, "peakTaskUserMemory is null");
+        this.peakTaskRevocableMemory = requireNonNull(peakTaskRevocableMemory, "peakTaskRevocableMemory is null");
+        this.peakTaskTotalMemory = requireNonNull(peakTaskTotalMemory, "peakTaskTotalMemory is null");
         this.scheduled = scheduled;
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -212,6 +229,7 @@ public class QueryStats
         this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
         checkArgument(physicalInputPositions >= 0, "physicalInputPositions is negative");
         this.physicalInputPositions = physicalInputPositions;
+        this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
 
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
         checkArgument(internalNetworkInputPositions >= 0, "internalNetworkInputPositions is negative");
@@ -233,59 +251,9 @@ public class QueryStats
 
         this.stageGcStatistics = ImmutableList.copyOf(requireNonNull(stageGcStatistics, "stageGcStatistics is null"));
 
-        this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
-    }
+        this.dynamicFiltersStats = requireNonNull(dynamicFiltersStats, "dynamicFiltersStats is null");
 
-    public static QueryStats immediateFailureQueryStats()
-    {
-        DateTime now = DateTime.now();
-        return new QueryStats(
-                now,
-                now,
-                now,
-                now,
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                false,
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                false,
-                ImmutableSet.of(),
-                new DataSize(0, BYTE),
-                0,
-                new DataSize(0, BYTE),
-                0,
-                new DataSize(0, BYTE),
-                0,
-                new DataSize(0, BYTE),
-                0,
-                new DataSize(0, BYTE),
-                0,
-                new DataSize(0, BYTE),
-                ImmutableList.of(),
-                ImmutableList.of());
+        this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
     }
 
     @JsonProperty
@@ -326,6 +294,12 @@ public class QueryStats
     }
 
     @JsonProperty
+    public Duration getDispatchingTime()
+    {
+        return dispatchingTime;
+    }
+
+    @JsonProperty
     public Duration getQueuedTime()
     {
         return queuedTime;
@@ -344,15 +318,9 @@ public class QueryStats
     }
 
     @JsonProperty
-    public Duration getDistributedPlanningTime()
+    public Duration getPlanningTime()
     {
-        return distributedPlanningTime;
-    }
-
-    @JsonProperty
-    public Duration getTotalPlanningTime()
-    {
-        return totalPlanningTime;
+        return planningTime;
     }
 
     @JsonProperty
@@ -422,6 +390,12 @@ public class QueryStats
     }
 
     @JsonProperty
+    public DataSize getRevocableMemoryReservation()
+    {
+        return revocableMemoryReservation;
+    }
+
+    @JsonProperty
     public DataSize getTotalMemoryReservation()
     {
         return totalMemoryReservation;
@@ -434,21 +408,39 @@ public class QueryStats
     }
 
     @JsonProperty
+    public DataSize getPeakRevocableMemoryReservation()
+    {
+        return peakRevocableMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getPeakNonRevocableMemoryReservation()
+    {
+        return peakNonRevocableMemoryReservation;
+    }
+
+    @JsonProperty
     public DataSize getPeakTotalMemoryReservation()
     {
         return peakTotalMemoryReservation;
     }
 
     @JsonProperty
-    public DataSize getPeakTaskTotalMemory()
-    {
-        return peakTaskTotalMemory;
-    }
-
-    @JsonProperty
     public DataSize getPeakTaskUserMemory()
     {
         return peakTaskUserMemory;
+    }
+
+    @JsonProperty
+    public DataSize getPeakTaskRevocableMemory()
+    {
+        return peakTaskRevocableMemory;
+    }
+
+    @JsonProperty
+    public DataSize getPeakTaskTotalMemory()
+    {
+        return peakTaskTotalMemory;
     }
 
     @JsonProperty
@@ -497,6 +489,12 @@ public class QueryStats
     public long getPhysicalInputPositions()
     {
         return physicalInputPositions;
+    }
+
+    @JsonProperty
+    public Duration getPhysicalInputReadTime()
+    {
+        return physicalInputReadTime;
     }
 
     @JsonProperty
@@ -576,6 +574,12 @@ public class QueryStats
     public List<StageGcStatistics> getStageGcStatistics()
     {
         return stageGcStatistics;
+    }
+
+    @JsonProperty
+    public DynamicFiltersStats getDynamicFiltersStats()
+    {
+        return dynamicFiltersStats;
     }
 
     @JsonProperty

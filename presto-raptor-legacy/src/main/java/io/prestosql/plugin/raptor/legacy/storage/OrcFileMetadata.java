@@ -16,7 +16,7 @@ package io.prestosql.plugin.raptor.legacy.storage;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeId;
 
 import java.util.Map;
 import java.util.Objects;
@@ -27,16 +27,16 @@ public class OrcFileMetadata
 {
     static final String KEY = "metadata";
 
-    private final Map<Long, TypeSignature> columnTypes;
+    private final Map<Long, TypeId> columnTypes;
 
     @JsonCreator
-    public OrcFileMetadata(@JsonProperty("columnTypes") Map<Long, TypeSignature> columnTypes)
+    public OrcFileMetadata(@JsonProperty("columnTypes") Map<Long, TypeId> columnTypes)
     {
         this.columnTypes = ImmutableMap.copyOf(columnTypes);
     }
 
     @JsonProperty
-    public Map<Long, TypeSignature> getColumnTypes()
+    public Map<Long, TypeId> getColumnTypes()
     {
         return columnTypes;
     }

@@ -39,7 +39,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -304,10 +304,10 @@ public class StringRowSerializer
         if (Types.isArrayType(type)) {
             throw new PrestoException(NOT_SUPPORTED, "arrays are not (yet?) supported for StringRowSerializer");
         }
-        else if (Types.isMapType(type)) {
+        if (Types.isMapType(type)) {
             throw new PrestoException(NOT_SUPPORTED, "maps are not (yet?) supported for StringRowSerializer");
         }
-        else if (type.equals(BIGINT) && value instanceof Integer) {
+        if (type.equals(BIGINT) && value instanceof Integer) {
             setLong(text, ((Integer) value).longValue());
         }
         else if (type.equals(BIGINT) && value instanceof Long) {
@@ -337,7 +337,7 @@ public class StringRowSerializer
         else if (type.equals(TIME)) {
             setTime(text, (Time) value);
         }
-        else if (type.equals(TIMESTAMP)) {
+        else if (type.equals(TIMESTAMP_MILLIS)) {
             setTimestamp(text, (Timestamp) value);
         }
         else if (type.equals(TINYINT)) {
@@ -366,51 +366,43 @@ public class StringRowSerializer
     @Override
     public <T> T decode(Type type, byte[] value)
     {
-        String strValue = new String(value);
-        if (Types.isArrayType(type)) {
-            throw new PrestoException(NOT_SUPPORTED, "arrays are not (yet?) supported for StringRowSerializer");
-        }
-        else if (Types.isMapType(type)) {
-            throw new PrestoException(NOT_SUPPORTED, "maps are not (yet?) supported for StringRowSerializer");
-        }
-        else if (type.equals(BIGINT)) {
+        String strValue = new String(value, UTF_8);
+        if (type.equals(BIGINT)) {
             return (T) (Long) Long.parseLong(strValue);
         }
-        else if (type.equals(BOOLEAN)) {
+        if (type.equals(BOOLEAN)) {
             return (T) (Boolean) Boolean.parseBoolean(strValue);
         }
-        else if (type.equals(DATE)) {
+        if (type.equals(DATE)) {
             return (T) (Long) Long.parseLong(strValue);
         }
-        else if (type.equals(DOUBLE)) {
+        if (type.equals(DOUBLE)) {
             return (T) (Double) Double.parseDouble(strValue);
         }
-        else if (type.equals(INTEGER)) {
+        if (type.equals(INTEGER)) {
             return (T) (Long) ((Integer) Integer.parseInt(strValue)).longValue();
         }
-        else if (type.equals(REAL)) {
+        if (type.equals(REAL)) {
             return (T) (Double) ((Float) Float.parseFloat(strValue)).doubleValue();
         }
-        else if (type.equals(SMALLINT)) {
+        if (type.equals(SMALLINT)) {
             return (T) (Long) ((Short) Short.parseShort(strValue)).longValue();
         }
-        else if (type.equals(TIME)) {
+        if (type.equals(TIME)) {
             return (T) (Long) Long.parseLong(strValue);
         }
-        else if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MILLIS)) {
             return (T) (Long) Long.parseLong(strValue);
         }
-        else if (type.equals(TINYINT)) {
+        if (type.equals(TINYINT)) {
             return (T) (Long) ((Byte) Byte.parseByte(strValue)).longValue();
         }
-        else if (type.equals(VARBINARY)) {
+        if (type.equals(VARBINARY)) {
             return (T) value;
         }
-        else if (type.equals(VARCHAR)) {
-            return (T) new String(value);
+        if (type.equals(VARCHAR)) {
+            return (T) strValue;
         }
-        else {
-            throw new PrestoException(NOT_SUPPORTED, "StringLexicoder does not support decoding type " + type);
-        }
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
     }
 }

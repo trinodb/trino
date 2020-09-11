@@ -20,11 +20,13 @@ import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.execution.QueryManagerConfig;
+import io.prestosql.execution.scheduler.BucketNodeMap;
+import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.TableLayout;
-import io.prestosql.metadata.TableLayout.TablePartitioning;
-import io.prestosql.metadata.TableLayoutHandle;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.metadata.TableProperties.TablePartitioning;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorPartitioningHandle;
 import io.prestosql.spi.type.Type;
@@ -32,7 +34,6 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.ExplainAnalyzeNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.MetadataDeleteNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -42,6 +43,7 @@ import io.prestosql.sql.planner.plan.RemoteSourceNode;
 import io.prestosql.sql.planner.plan.RowNumberNode;
 import io.prestosql.sql.planner.plan.SimplePlanRewriter;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
+import io.prestosql.sql.planner.plan.TableDeleteNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -64,16 +66,19 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.getQueryMaxStageCount;
+import static io.prestosql.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
 import static io.prestosql.SystemSessionProperties.isForceSingleNodeOutput;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.prestosql.spi.connector.StandardWarningCode.TOO_MANY_STAGES;
 import static io.prestosql.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static io.prestosql.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
+import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPLICATE;
+import static io.prestosql.sql.planner.planprinter.PlanPrinter.jsonFragmentPlan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -82,17 +87,23 @@ import static java.util.Objects.requireNonNull;
  */
 public class PlanFragmenter
 {
+    private static final String TOO_MANY_STAGES_MESSAGE = "" +
+            "If the query contains multiple aggregates with DISTINCT over different columns, please set the 'use_mark_distinct' session property to false. " +
+            "If the query contains WITH clauses that are referenced more than once, please create temporary table(s) for the queries in those clauses.";
+
     private final Metadata metadata;
     private final NodePartitioningManager nodePartitioningManager;
+    private final QueryManagerConfig config;
 
     @Inject
     public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
+        this.config = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
     }
 
-    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode)
+    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, WarningCollector warningCollector)
     {
         Fragmenter fragmenter = new Fragmenter(session, metadata, plan.getTypes(), plan.getStatsAndCosts());
 
@@ -103,27 +114,34 @@ public class PlanFragmenter
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
-        subPlan = analyzeGroupedExecution(session, subPlan);
         subPlan = reassignPartitioningHandleIfNecessary(session, subPlan);
+        subPlan = analyzeGroupedExecution(session, subPlan);
 
         checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
 
         // TODO: Remove query_max_stage_count session property and use queryManagerConfig.getMaxStageCount() here
-        sanityCheckFragmentedPlan(subPlan, getQueryMaxStageCount(session));
+        sanityCheckFragmentedPlan(subPlan, warningCollector, getQueryMaxStageCount(session), config.getStageCountWarningThreshold());
 
         return subPlan;
     }
 
-    private void sanityCheckFragmentedPlan(SubPlan subPlan, int maxStageCount)
+    private void sanityCheckFragmentedPlan(SubPlan subPlan, WarningCollector warningCollector, int maxStageCount, int stageCountSoftLimit)
     {
         subPlan.sanityCheck();
         int fragmentCount = subPlan.getAllFragments().size();
         if (fragmentCount > maxStageCount) {
             throw new PrestoException(QUERY_HAS_TOO_MANY_STAGES, format(
-                    "Number of stages in the query (%s) exceeds the allowed maximum (%s). " +
-                            "If the query contains multiple DISTINCTs, please set the use_mark_distinct session property to false. " +
-                            "If the query contains multiple CTEs that are referenced more than once, please create temporary table(s) for one or more of the CTEs.",
-                    fragmentCount, maxStageCount));
+                    "Number of stages in the query (%s) exceeds the allowed maximum (%s). %s",
+                    fragmentCount,
+                    maxStageCount,
+                    TOO_MANY_STAGES_MESSAGE));
+        }
+        if (fragmentCount > stageCountSoftLimit) {
+            warningCollector.add(new PrestoWarning(TOO_MANY_STAGES, format(
+                    "Number of stages in the query (%s) exceeds the soft limit (%s). %s",
+                    fragmentCount,
+                    stageCountSoftLimit,
+                    TOO_MANY_STAGES_MESSAGE)));
         }
     }
 
@@ -132,7 +150,15 @@ public class PlanFragmenter
         PlanFragment fragment = subPlan.getFragment();
         GroupedExecutionProperties properties = fragment.getRoot().accept(new GroupedExecutionTagger(session, metadata, nodePartitioningManager), null);
         if (properties.isSubTreeUseful()) {
-            fragment = fragment.withGroupedExecution(properties.getCapableTableScanNodes());
+            boolean preferDynamic = fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)
+                    && isDynamicScheduleForGroupedExecution(session);
+            BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, fragment.getPartitioning(), preferDynamic);
+            if (bucketNodeMap.isDynamic()) {
+                fragment = fragment.withDynamicLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes());
+            }
+            else {
+                fragment = fragment.withFixedLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes());
+            }
         }
         ImmutableList.Builder<SubPlan> result = ImmutableList.builder();
         for (SubPlan child : subPlan.getChildren()) {
@@ -233,7 +259,7 @@ public class PlanFragmenter
                     properties.getPartitioningScheme(),
                     ungroupedExecution(),
                     statsAndCosts.getForSubplan(root),
-                    Optional.of(jsonFragmentPlan(root, symbols, metadata.getFunctionRegistry(), session)));
+                    Optional.of(jsonFragmentPlan(root, symbols, metadata, session)));
 
             return new SubPlan(fragment, properties.getChildren());
         }
@@ -270,7 +296,7 @@ public class PlanFragmenter
         }
 
         @Override
-        public PlanNode visitMetadataDelete(MetadataDeleteNode node, RewriteContext<FragmentProperties> context)
+        public PlanNode visitTableDelete(TableDeleteNode node, RewriteContext<FragmentProperties> context)
         {
             context.get().setCoordinatorOnlyDistribution();
             return context.defaultRewrite(node, context.get());
@@ -279,9 +305,8 @@ public class PlanFragmenter
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<FragmentProperties> context)
         {
-            PartitioningHandle partitioning = node.getLayout()
-                    .map(layout -> metadata.getLayout(session, layout))
-                    .flatMap(TableLayout::getTablePartitioning)
+            PartitioningHandle partitioning = metadata.getTableProperties(session, node.getTable())
+                    .getTablePartitioning()
                     .map(TablePartitioning::getPartitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
 
@@ -372,7 +397,7 @@ public class PlanFragmenter
                 return this;
             }
 
-            checkState(!partitioningHandle.isPresent(),
+            checkState(partitioningHandle.isEmpty(),
                     "Cannot overwrite partitioning with %s (currently set to %s)",
                     SINGLE_DISTRIBUTION,
                     partitioningHandle);
@@ -384,7 +409,7 @@ public class PlanFragmenter
 
         public FragmentProperties setDistribution(PartitioningHandle distribution, Metadata metadata, Session session)
         {
-            if (!partitioningHandle.isPresent()) {
+            if (partitioningHandle.isEmpty()) {
                 partitioningHandle = Optional.of(distribution);
                 return this;
             }
@@ -441,7 +466,7 @@ public class PlanFragmenter
             }
 
             // only system SINGLE can be upgraded to COORDINATOR_ONLY
-            checkState(!partitioningHandle.isPresent() || partitioningHandle.get().equals(SINGLE_DISTRIBUTION),
+            checkState(partitioningHandle.isEmpty() || partitioningHandle.get().equals(SINGLE_DISTRIBUTION),
                     "Cannot overwrite partitioning with %s (currently set to %s)",
                     COORDINATOR_DISTRIBUTION,
                     partitioningHandle);
@@ -458,7 +483,7 @@ public class PlanFragmenter
 
             partitionedSources.add(source);
 
-            if (!partitioningHandle.isPresent()) {
+            if (partitioningHandle.isEmpty()) {
                 partitioningHandle = Optional.of(distribution);
                 return this;
             }
@@ -480,9 +505,7 @@ public class PlanFragmenter
                 return this;
             }
 
-            throw new IllegalStateException(String.format(
-                    "Cannot overwrite distribution with %s (currently set to %s)",
-                    distribution, currentPartitioning));
+            throw new IllegalStateException(format("Cannot overwrite distribution with %s (currently set to %s)", distribution, currentPartitioning));
         }
 
         public FragmentProperties addChildren(List<SubPlan> children)
@@ -539,7 +562,7 @@ public class PlanFragmenter
             GroupedExecutionProperties left = node.getLeft().accept(this, null);
             GroupedExecutionProperties right = node.getRight().accept(this, null);
 
-            if (!node.getDistributionType().isPresent()) {
+            if (node.getDistributionType().isEmpty()) {
                 // This is possible when the optimizers is invoked with `forceSingleNode` set to true.
                 return GroupedExecutionProperties.notCapable();
             }
@@ -645,17 +668,15 @@ public class PlanFragmenter
         @Override
         public GroupedExecutionProperties visitTableScan(TableScanNode node, Void context)
         {
-            Optional<TablePartitioning> tablePartitioning = metadata.getLayout(session, node.getLayout().get()).getTablePartitioning();
-            if (!tablePartitioning.isPresent()) {
+            Optional<TablePartitioning> tablePartitioning = metadata.getTableProperties(session, node.getTable()).getTablePartitioning();
+            if (tablePartitioning.isEmpty()) {
                 return GroupedExecutionProperties.notCapable();
             }
             List<ConnectorPartitionHandle> partitionHandles = nodePartitioningManager.listPartitionHandles(session, tablePartitioning.get().getPartitioningHandle());
             if (ImmutableList.of(NOT_PARTITIONED).equals(partitionHandles)) {
                 return new GroupedExecutionProperties(false, false, ImmutableList.of());
             }
-            else {
-                return new GroupedExecutionProperties(true, false, ImmutableList.of(node.getId()));
-            }
+            return new GroupedExecutionProperties(true, false, ImmutableList.of(node.getId()));
         }
 
         private GroupedExecutionProperties processChildren(PlanNode node)
@@ -750,9 +771,8 @@ public class PlanFragmenter
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
-            PartitioningHandle partitioning = node.getLayout()
-                    .map(layout -> metadata.getLayout(session, layout))
-                    .flatMap(TableLayout::getTablePartitioning)
+            PartitioningHandle partitioning = metadata.getTableProperties(session, node.getTable())
+                    .getTablePartitioning()
                     .map(TablePartitioning::getPartitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
             if (partitioning.equals(fragmentPartitioningHandle)) {
@@ -760,14 +780,12 @@ public class PlanFragmenter
                 return node;
             }
 
-            TableLayoutHandle newTableLayoutHandle = metadata.getAlternativeLayoutHandle(session, node.getLayout().get(), fragmentPartitioningHandle);
+            TableHandle newTable = metadata.makeCompatiblePartitioning(session, node.getTable(), fragmentPartitioningHandle);
             return new TableScanNode(
                     node.getId(),
-                    node.getTable(),
+                    newTable,
                     node.getOutputSymbols(),
                     node.getAssignments(),
-                    Optional.of(newTableLayoutHandle),
-                    node.getCurrentConstraint(),
                     node.getEnforcedConstraint());
         }
     }

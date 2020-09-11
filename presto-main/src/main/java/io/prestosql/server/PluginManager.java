@@ -19,12 +19,13 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.connector.ConnectorManager;
 import io.prestosql.eventlistener.EventListenerManager;
-import io.prestosql.execution.resourceGroups.ResourceGroupManager;
-import io.prestosql.metadata.Metadata;
+import io.prestosql.execution.resourcegroups.ResourceGroupManager;
+import io.prestosql.metadata.MetadataManager;
 import io.prestosql.security.AccessControlManager;
+import io.prestosql.security.GroupProviderManager;
+import io.prestosql.server.security.CertificateAuthenticatorManager;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.block.BlockEncoding;
@@ -32,12 +33,13 @@ import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.eventlistener.EventListenerFactory;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
+import io.prestosql.spi.security.CertificateAuthenticatorFactory;
+import io.prestosql.spi.security.GroupProviderFactory;
 import io.prestosql.spi.security.PasswordAuthenticatorFactory;
 import io.prestosql.spi.security.SystemAccessControlFactory;
 import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
 import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.type.TypeRegistry;
 import org.sonatype.aether.artifact.Artifact;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -46,15 +48,15 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.server.PluginDiscovery.discoverPlugins;
 import static io.prestosql.server.PluginDiscovery.writePluginServices;
@@ -67,21 +69,20 @@ public class PluginManager
             .add("io.prestosql.spi.")
             .add("com.fasterxml.jackson.annotation.")
             .add("io.airlift.slice.")
-            .add("io.airlift.units.")
             .add("org.openjdk.jol.")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);
 
     private final ConnectorManager connectorManager;
-    private final Metadata metadata;
+    private final MetadataManager metadataManager;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final AccessControlManager accessControlManager;
     private final PasswordAuthenticatorManager passwordAuthenticatorManager;
+    private final CertificateAuthenticatorManager certificateAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
-    private final BlockEncodingManager blockEncodingManager;
+    private final GroupProviderManager groupProviderManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
-    private final TypeRegistry typeRegistry;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
@@ -93,14 +94,14 @@ public class PluginManager
             NodeInfo nodeInfo,
             PluginManagerConfig config,
             ConnectorManager connectorManager,
-            Metadata metadata,
+            MetadataManager metadataManager,
             ResourceGroupManager<?> resourceGroupManager,
             AccessControlManager accessControlManager,
             PasswordAuthenticatorManager passwordAuthenticatorManager,
+            CertificateAuthenticatorManager certificateAuthenticatorManager,
             EventListenerManager eventListenerManager,
-            BlockEncodingManager blockEncodingManager,
-            SessionPropertyDefaults sessionPropertyDefaults,
-            TypeRegistry typeRegistry)
+            GroupProviderManager groupProviderManager,
+            SessionPropertyDefaults sessionPropertyDefaults)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -115,14 +116,14 @@ public class PluginManager
         this.resolver = new ArtifactResolver(config.getMavenLocalRepository(), config.getMavenRemoteRepository());
 
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
+        this.certificateAuthenticatorManager = requireNonNull(certificateAuthenticatorManager, "certificateAuthenticatorManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
-        this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
+        this.groupProviderManager = requireNonNull(groupProviderManager, "groupProviderManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
-        this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
     }
 
     public void loadPlugins()
@@ -142,7 +143,7 @@ public class PluginManager
             loadPlugin(plugin);
         }
 
-        metadata.verifyComparableOrderableContract();
+        metadataManager.verifyComparableOrderableContract();
 
         pluginsLoaded.set(true);
     }
@@ -151,53 +152,55 @@ public class PluginManager
             throws Exception
     {
         log.info("-- Loading plugin %s --", plugin);
-        URLClassLoader pluginClassLoader = buildClassLoader(plugin);
+        PluginClassLoader pluginClassLoader = buildClassLoader(plugin);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
             loadPlugin(pluginClassLoader);
         }
         log.info("-- Finished loading plugin %s --", plugin);
     }
 
-    private void loadPlugin(URLClassLoader pluginClassLoader)
+    private void loadPlugin(PluginClassLoader pluginClassLoader)
     {
         ServiceLoader<Plugin> serviceLoader = ServiceLoader.load(Plugin.class, pluginClassLoader);
         List<Plugin> plugins = ImmutableList.copyOf(serviceLoader);
-
-        if (plugins.isEmpty()) {
-            log.warn("No service providers of type %s", Plugin.class.getName());
-        }
-
+        checkState(!plugins.isEmpty(), "No service providers of type %s", Plugin.class.getName());
         for (Plugin plugin : plugins) {
             log.info("Installing %s", plugin.getClass().getName());
-            installPlugin(plugin);
+            installPlugin(plugin, pluginClassLoader::duplicate);
         }
     }
 
-    public void installPlugin(Plugin plugin)
+    public void installPlugin(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
+    {
+        installPluginInternal(plugin, duplicatePluginClassLoaderFactory);
+        metadataManager.verifyComparableOrderableContract();
+    }
+
+    private void installPluginInternal(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
     {
         for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
             log.info("Registering block encoding %s", blockEncoding.getName());
-            blockEncodingManager.addBlockEncoding(blockEncoding);
+            metadataManager.addBlockEncoding(blockEncoding);
         }
 
         for (Type type : plugin.getTypes()) {
             log.info("Registering type %s", type.getTypeSignature());
-            typeRegistry.addType(type);
+            metadataManager.addType(type);
         }
 
         for (ParametricType parametricType : plugin.getParametricTypes()) {
             log.info("Registering parametric type %s", parametricType.getName());
-            typeRegistry.addParametricType(parametricType);
+            metadataManager.addParametricType(parametricType);
         }
 
         for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {
             log.info("Registering connector %s", connectorFactory.getName());
-            connectorManager.addConnectorFactory(connectorFactory);
+            connectorManager.addConnectorFactory(connectorFactory, duplicatePluginClassLoaderFactory);
         }
 
         for (Class<?> functionClass : plugin.getFunctions()) {
             log.info("Registering functions from %s", functionClass.getName());
-            metadata.addFunctions(extractFunctions(functionClass));
+            metadataManager.addFunctions(extractFunctions(functionClass));
         }
 
         for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {
@@ -220,13 +223,23 @@ public class PluginManager
             passwordAuthenticatorManager.addPasswordAuthenticatorFactory(authenticatorFactory);
         }
 
+        for (CertificateAuthenticatorFactory authenticatorFactory : plugin.getCertificateAuthenticatorFactories()) {
+            log.info("Registering certificate authenticator %s", authenticatorFactory.getName());
+            certificateAuthenticatorManager.addCertificateAuthenticatorFactory(authenticatorFactory);
+        }
+
         for (EventListenerFactory eventListenerFactory : plugin.getEventListenerFactories()) {
             log.info("Registering event listener %s", eventListenerFactory.getName());
             eventListenerManager.addEventListenerFactory(eventListenerFactory);
         }
+
+        for (GroupProviderFactory groupProviderFactory : plugin.getGroupProviderFactories()) {
+            log.info("Registering group provider %s", groupProviderFactory.getName());
+            groupProviderManager.addGroupProviderFactory(groupProviderFactory);
+        }
     }
 
-    private URLClassLoader buildClassLoader(String plugin)
+    private PluginClassLoader buildClassLoader(String plugin)
             throws Exception
     {
         File file = new File(plugin);
@@ -239,22 +252,25 @@ public class PluginManager
         return buildClassLoaderFromCoordinates(plugin);
     }
 
-    private URLClassLoader buildClassLoaderFromPom(File pomFile)
+    private PluginClassLoader buildClassLoaderFromPom(File pomFile)
             throws Exception
     {
         List<Artifact> artifacts = resolver.resolvePom(pomFile);
-        URLClassLoader classLoader = createClassLoader(artifacts, pomFile.getPath());
+        PluginClassLoader classLoader = createClassLoader(artifacts, pomFile.getPath());
 
         Artifact artifact = artifacts.get(0);
         Set<String> plugins = discoverPlugins(artifact, classLoader);
         if (!plugins.isEmpty()) {
-            writePluginServices(plugins, artifact.getFile());
+            File root = new File(artifact.getFile().getParentFile().getCanonicalFile(), "plugin-discovery");
+            writePluginServices(plugins, root);
+            log.debug("    %s", root);
+            classLoader = classLoader.withUrl(root.toURI().toURL());
         }
 
         return classLoader;
     }
 
-    private URLClassLoader buildClassLoaderFromDirectory(File dir)
+    private PluginClassLoader buildClassLoaderFromDirectory(File dir)
             throws Exception
     {
         log.debug("Classpath for %s:", dir.getName());
@@ -266,7 +282,7 @@ public class PluginManager
         return createClassLoader(urls);
     }
 
-    private URLClassLoader buildClassLoaderFromCoordinates(String coordinates)
+    private PluginClassLoader buildClassLoaderFromCoordinates(String coordinates)
             throws Exception
     {
         Artifact rootArtifact = new DefaultArtifact(coordinates);
@@ -274,7 +290,7 @@ public class PluginManager
         return createClassLoader(artifacts, rootArtifact.toString());
     }
 
-    private URLClassLoader createClassLoader(List<Artifact> artifacts, String name)
+    private PluginClassLoader createClassLoader(List<Artifact> artifacts, String name)
             throws IOException
     {
         log.debug("Classpath for %s:", name);
@@ -290,7 +306,7 @@ public class PluginManager
         return createClassLoader(urls);
     }
 
-    private URLClassLoader createClassLoader(List<URL> urls)
+    private PluginClassLoader createClassLoader(List<URL> urls)
     {
         ClassLoader parent = getClass().getClassLoader();
         return new PluginClassLoader(urls, parent, SPI_PACKAGES);
@@ -311,7 +327,7 @@ public class PluginManager
     private static List<Artifact> sortedArtifacts(List<Artifact> artifacts)
     {
         List<Artifact> list = new ArrayList<>(artifacts);
-        Collections.sort(list, Ordering.natural().nullsLast().onResultOf(Artifact::getFile));
+        list.sort(Ordering.natural().nullsLast().onResultOf(Artifact::getFile));
         return list;
     }
 }

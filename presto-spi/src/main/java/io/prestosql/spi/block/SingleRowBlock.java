@@ -39,6 +39,12 @@ public class SingleRowBlock
     }
 
     @Override
+    Block[] getRawFieldBlocks()
+    {
+        return fieldBlocks;
+    }
+
+    @Override
     protected Block getRawFieldBlock(int fieldIndex)
     {
         return fieldBlocks[fieldIndex];
@@ -94,6 +100,17 @@ public class SingleRowBlock
     public String toString()
     {
         return format("SingleRowBlock{numFields=%d}", fieldBlocks.length);
+    }
+
+    @Override
+    public boolean isLoaded()
+    {
+        for (Block fieldBlock : fieldBlocks) {
+            if (!fieldBlock.isLoaded()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override

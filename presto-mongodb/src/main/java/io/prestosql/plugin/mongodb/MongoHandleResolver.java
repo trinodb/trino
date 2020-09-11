@@ -19,7 +19,6 @@ import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public class MongoHandleResolver
@@ -53,18 +52,15 @@ public class MongoHandleResolver
         return MongoSplit.class;
     }
 
+    @Override
     public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
     {
         return MongoOutputTableHandle.class;
     }
 
+    @Override
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
         return MongoInsertTableHandle.class;
-    }
-
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
-    {
-        return MongoTableLayoutHandle.class;
     }
 }

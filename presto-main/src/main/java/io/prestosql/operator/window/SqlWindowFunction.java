@@ -13,49 +13,51 @@
  */
 package io.prestosql.operator.window;
 
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlFunction;
-import io.prestosql.spi.type.TypeManager;
 
+import static com.google.common.base.Strings.nullToEmpty;
+import static io.prestosql.metadata.FunctionKind.WINDOW;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class SqlWindowFunction
         implements SqlFunction
 {
     private final WindowFunctionSupplier supplier;
+    private final FunctionMetadata functionMetadata;
 
-    public SqlWindowFunction(WindowFunctionSupplier supplier)
+    public SqlWindowFunction(WindowFunctionSupplier supplier, boolean deprecated)
     {
         this.supplier = requireNonNull(supplier, "supplier is null");
+        Signature signature = supplier.getSignature();
+        functionMetadata = new FunctionMetadata(
+                signature,
+                true,
+                nCopies(signature.getArgumentTypes().size(), new FunctionArgumentDefinition(true)),
+                false,
+                true,
+                nullToEmpty(supplier.getDescription()),
+                WINDOW,
+                deprecated);
     }
 
     @Override
-    public final Signature getSignature()
+    public FunctionMetadata getFunctionMetadata()
     {
-        return supplier.getSignature();
+        return functionMetadata;
     }
 
-    @Override
-    public boolean isHidden()
+    public WindowFunctionSupplier specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        return false;
+        return specialize(functionBinding);
     }
 
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return supplier.getDescription();
-    }
-
-    public WindowFunctionSupplier specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public WindowFunctionSupplier specialize(FunctionBinding functionBinding)
     {
         return supplier;
     }

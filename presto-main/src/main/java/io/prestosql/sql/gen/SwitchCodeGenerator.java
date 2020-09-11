@@ -13,9 +13,7 @@
  */
 package io.prestosql.sql.gen;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
@@ -23,22 +21,60 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.bytecode.instruction.VariableInstruction;
-import io.prestosql.metadata.Signature;
-import io.prestosql.spi.function.OperatorType;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.SpecialForm;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
+import static io.prestosql.sql.relational.SpecialForm.Form.WHEN;
+import static java.util.Objects.requireNonNull;
 
 public class SwitchCodeGenerator
         implements BytecodeGenerator
 {
+    private final Type returnType;
+    private final RowExpression value;
+    private final List<SpecialForm> whenClauses;
+    private final Optional<RowExpression> elseValue;
+    private final List<ResolvedFunction> equalsFunctions;
+
+    public SwitchCodeGenerator(SpecialForm specialForm)
+    {
+        requireNonNull(specialForm, "specialForm is null");
+        returnType = specialForm.getType();
+        List<RowExpression> arguments = specialForm.getArguments();
+        value = arguments.get(0);
+
+        RowExpression last = arguments.get(arguments.size() - 1);
+        if (last instanceof SpecialForm && ((SpecialForm) last).getForm() == WHEN) {
+            whenClauses = arguments.subList(1, arguments.size()).stream()
+                    .map(SpecialForm.class::cast)
+                    .collect(toImmutableList());
+            elseValue = Optional.empty();
+        }
+        else {
+            whenClauses = arguments.subList(1, arguments.size() - 1).stream()
+                    .map(SpecialForm.class::cast)
+                    .collect(toImmutableList());
+            elseValue = Optional.of(last);
+        }
+        checkArgument(whenClauses.stream()
+                .map(SpecialForm::getForm)
+                .allMatch(WHEN::equals));
+
+        equalsFunctions = ImmutableList.copyOf(specialForm.getFunctionDependencies());
+        checkArgument(equalsFunctions.size() == whenClauses.size());
+    }
+
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext)
     {
         // TODO: compile as
         /*
@@ -73,21 +109,16 @@ public class SwitchCodeGenerator
         Scope scope = generatorContext.getScope();
 
         // process value, else, and all when clauses
-        RowExpression value = arguments.get(0);
         BytecodeNode valueBytecode = generatorContext.generate(value);
-        BytecodeNode elseValue;
 
-        List<RowExpression> whenClauses;
-        RowExpression last = arguments.get(arguments.size() - 1);
-        if (last instanceof CallExpression && ((CallExpression) last).getSignature().getName().equals("WHEN")) {
-            whenClauses = arguments.subList(1, arguments.size());
+        BytecodeNode elseValue;
+        if (!this.elseValue.isPresent()) {
             elseValue = new BytecodeBlock()
                     .append(generatorContext.wasNull().set(constantTrue()))
                     .pushJavaDefault(returnType.getJavaType());
         }
         else {
-            whenClauses = arguments.subList(1, arguments.size() - 1);
-            elseValue = generatorContext.generate(last);
+            elseValue = generatorContext.generate(this.elseValue.get());
         }
 
         // determine the type of the value and result
@@ -106,14 +137,12 @@ public class SwitchCodeGenerator
         // build the statements
         elseValue = new BytecodeBlock().visitLabel(nullValue).append(elseValue);
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
-        for (RowExpression clause : Lists.reverse(whenClauses)) {
-            Preconditions.checkArgument(clause instanceof CallExpression && ((CallExpression) clause).getSignature().getName().equals("WHEN"));
-
-            RowExpression operand = ((CallExpression) clause).getArguments().get(0);
-            RowExpression result = ((CallExpression) clause).getArguments().get(1);
+        for (int i = whenClauses.size() - 1; i >= 0; i--) {
+            SpecialForm clause = whenClauses.get(i);
+            RowExpression operand = clause.getArguments().get(0);
+            RowExpression result = clause.getArguments().get(1);
 
             // call equals(value, operand)
-            Signature equalsFunction = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(value.getType(), operand.getType()));
 
             // TODO: what if operand is null? It seems that the call will return "null" (which is cleared below)
             // and the code only does the right thing because the value in the stack for that scenario is
@@ -121,8 +150,7 @@ public class SwitchCodeGenerator
             // This code should probably be checking for wasNull after the call and "failing" the equality
             // check if wasNull is true
             BytecodeNode equalsCall = generatorContext.generateCall(
-                    equalsFunction.getName(),
-                    generatorContext.getRegistry().getScalarFunctionImplementation(equalsFunction),
+                    equalsFunctions.get(i),
                     ImmutableList.of(generatorContext.generate(operand), getTempVariableNode));
 
             BytecodeBlock condition = new BytecodeBlock()

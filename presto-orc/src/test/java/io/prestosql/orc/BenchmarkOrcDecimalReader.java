@@ -13,8 +13,8 @@
  */
 package io.prestosql.orc;
 
-import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
+import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.SqlDecimal;
@@ -47,11 +47,10 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcEncoding.ORC;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.orc.OrcTester.Format.ORC_12;
+import static io.prestosql.orc.OrcTester.READER_OPTIONS;
 import static io.prestosql.orc.OrcTester.writeOrcColumnHive;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
@@ -66,31 +65,29 @@ import static java.util.UUID.randomUUID;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkOrcDecimalReader
 {
-    public static final DecimalType DECIMAL_TYPE = createDecimalType(30, 10);
+    private static final DecimalType DECIMAL_TYPE = createDecimalType(30, 10);
 
     @Benchmark
     public Object readDecimal(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(DECIMAL_TYPE, 0);
-            blocks.add(block);
+        for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+            blocks.add(page.getBlock(0).getLoadedBlock());
         }
         return blocks;
     }
 
     @Test
     public void testReadDecimal()
-            throws Throwable
+            throws Exception
     {
         BenchmarkData data = new BenchmarkData();
         data.setup();
         readDecimal(data);
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BenchmarkData
     {
@@ -117,14 +114,16 @@ public class BenchmarkOrcDecimalReader
         private OrcRecordReader createRecordReader()
                 throws IOException
         {
-            OrcDataSource dataSource = new FileOrcDataSource(dataPath, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcDataSource dataSource = new FileOrcDataSource(dataPath, READER_OPTIONS);
+            OrcReader orcReader = new OrcReader(dataSource, READER_OPTIONS);
             return orcReader.createRecordReader(
-                    ImmutableMap.of(0, DECIMAL_TYPE),
+                    orcReader.getRootColumn().getNestedColumns(),
+                    ImmutableList.of(DECIMAL_TYPE),
                     OrcPredicate.TRUE,
                     DateTimeZone.UTC, // arbitrary
                     newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
+                    INITIAL_BATCH_SIZE,
+                    RuntimeException::new);
         }
 
         private List<SqlDecimal> createDecimalValues()
@@ -139,7 +138,7 @@ public class BenchmarkOrcDecimalReader
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();

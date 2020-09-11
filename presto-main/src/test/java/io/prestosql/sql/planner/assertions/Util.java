@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.planner.assertions;
 
+import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
@@ -26,10 +27,41 @@ import io.prestosql.sql.planner.assertions.PlanMatchPattern.Ordering;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 final class Util
 {
     private Util() {}
+
+    static boolean domainsMatch(TupleDomain<Predicate<ColumnHandle>> expected, TupleDomain<ColumnHandle> actual)
+    {
+        Optional<Map<Predicate<ColumnHandle>, Domain>> expectedDomains = expected.getDomains();
+        Optional<Map<ColumnHandle, Domain>> actualDomains = actual.getDomains();
+
+        if (expectedDomains.isPresent() != actualDomains.isPresent()) {
+            return false;
+        }
+
+        if (expectedDomains.isPresent()) {
+            if (expectedDomains.get().size() != actualDomains.get().size()) {
+                return false;
+            }
+
+            for (Map.Entry<Predicate<ColumnHandle>, Domain> entry : expectedDomains.get().entrySet()) {
+                // There should be exactly one column matching the expected column matcher
+                ColumnHandle actualColumn = Iterables.getOnlyElement(actualDomains.get().keySet().stream()
+                        .filter(x -> entry.getKey().test(x))
+                        .collect(toImmutableList()));
+
+                if (!actualDomains.get().get(actualColumn).contains(entry.getValue())) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
 
     /**
      * @param expectedDomains if empty, the actualConstraint's domains must also be empty.
@@ -47,7 +79,7 @@ final class Util
             return false;
         }
 
-        if (!expectedDomains.isPresent()) {
+        if (expectedDomains.isEmpty()) {
             return true;
         }
 
@@ -80,7 +112,7 @@ final class Util
             if (!symbol.equals(orderingScheme.getOrderBy().get(i))) {
                 return false;
             }
-            if (!ordering.getSortOrder().equals(orderingScheme.getOrdering(symbol))) {
+            if (ordering.getSortOrder() != orderingScheme.getOrdering(symbol)) {
                 return false;
             }
         }

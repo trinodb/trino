@@ -14,11 +14,14 @@
 package io.prestosql.connector.system;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.FullConnectorSession;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.execution.QueryManager;
-import io.prestosql.execution.QueryState;
+import io.prestosql.dispatcher.DispatchManager;
+import io.prestosql.dispatcher.DispatchQuery;
+import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.procedure.Procedure.Argument;
 
@@ -26,46 +29,55 @@ import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.prestosql.security.AccessControlUtil.checkCanKillQueryOwnedBy;
 import static io.prestosql.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static io.prestosql.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.StandardTypes.VARCHAR;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
 public class KillQueryProcedure
 {
-    private static final MethodHandle KILL_QUERY = methodHandle(KillQueryProcedure.class, "killQuery", String.class, String.class);
+    private static final MethodHandle KILL_QUERY = methodHandle(KillQueryProcedure.class, "killQuery", String.class, String.class, ConnectorSession.class);
 
-    private final QueryManager queryManager;
+    private final Optional<DispatchManager> dispatchManager;
+    private final AccessControl accessControl;
 
     @Inject
-    public KillQueryProcedure(QueryManager queryManager)
+    public KillQueryProcedure(Optional<DispatchManager> dispatchManager, AccessControl accessControl)
     {
-        this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @UsedByGeneratedCode
-    public void killQuery(String queryId, String message)
+    public void killQuery(String queryId, String message, ConnectorSession session)
     {
         QueryId query = parseQueryId(queryId);
 
         try {
-            QueryState state = queryManager.getQueryState(query);
+            checkState(dispatchManager.isPresent(), "No dispatch manager is set. kill_query procedure should be executed on coordinator.");
+            DispatchQuery dispatchQuery = dispatchManager.get().getQuery(query);
+
+            checkCanKillQueryOwnedBy(((FullConnectorSession) session).getSession().getIdentity(), dispatchQuery.getSession().getUser(), accessControl);
 
             // check before killing to provide the proper error message (this is racy)
-            if (state.isDone()) {
+            if (dispatchQuery.isDone()) {
                 throw new PrestoException(NOT_SUPPORTED, "Target query is not running: " + queryId);
             }
 
-            queryManager.failQuery(query, createKillQueryException(message));
+            dispatchQuery.fail(createKillQueryException(message));
 
             // verify if the query was killed (if not, we lost the race)
-            if (!ADMINISTRATIVELY_KILLED.toErrorCode().equals(queryManager.getQueryInfo(query).getErrorCode())) {
+            checkState(dispatchQuery.isDone(), "Failure to fail the query: %s", query);
+            if (!ADMINISTRATIVELY_KILLED.toErrorCode().equals(dispatchQuery.getErrorCode().orElse(null))) {
                 throw new PrestoException(NOT_SUPPORTED, "Target query is not running: " + queryId);
             }
         }

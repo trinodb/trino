@@ -62,7 +62,7 @@ public class TestBufferedOutputStreamSliceOutput
         byteOutputStream.close();
     }
 
-    private class MockOutputStream
+    private static class MockOutputStream
             extends ByteArrayOutputStream
     {
         public MockOutputStream(int length)

@@ -45,6 +45,7 @@ public class Union
         this.relations = ImmutableList.copyOf(relations);
     }
 
+    @Override
     public List<Relation> getRelations()
     {
         return relations;
@@ -89,5 +90,11 @@ public class Union
     public int hashCode()
     {
         return Objects.hash(relations, isDistinct());
+    }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
     }
 }

@@ -17,6 +17,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.drift.TException;
 import io.airlift.drift.client.DriftClient;
 import io.airlift.units.Duration;
@@ -27,20 +28,22 @@ import io.prestosql.plugin.thrift.api.PrestoThriftSchemaTableName;
 import io.prestosql.plugin.thrift.api.PrestoThriftService;
 import io.prestosql.plugin.thrift.api.PrestoThriftServiceException;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.Assignment;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorResolvedIndex;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
+import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.TypeManager;
 
@@ -111,28 +114,6 @@ public class ThriftMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
-            ConnectorSession session,
-            ConnectorTableHandle table,
-            Constraint<ColumnHandle> constraint,
-            Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        ThriftTableHandle tableHandle = (ThriftTableHandle) table;
-        ThriftTableLayoutHandle layoutHandle = new ThriftTableLayoutHandle(
-                tableHandle.getSchemaName(),
-                tableHandle.getTableName(),
-                desiredColumns,
-                constraint.getSummary());
-        return ImmutableList.of(new ConnectorTableLayoutResult(new ConnectorTableLayout(layoutHandle), constraint.getSummary()));
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        return new ConnectorTableLayout(handle);
-    }
-
-    @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ThriftTableHandle handle = ((ThriftTableHandle) tableHandle);
@@ -183,10 +164,67 @@ public class ThriftMetadata
         }
     }
 
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return new ConnectorTableProperties();
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    {
+        ThriftTableHandle handle = (ThriftTableHandle) table;
+
+        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        if (oldDomain.equals(newDomain)) {
+            return Optional.empty();
+        }
+
+        handle = new ThriftTableHandle(
+                handle.getSchemaName(),
+                handle.getTableName(),
+                newDomain,
+                handle.getDesiredColumns());
+
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+    }
+
+    @Override
+    public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(ConnectorSession session, ConnectorTableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
+    {
+        ThriftTableHandle handle = (ThriftTableHandle) table;
+
+        if (handle.getDesiredColumns().isPresent()) {
+            return Optional.empty();
+        }
+
+        ImmutableSet.Builder<ColumnHandle> desiredColumns = ImmutableSet.builder();
+        ImmutableList.Builder<Assignment> assignmentList = ImmutableList.builder();
+        assignments.forEach((name, column) -> {
+            desiredColumns.add(column);
+            assignmentList.add(new Assignment(name, column, ((ThriftColumnHandle) column).getColumnType()));
+        });
+
+        handle = new ThriftTableHandle(
+                handle.getSchemaName(),
+                handle.getTableName(),
+                handle.getConstraint(),
+                Optional.of(desiredColumns.build()));
+
+        return Optional.of(new ProjectionApplicationResult<>(handle, projections, assignmentList.build()));
+    }
+
+    @Override
+    public boolean usesLegacyTableLayouts()
+    {
+        return false;
+    }
+
     private ThriftTableMetadata getRequiredTableMetadata(SchemaTableName schemaTableName)
     {
         Optional<ThriftTableMetadata> table = tableCache.getUnchecked(schemaTableName);
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             throw new TableNotFoundException(schemaTableName);
         }
         else {

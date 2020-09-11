@@ -16,40 +16,63 @@ package io.prestosql.cli;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import org.fusesource.jansi.AnsiString;
+import com.google.common.collect.ImmutableSet;
+import io.prestosql.client.Column;
 
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.io.BaseEncoding.base16;
+import static io.prestosql.client.ClientStandardTypes.BIGINT;
+import static io.prestosql.client.ClientStandardTypes.DECIMAL;
+import static io.prestosql.client.ClientStandardTypes.DOUBLE;
+import static io.prestosql.client.ClientStandardTypes.INTEGER;
+import static io.prestosql.client.ClientStandardTypes.REAL;
+import static io.prestosql.client.ClientStandardTypes.SMALLINT;
+import static io.prestosql.client.ClientStandardTypes.TINYINT;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static jline.console.WCWidth.wcwidth;
+import static java.util.stream.Collectors.joining;
+import static org.jline.utils.AttributedString.stripAnsi;
+import static org.jline.utils.WCWidth.wcwidth;
 
 public class AlignedTablePrinter
         implements OutputPrinter
 {
+    private static final Set<String> NUMERIC_TYPES = ImmutableSet.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, DECIMAL);
+
     private static final Splitter LINE_SPLITTER = Splitter.on('\n');
     private static final Splitter HEX_SPLITTER = Splitter.fixedLength(2);
     private static final Joiner HEX_BYTE_JOINER = Joiner.on(' ');
     private static final Joiner HEX_LINE_JOINER = Joiner.on('\n');
 
     private final List<String> fieldNames;
+    private final List<Boolean> numericFields;
     private final Writer writer;
 
     private boolean headerOutput;
     private long rowCount;
 
-    public AlignedTablePrinter(List<String> fieldNames, Writer writer)
+    public AlignedTablePrinter(List<Column> columns, Writer writer)
     {
-        this.fieldNames = ImmutableList.copyOf(requireNonNull(fieldNames, "fieldNames is null"));
+        requireNonNull(columns, "columns is null");
+        this.fieldNames = columns.stream()
+                .map(Column::getName)
+                .collect(toImmutableList());
+        this.numericFields = columns.stream()
+                .map(Column::getTypeSignature)
+                .map(signature -> NUMERIC_TYPES.contains(signature.getRawType()))
+                .collect(toImmutableList());
         this.writer = requireNonNull(writer, "writer is null");
     }
 
@@ -118,7 +141,7 @@ public class AlignedTablePrinter
                     }
                     List<String> lines = columnLines.get(column);
                     String s = (line < lines.size()) ? lines.get(line) : "";
-                    boolean numeric = row.get(column) instanceof Number;
+                    boolean numeric = numericFields.get(column);
                     String out = align(s, maxWidth[column], 1, numeric);
                     if ((!complete || (rowCount > 1)) && ((line + 1) < lines.size())) {
                         out = out.substring(0, out.length() - 1) + "+";
@@ -136,6 +159,14 @@ public class AlignedTablePrinter
     {
         if (o == null) {
             return "NULL";
+        }
+
+        if (o instanceof Map) {
+            return formatMap((Map<?, ?>) o);
+        }
+
+        if (o instanceof List) {
+            return formatList((List<?>) o);
         }
 
         if (o instanceof byte[]) {
@@ -174,6 +205,20 @@ public class AlignedTablePrinter
         return HEX_SPLITTER.split(hexDump);
     }
 
+    static String formatList(List<? extends Object> list)
+    {
+        return list.stream()
+                .map(AlignedTablePrinter::formatValue)
+                .collect(joining(", ", "[", "]"));
+    }
+
+    static String formatMap(Map<? extends Object, ? extends Object> map)
+    {
+        return map.entrySet().stream()
+                .map(entry -> format("%s=%s", formatValue(entry.getKey()), formatValue(entry.getValue())))
+                .collect(joining(", ", "{", "}"));
+    }
+
     private static String center(String s, int maxWidth, int padding)
     {
         int width = consoleWidth(s);
@@ -203,12 +248,7 @@ public class AlignedTablePrinter
 
     static int consoleWidth(String s)
     {
-        return consoleWidth(new AnsiString(s));
-    }
-
-    private static int consoleWidth(AnsiString s)
-    {
-        CharSequence plain = s.getPlain();
+        CharSequence plain = stripAnsi(s);
         int n = 0;
         for (int i = 0; i < plain.length(); i++) {
             n += max(wcwidth(plain.charAt(i)), 0);

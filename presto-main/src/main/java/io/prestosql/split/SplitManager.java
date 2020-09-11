@@ -14,70 +14,99 @@
 package io.prestosql.split;
 
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.QueryManagerConfig;
-import io.prestosql.metadata.TableLayoutHandle;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import io.prestosql.spi.connector.ConnectorSplitSource;
+import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.DynamicFilter;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class SplitManager
 {
-    private final ConcurrentMap<ConnectorId, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
     private final int minScheduleSplitBatchSize;
 
+    // NOTE: This only used for filling in the table layout if none is present by the time we
+    // get splits. DO NOT USE IT FOR ANY OTHER PURPOSE, as it will be removed once table layouts
+    // are gone entirely
+    private final Metadata metadata;
+
     @Inject
-    public SplitManager(QueryManagerConfig config)
+    public SplitManager(QueryManagerConfig config, Metadata metadata)
     {
         this.minScheduleSplitBatchSize = config.getMinScheduleSplitBatchSize();
+        this.metadata = metadata;
     }
 
-    public void addConnectorSplitManager(ConnectorId connectorId, ConnectorSplitManager connectorSplitManager)
+    public void addConnectorSplitManager(CatalogName catalogName, ConnectorSplitManager connectorSplitManager)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(connectorSplitManager, "connectorSplitManager is null");
-        checkState(splitManagers.putIfAbsent(connectorId, connectorSplitManager) == null, "SplitManager for connector '%s' is already registered", connectorId);
+        checkState(splitManagers.putIfAbsent(catalogName, connectorSplitManager) == null, "SplitManager for connector '%s' is already registered", catalogName);
     }
 
-    public void removeConnectorSplitManager(ConnectorId connectorId)
+    public void removeConnectorSplitManager(CatalogName catalogName)
     {
-        splitManagers.remove(connectorId);
+        splitManagers.remove(catalogName);
     }
 
-    public SplitSource getSplits(Session session, TableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, DynamicFilter dynamicFilter)
     {
-        ConnectorId connectorId = layout.getConnectorId();
-        ConnectorSplitManager splitManager = getConnectorSplitManager(connectorId);
+        CatalogName catalogName = table.getCatalogName();
+        ConnectorSplitManager splitManager = getConnectorSplitManager(catalogName);
 
-        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 
-        ConnectorSplitSource source = splitManager.getSplits(
-                layout.getTransactionHandle(),
-                connectorSession,
-                layout.getConnectorHandle(),
-                splitSchedulingStrategy);
+        ConnectorSplitSource source;
+        if (metadata.usesLegacyTableLayouts(session, table)) {
+            ConnectorTableLayoutHandle layout = table.getLayout()
+                    .orElseGet(() -> metadata.getLayout(session, table, Constraint.alwaysTrue(), Optional.empty())
+                            .get()
+                            .getNewTableHandle()
+                            .getLayout().get());
 
-        SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), source);
+            source = splitManager.getSplits(table.getTransaction(), connectorSession, layout, splitSchedulingStrategy);
+        }
+        else {
+            source = splitManager.getSplits(
+                    table.getTransaction(),
+                    connectorSession,
+                    table.getConnectorHandle(),
+                    splitSchedulingStrategy,
+                    dynamicFilter);
+        }
+
+        SplitSource splitSource = new ConnectorAwareSplitSource(catalogName, source);
+        int minScheduleSplitBatchSize = this.minScheduleSplitBatchSize;
+        if (splitSource.getMinScheduleSplitBatchSize().isPresent()) {
+            minScheduleSplitBatchSize = min(minScheduleSplitBatchSize, splitSource.getMinScheduleSplitBatchSize().get());
+        }
         if (minScheduleSplitBatchSize > 1) {
             splitSource = new BufferingSplitSource(splitSource, minScheduleSplitBatchSize);
         }
         return splitSource;
     }
 
-    private ConnectorSplitManager getConnectorSplitManager(ConnectorId connectorId)
+    private ConnectorSplitManager getConnectorSplitManager(CatalogName catalogName)
     {
-        ConnectorSplitManager result = splitManagers.get(connectorId);
-        checkArgument(result != null, "No split manager for connector '%s'", connectorId);
+        ConnectorSplitManager result = splitManagers.get(catalogName);
+        checkArgument(result != null, "No split manager for connector '%s'", catalogName);
         return result;
     }
 }

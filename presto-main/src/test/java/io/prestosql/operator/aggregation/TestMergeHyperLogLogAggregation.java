@@ -18,7 +18,7 @@ import io.airlift.stats.cardinality.HyperLogLog;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.SqlVarbinary;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
@@ -32,7 +32,7 @@ public class TestMergeHyperLogLogAggregation
     // use dense for expected and actual to assure same serialized bytes
 
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = HYPER_LOG_LOG.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -51,13 +51,13 @@ public class TestMergeHyperLogLogAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.HYPER_LOG_LOG);
+        return ImmutableList.of(HYPER_LOG_LOG);
     }
 
     @Override
-    public Object getExpectedValue(int start, int length)
+    protected Object getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;

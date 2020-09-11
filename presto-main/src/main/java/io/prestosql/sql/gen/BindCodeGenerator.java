@@ -15,44 +15,49 @@
 package io.prestosql.sql.gen;
 
 import io.airlift.bytecode.BytecodeNode;
-import io.prestosql.metadata.Signature;
-import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import io.prestosql.sql.relational.LambdaDefinitionExpression;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.SpecialForm;
 
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public class BindCodeGenerator
         implements BytecodeGenerator
 {
-    private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
-    private final Class lambdaInterface;
+    private final Class<?> lambdaInterface;
+    private final CompiledLambda compiledLambda;
+    private final List<RowExpression> captureExpressions;
 
-    public BindCodeGenerator(Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap, Class lambdaInterface)
+    public BindCodeGenerator(SpecialForm specialForm, Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap, Class<?> lambdaInterface)
     {
-        this.compiledLambdaMap = compiledLambdaMap;
-        this.lambdaInterface = lambdaInterface;
-    }
+        requireNonNull(specialForm, "specialForm is null");
+        requireNonNull(compiledLambdaMap, "compiledLambdaMap is null");
 
-    @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
-    {
+        this.lambdaInterface = requireNonNull(lambdaInterface, "lambdaInterface is null");
+
         // Bind expression is used to generate captured lambda.
         // It takes the captured values and the uncaptured lambda, and produces captured lambda as the output.
         // The uncaptured lambda is just a method, and does not have a stack representation during execution.
         // As a result, the bind expression generates the captured lambda in one step.
+        List<RowExpression> arguments = specialForm.getArguments();
         int numCaptures = arguments.size() - 1;
         LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) arguments.get(numCaptures);
-        checkState(compiledLambdaMap.containsKey(lambda), "lambda expressions map does not contain this lambda definition");
-        CompiledLambda compiledLambda = compiledLambdaMap.get(lambda);
+        checkArgument(compiledLambdaMap.containsKey(lambda), "lambda expressions map does not contain this lambda definition");
+        compiledLambda = compiledLambdaMap.get(lambda);
+        captureExpressions = arguments.subList(0, numCaptures);
+    }
 
+    @Override
+    public BytecodeNode generateExpression(BytecodeGeneratorContext context)
+    {
         return LambdaBytecodeGenerator.generateLambda(
                 context,
-                arguments.subList(0, numCaptures),
+                captureExpressions,
                 compiledLambda,
                 lambdaInterface);
     }

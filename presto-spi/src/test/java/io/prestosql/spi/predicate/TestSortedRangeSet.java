@@ -24,17 +24,23 @@ import io.prestosql.spi.block.TestingBlockJsonSerde;
 import io.prestosql.spi.type.TestingTypeDeserializer;
 import io.prestosql.spi.type.TestingTypeManager;
 import io.prestosql.spi.type.Type;
+import org.assertj.core.api.AssertProvider;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.Float.floatToRawIntBits;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestSortedRangeSet
 {
@@ -166,23 +172,17 @@ public class TestSortedRangeSet
     public void testGetSingleValue()
     {
         assertEquals(SortedRangeSet.of(BIGINT, 0L).getSingleValue(), 0L);
-        try {
-            SortedRangeSet.all(BIGINT).getSingleValue();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
+        assertThatThrownBy(() -> SortedRangeSet.all(BIGINT).getSingleValue())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("SortedRangeSet does not have just a single value");
     }
 
     @Test
     public void testSpan()
     {
-        try {
-            SortedRangeSet.none(BIGINT).getSpan();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
+        assertThatThrownBy(() -> SortedRangeSet.none(BIGINT).getSpan())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Cannot get span if no ranges exist");
 
         assertEquals(SortedRangeSet.all(BIGINT).getSpan(), Range.all(BIGINT));
         assertEquals(SortedRangeSet.of(BIGINT, 0L).getSpan(), Range.equal(BIGINT, 0L));
@@ -251,6 +251,72 @@ public class TestSortedRangeSet
         assertTrue(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L)).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))));
         assertFalse(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).contains(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L))));
         assertFalse(SortedRangeSet.of(Range.lessThan(BIGINT, 0L)).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))));
+    }
+
+    @Test
+    public void testContainsValue()
+    {
+        // BIGINT all
+        assertSortedRangeSet(SortedRangeSet.all(BIGINT))
+                .containsValue(Long.MIN_VALUE)
+                .containsValue(0L)
+                .containsValue(42L)
+                .containsValue(Long.MAX_VALUE);
+
+        // BIGINT range
+        assertSortedRangeSet(SortedRangeSet.of(Range.range(BIGINT, 10L, true, 41L, true)))
+                .doesNotContainValue(9L)
+                .containsValue(10L)
+                .containsValue(11L)
+                .containsValue(30L)
+                .containsValue(41L)
+                .doesNotContainValue(42L);
+
+        assertSortedRangeSet(SortedRangeSet.of(Range.range(BIGINT, 10L, false, 41L, false)))
+                .doesNotContainValue(10L)
+                .containsValue(11L)
+                .containsValue(40L)
+                .doesNotContainValue(41L);
+
+        // REAL all
+        assertSortedRangeSet(SortedRangeSet.all(REAL))
+                .containsValue((long) floatToRawIntBits(42.0f))
+                .containsValue((long) floatToRawIntBits(Float.NaN));
+
+        // REAL range
+        assertSortedRangeSet(SortedRangeSet.of(Range.range(REAL, (long) floatToRawIntBits(10.0f), true, (long) floatToRawIntBits(41.0f), true)))
+                .doesNotContainValue((long) floatToRawIntBits(9.999999f))
+                .containsValue((long) floatToRawIntBits(10.0f))
+                .containsValue((long) floatToRawIntBits(41.0f))
+                .doesNotContainValue((long) floatToRawIntBits(41.00001f))
+                .doesNotContainValue((long) floatToRawIntBits(Float.NaN));
+
+        assertSortedRangeSet(SortedRangeSet.of(Range.range(REAL, (long) floatToRawIntBits(10.0f), false, (long) floatToRawIntBits(41.0f), false)))
+                .doesNotContainValue((long) floatToRawIntBits(10.0f))
+                .containsValue((long) floatToRawIntBits(10.00001f))
+                .containsValue((long) floatToRawIntBits(40.99999f))
+                .doesNotContainValue((long) floatToRawIntBits(41.0f))
+                .doesNotContainValue((long) floatToRawIntBits(Float.NaN));
+
+        // DOUBLE all
+        assertSortedRangeSet(SortedRangeSet.all(DOUBLE))
+                .containsValue(42.0)
+                .containsValue(Double.NaN);
+
+        // DOUBLE range
+        assertSortedRangeSet(SortedRangeSet.of(Range.range(DOUBLE, 10.0, true, 41.0, true)))
+                .doesNotContainValue(9.999999999999999)
+                .containsValue(10.0)
+                .containsValue(41.0)
+                .doesNotContainValue(41.00000000000001)
+                .doesNotContainValue(Double.NaN);
+
+        assertSortedRangeSet(SortedRangeSet.of(Range.range(DOUBLE, 10.0, false, 41.0, false)))
+                .doesNotContainValue(10.0)
+                .containsValue(10.00000000000001)
+                .containsValue(40.99999999999999)
+                .doesNotContainValue(41.0)
+                .doesNotContainValue(Double.NaN);
     }
 
     @Test
@@ -416,7 +482,7 @@ public class TestSortedRangeSet
             throws Exception
     {
         TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde(typeManager);
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 
         ObjectMapper mapper = new ObjectMapperProvider().get()
                 .registerModule(new SimpleModule()
@@ -441,5 +507,36 @@ public class TestSortedRangeSet
     {
         assertEquals(first.union(second), expected);
         assertEquals(first.union(ImmutableList.of(first, second)), expected);
+    }
+
+    private static SortedRangeSetAssert assertSortedRangeSet(SortedRangeSet sortedRangeSet)
+    {
+        return assertThat((AssertProvider<SortedRangeSetAssert>) () -> new SortedRangeSetAssert(sortedRangeSet));
+    }
+
+    private static class SortedRangeSetAssert
+    {
+        private final SortedRangeSet sortedRangeSet;
+
+        public SortedRangeSetAssert(SortedRangeSet sortedRangeSet)
+        {
+            this.sortedRangeSet = requireNonNull(sortedRangeSet, "sortedRangeSet is null");
+        }
+
+        public SortedRangeSetAssert containsValue(Object value)
+        {
+            if (!sortedRangeSet.containsValue(value)) {
+                throw new AssertionError(format("Expected %s to contain %s", sortedRangeSet, value));
+            }
+            return this;
+        }
+
+        public SortedRangeSetAssert doesNotContainValue(Object value)
+        {
+            if (sortedRangeSet.containsValue(value)) {
+                throw new AssertionError(format("Expected %s not to contain %s", sortedRangeSet, value));
+            }
+            return this;
+        }
     }
 }

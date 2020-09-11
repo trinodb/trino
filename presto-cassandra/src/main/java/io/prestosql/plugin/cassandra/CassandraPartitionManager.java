@@ -20,7 +20,6 @@ import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.prestosql.plugin.cassandra.util.CassandraCqlUtils;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -34,7 +33,6 @@ import java.util.Set;
 
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
-import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -50,10 +48,8 @@ public class CassandraPartitionManager
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
     }
 
-    public CassandraPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
+    public CassandraPartitionResult getPartitions(CassandraTableHandle cassandraTableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
-
         CassandraTable table = cassandraSession.getTable(cassandraTableHandle.getSchemaTableName());
         List<CassandraColumnHandle> partitionKeys = table.getPartitionKeyColumns();
 
@@ -73,9 +69,8 @@ public class CassandraPartitionManager
                 remainingTupleDomain = tupleDomain;
             }
             else {
-                @SuppressWarnings({"rawtypes", "unchecked"})
-                List<ColumnHandle> partitionColumns = (List) partitionKeys;
-                remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains().get(), not(in(partitionColumns))));
+                List<ColumnHandle> partitionColumns = ImmutableList.copyOf(partitionKeys);
+                remainingTupleDomain = tupleDomain.filter((column, domain) -> !partitionColumns.contains(column));
             }
         }
 
@@ -91,7 +86,7 @@ public class CassandraPartitionManager
                 if (column.isIndexed() && domain.isSingleValue()) {
                     sb.append(CassandraCqlUtils.validColumnName(column.getName()))
                             .append(" = ")
-                            .append(CassandraCqlUtils.cqlValue(toCQLCompatibleString(entry.getValue().getSingleValue()), column.getCassandraType()));
+                            .append(column.getCassandraType().toCqlLiteral(entry.getValue().getSingleValue()));
                     indexedColumns.add(column);
                     // Only one indexed column predicate can be pushed down.
                     break;
@@ -145,19 +140,21 @@ public class CassandraPartitionManager
                     ranges -> {
                         ImmutableSet.Builder<Object> columnValues = ImmutableSet.builder();
                         for (Range range : ranges.getOrderedRanges()) {
-                            // if the range is not a single value, we can not perform partition pruning
+                            // if the range is not a single value, we cannot perform partition pruning
                             if (!range.isSingleValue()) {
                                 return ImmutableSet.of();
                             }
                             Object value = range.getSingleValue();
 
                             CassandraType valueType = columnHandle.getCassandraType();
-                            columnValues.add(valueType.validatePartitionKey(value));
+                            if (valueType.isSupportedPartitionKey()) {
+                                columnValues.add(value);
+                            }
                         }
                         return columnValues.build();
                     },
                     discreteValues -> {
-                        if (discreteValues.isWhiteList()) {
+                        if (discreteValues.isInclusive()) {
                             return ImmutableSet.copyOf(discreteValues.getValues());
                         }
                         return ImmutableSet.of();

@@ -14,12 +14,11 @@
 package io.prestosql.plugin.hive.authentication;
 
 import com.google.inject.Binder;
-import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import io.prestosql.plugin.base.authentication.KerberosAuthentication;
 import io.prestosql.plugin.hive.ForHdfs;
-import io.prestosql.plugin.hive.ForHiveMetastore;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 
 import javax.inject.Inject;
@@ -32,40 +31,6 @@ public final class AuthenticationModules
 {
     private AuthenticationModules() {}
 
-    public static Module noHiveMetastoreAuthenticationModule()
-    {
-        return binder -> binder
-                .bind(HiveMetastoreAuthentication.class)
-                .to(NoHiveMetastoreAuthentication.class)
-                .in(SINGLETON);
-    }
-
-    public static Module kerberosHiveMetastoreAuthenticationModule()
-    {
-        return new Module()
-        {
-            @Override
-            public void configure(Binder binder)
-            {
-                binder.bind(HiveMetastoreAuthentication.class)
-                        .to(KerberosHiveMetastoreAuthentication.class)
-                        .in(SINGLETON);
-                configBinder(binder).bindConfig(MetastoreKerberosConfig.class);
-            }
-
-            @Inject
-            @Provides
-            @Singleton
-            @ForHiveMetastore
-            HadoopAuthentication createHadoopAuthentication(MetastoreKerberosConfig config, HdfsConfigurationInitializer updater)
-            {
-                String principal = config.getHiveMetastoreClientPrincipal();
-                String keytabLocation = config.getHiveMetastoreClientKeytab();
-                return createCachingKerberosHadoopAuthentication(principal, keytabLocation, updater);
-            }
-        };
-    }
-
     public static Module noHdfsAuthenticationModule()
     {
         return binder -> binder
@@ -77,11 +42,8 @@ public final class AuthenticationModules
     public static Module simpleImpersonatingHdfsAuthenticationModule()
     {
         return binder -> {
-            binder.bind(Key.get(HadoopAuthentication.class, ForHdfs.class))
-                    .to(SimpleHadoopAuthentication.class);
-            binder.bind(HdfsAuthentication.class)
-                    .to(ImpersonatingHdfsAuthentication.class)
-                    .in(SINGLETON);
+            binder.bind(HadoopAuthentication.class).annotatedWith(ForHdfs.class).to(SimpleHadoopAuthentication.class);
+            binder.bind(HdfsAuthentication.class).to(ImpersonatingHdfsAuthentication.class).in(SINGLETON);
         };
     }
 
@@ -137,7 +99,7 @@ public final class AuthenticationModules
         };
     }
 
-    private static HadoopAuthentication createCachingKerberosHadoopAuthentication(String principal, String keytabLocation, HdfsConfigurationInitializer updater)
+    public static HadoopAuthentication createCachingKerberosHadoopAuthentication(String principal, String keytabLocation, HdfsConfigurationInitializer updater)
     {
         KerberosAuthentication kerberosAuthentication = new KerberosAuthentication(principal, keytabLocation);
         KerberosHadoopAuthentication kerberosHadoopAuthentication = createKerberosHadoopAuthentication(kerberosAuthentication, updater);

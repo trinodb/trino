@@ -46,12 +46,12 @@ public final class PartitionedConsumption<T>
     @Nullable
     private List<Partition<T>> partitions;
 
-    public PartitionedConsumption(int consumersCount, Iterable<Integer> partitionNumbers, IntFunction<ListenableFuture<T>> loader, IntConsumer disposer)
+    PartitionedConsumption(int consumersCount, Iterable<Integer> partitionNumbers, IntFunction<ListenableFuture<T>> loader, IntConsumer disposer)
     {
         this(consumersCount, immediateFuture(null), partitionNumbers, loader, disposer);
     }
 
-    public PartitionedConsumption(
+    private PartitionedConsumption(
             int consumersCount,
             ListenableFuture<?> activator,
             Iterable<Integer> partitionNumbers,
@@ -83,19 +83,14 @@ public final class PartitionedConsumption<T>
         return partitions.build();
     }
 
-    public int getConsumersCount()
-    {
-        return consumersCount;
-    }
-
-    public Iterator<Partition<T>> beginConsumption()
+    Iterator<Partition<T>> beginConsumption()
     {
         Queue<Partition<T>> partitions = new ArrayDeque<>(requireNonNull(this.partitions, "partitions is already null"));
         if (consumed.incrementAndGet() >= consumersCount) {
             // Unreference futures to allow GC
             this.partitions = null;
         }
-        return new AbstractIterator<Partition<T>>()
+        return new AbstractIterator<>()
         {
             @Override
             protected Partition<T> computeNext()

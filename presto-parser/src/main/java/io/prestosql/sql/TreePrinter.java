@@ -71,7 +71,7 @@ public class TreePrinter
 
     public void print(Node root)
     {
-        AstVisitor<Void, Integer> printer = new DefaultTraversalVisitor<Void, Integer>()
+        AstVisitor<Void, Integer> printer = new DefaultTraversalVisitor<Integer>()
         {
             @Override
             protected Void visitNode(Node node, Integer indentLevel)
@@ -174,6 +174,7 @@ public class TreePrinter
                 return null;
             }
 
+            @Override
             protected Void visitOrderBy(OrderBy node, Integer indentLevel)
             {
                 for (SortItem sortItem : node.getSortItems()) {
@@ -200,11 +201,16 @@ public class TreePrinter
             @Override
             protected Void visitAllColumns(AllColumns node, Integer indent)
             {
-                if (node.getPrefix().isPresent()) {
-                    print(indent, node.getPrefix() + ".*");
+                StringBuilder aliases = new StringBuilder();
+                if (!node.getAliases().isEmpty()) {
+                    aliases.append(" [Aliases: ");
+                    Joiner.on(", ").appendTo(aliases, node.getAliases());
+                    aliases.append("]");
                 }
-                else {
-                    print(indent, "*");
+                print(indent, "All columns" + aliases.toString());
+
+                if (node.getTarget().isPresent()) {
+                    super.visitAllColumns(node, indent + 1); // visit child
                 }
 
                 return null;

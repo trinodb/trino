@@ -14,22 +14,21 @@
 package io.prestosql.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.elasticsearch.client.ElasticsearchClient;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
-import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsGroup;
-import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsResponse;
-import org.elasticsearch.cluster.node.DiscoveryNode;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 
-import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchSplitManager
@@ -44,30 +43,19 @@ public class ElasticsearchSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        ElasticsearchTableLayoutHandle layoutHandle = (ElasticsearchTableLayoutHandle) layout;
-        ElasticsearchTableHandle tableHandle = layoutHandle.getTable();
-        ElasticsearchTableDescription table = client.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
-        verify(table != null, "Table no longer exists: %s", tableHandle.toString());
+        ElasticsearchTableHandle tableHandle = (ElasticsearchTableHandle) table;
 
-        List<String> indices = client.getIndices(table);
-        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        for (String index : indices) {
-            ClusterSearchShardsResponse response = client.getSearchShards(index, table);
-            DiscoveryNode[] nodes = response.getNodes();
-            for (ClusterSearchShardsGroup group : response.getGroups()) {
-                int nodeIndex = group.getShardId().getId() % nodes.length;
-                ElasticsearchSplit split = new ElasticsearchSplit(
-                        index,
-                        table.getType(),
-                        group.getShardId().getId(),
-                        nodes[nodeIndex].getHostName(),
-                        nodes[nodeIndex].getAddress().getPort(),
-                        layoutHandle.getTupleDomain());
-                splits.add(split);
-            }
+        if (tableHandle.getType().equals(QUERY)) {
+            return new FixedSplitSource(ImmutableList.of(new ElasticsearchSplit(tableHandle.getIndex(), 0, Optional.empty())));
         }
-        return new FixedSplitSource(splits.build());
+        else {
+            List<ElasticsearchSplit> splits = client.getSearchShards(tableHandle.getIndex()).stream()
+                    .map(shard -> new ElasticsearchSplit(shard.getIndex(), shard.getId(), shard.getAddress()))
+                    .collect(toImmutableList());
+
+            return new FixedSplitSource(splits);
+        }
     }
 }

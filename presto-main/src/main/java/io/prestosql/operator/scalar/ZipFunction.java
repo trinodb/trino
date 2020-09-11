@@ -15,29 +15,29 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
+import static io.prestosql.spi.type.TypeSignature.rowType;
 import static io.prestosql.util.Reflection.methodHandle;
-import static java.lang.String.join;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
 
@@ -66,42 +66,38 @@ public final class ZipFunction
 
     private ZipFunction(List<String> typeParameters)
     {
-        super(new Signature("zip",
-                FunctionKind.SCALAR,
-                typeParameters.stream().map(Signature::typeVariable).collect(toImmutableList()),
-                ImmutableList.of(),
-                parseTypeSignature("array(row(" + join(",", typeParameters) + "))"),
-                typeParameters.stream().map(name -> "array(" + name + ")").map(TypeSignature::parseTypeSignature).collect(toImmutableList()),
-                false));
+        super(new FunctionMetadata(
+                new Signature(
+                        "zip",
+                        typeParameters.stream().map(Signature::typeVariable).collect(toImmutableList()),
+                        ImmutableList.of(),
+                        arrayType(rowType(typeParameters.stream()
+                                .map(TypeSignature::new)
+                                .map(TypeSignatureParameter::anonymousField)
+                                .collect(toImmutableList()))),
+                        typeParameters.stream()
+                                .map(name -> arrayType(new TypeSignature(name)))
+                                .collect(toImmutableList()),
+                        false),
+                false,
+                nCopies(typeParameters.size(), new FunctionArgumentDefinition(false)),
+                false,
+                true,
+                "Merges the given arrays, element-wise, into a single array of rows.",
+                SCALAR));
         this.typeParameters = typeParameters;
     }
 
     @Override
-    public boolean isHidden()
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Merges the given arrays, element-wise, into a single array of rows.";
-    }
-
-    @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        List<Type> types = this.typeParameters.stream().map(boundVariables::getTypeVariable).collect(toImmutableList());
-        List<ArgumentProperty> argumentProperties = nCopies(types.size(), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
+        List<Type> types = this.typeParameters.stream().map(functionBinding::getTypeVariable).collect(toImmutableList());
         List<Class<?>> javaArgumentTypes = nCopies(types.size(), Block.class);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(types).asVarargsCollector(Block[].class).asType(methodType(Block.class, javaArgumentTypes));
-        return new ScalarFunctionImplementation(false, argumentProperties, methodHandle, isDeterministic());
+        return new ScalarFunctionImplementation(
+                FAIL_ON_NULL,
+                nCopies(types.size(), NEVER_NULL),
+                methodHandle);
     }
 
     @UsedByGeneratedCode

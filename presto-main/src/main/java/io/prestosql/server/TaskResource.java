@@ -31,7 +31,7 @@ import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.metadata.SessionPropertyManager;
-import io.prestosql.spi.Page;
+import io.prestosql.server.security.ResourceSecurity;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -64,7 +64,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
-import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
+import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.prestosql.PrestoMediaTypes.PRESTO_PAGES;
 import static io.prestosql.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_STATE;
@@ -73,6 +73,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static io.prestosql.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -106,6 +107,7 @@ public class TaskResource
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public List<TaskInfo> getAllTaskInfo(@Context UriInfo uriInfo)
@@ -117,6 +119,7 @@ public class TaskResource
         return allTaskInfo;
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
     @POST
     @Path("{taskId}")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -140,11 +143,12 @@ public class TaskResource
         return Response.ok().entity(taskInfo).build();
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
     public void getTaskInfo(
-            @PathParam("taskId") final TaskId taskId,
+            @PathParam("taskId") TaskId taskId,
             @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
             @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
             @Context UriInfo uriInfo,
@@ -178,6 +182,7 @@ public class TaskResource
                 .withTimeout(timeout);
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/status")
     @Produces(MediaType.APPLICATION_JSON)
@@ -212,6 +217,7 @@ public class TaskResource
                 .withTimeout(timeout);
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
     @DELETE
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -236,13 +242,14 @@ public class TaskResource
         return taskInfo;
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/results/{bufferId}/{token}")
     @Produces(PRESTO_PAGES)
     public void getResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") OutputBufferId bufferId,
-            @PathParam("token") final long token,
+            @PathParam("token") long token,
             @HeaderParam(PRESTO_MAX_SIZE) DataSize maxSize,
             @Suspended AsyncResponse asyncResponse)
     {
@@ -267,7 +274,7 @@ public class TaskResource
                 status = Status.NO_CONTENT;
             }
             else {
-                entity = new GenericEntity<>(serializedPages, new TypeToken<List<Page>>() {}.getType());
+                entity = new GenericEntity<>(serializedPages, new TypeToken<List<SerializedPage>>() {}.getType());
                 status = Status.OK;
             }
 
@@ -295,12 +302,13 @@ public class TaskResource
         asyncResponse.register((CompletionCallback) throwable -> resultsRequestTime.add(Duration.nanosSince(start)));
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/results/{bufferId}/{token}/acknowledge")
     public void acknowledgeResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") OutputBufferId bufferId,
-            @PathParam("token") final long token)
+            @PathParam("token") long token)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
@@ -308,6 +316,7 @@ public class TaskResource
         taskManager.acknowledgeTaskResults(taskId, bufferId, token);
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
     @DELETE
     @Path("{taskId}/results/{bufferId}")
     @Produces(MediaType.APPLICATION_JSON)

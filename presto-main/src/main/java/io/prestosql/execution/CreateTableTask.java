@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
@@ -27,12 +27,15 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.sql.tree.ColumnDefinition;
 import io.prestosql.sql.tree.CreateTable;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.LikeClause;
+import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.Parameter;
 import io.prestosql.sql.tree.TableElement;
 import io.prestosql.transaction.TransactionManager;
 
@@ -45,19 +48,26 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
+import static io.prestosql.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
+import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
+import static io.prestosql.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.prestosql.sql.NodeUtils.mapFromProperties;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static io.prestosql.sql.ParameterUtils.parameterExtractor;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.prestosql.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
+import static io.prestosql.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 
 public class CreateTableTask
@@ -82,20 +92,21 @@ public class CreateTableTask
     }
 
     @VisibleForTesting
-    public ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
+    ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
+        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isPresent()) {
             if (!statement.isNotExists()) {
-                throw new SemanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' already exists", tableName);
+                throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' already exists", tableName);
             }
             return immediateFuture(null);
         }
 
-        ConnectorId connectorId = metadata.getCatalogHandle(session, tableName.getCatalogName())
+        CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
 
         LinkedHashMap<String, ColumnMetadata> columns = new LinkedHashMap<>();
@@ -107,57 +118,87 @@ public class CreateTableTask
                 String name = column.getName().getValue().toLowerCase(Locale.ENGLISH);
                 Type type;
                 try {
-                    type = metadata.getType(parseTypeSignature(column.getType()));
+                    type = metadata.getType(toTypeSignature(column.getType()));
                 }
-                catch (IllegalArgumentException e) {
-                    throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
+                catch (TypeNotFoundException e) {
+                    throw semanticException(TYPE_NOT_FOUND, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
                 }
                 if (type.equals(UNKNOWN)) {
-                    throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
+                    throw semanticException(COLUMN_TYPE_UNKNOWN, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
                 }
                 if (columns.containsKey(name)) {
-                    throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getName());
+                    throw semanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getName());
+                }
+                if (!column.isNullable() && !metadata.getConnectorCapabilities(session, catalogName).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
+                    throw semanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", catalogName.getCatalogName(), column.getName());
                 }
 
                 Map<String, Expression> sqlProperties = mapFromProperties(column.getProperties());
                 Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
-                        connectorId,
+                        catalogName,
                         tableName.getCatalogName(),
                         sqlProperties,
                         session,
                         metadata,
-                        parameters);
+                        accessControl,
+                        parameterLookup);
 
-                columns.put(name, new ColumnMetadata(name, type, column.getComment().orElse(null), null, false, columnProperties));
+                columns.put(name, ColumnMetadata.builder()
+                        .setName(name)
+                        .setType(type)
+                        .setNullable(column.isNullable())
+                        .setComment(column.getComment())
+                        .setProperties(columnProperties)
+                        .build());
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
                 QualifiedObjectName likeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
-                if (!metadata.getCatalogHandle(session, likeTableName.getCatalogName()).isPresent()) {
-                    throw new SemanticException(MISSING_CATALOG, statement, "LIKE table catalog '%s' does not exist", likeTableName.getCatalogName());
+                if (metadata.getCatalogHandle(session, likeTableName.getCatalogName()).isEmpty()) {
+                    throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' does not exist", likeTableName.getCatalogName());
                 }
                 if (!tableName.getCatalogName().equals(likeTableName.getCatalogName())) {
-                    throw new SemanticException(NOT_SUPPORTED, statement, "LIKE table across catalogs is not supported");
+                    throw semanticException(NOT_SUPPORTED, statement, "LIKE table across catalogs is not supported");
                 }
                 TableHandle likeTable = metadata.getTableHandle(session, likeTableName)
-                        .orElseThrow(() -> new SemanticException(MISSING_TABLE, statement, "LIKE table '%s' does not exist", likeTableName));
+                        .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "LIKE table '%s' does not exist", likeTableName));
 
                 TableMetadata likeTableMetadata = metadata.getTableMetadata(session, likeTable);
 
                 Optional<LikeClause.PropertiesOption> propertiesOption = likeClause.getPropertiesOption();
-                if (propertiesOption.isPresent() && propertiesOption.get().equals(LikeClause.PropertiesOption.INCLUDING)) {
+                if (propertiesOption.isPresent() && propertiesOption.get() == LikeClause.PropertiesOption.INCLUDING) {
                     if (includingProperties) {
-                        throw new SemanticException(NOT_SUPPORTED, statement, "Only one LIKE clause can specify INCLUDING PROPERTIES");
+                        throw semanticException(NOT_SUPPORTED, statement, "Only one LIKE clause can specify INCLUDING PROPERTIES");
                     }
                     includingProperties = true;
                     inheritedProperties = likeTableMetadata.getMetadata().getProperties();
+                }
+
+                try {
+                    accessControl.checkCanSelectFromColumns(
+                            session.toSecurityContext(),
+                            likeTableName,
+                            likeTableMetadata.getColumns().stream()
+                                    .map(ColumnMetadata::getName)
+                                    .collect(toImmutableSet()));
+                }
+                catch (AccessDeniedException e) {
+                    throw new AccessDeniedException("Cannot reference columns of table " + likeTableName);
+                }
+                if (propertiesOption.orElse(EXCLUDING) == INCLUDING) {
+                    try {
+                        accessControl.checkCanShowCreateTable(session.toSecurityContext(), likeTableName);
+                    }
+                    catch (AccessDeniedException e) {
+                        throw new AccessDeniedException("Cannot reference properties of table " + likeTableName);
+                    }
                 }
 
                 likeTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
                         .forEach(column -> {
                             if (columns.containsKey(column.getName().toLowerCase(Locale.ENGLISH))) {
-                                throw new SemanticException(DUPLICATE_COLUMN_NAME, element, "Column name '%s' specified more than once", column.getName());
+                                throw semanticException(DUPLICATE_COLUMN_NAME, element, "Column name '%s' specified more than once", column.getName());
                             }
                             columns.put(column.getName().toLowerCase(Locale.ENGLISH), column);
                         });
@@ -167,16 +208,17 @@ public class CreateTableTask
             }
         }
 
-        accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
+        accessControl.checkCanCreateTable(session.toSecurityContext(), tableName);
 
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
-                connectorId,
+                catalogName,
                 tableName.getCatalogName(),
                 sqlProperties,
                 session,
                 metadata,
-                parameters);
+                accessControl,
+                parameterLookup);
 
         Map<String, Object> finalProperties = combineProperties(sqlProperties.keySet(), properties, inheritedProperties);
 

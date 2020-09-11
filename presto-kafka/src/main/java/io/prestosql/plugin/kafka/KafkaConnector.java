@@ -14,9 +14,9 @@
 package io.prestosql.plugin.kafka;
 
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -28,30 +28,28 @@ import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.prestosql.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Kafka specific implementation of the Presto Connector SPI. This is a read only connector.
- */
 public class KafkaConnector
         implements Connector
 {
-    private static final Logger log = Logger.get(KafkaConnector.class);
-
     private final LifeCycleManager lifeCycleManager;
-    private final KafkaMetadata metadata;
-    private final KafkaSplitManager splitManager;
-    private final KafkaRecordSetProvider recordSetProvider;
+    private final ConnectorMetadata metadata;
+    private final ConnectorSplitManager splitManager;
+    private final ConnectorRecordSetProvider recordSetProvider;
+    private final ConnectorPageSinkProvider pageSinkProvider;
 
     @Inject
     public KafkaConnector(
             LifeCycleManager lifeCycleManager,
-            KafkaMetadata metadata,
-            KafkaSplitManager splitManager,
-            KafkaRecordSetProvider recordSetProvider)
+            ConnectorMetadata metadata,
+            ConnectorSplitManager splitManager,
+            ConnectorRecordSetProvider recordSetProvider,
+            ConnectorPageSinkProvider pageSinkProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
+        this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
     }
 
     @Override
@@ -80,13 +78,14 @@ public class KafkaConnector
     }
 
     @Override
+    public ConnectorPageSinkProvider getPageSinkProvider()
+    {
+        return pageSinkProvider;
+    }
+
+    @Override
     public final void shutdown()
     {
-        try {
-            lifeCycleManager.stop();
-        }
-        catch (Exception e) {
-            log.error(e, "Error shutting down connector");
-        }
+        lifeCycleManager.stop();
     }
 }

@@ -13,19 +13,21 @@
  */
 package io.prestosql.cli;
 
-import jline.TerminalFactory;
+import org.jline.terminal.Terminal;
 
+import java.io.IOException;
 import java.io.PrintStream;
+import java.io.UncheckedIOException;
 
 import static java.util.Objects.requireNonNull;
-import static org.fusesource.jansi.Ansi.Erase;
-import static org.fusesource.jansi.Ansi.ansi;
-import static org.fusesource.jansi.internal.CLibrary.STDERR_FILENO;
-import static org.fusesource.jansi.internal.CLibrary.isatty;
+import static org.jline.terminal.TerminalBuilder.terminal;
 
 public class ConsolePrinter
 {
     public static final boolean REAL_TERMINAL = detectRealTerminal();
+
+    private static final String ERASE_SCREEN_FORWARD = "\033[0J";
+    private static final String ERASE_LINE_ALL = "\033[2K";
 
     private final PrintStream out;
     private int lines;
@@ -38,7 +40,7 @@ public class ConsolePrinter
     public void reprintLine(String line)
     {
         if (isRealTerminal()) {
-            out.print(ansi().eraseLine(Erase.ALL).a(line).a('\n').toString());
+            out.print(ERASE_LINE_ALL + line + "\n");
         }
         else {
             out.print('\r' + line);
@@ -51,7 +53,7 @@ public class ConsolePrinter
     {
         if (lines > 0) {
             if (isRealTerminal()) {
-                out.print(ansi().cursorUp(lines).toString());
+                out.print(cursorUp(lines));
             }
             else {
                 out.print('\r');
@@ -65,7 +67,7 @@ public class ConsolePrinter
     {
         if (lines > 0) {
             if (isRealTerminal()) {
-                out.print(ansi().cursorUp(lines).eraseScreen(Erase.FORWARD).toString());
+                out.print(cursorUp(lines) + ERASE_SCREEN_FORWARD);
             }
             else {
                 out.print('\r');
@@ -77,10 +79,14 @@ public class ConsolePrinter
 
     public int getWidth()
     {
-        return TerminalFactory.get().getWidth();
+        try (Terminal terminal = terminal()) {
+            return terminal.getWidth();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
-    @SuppressWarnings("MethodMayBeStatic")
     public boolean isRealTerminal()
     {
         return REAL_TERMINAL;
@@ -88,34 +94,17 @@ public class ConsolePrinter
 
     private static boolean detectRealTerminal()
     {
-        // If the jansi.passthrough property is set, then don't interpret
-        // any of the ansi sequences.
-        if (Boolean.parseBoolean(System.getProperty("jansi.passthrough"))) {
-            return true;
+        try (Terminal terminal = terminal()) {
+            return !Terminal.TYPE_DUMB.equals(terminal.getType()) &&
+                    !Terminal.TYPE_DUMB_COLOR.equals(terminal.getType());
         }
-
-        // If the jansi.strip property is set, then we just strip the
-        // the ansi escapes.
-        if (Boolean.parseBoolean(System.getProperty("jansi.strip"))) {
+        catch (IOException e) {
             return false;
         }
+    }
 
-        String os = System.getProperty("os.name");
-        if (os.startsWith("Windows")) {
-            // We could support this, but we'd need a windows box
-            return true;
-        }
-
-        // We must be on some unix variant..
-        try {
-            // check if standard error is a terminal
-            if (isatty(STDERR_FILENO) == 0) {
-                return false;
-            }
-        }
-        catch (NoClassDefFoundError | UnsatisfiedLinkError ignore) {
-            // These errors happen if the JNI lib is not available for your platform.
-        }
-        return true;
+    private static String cursorUp(int lines)
+    {
+        return "\033[" + lines + "A";
     }
 }

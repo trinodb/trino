@@ -25,22 +25,18 @@ import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraClusteringPredicatesExtractor
 {
-    private final List<CassandraColumnHandle> clusteringColumns;
     private final ClusteringPushDownResult clusteringPushDownResult;
     private final TupleDomain<ColumnHandle> predicates;
 
     public CassandraClusteringPredicatesExtractor(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, VersionNumber cassandraVersion)
     {
-        this.clusteringColumns = ImmutableList.copyOf(clusteringColumns);
         this.predicates = requireNonNull(predicates, "predicates is null");
         this.clusteringPushDownResult = getClusteringKeysSet(clusteringColumns, predicates, requireNonNull(cassandraVersion, "cassandraVersion is null"));
     }
@@ -53,13 +49,7 @@ public class CassandraClusteringPredicatesExtractor
     public TupleDomain<ColumnHandle> getUnenforcedConstraints()
     {
         Map<ColumnHandle, Domain> pushedDown = clusteringPushDownResult.getDomains();
-        Map<ColumnHandle, Domain> notPushedDown = new HashMap<>(predicates.getDomains().get());
-
-        if (!notPushedDown.isEmpty() && !pushedDown.isEmpty()) {
-            notPushedDown.entrySet().removeAll(pushedDown.entrySet());
-        }
-
-        return TupleDomain.withColumnDomains(notPushedDown);
+        return predicates.filter(((columnHandle, domain) -> !pushedDown.containsKey(columnHandle)));
     }
 
     private static ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, VersionNumber cassandraVersion)
@@ -75,8 +65,7 @@ public class CassandraClusteringPredicatesExtractor
             if (domain.isNullAllowed()) {
                 break;
             }
-            String predicateString = null;
-            predicateString = domain.getValues().getValuesProcessor().transform(
+            String predicateString = domain.getValues().getValuesProcessor().transform(
                     ranges -> {
                         List<Object> singleValues = new ArrayList<>();
                         List<String> rangeConjuncts = new ArrayList<>();
@@ -87,21 +76,17 @@ public class CassandraClusteringPredicatesExtractor
                                 return null;
                             }
                             if (range.isSingleValue()) {
-                                singleValues.add(CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getSingleValue()),
-                                        columnHandle.getCassandraType()));
+                                singleValues.add(columnHandle.getCassandraType().toCqlLiteral(range.getSingleValue()));
                             }
                             else {
                                 if (!range.getLow().isLowerUnbounded()) {
+                                    String lowBound = columnHandle.getCassandraType().toCqlLiteral(range.getLow().getValue());
                                     switch (range.getLow().getBound()) {
                                         case ABOVE:
-                                            rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " > "
-                                                    + CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getLow().getValue()),
-                                                    columnHandle.getCassandraType()));
+                                            rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " > " + lowBound);
                                             break;
                                         case EXACTLY:
-                                            rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " >= "
-                                                    + CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getLow().getValue()),
-                                                    columnHandle.getCassandraType()));
+                                            rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " >= " + lowBound);
                                             break;
                                         case BELOW:
                                             throw new VerifyException("Low Marker should never use BELOW bound");
@@ -110,18 +95,15 @@ public class CassandraClusteringPredicatesExtractor
                                     }
                                 }
                                 if (!range.getHigh().isUpperUnbounded()) {
+                                    String highBound = columnHandle.getCassandraType().toCqlLiteral(range.getHigh().getValue());
                                     switch (range.getHigh().getBound()) {
                                         case ABOVE:
                                             throw new VerifyException("High Marker should never use ABOVE bound");
                                         case EXACTLY:
-                                            rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " <= "
-                                                    + CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getHigh().getValue()),
-                                                    columnHandle.getCassandraType()));
+                                            rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " <= " + highBound);
                                             break;
                                         case BELOW:
-                                            rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " < "
-                                                    + CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getHigh().getValue()),
-                                                    columnHandle.getCassandraType()));
+                                            rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " < " + highBound);
                                             break;
                                         default:
                                             throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
@@ -147,11 +129,10 @@ public class CassandraClusteringPredicatesExtractor
                         }
                         return predicate;
                     }, discreteValues -> {
-                        if (discreteValues.isWhiteList()) {
+                        if (discreteValues.isInclusive()) {
                             ImmutableList.Builder<Object> discreteValuesList = ImmutableList.builder();
                             for (Object discreteValue : discreteValues.getValues()) {
-                                discreteValuesList.add(CassandraCqlUtils.cqlValue(toCQLCompatibleString(discreteValue),
-                                        columnHandle.getCassandraType()));
+                                discreteValuesList.add(columnHandle.getCassandraType().toCqlLiteral(discreteValue));
                             }
                             String predicate = CassandraCqlUtils.validColumnName(columnHandle.getName()) + " IN ("
                                     + Joiner.on(",").join(discreteValuesList.build()) + ")";

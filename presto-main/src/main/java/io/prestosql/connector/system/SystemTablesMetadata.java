@@ -13,28 +13,26 @@
  */
 package io.prestosql.connector.system;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.system.jdbc.JdbcTable;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -48,13 +46,10 @@ import static java.util.Objects.requireNonNull;
 public class SystemTablesMetadata
         implements ConnectorMetadata
 {
-    private final ConnectorId connectorId;
-
     private final SystemTablesProvider tables;
 
-    public SystemTablesMetadata(ConnectorId connectorId, SystemTablesProvider tables)
+    public SystemTablesMetadata(SystemTablesProvider tables)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId");
         this.tables = requireNonNull(tables, "tables is null");
     }
 
@@ -71,24 +66,10 @@ public class SystemTablesMetadata
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         Optional<SystemTable> table = tables.getSystemTable(session, tableName);
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             return null;
         }
-        return SystemTableHandle.fromSchemaTableName(connectorId, tableName);
-    }
-
-    @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        SystemTableHandle tableHandle = (SystemTableHandle) table;
-        ConnectorTableLayout layout = new ConnectorTableLayout(new SystemTableLayoutHandle(tableHandle.getConnectorId(), tableHandle, constraint.getSummary()));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        return new ConnectorTableLayout(handle);
+        return SystemTableHandle.fromSchemaTableName(tableName);
     }
 
     @Override
@@ -103,7 +84,7 @@ public class SystemTablesMetadata
         return tables.listSystemTables(session).stream()
                 .map(SystemTable::getTableMetadata)
                 .map(ConnectorTableMetadata::getTable)
-                .filter(table -> !schemaName.isPresent() || table.getSchemaName().equals(schemaName.get()))
+                .filter(table -> schemaName.isEmpty() || table.getSchemaName().equals(schemaName.get()))
                 .collect(toImmutableList());
     }
 
@@ -115,7 +96,7 @@ public class SystemTablesMetadata
         String columnName = ((SystemColumnHandle) columnHandle).getColumnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
-        checkArgument(columnMetadata != null, "Column %s on table %s does not exist", columnName, tableMetadata.getTable());
+        checkArgument(columnMetadata != null, "Column '%s' on table '%s' does not exist", columnName, tableMetadata.getTable());
         return columnMetadata;
     }
 
@@ -123,7 +104,7 @@ public class SystemTablesMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ConnectorTableMetadata tableMetadata = checkAndGetTable(session, tableHandle).getTableMetadata();
-        return toSystemColumnHandles(((SystemTableHandle) tableHandle).getConnectorId(), tableMetadata);
+        return toSystemColumnHandles(tableMetadata);
     }
 
     private SystemTable checkAndGetTable(ConnectorSession session, ConnectorTableHandle tableHandle)
@@ -131,7 +112,7 @@ public class SystemTablesMetadata
         SystemTableHandle systemTableHandle = (SystemTableHandle) tableHandle;
         return tables.getSystemTable(session, systemTableHandle.getSchemaTableName())
                 // table might disappear in the meantime
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Table %s not found", systemTableHandle.getSchemaTableName())));
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Table '%s' not found", systemTableHandle.getSchemaTableName())));
     }
 
     @Override
@@ -155,5 +136,45 @@ public class SystemTablesMetadata
             }
         }
         return builder.build();
+    }
+
+    @Override
+    public boolean usesLegacyTableLayouts()
+    {
+        return false;
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return new ConnectorTableProperties();
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
+    {
+        SystemTableHandle table = (SystemTableHandle) handle;
+
+        TupleDomain<ColumnHandle> oldDomain = table.getConstraint();
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        if (oldDomain.equals(newDomain) && constraint.predicate().isEmpty()) {
+            return Optional.empty();
+        }
+
+        SystemTable systemTable = checkAndGetTable(session, table);
+        if (systemTable instanceof JdbcTable) {
+            TupleDomain<ColumnHandle> filtered = ((JdbcTable) systemTable).applyFilter(session, new Constraint(newDomain, constraint.predicate(), constraint.getColumns()));
+            newDomain = newDomain.intersect(filtered);
+        }
+
+        if (oldDomain.equals(newDomain)) {
+            return Optional.empty();
+        }
+
+        if (newDomain.isNone()) {
+            // TODO (https://github.com/prestosql/presto/issues/3647) indicate the table scan is empty
+        }
+        table = new SystemTableHandle(table.getSchemaName(), table.getTableName(), newDomain);
+        return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary()));
     }
 }

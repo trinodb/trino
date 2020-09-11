@@ -29,10 +29,10 @@
     "elapsedTime": "134.00ms",
     "resourceWaitingTime": "11.00ms",
     "queuedTime": "2.11ms",
+    "dispatchingTime": "1111.00ms",
     "executionTime": "13.00ms",
-    "analysisTime": "7.47ms",
-    "distributedPlanningTime": "311.77us",
-    "totalPlanningTime": "9.99ms",
+    "analysisTime": "1.47ms",
+    "planningTime": "9.99ms",
     "finishingTime": "17.00ms",
     "totalTasks": 1,
     "runningTasks": 0,
@@ -43,10 +43,13 @@
     "runningDrivers": 0,
     "completedDrivers": 1,
     "userMemoryReservation": "0B",
+    "revocableMemoryReservation": "0B",
     "totalMemoryReservation": "0B",
     "peakUserMemoryReservation": "0B",
+    "peakRevocableMemoryReservation": "0B",
     "peakTotalMemoryReservation": "0B",
     "peakTaskUserMemory": "0B",
+    "peakTaskRevocableMemory": "0B",
     "peakTaskTotalMemory": "0B",
     "totalScheduledTime": "1.22ms",
     "totalCpuTime": "1.19ms",
@@ -70,7 +73,6 @@
   "outputStage": {
     "stageId": "20150505_160116_00005_sdzex.0",
     "state": "FINISHED",
-    "self": "http://172.16.2.11:8080/v1/stage/20150505_160116_00005_sdzex.0",
     "plan": {
       "id": "1",
       "root": {
@@ -239,7 +241,6 @@
       {
         "stageId": "20150505_160116_00005_sdzex.1",
         "state": "FINISHED",
-        "self": "http://172.16.2.11:8080/v1/stage/20150505_160116_00005_sdzex.1",
         "plan": {
           "id": "0",
           "root": {

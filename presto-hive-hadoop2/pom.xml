@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>303-SNAPSHOT</version>
+        <version>341</version>
     </parent>
 
     <artifactId>presto-hive-hadoop2</artifactId>
@@ -28,8 +28,20 @@
         </dependency>
 
         <dependency>
+            <groupId>com.qubole.rubix</groupId>
+            <artifactId>rubix-presto-shaded</artifactId>
+        </dependency>
+
+        <!-- used by tests but also needed transitively -->
+        <dependency>
             <groupId>io.prestosql.hadoop</groupId>
             <artifactId>hadoop-apache</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.alluxio</groupId>
+            <artifactId>alluxio-shaded-client</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -47,12 +59,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
             <scope>provided</scope>
@@ -66,8 +72,21 @@
 
         <!-- for testing -->
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-hive</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-main</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-testing</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -84,15 +103,8 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-hive</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-main</artifactId>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -110,9 +122,14 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>**/TestHiveClient.java</exclude>
+                                <exclude>**/TestHive.java</exclude>
+                                <exclude>**/TestHiveAlluxioMetastore.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3SelectPushdown.java</exclude>
+                                <exclude>**/TestHiveFileSystemWasb.java</exclude>
+                                <exclude>**/TestHiveFileSystemAbfs.java</exclude>
+                                <exclude>**/TestHiveFileSystemAdl.java</exclude>
+                                <exclude>**/TestHiveAzure.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -128,7 +145,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestHiveClient.java</include>
+                                <include>**/TestHive.java</include>
                             </includes>
                         </configuration>
                     </plugin>
@@ -146,6 +163,70 @@
                             <includes>
                                 <include>**/TestHiveFileSystemS3.java</include>
                                 <include>**/TestHiveFileSystemS3SelectPushdown.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-hive-hadoop2-wasb</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHiveFileSystemWasb.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-hive-hadoop2-abfs</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHiveFileSystemAbfs.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-hive-hadoop2-adl</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHiveFileSystemAdl.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-hive-hadoop2-alluxio</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHiveAlluxioMetastore.java</include>
                             </includes>
                         </configuration>
                     </plugin>

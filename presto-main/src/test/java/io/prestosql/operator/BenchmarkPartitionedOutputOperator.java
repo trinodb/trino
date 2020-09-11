@@ -15,7 +15,6 @@ package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.execution.StateMachine;
 import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.execution.buffer.PagesSerdeFactory;
@@ -30,7 +29,6 @@ import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.TestingTaskContext;
-import io.prestosql.type.TypeRegistry;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -57,7 +55,6 @@ import java.util.function.Function;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.execution.buffer.BufferState.OPEN;
@@ -65,8 +62,10 @@ import static io.prestosql.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -95,7 +94,7 @@ public class BenchmarkPartitionedOutputOperator
         private static final int PAGE_COUNT = 5000;
         private static final int PARTITION_COUNT = 512;
         private static final int ENTRIES_PER_PAGE = 256;
-        private static final DataSize MAX_MEMORY = new DataSize(1, GIGABYTE);
+        private static final DataSize MAX_MEMORY = DataSize.of(1, GIGABYTE);
         private static final RowType rowType = RowType.anonymous(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR));
         private static final List<Type> TYPES = ImmutableList.of(BIGINT, rowType, rowType, rowType);
         private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-EXECUTOR-%s"));
@@ -116,14 +115,14 @@ public class BenchmarkPartitionedOutputOperator
         private PartitionedOutputOperator createPartitionedOutputOperator()
         {
             PartitionFunction partitionFunction = new LocalPartitionGenerator(new InterpretedHashGenerator(ImmutableList.of(BIGINT), new int[] {0}), PARTITION_COUNT);
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry()), false);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(createTestMetadataManager().getBlockEncodingSerde(), false);
             OutputBuffers buffers = createInitialEmptyOutputBuffers(PARTITIONED);
             for (int partition = 0; partition < PARTITION_COUNT; partition++) {
                 buffers = buffers.withBuffer(new OutputBuffers.OutputBufferId(partition), partition);
             }
             PartitionedOutputBuffer buffer = createPartitionedBuffer(
                     buffers.withNoMoreBufferIds(),
-                    new DataSize(Long.MAX_VALUE, BYTE)); // don't let output buffer block
+                    DataSize.ofBytes(Long.MAX_VALUE)); // don't let output buffer block
             PartitionedOutputFactory operatorFactory = new PartitionedOutputFactory(
                     partitionFunction,
                     ImmutableList.of(0),
@@ -131,7 +130,7 @@ public class BenchmarkPartitionedOutputOperator
                     false,
                     OptionalInt.empty(),
                     buffer,
-                    new DataSize(1, GIGABYTE));
+                    DataSize.of(1, GIGABYTE));
             return (PartitionedOutputOperator) operatorFactory
                     .createOutputOperator(0, new PlanNodeId("plan-node-0"), TYPES, Function.identity(), serdeFactory)
                     .createOperator(createDriverContext());
@@ -172,6 +171,7 @@ public class BenchmarkPartitionedOutputOperator
         // copied & modifed from TestRowBlock
         private List<Object>[] generateTestRows(List<Type> fieldTypes, int numRows)
         {
+            @SuppressWarnings("unchecked")
             List<Object>[] testRows = new List[numRows];
             for (int i = 0; i < numRows; i++) {
                 List<Object> testRow = new ArrayList<>(fieldTypes.size());
@@ -179,7 +179,7 @@ public class BenchmarkPartitionedOutputOperator
                     if (fieldTypes.get(j) == VARCHAR) {
                         byte[] data = new byte[ThreadLocalRandom.current().nextInt(128)];
                         ThreadLocalRandom.current().nextBytes(data);
-                        testRow.add(new String(data));
+                        testRow.add(new String(data, ISO_8859_1));
                     }
                     else {
                         throw new UnsupportedOperationException();

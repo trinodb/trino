@@ -16,11 +16,12 @@ package io.prestosql.plugin.raptor.legacy.storage.organization;
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.plugin.raptor.legacy.metadata.ColumnInfo;
 import io.prestosql.plugin.raptor.legacy.metadata.ShardInfo;
-import io.prestosql.plugin.raptor.legacy.storage.ReaderAttributes;
 import io.prestosql.plugin.raptor.legacy.storage.Row;
 import io.prestosql.plugin.raptor.legacy.storage.StorageManager;
+import io.prestosql.plugin.raptor.legacy.storage.StorageManagerConfig;
 import io.prestosql.plugin.raptor.legacy.storage.StoragePageSink;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
@@ -61,13 +62,18 @@ public final class ShardCompactor
     private final DistributionStat outputShardsPerCompaction = new DistributionStat();
     private final DistributionStat compactionLatencyMillis = new DistributionStat();
     private final DistributionStat sortedCompactionLatencyMillis = new DistributionStat();
-    private final ReaderAttributes readerAttributes;
+    private final OrcReaderOptions orcReaderOptions;
 
     @Inject
-    public ShardCompactor(StorageManager storageManager, ReaderAttributes readerAttributes)
+    public ShardCompactor(StorageManager storageManager, StorageManagerConfig config)
+    {
+        this(storageManager, requireNonNull(config, "config is null").toOrcReaderOptions());
+    }
+
+    public ShardCompactor(StorageManager storageManager, OrcReaderOptions orcReaderOptions)
     {
         this.storageManager = requireNonNull(storageManager, "storageManager is null");
-        this.readerAttributes = requireNonNull(readerAttributes, "readerAttributes is null");
+        this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
     }
 
     public List<ShardInfo> compact(long transactionId, OptionalInt bucketNumber, Set<UUID> uuids, List<ColumnInfo> columns)
@@ -96,7 +102,7 @@ public final class ShardCompactor
             throws IOException
     {
         for (UUID uuid : uuids) {
-            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes)) {
+            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), orcReaderOptions)) {
                 while (!pageSource.isFinished()) {
                     Page page = pageSource.getNextPage();
                     if (isNullOrEmptyPage(page)) {
@@ -132,7 +138,7 @@ public final class ShardCompactor
         StoragePageSink outputPageSink = storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes, false);
         try {
             for (UUID uuid : uuids) {
-                ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes);
+                ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), orcReaderOptions);
                 SortedRowSource rowSource = new SortedRowSource(pageSource, columnTypes, sortIndexes, sortOrders);
                 rowSources.add(rowSource);
             }

@@ -16,19 +16,19 @@ package io.prestosql.orc.writer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import io.prestosql.orc.OrcEncoding;
 import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
 import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.CompressedMetadataWriter;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.RowGroupIndex;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.Stream.StreamKind;
+import io.prestosql.orc.metadata.statistics.BloomFilter;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import io.prestosql.orc.metadata.statistics.LongValueStatisticsBuilder;
 import io.prestosql.orc.stream.LongOutputStream;
-import io.prestosql.orc.stream.LongOutputStreamDwrf;
 import io.prestosql.orc.stream.LongOutputStreamV2;
 import io.prestosql.orc.stream.PresentOutputStream;
 import io.prestosql.orc.stream.StreamDataOutput;
@@ -40,13 +40,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.orc.OrcEncoding.DWRF;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
@@ -56,7 +56,7 @@ public class LongColumnWriter
         implements ColumnWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongColumnWriter.class).instanceSize();
-    private final int column;
+    private final OrcColumnId columnId;
     private final Type type;
     private final boolean compressed;
     private final ColumnEncoding columnEncoding;
@@ -70,29 +70,22 @@ public class LongColumnWriter
 
     private boolean closed;
 
-    public LongColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, OrcEncoding orcEncoding, Supplier<LongValueStatisticsBuilder> statisticsBuilderSupplier)
+    public LongColumnWriter(OrcColumnId columnId, Type type, CompressionKind compression, int bufferSize, Supplier<LongValueStatisticsBuilder> statisticsBuilderSupplier)
     {
-        checkArgument(column >= 0, "column is negative");
-        this.column = column;
+        this.columnId = requireNonNull(columnId, "columnId is null");
         this.type = requireNonNull(type, "type is null");
         this.compressed = requireNonNull(compression, "compression is null") != NONE;
-        if (orcEncoding == DWRF) {
-            this.columnEncoding = new ColumnEncoding(DIRECT, 0);
-            this.dataStream = new LongOutputStreamDwrf(compression, bufferSize, true, DATA);
-        }
-        else {
-            this.columnEncoding = new ColumnEncoding(DIRECT_V2, 0);
-            this.dataStream = new LongOutputStreamV2(compression, bufferSize, true, DATA);
-        }
+        this.columnEncoding = new ColumnEncoding(DIRECT_V2, 0);
+        this.dataStream = new LongOutputStreamV2(compression, bufferSize, true, DATA);
         this.presentStream = new PresentOutputStream(compression, bufferSize);
         this.statisticsBuilderSupplier = requireNonNull(statisticsBuilderSupplier, "statisticsBuilderSupplier is null");
         this.statisticsBuilder = statisticsBuilderSupplier.get();
     }
 
     @Override
-    public Map<Integer, ColumnEncoding> getColumnEncodings()
+    public Map<OrcColumnId, ColumnEncoding> getColumnEncodings()
     {
-        return ImmutableMap.of(column, columnEncoding);
+        return ImmutableMap.of(columnId, columnEncoding);
     }
 
     @Override
@@ -116,21 +109,26 @@ public class LongColumnWriter
         // record values
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                long value = type.getLong(block, position);
+                long value = transformValue(type.getLong(block, position));
                 dataStream.writeLong(value);
                 statisticsBuilder.addValue(value);
             }
         }
     }
 
+    protected long transformValue(long value)
+    {
+        return value;
+    }
+
     @Override
-    public Map<Integer, ColumnStatistics> finishRowGroup()
+    public Map<OrcColumnId, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
         ColumnStatistics statistics = statisticsBuilder.buildColumnStatistics();
         rowGroupColumnStatistics.add(statistics);
         statisticsBuilder = statisticsBuilderSupplier.get();
-        return ImmutableMap.of(column, statistics);
+        return ImmutableMap.of(columnId, statistics);
     }
 
     @Override
@@ -142,10 +140,10 @@ public class LongColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> getColumnStripeStatistics()
+    public Map<OrcColumnId, ColumnStatistics> getColumnStripeStatistics()
     {
         checkState(closed);
-        return ImmutableMap.of(column, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
+        return ImmutableMap.of(columnId, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
     }
 
     @Override
@@ -168,7 +166,7 @@ public class LongColumnWriter
         }
 
         Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
-        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
+        Stream stream = new Stream(columnId, StreamKind.ROW_INDEX, slice.length(), false);
         return ImmutableList.of(new StreamDataOutput(slice, stream));
     }
 
@@ -184,13 +182,31 @@ public class LongColumnWriter
     }
 
     @Override
+    public List<StreamDataOutput> getBloomFilters(CompressedMetadataWriter metadataWriter)
+            throws IOException
+    {
+        List<BloomFilter> bloomFilters = rowGroupColumnStatistics.stream()
+                .map(ColumnStatistics::getBloomFilter)
+                .filter(Objects::nonNull)
+                .collect(toImmutableList());
+
+        if (!bloomFilters.isEmpty()) {
+            Slice slice = metadataWriter.writeBloomFilters(bloomFilters);
+            Stream stream = new Stream(columnId, StreamKind.BLOOM_FILTER_UTF8, slice.length(), false);
+            return ImmutableList.of(new StreamDataOutput(slice, stream));
+        }
+
+        return ImmutableList.of();
+    }
+
+    @Override
     public List<StreamDataOutput> getDataStreams()
     {
         checkState(closed);
 
         ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
-        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(dataStream.getStreamDataOutput(column));
+        presentStream.getStreamDataOutput(columnId).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(dataStream.getStreamDataOutput(columnId));
         return outputDataStreams.build();
     }
 

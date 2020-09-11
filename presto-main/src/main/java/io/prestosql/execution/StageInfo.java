@@ -16,14 +16,16 @@ package io.prestosql.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
-import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -34,42 +36,42 @@ public class StageInfo
 {
     private final StageId stageId;
     private final StageState state;
-    private final URI self;
     private final PlanFragment plan;
     private final List<Type> types;
     private final StageStats stageStats;
     private final List<TaskInfo> tasks;
     private final List<StageInfo> subStages;
     private final ExecutionFailureInfo failureCause;
+    private final Map<PlanNodeId, TableInfo> tables;
 
     @JsonCreator
     public StageInfo(
             @JsonProperty("stageId") StageId stageId,
             @JsonProperty("state") StageState state,
-            @JsonProperty("self") URI self,
             @JsonProperty("plan") @Nullable PlanFragment plan,
             @JsonProperty("types") List<Type> types,
             @JsonProperty("stageStats") StageStats stageStats,
             @JsonProperty("tasks") List<TaskInfo> tasks,
             @JsonProperty("subStages") List<StageInfo> subStages,
+            @JsonProperty("tables") Map<PlanNodeId, TableInfo> tables,
             @JsonProperty("failureCause") ExecutionFailureInfo failureCause)
     {
         requireNonNull(stageId, "stageId is null");
         requireNonNull(state, "state is null");
-        requireNonNull(self, "self is null");
         requireNonNull(stageStats, "stageStats is null");
         requireNonNull(tasks, "tasks is null");
         requireNonNull(subStages, "subStages is null");
+        requireNonNull(tables, "tables is null");
 
         this.stageId = stageId;
         this.state = state;
-        this.self = self;
         this.plan = plan;
         this.types = types;
         this.stageStats = stageStats;
         this.tasks = ImmutableList.copyOf(tasks);
         this.subStages = subStages;
         this.failureCause = failureCause;
+        this.tables = ImmutableMap.copyOf(tables);
     }
 
     @JsonProperty
@@ -82,12 +84,6 @@ public class StageInfo
     public StageState getState()
     {
         return state;
-    }
-
-    @JsonProperty
-    public URI getSelf()
-    {
-        return self;
     }
 
     @JsonProperty
@@ -119,6 +115,12 @@ public class StageInfo
     public List<StageInfo> getSubStages()
     {
         return subStages;
+    }
+
+    @JsonProperty
+    public Map<PlanNodeId, TableInfo> getTables()
+    {
+        return tables;
     }
 
     @JsonProperty

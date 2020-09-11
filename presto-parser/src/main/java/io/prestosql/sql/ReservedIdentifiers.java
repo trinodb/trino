@@ -15,6 +15,7 @@ package io.prestosql.sql;
 
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.sql.parser.ParsingException;
+import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlBaseLexer;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.Identifier;
@@ -120,13 +121,13 @@ public final class ReservedIdentifiers
 
     public static Set<String> reservedIdentifiers()
     {
-        return possibleIdentifiers().stream()
+        return sqlKeywords().stream()
                 .filter(ReservedIdentifiers::reserved)
                 .sorted()
                 .collect(toImmutableSet());
     }
 
-    private static Set<String> possibleIdentifiers()
+    public static Set<String> sqlKeywords()
     {
         ImmutableSet.Builder<String> names = ImmutableSet.builder();
         Vocabulary vocabulary = SqlBaseLexer.VOCABULARY;
@@ -143,7 +144,7 @@ public final class ReservedIdentifiers
     private static boolean reserved(String name)
     {
         try {
-            return !(PARSER.createExpression(name) instanceof Identifier);
+            return !(PARSER.createExpression(name, new ParsingOptions()) instanceof Identifier);
         }
         catch (ParsingException ignored) {
             return true;

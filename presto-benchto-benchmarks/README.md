@@ -11,8 +11,8 @@ measuring time and gathering various metrics.
 Even though benchmarks exercise Presto end-to-end, a single benchmark cannot use all Presto
 features. Therefore benchmarks are organized in suites, like:
 
-* *tpch* - queries closely following the [TPC-H](http://www.tpc.org/tpch/) benchmark 
-* *tpcds* - queries closely following the [TPC-DS](http://www.tpc.org/tpcds/) benchmark 
+* *tpch* - queries closely following the [TPC-H](http://www.tpc.org/tpch/) benchmark
+* *tpcds* - queries closely following the [TPC-DS](http://www.tpc.org/tpcds/) benchmark
 
 ## Usage
 
@@ -29,7 +29,7 @@ Benchto driver needs to know two things: what benchmark is to be run and what en
 it is to be run on. For the purpose of the following example, we will use `tpch` benchmark
 and Presto server running at `localhost:8080`, with Benchto service running at `localhost:8081`.
 
-Benchto driver uses Sprint Boot to locate environment configuration file, so to pass the
+Benchto driver uses Spring Boot to locate environment configuration file, so to pass the
 configuration. To continue with our example, one needs to place an `application-presto-devenv.yaml`
 file in the current directory (i.e. the directory from which the benchmark will be invoked),
 with the following content:
@@ -59,8 +59,15 @@ benchmark:
 macros:
   sleep-4s:
     command: echo "Sleeping for 4s" && sleep 4
-      
 ```
+
+### Bootstrapping benchmark data
+
+* Make sure you have configured [Presto TPC-H connector](https://prestosql.io/docs/current/connector/tpch.html).
+* Bootstrap benchmark data:
+  ```bash
+  python presto-benchto-benchmarks/generate_schemas/generate-tpch.py | presto-cli-[version]-executable.jar --server [presto_coordinator-url]:[port]
+  ```
 
 ### Configuring overrides file
 

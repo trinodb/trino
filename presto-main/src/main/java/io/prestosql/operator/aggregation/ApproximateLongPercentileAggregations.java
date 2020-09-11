@@ -54,7 +54,7 @@ public final class ApproximateLongPercentileAggregations
     }
 
     @InputFunction
-    public static void weightedInput(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile)
+    public static void weightedInput(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType(StandardTypes.DOUBLE) double percentile)
     {
         checkWeight(weight);
 
@@ -75,7 +75,7 @@ public final class ApproximateLongPercentileAggregations
     }
 
     @InputFunction
-    public static void weightedInput(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
+    public static void weightedInput(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
     {
         checkWeight(weight);
 
@@ -133,7 +133,7 @@ public final class ApproximateLongPercentileAggregations
         }
     }
 
-    private static void checkWeight(long weight)
+    private static void checkWeight(double weight)
     {
         checkCondition(weight > 0, INVALID_FUNCTION_ARGUMENT, "percentile weight must be > 0");
     }

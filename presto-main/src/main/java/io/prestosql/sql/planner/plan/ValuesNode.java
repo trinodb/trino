@@ -34,7 +34,8 @@ public class ValuesNode
     private final List<List<Expression>> rows;
 
     @JsonCreator
-    public ValuesNode(@JsonProperty("id") PlanNodeId id,
+    public ValuesNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
             @JsonProperty("rows") List<List<Expression>> rows)
     {
@@ -43,8 +44,7 @@ public class ValuesNode
         this.rows = listOfListsCopy(rows);
 
         for (List<Expression> row : rows) {
-            checkArgument(row.size() == outputSymbols.size() || row.size() == 0,
-                    "Expected row to have %s values, but row has %s values", outputSymbols.size(), row.size());
+            checkArgument(row.size() == outputSymbols.size(), "Expected row to have %s values, but row has %s values", outputSymbols.size(), row.size());
         }
     }
 

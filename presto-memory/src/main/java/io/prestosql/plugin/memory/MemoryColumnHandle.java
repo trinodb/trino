@@ -15,50 +15,19 @@ package io.prestosql.plugin.memory;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.type.Type;
 
-import java.util.List;
 import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
 
 public final class MemoryColumnHandle
         implements ColumnHandle
 {
-    private final String name;
-    private final Type columnType;
     private final int columnIndex;
 
-    public MemoryColumnHandle(ColumnMetadata columnMetadata, int columnIndex)
-    {
-        this(columnMetadata.getName(), columnMetadata.getType(), columnIndex);
-    }
-
     @JsonCreator
-    public MemoryColumnHandle(
-            @JsonProperty("name") String name,
-            @JsonProperty("columnType") Type columnType,
-            @JsonProperty("columnIndex") int columnIndex)
+    public MemoryColumnHandle(@JsonProperty("columnIndex") int columnIndex)
     {
-        this.name = requireNonNull(name, "name is null");
-        this.columnType = requireNonNull(columnType, "columnType is null");
         this.columnIndex = columnIndex;
-    }
-
-    @JsonProperty
-    public String getName()
-    {
-        return name;
-    }
-
-    @JsonProperty
-    public Type getColumnType()
-    {
-        return columnType;
     }
 
     @JsonProperty
@@ -67,15 +36,10 @@ public final class MemoryColumnHandle
         return columnIndex;
     }
 
-    public ColumnMetadata toColumnMetadata()
-    {
-        return new ColumnMetadata(name, columnType);
-    }
-
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, columnType);
+        return Objects.hash(columnIndex);
     }
 
     @Override
@@ -88,29 +52,12 @@ public final class MemoryColumnHandle
             return false;
         }
         MemoryColumnHandle other = (MemoryColumnHandle) obj;
-        return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.columnType, other.columnType) &&
-                Objects.equals(this.columnIndex, other.columnIndex);
-    }
-
-    public static List<MemoryColumnHandle> extractColumnHandles(List<ColumnMetadata> columns)
-    {
-        ImmutableList.Builder<MemoryColumnHandle> columnHandles = ImmutableList.builder();
-        int columnIndex = 0;
-        for (ColumnMetadata column : columns) {
-            columnHandles.add(new MemoryColumnHandle(column, columnIndex));
-            columnIndex++;
-        }
-        return columnHandles.build();
+        return Objects.equals(this.columnIndex, other.columnIndex);
     }
 
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("name", name)
-                .add("columnType", columnType)
-                .add("columnIndex", columnIndex)
-                .toString();
+        return Integer.toString(columnIndex);
     }
 }

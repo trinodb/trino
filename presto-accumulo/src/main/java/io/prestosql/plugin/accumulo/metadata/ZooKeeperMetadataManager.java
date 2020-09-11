@@ -38,6 +38,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.accumulo.AccumuloErrorCode.ZOOKEEPER_ERROR;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.apache.zookeeper.KeeperException.Code.NONODE;
 
@@ -171,7 +172,10 @@ public class ZooKeeperMetadataManager
         try {
             String tablePath = getTablePath(stName);
             if (curator.checkExists().forPath(tablePath) != null) {
-                return toAccumuloView(curator.getData().forPath(tablePath));
+                byte[] data = curator.getData().forPath(tablePath);
+                if (isAccumuloView(data)) {
+                    return toAccumuloView(data);
+                }
             }
 
             return null;
@@ -299,26 +303,26 @@ public class ZooKeeperMetadataManager
             throws IOException
     {
         // AccumuloTable does not contain a 'data' node
-        return !mapper.reader().readTree(new String(data)).has("data");
+        return !mapper.reader().readTree(new String(data, UTF_8)).has("data");
     }
 
     private boolean isAccumuloView(byte[] data)
             throws IOException
     {
         // AccumuloView contains a 'data' node
-        return mapper.reader().readTree(new String(data)).has("data");
+        return mapper.reader().readTree(new String(data, UTF_8)).has("data");
     }
 
     private AccumuloTable toAccumuloTable(byte[] data)
             throws IOException
     {
-        return mapper.readValue(new String(data), AccumuloTable.class);
+        return mapper.readValue(new String(data, UTF_8), AccumuloTable.class);
     }
 
     private AccumuloView toAccumuloView(byte[] data)
             throws IOException
     {
-        return mapper.readValue(new String(data), AccumuloView.class);
+        return mapper.readValue(new String(data, UTF_8), AccumuloView.class);
     }
 
     private byte[] toJsonBytes(Object obj)

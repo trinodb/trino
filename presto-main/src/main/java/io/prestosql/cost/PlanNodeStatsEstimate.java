@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.type.FixedWidthType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VariableWidthType;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeProvider;
 import org.pcollections.HashTreePMap;
@@ -92,27 +91,24 @@ public class PlanNodeStatsEstimate
     {
         checkArgument(type != null, "type is null");
 
-        double averageRowSize = symbolStatistics.getAverageRowSize();
         double nullsFraction = firstNonNaN(symbolStatistics.getNullsFraction(), 0d);
         double numberOfNonNullRows = outputRowCount * (1.0 - nullsFraction);
 
-        if (isNaN(averageRowSize)) {
-            if (type instanceof FixedWidthType) {
-                averageRowSize = ((FixedWidthType) type).getFixedSize();
-            }
-            else {
-                averageRowSize = DEFAULT_DATA_SIZE_PER_COLUMN;
-            }
-        }
-
-        double outputSize = numberOfNonNullRows * averageRowSize;
+        double outputSize = 0;
 
         // account for "is null" boolean array
-        outputSize += outputRowCount * Byte.BYTES;
+        outputSize += outputRowCount;
 
-        // account for offsets array for variable width types
-        if (type instanceof VariableWidthType) {
+        if (type instanceof FixedWidthType) {
+            outputSize += numberOfNonNullRows * ((FixedWidthType) type).getFixedSize();
+        }
+        else {
+            double averageRowSize = firstNonNaN(symbolStatistics.getAverageRowSize(), DEFAULT_DATA_SIZE_PER_COLUMN);
+            outputSize += numberOfNonNullRows * averageRowSize;
+
+            // account for offsets array
             outputSize += outputRowCount * Integer.BYTES;
+            // TODO some types may have more overhead than just offsets array
         }
 
         return outputSize;

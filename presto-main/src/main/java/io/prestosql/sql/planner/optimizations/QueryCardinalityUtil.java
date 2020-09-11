@@ -21,21 +21,22 @@ import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.LimitNode;
+import io.prestosql.sql.planner.plan.OffsetNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public final class QueryCardinalityUtil
 {
-    private QueryCardinalityUtil()
-    {
-    }
+    private QueryCardinalityUtil() {}
 
     public static boolean isScalar(PlanNode node)
     {
@@ -57,9 +58,24 @@ public final class QueryCardinalityUtil
         return isAtMost(node, lookup, 1L);
     }
 
-    private static boolean isAtMost(PlanNode node, Lookup lookup, long maxCardinality)
+    public static boolean isAtMost(PlanNode node, Lookup lookup, long maxCardinality)
     {
         return Range.closed(0L, maxCardinality).encloses(extractCardinality(node, lookup));
+    }
+
+    public static boolean isAtLeastScalar(PlanNode node, Lookup lookup)
+    {
+        return isAtLeast(node, lookup, 1L);
+    }
+
+    public static boolean isAtLeast(PlanNode node, Lookup lookup, long minCardinality)
+    {
+        return Range.atLeast(minCardinality).encloses(extractCardinality(node, lookup));
+    }
+
+    public static boolean isEmpty(PlanNode node, Lookup lookup)
+    {
+        return isAtMost(node, lookup, 0);
     }
 
     public static Range<Long> extractCardinality(PlanNode node)
@@ -67,7 +83,7 @@ public final class QueryCardinalityUtil
         return extractCardinality(node, noLookup());
     }
 
-    private static Range<Long> extractCardinality(PlanNode node, Lookup lookup)
+    public static Range<Long> extractCardinality(PlanNode node, Lookup lookup)
     {
         return node.accept(new CardinalityExtractorPlanVisitor(lookup), null);
     }
@@ -103,10 +119,27 @@ public final class QueryCardinalityUtil
         @Override
         public Range<Long> visitAggregation(AggregationNode node, Void context)
         {
-            if (node.hasEmptyGroupingSet()) {
+            if (node.hasEmptyGroupingSet() && node.getGroupingSetCount() == 1) {
+                // only single default aggregation which will produce exactly single row
                 return Range.singleton(1L);
             }
-            return Range.atLeast(0L);
+
+            Range<Long> sourceCardinalityRange = node.getSource().accept(this, null);
+
+            long lower;
+            if (node.hasDefaultOutput() || sourceCardinalityRange.lowerEndpoint() > 0) {
+                lower = 1;
+            }
+            else {
+                lower = 0;
+            }
+
+            if (sourceCardinalityRange.hasUpperBound()) {
+                long upper = Math.max(lower, sourceCardinalityRange.upperEndpoint());
+                return Range.closed(lower, upper);
+            }
+
+            return Range.atLeast(lower);
         }
 
         @Override
@@ -141,15 +174,51 @@ public final class QueryCardinalityUtil
         }
 
         @Override
-        public Range<Long> visitLimit(LimitNode node, Void context)
+        public Range<Long> visitOffset(OffsetNode node, Void context)
         {
             Range<Long> sourceCardinalityRange = node.getSource().accept(this, null);
-            long upper = node.getCount();
+
+            long lower = max(sourceCardinalityRange.lowerEndpoint() - node.getCount(), 0L);
+
             if (sourceCardinalityRange.hasUpperBound()) {
-                upper = min(sourceCardinalityRange.upperEndpoint(), node.getCount());
+                return Range.closed(lower, max(sourceCardinalityRange.upperEndpoint() - node.getCount(), 0L));
             }
-            long lower = min(upper, sourceCardinalityRange.lowerEndpoint());
-            return Range.closed(lower, upper);
+            else {
+                return Range.atLeast(lower);
+            }
+        }
+
+        @Override
+        public Range<Long> visitLimit(LimitNode node, Void context)
+        {
+            if (node.isWithTies()) {
+                Range<Long> sourceCardinalityRange = node.getSource().accept(this, null);
+                long lower = min(node.getCount(), sourceCardinalityRange.lowerEndpoint());
+                if (sourceCardinalityRange.hasUpperBound()) {
+                    return Range.closed(lower, sourceCardinalityRange.upperEndpoint());
+                }
+                else {
+                    return Range.atLeast(lower);
+                }
+            }
+
+            return applyLimit(node.getSource(), node.getCount());
+        }
+
+        @Override
+        public Range<Long> visitTopN(TopNNode node, Void context)
+        {
+            return applyLimit(node.getSource(), node.getCount());
+        }
+
+        private Range<Long> applyLimit(PlanNode source, long limit)
+        {
+            Range<Long> sourceCardinalityRange = source.accept(this, null);
+            if (sourceCardinalityRange.hasUpperBound()) {
+                limit = min(sourceCardinalityRange.upperEndpoint(), limit);
+            }
+            long lower = min(limit, sourceCardinalityRange.lowerEndpoint());
+            return Range.closed(lower, limit);
         }
     }
 }

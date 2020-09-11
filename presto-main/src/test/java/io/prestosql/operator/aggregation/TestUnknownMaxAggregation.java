@@ -16,7 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.type.UnknownType;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
@@ -26,7 +26,7 @@ public class TestUnknownMaxAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = UNKNOWN.createBlockBuilder(null, length);
         for (int i = 0; i < length; i++) {
@@ -36,7 +36,7 @@ public class TestUnknownMaxAggregation
     }
 
     @Override
-    public Number getExpectedValue(int start, int length)
+    protected Number getExpectedValue(int start, int length)
     {
         return null;
     }
@@ -48,8 +48,8 @@ public class TestUnknownMaxAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(UnknownType.NAME);
+        return ImmutableList.of(UNKNOWN);
     }
 }

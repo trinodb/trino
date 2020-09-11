@@ -17,9 +17,10 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.FunctionRegistry;
-import io.prestosql.metadata.Signature;
-import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.metadata.AggregationFunctionMetadata;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.Symbol;
@@ -31,9 +32,7 @@ import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.LambdaExpression;
-import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -60,11 +59,11 @@ import static java.util.Objects.requireNonNull;
 public class PushPartialAggregationThroughExchange
         implements Rule<AggregationNode>
 {
-    private final FunctionRegistry functionRegistry;
+    private final Metadata metadata;
 
-    public PushPartialAggregationThroughExchange(FunctionRegistry functionRegistry)
+    public PushPartialAggregationThroughExchange(Metadata metadata)
     {
-        this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     private static final Capture<ExchangeNode> EXCHANGE_NODE = Capture.newCapture();
@@ -72,7 +71,7 @@ public class PushPartialAggregationThroughExchange
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .with(source().matching(
                     exchange()
-                            .matching(node -> !node.getOrderingScheme().isPresent())
+                            .matching(node -> node.getOrderingScheme().isEmpty())
                             .capturedAs(EXCHANGE_NODE)));
 
     @Override
@@ -86,9 +85,9 @@ public class PushPartialAggregationThroughExchange
     {
         ExchangeNode exchangeNode = captures.get(EXCHANGE_NODE);
 
-        boolean decomposable = aggregationNode.isDecomposable(functionRegistry);
+        boolean decomposable = aggregationNode.isDecomposable(metadata);
 
-        if (aggregationNode.getStep().equals(SINGLE) &&
+        if (aggregationNode.getStep() == SINGLE &&
                 aggregationNode.hasEmptyGroupingSet() &&
                 aggregationNode.hasNonEmptyGroupingSet() &&
                 exchangeNode.getType() == REPARTITION) {
@@ -161,7 +160,7 @@ public class PushPartialAggregationThroughExchange
             }
 
             SymbolMapper symbolMapper = mappingsBuilder.build();
-            AggregationNode mappedPartial = symbolMapper.map(aggregation, source, context.getIdAllocator());
+            AggregationNode mappedPartial = symbolMapper.map(aggregation, source, context.getIdAllocator().getNextId());
 
             Assignments.Builder assignments = Assignments.builder();
 
@@ -202,26 +201,36 @@ public class PushPartialAggregationThroughExchange
         Map<Symbol, AggregationNode.Aggregation> finalAggregation = new HashMap<>();
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
             AggregationNode.Aggregation originalAggregation = entry.getValue();
-            Signature signature = originalAggregation.getSignature();
-            InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(signature);
-            Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(signature.getName(), function.getIntermediateType());
+            ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
+            AggregationFunctionMetadata functionMetadata = metadata.getAggregationFunctionMetadata(resolvedFunction);
+            Type intermediateType = metadata.getType(functionMetadata.getIntermediateType().orElseThrow(() -> new IllegalArgumentException("aggregation is not decomposable")));
+            Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(resolvedFunction.getSignature().getName(), intermediateType);
 
-            checkState(!originalAggregation.getCall().getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
-            intermediateAggregation.put(intermediateSymbol, new AggregationNode.Aggregation(originalAggregation.getCall(), signature, originalAggregation.getMask()));
+            checkState(originalAggregation.getOrderingScheme().isEmpty(), "Aggregate with ORDER BY does not support partial aggregation");
+            intermediateAggregation.put(
+                    intermediateSymbol,
+                    new AggregationNode.Aggregation(
+                            resolvedFunction,
+                            originalAggregation.getArguments(),
+                            originalAggregation.isDistinct(),
+                            originalAggregation.getFilter(),
+                            originalAggregation.getOrderingScheme(),
+                            originalAggregation.getMask()));
 
             // rewrite final aggregation in terms of intermediate function
-            finalAggregation.put(entry.getKey(),
+            finalAggregation.put(
+                    entry.getKey(),
                     new AggregationNode.Aggregation(
-                            new FunctionCall(
-                                    QualifiedName.of(signature.getName()),
-                                    ImmutableList.<Expression>builder()
-                                            .add(intermediateSymbol.toSymbolReference())
-                                            .addAll(originalAggregation.getCall().getArguments().stream()
-                                                    .filter(LambdaExpression.class::isInstance)
-                                                    .collect(toImmutableList()))
-                                            .build()),
-
-                            signature,
+                            resolvedFunction,
+                            ImmutableList.<Expression>builder()
+                                    .add(intermediateSymbol.toSymbolReference())
+                                    .addAll(originalAggregation.getArguments().stream()
+                                            .filter(LambdaExpression.class::isInstance)
+                                            .collect(toImmutableList()))
+                                    .build(),
+                            false,
+                            Optional.empty(),
+                            Optional.empty(),
                             Optional.empty()));
         }
 

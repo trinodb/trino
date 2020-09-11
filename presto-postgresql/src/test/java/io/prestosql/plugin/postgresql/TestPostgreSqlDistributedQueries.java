@@ -13,39 +13,82 @@
  */
 package io.prestosql.plugin.postgresql;
 
-import io.airlift.testing.postgresql.TestingPostgreSqlServer;
-import io.airlift.tpch.TpchTable;
-import io.prestosql.tests.AbstractTestQueries;
+import com.google.common.collect.ImmutableMap;
+import io.prestosql.testing.AbstractTestDistributedQueries;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.JdbcSqlExecutor;
+import io.prestosql.testing.sql.TestTable;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
-
-import java.io.IOException;
 
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 
 @Test
 public class TestPostgreSqlDistributedQueries
-        extends AbstractTestQueries
+        extends AbstractTestDistributedQueries
 {
-    private final TestingPostgreSqlServer postgreSqlServer;
+    private TestingPostgreSqlServer postgreSqlServer;
 
-    public TestPostgreSqlDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(new TestingPostgreSqlServer("testuser", "tpch"));
-    }
-
-    public TestPostgreSqlDistributedQueries(TestingPostgreSqlServer postgreSqlServer)
-    {
-        super(() -> createPostgreSqlQueryRunner(postgreSqlServer, TpchTable.getTables()));
-        this.postgreSqlServer = postgreSqlServer;
+        this.postgreSqlServer = new TestingPostgreSqlServer();
+        return createPostgreSqlQueryRunner(
+                postgreSqlServer,
+                ImmutableMap.of(),
+                ImmutableMap.<String, String>builder()
+                        // caching here speeds up tests highly, caching is not used in smoke tests
+                        .put("metadata.cache-ttl", "10m")
+                        .put("metadata.cache-missing", "true")
+                        .build(),
+                TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
-            throws IOException
     {
         postgreSqlServer.close();
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsArrays()
+    {
+        // Arrays are supported conditionally. Check the defaults.
+        return new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl()),
+                "tpch.table",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
+    }
+
+    @Override
+    public void testCommentTable()
+    {
+        // PostgreSQL connector currently does not support comment on table
+        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
+    }
+
+    @Override
+    public void testDelete()
+    {
+        // delete is not supported
     }
 
     // PostgreSQL specific tests should normally go in TestPostgreSqlIntegrationSmokeTest

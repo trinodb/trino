@@ -16,7 +16,6 @@ package io.prestosql.connector.system;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.connector.ConnectorId;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
@@ -31,36 +30,23 @@ import static java.util.Objects.requireNonNull;
 public class SystemSplit
         implements ConnectorSplit
 {
-    private final ConnectorId connectorId;
-    private final SystemTableHandle tableHandle;
     private final List<HostAddress> addresses;
     private final TupleDomain<ColumnHandle> constraint;
 
-    public SystemSplit(ConnectorId connectorId, SystemTableHandle tableHandle, HostAddress address, TupleDomain<ColumnHandle> constraint)
+    public SystemSplit(HostAddress address, TupleDomain<ColumnHandle> constraint)
     {
-        this(connectorId, tableHandle, ImmutableList.of(requireNonNull(address, "address is null")), constraint);
+        this(ImmutableList.of(requireNonNull(address, "address is null")), constraint);
     }
 
     @JsonCreator
     public SystemSplit(
-            @JsonProperty("connectorId") ConnectorId connectorId,
-            @JsonProperty("tableHandle") SystemTableHandle tableHandle,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-
         requireNonNull(addresses, "hosts is null");
         checkArgument(!addresses.isEmpty(), "hosts is empty");
         this.addresses = ImmutableList.copyOf(addresses);
         this.constraint = requireNonNull(constraint, "constraint is null");
-    }
-
-    @JsonProperty
-    public ConnectorId getConnectorId()
-    {
-        return connectorId;
     }
 
     @Override
@@ -74,12 +60,6 @@ public class SystemSplit
     public List<HostAddress> getAddresses()
     {
         return addresses;
-    }
-
-    @JsonProperty
-    public SystemTableHandle getTableHandle()
-    {
-        return tableHandle;
     }
 
     @JsonProperty
@@ -98,8 +78,6 @@ public class SystemSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
-                .add("tableHandle", tableHandle)
                 .add("addresses", addresses)
                 .toString();
     }

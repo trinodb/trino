@@ -13,11 +13,8 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
@@ -34,6 +31,8 @@ import io.prestosql.sql.relational.InputReferenceExpression;
 import io.prestosql.sql.relational.LambdaDefinitionExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.VariableReferenceExpression;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.type.FunctionType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -56,11 +55,13 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -78,7 +79,7 @@ public class BenchmarkArrayTransform
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
 
     static {
-        Verify.verify(NUM_TYPES == TYPES.size());
+        verify(NUM_TYPES == TYPES.size());
     }
 
     @Benchmark
@@ -104,22 +105,25 @@ public class BenchmarkArrayTransform
         @Setup
         public void setup()
         {
-            MetadataManager metadata = MetadataManager.createTestMetadataManager();
+            Metadata metadata = createTestMetadataManager();
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];
-            Type returnType = new ArrayType(BOOLEAN);
             for (int i = 0; i < TYPES.size(); i++) {
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
-                Signature signature = new Signature("transform", FunctionKind.SCALAR, returnType.getTypeSignature(), arrayType.getTypeSignature(), parseTypeSignature("function(bigint,boolean)"));
-                Signature greaterThan = new Signature("$operator$" + GREATER_THAN.name(), FunctionKind.SCALAR, BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
-                projectionsBuilder.add(new CallExpression(signature, returnType, ImmutableList.of(
-                        new InputReferenceExpression(0, arrayType),
-                        new LambdaDefinitionExpression(
-                                ImmutableList.of(BIGINT),
-                                ImmutableList.of("x"),
-                                new CallExpression(greaterThan, BOOLEAN, ImmutableList.of(new VariableReferenceExpression("x", BIGINT), new ConstantExpression(0L, BIGINT)))))));
+                projectionsBuilder.add(new CallExpression(
+                        metadata.resolveFunction(
+                                QualifiedName.of("transform"),
+                                fromTypes(arrayType, new FunctionType(ImmutableList.of(BIGINT), BOOLEAN))),
+                        ImmutableList.of(
+                                new InputReferenceExpression(0, arrayType),
+                                new LambdaDefinitionExpression(
+                                        ImmutableList.of(BIGINT),
+                                        ImmutableList.of("x"),
+                                        new CallExpression(
+                                                metadata.resolveOperator(GREATER_THAN, ImmutableList.of(BIGINT, BIGINT)),
+                                                ImmutableList.of(new VariableReferenceExpression("x", BIGINT), new ConstantExpression(0L, BIGINT)))))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
@@ -164,7 +168,7 @@ public class BenchmarkArrayTransform
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();

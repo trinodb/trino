@@ -29,6 +29,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.geospatial.KdbTree.buildKdbTree;
 import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -47,9 +48,7 @@ public class TestGeoFunctions
     @BeforeClass
     protected void registerFunctions()
     {
-        GeoPlugin plugin = new GeoPlugin();
-        registerTypes(plugin);
-        registerFunctions(plugin);
+        functionAssertions.installPlugin(new GeoPlugin());
     }
 
     @Test
@@ -337,7 +336,7 @@ public class TestGeoFunctions
         assertFunction("ST_AsText(simplify_geometry(ST_GeometryFromText('POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))'), 0.5))", VARCHAR, "POLYGON ((1 0, 4 0, 4 1, 3 1, 3 3, 2 3, 2 1, 1 1, 1 0))");
 
         // Negative distance tolerance is invalid.
-        assertInvalidFunction("ST_AsText(simplify_geometry(ST_GeometryFromText('" + "POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))" + "'), -0.5))", "distanceTolerance is negative");
+        assertInvalidFunction("ST_AsText(simplify_geometry(ST_GeometryFromText('POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))'), -0.5))", "distanceTolerance is negative");
     }
 
     @Test
@@ -402,6 +401,54 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testSTLengthSphericalGeography()
+    {
+        // Empty linestring returns null
+        assertSTLengthSphericalGeography("LINESTRING EMPTY", null);
+
+        // Linestring with one point has length 0
+        assertSTLengthSphericalGeography("LINESTRING (0 0)", 0.0);
+
+        // Linestring with only one distinct point has length 0
+        assertSTLengthSphericalGeography("LINESTRING (0 0, 0 0, 0 0)", 0.0);
+
+        double length = 4350866.6362;
+
+        // ST_Length is equivalent to sums of ST_DISTANCE between points in the LineString
+        assertSTLengthSphericalGeography("LINESTRING (-71.05 42.36, -87.62 41.87, -122.41 37.77)", length);
+
+        // Linestring has same length as its reverse
+        assertSTLengthSphericalGeography("LINESTRING (-122.41 37.77, -87.62 41.87, -71.05 42.36)", length);
+
+        // Path north pole -> south pole -> north pole should be roughly the circumference of the Earth
+        assertSTLengthSphericalGeography("LINESTRING (0.0 90.0, 0.0 -90.0, 0.0 90.0)", 4.003e7);
+
+        // Empty multi-linestring returns null
+        assertSTLengthSphericalGeography("MULTILINESTRING (EMPTY)", null);
+
+        // Multi-linestring with one path is equivalent to a single linestring
+        assertSTLengthSphericalGeography("MULTILINESTRING ((-71.05 42.36, -87.62 41.87, -122.41 37.77))", length);
+
+        // Multi-linestring with two disjoint paths has length equal to sum of lengths of lines
+        assertSTLengthSphericalGeography("MULTILINESTRING ((-71.05 42.36, -87.62 41.87, -122.41 37.77), (-73.05 42.36, -89.62 41.87, -124.41 37.77))", 2 * length);
+
+        // Multi-linestring with adjacent paths is equivalent to a single linestring
+        assertSTLengthSphericalGeography("MULTILINESTRING ((-71.05 42.36, -87.62 41.87), (-87.62 41.87, -122.41 37.77))", length);
+    }
+
+    private void assertSTLengthSphericalGeography(String lineString, Double expectedLength)
+    {
+        String function = format("ST_Length(to_spherical_geography(ST_GeometryFromText('%s')))", lineString);
+
+        if (expectedLength == null || expectedLength == 0.0) {
+            assertFunction(function, DOUBLE, expectedLength);
+        }
+        else {
+            assertFunction(format("ROUND(ABS((%s / %f) - 1.0) / %f, 0)", function, expectedLength, 1e-4), DOUBLE, 0.0);
+        }
+    }
+
+    @Test
     public void testLineLocatePoint()
     {
         assertFunction("line_locate_point(ST_GeometryFromText('LINESTRING (0 0, 0 1)'), ST_Point(0, 0.2))", DOUBLE, 0.2);
@@ -421,6 +468,63 @@ public class TestGeoFunctions
 
         assertInvalidFunction("line_locate_point(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'), ST_Point(0.4, 1))", "First argument to line_locate_point must be a LineString or a MultiLineString. Got: Polygon");
         assertInvalidFunction("line_locate_point(ST_GeometryFromText('LINESTRING (0 0, 0 1, 2 1)'), ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'))", "Second argument to line_locate_point must be a Point. Got: Polygon");
+    }
+
+    @Test
+    public void testLineInterpolatePoint()
+    {
+        assertFunction("ST_AsText(line_interpolate_point(ST_GeometryFromText('LINESTRING EMPTY'), 0.5))", VARCHAR, null);
+
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1, 10 10)", 0.0, "POINT (0 0)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1, 10 10)", 0.1, "POINT (1 1)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1, 10 10)", 0.05, "POINT (0.5 0.5)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1, 10 10)", 0.4, "POINT (4.000000000000001 4.000000000000001)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1, 10 10)", 1.0, "POINT (10 10)");
+
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1)", 0.0, "POINT (0 0)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1)", 0.1, "POINT (0.1 0.1)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1)", 0.05, "POINT (0.05 0.05)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1)", 0.4, "POINT (0.4 0.4)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 1)", 1.0, "POINT (1 1)");
+
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 0, 1 9)", 0.0, "POINT (0 0)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 0, 1 9)", 0.05, "POINT (0.5 0)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 0, 1 9)", 0.1, "POINT (1 0)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 0, 1 9)", 0.5, "POINT (1 4)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 1 0, 1 9)", 1.0, "POINT (1 9)");
+
+        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), -0.5)", INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
+        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), 2.0)", INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
+        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))'), 0.2)", INVALID_FUNCTION_ARGUMENT, "line_interpolate_point only applies to LINE_STRING. Input type is: POLYGON");
+    }
+
+    @Test
+    public void testLineInterpolatePoints()
+    {
+        assertFunction("line_interpolate_points(ST_GeometryFromText('LINESTRING EMPTY'), 0.5)", new ArrayType(GEOMETRY), null);
+
+        assertLineInterpolatePoints("LINESTRING (0 0, 1 1, 10 10)", 0.0, "0 0");
+        assertLineInterpolatePoints("LINESTRING (0 0, 1 1, 10 10)", 0.4, "4.000000000000001 4.000000000000001", "8 8");
+        assertLineInterpolatePoints("LINESTRING (0 0, 1 1, 10 10)", 0.3, "3 3", "6 6", "9 9");
+        assertLineInterpolatePoints("LINESTRING (0 0, 1 1, 10 10)", 0.5, "5.000000000000001 5.000000000000001", "10 10");
+        assertLineInterpolatePoints("LINESTRING (0 0, 1 1, 10 10)", 1, "10 10");
+
+        assertInvalidFunction("line_interpolate_points(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), -0.5)", INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
+        assertInvalidFunction("line_interpolate_points(ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)'), 2.0)", INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
+        assertInvalidFunction("line_interpolate_points(ST_GeometryFromText('POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))'), 0.2)", INVALID_FUNCTION_ARGUMENT, "line_interpolate_point only applies to LINE_STRING. Input type is: POLYGON");
+    }
+
+    private void assertLineInterpolatePoint(String wkt, double fraction, String expectedPoint)
+    {
+        assertFunction(format("ST_AsText(line_interpolate_point(ST_GeometryFromText('%s)'), %s))", wkt, fraction), VARCHAR, expectedPoint);
+    }
+
+    private void assertLineInterpolatePoints(String wkt, double fraction, String... expected)
+    {
+        assertFunction(
+                format("transform(line_interpolate_points(ST_GeometryFromText('%s'), %s), x -> ST_AsText(x))", wkt, fraction),
+                new ArrayType(VARCHAR),
+                Arrays.stream(expected).map(s -> "POINT (" + s + ")").collect(toImmutableList()));
     }
 
     @Test
@@ -517,6 +621,65 @@ public class TestGeoFunctions
         assertFunction("ST_AsText(ST_EndPoint(ST_GeometryFromText('LINESTRING (8 4, 4 8, 5 6)')))", VARCHAR, "POINT (5 6)");
         assertInvalidFunction("ST_AsText(ST_StartPoint(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))')))", "ST_StartPoint only applies to LINE_STRING. Input type is: POLYGON");
         assertInvalidFunction("ST_AsText(ST_EndPoint(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))')))", "ST_EndPoint only applies to LINE_STRING. Input type is: POLYGON");
+    }
+
+    @Test
+    public void testSTPoints()
+    {
+        assertFunction("ST_Points(ST_GeometryFromText('LINESTRING EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("LINESTRING (0 0, 0 0)", "0 0", "0 0");
+        assertSTPoints("LINESTRING (8 4, 3 9, 8 4)", "8 4", "3 9", "8 4");
+        assertSTPoints("LINESTRING (8 4, 3 9, 5 6)", "8 4", "3 9", "5 6");
+        assertSTPoints("LINESTRING (8 4, 3 9, 5 6, 3 9, 8 4)", "8 4", "3 9", "5 6", "3 9", "8 4");
+
+        assertFunction("ST_Points(ST_GeometryFromText('POLYGON EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("POLYGON ((8 4, 3 9, 5 6, 8 4))", "8 4", "5 6", "3 9", "8 4");
+        assertSTPoints("POLYGON ((8 4, 3 9, 5 6, 7 2, 8 4))", "8 4", "7 2", "5 6", "3 9", "8 4");
+
+        assertFunction("ST_Points(ST_GeometryFromText('POINT EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("POINT (0 0)", "0 0");
+        assertSTPoints("POINT (0 1)", "0 1");
+
+        assertFunction("ST_Points(ST_GeometryFromText('MULTIPOINT EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("MULTIPOINT (0 0)", "0 0");
+        assertSTPoints("MULTIPOINT (0 0, 1 2)", "0 0", "1 2");
+
+        assertFunction("ST_Points(ST_GeometryFromText('MULTILINESTRING EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("MULTILINESTRING ((0 0, 1 1), (2 3, 3 2))", "0 0", "1 1", "2 3", "3 2");
+        assertSTPoints("MULTILINESTRING ((0 0, 1 1, 1 2), (2 3, 3 2, 5 4))", "0 0", "1 1", "1 2", "2 3", "3 2", "5 4");
+        assertSTPoints("MULTILINESTRING ((0 0, 1 1, 1 2), (1 2, 3 2, 5 4))", "0 0", "1 1", "1 2", "1 2", "3 2", "5 4");
+
+        assertFunction("ST_Points(ST_GeometryFromText('MULTIPOLYGON EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("MULTIPOLYGON (((0 0, 4 0, 4 4, 0 4, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1)), ((-1 -1, -1 -2, -2 -2, -2 -1, -1 -1)))",
+                "0 0", "0 4", "4 4", "4 0", "0 0",
+                "1 1", "2 1", "2 2", "1 2", "1 1",
+                "-1 -1", "-1 -2", "-2 -2", "-2 -1", "-1 -1");
+
+        assertFunction("ST_Points(ST_GeometryFromText('GEOMETRYCOLLECTION EMPTY'))", new ArrayType(GEOMETRY), null);
+        String newLine = System.getProperty("line.separator");
+        String geometryCollection = String.join(newLine,
+                "GEOMETRYCOLLECTION(",
+                "          POINT ( 0 1 ),",
+                "          LINESTRING ( 0 3, 3 4 ),",
+                "          POLYGON (( 2 0, 2 3, 0 2, 2 0 )),",
+                "          POLYGON (( 3 0, 3 3, 6 3, 6 0, 3 0 ),",
+                "                   ( 5 1, 4 2, 5 2, 5 1 )),",
+                "          MULTIPOLYGON (",
+                "                  (( 0 5, 0 8, 4 8, 4 5, 0 5 ),",
+                "                   ( 1 6, 3 6, 2 7, 1 6 )),",
+                "                  (( 5 4, 5 8, 6 7, 5 4 ))",
+                "           )",
+                ")");
+        assertSTPoints(geometryCollection, "0 1", "0 3", "3 4", "2 0", "0 2", "2 3", "2 0", "3 0", "3 3", "6 3", "6 0", "3 0",
+                "5 1", "5 2", "4 2", "5 1", "0 5", "0 8", "4 8", "4 5", "0 5", "1 6", "3 6", "2 7", "1 6", "5 4", "5 8", "6 7", "5 4");
+    }
+
+    private void assertSTPoints(String wkt, String... expected)
+    {
+        assertFunction(
+                format("transform(ST_Points(ST_GeometryFromText('%s')), x -> ST_AsText(x))", wkt),
+                new ArrayType(VARCHAR),
+                Arrays.stream(expected).map(s -> "POINT (" + s + ")").collect(toImmutableList()));
     }
 
     @Test
@@ -791,9 +954,9 @@ public class TestGeoFunctions
     @Test
     public void testGreatCircleDistance()
     {
-        assertFunction("great_circle_distance(36.12, -86.67, 33.94, -118.40)", DOUBLE, 2886.448973436703);
-        assertFunction("great_circle_distance(33.94, -118.40, 36.12, -86.67)", DOUBLE, 2886.448973436703);
-        assertFunction("great_circle_distance(42.3601, -71.0589, 42.4430, -71.2290)", DOUBLE, 16.73469743457461);
+        assertFunction("great_circle_distance(36.12, -86.67, 33.94, -118.40)", DOUBLE, 2886.4489734367016);
+        assertFunction("great_circle_distance(33.94, -118.40, 36.12, -86.67)", DOUBLE, 2886.4489734367016);
+        assertFunction("great_circle_distance(42.3601, -71.0589, 42.4430, -71.2290)", DOUBLE, 16.73469743457383);
         assertFunction("great_circle_distance(36.12, -86.67, 36.12, -86.67)", DOUBLE, 0.0);
 
         assertInvalidFunction("great_circle_distance(100, 20, 30, 40)", "Latitude must be between -90 and 90");
@@ -1121,7 +1284,7 @@ public class TestGeoFunctions
 
     private void assertSTGeometries(String wkt, String... expected)
     {
-        assertFunction(String.format("transform(ST_Geometries(ST_GeometryFromText('%s')), x -> ST_ASText(x))", wkt), new ArrayType(VARCHAR), ImmutableList.copyOf(expected));
+        assertFunction(format("transform(ST_Geometries(ST_GeometryFromText('%s')), x -> ST_ASText(x))", wkt), new ArrayType(VARCHAR), ImmutableList.copyOf(expected));
     }
 
     @Test
@@ -1203,5 +1366,45 @@ public class TestGeoFunctions
     private void assertGeomFromBinary(String wkt)
     {
         assertFunction(format("ST_AsText(ST_GeomFromBinary(ST_AsBinary(ST_GeometryFromText('%s'))))", wkt), VARCHAR, wkt);
+    }
+
+    @Test
+    public void testGeometryFromHadoopShape()
+    {
+        assertFunction("geometry_from_hadoop_shape(null)", GEOMETRY, null);
+
+        // empty geometries
+        assertGeometryFromHadoopShape("000000000101000000FFFFFFFFFFFFEFFFFFFFFFFFFFFFEFFF", "POINT EMPTY");
+        assertGeometryFromHadoopShape("000000000203000000000000000000F87F000000000000F87F000000000000F87F000000000000F87F0000000000000000", "LINESTRING EMPTY");
+        assertGeometryFromHadoopShape("000000000305000000000000000000F87F000000000000F87F000000000000F87F000000000000F87F0000000000000000", "POLYGON EMPTY");
+        assertGeometryFromHadoopShape("000000000408000000000000000000F87F000000000000F87F000000000000F87F000000000000F87F00000000", "MULTIPOINT EMPTY");
+        assertGeometryFromHadoopShape("000000000503000000000000000000F87F000000000000F87F000000000000F87F000000000000F87F0000000000000000", "MULTILINESTRING EMPTY");
+        assertGeometryFromHadoopShape("000000000605000000000000000000F87F000000000000F87F000000000000F87F000000000000F87F0000000000000000", "MULTIPOLYGON EMPTY");
+
+        // valid nonempty geometries
+        assertGeometryFromHadoopShape("000000000101000000000000000000F03F0000000000000040", "POINT (1 2)");
+        assertGeometryFromHadoopShape("000000000203000000000000000000000000000000000000000000000000000840000000000000104001000000030000000000000000000000000000000000000000000000000000000000F03F000000000000004000000000000008400000000000001040", "LINESTRING (0 0, 1 2, 3 4)");
+        assertGeometryFromHadoopShape("00000000030500000000000000000000000000000000000000000000000000F03F000000000000F03F010000000500000000000000000000000000000000000000000000000000000000000000000000000000F03F000000000000F03F000000000000F03F000000000000F03F000000000000000000000000000000000000000000000000", "POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))");
+        assertGeometryFromHadoopShape("000000000408000000000000000000F03F00000000000000400000000000000840000000000000104002000000000000000000F03F000000000000004000000000000008400000000000001040", "MULTIPOINT ((1 2), (3 4))");
+        assertGeometryFromHadoopShape("000000000503000000000000000000F03F000000000000F03F0000000000001440000000000000104002000000040000000000000002000000000000000000F03F000000000000F03F0000000000001440000000000000F03F0000000000000040000000000000104000000000000010400000000000001040", "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))");
+        assertGeometryFromHadoopShape("000000000605000000000000000000F03F000000000000F03F00000000000018400000000000001840020000000A0000000000000005000000000000000000F03F000000000000F03F000000000000F03F0000000000000840000000000000084000000000000008400000000000000840000000000000F03F000000000000F03F000000000000F03F0000000000000040000000000000104000000000000000400000000000001840000000000000184000000000000018400000000000001840000000000000104000000000000000400000000000001040", "MULTIPOLYGON (((1 1, 3 1, 3 3, 1 3, 1 1)), ((2 4, 6 4, 6 6, 2 6, 2 4)))");
+
+        // given hadoop shape is too short
+        assertInvalidFunction("geometry_from_hadoop_shape(from_hex('1234'))", "Hadoop shape input is too short");
+
+        // hadoop shape type invalid
+        assertInvalidFunction("geometry_from_hadoop_shape(from_hex('000000000701000000FFFFFFFFFFFFEFFFFFFFFFFFFFFFEFFF'))", "Invalid Hadoop shape type: 7");
+        assertInvalidFunction("geometry_from_hadoop_shape(from_hex('00000000FF01000000FFFFFFFFFFFFEFFFFFFFFFFFFFFFEFFF'))", "Invalid Hadoop shape type: -1");
+
+        // esri shape invalid
+        assertInvalidFunction("geometry_from_hadoop_shape(from_hex('000000000101000000FFFFFFFFFFFFEFFFFFFFFFFFFFFFEF'))", "Invalid Hadoop shape");
+
+        // shape type is invalid for given shape
+        assertInvalidFunction("geometry_from_hadoop_shape(from_hex('000000000501000000000000000000F03F0000000000000040'))", "Invalid Hadoop shape");
+    }
+
+    private void assertGeometryFromHadoopShape(String hadoopHex, String expectedWkt)
+    {
+        assertFunction(format("ST_AsText(geometry_from_hadoop_shape(from_hex('%s')))", hadoopHex), VARCHAR, expectedWkt);
     }
 }

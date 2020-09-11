@@ -15,15 +15,13 @@ package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.RowPagesBuilder;
-import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
-import io.prestosql.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.testing.MaterializedResult;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -36,11 +34,12 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.OperatorAssertion.assertOperatorEquals;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static java.lang.String.format;
@@ -50,17 +49,15 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 @Test(singleThreaded = true)
 public class TestStreamingAggregationOperator
 {
-    private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    private static final Metadata metadata = createTestMetadataManager();
 
-    private static final InternalAggregationFunction LONG_SUM = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
-            new Signature("sum", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
-    private static final InternalAggregationFunction COUNT = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
-            new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
+    private static final InternalAggregationFunction LONG_SUM = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(BIGINT)));
+    private static final InternalAggregationFunction COUNT = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of()));
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
-    private StreamingAggregationOperatorFactory operatorFactory;
+    private OperatorFactory operatorFactory;
 
     @BeforeMethod
     public void setUp()
@@ -72,7 +69,7 @@ public class TestStreamingAggregationOperator
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
-        operatorFactory = new StreamingAggregationOperatorFactory(
+        operatorFactory = StreamingAggregationOperator.createOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 ImmutableList.of(BOOLEAN, VARCHAR, BIGINT),
@@ -81,10 +78,10 @@ public class TestStreamingAggregationOperator
                 AggregationNode.Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
                         LONG_SUM.bind(ImmutableList.of(2), Optional.empty())),
-                new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()));
+                new JoinCompiler(createTestMetadataManager()));
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
@@ -128,6 +125,22 @@ public class TestStreamingAggregationOperator
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
+    }
+
+    @Test
+    public void testLargeInputPage()
+    {
+        RowPagesBuilder rowPagesBuilder = RowPagesBuilder.rowPagesBuilder(BOOLEAN, VARCHAR, BIGINT);
+        List<Page> input = rowPagesBuilder
+                .addSequencePage(1_000_000, 0, 0, 1)
+                .build();
+
+        MaterializedResult.Builder expectedBuilder = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT);
+        for (int i = 0; i < 1_000_000; ++i) {
+            expectedBuilder.row(String.valueOf(i), 1L, i + 1L);
+        }
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expectedBuilder.build());
     }
 
     @Test

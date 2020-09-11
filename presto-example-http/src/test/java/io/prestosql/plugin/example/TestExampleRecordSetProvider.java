@@ -15,6 +15,7 @@ package io.prestosql.plugin.example;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
 import org.testng.annotations.AfterClass;
@@ -39,10 +40,11 @@ public class TestExampleRecordSetProvider
     @Test
     public void testGetRecordSet()
     {
-        ExampleRecordSetProvider recordSetProvider = new ExampleRecordSetProvider(new ExampleConnectorId("test"));
-        RecordSet recordSet = recordSetProvider.getRecordSet(ExampleTransactionHandle.INSTANCE, SESSION, new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "text", createUnboundedVarcharType(), 0),
-                new ExampleColumnHandle("test", "value", BIGINT, 1)));
+        ConnectorTableHandle tableHandle = new ExampleTableHandle("schema", "table");
+        ExampleRecordSetProvider recordSetProvider = new ExampleRecordSetProvider();
+        RecordSet recordSet = recordSetProvider.getRecordSet(ExampleTransactionHandle.INSTANCE, SESSION, new ExampleSplit(dataUri), tableHandle, ImmutableList.of(
+                new ExampleColumnHandle("text", createUnboundedVarcharType(), 0),
+                new ExampleColumnHandle("value", BIGINT, 1)));
         assertNotNull(recordSet, "recordSet is null");
 
         RecordCursor cursor = recordSet.cursor();
@@ -65,7 +67,6 @@ public class TestExampleRecordSetProvider
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         exampleHttpServer = new ExampleHttpServer();
         dataUri = exampleHttpServer.resolve("/example-data/numbers-2.csv");
@@ -73,7 +74,6 @@ public class TestExampleRecordSetProvider
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         if (exampleHttpServer != null) {
             exampleHttpServer.stop();

@@ -20,16 +20,37 @@ import io.prestosql.plugin.base.security.FileBasedAccessControlModule;
 import io.prestosql.plugin.base.security.ReadOnlySecurityModule;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConfigurationModule.installModules;
+import static java.util.Objects.requireNonNull;
 
 public class HiveSecurityModule
         extends AbstractConfigurationAwareModule
 {
+    private final String catalogName;
+
+    public HiveSecurityModule(String catalogName)
+    {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {
-        bindSecurityModule("legacy", new LegacySecurityModule());
-        bindSecurityModule("file", new FileBasedAccessControlModule());
-        bindSecurityModule("read-only", new ReadOnlySecurityModule());
+        bindSecurityModule(
+                "legacy",
+                installModules(
+                        new LegacySecurityModule(),
+                        new StaticAccessControlMetadataModule()));
+        bindSecurityModule(
+                "file",
+                installModules(
+                        new FileBasedAccessControlModule(catalogName),
+                        new StaticAccessControlMetadataModule()));
+        bindSecurityModule(
+                "read-only",
+                installModules(
+                        new ReadOnlySecurityModule(),
+                        new StaticAccessControlMetadataModule()));
         bindSecurityModule("sql-standard", new SqlStandardSecurityModule());
     }
 
@@ -39,5 +60,15 @@ public class HiveSecurityModule
                 SecurityConfig.class,
                 security -> name.equalsIgnoreCase(security.getSecuritySystem()),
                 module));
+    }
+
+    private static class StaticAccessControlMetadataModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            binder.bind(AccessControlMetadataFactory.class).toInstance((metastore) -> new AccessControlMetadata() {});
+        }
     }
 }

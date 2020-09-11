@@ -15,7 +15,6 @@ package io.prestosql.sql.gen;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
@@ -42,6 +41,7 @@ import io.prestosql.sql.relational.InputReferenceExpression;
 import io.prestosql.sql.relational.LambdaDefinitionExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.RowExpressionVisitor;
+import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.sql.relational.VariableReferenceExpression;
 
 import java.util.List;
@@ -211,7 +211,7 @@ public class CursorProcessorCompiler
                     compiledLambdaMap.build(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata.getFunctionRegistry());
+                    metadata);
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }
@@ -239,7 +239,7 @@ public class CursorProcessorCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(cursor),
-                metadata.getFunctionRegistry(),
+                metadata,
                 compiledLambdaMap);
 
         LabelNode end = new LabelNode("end");
@@ -279,7 +279,7 @@ public class CursorProcessorCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(cursor),
-                metadata.getFunctionRegistry(),
+                metadata,
                 compiledLambdaMap);
 
         method.getBody()
@@ -294,7 +294,7 @@ public class CursorProcessorCompiler
 
     private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(Variable cursorVariable)
     {
-        return new RowExpressionVisitor<BytecodeNode, Scope>()
+        return new RowExpressionVisitor<>()
         {
             @Override
             public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
@@ -304,9 +304,6 @@ public class CursorProcessorCompiler
                 Variable wasNullVariable = scope.getVariable("wasNull");
 
                 Class<?> javaType = type.getJavaType();
-                if (!javaType.isPrimitive() && javaType != Slice.class) {
-                    javaType = Object.class;
-                }
 
                 IfStatement ifStatement = new IfStatement();
                 ifStatement.condition()
@@ -321,14 +318,35 @@ public class CursorProcessorCompiler
 
                 ifStatement.ifFalse()
                         .getVariable(cursorVariable)
-                        .push(field)
-                        .invokeInterface(RecordCursor.class, "get" + Primitives.wrap(javaType).getSimpleName(), javaType, int.class);
+                        .push(field);
+                if (javaType == boolean.class) {
+                    ifStatement.ifFalse().invokeInterface(RecordCursor.class, "getBoolean", boolean.class, int.class);
+                }
+                else if (javaType == long.class) {
+                    ifStatement.ifFalse().invokeInterface(RecordCursor.class, "getLong", long.class, int.class);
+                }
+                else if (javaType == double.class) {
+                    ifStatement.ifFalse().invokeInterface(RecordCursor.class, "getDouble", double.class, int.class);
+                }
+                else if (javaType == Slice.class) {
+                    ifStatement.ifFalse().invokeInterface(RecordCursor.class, "getSlice", Slice.class, int.class);
+                }
+                else {
+                    ifStatement.ifFalse().invokeInterface(RecordCursor.class, "getObject", Object.class, int.class)
+                            .checkCast(javaType);
+                }
 
                 return ifStatement;
             }
 
             @Override
             public BytecodeNode visitCall(CallExpression call, Scope scope)
+            {
+                throw new UnsupportedOperationException("not yet implemented");
+            }
+
+            @Override
+            public BytecodeNode visitSpecialForm(SpecialForm specialForm, Scope context)
             {
                 throw new UnsupportedOperationException("not yet implemented");
             }

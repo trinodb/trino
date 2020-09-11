@@ -16,14 +16,13 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.ExpressionInterpreter;
 import io.prestosql.sql.planner.LiteralEncoder;
 import io.prestosql.sql.planner.NoOpSymbolResolver;
 import io.prestosql.sql.planner.SymbolAllocator;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.NodeRef;
@@ -32,33 +31,33 @@ import io.prestosql.sql.tree.SymbolReference;
 import java.util.Map;
 import java.util.Set;
 
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static io.prestosql.sql.planner.iterative.rule.ExtractCommonPredicatesExpressionRewriter.extractCommonPredicates;
 import static io.prestosql.sql.planner.iterative.rule.PushDownNegationsExpressionRewriter.pushDownNegations;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class SimplifyExpressions
         extends ExpressionRewriteRuleSet
 {
     @VisibleForTesting
-    static Expression rewrite(Expression expression, Session session, SymbolAllocator symbolAllocator, Metadata metadata, LiteralEncoder literalEncoder, SqlParser sqlParser)
+    static Expression rewrite(Expression expression, Session session, SymbolAllocator symbolAllocator, Metadata metadata, LiteralEncoder literalEncoder, TypeAnalyzer typeAnalyzer)
     {
         requireNonNull(metadata, "metadata is null");
-        requireNonNull(sqlParser, "sqlParser is null");
+        requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         if (expression instanceof SymbolReference) {
             return expression;
         }
-        expression = pushDownNegations(expression);
-        expression = extractCommonPredicates(expression);
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression, emptyList(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
+        expression = pushDownNegations(metadata, expression, expressionTypes);
+        expression = extractCommonPredicates(metadata, expression);
+        expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
-        return literalEncoder.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
+        Object optimized = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+        return literalEncoder.toExpression(optimized, expressionTypes.get(NodeRef.of(expression)));
     }
 
-    public SimplifyExpressions(Metadata metadata, SqlParser sqlParser)
+    public SimplifyExpressions(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
-        super(createRewrite(metadata, sqlParser));
+        super(createRewrite(metadata, typeAnalyzer));
     }
 
     @Override
@@ -71,12 +70,12 @@ public class SimplifyExpressions
                 valuesExpressionRewrite()); // ApplyNode and AggregationNode are not supported, because ExpressionInterpreter doesn't support them
     }
 
-    private static ExpressionRewriter createRewrite(Metadata metadata, SqlParser sqlParser)
+    private static ExpressionRewriter createRewrite(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
         requireNonNull(metadata, "metadata is null");
-        requireNonNull(sqlParser, "sqlParser is null");
-        LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+        requireNonNull(typeAnalyzer, "typeAnalyzer is null");
+        LiteralEncoder literalEncoder = new LiteralEncoder(metadata);
 
-        return (expression, context) -> rewrite(expression, context.getSession(), context.getSymbolAllocator(), metadata, literalEncoder, sqlParser);
+        return (expression, context) -> rewrite(expression, context.getSession(), context.getSymbolAllocator(), metadata, literalEncoder, typeAnalyzer);
     }
 }

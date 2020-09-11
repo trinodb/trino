@@ -13,16 +13,14 @@
  */
 package io.prestosql.operator;
 
-import io.airlift.slice.Slices;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.FixedWidthBlock;
+import io.prestosql.spi.block.ByteArrayBlock;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.prestosql.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static java.util.Objects.requireNonNull;
 
@@ -63,7 +61,7 @@ public class EnforceSingleRowOperator
         }
     }
 
-    private static final Page SINGLE_NULL_VALUE_PAGE = new Page(1, new FixedWidthBlock(0, 1, EMPTY_SLICE, Optional.of(Slices.wrappedBooleanArray(true))));
+    private static final Page SINGLE_NULL_VALUE_PAGE = new Page(1, new ByteArrayBlock(1, Optional.of(new boolean[] {true}), new byte[1]));
 
     private final OperatorContext operatorContext;
     private boolean finishing;

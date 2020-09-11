@@ -37,10 +37,10 @@ import static io.prestosql.plugin.hive.HiveType.HIVE_FLOAT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.HiveType.HIVE_SHORT;
-import static io.prestosql.plugin.hive.HiveUtil.extractStructFieldTypes;
-import static io.prestosql.plugin.hive.HiveUtil.isArrayType;
-import static io.prestosql.plugin.hive.HiveUtil.isMapType;
-import static io.prestosql.plugin.hive.HiveUtil.isRowType;
+import static io.prestosql.plugin.hive.util.HiveUtil.extractStructFieldTypes;
+import static io.prestosql.plugin.hive.util.HiveUtil.isArrayType;
+import static io.prestosql.plugin.hive.util.HiveUtil.isMapType;
+import static io.prestosql.plugin.hive.util.HiveUtil.isRowType;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.min;
@@ -53,7 +53,6 @@ public class HiveCoercionRecordCursor
     private final RecordCursor delegate;
     private final List<ColumnMapping> columnMappings;
     private final Coercer[] coercers;
-    private final BridgingRecordCursor bridgingRecordCursor;
 
     public HiveCoercionRecordCursor(
             List<ColumnMapping> columnMappings,
@@ -62,7 +61,6 @@ public class HiveCoercionRecordCursor
     {
         requireNonNull(columnMappings, "columns is null");
         requireNonNull(typeManager, "typeManager is null");
-        this.bridgingRecordCursor = new BridgingRecordCursor();
 
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.columnMappings = ImmutableList.copyOf(columnMappings);
@@ -71,11 +69,13 @@ public class HiveCoercionRecordCursor
 
         this.coercers = new Coercer[size];
 
+        BridgingRecordCursor bridgingRecordCursor = new BridgingRecordCursor();
+
         for (int columnIndex = 0; columnIndex < size; columnIndex++) {
             ColumnMapping columnMapping = columnMappings.get(columnIndex);
 
-            if (columnMapping.getCoercionFrom().isPresent()) {
-                coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType(), bridgingRecordCursor);
+            if (columnMapping.getBaseTypeCoercionFrom().isPresent()) {
+                coercers[columnIndex] = createCoercer(typeManager, columnMapping.getBaseTypeCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType(), bridgingRecordCursor);
             }
         }
     }
@@ -285,28 +285,28 @@ public class HiveCoercionRecordCursor
         if (toType instanceof VarcharType && (fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG))) {
             return new IntegerNumberToVarcharCoercer();
         }
-        else if (fromType instanceof VarcharType && (toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
+        if (fromType instanceof VarcharType && (toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
             return new VarcharToIntegerNumberCoercer(toHiveType);
         }
-        else if (fromHiveType.equals(HIVE_BYTE) && toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
+        if (fromHiveType.equals(HIVE_BYTE) && toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
             return new IntegerNumberUpscaleCoercer();
         }
-        else if (fromHiveType.equals(HIVE_SHORT) && toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
+        if (fromHiveType.equals(HIVE_SHORT) && toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
             return new IntegerNumberUpscaleCoercer();
         }
-        else if (fromHiveType.equals(HIVE_INT) && toHiveType.equals(HIVE_LONG)) {
+        if (fromHiveType.equals(HIVE_INT) && toHiveType.equals(HIVE_LONG)) {
             return new IntegerNumberUpscaleCoercer();
         }
-        else if (fromHiveType.equals(HIVE_FLOAT) && toHiveType.equals(HIVE_DOUBLE)) {
+        if (fromHiveType.equals(HIVE_FLOAT) && toHiveType.equals(HIVE_DOUBLE)) {
             return new FloatToDoubleCoercer();
         }
-        else if (isArrayType(fromType) && isArrayType(toType)) {
+        if (isArrayType(fromType) && isArrayType(toType)) {
             return new ListCoercer(typeManager, fromHiveType, toHiveType, bridgingRecordCursor);
         }
-        else if (isMapType(fromType) && isMapType(toType)) {
+        if (isMapType(fromType) && isMapType(toType)) {
             return new MapCoercer(typeManager, fromHiveType, toHiveType, bridgingRecordCursor);
         }
-        else if (isRowType(fromType) && isRowType(toType)) {
+        if (isRowType(fromType) && isRowType(toType)) {
             return new StructCoercer(typeManager, fromHiveType, toHiveType, bridgingRecordCursor);
         }
 

@@ -104,7 +104,7 @@ public class MemoryRevokingScheduler
 
     private static List<MemoryPool> getMemoryPools(LocalMemoryManager localMemoryManager)
     {
-        requireNonNull(localMemoryManager, "localMemoryManager can not be null");
+        requireNonNull(localMemoryManager, "localMemoryManager cannot be null");
         ImmutableList.Builder<MemoryPool> builder = new ImmutableList.Builder<>();
         builder.add(localMemoryManager.getGeneralPool());
         localMemoryManager.getReservedPool().ifPresent(builder::add);
@@ -248,7 +248,7 @@ public class MemoryRevokingScheduler
                 .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
                 .filter(task -> task.getQueryContext().getMemoryPool() == memoryPool)
                 .sorted(ORDER_BY_CREATE_TIME)
-                .forEach(task -> task.getQueryContext().accept(new VoidTraversingQueryContextVisitor<AtomicLong>()
+                .forEach(task -> task.getQueryContext().accept(new VoidTraversingQueryContextVisitor<>()
                 {
                     @Override
                     public Void visitQueryContext(QueryContext queryContext, AtomicLong remainingBytesToRevoke)

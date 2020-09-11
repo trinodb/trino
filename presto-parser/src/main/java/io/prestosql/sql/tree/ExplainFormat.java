@@ -77,7 +77,7 @@ public class ExplainFormat
             return false;
         }
         ExplainFormat o = (ExplainFormat) obj;
-        return Objects.equals(type, o.type);
+        return type == o.type;
     }
 
     @Override

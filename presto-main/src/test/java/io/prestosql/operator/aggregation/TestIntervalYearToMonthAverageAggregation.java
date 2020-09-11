@@ -16,7 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 import io.prestosql.type.SqlIntervalYearMonth;
 
 import java.util.List;
@@ -29,7 +29,7 @@ public class TestIntervalYearToMonthAverageAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = INTERVAL_YEAR_MONTH.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -39,7 +39,7 @@ public class TestIntervalYearToMonthAverageAggregation
     }
 
     @Override
-    public SqlIntervalYearMonth getExpectedValue(int start, int length)
+    protected SqlIntervalYearMonth getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;
@@ -59,8 +59,8 @@ public class TestIntervalYearToMonthAverageAggregation
     }
 
     @Override
-    protected List<String> getFunctionParameterTypes()
+    protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.INTERVAL_YEAR_TO_MONTH);
+        return ImmutableList.of(INTERVAL_YEAR_MONTH);
     }
 }

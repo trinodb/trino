@@ -15,11 +15,20 @@ package io.prestosql.plugin.postgresql;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.plugin.jdbc.DecimalModule;
+import io.prestosql.plugin.jdbc.DriverConnectionFactory;
+import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
+import io.prestosql.plugin.jdbc.credential.CredentialProvider;
+import org.postgresql.Driver;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.prestosql.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 
 public class PostgreSqlClientModule
         implements Module
@@ -27,7 +36,17 @@ public class PostgreSqlClientModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(JdbcClient.class).to(PostgreSqlClient.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(BaseJdbcConfig.class);
+        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(PostgreSqlClient.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(PostgreSqlConfig.class);
+        bindSessionPropertiesProvider(binder, PostgreSqlSessionProperties.class);
+        binder.install(new DecimalModule());
+    }
+
+    @Provides
+    @Singleton
+    @ForBaseJdbc
+    public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+    {
+        return new DriverConnectionFactory(new Driver(), config, credentialProvider);
     }
 }

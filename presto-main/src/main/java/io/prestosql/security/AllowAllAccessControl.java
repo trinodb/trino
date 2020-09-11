@@ -15,13 +15,15 @@ package io.prestosql.security;
 
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
-import io.prestosql.transaction.TransactionId;
 
 import java.security.Principal;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -29,7 +31,43 @@ public class AllowAllAccessControl
         implements AccessControl
 {
     @Override
+    public void checkCanImpersonateUser(Identity identity, String userName)
+    {
+    }
+
+    @Override
     public void checkCanSetUser(Optional<Principal> principal, String userName)
+    {
+    }
+
+    @Override
+    public void checkCanReadSystemInformation(Identity identity)
+    {
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(Identity identity)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteQuery(Identity identity)
+    {
+    }
+
+    @Override
+    public void checkCanViewQueryOwnedBy(Identity identity, String queryOwner)
+    {
+    }
+
+    @Override
+    public Set<String> filterQueriesOwnedBy(Identity identity, Set<String> queryOwners)
+    {
+        return queryOwners;
+    }
+
+    @Override
+    public void checkCanKillQueryOwnedBy(Identity identity, String queryOwner)
     {
     }
 
@@ -40,109 +78,150 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanAccessCatalog(Identity identity, String catalogName)
+    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
     {
     }
 
     @Override
-    public void checkCanCreateSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
+    public void checkCanDropSchema(SecurityContext context, CatalogSchemaName schemaName)
     {
     }
 
     @Override
-    public void checkCanDropSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
+    public void checkCanRenameSchema(SecurityContext context, CatalogSchemaName schemaName, String newSchemaName)
     {
     }
 
     @Override
-    public void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, String newSchemaName)
+    public void checkCanSetSchemaAuthorization(SecurityContext context, CatalogSchemaName schemaName, PrestoPrincipal principal)
     {
     }
 
     @Override
-    public void checkCanShowSchemas(TransactionId transactionId, Identity identity, String catalogName)
+    public void checkCanShowSchemas(SecurityContext context, String catalogName)
     {
     }
 
     @Override
-    public Set<String> filterSchemas(TransactionId transactionId, Identity identity, String catalogName, Set<String> schemaNames)
+    public Set<String> filterSchemas(SecurityContext context, String catalogName, Set<String> schemaNames)
     {
         return schemaNames;
     }
 
     @Override
-    public void checkCanCreateTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanShowCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
     {
     }
 
     @Override
-    public void checkCanDropTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public void checkCanRenameTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, QualifiedObjectName newTableName)
+    public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public void checkCanShowTablesMetadata(TransactionId transactionId, Identity identity, CatalogSchemaName schema)
+    public void checkCanDropTable(SecurityContext context, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public Set<SchemaTableName> filterTables(TransactionId transactionId, Identity identity, String catalogName, Set<SchemaTableName> tableNames)
+    public void checkCanRenameTable(SecurityContext context, QualifiedObjectName tableName, QualifiedObjectName newTableName)
+    {
+    }
+
+    @Override
+    public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanShowTables(SecurityContext context, CatalogSchemaName schema)
+    {
+    }
+
+    @Override
+    public Set<SchemaTableName> filterTables(SecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
         return tableNames;
     }
 
     @Override
-    public void checkCanAddColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanShowColumns(SecurityContext context, CatalogSchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanDropColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public List<ColumnMetadata> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
+    {
+        return columns;
+    }
+
+    @Override
+    public void checkCanAddColumns(SecurityContext context, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public void checkCanRenameColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public void checkCanInsertIntoTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanRenameColumn(SecurityContext context, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public void checkCanDeleteFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    public void checkCanInsertIntoTable(SecurityContext context, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public void checkCanCreateView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
+    public void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public void checkCanDropView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
+    public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName)
     {
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
     {
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean withGrantOption)
+    public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName)
     {
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
+    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    {
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
+    {
+    }
+
+    @Override
+    public void checkCanGrantTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean grantOption)
+    {
+    }
+
+    @Override
+    public void checkCanRevokeTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal revokee, boolean grantOption)
     {
     }
 
@@ -152,52 +231,67 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName)
+    public void checkCanSetCatalogSessionProperty(SecurityContext context, String catalogName, String propertyName)
     {
     }
 
     @Override
-    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
     }
 
     @Override
-    public void checkCanCreateRole(TransactionId transactionId, Identity identity, String role, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanCreateRole(SecurityContext context, String role, Optional<PrestoPrincipal> grantor, String catalogName)
     {
     }
 
     @Override
-    public void checkCanDropRole(TransactionId transactionId, Identity identity, String role, String catalogName)
+    public void checkCanDropRole(SecurityContext context, String role, String catalogName)
     {
     }
 
     @Override
-    public void checkCanGrantRoles(TransactionId transactionId, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
     }
 
     @Override
-    public void checkCanRevokeRoles(TransactionId transactionId, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanRevokeRoles(SecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
     }
 
     @Override
-    public void checkCanSetRole(TransactionId requiredTransactionId, Identity identity, String role, String catalog)
+    public void checkCanSetRole(SecurityContext context, String role, String catalogName)
     {
     }
 
     @Override
-    public void checkCanShowRoles(TransactionId transactionId, Identity identity, String catalogName)
+    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, String catalogName)
     {
     }
 
     @Override
-    public void checkCanShowCurrentRoles(TransactionId transactionId, Identity identity, String catalogName)
+    public void checkCanShowRoles(SecurityContext context, String catalogName)
     {
     }
 
     @Override
-    public void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, String catalogName)
+    public void checkCanShowCurrentRoles(SecurityContext context, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanShowRoleGrants(SecurityContext context, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteFunction(SecurityContext context, String functionName)
     {
     }
 }

@@ -1,4 +1,4 @@
--- database: presto; groups: postgresql_connector; queryType: SELECT; tables: postgres.public.workers_psql
+-- database: presto; groups: postgresql,profile_specific_tests; queryType: SELECT; tables: postgres.public.workers_psql
 --!
 describe postgresql.public.workers_psql
 --!

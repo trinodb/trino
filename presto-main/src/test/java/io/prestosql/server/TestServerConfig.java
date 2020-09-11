@@ -14,7 +14,6 @@
 package io.prestosql.server;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -22,6 +21,7 @@ import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestServerConfig
@@ -29,10 +29,8 @@ public class TestServerConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(ServerConfig.class)
+        assertRecordedDefaults(recordDefaults(ServerConfig.class)
                 .setCoordinator(true)
-                .setPrestoVersion(null)
-                .setDataSources(null)
                 .setIncludeExceptionInResponse(true)
                 .setGracePeriod(new Duration(2, MINUTES))
                 .setEnhancedErrorReporting(true));
@@ -43,8 +41,6 @@ public class TestServerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("coordinator", "false")
-                .put("presto.version", "test")
-                .put("datasources", "jmx")
                 .put("http.include-exception-in-response", "false")
                 .put("shutdown.grace-period", "5m")
                 .put("sql.parser.enhanced-error-reporting", "false")
@@ -52,8 +48,6 @@ public class TestServerConfig
 
         ServerConfig expected = new ServerConfig()
                 .setCoordinator(false)
-                .setPrestoVersion("test")
-                .setDataSources("jmx")
                 .setIncludeExceptionInResponse(false)
                 .setGracePeriod(new Duration(5, MINUTES))
                 .setEnhancedErrorReporting(false);

@@ -26,7 +26,7 @@ import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static io.prestosql.plugin.geospatial.SpatialPartitioningAggregateFunction.NAME;
 
 @AggregationFunction(value = NAME, decomposable = false)
-public class SpatialPartitioningAggregateFunction
+public final class SpatialPartitioningAggregateFunction
 {
     public static final String NAME = "spatial_partitioning";
 
@@ -35,18 +35,18 @@ public class SpatialPartitioningAggregateFunction
     @InputFunction
     public static void input(SpatialPartitioningState state, @SqlType(GEOMETRY_TYPE_NAME) Slice slice)
     {
-        throw new UnsupportedOperationException("spatial_partitioning(geometry, samplingPercentage) aggregate function should be re-written into spatial_partitioning(geometry, samplingPercentage, partitionCount)");
+        throw new UnsupportedOperationException("spatial_partitioning(geometry) aggregate function should be re-written into spatial_partitioning(geometry, partitionCount)");
     }
 
     @CombineFunction
     public static void combine(SpatialPartitioningState state, SpatialPartitioningState otherState)
     {
-        throw new UnsupportedOperationException("spatial_partitioning(geometry, samplingPercentage) aggregate function should be re-written into spatial_partitioning(geometry, samplingPercentage, partitionCount)");
+        throw new UnsupportedOperationException("spatial_partitioning(geometry) aggregate function should be re-written into spatial_partitioning(geometry, partitionCount)");
     }
 
     @OutputFunction(StandardTypes.VARCHAR)
     public static void output(SpatialPartitioningState state, BlockBuilder out)
     {
-        throw new UnsupportedOperationException("spatial_partitioning(geometry, samplingPercentage) aggregate function should be re-written into spatial_partitioning(geometry, samplingPercentage, partitionCount)");
+        throw new UnsupportedOperationException("spatial_partitioning(geometry) aggregate function should be re-written into spatial_partitioning(geometry, partitionCount)");
     }
 }

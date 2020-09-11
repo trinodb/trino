@@ -18,6 +18,7 @@ import com.amazonaws.services.glue.model.Partition;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.HiveBucketProperty;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Storage;
@@ -33,6 +34,7 @@ import static io.prestosql.plugin.hive.metastore.glue.TestingMetastoreObjects.ge
 import static io.prestosql.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestDatabase;
 import static io.prestosql.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestPartition;
 import static io.prestosql.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestTable;
+import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -43,66 +45,75 @@ public class TestGlueToPrestoConverter
 {
     private static final String PUBLIC_OWNER = "PUBLIC";
 
-    private Database testDb;
-    private Table testTbl;
+    private Database testDatabase;
+    private Table testTable;
     private Partition testPartition;
 
     @BeforeMethod
     public void setup()
     {
-        testDb = getGlueTestDatabase();
-        testTbl = getGlueTestTable(testDb.getName());
-        testPartition = getGlueTestPartition(testDb.getName(), testTbl.getName(), ImmutableList.of("val1"));
+        testDatabase = getGlueTestDatabase();
+        testTable = getGlueTestTable(testDatabase.getName());
+        testPartition = getGlueTestPartition(testDatabase.getName(), testTable.getName(), ImmutableList.of("val1"));
     }
 
     @Test
     public void testConvertDatabase()
     {
-        io.prestosql.plugin.hive.metastore.Database prestoDb = GlueToPrestoConverter.convertDatabase(testDb);
-        assertEquals(prestoDb.getDatabaseName(), testDb.getName());
-        assertEquals(prestoDb.getLocation().get(), testDb.getLocationUri());
-        assertEquals(prestoDb.getComment().get(), testDb.getDescription());
-        assertEquals(prestoDb.getParameters(), testDb.getParameters());
-        assertEquals(prestoDb.getOwnerName(), PUBLIC_OWNER);
-        assertEquals(prestoDb.getOwnerType(), PrincipalType.ROLE);
+        io.prestosql.plugin.hive.metastore.Database prestoDatabase = GlueToPrestoConverter.convertDatabase(testDatabase);
+        assertEquals(prestoDatabase.getDatabaseName(), testDatabase.getName());
+        assertEquals(prestoDatabase.getLocation().get(), testDatabase.getLocationUri());
+        assertEquals(prestoDatabase.getComment().get(), testDatabase.getDescription());
+        assertEquals(prestoDatabase.getParameters(), testDatabase.getParameters());
+        assertEquals(prestoDatabase.getOwnerName(), PUBLIC_OWNER);
+        assertEquals(prestoDatabase.getOwnerType(), PrincipalType.ROLE);
     }
 
     @Test
     public void testConvertTable()
     {
-        io.prestosql.plugin.hive.metastore.Table prestoTbl = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
-        assertEquals(prestoTbl.getTableName(), testTbl.getName());
-        assertEquals(prestoTbl.getDatabaseName(), testDb.getName());
-        assertEquals(prestoTbl.getTableType(), testTbl.getTableType());
-        assertEquals(prestoTbl.getOwner(), testTbl.getOwner());
-        assertEquals(prestoTbl.getParameters(), testTbl.getParameters());
-        assertColumnList(prestoTbl.getDataColumns(), testTbl.getStorageDescriptor().getColumns());
-        assertColumnList(prestoTbl.getPartitionColumns(), testTbl.getPartitionKeys());
-        assertStorage(prestoTbl.getStorage(), testTbl.getStorageDescriptor());
-        assertEquals(prestoTbl.getViewOriginalText().get(), testTbl.getViewOriginalText());
-        assertEquals(prestoTbl.getViewExpandedText().get(), testTbl.getViewExpandedText());
+        io.prestosql.plugin.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTable, testDatabase.getName());
+        assertEquals(prestoTable.getTableName(), testTable.getName());
+        assertEquals(prestoTable.getDatabaseName(), testDatabase.getName());
+        assertEquals(prestoTable.getTableType(), testTable.getTableType());
+        assertEquals(prestoTable.getOwner(), testTable.getOwner());
+        assertEquals(prestoTable.getParameters(), testTable.getParameters());
+        assertColumnList(prestoTable.getDataColumns(), testTable.getStorageDescriptor().getColumns());
+        assertColumnList(prestoTable.getPartitionColumns(), testTable.getPartitionKeys());
+        assertStorage(prestoTable.getStorage(), testTable.getStorageDescriptor());
+        assertEquals(prestoTable.getViewOriginalText().get(), testTable.getViewOriginalText());
+        assertEquals(prestoTable.getViewExpandedText().get(), testTable.getViewExpandedText());
+    }
+
+    @Test
+    public void testConvertTableWithoutTableType()
+    {
+        Table table = getGlueTestTable(testDatabase.getName());
+        table.setTableType(null);
+        io.prestosql.plugin.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(table, testDatabase.getName());
+        assertEquals(prestoTable.getTableType(), EXTERNAL_TABLE.name());
     }
 
     @Test
     public void testConvertTableNullPartitions()
     {
-        testTbl.setPartitionKeys(null);
-        io.prestosql.plugin.hive.metastore.Table prestoTbl = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
-        assertTrue(prestoTbl.getPartitionColumns().isEmpty());
+        testTable.setPartitionKeys(null);
+        io.prestosql.plugin.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTable, testDatabase.getName());
+        assertTrue(prestoTable.getPartitionColumns().isEmpty());
     }
 
     @Test
     public void testConvertTableUppercaseColumnType()
     {
-        com.amazonaws.services.glue.model.Column uppercaseCol = getGlueTestColumn().withType("String");
-        testTbl.getStorageDescriptor().setColumns(ImmutableList.of(uppercaseCol));
-        GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
+        com.amazonaws.services.glue.model.Column uppercaseColumn = getGlueTestColumn().withType("String");
+        testTable.getStorageDescriptor().setColumns(ImmutableList.of(uppercaseColumn));
+        GlueToPrestoConverter.convertTable(testTable, testDatabase.getName());
     }
 
     @Test
     public void testConvertPartition()
     {
-        io.prestosql.plugin.hive.metastore.Partition prestoPartition = GlueToPrestoConverter.convertPartition(testPartition);
+        io.prestosql.plugin.hive.metastore.Partition prestoPartition = GlueToPrestoConverter.convertPartition(testPartition, ImmutableMap.of());
         assertEquals(prestoPartition.getDatabaseName(), testPartition.getDatabaseName());
         assertEquals(prestoPartition.getTableName(), testPartition.getTableName());
         assertColumnList(prestoPartition.getColumns(), testPartition.getStorageDescriptor().getColumns());
@@ -114,16 +125,16 @@ public class TestGlueToPrestoConverter
     @Test
     public void testDatabaseNullParameters()
     {
-        testDb.setParameters(null);
-        assertNotNull(GlueToPrestoConverter.convertDatabase(testDb).getParameters());
+        testDatabase.setParameters(null);
+        assertNotNull(GlueToPrestoConverter.convertDatabase(testDatabase).getParameters());
     }
 
     @Test
     public void testTableNullParameters()
     {
-        testTbl.setParameters(null);
-        testTbl.getStorageDescriptor().getSerdeInfo().setParameters(null);
-        io.prestosql.plugin.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
+        testTable.setParameters(null);
+        testTable.getStorageDescriptor().getSerdeInfo().setParameters(null);
+        io.prestosql.plugin.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTable, testDatabase.getName());
         assertNotNull(prestoTable.getParameters());
         assertNotNull(prestoTable.getStorage().getSerdeParameters());
     }
@@ -132,7 +143,7 @@ public class TestGlueToPrestoConverter
     public void testPartitionNullParameters()
     {
         testPartition.setParameters(null);
-        assertNotNull(GlueToPrestoConverter.convertPartition(testPartition).getParameters());
+        assertNotNull(GlueToPrestoConverter.convertPartition(testPartition, ImmutableMap.of()).getParameters());
     }
 
     private static void assertColumnList(List<Column> actual, List<com.amazonaws.services.glue.model.Column> expected)

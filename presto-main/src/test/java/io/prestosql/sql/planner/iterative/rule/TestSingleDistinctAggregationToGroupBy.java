@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.assertions.ExpectedValueProvider;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.tree.FunctionCall;
 import org.testng.annotations.Test;
 
@@ -85,11 +86,17 @@ public class TestSingleDistinctAggregationToGroupBy
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output"), expression("count(DISTINCT input1) filter (where input2 > 0)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output"), expression("count(DISTINCT input1) filter (where filter1)"), ImmutableList.of(BIGINT))
                         .source(
-                                p.values(
-                                        p.symbol("input1"),
-                                        p.symbol("input2")))))
+                                p.project(
+                                        Assignments.builder()
+                                                .putIdentity(p.symbol("input1"))
+                                                .putIdentity(p.symbol("input2"))
+                                                .put(p.symbol("filter1"), expression("input2 > 0"))
+                                                .build(),
+                                        p.values(
+                                                p.symbol("input1"),
+                                                p.symbol("input2"))))))
                 .doesNotFire();
     }
 

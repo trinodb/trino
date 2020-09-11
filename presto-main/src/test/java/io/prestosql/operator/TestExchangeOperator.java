@@ -21,14 +21,15 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.buffer.PagesSerdeFactory;
 import io.prestosql.execution.buffer.TestingPagesSerdeFactory;
-import io.prestosql.metadata.RemoteTransactionHandle;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.ExchangeOperator.ExchangeOperatorFactory;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.RemoteSplit;
+import io.prestosql.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -84,8 +85,10 @@ public class TestExchangeOperator
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), scheduler);
 
         exchangeClientSupplier = (systemMemoryUsageListener) -> new ExchangeClient(
-                new DataSize(32, MEGABYTE),
-                new DataSize(10, MEGABYTE),
+                "localhost",
+                DataIntegrityVerification.ABORT,
+                DataSize.of(32, MEGABYTE),
+                DataSize.of(10, MEGABYTE),
                 3,
                 new Duration(1, TimeUnit.MINUTES),
                 true,
@@ -142,7 +145,7 @@ public class TestExchangeOperator
 
     private static Split newRemoteSplit(String taskId)
     {
-        return new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(URI.create("http://localhost/" + taskId)));
+        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(URI.create("http://localhost/" + taskId)), Lifespan.taskWide());
     }
 
     @Test

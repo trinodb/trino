@@ -64,7 +64,7 @@ public class TestCsvDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5, row6, row7);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8), null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -95,7 +95,7 @@ public class TestCsvDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5, row6, row7, row8);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8), null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -123,7 +123,7 @@ public class TestCsvDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8), null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -149,7 +149,7 @@ public class TestCsvDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4, column5, column6);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8), null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -245,7 +245,7 @@ public class TestCsvDecoder
         DecoderTestColumnHandle column = new DecoderTestColumnHandle(0, "column", type, "0", null, null, false, false, false);
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8), null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
         return decodedRow.get(column);
     }

@@ -69,6 +69,7 @@ import static io.prestosql.plugin.accumulo.index.Indexer.METRICS_TABLE_ROWS_CF_A
 import static io.prestosql.plugin.accumulo.index.Indexer.getIndexTableName;
 import static io.prestosql.plugin.accumulo.index.Indexer.getMetricsTableName;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -224,7 +225,7 @@ public class IndexLookup
         }
 
         Optional<Entry<Long, AccumuloColumnConstraint>> entry = cardinalities.entries().stream().findFirst();
-        if (!entry.isPresent()) {
+        if (entry.isEmpty()) {
             return false;
         }
 
@@ -327,7 +328,7 @@ public class IndexLookup
                 scan.setRanges(constraintEntry.getValue());
 
                 // Fetch the column family for this specific column
-                scan.fetchColumnFamily(new Text(Indexer.getIndexColumnFamily(constraintEntry.getKey().getFamily().getBytes(), constraintEntry.getKey().getQualifier().getBytes()).array()));
+                scan.fetchColumnFamily(new Text(Indexer.getIndexColumnFamily(constraintEntry.getKey().getFamily().getBytes(UTF_8), constraintEntry.getKey().getQualifier().getBytes(UTF_8)).array()));
 
                 // For each entry in the scanner
                 Text tmpQualifier = new Text();
@@ -346,8 +347,7 @@ public class IndexLookup
                 return columnRanges;
             }));
         }
-        tasks.forEach(future ->
-        {
+        tasks.forEach(future -> {
             try {
                 // If finalRanges is null, we have not yet added any column ranges
                 if (finalRanges.isEmpty()) {

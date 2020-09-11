@@ -2,15 +2,13 @@
 
 schemas = [
     # (new_schema, source_schema)
-    ('tpch_10gb_orc', 'tpch.sf10'),
-    ('tpch_100gb_orc', 'tpch.sf100'),
-    ('tpch_1tb_orc', 'tpch.sf1000'),
-    ('tpch_10tb_orc', 'tpch.sf10000'),
+    ('tpch_sf300_orc', 'tpch.sf300'),
+    ('tpch_sf1000_orc', 'tpch.sf1000'),
+    ('tpch_sf3000_orc', 'tpch.sf3000'),
 
-    ('tpch_10gb_text', 'hive.tpch_10gb_orc'),
-    ('tpch_100gb_text', 'hive.tpch_100gb_orc'),
-    ('tpch_1tb_text', 'hive.tpch_1tb_orc'),
-    ('tpch_10tb_text', 'hive.tpch_10tb_orc'),
+    ('tpch_sf300_text', 'hive.tpch_sf300_orc'),
+    ('tpch_sf1000_text', 'hive.tpch_sf1000_orc'),
+    ('tpch_sf3000_text', 'hive.tpch_sf3000_orc'),
 ]
 
 tables = [
@@ -33,7 +31,7 @@ for (new_schema, source_schema) in schemas:
     else:
         raise ValueError(new_schema)
 
-    print 'CREATE SCHEMA hive.%s;' % (new_schema,)
+    print('CREATE SCHEMA hive.{};'.format(new_schema,))
     for table in tables:
-        print 'CREATE TABLE "hive"."%s"."%s" WITH (format = \'%s\') AS SELECT * FROM %s."%s";' % \
-              (new_schema, table, format, source_schema, table)
+        print('CREATE TABLE "hive"."{}"."{}" WITH (format = \'{}\') AS SELECT * FROM {}."{}";'.format(
+              new_schema, table, format, source_schema, table))

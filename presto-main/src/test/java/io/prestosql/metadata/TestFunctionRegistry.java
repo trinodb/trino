@@ -13,46 +13,44 @@
  */
 package io.prestosql.metadata;
 
-import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.operator.scalar.CustomFunctions;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandles;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Lists.transform;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
-import static io.prestosql.metadata.FunctionRegistry.mangleOperatorName;
-import static io.prestosql.metadata.FunctionRegistry.unmangleOperator;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.metadata.Signature.unmangleOperator;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
-import static io.prestosql.type.TypeUtils.resolveTypes;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -61,21 +59,16 @@ public class TestFunctionRegistry
     @Test
     public void testIdentityCast()
     {
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        Signature exactOperator = registry.getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG);
-        assertEquals(exactOperator.getName(), mangleOperatorName(OperatorType.CAST.name()));
-        assertEquals(transform(exactOperator.getArgumentTypes(), Functions.toStringFunction()), ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
-        assertEquals(exactOperator.getReturnType().getBase(), StandardTypes.HYPER_LOG_LOG);
+        BoundSignature exactOperator = createTestMetadataManager().getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG).getSignature();
+        assertEquals(exactOperator, new BoundSignature(mangleOperatorName(OperatorType.CAST), HYPER_LOG_LOG, ImmutableList.of(HYPER_LOG_LOG)));
     }
 
     @Test
     public void testExactMatchBeforeCoercion()
     {
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        Metadata metadata = createTestMetadataManager();
         boolean foundOperator = false;
-        for (SqlFunction function : registry.listOperators()) {
+        for (FunctionMetadata function : listOperators(metadata)) {
             OperatorType operatorType = unmangleOperator(function.getSignature().getName());
             if (operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST) {
                 continue;
@@ -86,26 +79,14 @@ public class TestFunctionRegistry
             if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeSignature::isCalculated)) {
                 continue;
             }
-            Signature exactOperator = registry.resolveOperator(operatorType, resolveTypes(function.getSignature().getArgumentTypes(), typeManager));
-            assertEquals(exactOperator, function.getSignature());
+            List<Type> argumentTypes = function.getSignature().getArgumentTypes().stream()
+                    .map(metadata::getType)
+                    .collect(toImmutableList());
+            BoundSignature exactOperator = metadata.resolveOperator(operatorType, argumentTypes).getSignature();
+            assertEquals(exactOperator.toSignature(), function.getSignature());
             foundOperator = true;
         }
         assertTrue(foundOperator);
-    }
-
-    @Test
-    public void testMagicLiteralFunction()
-    {
-        Signature signature = getMagicLiteralFunctionSignature(TIMESTAMP_WITH_TIME_ZONE);
-        assertEquals(signature.getName(), "$literal$timestamp with time zone");
-        assertEquals(signature.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
-        assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
-
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        Signature function = registry.resolveFunction(QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()));
-        assertEquals(function.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
-        assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QFunction already registered: custom_add(bigint,bigint):bigint\\E")
@@ -115,13 +96,12 @@ public class TestFunctionRegistry
                 .scalars(CustomFunctions.class)
                 .getFunctions()
                 .stream()
-                .filter(input -> input.getSignature().getName().equals("custom_add"))
+                .filter(input -> input.getFunctionMetadata().getSignature().getName().equals("custom_add"))
                 .collect(toImmutableList());
 
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        registry.addFunctions(functions);
-        registry.addFunctions(functions);
+        Metadata metadata = createTestMetadataManager();
+        metadata.addFunctions(functions);
+        metadata.addFunctions(functions);
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "'sum' is both an aggregation and a scalar function")
@@ -131,25 +111,7 @@ public class TestFunctionRegistry
                 .scalars(ScalarSum.class)
                 .getFunctions();
 
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        registry.addFunctions(functions);
-    }
-
-    @Test
-    public void testListingHiddenFunctions()
-    {
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        List<SqlFunction> functions = registry.list();
-        List<String> names = transform(functions, input -> input.getSignature().getName());
-
-        assertTrue(names.contains("length"), "Expected function names " + names + " to contain 'length'");
-        assertTrue(names.contains("stddev"), "Expected function names " + names + " to contain 'stddev'");
-        assertTrue(names.contains("rank"), "Expected function names " + names + " to contain 'rank'");
-        assertFalse(names.contains("like"), "Expected function names " + names + " not to contain 'like'");
-        assertFalse(names.contains("$internal$sum_data_size_for_stats"), "Expected function names " + names + " not to contain '$internal$sum_data_size_for_stats'");
-        assertFalse(names.contains("$internal$max_data_size_for_stats"), "Expected function names " + names + " not to contain '$internal$max_data_size_for_stats'");
+        createTestMetadataManager().addFunctions(functions);
     }
 
     @Test
@@ -157,7 +119,7 @@ public class TestFunctionRegistry
     {
         assertThatResolveFunction()
                 .among(functionSignature("bigint", "bigint"))
-                .forParameters("bigint", "bigint")
+                .forParameters(BIGINT, BIGINT)
                 .returns(functionSignature("bigint", "bigint"));
     }
 
@@ -166,7 +128,7 @@ public class TestFunctionRegistry
     {
         assertThatResolveFunction()
                 .among(functionSignature(ImmutableList.of("T", "T"), "boolean", ImmutableList.of(typeVariable("T"))))
-                .forParameters("bigint", "bigint")
+                .forParameters(BIGINT, BIGINT)
                 .returns(functionSignature("bigint", "bigint"));
     }
 
@@ -178,7 +140,7 @@ public class TestFunctionRegistry
                         functionSignature("decimal(p,s)", "double"),
                         functionSignature("decimal(p,s)", "decimal(p,s)"),
                         functionSignature("double", "double"))
-                .forParameters("bigint", "bigint")
+                .forParameters(BIGINT, BIGINT)
                 .returns(functionSignature("decimal(19,0)", "decimal(19,0)"));
     }
 
@@ -189,7 +151,7 @@ public class TestFunctionRegistry
                 .among(
                         functionSignature("decimal(p,s)", "decimal(p,s)"),
                         functionSignature(ImmutableList.of("T", "T"), "boolean", ImmutableList.of(typeVariable("T"))))
-                .forParameters("decimal(3,1)", "decimal(3,1)")
+                .forParameters(createDecimalType(3, 1), createDecimalType(3, 1))
                 .returns(functionSignature("decimal(3,1)", "decimal(3,1)"));
     }
 
@@ -200,7 +162,7 @@ public class TestFunctionRegistry
                 .among(
                         functionSignature("decimal(p,s)", "double"),
                         functionSignature("double", "decimal(p,s)"))
-                .forParameters("bigint", "bigint")
+                .forParameters(BIGINT, BIGINT)
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
     }
 
@@ -212,7 +174,7 @@ public class TestFunctionRegistry
                         functionSignature("array(decimal(p,s))", "array(double)"),
                         functionSignature("array(decimal(p,s))", "array(decimal(p,s))"),
                         functionSignature("array(double)", "array(double)"))
-                .forParameters("array(bigint)", "array(bigint)")
+                .forParameters(new ArrayType(BIGINT), new ArrayType(BIGINT))
                 .returns(functionSignature("array(decimal(19,0))", "array(decimal(19,0))"));
     }
 
@@ -223,14 +185,14 @@ public class TestFunctionRegistry
                 .among(
                         functionSignature("double", "double", "double"),
                         functionSignature("decimal(p,s)").setVariableArity(true))
-                .forParameters("bigint", "bigint", "bigint")
+                .forParameters(BIGINT, BIGINT, BIGINT)
                 .returns(functionSignature("decimal(19,0)", "decimal(19,0)", "decimal(19,0)"));
 
         assertThatResolveFunction()
                 .among(
                         functionSignature("double", "double", "double"),
                         functionSignature("bigint").setVariableArity(true))
-                .forParameters("bigint", "bigint", "bigint")
+                .forParameters(BIGINT, BIGINT, BIGINT)
                 .returns(functionSignature("bigint", "bigint", "bigint"));
     }
 
@@ -243,10 +205,10 @@ public class TestFunctionRegistry
                         functionSignature(
                                 ImmutableList.of("T1", "T2", "T3"),
                                 "boolean",
-                                ImmutableList.of(Signature.withVariadicBound("T1", "decimal"),
-                                        Signature.withVariadicBound("T2", "decimal"),
-                                        Signature.withVariadicBound("T3", "decimal"))))
-                .forParameters("unknown", "bigint", "bigint")
+                                ImmutableList.of(Signature.withVariadicBound("T1", "row"),
+                                        Signature.withVariadicBound("T2", "row"),
+                                        Signature.withVariadicBound("T3", "row"))))
+                .forParameters(UNKNOWN, BIGINT, BIGINT)
                 .returns(functionSignature("bigint", "bigint", "bigint"));
     }
 
@@ -256,7 +218,7 @@ public class TestFunctionRegistry
         assertThatResolveFunction()
                 .among(
                         functionSignature("bigint"))
-                .forParameters("unknown")
+                .forParameters(UNKNOWN)
                 .returns(functionSignature("bigint"));
 
         // when coercion between the types exist, and the most specific function can be determined with the main algorithm
@@ -264,7 +226,7 @@ public class TestFunctionRegistry
                 .among(
                         functionSignature("bigint"),
                         functionSignature("integer"))
-                .forParameters("unknown")
+                .forParameters(UNKNOWN)
                 .returns(functionSignature("integer"));
 
         // function that requires only unknown coercion must be preferred
@@ -272,7 +234,7 @@ public class TestFunctionRegistry
                 .among(
                         functionSignature("bigint", "bigint"),
                         functionSignature("integer", "integer"))
-                .forParameters("unknown", "bigint")
+                .forParameters(UNKNOWN, BIGINT)
                 .returns(functionSignature("bigint", "bigint"));
 
         // when coercion between the types doesn't exist, but the return type is the same, so the random function must be chosen
@@ -280,17 +242,28 @@ public class TestFunctionRegistry
                 .among(
                         functionSignature(ImmutableList.of("JoniRegExp"), "boolean"),
                         functionSignature(ImmutableList.of("integer"), "boolean"))
-                .forParameters("unknown")
+                .forParameters(UNKNOWN)
                 // any function can be selected, but to make it deterministic we sort function signatures alphabetically
-                .returns(functionSignature("integer"));
+                .returns(functionSignature("JoniRegExp"));
 
         // when the return type is different
         assertThatResolveFunction()
                 .among(
                         functionSignature(ImmutableList.of("JoniRegExp"), "JoniRegExp"),
                         functionSignature(ImmutableList.of("integer"), "integer"))
-                .forParameters("unknown")
+                .forParameters(UNKNOWN)
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
+    }
+
+    private static List<FunctionMetadata> listOperators(Metadata metadata)
+    {
+        Set<String> operatorNames = Arrays.stream(OperatorType.values())
+                .map(Signature::mangleOperatorName)
+                .collect(toImmutableSet());
+
+        return metadata.listFunctions().stream()
+                .filter(function -> operatorNames.contains(function.getSignature().getName()))
+                .collect(toImmutableList());
     }
 
     private SignatureBuilder functionSignature(String... argumentTypes)
@@ -307,13 +280,12 @@ public class TestFunctionRegistry
     {
         ImmutableSet<String> literalParameters = ImmutableSet.of("p", "s", "p1", "s1", "p2", "s2", "p3", "s3");
         List<TypeSignature> argumentSignatures = arguments.stream()
-                .map((signature) -> TypeSignature.parseTypeSignature(signature, literalParameters))
+                .map((signature) -> parseTypeSignature(signature, literalParameters))
                 .collect(toImmutableList());
         return new SignatureBuilder()
-                .returnType(TypeSignature.parseTypeSignature(returnType, literalParameters))
+                .returnType(parseTypeSignature(returnType, literalParameters))
                 .argumentTypes(argumentSignatures)
-                .typeVariableConstraints(typeVariableConstraints)
-                .kind(SCALAR);
+                .typeVariableConstraints(typeVariableConstraints);
     }
 
     private static ResolveFunctionAssertion assertThatResolveFunction()
@@ -325,9 +297,6 @@ public class TestFunctionRegistry
     {
         private static final String TEST_FUNCTION_NAME = "TEST_FUNCTION_NAME";
 
-        private final TypeRegistry typeRegistry = new TypeRegistry();
-        private final BlockEncodingSerde blockEncoding = new BlockEncodingManager(typeRegistry);
-
         private List<SignatureBuilder> functionSignatures = ImmutableList.of();
         private List<TypeSignature> parameterTypes = ImmutableList.of();
 
@@ -337,7 +306,7 @@ public class TestFunctionRegistry
             return this;
         }
 
-        public ResolveFunctionAssertion forParameters(String... parameters)
+        public ResolveFunctionAssertion forParameters(Type... parameters)
         {
             this.parameterTypes = parseTypeSignatures(parameters);
             return this;
@@ -346,7 +315,7 @@ public class TestFunctionRegistry
         public ResolveFunctionAssertion returns(SignatureBuilder functionSignature)
         {
             Signature expectedSignature = functionSignature.name(TEST_FUNCTION_NAME).build();
-            Signature actualSignature = resolveSignature();
+            Signature actualSignature = resolveSignature().toSignature();
             assertEquals(actualSignature, expectedSignature);
             return this;
         }
@@ -368,11 +337,11 @@ public class TestFunctionRegistry
             return this;
         }
 
-        private Signature resolveSignature()
+        private BoundSignature resolveSignature()
         {
-            FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, blockEncoding, new FeaturesConfig());
-            functionRegistry.addFunctions(createFunctionsFromSignatures());
-            return functionRegistry.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
+            Metadata metadata = createTestMetadataManager();
+            metadata.addFunctions(createFunctionsFromSignatures());
+            return metadata.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes)).getSignature();
         }
 
         private List<SqlFunction> createFunctionsFromSignatures()
@@ -380,49 +349,34 @@ public class TestFunctionRegistry
             ImmutableList.Builder<SqlFunction> functions = ImmutableList.builder();
             for (SignatureBuilder functionSignature : functionSignatures) {
                 Signature signature = functionSignature.name(TEST_FUNCTION_NAME).build();
-                functions.add(new SqlScalarFunction(signature)
+                FunctionMetadata functionMetadata = new FunctionMetadata(
+                        signature,
+                        false,
+                        nCopies(signature.getArgumentTypes().size(), new FunctionArgumentDefinition(false)),
+                        false,
+                        false,
+                        "testing function that does nothing",
+                        SCALAR);
+                functions.add(new SqlScalarFunction(functionMetadata)
                 {
                     @Override
-                    public ScalarFunctionImplementation specialize(
-                            BoundVariables boundVariables,
-                            int arity,
-                            TypeManager typeManager,
-                            FunctionRegistry functionRegistry)
+                    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
                     {
                         return new ScalarFunctionImplementation(
-                                false,
-                                nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                                MethodHandles.identity(Void.class),
-                                true);
-                    }
-
-                    @Override
-                    public boolean isHidden()
-                    {
-                        return false;
-                    }
-
-                    @Override
-                    public boolean isDeterministic()
-                    {
-                        return false;
-                    }
-
-                    @Override
-                    public String getDescription()
-                    {
-                        return "testing function that does nothing";
+                                FAIL_ON_NULL,
+                                nCopies(functionBinding.getArity(), NEVER_NULL),
+                                MethodHandles.identity(Void.class));
                     }
                 });
             }
             return functions.build();
         }
 
-        private static List<TypeSignature> parseTypeSignatures(String... signatures)
+        private static List<TypeSignature> parseTypeSignatures(Type... signatures)
         {
             return ImmutableList.copyOf(signatures)
                     .stream()
-                    .map(TypeSignature::parseTypeSignature)
+                    .map(Type::getTypeSignature)
                     .collect(toList());
         }
     }

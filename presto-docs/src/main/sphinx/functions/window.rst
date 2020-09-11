@@ -17,6 +17,9 @@ clause to specify the window. A window has three components:
   to ``RANGE UNBOUNDED PRECEDING``, which is the same as
   ``RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW``. This frame contains all
   rows from the start of the partition up to the last peer of the current row.
+  In the absence of ``ORDER BY``, all rows are considered peers, so ``RANGE
+  BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`` is equivalent to ``BETWEEN
+  UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING``
 
 For example, the following query ranks orders for each clerk by price::
 
@@ -90,6 +93,11 @@ Ranking Functions
 Value Functions
 ---------------
 
+By default, null values are respected. If ``IGNORE NULLS`` is specified, all rows where
+``x`` is null are excluded from the calculation. If ``IGNORE NULLS`` is specified and ``x``
+is null for all rows, the ``default_value`` is returned, or if it is not specified,
+``null`` is returned.
+
 .. function:: first_value(x) -> [same as input]
 
     Returns the first value of the window.
@@ -100,24 +108,30 @@ Value Functions
 
 .. function:: nth_value(x, offset) -> [same as input]
 
-    Returns the value at the specified offset from beginning the window.
+    Returns the value at the specified offset from the beginning of the window.
     Offsets start at ``1``. The offset can be any scalar
     expression.  If the offset is null or greater than the number of values in
-    the window, null is returned.  It is an error for the offset to be zero or
+    the window, ``null`` is returned.  It is an error for the offset to be zero or
     negative.
 
 .. function:: lead(x[, offset [, default_value]]) -> [same as input]
 
-    Returns the value at ``offset`` rows after the current row in the window.
+    Returns the value at ``offset`` rows after the current row in the window partition.
     Offsets start at ``0``, which is the current row. The
     offset can be any scalar expression.  The default ``offset`` is ``1``. If the
-    offset is null or larger than the window, the ``default_value`` is returned,
-    or if it is not specified ``null`` is returned.
+    offset is null, ``null`` is returned. If the offset refers to a row that is not
+    within the partition, the ``default_value`` is returned, or if it is not specified
+    ``null`` is returned.
+    The :func:`lead` function requires that the window ordering be specified.
+    Window frame must not be specified.
 
 .. function:: lag(x[, offset [, default_value]]) -> [same as input]
 
-    Returns the value at ``offset`` rows before the current row in the window
-    Offsets start at ``0``, which is the current row.  The
+    Returns the value at ``offset`` rows before the current row in the window partition.
+    Offsets start at ``0``, which is the current row. The
     offset can be any scalar expression.  The default ``offset`` is ``1``. If the
-    offset is null or larger than the window, the ``default_value`` is returned,
-    or if it is not specified ``null`` is returned.
+    offset is null, ``null`` is returned. If the offset refers to a row that is not
+    within the partition, the ``default_value`` is returned, or if it is not specified
+    ``null`` is returned.
+    The :func:`lag` function requires that the window ordering be specified.
+    Window frame must not be specified.

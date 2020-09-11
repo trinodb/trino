@@ -18,18 +18,10 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
 
 public class LocalFileModule
         implements Module
 {
-    private final String connectorId;
-
-    public LocalFileModule(String connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-    }
-
     @Override
     public void configure(Binder binder)
     {

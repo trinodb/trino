@@ -13,14 +13,16 @@
  */
 package io.prestosql.type;
 
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
 
 public class TestTinyintArrayType
@@ -28,7 +30,12 @@ public class TestTinyintArrayType
 {
     public TestTinyintArrayType()
     {
-        super(new TypeRegistry().getType(parseTypeSignature("array(tinyint)")), List.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("array(tinyint)"))));
+        this(createTestMetadataManager());
+    }
+
+    private TestTinyintArrayType(Metadata metadata)
+    {
+        super(metadata.getType(arrayType(TINYINT.getTypeSignature())), List.class, createTestBlock(metadata.getType(arrayType(TINYINT.getTypeSignature()))));
     }
 
     public static Block createTestBlock(Type arrayType)

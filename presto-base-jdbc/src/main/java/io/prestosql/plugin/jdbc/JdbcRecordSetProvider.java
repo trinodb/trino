@@ -18,6 +18,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.RecordSet;
 
@@ -25,6 +26,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordSetProvider
@@ -39,15 +41,23 @@ public class JdbcRecordSetProvider
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
         JdbcSplit jdbcSplit = (JdbcSplit) split;
+        JdbcTableHandle jdbcTable = (JdbcTableHandle) table;
+
+        // In the current API, the columns (and order) needed by the engine are provided via an argument to this method. Make sure that
+        // any columns that were recorded in the table handle match the requested set.
+        // If no columns are recorded, it means that applyProjection never got called (e.g., in the case all columns are being used) and all
+        // table columns should be returned. TODO: this is something that should be addressed once the getRecordSet API is revamped
+        jdbcTable.getColumns()
+                .ifPresent(tableColumns -> verify(columns.equals(tableColumns)));
 
         ImmutableList.Builder<JdbcColumnHandle> handles = ImmutableList.builder();
         for (ColumnHandle handle : columns) {
             handles.add((JdbcColumnHandle) handle);
         }
 
-        return new JdbcRecordSet(jdbcClient, session, jdbcSplit, handles.build());
+        return new JdbcRecordSet(jdbcClient, session, jdbcSplit, jdbcTable, handles.build());
     }
 }

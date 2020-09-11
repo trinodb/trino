@@ -45,24 +45,25 @@ public class TestTpchCostBasedPlan
      * large amount of data.
      */
 
-    public TestTpchCostBasedPlan()
+    @Override
+    protected LocalQueryRunner createLocalQueryRunner()
     {
-        super(() -> {
-            String catalog = "local";
-            SessionBuilder sessionBuilder = testSessionBuilder()
-                    .setCatalog(catalog)
-                    .setSchema("sf3000.0")
-                    .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
-                    .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name())
-                    .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name());
+        String catalog = "local";
+        SessionBuilder sessionBuilder = testSessionBuilder()
+                .setCatalog(catalog)
+                .setSchema("sf3000.0")
+                .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name());
 
-            LocalQueryRunner queryRunner = LocalQueryRunner.queryRunnerWithFakeNodeCountForStats(sessionBuilder.build(), 8);
-            queryRunner.createCatalog(
-                    catalog,
-                    new TpchConnectorFactory(1, false, false),
-                    ImmutableMap.of(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()));
-            return queryRunner;
-        });
+        LocalQueryRunner queryRunner = LocalQueryRunner.builder(sessionBuilder.build())
+                .withNodeCountForStats(8)
+                .build();
+        queryRunner.createCatalog(
+                catalog,
+                new TpchConnectorFactory(1, false, false),
+                ImmutableMap.of(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()));
+        return queryRunner;
     }
 
     @Override
@@ -81,7 +82,6 @@ public class TestTpchCostBasedPlan
         private UpdateTestFiles() {}
 
         public static void main(String[] args)
-                throws Exception
         {
             new TestTpchCostBasedPlan().generate();
         }

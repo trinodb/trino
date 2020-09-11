@@ -13,37 +13,42 @@
  */
 package io.prestosql.sql.gen;
 
-import com.google.common.base.Preconditions;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.metadata.Signature;
-import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.SpecialForm;
 
-import java.util.List;
-
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
+import static java.util.Objects.requireNonNull;
 
 public class AndCodeGenerator
         implements BytecodeGenerator
 {
-    @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments)
-    {
-        Preconditions.checkArgument(arguments.size() == 2);
+    private final RowExpression left;
+    private final RowExpression right;
 
+    public AndCodeGenerator(SpecialForm specialForm)
+    {
+        requireNonNull(specialForm, "specialForm is null");
+
+        checkArgument(specialForm.getArguments().size() == 2);
+        left = specialForm.getArguments().get(0);
+        right = specialForm.getArguments().get(1);
+    }
+
+    @Override
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generator)
+    {
         Variable wasNull = generator.wasNull();
         BytecodeBlock block = new BytecodeBlock()
                 .comment("AND")
                 .setDescription("AND");
 
-        BytecodeNode left = generator.generate(arguments.get(0));
-        BytecodeNode right = generator.generate(arguments.get(1));
-
-        block.append(left);
+        block.append(generator.generate(left));
 
         IfStatement ifLeftIsNull = new IfStatement("if left wasNull...")
                 .condition(wasNull);
@@ -52,7 +57,7 @@ public class AndCodeGenerator
         ifLeftIsNull.ifTrue()
                 .comment("clear the null flag, pop left value off stack, and push left null flag on the stack (true)")
                 .append(wasNull.set(constantFalse()))
-                .pop(arguments.get(0).getType().getJavaType()) // discard left value
+                .pop(left.getType().getJavaType()) // discard left value
                 .push(true);
 
         LabelNode leftIsTrue = new LabelNode("leftIsTrue");
@@ -71,7 +76,7 @@ public class AndCodeGenerator
         // value for this expression which indicates if the left value was NULL.
 
         // eval right!
-        block.append(right);
+        block.append(generator.generate(right));
 
         IfStatement ifRightIsNull = new IfStatement("if right wasNull...");
         ifRightIsNull.condition()
@@ -80,7 +85,7 @@ public class AndCodeGenerator
         // this leaves a single boolean on the stack which is ignored since the value in NULL
         ifRightIsNull.ifTrue()
                 .comment("right was null, pop the right value off the stack; wasNull flag remains set to TRUE")
-                .pop(arguments.get(1).getType().getJavaType());
+                .pop(right.getType().getJavaType());
 
         LabelNode rightIsTrue = new LabelNode("rightIsTrue");
         ifRightIsNull.ifFalse()

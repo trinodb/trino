@@ -35,9 +35,9 @@ public class MongoClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private static final Splitter PORT_SPLITTER = Splitter.on(':').trimResults().omitEmptyStrings();
-    private static final Splitter USER_SPLITTER = Splitter.onPattern("[:@]").trimResults().omitEmptyStrings();
 
     private String schemaCollection = "_schema";
+    private boolean caseInsensitiveNameMatching;
     private List<ServerAddress> seeds = ImmutableList.of();
     private List<MongoCredential> credentials = ImmutableList.of();
 
@@ -46,6 +46,7 @@ public class MongoClientConfig
     private int maxWaitTime = 120_000;
     private int connectionTimeout = 10_000;
     private int socketTimeout;
+    private int maxConnectionIdleTime;
     private boolean socketKeepAlive;
     private boolean sslEnabled;
 
@@ -70,6 +71,18 @@ public class MongoClientConfig
         return this;
     }
 
+    public boolean isCaseInsensitiveNameMatching()
+    {
+        return caseInsensitiveNameMatching;
+    }
+
+    @Config("mongodb.case-insensitive-name-matching")
+    public MongoClientConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
+    {
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        return this;
+    }
+
     @NotNull
     @Size(min = 1)
     public List<ServerAddress> getSeeds()
@@ -91,7 +104,6 @@ public class MongoClientConfig
     }
 
     @NotNull
-    @Size(min = 0)
     public List<MongoCredential> getCredentials()
     {
         return credentials;
@@ -116,16 +128,11 @@ public class MongoClientConfig
         for (String hostPort : hostPorts) {
             List<String> values = PORT_SPLITTER.splitToList(hostPort);
             checkArgument(values.size() == 1 || values.size() == 2, "Invalid ServerAddress format. Requires host[:port]");
-            try {
-                if (values.size() == 1) {
-                    builder.add(new ServerAddress(values.get(0)));
-                }
-                else {
-                    builder.add(new ServerAddress(values.get(0), Integer.parseInt(values.get(1))));
-                }
+            if (values.size() == 1) {
+                builder.add(new ServerAddress(values.get(0)));
             }
-            catch (NumberFormatException e) {
-                throw e;
+            else {
+                builder.add(new ServerAddress(values.get(0), Integer.parseInt(values.get(1))));
             }
         }
         return builder.build();
@@ -134,10 +141,18 @@ public class MongoClientConfig
     private List<MongoCredential> buildCredentials(Iterable<String> userPasses)
     {
         ImmutableList.Builder<MongoCredential> builder = ImmutableList.builder();
-        for (String userPass : userPasses) {
-            List<String> values = USER_SPLITTER.splitToList(userPass);
-            checkArgument(values.size() == 3, "Invalid Credential format. Requires user:password@collection");
-            builder.add(createCredential(values.get(0), values.get(2), values.get(1).toCharArray()));
+        for (String userPassDatabase : userPasses) {
+            int lastIndex = userPassDatabase.lastIndexOf('@');
+            checkArgument(lastIndex > 0, "Invalid Credential format. Requires user:password@database");
+            String userPass = userPassDatabase.substring(0, lastIndex);
+            String database = userPassDatabase.substring(lastIndex + 1);
+
+            int firstIndex = userPass.indexOf(':');
+            checkArgument(firstIndex > 0, "Invalid Credential format. Requires user:password@database");
+            String user = userPass.substring(0, firstIndex);
+            String password = userPass.substring(firstIndex + 1);
+
+            builder.add(createCredential(user, database, password.toCharArray()));
         }
         return builder.build();
     }
@@ -219,6 +234,7 @@ public class MongoClientConfig
         return this;
     }
 
+    @NotNull
     public ReadPreferenceType getReadPreference()
     {
         return readPreference;
@@ -231,6 +247,7 @@ public class MongoClientConfig
         return this;
     }
 
+    @NotNull
     public WriteConcernType getWriteConcern()
     {
         return writeConcern;
@@ -267,6 +284,7 @@ public class MongoClientConfig
         return this;
     }
 
+    @NotNull
     public String getImplicitRowFieldPrefix()
     {
         return implicitRowFieldPrefix;
@@ -288,6 +306,19 @@ public class MongoClientConfig
     public MongoClientConfig setSslEnabled(boolean sslEnabled)
     {
         this.sslEnabled = sslEnabled;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxConnectionIdleTime()
+    {
+        return maxConnectionIdleTime;
+    }
+
+    @Config("mongodb.max-connection-idle-time")
+    public MongoClientConfig setMaxConnectionIdleTime(int maxConnectionIdleTime)
+    {
+        this.maxConnectionIdleTime = maxConnectionIdleTime;
         return this;
     }
 }

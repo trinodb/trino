@@ -13,13 +13,15 @@
  */
 package io.prestosql.type;
 
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.type.ColorType.COLOR;
 import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
 
@@ -28,7 +30,12 @@ public class TestColorArrayType
 {
     public TestColorArrayType()
     {
-        super(new TypeRegistry().getType(parseTypeSignature("array(color)")), List.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("array(color)"))));
+        this(createTestMetadataManager());
+    }
+
+    private TestColorArrayType(Metadata metadata)
+    {
+        super(metadata.getType(arrayType(COLOR.getTypeSignature())), List.class, createTestBlock(metadata.getType(arrayType(COLOR.getTypeSignature()))));
     }
 
     public static Block createTestBlock(Type arrayType)

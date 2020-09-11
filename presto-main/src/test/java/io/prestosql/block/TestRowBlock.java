@@ -43,7 +43,7 @@ public class TestRowBlock
         extends AbstractTestBlock
 {
     @Test
-    void testWithVarcharBigint()
+    public void testWithVarcharBigint()
     {
         List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
         List<Object>[] testRows = generateTestRows(fieldTypes, 100);
@@ -145,13 +145,13 @@ public class TestRowBlock
     protected <T> void assertPositionValue(Block block, int position, T expectedValue)
     {
         if (expectedValue instanceof List) {
-            assertValue(block, position, (List<Object>) expectedValue);
+            assertValue(block, position, (List<?>) expectedValue);
             return;
         }
         super.assertPositionValue(block, position, expectedValue);
     }
 
-    private void assertValue(Block rowBlock, int position, List<Object> row)
+    private void assertValue(Block rowBlock, int position, List<?> row)
     {
         // null rows are handled by assertPositionValue
         requireNonNull(row, "row is null");
@@ -181,6 +181,7 @@ public class TestRowBlock
 
     private List<Object>[] generateTestRows(List<Type> fieldTypes, int numRows)
     {
+        @SuppressWarnings("unchecked")
         List<Object>[] testRows = new List[numRows];
         for (int i = 0; i < numRows; i++) {
             List<Object> testRow = new ArrayList<>(fieldTypes.size());

@@ -14,11 +14,11 @@
 package io.prestosql.plugin.hive.parquet.write;
 
 import io.airlift.log.Logger;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils;
-import org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriter;
-import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.ParquetHiveRecord;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
@@ -46,8 +46,6 @@ import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.Type;
 
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 
@@ -60,12 +58,12 @@ import java.util.Map;
  */
 public class TestDataWritableWriter
 {
-    private static final Logger log = Logger.get(DataWritableWriter.class);
+    private static final Logger log = Logger.get(TestDataWritableWriter.class);
     private final RecordConsumer recordConsumer;
     private final GroupType schema;
     private final boolean singleLevelArray;
 
-    public TestDataWritableWriter(final RecordConsumer recordConsumer, final GroupType schema, boolean singleLevelArray)
+    public TestDataWritableWriter(RecordConsumer recordConsumer, GroupType schema, boolean singleLevelArray)
     {
         this.recordConsumer = recordConsumer;
         this.schema = schema;
@@ -77,7 +75,7 @@ public class TestDataWritableWriter
      *
      * @param record Contains the record that are going to be written.
      */
-    public void write(final ParquetHiveRecord record)
+    public void write(ParquetHiveRecord record)
     {
         if (record != null) {
             recordConsumer.startMessage();
@@ -100,7 +98,7 @@ public class TestDataWritableWriter
      * @param inspector The object inspector used to get the correct value type.
      * @param type Type that contains information about the group schema.
      */
-    private void writeGroupFields(final Object value, final StructObjectInspector inspector, final GroupType type)
+    private void writeGroupFields(Object value, StructObjectInspector inspector, GroupType type)
     {
         if (value != null) {
             List<? extends StructField> fields = inspector.getAllStructFieldRefs();
@@ -129,7 +127,7 @@ public class TestDataWritableWriter
      * @param inspector The object inspector used to get the correct value type.
      * @param type Type that contains information about the type schema.
      */
-    private void writeValue(final Object value, final ObjectInspector inspector, final Type type)
+    private void writeValue(Object value, ObjectInspector inspector, Type type)
     {
         if (type.isPrimitive()) {
             checkInspectorCategory(inspector, ObjectInspector.Category.PRIMITIVE);
@@ -139,7 +137,7 @@ public class TestDataWritableWriter
             GroupType groupType = type.asGroupType();
             OriginalType originalType = type.getOriginalType();
 
-            if (originalType != null && originalType.equals(OriginalType.LIST)) {
+            if (OriginalType.LIST == originalType) {
                 checkInspectorCategory(inspector, ObjectInspector.Category.LIST);
                 if (singleLevelArray) {
                     writeSingleLevelArray(value, (ListObjectInspector) inspector, groupType);
@@ -148,7 +146,7 @@ public class TestDataWritableWriter
                     writeArray(value, (ListObjectInspector) inspector, groupType);
                 }
             }
-            else if (originalType != null && (originalType.equals(OriginalType.MAP) || originalType.equals(OriginalType.MAP_KEY_VALUE))) {
+            else if (originalType != null && (originalType == OriginalType.MAP || originalType == OriginalType.MAP_KEY_VALUE)) {
                 checkInspectorCategory(inspector, ObjectInspector.Category.MAP);
                 writeMap(value, (MapObjectInspector) inspector, groupType);
             }
@@ -168,7 +166,7 @@ public class TestDataWritableWriter
      */
     private void checkInspectorCategory(ObjectInspector inspector, ObjectInspector.Category category)
     {
-        if (!inspector.getCategory().equals(category)) {
+        if (inspector.getCategory() != category) {
             throw new IllegalArgumentException("Invalid data type: expected " + category
                     + " type, but found: " + inspector.getCategory());
         }
@@ -182,7 +180,7 @@ public class TestDataWritableWriter
      * @param inspector The object inspector used to get the correct value type.
      * @param type Type that contains information about the group schema.
      */
-    private void writeGroup(final Object value, final StructObjectInspector inspector, final GroupType type)
+    private void writeGroup(Object value, StructObjectInspector inspector, GroupType type)
     {
         recordConsumer.startGroup();
         writeGroupFields(value, inspector, type);
@@ -203,7 +201,7 @@ public class TestDataWritableWriter
      * @param inspector The object inspector used to get the correct value type.
      * @param type Type that contains information about the group (LIST) schema.
      */
-    private void writeArray(final Object value, final ListObjectInspector inspector, final GroupType type)
+    private void writeArray(Object value, ListObjectInspector inspector, GroupType type)
     {
         // Get the internal array structure
         GroupType repeatedType = type.getType(0).asGroupType();
@@ -232,7 +230,7 @@ public class TestDataWritableWriter
         recordConsumer.endGroup();
     }
 
-    private void writeSingleLevelArray(final Object value, final ListObjectInspector inspector, final GroupType type)
+    private void writeSingleLevelArray(Object value, ListObjectInspector inspector, GroupType type)
     {
         // Get the internal array structure
         Type elementType = type.getType(0);
@@ -271,7 +269,7 @@ public class TestDataWritableWriter
      * @param inspector The object inspector used to get the correct value type.
      * @param type Type that contains information about the group (MAP) schema.
      */
-    private void writeMap(final Object value, final MapObjectInspector inspector, final GroupType type)
+    private void writeMap(Object value, MapObjectInspector inspector, GroupType type)
     {
         // Get the internal map structure (MAP_KEY_VALUE)
         GroupType repeatedType = type.getType(0).asGroupType();
@@ -320,7 +318,7 @@ public class TestDataWritableWriter
      * @param value The object that contains the primitive value.
      * @param inspector The object inspector used to get the correct value type.
      */
-    private void writePrimitive(final Object value, final PrimitiveObjectInspector inspector)
+    private void writePrimitive(Object value, PrimitiveObjectInspector inspector)
     {
         if (value == null) {
             return;
@@ -377,14 +375,14 @@ public class TestDataWritableWriter
                 break;
             case DATE:
                 Date vDate = ((DateObjectInspector) inspector).getPrimitiveJavaObject(value);
-                recordConsumer.addInteger(DateWritable.dateToDays(vDate));
+                recordConsumer.addInteger(vDate.toEpochDay());
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported primitive data type: " + inspector.getPrimitiveCategory());
         }
     }
 
-    private Binary decimalToBinary(final HiveDecimal hiveDecimal, final DecimalTypeInfo decimalTypeInfo)
+    private Binary decimalToBinary(HiveDecimal hiveDecimal, DecimalTypeInfo decimalTypeInfo)
     {
         int prec = decimalTypeInfo.precision();
         int scale = decimalTypeInfo.scale();

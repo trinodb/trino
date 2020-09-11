@@ -32,6 +32,8 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 
+import static java.lang.String.format;
+
 public final class TestingMetastoreObjects
 {
     private TestingMetastoreObjects() {}
@@ -139,15 +141,13 @@ public final class TestingMetastoreObjects
     }
 
     private static final Consumer<Storage.Builder> STORAGE_CONSUMER = storage ->
-    {
-        storage.setStorageFormat(StorageFormat.create("SerdeLib", "InputFormat", "OutputFormat"))
-                .setLocation("/test-tbl")
-                .setBucketProperty(Optional.empty())
-                .setSerdeParameters(ImmutableMap.of());
-    };
+            storage.setStorageFormat(StorageFormat.create("SerdeLib", "InputFormat", "OutputFormat"))
+                    .setLocation("/test-tbl")
+                    .setBucketProperty(Optional.empty())
+                    .setSerdeParameters(ImmutableMap.of());
 
     private static String generateRandom()
     {
-        return String.format("%04x", ThreadLocalRandom.current().nextInt());
+        return format("%04x", ThreadLocalRandom.current().nextInt());
     }
 }

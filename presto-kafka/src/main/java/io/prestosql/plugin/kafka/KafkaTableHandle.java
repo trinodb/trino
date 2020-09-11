@@ -15,29 +15,24 @@ package io.prestosql.plugin.kafka;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Kafka specific {@link ConnectorTableHandle}.
- */
 public final class KafkaTableHandle
-        implements ConnectorTableHandle
+        implements ConnectorTableHandle, ConnectorInsertTableHandle
 {
     /**
-     * connector id
-     */
-    private final String connectorId;
-
-    /**
      * The schema name for this table. Is set through configuration and read
-     * using {@link KafkaConnectorConfig#getDefaultSchema()}. Usually 'default'.
+     * using {@link KafkaConfig#getDefaultSchema()}. Usually 'default'.
      */
     private final String schemaName;
 
@@ -55,32 +50,27 @@ public final class KafkaTableHandle
     private final String messageDataFormat;
     private final Optional<String> keyDataSchemaLocation;
     private final Optional<String> messageDataSchemaLocation;
+    private final List<KafkaColumnHandle> columns;
 
     @JsonCreator
     public KafkaTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("topicName") String topicName,
             @JsonProperty("keyDataFormat") String keyDataFormat,
             @JsonProperty("messageDataFormat") String messageDataFormat,
             @JsonProperty("keyDataSchemaLocation") Optional<String> keyDataSchemaLocation,
-            @JsonProperty("messageDataSchemaLocation") Optional<String> messageDataSchemaLocation)
+            @JsonProperty("messageDataSchemaLocation") Optional<String> messageDataSchemaLocation,
+            @JsonProperty("columns") List<KafkaColumnHandle> columns)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.topicName = requireNonNull(topicName, "topicName is null");
         this.keyDataFormat = requireNonNull(keyDataFormat, "keyDataFormat is null");
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
-        this.keyDataSchemaLocation = keyDataSchemaLocation;
-        this.messageDataSchemaLocation = messageDataSchemaLocation;
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
+        this.keyDataSchemaLocation = requireNonNull(keyDataSchemaLocation, "keyDataSchemaLocation is null");
+        this.messageDataSchemaLocation = requireNonNull(messageDataSchemaLocation, "messageDataSchemaLocation is null");
+        this.columns = requireNonNull(ImmutableList.copyOf(columns), "columns is null");
     }
 
     @JsonProperty
@@ -125,6 +115,12 @@ public final class KafkaTableHandle
         return keyDataSchemaLocation;
     }
 
+    @JsonProperty
+    public List<KafkaColumnHandle> getColumns()
+    {
+        return columns;
+    }
+
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -133,7 +129,7 @@ public final class KafkaTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schemaName, tableName, topicName, keyDataFormat, messageDataFormat, keyDataSchemaLocation, messageDataSchemaLocation);
+        return Objects.hash(schemaName, tableName, topicName, keyDataFormat, messageDataFormat, keyDataSchemaLocation, messageDataSchemaLocation, columns);
     }
 
     @Override
@@ -147,21 +143,20 @@ public final class KafkaTableHandle
         }
 
         KafkaTableHandle other = (KafkaTableHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId)
-                && Objects.equals(this.schemaName, other.schemaName)
+        return Objects.equals(this.schemaName, other.schemaName)
                 && Objects.equals(this.tableName, other.tableName)
                 && Objects.equals(this.topicName, other.topicName)
                 && Objects.equals(this.keyDataFormat, other.keyDataFormat)
                 && Objects.equals(this.messageDataFormat, other.messageDataFormat)
                 && Objects.equals(this.keyDataSchemaLocation, other.keyDataSchemaLocation)
-                && Objects.equals(this.messageDataSchemaLocation, other.messageDataSchemaLocation);
+                && Objects.equals(this.messageDataSchemaLocation, other.messageDataSchemaLocation)
+                && Objects.equals(this.columns, other.columns);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
                 .add("schemaName", schemaName)
                 .add("tableName", tableName)
                 .add("topicName", topicName)
@@ -169,6 +164,7 @@ public final class KafkaTableHandle
                 .add("messageDataFormat", messageDataFormat)
                 .add("keyDataSchemaLocation", keyDataSchemaLocation)
                 .add("messageDataSchemaLocation", messageDataSchemaLocation)
+                .add("columns", columns)
                 .toString();
     }
 }

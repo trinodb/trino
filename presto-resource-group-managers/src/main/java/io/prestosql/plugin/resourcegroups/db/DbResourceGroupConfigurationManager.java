@@ -26,7 +26,6 @@ import io.prestosql.plugin.resourcegroups.ResourceGroupIdTemplate;
 import io.prestosql.plugin.resourcegroups.ResourceGroupSelector;
 import io.prestosql.plugin.resourcegroups.ResourceGroupSpec;
 import io.prestosql.plugin.resourcegroups.SelectorSpec;
-import io.prestosql.plugin.resourcegroups.VariableMap;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
 import io.prestosql.spi.resourcegroups.ResourceGroup;
@@ -42,6 +41,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -63,6 +63,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.succinctNanos;
 import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
+import static java.util.Collections.synchronizedList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
@@ -141,20 +142,20 @@ public class DbResourceGroupConfigurationManager
     }
 
     @Override
-    public void configure(ResourceGroup group, SelectionContext<VariableMap> criteria)
+    public void configure(ResourceGroup group, SelectionContext<ResourceGroupIdTemplate> criteria)
     {
-        Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry = getMatchingSpec(group, criteria);
+        ResourceGroupSpec groupSpec = getMatchingSpec(group, criteria);
         if (groups.putIfAbsent(group.getId(), group) == null) {
             // If a new spec replaces the spec returned from getMatchingSpec the group will be reconfigured on the next run of load().
-            configuredGroups.computeIfAbsent(entry.getKey(), v -> new LinkedList<>()).add(group.getId());
+            configuredGroups.computeIfAbsent(criteria.getContext(), v -> synchronizedList(new ArrayList<>())).add(group.getId());
         }
         synchronized (getRootGroup(group.getId())) {
-            configureGroup(group, entry.getValue());
+            configureGroup(group, groupSpec);
         }
     }
 
     @Override
-    public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria)
+    public Optional<SelectionContext<ResourceGroupIdTemplate>> match(SelectionCriteria criteria)
     {
         if (lastRefresh.get() == 0) {
             throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");
@@ -254,7 +255,7 @@ public class DbResourceGroupConfigurationManager
         List<ResourceGroupSpecBuilder> records = dao.getResourceGroups(environment);
         for (ResourceGroupSpecBuilder record : records) {
             recordMap.put(record.getId(), record);
-            if (!record.getParentId().isPresent()) {
+            if (record.getParentId().isEmpty()) {
                 rootGroupIds.add(record.getId());
                 resourceGroupIdTemplateMap.put(record.getId(), new ResourceGroupIdTemplate(record.getNameTemplate().toString()));
             }
@@ -318,6 +319,7 @@ public class DbResourceGroupConfigurationManager
                 .map(selectorRecord ->
                         new SelectorSpec(
                                 selectorRecord.getUserRegex(),
+                                Optional.empty(),
                                 selectorRecord.getSourceRegex(),
                                 selectorRecord.getQueryType(),
                                 selectorRecord.getClientTags(),
@@ -332,7 +334,7 @@ public class DbResourceGroupConfigurationManager
     private synchronized void configureChangedGroups(Set<ResourceGroupIdTemplate> changedSpecs)
     {
         for (ResourceGroupIdTemplate resourceGroupIdTemplate : changedSpecs) {
-            for (ResourceGroupId resourceGroupId : configuredGroups.getOrDefault(resourceGroupIdTemplate, ImmutableList.of())) {
+            for (ResourceGroupId resourceGroupId : configuredGroups(resourceGroupIdTemplate)) {
                 synchronized (getRootGroup(resourceGroupId)) {
                     configureGroup(groups.get(resourceGroupId), resourceGroupSpecs.get(resourceGroupIdTemplate));
                 }
@@ -343,9 +345,20 @@ public class DbResourceGroupConfigurationManager
     private synchronized void disableDeletedGroups(Set<ResourceGroupIdTemplate> deletedSpecs)
     {
         for (ResourceGroupIdTemplate resourceGroupIdTemplate : deletedSpecs) {
-            for (ResourceGroupId resourceGroupId : configuredGroups.getOrDefault(resourceGroupIdTemplate, ImmutableList.of())) {
+            for (ResourceGroupId resourceGroupId : configuredGroups(resourceGroupIdTemplate)) {
                 disableGroup(groups.get(resourceGroupId));
             }
+        }
+    }
+
+    private List<ResourceGroupId> configuredGroups(ResourceGroupIdTemplate idTemplate)
+    {
+        List<ResourceGroupId> groups = configuredGroups.get(idTemplate);
+        if (groups == null) {
+            return ImmutableList.of();
+        }
+        synchronized (groups) { // configuredGroups values are synchronized lists
+            return ImmutableList.copyOf(groups);
         }
     }
 

@@ -14,7 +14,6 @@
 package io.prestosql.spiller;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
@@ -22,6 +21,7 @@ import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -30,22 +30,28 @@ public class TestNodeSpillConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(NodeSpillConfig.class)
-                .setMaxSpillPerNode(new DataSize(100, GIGABYTE))
-                .setQueryMaxSpillPerNode(new DataSize(100, GIGABYTE)));
+        assertRecordedDefaults(recordDefaults(NodeSpillConfig.class)
+                .setMaxSpillPerNode(DataSize.of(100, GIGABYTE))
+                .setQueryMaxSpillPerNode(DataSize.of(100, GIGABYTE))
+                .setSpillCompressionEnabled(false)
+                .setSpillEncryptionEnabled(false));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("experimental.max-spill-per-node", "10MB")
-                .put("experimental.query-max-spill-per-node", "15 MB")
+                .put("max-spill-per-node", "10MB")
+                .put("query-max-spill-per-node", "15 MB")
+                .put("spill-compression-enabled", "true")
+                .put("spill-encryption-enabled", "true")
                 .build();
 
         NodeSpillConfig expected = new NodeSpillConfig()
-                .setMaxSpillPerNode(new DataSize(10, MEGABYTE))
-                .setQueryMaxSpillPerNode(new DataSize(15, MEGABYTE));
+                .setMaxSpillPerNode(DataSize.of(10, MEGABYTE))
+                .setQueryMaxSpillPerNode(DataSize.of(15, MEGABYTE))
+                .setSpillCompressionEnabled(true)
+                .setSpillEncryptionEnabled(true);
 
         assertFullMapping(properties, expected);
     }

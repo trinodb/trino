@@ -19,10 +19,8 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public class RecordPageSource
@@ -42,7 +40,7 @@ public class RecordPageSource
     public RecordPageSource(List<Type> types, RecordCursor cursor)
     {
         this.cursor = requireNonNull(cursor, "cursor is null");
-        this.types = unmodifiableList(new ArrayList<>(requireNonNull(types, "types is null")));
+        this.types = List.copyOf(requireNonNull(types, "types is null"));
         this.pageBuilder = new PageBuilder(this.types);
     }
 
@@ -86,12 +84,7 @@ public class RecordPageSource
     public Page getNextPage()
     {
         if (!closed) {
-            int i;
-            for (i = 0; i < ROWS_PER_REQUEST; i++) {
-                if (pageBuilder.isFull()) {
-                    break;
-                }
-
+            for (int i = 0; i < ROWS_PER_REQUEST && !pageBuilder.isFull(); i++) {
                 if (!cursor.advanceNextPosition()) {
                     closed = true;
                     break;
@@ -128,13 +121,12 @@ public class RecordPageSource
         }
 
         // only return a page if the buffer is full or we are finishing
-        if (pageBuilder.isEmpty() || (!closed && !pageBuilder.isFull())) {
-            return null;
+        if ((closed && !pageBuilder.isEmpty()) || pageBuilder.isFull()) {
+            Page page = pageBuilder.build();
+            pageBuilder.reset();
+            return page;
         }
 
-        Page page = pageBuilder.build();
-        pageBuilder.reset();
-
-        return page;
+        return null;
     }
 }

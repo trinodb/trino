@@ -14,13 +14,15 @@
 package io.prestosql.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
+import io.prestosql.plugin.hive.AcidInfo;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePartitionKey;
 import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
-import io.prestosql.plugin.hive.HiveTypeName;
 import io.prestosql.plugin.hive.InternalHiveSplit;
 import io.prestosql.plugin.hive.InternalHiveSplit.InternalHiveBlock;
-import io.prestosql.plugin.hive.S3SelectPushdown;
+import io.prestosql.plugin.hive.TableToPartitionMapping;
+import io.prestosql.plugin.hive.s3select.S3SelectPushdown;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -35,17 +37,19 @@ import org.apache.hadoop.mapred.InputFormat;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
+import java.util.function.BooleanSupplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.hive.HiveColumnHandle.isPathColumnHandle;
-import static io.prestosql.plugin.hive.HiveUtil.isSplittable;
+import static io.prestosql.plugin.hive.util.HiveUtil.isSplittable;
 import static java.util.Objects.requireNonNull;
 
 public class InternalHiveSplitFactory
@@ -56,8 +60,10 @@ public class InternalHiveSplitFactory
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
     private final Optional<Domain> pathDomain;
-    private final Map<Integer, HiveTypeName> columnCoercions;
+    private final TableToPartitionMapping tableToPartitionMapping;
+    private final BooleanSupplier partitionMatchSupplier;
     private final Optional<BucketConversion> bucketConversion;
+    private final long minimumTargetSplitSizeInBytes;
     private final boolean forceLocalScheduling;
     private final boolean s3SelectPushdownEnabled;
 
@@ -68,8 +74,10 @@ public class InternalHiveSplitFactory
             Properties schema,
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            Map<Integer, HiveTypeName> columnCoercions,
+            BooleanSupplier partitionMatchSupplier,
+            TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
+            DataSize minimumTargetSplitSize,
             boolean forceLocalScheduling,
             boolean s3SelectPushdownEnabled)
     {
@@ -79,10 +87,13 @@ public class InternalHiveSplitFactory
         this.schema = requireNonNull(schema, "schema is null");
         this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
         pathDomain = getPathDomain(requireNonNull(effectivePredicate, "effectivePredicate is null"));
-        this.columnCoercions = requireNonNull(columnCoercions, "columnCoercions is null");
+        this.partitionMatchSupplier = requireNonNull(partitionMatchSupplier, "partitionMatchSupplier is null");
+        this.tableToPartitionMapping = requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
         this.forceLocalScheduling = forceLocalScheduling;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
+        this.minimumTargetSplitSizeInBytes = requireNonNull(minimumTargetSplitSize, "minimumTargetSplitSize is null").toBytes();
+        checkArgument(minimumTargetSplitSizeInBytes > 0, "minimumTargetSplitSize must be > 0, found: %s", minimumTargetSplitSize);
     }
 
     public String getPartitionName()
@@ -90,27 +101,21 @@ public class InternalHiveSplitFactory
         return partitionName;
     }
 
-    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, boolean splittable)
+    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt bucketNumber, boolean splittable, Optional<AcidInfo> acidInfo)
     {
-        return createInternalHiveSplit(status, OptionalInt.empty(), splittable);
-    }
-
-    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, int bucketNumber)
-    {
-        return createInternalHiveSplit(status, OptionalInt.of(bucketNumber), false);
-    }
-
-    private Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt bucketNumber, boolean splittable)
-    {
-        splittable = splittable && isSplittable(inputFormat, fileSystem, status.getPath());
+        splittable = splittable &&
+                status.getLen() > minimumTargetSplitSizeInBytes &&
+                isSplittable(inputFormat, fileSystem, status.getPath());
         return createInternalHiveSplit(
                 status.getPath(),
                 status.getBlockLocations(),
                 0,
                 status.getLen(),
                 status.getLen(),
+                status.getModificationTime(),
                 bucketNumber,
-                splittable);
+                splittable,
+                acidInfo);
     }
 
     public Optional<InternalHiveSplit> createInternalHiveSplit(FileSplit split)
@@ -123,8 +128,10 @@ public class InternalHiveSplitFactory
                 split.getStart(),
                 split.getLength(),
                 file.getLen(),
+                file.getModificationTime(),
                 OptionalInt.empty(),
-                false);
+                false,
+                Optional.empty());
     }
 
     private Optional<InternalHiveSplit> createInternalHiveSplit(
@@ -133,11 +140,19 @@ public class InternalHiveSplitFactory
             long start,
             long length,
             long fileSize,
+            long fileModificationTime,
             OptionalInt bucketNumber,
-            boolean splittable)
+            boolean splittable,
+            Optional<AcidInfo> acidInfo)
     {
         String pathString = path.toString();
         if (!pathMatchesPredicate(pathDomain, pathString)) {
+            return Optional.empty();
+        }
+
+        // Dynamic filter may not have been ready when partition was loaded in BackgroundHiveSplitLoader,
+        // but it might be ready when splits are enumerated lazily.
+        if (!partitionMatchSupplier.getAsBoolean()) {
             return Optional.empty();
         }
 
@@ -181,15 +196,17 @@ public class InternalHiveSplitFactory
                 start,
                 start + length,
                 fileSize,
+                fileModificationTime,
                 schema,
                 partitionKeys,
                 blocks,
                 bucketNumber,
                 splittable,
-                forceLocalScheduling && allBlocksHaveRealAddress(blocks),
-                columnCoercions,
+                forceLocalScheduling && allBlocksHaveAddress(blocks),
+                tableToPartitionMapping,
                 bucketConversion,
-                s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path)));
+                s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),
+                acidInfo));
     }
 
     private static void checkBlocks(List<InternalHiveBlock> blocks, long start, long length)
@@ -203,51 +220,45 @@ public class InternalHiveSplitFactory
         }
     }
 
-    private static boolean allBlocksHaveRealAddress(List<InternalHiveBlock> blocks)
+    private static boolean allBlocksHaveAddress(Collection<InternalHiveBlock> blocks)
     {
         return blocks.stream()
                 .map(InternalHiveBlock::getAddresses)
-                .allMatch(InternalHiveSplitFactory::hasRealAddress);
-    }
-
-    private static boolean hasRealAddress(List<HostAddress> addresses)
-    {
-        // Hadoop FileSystem returns "localhost" as a default
-        return addresses.stream().anyMatch(address -> !address.getHostText().equals("localhost"));
+                .noneMatch(List::isEmpty);
     }
 
     private static List<HostAddress> getHostAddresses(BlockLocation blockLocation)
     {
-        String[] hosts;
+        // Hadoop FileSystem returns "localhost" as a default
+        return Arrays.stream(getBlockHosts(blockLocation))
+                .map(HostAddress::fromString)
+                .filter(address -> !address.getHostText().equals("localhost"))
+                .collect(toImmutableList());
+    }
+
+    private static String[] getBlockHosts(BlockLocation blockLocation)
+    {
         try {
-            hosts = blockLocation.getHosts();
+            return blockLocation.getHosts();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        return Arrays.stream(hosts)
-                .map(HostAddress::fromString)
-                .collect(toImmutableList());
     }
 
     private static Optional<Domain> getPathDomain(TupleDomain<HiveColumnHandle> effectivePredicate)
     {
-        if (!effectivePredicate.getDomains().isPresent()) {
-            return Optional.empty();
-        }
-
-        return effectivePredicate.getDomains().get().entrySet().stream()
-                .filter(entry -> isPathColumnHandle(entry.getKey()))
-                .findFirst()
-                .map(Map.Entry::getValue);
+        return effectivePredicate.getDomains()
+                .flatMap(domains -> domains.entrySet().stream()
+                        .filter(entry -> isPathColumnHandle(entry.getKey()))
+                        .map(Map.Entry::getValue)
+                        .findFirst());
     }
 
     private static boolean pathMatchesPredicate(Optional<Domain> pathDomain, String path)
     {
-        if (!pathDomain.isPresent()) {
-            return true;
-        }
-
-        return pathDomain.get().includesNullableValue(utf8Slice(path));
+        return pathDomain
+                .map(domain -> domain.includesNullableValue(utf8Slice(path)))
+                .orElse(true);
     }
 }

@@ -20,7 +20,9 @@ public interface DiscreteValues
     /**
      * @return true if the values are to be included, false if the values are to be excluded
      */
-    boolean isWhiteList();
+    boolean isInclusive();
 
     Collection<Object> getValues();
+
+    int getValuesCount();
 }

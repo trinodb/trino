@@ -18,6 +18,7 @@ import io.prestosql.orc.OrcOutputBuffer;
 import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
 import io.prestosql.orc.checkpoint.ByteStreamCheckpoint;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcColumnId;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
@@ -48,7 +49,7 @@ public class BooleanOutputStream
         this(new ByteOutputStream(buffer));
     }
 
-    public BooleanOutputStream(ByteOutputStream byteOutputStream)
+    private BooleanOutputStream(ByteOutputStream byteOutputStream)
     {
         this.byteOutputStream = byteOutputStream;
     }
@@ -155,10 +156,10 @@ public class BooleanOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column)
+    public StreamDataOutput getStreamDataOutput(OrcColumnId columnId)
     {
         checkState(closed);
-        return byteOutputStream.getStreamDataOutput(column);
+        return byteOutputStream.getStreamDataOutput(columnId);
     }
 
     @Override

@@ -14,26 +14,20 @@
 package io.prestosql.plugin.hive.util;
 
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcPredicate;
 import io.prestosql.orc.OrcReader;
+import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcEncoding.ORC;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static java.util.Objects.requireNonNull;
@@ -42,36 +36,25 @@ import static org.joda.time.DateTimeZone.UTC;
 public class TempFileReader
         extends AbstractIterator<Page>
 {
-    private final List<Type> types;
     private final OrcRecordReader reader;
 
     public TempFileReader(List<Type> types, OrcDataSource dataSource)
     {
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        requireNonNull(types, "types is null");
 
         try {
-            OrcReader orcReader = new OrcReader(
-                    dataSource,
-                    ORC,
-                    new DataSize(1, MEGABYTE),
-                    new DataSize(8, MEGABYTE),
-                    new DataSize(8, MEGABYTE),
-                    new DataSize(16, MEGABYTE));
-
-            Map<Integer, Type> includedColumns = new HashMap<>();
-            for (int i = 0; i < types.size(); i++) {
-                includedColumns.put(i, types.get(i));
-            }
-
+            OrcReader orcReader = new OrcReader(dataSource, new OrcReaderOptions());
             reader = orcReader.createRecordReader(
-                    includedColumns,
+                    orcReader.getRootColumn().getNestedColumns(),
+                    types,
                     OrcPredicate.TRUE,
                     UTC,
                     newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
+                    INITIAL_BATCH_SIZE,
+                    TempFileReader::handleException);
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_WRITER_DATA_ERROR, "Failed to read temporary data");
+            throw handleException(e);
         }
     }
 
@@ -83,19 +66,21 @@ public class TempFileReader
                 throw new InterruptedIOException();
             }
 
-            int batchSize = reader.nextBatch();
-            if (batchSize <= 0) {
+            Page page = reader.nextPage();
+            if (page == null) {
                 return endOfData();
             }
 
-            Block[] blocks = new Block[types.size()];
-            for (int i = 0; i < types.size(); i++) {
-                blocks[i] = reader.readBlock(types.get(i), i).getLoadedBlock();
-            }
-            return new Page(batchSize, blocks);
+            // eagerly load the page
+            return page.getLoadedPage();
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_WRITER_DATA_ERROR, "Failed to read temporary data");
+            throw handleException(e);
         }
+    }
+
+    private static PrestoException handleException(Exception e)
+    {
+        return new PrestoException(HIVE_WRITER_DATA_ERROR, "Failed to read temporary data", e);
     }
 }

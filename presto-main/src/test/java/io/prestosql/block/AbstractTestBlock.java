@@ -18,15 +18,12 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
-import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.block.DictionaryId;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
+import io.prestosql.spi.block.MapHashTables;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
@@ -44,6 +41,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -60,16 +58,13 @@ import static org.testng.Assert.fail;
 @Test
 public abstract class AbstractTestBlock
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new BlockEncodingManager(TYPE_MANAGER);
-
-    static {
-        // associate TYPE_MANAGER with a function registry
-        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
+    private static final Metadata METADATA = createTestMetadataManager();
 
     protected <T> void assertBlock(Block block, Supplier<BlockBuilder> newBlockBuilder, T[] expectedValues)
     {
+        assertBlockSize(block);
+        assertRetainedSize(block);
+
         assertBlockPositions(block, newBlockBuilder, expectedValues);
         assertBlockPositions(copyBlockViaBlockSerde(block), newBlockBuilder, expectedValues);
         assertBlockPositions(copyBlockViaWritePositionTo(block, newBlockBuilder), newBlockBuilder, expectedValues);
@@ -153,6 +148,9 @@ public abstract class AbstractTestBlock
                 }
                 else if (type == DictionaryId.class) {
                     retainedSize += ClassLayout.parseClass(DictionaryId.class).instanceSize();
+                }
+                else if (type == MapHashTables.class) {
+                    retainedSize += ((MapHashTables) field.get(block)).getRetainedSizeInBytes();
                 }
                 else if (type == MethodHandle.class) {
                     // MethodHandles are only used in MapBlock/MapBlockBuilder,
@@ -303,10 +301,18 @@ public abstract class AbstractTestBlock
                 }
             }
 
+            if (isAlignedLongAccessSupported()) {
+                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_LONG; offset += SIZE_OF_LONG) {
+                    assertEquals(block.getLong(position, offset), expectedSliceValue.getLong(offset));
+                }
+            }
+
             if (isSliceAccessSupported()) {
                 assertEquals(block.getSliceLength(position), expectedSliceValue.length());
                 assertSlicePosition(block, position, expectedSliceValue);
             }
+
+            assertPositionEquals(block, position, expectedSliceValue);
         }
         else if (expectedValue instanceof long[]) {
             Block actual = block.getObject(position, Block.class);
@@ -386,16 +392,27 @@ public abstract class AbstractTestBlock
         return true;
     }
 
+    protected boolean isAlignedLongAccessSupported()
+    {
+        return false;
+    }
+
     protected boolean isSliceAccessSupported()
     {
         return true;
     }
 
+    // Subclasses can implement this method to customize how the position is compared
+    // with the expected bytes
+    protected void assertPositionEquals(Block block, int position, Slice expectedBytes)
+    {
+    }
+
     private static Block copyBlockViaBlockSerde(Block block)
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BLOCK_ENCODING_SERDE.writeBlock(sliceOutput, block);
-        return BLOCK_ENCODING_SERDE.readBlock(sliceOutput.slice().getInput());
+        METADATA.getBlockEncodingSerde().writeBlock(sliceOutput, block);
+        return METADATA.getBlockEncodingSerde().readBlock(sliceOutput.slice().getInput());
     }
 
     private static Block copyBlockViaWritePositionTo(Block block, Supplier<BlockBuilder> newBlockBuilder)

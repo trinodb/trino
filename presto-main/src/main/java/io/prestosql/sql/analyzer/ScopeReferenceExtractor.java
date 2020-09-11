@@ -27,7 +27,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Extract expressions that are references to a given scope.
  */
-class ScopeReferenceExtractor
+final class ScopeReferenceExtractor
 {
     private ScopeReferenceExtractor() {}
 
@@ -38,7 +38,7 @@ class ScopeReferenceExtractor
 
     public static Stream<Expression> getReferencesToScope(Node node, Analysis analysis, Scope scope)
     {
-        Map<NodeRef<Expression>, FieldId> columnReferences = analysis.getColumnReferenceFields();
+        Map<NodeRef<Expression>, ResolvedField> columnReferences = analysis.getColumnReferenceFields();
 
         return AstUtils.preOrder(node)
                 .filter(Expression.class::isInstance)
@@ -47,15 +47,15 @@ class ScopeReferenceExtractor
                 .filter(expression -> isReferenceToScope(expression, scope, columnReferences));
     }
 
-    private static boolean isReferenceToScope(Expression node, Scope scope, Map<NodeRef<Expression>, FieldId> columnReferences)
+    private static boolean isReferenceToScope(Expression node, Scope scope, Map<NodeRef<Expression>, ResolvedField> columnReferences)
     {
-        FieldId fieldId = columnReferences.get(NodeRef.of(node));
-        requireNonNull(fieldId, () -> "No FieldId for " + node);
-        return isFieldFromScope(fieldId, scope);
+        ResolvedField field = columnReferences.get(NodeRef.of(node));
+        requireNonNull(field, () -> "No Field for " + node);
+        return isFieldFromScope(field.getFieldId(), scope);
     }
 
-    public static boolean isFieldFromScope(FieldId fieldId, Scope scope)
+    public static boolean isFieldFromScope(FieldId field, Scope scope)
     {
-        return Objects.equals(fieldId.getRelationId(), scope.getRelationId());
+        return Objects.equals(field.getRelationId(), scope.getRelationId());
     }
 }

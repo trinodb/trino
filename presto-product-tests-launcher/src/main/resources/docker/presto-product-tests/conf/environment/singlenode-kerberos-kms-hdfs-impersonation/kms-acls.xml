@@ -1,0 +1,22 @@
+<configuration>
+     <property>
+        <name>default.key.acl.ALL</name>
+        <value>hdfs,hive,alice</value>
+    </property>
+    <property>
+        <name>default.key.acl.MANAGEMENT</name>
+        <value>hdfs,hive,alice</value>
+    </property>
+    <property>
+        <name>default.key.acl.READ</name>
+        <value>hdfs,hive,alice</value>
+    </property>
+    <property>
+        <name>default.key.acl.GENERATE_EEK</name>
+        <value>hdfs,hive,alice</value>
+    </property>
+    <property>
+        <name>default.key.acl.DECRYPT_EEK</name>
+        <value>hdfs,hive,alice</value>
+    </property>
+</configuration>

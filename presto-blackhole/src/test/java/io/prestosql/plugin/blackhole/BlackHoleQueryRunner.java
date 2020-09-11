@@ -18,7 +18,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.testing.DistributedQueryRunner;
 
 import java.util.Map;
 
@@ -43,7 +43,10 @@ public final class BlackHoleQueryRunner
                 .setSchema("default")
                 .build();
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 4, extraProperties);
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                .setNodeCount(4)
+                .setExtraProperties(extraProperties)
+                .build();
 
         try {
             queryRunner.installPlugin(new BlackHolePlugin());

@@ -23,9 +23,7 @@ import static io.prestosql.spi.function.OperatorType.CAST;
 
 public final class HyperLogLogOperators
 {
-    private HyperLogLogOperators()
-    {
-    }
+    private HyperLogLogOperators() {}
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.VARBINARY)

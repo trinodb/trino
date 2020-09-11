@@ -13,7 +13,7 @@
  */
 package io.prestosql.execution;
 
-import io.prestosql.spi.Node;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.spi.QueryId;
 
 import java.net.URI;
@@ -22,11 +22,9 @@ public interface LocationFactory
 {
     URI createQueryLocation(QueryId queryId);
 
-    URI createStageLocation(StageId stageId);
-
     URI createLocalTaskLocation(TaskId taskId);
 
-    URI createTaskLocation(Node node, TaskId taskId);
+    URI createTaskLocation(InternalNode node, TaskId taskId);
 
-    URI createMemoryInfoLocation(Node node);
+    URI createMemoryInfoLocation(InternalNode node);
 }

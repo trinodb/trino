@@ -36,7 +36,7 @@ import javax.inject.Inject;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_NODES;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class TaskSystemTable
@@ -70,12 +70,13 @@ public class TaskSystemTable
             .column("output_bytes", BIGINT)
             .column("output_rows", BIGINT)
 
+            .column("physical_input_bytes", BIGINT)
             .column("physical_written_bytes", BIGINT)
 
-            .column("created", TIMESTAMP)
-            .column("start", TIMESTAMP)
-            .column("last_heartbeat", TIMESTAMP)
-            .column("end", TIMESTAMP)
+            .column("created", TIMESTAMP_MILLIS)
+            .column("start", TIMESTAMP_MILLIS)
+            .column("last_heartbeat", TIMESTAMP_MILLIS)
+            .column("end", TIMESTAMP_MILLIS)
             .build();
 
     private final TaskManager taskManager;
@@ -133,6 +134,7 @@ public class TaskSystemTable
                     toBytes(stats.getOutputDataSize()),
                     stats.getOutputPositions(),
 
+                    toBytes(stats.getPhysicalInputDataSize()),
                     toBytes(stats.getPhysicalWrittenDataSize()),
 
                     toTimeStamp(stats.getCreateTime()),

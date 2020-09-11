@@ -15,36 +15,61 @@ package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.memory.context.MemoryTrackingContext;
+import io.prestosql.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
 import io.prestosql.operator.SetBuilderOperator.SetSupplier;
+import io.prestosql.operator.WorkProcessor.TransformationState;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.airlift.concurrent.MoreFutures.checkSuccess;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.prestosql.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
+import static io.prestosql.operator.WorkProcessor.TransformationState.blocked;
+import static io.prestosql.operator.WorkProcessor.TransformationState.finished;
+import static io.prestosql.operator.WorkProcessor.TransformationState.ofResult;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public class HashSemiJoinOperator
-        implements Operator
+        implements WorkProcessorOperator
 {
-    private final OperatorContext operatorContext;
+    public static OperatorFactory createOperatorFactory(
+            int operatorId,
+            PlanNodeId planNodeId,
+            SetSupplier setSupplier,
+            List<? extends Type> probeTypes,
+            int probeJoinChannel,
+            Optional<Integer> probeJoinHashChannel)
+    {
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel, probeJoinHashChannel));
+    }
 
-    public static class HashSemiJoinOperatorFactory
-            implements OperatorFactory
+    private static class Factory
+            implements BasicAdapterWorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final SetSupplier setSupplier;
         private final List<Type> probeTypes;
         private final int probeJoinChannel;
+        private final Optional<Integer> probeJoinHashChannel;
         private boolean closed;
 
-        public HashSemiJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel)
+        private Factory(int operatorId, PlanNodeId planNodeId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel, Optional<Integer> probeJoinHashChannel)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -52,129 +77,145 @@ public class HashSemiJoinOperator
             this.probeTypes = ImmutableList.copyOf(probeTypes);
             checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
             this.probeJoinChannel = probeJoinChannel;
+            this.probeJoinHashChannel = probeJoinHashChannel;
         }
 
         @Override
-        public Operator createOperator(DriverContext driverContext)
+        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashSemiJoinOperator.class.getSimpleName());
-            return new HashSemiJoinOperator(operatorContext, setSupplier, probeJoinChannel);
+            return new HashSemiJoinOperator(sourcePages, setSupplier, probeJoinChannel, probeJoinHashChannel, processorContext.getMemoryTrackingContext());
         }
 
         @Override
-        public void noMoreOperators()
+        public int getOperatorId()
+        {
+            return operatorId;
+        }
+
+        @Override
+        public PlanNodeId getPlanNodeId()
+        {
+            return planNodeId;
+        }
+
+        @Override
+        public String getOperatorType()
+        {
+            return HashSemiJoinOperator.class.getSimpleName();
+        }
+
+        @Override
+        public void close()
         {
             closed = true;
         }
 
         @Override
-        public OperatorFactory duplicate()
+        public Factory duplicate()
         {
-            return new HashSemiJoinOperatorFactory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel);
+            return new Factory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel, probeJoinHashChannel);
         }
     }
 
-    private final int probeJoinChannel;
-    private final ListenableFuture<ChannelSet> channelSetFuture;
+    private final WorkProcessor<Page> pages;
 
-    private ChannelSet channelSet;
-    private Page outputPage;
-    private boolean finishing;
-
-    public HashSemiJoinOperator(OperatorContext operatorContext, SetSupplier channelSetFuture, int probeJoinChannel)
+    private HashSemiJoinOperator(
+            WorkProcessor<Page> sourcePages,
+            SetSupplier channelSetFuture,
+            int probeJoinChannel,
+            Optional<Integer> probeHashChannel,
+            MemoryTrackingContext memoryTrackingContext)
     {
-        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-
-        // todo pass in desired projection
-        requireNonNull(channelSetFuture, "hashProvider is null");
-        checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
-
-        this.channelSetFuture = channelSetFuture.getChannelSet();
-        this.probeJoinChannel = probeJoinChannel;
+        pages = sourcePages
+                .transform(new SemiJoinPages(
+                        channelSetFuture,
+                        probeJoinChannel,
+                        probeHashChannel,
+                        requireNonNull(memoryTrackingContext, "memoryTrackingContext is null").aggregateUserMemoryContext()));
     }
 
     @Override
-    public OperatorContext getOperatorContext()
+    public WorkProcessor<Page> getOutputPages()
     {
-        return operatorContext;
+        return pages;
     }
 
-    @Override
-    public void finish()
+    private static class SemiJoinPages
+            implements WorkProcessor.Transformation<Page, Page>
     {
-        finishing = true;
-    }
+        private final int probeJoinChannel;
+        private final ListenableFuture<ChannelSet> channelSetFuture;
+        private final Optional<Integer> probeHashChannel;
+        private final LocalMemoryContext localMemoryContext;
 
-    @Override
-    public boolean isFinished()
-    {
-        return finishing && outputPage == null;
-    }
+        @Nullable
+        private ChannelSet channelSet;
 
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return channelSetFuture;
-    }
+        public SemiJoinPages(SetSupplier channelSetFuture, int probeJoinChannel, Optional<Integer> probeHashChannel, AggregatedMemoryContext aggregatedMemoryContext)
+        {
+            checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
 
-    @Override
-    public boolean needsInput()
-    {
-        if (finishing || outputPage != null) {
-            return false;
+            this.channelSetFuture = requireNonNull(channelSetFuture, "hashProvider is null").getChannelSet();
+            this.probeJoinChannel = probeJoinChannel;
+            this.probeHashChannel = requireNonNull(probeHashChannel, "hashChannel is null");
+            this.localMemoryContext = requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext is null").newLocalMemoryContext(SemiJoinPages.class.getSimpleName());
         }
 
-        if (channelSet == null) {
-            channelSet = tryGetFutureValue(channelSetFuture).orElse(null);
-        }
-        return channelSet != null;
-    }
+        @Override
+        public TransformationState<Page> process(Page inputPage)
+        {
+            if (inputPage == null) {
+                return finished();
+            }
 
-    @Override
-    public void addInput(Page page)
-    {
-        requireNonNull(page, "page is null");
-        checkState(!finishing, "Operator is finishing");
-        checkState(channelSet != null, "Set has not been built yet");
-        checkState(outputPage == null, "Operator still has pending output");
+            if (channelSet == null) {
+                if (!channelSetFuture.isDone()) {
+                    // This will materialize page but it shouldn't matter for the first page
+                    localMemoryContext.setBytes(inputPage.getSizeInBytes());
+                    return blocked(channelSetFuture);
+                }
+                checkSuccess(channelSetFuture, "ChannelSet building failed");
+                channelSet = getFutureValue(channelSetFuture);
+                localMemoryContext.setBytes(0);
+            }
 
-        // create the block builder for the new boolean column
-        // we know the exact size required for the block
-        BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(page.getPositionCount());
+            // create the block builder for the new boolean column
+            // we know the exact size required for the block
+            BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(inputPage.getPositionCount());
 
-        Page probeJoinPage = new Page(page.getBlock(probeJoinChannel));
+            Page probeJoinPage = new Page(inputPage.getBlock(probeJoinChannel));
+            Optional<Block> hashBlock = probeHashChannel.map(inputPage::getBlock);
 
-        // update hashing strategy to use probe cursor
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            if (probeJoinPage.getBlock(0).isNull(position)) {
-                if (channelSet.isEmpty()) {
-                    BOOLEAN.writeBoolean(blockBuilder, false);
+            // update hashing strategy to use probe cursor
+            for (int position = 0; position < inputPage.getPositionCount(); position++) {
+                if (probeJoinPage.getBlock(0).isNull(position)) {
+                    if (channelSet.isEmpty()) {
+                        BOOLEAN.writeBoolean(blockBuilder, false);
+                    }
+                    else {
+                        blockBuilder.appendNull();
+                    }
                 }
                 else {
-                    blockBuilder.appendNull();
+                    boolean contains;
+                    if (hashBlock.isPresent()) {
+                        long rawHash = BIGINT.getLong(hashBlock.get(), position);
+                        contains = channelSet.contains(position, probeJoinPage, rawHash);
+                    }
+                    else {
+                        contains = channelSet.contains(position, probeJoinPage);
+                    }
+                    if (!contains && channelSet.containsNull()) {
+                        blockBuilder.appendNull();
+                    }
+                    else {
+                        BOOLEAN.writeBoolean(blockBuilder, contains);
+                    }
                 }
             }
-            else {
-                boolean contains = channelSet.contains(position, probeJoinPage);
-                if (!contains && channelSet.containsNull()) {
-                    blockBuilder.appendNull();
-                }
-                else {
-                    BOOLEAN.writeBoolean(blockBuilder, contains);
-                }
-            }
+            // add the new boolean column to the page
+            return ofResult(inputPage.appendColumn(blockBuilder.build()));
         }
-
-        // add the new boolean column to the page
-        outputPage = page.appendColumn(blockBuilder.build());
-    }
-
-    @Override
-    public Page getOutput()
-    {
-        Page result = outputPage;
-        outputPage = null;
-        return result;
     }
 }

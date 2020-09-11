@@ -15,14 +15,22 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.assertions.PlanAssert;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
+import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.JoinNode.EquiJoinClause;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
+import io.prestosql.sql.tree.ArithmeticUnaryExpression;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.LongLiteral;
@@ -32,22 +40,32 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.prestosql.cost.PlanNodeStatsEstimate.unknown;
+import static io.prestosql.cost.StatsAndCosts.empty;
+import static io.prestosql.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.prestosql.sql.ExpressionUtils.and;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
 import static io.prestosql.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode.toMultiJoinNode;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.SUBTRACT;
+import static io.prestosql.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestJoinNodeFlattener
 {
@@ -58,7 +76,7 @@ public class TestJoinNodeFlattener
     @BeforeClass
     public void setUp()
     {
-        queryRunner = new LocalQueryRunner(testSessionBuilder().build());
+        queryRunner = LocalQueryRunner.create(testSessionBuilder().build());
     }
 
     @AfterClass(alwaysRun = true)
@@ -71,7 +89,8 @@ public class TestJoinNodeFlattener
     @Test(expectedExceptions = IllegalStateException.class)
     public void testDoesNotAllowOuterJoin()
     {
-        PlanBuilder p = planBuilder();
+        PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
+        PlanBuilder p = planBuilder(planNodeIdAllocator);
         Symbol a1 = p.symbol("A1");
         Symbol b1 = p.symbol("B1");
         JoinNode outerJoin = p.join(
@@ -79,15 +98,17 @@ public class TestJoinNodeFlattener
                 p.values(a1),
                 p.values(b1),
                 ImmutableList.of(equiJoinClause(a1, b1)),
-                ImmutableList.of(a1, b1),
+                ImmutableList.of(a1),
+                ImmutableList.of(b1),
                 Optional.empty());
-        toMultiJoinNode(outerJoin, noLookup(), DEFAULT_JOIN_LIMIT);
+        toMultiJoinNode(queryRunner.getMetadata(), outerJoin, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false);
     }
 
     @Test
     public void testDoesNotConvertNestedOuterJoins()
     {
-        PlanBuilder p = planBuilder();
+        PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
+        PlanBuilder p = planBuilder(planNodeIdAllocator);
         Symbol a1 = p.symbol("A1");
         Symbol b1 = p.symbol("B1");
         Symbol c1 = p.symbol("C1");
@@ -96,7 +117,8 @@ public class TestJoinNodeFlattener
                 p.values(a1),
                 p.values(b1),
                 ImmutableList.of(equiJoinClause(a1, b1)),
-                ImmutableList.of(a1, b1),
+                ImmutableList.of(a1),
+                ImmutableList.of(b1),
                 Optional.empty());
         ValuesNode valuesC = p.values(c1);
         JoinNode joinNode = p.join(
@@ -104,20 +126,109 @@ public class TestJoinNodeFlattener
                 leftJoin,
                 valuesC,
                 ImmutableList.of(equiJoinClause(a1, c1)),
-                ImmutableList.of(a1, b1, c1),
+                ImmutableList.of(a1, b1),
+                ImmutableList.of(c1),
                 Optional.empty());
 
         MultiJoinNode expected = MultiJoinNode.builder()
                 .setSources(leftJoin, valuesC).setFilter(createEqualsExpression(a1, c1))
                 .setOutputSymbols(a1, b1, c1)
                 .build();
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
+        assertEquals(toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false), expected);
+    }
+
+    @Test
+    public void testPushesProjectionsThroughJoin()
+    {
+        PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
+        PlanBuilder p = planBuilder(planNodeIdAllocator);
+        Symbol a = p.symbol("A");
+        Symbol b = p.symbol("B");
+        Symbol c = p.symbol("C");
+        Symbol d = p.symbol("D");
+        ValuesNode valuesA = p.values(a);
+        ValuesNode valuesB = p.values(b);
+        ValuesNode valuesC = p.values(c);
+        JoinNode joinNode = p.join(
+                INNER,
+                p.project(
+                        Assignments.of(d, new ArithmeticUnaryExpression(MINUS, a.toSymbolReference())),
+                        p.join(
+                                INNER,
+                                valuesA,
+                                valuesB,
+                                equiJoinClause(a, b))),
+                valuesC,
+                equiJoinClause(d, c));
+        MultiJoinNode actual = toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true);
+        assertEquals(actual.getOutputSymbols(), ImmutableList.of(d, c));
+        assertEquals(actual.getFilter(), and(createEqualsExpression(a, b), createEqualsExpression(d, c)));
+        assertTrue(actual.isPushedProjectionThroughJoin());
+
+        List<PlanNode> actualSources = ImmutableList.copyOf(actual.getSources());
+        assertPlan(
+                p.getTypes(),
+                actualSources.get(0),
+                node(
+                        ProjectNode.class,
+                        values("a"))
+                        .withNumberOfOutputColumns(2));
+        assertPlan(
+                p.getTypes(),
+                actualSources.get(1),
+                node(
+                        ProjectNode.class,
+                        values("b"))
+                        .withNumberOfOutputColumns(1));
+        assertPlan(p.getTypes(), actualSources.get(2), values("c"));
+    }
+
+    @Test
+    public void testDoesNotPushStraddlingProjection()
+    {
+        PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
+        PlanBuilder p = planBuilder(planNodeIdAllocator);
+        Symbol a = p.symbol("A");
+        Symbol b = p.symbol("B");
+        Symbol c = p.symbol("C");
+        Symbol d = p.symbol("D");
+        ValuesNode valuesA = p.values(a);
+        ValuesNode valuesB = p.values(b);
+        ValuesNode valuesC = p.values(c);
+        JoinNode joinNode = p.join(
+                INNER,
+                p.project(
+                        Assignments.of(d, new ArithmeticBinaryExpression(SUBTRACT, a.toSymbolReference(), b.toSymbolReference())),
+                        p.join(
+                                INNER,
+                                valuesA,
+                                valuesB,
+                                equiJoinClause(a, b))),
+                valuesC,
+                equiJoinClause(d, c));
+        MultiJoinNode actual = toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true);
+        assertEquals(actual.getOutputSymbols(), ImmutableList.of(d, c));
+        assertEquals(actual.getFilter(), createEqualsExpression(d, c));
+        assertFalse(actual.isPushedProjectionThroughJoin());
+
+        List<PlanNode> actualSources = ImmutableList.copyOf(actual.getSources());
+        assertPlan(
+                p.getTypes(),
+                actualSources.get(0),
+                node(
+                        ProjectNode.class,
+                        node(JoinNode.class,
+                                values("a"),
+                                values("b")))
+                        .withNumberOfOutputColumns(1));
+        assertPlan(p.getTypes(), actualSources.get(1), values("c"));
     }
 
     @Test
     public void testRetainsOutputSymbols()
     {
-        PlanBuilder p = planBuilder();
+        PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
+        PlanBuilder p = planBuilder(planNodeIdAllocator);
         Symbol a1 = p.symbol("A1");
         Symbol b1 = p.symbol("B1");
         Symbol b2 = p.symbol("B2");
@@ -134,27 +245,26 @@ public class TestJoinNodeFlattener
                         valuesB,
                         valuesC,
                         ImmutableList.of(equiJoinClause(b1, c1)),
-                        ImmutableList.of(
-                                b1,
-                                b2,
-                                c1,
-                                c2),
+                        ImmutableList.of(b1, b2),
+                        ImmutableList.of(c1, c2),
                         Optional.empty()),
                 ImmutableList.of(equiJoinClause(a1, b1)),
-                ImmutableList.of(a1, b1),
+                ImmutableList.of(a1),
+                ImmutableList.of(b1),
                 Optional.empty());
         MultiJoinNode expected = MultiJoinNode.builder()
                 .setSources(valuesA, valuesB, valuesC)
                 .setFilter(and(createEqualsExpression(b1, c1), createEqualsExpression(a1, b1)))
                 .setOutputSymbols(a1, b1)
                 .build();
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
+        assertEquals(toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false), expected);
     }
 
     @Test
     public void testCombinesCriteriaAndFilters()
     {
-        PlanBuilder p = planBuilder();
+        PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
+        PlanBuilder p = planBuilder(planNodeIdAllocator);
         Symbol a1 = p.symbol("A1");
         Symbol b1 = p.symbol("B1");
         Symbol b2 = p.symbol("B2");
@@ -179,26 +289,26 @@ public class TestJoinNodeFlattener
                         valuesB,
                         valuesC,
                         ImmutableList.of(equiJoinClause(b1, c1)),
-                        ImmutableList.of(
-                                b1,
-                                b2,
-                                c1,
-                                c2),
+                        ImmutableList.of(b1, b2),
+                        ImmutableList.of(c1, c2),
                         Optional.of(bcFilter)),
                 ImmutableList.of(equiJoinClause(a1, b1)),
-                ImmutableList.of(a1, b1, b2, c1, c2),
+                ImmutableList.of(a1),
+                ImmutableList.of(b1, b2, c1, c2),
                 Optional.of(abcFilter));
         MultiJoinNode expected = new MultiJoinNode(
                 new LinkedHashSet<>(ImmutableList.of(valuesA, valuesB, valuesC)),
                 and(new ComparisonExpression(EQUAL, b1.toSymbolReference(), c1.toSymbolReference()), new ComparisonExpression(EQUAL, a1.toSymbolReference(), b1.toSymbolReference()), bcFilter, abcFilter),
-                ImmutableList.of(a1, b1, b2, c1, c2));
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
+                ImmutableList.of(a1, b1, b2, c1, c2),
+                false);
+        assertEquals(toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false), expected);
     }
 
     @Test
     public void testConvertsBushyTrees()
     {
-        PlanBuilder p = planBuilder();
+        PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
+        PlanBuilder p = planBuilder(planNodeIdAllocator);
         Symbol a1 = p.symbol("A1");
         Symbol b1 = p.symbol("B1");
         Symbol c1 = p.symbol("C1");
@@ -220,11 +330,13 @@ public class TestJoinNodeFlattener
                                 valuesA,
                                 valuesB,
                                 ImmutableList.of(equiJoinClause(a1, b1)),
-                                ImmutableList.of(a1, b1),
+                                ImmutableList.of(a1),
+                                ImmutableList.of(b1),
                                 Optional.empty()),
                         valuesC,
                         ImmutableList.of(equiJoinClause(a1, c1)),
-                        ImmutableList.of(a1, b1, c1),
+                        ImmutableList.of(a1, b1),
+                        ImmutableList.of(c1),
                         Optional.empty()),
                 p.join(
                         INNER,
@@ -233,34 +345,26 @@ public class TestJoinNodeFlattener
                         ImmutableList.of(
                                 equiJoinClause(d1, e1),
                                 equiJoinClause(d2, e2)),
-                        ImmutableList.of(
-                                d1,
-                                d2,
-                                e1,
-                                e2),
+                        ImmutableList.of(d1, d2),
+                        ImmutableList.of(e1, e2),
                         Optional.empty()),
                 ImmutableList.of(equiJoinClause(b1, e1)),
-                ImmutableList.of(
-                        a1,
-                        b1,
-                        c1,
-                        d1,
-                        d2,
-                        e1,
-                        e2),
+                ImmutableList.of(a1, b1, c1),
+                ImmutableList.of(d1, d2, e1, e2),
                 Optional.empty());
         MultiJoinNode expected = MultiJoinNode.builder()
                 .setSources(valuesA, valuesB, valuesC, valuesD, valuesE)
                 .setFilter(and(createEqualsExpression(a1, b1), createEqualsExpression(a1, c1), createEqualsExpression(d1, e1), createEqualsExpression(d2, e2), createEqualsExpression(b1, e1)))
                 .setOutputSymbols(a1, b1, c1, d1, d2, e1, e2)
                 .build();
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), 5), expected);
+        assertEquals(toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, 5, false), expected);
     }
 
     @Test
     public void testMoreThanJoinLimit()
     {
-        PlanBuilder p = planBuilder();
+        PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
+        PlanBuilder p = planBuilder(planNodeIdAllocator);
         Symbol a1 = p.symbol("A1");
         Symbol b1 = p.symbol("B1");
         Symbol c1 = p.symbol("C1");
@@ -278,7 +382,8 @@ public class TestJoinNodeFlattener
                 valuesA,
                 valuesB,
                 ImmutableList.of(equiJoinClause(a1, b1)),
-                ImmutableList.of(a1, b1),
+                ImmutableList.of(a1),
+                ImmutableList.of(b1),
                 Optional.empty());
         JoinNode join2 = p.join(
                 INNER,
@@ -287,11 +392,8 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(
                         equiJoinClause(d1, e1),
                         equiJoinClause(d2, e2)),
-                ImmutableList.of(
-                        d1,
-                        d2,
-                        e1,
-                        e2),
+                ImmutableList.of(d1, d2),
+                ImmutableList.of(e1, e2),
                 Optional.empty());
         JoinNode joinNode = p.join(
                 INNER,
@@ -300,25 +402,20 @@ public class TestJoinNodeFlattener
                         join1,
                         valuesC,
                         ImmutableList.of(equiJoinClause(a1, c1)),
-                        ImmutableList.of(a1, b1, c1),
+                        ImmutableList.of(a1, b1),
+                        ImmutableList.of(c1),
                         Optional.empty()),
                 join2,
                 ImmutableList.of(equiJoinClause(b1, e1)),
-                ImmutableList.of(
-                        a1,
-                        b1,
-                        c1,
-                        d1,
-                        d2,
-                        e1,
-                        e2),
+                ImmutableList.of(a1, b1, c1),
+                ImmutableList.of(d1, d2, e1, e2),
                 Optional.empty());
         MultiJoinNode expected = MultiJoinNode.builder()
                 .setSources(join1, join2, valuesC)
                 .setFilter(and(createEqualsExpression(a1, c1), createEqualsExpression(b1, e1)))
                 .setOutputSymbols(a1, b1, c1, d1, d2, e1, e2)
                 .build();
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), 2), expected);
+        assertEquals(toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, 2, false), expected);
     }
 
     private ComparisonExpression createEqualsExpression(Symbol left, Symbol right)
@@ -331,8 +428,18 @@ public class TestJoinNodeFlattener
         return new EquiJoinClause(symbol1, symbol2);
     }
 
-    private PlanBuilder planBuilder()
+    private PlanBuilder planBuilder(PlanNodeIdAllocator planNodeIdAllocator)
     {
-        return new PlanBuilder(new PlanNodeIdAllocator(), queryRunner.getMetadata());
+        return new PlanBuilder(planNodeIdAllocator, queryRunner.getMetadata());
+    }
+
+    private void assertPlan(TypeProvider typeProvider, PlanNode actual, PlanMatchPattern pattern)
+    {
+        PlanAssert.assertPlan(
+                testSessionBuilder().build(),
+                dummyMetadata(),
+                node -> unknown(),
+                new Plan(actual, typeProvider, empty()), noLookup(),
+                pattern);
     }
 }

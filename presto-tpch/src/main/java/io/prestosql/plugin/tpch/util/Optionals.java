@@ -18,7 +18,7 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 
-public class Optionals
+public final class Optionals
 {
     private Optionals() {}
 

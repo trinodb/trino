@@ -23,7 +23,6 @@ import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 
 import java.util.HashSet;
 import java.util.List;
@@ -70,42 +69,39 @@ public class SingleDistinctAggregationToGroupBy
             .matching(SingleDistinctAggregationToGroupBy::noFilters)
             .matching(SingleDistinctAggregationToGroupBy::noMasks);
 
-    private static boolean hasSingleDistinctInput(AggregationNode aggregation)
+    private static boolean hasSingleDistinctInput(AggregationNode aggregationNode)
     {
-        return extractArgumentSets(aggregation)
+        return extractArgumentSets(aggregationNode)
                 .count() == 1;
     }
 
-    private static boolean allDistinctAggregates(AggregationNode aggregation)
+    private static boolean allDistinctAggregates(AggregationNode aggregationNode)
     {
-        return aggregation.getAggregations()
+        return aggregationNode.getAggregations()
                 .values().stream()
-                .map(Aggregation::getCall)
-                .allMatch(FunctionCall::isDistinct);
+                .allMatch(Aggregation::isDistinct);
     }
 
-    private static boolean noFilters(AggregationNode aggregation)
+    private static boolean noFilters(AggregationNode aggregationNode)
     {
-        return aggregation.getAggregations()
+        return aggregationNode.getAggregations()
                 .values().stream()
-                .map(Aggregation::getCall)
-                .noneMatch(call -> call.getFilter().isPresent());
+                .noneMatch(aggregation -> aggregation.getFilter().isPresent());
     }
 
-    private static boolean noMasks(AggregationNode aggregation)
+    private static boolean noMasks(AggregationNode aggregationNode)
     {
-        return aggregation.getAggregations()
+        return aggregationNode.getAggregations()
                 .values().stream()
-                .noneMatch(e -> e.getMask().isPresent());
+                .noneMatch(aggregation -> aggregation.getMask().isPresent());
     }
 
-    private static Stream<Set<Expression>> extractArgumentSets(AggregationNode aggregation)
+    private static Stream<Set<Expression>> extractArgumentSets(AggregationNode aggregationNode)
     {
-        return aggregation.getAggregations()
+        return aggregationNode.getAggregations()
                 .values().stream()
-                .map(Aggregation::getCall)
-                .filter(FunctionCall::isDistinct)
-                .map(FunctionCall::getArguments)
+                .filter(Aggregation::isDistinct)
+                .map(Aggregation::getArguments)
                 .<Set<Expression>>map(HashSet::new)
                 .distinct();
     }
@@ -154,20 +150,16 @@ public class SingleDistinctAggregationToGroupBy
                         aggregation.getGroupIdSymbol()));
     }
 
-    private static AggregationNode.Aggregation removeDistinct(AggregationNode.Aggregation aggregation)
+    private static Aggregation removeDistinct(Aggregation aggregation)
     {
-        checkArgument(aggregation.getCall().isDistinct(), "Expected aggregation to have DISTINCT input");
+        checkArgument(aggregation.isDistinct(), "Expected aggregation to have DISTINCT input");
 
-        FunctionCall call = aggregation.getCall();
-        return new AggregationNode.Aggregation(
-                new FunctionCall(
-                        call.getName(),
-                        call.getWindow(),
-                        call.getFilter(),
-                        call.getOrderBy(),
-                        false,
-                        call.getArguments()),
-                aggregation.getSignature(),
+        return new Aggregation(
+                aggregation.getResolvedFunction(),
+                aggregation.getArguments(),
+                false,
+                aggregation.getFilter(),
+                aggregation.getOrderingScheme(),
                 aggregation.getMask());
     }
 }

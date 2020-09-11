@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -21,23 +20,22 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Predicates.not;
 import static io.prestosql.sql.planner.plan.Patterns.join;
 import static io.prestosql.util.MoreLists.filteredCopy;
 
 /**
- * Non-cross joins support output symbol selection, so absorb any project-off into the node.
+ * Joins support output symbol selection, so absorb any project-off into the node.
  */
 public class PruneJoinColumns
         extends ProjectOffPushDownRule<JoinNode>
 {
     public PruneJoinColumns()
     {
-        super(join().matching(not(JoinNode::isCrossJoin)));
+        super(join());
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, JoinNode joinNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(Context context, JoinNode joinNode, Set<Symbol> referencedOutputs)
     {
         return Optional.of(
                 new JoinNode(
@@ -46,10 +44,14 @@ public class PruneJoinColumns
                         joinNode.getLeft(),
                         joinNode.getRight(),
                         joinNode.getCriteria(),
-                        filteredCopy(joinNode.getOutputSymbols(), referencedOutputs::contains),
+                        filteredCopy(joinNode.getLeftOutputSymbols(), referencedOutputs::contains),
+                        filteredCopy(joinNode.getRightOutputSymbols(), referencedOutputs::contains),
                         joinNode.getFilter(),
                         joinNode.getLeftHashSymbol(),
                         joinNode.getRightHashSymbol(),
-                        joinNode.getDistributionType()));
+                        joinNode.getDistributionType(),
+                        joinNode.isSpillable(),
+                        joinNode.getDynamicFilters(),
+                        joinNode.getReorderJoinStatsAndCost()));
     }
 }

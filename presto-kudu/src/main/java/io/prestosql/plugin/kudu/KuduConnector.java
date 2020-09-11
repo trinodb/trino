@@ -15,13 +15,12 @@ package io.prestosql.plugin.kudu;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 import io.prestosql.plugin.kudu.properties.KuduTableProperties;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.procedure.Procedure;
@@ -40,41 +39,41 @@ import static java.util.Objects.requireNonNull;
 public class KuduConnector
         implements Connector
 {
-    private static final Logger log = Logger.get(KuduConnector.class);
-
     private final LifeCycleManager lifeCycleManager;
     private final KuduMetadata metadata;
     private final ConnectorSplitManager splitManager;
-    private final ConnectorRecordSetProvider recordSetProvider;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final KuduTableProperties tableProperties;
     private final ConnectorPageSinkProvider pageSinkProvider;
     private final Set<Procedure> procedures;
+    private final ConnectorNodePartitioningProvider nodePartitioningProvider;
+    private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
     public KuduConnector(
             LifeCycleManager lifeCycleManager,
             KuduMetadata metadata,
             ConnectorSplitManager splitManager,
-            ConnectorRecordSetProvider recordSetProvider,
             KuduTableProperties tableProperties,
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorPageSinkProvider pageSinkProvider,
-            Set<Procedure> procedures)
+            Set<Procedure> procedures,
+            ConnectorNodePartitioningProvider nodePartitioningProvider,
+            KuduSessionProperties sessionProperties)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
-        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
+        this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
+        this.sessionProperties = requireNonNull(sessionProperties, "KuduSessionProperties is null").getSessionProperties();
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel,
-            boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);
         return KuduTransactionHandle.INSTANCE;
@@ -90,12 +89,6 @@ public class KuduConnector
     public ConnectorSplitManager getSplitManager()
     {
         return splitManager;
-    }
-
-    @Override
-    public ConnectorRecordSetProvider getRecordSetProvider()
-    {
-        return recordSetProvider;
     }
 
     @Override
@@ -129,13 +122,20 @@ public class KuduConnector
     }
 
     @Override
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
+    }
+
+    @Override
+    public ConnectorNodePartitioningProvider getNodePartitioningProvider()
+    {
+        return nodePartitioningProvider;
+    }
+
+    @Override
     public final void shutdown()
     {
-        try {
-            lifeCycleManager.stop();
-        }
-        catch (Exception e) {
-            log.error(e, "Error shutting down connector");
-        }
+        lifeCycleManager.stop();
     }
 }

@@ -20,16 +20,17 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.TableLayout;
+import io.prestosql.metadata.TableProperties;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.LocalProperty;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Partitioning.ArgumentBinding;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
@@ -40,7 +41,6 @@ import io.prestosql.sql.planner.plan.GroupIdNode;
 import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.IndexSourceNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
 import io.prestosql.sql.planner.plan.OutputNode;
@@ -53,6 +53,7 @@ import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
+import io.prestosql.sql.planner.plan.TableDeleteNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -83,6 +84,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.SystemSessionProperties.isSpillEnabled;
 import static io.prestosql.spi.predicate.TupleDomain.extractFixedValues;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
@@ -95,27 +97,27 @@ public final class StreamPropertyDerivations
 {
     private StreamPropertyDerivations() {}
 
-    public static StreamProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
+    public static StreamProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
     {
         List<StreamProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, metadata, session, types, parser))
+                .map(source -> derivePropertiesRecursively(source, metadata, session, types, typeAnalyzer))
                 .collect(toImmutableList());
-        return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, types, parser);
+        return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, types, typeAnalyzer);
     }
 
-    public static StreamProperties deriveProperties(PlanNode node, StreamProperties inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
+    public static StreamProperties deriveProperties(PlanNode node, StreamProperties inputProperties, Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
     {
-        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, session, types, parser);
+        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, session, types, typeAnalyzer);
     }
 
-    public static StreamProperties deriveProperties(PlanNode node, List<StreamProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
+    public static StreamProperties deriveProperties(PlanNode node, List<StreamProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
     {
         requireNonNull(node, "node is null");
         requireNonNull(inputProperties, "inputProperties is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
-        requireNonNull(parser, "parser is null");
+        requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
         // properties.otherActualProperties will never be null here because the only way
         // an external caller should obtain StreamProperties is from this method, and the
@@ -128,7 +130,7 @@ public final class StreamPropertyDerivations
                 metadata,
                 session,
                 types,
-                parser);
+                typeAnalyzer);
 
         StreamProperties result = node.accept(new Visitor(metadata, session), inputProperties)
                 .withOtherActualProperties(otherProperties);
@@ -171,7 +173,7 @@ public final class StreamPropertyDerivations
         public StreamProperties visitJoin(JoinNode node, List<StreamProperties> inputProperties)
         {
             StreamProperties leftProperties = inputProperties.get(0);
-            boolean unordered = PropertyDerivations.spillPossible(session, node.getType());
+            boolean unordered = spillPossible(session, node);
 
             switch (node.getType()) {
                 case INNER:
@@ -201,6 +203,11 @@ public final class StreamPropertyDerivations
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
+        }
+
+        private static boolean spillPossible(Session session, JoinNode node)
+        {
+            return isSpillEnabled(session) && node.isSpillable().orElseThrow(() -> new IllegalArgumentException("spillable not yet set"));
         }
 
         @Override
@@ -248,14 +255,13 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitTableScan(TableScanNode node, List<StreamProperties> inputProperties)
         {
-            checkArgument(node.getLayout().isPresent(), "table layout has not yet been chosen");
-
-            TableLayout layout = metadata.getLayout(session, node.getLayout().get());
+            TableProperties layout = metadata.getTableProperties(session, node.getTable());
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
             // Globally constant assignments
             Set<ColumnHandle> constants = new HashSet<>();
-            extractFixedValues(node.getCurrentConstraint()).orElse(ImmutableMap.of())
+            extractFixedValues(layout.getPredicate())
+                    .orElse(ImmutableMap.of())
                     .entrySet().stream()
                     .filter(entry -> !entry.getValue().isNull())  // TODO consider allowing nulls
                     .forEach(entry -> constants.add(entry.getKey()));
@@ -395,6 +401,13 @@ public final class StreamPropertyDerivations
         }
 
         @Override
+        public StreamProperties visitTableDelete(TableDeleteNode node, List<StreamProperties> inputProperties)
+        {
+            // delete only outputs a single row count
+            return StreamProperties.singleStream();
+        }
+
+        @Override
         public StreamProperties visitDelete(DeleteNode node, List<StreamProperties> inputProperties)
         {
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
@@ -417,12 +430,23 @@ public final class StreamPropertyDerivations
 
             // We can describe properties in terms of inputs that are projected unmodified (i.e., not the unnested symbols)
             Set<Symbol> passThroughInputs = ImmutableSet.copyOf(node.getReplicateSymbols());
-            return properties.translate(column -> {
+            StreamProperties translatedProperties = properties.translate(column -> {
                 if (passThroughInputs.contains(column)) {
                     return Optional.of(column);
                 }
                 return Optional.empty();
             });
+
+            switch (node.getJoinType()) {
+                case INNER:
+                case LEFT:
+                    return translatedProperties;
+                case RIGHT:
+                case FULL:
+                    return translatedProperties.unordered(true);
+                default:
+                    throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
+            }
         }
 
         @Override
@@ -509,7 +533,7 @@ public final class StreamPropertyDerivations
         public StreamProperties visitTopN(TopNNode node, List<StreamProperties> inputProperties)
         {
             // Partial TopN doesn't guarantee that stream is ordered
-            if (node.getStep().equals(TopNNode.Step.PARTIAL)) {
+            if (node.getStep() == TopNNode.Step.PARTIAL) {
                 return Iterables.getOnlyElement(inputProperties);
             }
             return StreamProperties.ordered();
@@ -552,7 +576,7 @@ public final class StreamPropertyDerivations
         }
 
         @Override
-        public StreamProperties visitLateralJoin(LateralJoinNode node, List<StreamProperties> inputProperties)
+        public StreamProperties visitCorrelatedJoin(CorrelatedJoinNode node, List<StreamProperties> inputProperties)
         {
             throw new IllegalStateException("Unexpected node: " + node.getClass());
         }
@@ -674,7 +698,7 @@ public final class StreamPropertyDerivations
 
         public boolean isPartitionedOn(Iterable<Symbol> columns)
         {
-            if (!partitioningColumns.isPresent()) {
+            if (partitioningColumns.isEmpty()) {
                 return false;
             }
 
@@ -712,7 +736,7 @@ public final class StreamPropertyDerivations
                         ImmutableList.Builder<Symbol> newPartitioningColumns = ImmutableList.builder();
                         for (Symbol partitioningColumn : partitioning) {
                             Optional<Symbol> translated = translator.apply(partitioningColumn);
-                            if (!translated.isPresent()) {
+                            if (translated.isEmpty()) {
                                 return Optional.empty();
                             }
                             newPartitioningColumns.add(translated.get());
@@ -743,7 +767,7 @@ public final class StreamPropertyDerivations
                 return false;
             }
             StreamProperties other = (StreamProperties) obj;
-            return Objects.equals(this.distribution, other.distribution) &&
+            return this.distribution == other.distribution &&
                     Objects.equals(this.partitioningColumns, other.partitioningColumns);
         }
 

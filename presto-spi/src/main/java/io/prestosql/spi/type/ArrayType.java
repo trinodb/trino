@@ -39,7 +39,7 @@ public class ArrayType
 
     public ArrayType(Type elementType)
     {
-        super(new TypeSignature(ARRAY, TypeSignatureParameter.of(elementType.getTypeSignature())), Block.class);
+        super(new TypeSignature(ARRAY, TypeSignatureParameter.typeParameter(elementType.getTypeSignature())), Block.class);
         this.elementType = requireNonNull(elementType, "elementType is null");
     }
 

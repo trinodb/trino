@@ -15,11 +15,9 @@ package io.prestosql.sql.planner.plan;
 
 import java.util.List;
 
-public class ChildReplacer
+public final class ChildReplacer
 {
-    private ChildReplacer()
-    {
-    }
+    private ChildReplacer() {}
 
     /**
      * Return an identical copy of the given node with its children replaced

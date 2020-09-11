@@ -27,7 +27,6 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
@@ -43,9 +42,7 @@ import static java.lang.String.format;
 
 public final class VarcharOperators
 {
-    private VarcharOperators()
-    {
-    }
+    private VarcharOperators() {}
 
     @LiteralParameters("x")
     @ScalarOperator(EQUAL)
@@ -95,14 +92,6 @@ public final class VarcharOperators
     public static boolean greaterThanOrEqual(@SqlType("varchar(x)") Slice left, @SqlType("varchar(x)") Slice right)
     {
         return left.compareTo(right) >= 0;
-    }
-
-    @LiteralParameters("x")
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(@SqlType("varchar(x)") Slice value, @SqlType("varchar(x)") Slice min, @SqlType("varchar(x)") Slice max)
-    {
-        return min.compareTo(value) <= 0 && value.compareTo(max) <= 0;
     }
 
     @LiteralParameters("x")
@@ -242,7 +231,7 @@ public final class VarcharOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class VarcharDistinctFromOperator
+    public static final class VarcharDistinctFromOperator
     {
         @LiteralParameters({"x", "y"})
         @SqlType(StandardTypes.BOOLEAN)

@@ -1,0 +1,23 @@
+{
+  "tableName": "sampleTable",
+  "schemaName": "default",
+  "streamName": "sampleTable",
+  "message": {
+    "dataFormat": "json",
+    "fields": [{
+      "name": "id",
+      "type": "BIGINT",
+      "mapping": "id",
+      "comment": "comment",
+      "hidden": "false"
+    },
+      {
+        "name": "name",
+        "type": "VARCHAR",
+        "mapping": "name",
+        "comment": "comment",
+        "hidden": "false"
+      }
+    ]
+  }
+}

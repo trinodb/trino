@@ -16,7 +16,7 @@ package io.prestosql.execution.scheduler;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -34,18 +34,12 @@ public final class NetworkLocation
 
     public NetworkLocation(String... segments)
     {
-        this(Arrays.asList(segments));
+        this(ImmutableList.copyOf(requireNonNull(segments, "segments is null")));
     }
 
-    private NetworkLocation(List<String> segments)
+    public NetworkLocation(Collection<String> segments)
     {
-        this.segments = segments;
-    }
-
-    public static NetworkLocation create(List<String> segments)
-    {
-        requireNonNull(segments, "segments is null");
-        return new NetworkLocation(ImmutableList.copyOf(segments));
+        this.segments = ImmutableList.copyOf(requireNonNull(segments, "segments is null"));
     }
 
     public NetworkLocation subLocation(int start, int end)

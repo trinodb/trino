@@ -14,8 +14,8 @@
 package io.prestosql.plugin.tpch.statistics;
 
 import io.airlift.slice.Slice;
-import io.airlift.tpch.TpchColumn;
-import io.airlift.tpch.TpchTable;
+import io.prestosql.tpch.TpchColumn;
+import io.prestosql.tpch.TpchTable;
 
 import java.util.List;
 import java.util.Map;
@@ -55,7 +55,7 @@ public class StatisticsEstimator
                 Slice value = checkType(partitionValue, Slice.class, "Only string (Slice) partition values supported for now");
                 Optional<TableStatisticsData> tableStatisticsData = tableStatisticsDataRepository
                         .load(schemaName, tpchTable, Optional.of(partitionColumn), Optional.of(value.toStringUtf8()));
-                if (!tableStatisticsData.isPresent()) {
+                if (tableStatisticsData.isEmpty()) {
                     return Optional.empty();
                 }
                 result = addPartitionStats(result, tableStatisticsData.get(), partitionColumn);
@@ -90,7 +90,7 @@ public class StatisticsEstimator
     {
         //unique values count can't be added between different partitions
         //for columns other than the partition column (because almost certainly there are duplicates)
-        return combine(leftStats.getDistinctValuesCount(), rightStats.getDistinctValuesCount(), (a, b) -> a + b)
+        return combine(leftStats.getDistinctValuesCount(), rightStats.getDistinctValuesCount(), Long::sum)
                 .filter(v -> columnName.equals(partitionColumn.getColumnName()));
     }
 
@@ -98,8 +98,8 @@ public class StatisticsEstimator
     private Object min(Object l, Object r)
     {
         checkSameType(l, r);
-        Comparable left = checkType(l, Comparable.class);
-        Comparable right = checkType(r, Comparable.class);
+        Comparable<Object> left = checkType(l, Comparable.class);
+        Comparable<Object> right = checkType(r, Comparable.class);
         return left.compareTo(right) < 0 ? left : right;
     }
 
@@ -107,8 +107,8 @@ public class StatisticsEstimator
     private Object max(Object l, Object r)
     {
         checkSameType(l, r);
-        Comparable left = checkType(l, Comparable.class);
-        Comparable right = checkType(r, Comparable.class);
+        Comparable<Object> left = checkType(l, Comparable.class);
+        Comparable<Object> right = checkType(r, Comparable.class);
         return left.compareTo(right) > 0 ? left : right;
     }
 

@@ -16,7 +16,9 @@ package io.prestosql.plugin.hive;
 import io.prestosql.orc.metadata.CompressionKind;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.GzipCodec;
+import org.apache.hadoop.io.compress.Lz4Codec;
 import org.apache.hadoop.io.compress.SnappyCodec;
+import org.apache.hadoop.io.compress.ZStandardCodec;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 
 import java.util.Optional;
@@ -27,6 +29,8 @@ public enum HiveCompressionCodec
 {
     NONE(null, CompressionKind.NONE, CompressionCodecName.UNCOMPRESSED),
     SNAPPY(SnappyCodec.class, CompressionKind.SNAPPY, CompressionCodecName.SNAPPY),
+    LZ4(Lz4Codec.class, CompressionKind.LZ4, CompressionCodecName.LZ4),
+    ZSTD(ZStandardCodec.class, CompressionKind.ZSTD, CompressionCodecName.ZSTD),
     GZIP(GzipCodec.class, CompressionKind.ZLIB, CompressionCodecName.GZIP);
 
     private final Optional<Class<? extends CompressionCodec>> codec;

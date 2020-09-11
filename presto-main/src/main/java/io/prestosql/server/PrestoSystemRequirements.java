@@ -14,12 +14,11 @@
 package io.prestosql.server;
 
 import com.google.common.base.StandardSystemProperty;
+import com.google.common.collect.ImmutableSet;
+import com.sun.management.UnixOperatingSystemMXBean;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
-
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
 
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
@@ -27,9 +26,10 @@ import java.nio.ByteOrder;
 import java.util.List;
 import java.util.Locale;
 import java.util.OptionalLong;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.management.ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME;
+import static java.lang.String.format;
 
 final class PrestoSystemRequirements
 {
@@ -70,10 +70,13 @@ final class PrestoSystemRequirements
         String osName = StandardSystemProperty.OS_NAME.value();
         String osArch = StandardSystemProperty.OS_ARCH.value();
         if ("Linux".equals(osName)) {
-            if (!"amd64".equals(osArch) && !"ppc64le".equals(osArch)) {
-                failRequirement("Presto requires amd64 or ppc64le on Linux (found %s)", osArch);
+            if (!ImmutableSet.of("amd64", "aarch64", "ppc64le").contains(osArch)) {
+                failRequirement("Presto requires amd64, aarch64, or ppc64le on Linux (found %s)", osArch);
             }
-            if ("ppc64le".equals(osArch)) {
+            if ("aarch64".equals(osArch)) {
+                warnRequirement("Support for the ARM architecture is experimental");
+            }
+            else if ("ppc64le".equals(osArch)) {
                 warnRequirement("Support for the POWER architecture is experimental");
             }
         }
@@ -89,21 +92,9 @@ final class PrestoSystemRequirements
 
     private static void verifyJavaVersion()
     {
-        String javaVersion = StandardSystemProperty.JAVA_VERSION.value();
-        if (javaVersion == null) {
-            failRequirement("Java version not defined");
+        if (Runtime.version().feature() < 11) {
+            failRequirement("Presto requires Java 11+ (found %s)", Runtime.version());
         }
-
-        JavaVersion version = JavaVersion.parse(javaVersion);
-        if (version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 151) {
-            return;
-        }
-
-        if (version.getMajor() >= 9) {
-            return;
-        }
-
-        failRequirement("Presto requires Java 8u151+ (found %s)", javaVersion);
     }
 
     private static void verifyUsingG1Gc()
@@ -126,7 +117,7 @@ final class PrestoSystemRequirements
     private static void verifyFileDescriptor()
     {
         OptionalLong maxFileDescriptorCount = getMaxFileDescriptorCount();
-        if (!maxFileDescriptorCount.isPresent()) {
+        if (maxFileDescriptorCount.isEmpty()) {
             // This should never happen since we have verified the OS and JVM above
             failRequirement("Cannot read OS file descriptor limit");
         }
@@ -140,14 +131,11 @@ final class PrestoSystemRequirements
 
     private static OptionalLong getMaxFileDescriptorCount()
     {
-        try {
-            MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-            Object maxFileDescriptorCount = mbeanServer.getAttribute(ObjectName.getInstance(OPERATING_SYSTEM_MXBEAN_NAME), "MaxFileDescriptorCount");
-            return OptionalLong.of(((Number) maxFileDescriptorCount).longValue());
-        }
-        catch (Exception e) {
-            return OptionalLong.empty();
-        }
+        return Stream.of(ManagementFactory.getOperatingSystemMXBean())
+                .filter(UnixOperatingSystemMXBean.class::isInstance)
+                .map(UnixOperatingSystemMXBean.class::cast)
+                .mapToLong(UnixOperatingSystemMXBean::getMaxFileDescriptorCount)
+                .findFirst();
     }
 
     private static void verifySlice()
@@ -176,12 +164,12 @@ final class PrestoSystemRequirements
 
     private static void failRequirement(String format, Object... args)
     {
-        System.err.println(String.format(format, args));
+        System.err.println("ERROR: " + format(format, args));
         System.exit(100);
     }
 
     private static void warnRequirement(String format, Object... args)
     {
-        System.err.println("WARNING: " + String.format(format, args));
+        System.err.println("WARNING: " + format(format, args));
     }
 }

@@ -15,36 +15,42 @@ package io.prestosql.spi.function;
 
 public enum OperatorType
 {
-    ADD("+"),
-    SUBTRACT("-"),
-    MULTIPLY("*"),
-    DIVIDE("/"),
-    MODULUS("%"),
-    NEGATION("-"),
-    EQUAL("="),
-    NOT_EQUAL("<>"),
-    LESS_THAN("<"),
-    LESS_THAN_OR_EQUAL("<="),
-    GREATER_THAN(">"),
-    GREATER_THAN_OR_EQUAL(">="),
-    BETWEEN("BETWEEN"),
-    CAST("CAST"),
-    SUBSCRIPT("[]"),
-    HASH_CODE("HASH CODE"),
-    SATURATED_FLOOR_CAST("SATURATED FLOOR CAST"),
-    IS_DISTINCT_FROM("IS DISTINCT FROM"),
-    XX_HASH_64("XX HASH 64"),
-    INDETERMINATE("INDETERMINATE");
+    ADD("+", 2),
+    SUBTRACT("-", 2),
+    MULTIPLY("*", 2),
+    DIVIDE("/", 2),
+    MODULUS("%", 2),
+    NEGATION("-", 1),
+    EQUAL("=", 2),
+    NOT_EQUAL("<>", 2),
+    LESS_THAN("<", 2),
+    LESS_THAN_OR_EQUAL("<=", 2),
+    GREATER_THAN(">", 2),
+    GREATER_THAN_OR_EQUAL(">=", 2),
+    CAST("CAST", 1),
+    SUBSCRIPT("[]", 2),
+    HASH_CODE("HASH CODE", 1),
+    SATURATED_FLOOR_CAST("SATURATED FLOOR CAST", 1),
+    IS_DISTINCT_FROM("IS DISTINCT FROM", 2),
+    XX_HASH_64("XX HASH 64", 1),
+    INDETERMINATE("INDETERMINATE", 1);
 
     private final String operator;
+    private final int argumentCount;
 
-    OperatorType(String operator)
+    OperatorType(String operator, int argumentCount)
     {
         this.operator = operator;
+        this.argumentCount = argumentCount;
     }
 
     public String getOperator()
     {
         return operator;
+    }
+
+    public int getArgumentCount()
+    {
+        return argumentCount;
     }
 }

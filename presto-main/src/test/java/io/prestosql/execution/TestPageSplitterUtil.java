@@ -35,6 +35,7 @@ import static io.prestosql.operator.OperatorAssertion.toMaterializedResult;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TestPageSplitterUtil
 {
@@ -73,13 +74,13 @@ public class TestPageSplitterUtil
     }
 
     @Test
-    private void testSplitPageNonDecreasingPageSize()
+    public void testSplitPageNonDecreasingPageSize()
     {
         int positionCount = 100;
         int maxPageSizeInBytes = 1;
         List<Type> types = ImmutableList.of(VARCHAR);
 
-        Slice expectedValue = wrappedBuffer("test".getBytes());
+        Slice expectedValue = wrappedBuffer("test".getBytes(UTF_8));
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1, expectedValue.length());
         blockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
         Block rleBlock = new RunLengthEncodedBlock(blockBuilder.build(), positionCount);

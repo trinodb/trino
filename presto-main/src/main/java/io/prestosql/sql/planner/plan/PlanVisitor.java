@@ -49,6 +49,11 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitOffset(OffsetNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitLimit(LimitNode node, C context)
     {
         return visitPlan(node, context);
@@ -124,7 +129,7 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitMetadataDelete(MetadataDeleteNode node, C context)
+    public R visitTableDelete(TableDeleteNode node, C context)
     {
         return visitPlan(node, context);
     }
@@ -204,7 +209,7 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitLateralJoin(LateralJoinNode node, C context)
+    public R visitCorrelatedJoin(CorrelatedJoinNode node, C context)
     {
         return visitPlan(node, context);
     }

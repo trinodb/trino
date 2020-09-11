@@ -3,38 +3,44 @@ SQL Server Connector
 ====================
 
 The SQL Server connector allows querying and creating tables in an
-external SQL Server database. This can be used to join data between
+external `Microsoft SQL Server <https://www.microsoft.com/sql-server/>`_ database. This can be used to join data between
 different systems like SQL Server and Hive, or between two different
 SQL Server instances.
 
 Configuration
 -------------
 
-To configure the SQL Server connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``sqlserver.properties``, to
-mount the SQL Server connector as the ``sqlserver`` catalog.
-Create the file with the following contents, replacing the
-connection properties as appropriate for your setup:
+The connector can query a single database on an SQL server instance. Create a
+catalog properties file that specifies the SQL server connector by setting the
+``connector.name`` to ``sqlserver``.  
 
-.. code-block:: none
+For example, to access a database as ``sqlserverdb``, create the file
+``etc/catalog/sqlserverdb.properties``. Replace the connection properties as
+appropriate for your setup:
+
+.. code-block:: properties
 
     connector.name=sqlserver
-    connection-url=jdbc:sqlserver://[serverName[\instanceName][:portNumber]]
+    connection-url=jdbc:sqlserver://<host>:<port>;database=<database>
     connection-user=root
     connection-password=secret
 
 Multiple SQL Server Databases or Servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The SQL Server connector can only access a single database within
-a SQL Server server. Thus, if you have multiple SQL Server databases,
-or want to connect to multiple instances of the SQL Server, you must configure
-multiple catalogs, one for each instance.
+The SQL Server connector can't access more than one database using a single
+catalog. 
 
-To add another catalog, simply add another properties file to ``etc/catalog``
-with a different name (making sure it ends in ``.properties``). For example,
-if you name the property file ``sales.properties``, Presto will create a
-catalog named ``sales`` using the configured connector.
+If you have multiple databases, or want to access multiple instances
+of SQL Server, you need to configure one catalog for each instance.
+
+To add another catalog:
+
+- Add another properties file to ``etc/catalog`` 
+- Save it with a different name that ends in ``.properties``
+
+For example, if you name the property file ``sales.properties``, Presto uses the
+configured connector to create a catalog named ``sales``.
 
 Querying SQL Server
 -------------------
@@ -64,8 +70,8 @@ Finally, you can query the ``clicks`` table in the ``web`` schema::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``sqlserver`` in the above examples.
 
-SQL Server Connector Limitations
---------------------------------
+Limitations
+-----------
 
 Presto supports connecting to SQL Server 2016, SQL Server 2014, SQL Server 2012
 and Azure SQL Database.
@@ -91,7 +97,5 @@ Complete list of `SQL Server data types
 The following SQL statements are not yet supported:
 
 * :doc:`/sql/delete`
-* :doc:`/sql/alter-table`
-* :doc:`/sql/create-table` (:doc:`/sql/create-table-as` is supported)
 * :doc:`/sql/grant`
 * :doc:`/sql/revoke`

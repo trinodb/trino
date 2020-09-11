@@ -21,7 +21,6 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.sql.SqlPath;
 import io.prestosql.sql.SqlPathElement;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SetPath;
 import io.prestosql.transaction.TransactionManager;
@@ -30,9 +29,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Locale.ENGLISH;
 
 public class SetPathTask
@@ -63,13 +63,13 @@ public class SetPathTask
         SqlPath sqlPath = new SqlPath(Optional.of(statement.getPathSpecification().toString()));
 
         for (SqlPathElement element : sqlPath.getParsedPath()) {
-            if (!element.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
-                throw new SemanticException(CATALOG_NOT_SPECIFIED, statement, "Catalog must be specified for each path element when session catalog is not set");
+            if (element.getCatalog().isEmpty() && session.getCatalog().isEmpty()) {
+                throw semanticException(MISSING_CATALOG_NAME, statement, "Catalog must be specified for each path element when session catalog is not set");
             }
 
             element.getCatalog().ifPresent(catalog -> {
                 String catalogName = catalog.getValue().toLowerCase(ENGLISH);
-                if (!metadata.getCatalogHandle(session, catalogName).isPresent()) {
+                if (metadata.getCatalogHandle(session, catalogName).isEmpty()) {
                     throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName);
                 }
             });

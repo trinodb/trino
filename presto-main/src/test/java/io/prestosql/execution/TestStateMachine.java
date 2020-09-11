@@ -47,7 +47,6 @@ public class TestStateMachine
 
     @Test
     public void testNullState()
-            throws Exception
     {
         try {
             new StateMachine<>("test", executor, null);
@@ -61,6 +60,15 @@ public class TestStateMachine
         assertNoStateChange(stateMachine, () -> {
             try {
                 stateMachine.set(null);
+                fail("expected a NullPointerException");
+            }
+            catch (NullPointerException expected) {
+            }
+        });
+
+        assertNoStateChange(stateMachine, () -> {
+            try {
+                stateMachine.trySet(null);
                 fail("expected a NullPointerException");
             }
             catch (NullPointerException expected) {
@@ -130,6 +138,27 @@ public class TestStateMachine
             }
         });
         assertNoStateChange(stateMachine, () -> stateMachine.set(State.DINNER));
+    }
+
+    @Test
+    public void testTrySet()
+            throws Exception
+    {
+        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
+        assertEquals(stateMachine.get(), State.BREAKFAST);
+
+        assertNoStateChange(stateMachine, () -> assertEquals(stateMachine.trySet(State.BREAKFAST), State.BREAKFAST));
+
+        assertStateChange(stateMachine, () -> assertEquals(stateMachine.trySet(State.LUNCH), State.BREAKFAST), State.LUNCH);
+
+        assertStateChange(stateMachine, () -> assertEquals(stateMachine.trySet(State.BREAKFAST), State.LUNCH), State.BREAKFAST);
+
+        // transition to a final state
+        assertStateChange(stateMachine, () -> assertEquals(stateMachine.trySet(State.DINNER), State.BREAKFAST), State.DINNER);
+
+        // attempt transition from a final state
+        assertNoStateChange(stateMachine, () -> stateMachine.trySet(State.LUNCH));
+        assertNoStateChange(stateMachine, () -> stateMachine.trySet(State.DINNER));
     }
 
     @Test

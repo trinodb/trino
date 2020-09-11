@@ -20,6 +20,7 @@ import io.prestosql.spi.connector.ConnectorFactory;
 public final class MemoryPlugin
         implements Plugin
 {
+    @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
         return ImmutableList.of(new MemoryConnectorFactory());

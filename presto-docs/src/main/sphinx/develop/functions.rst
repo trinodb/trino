@@ -7,7 +7,7 @@ Plugin Implementation
 
 The function framework is used to implement SQL functions. Presto includes a
 number of built-in functions. In order to implement new functions, you can
-write a plugin that returns one more more functions from ``getFunctions()``:
+write a plugin that returns one or more functions from ``getFunctions()``:
 
 .. code-block:: java
 
@@ -46,10 +46,11 @@ types. Below is a sample function which implements ``is_null``:
 
     public class ExampleNullFunction
     {
-        @ScalarFunction("is_null")
+        @ScalarFunction("is_null", deterministic = true)
         @Description("Returns TRUE if the argument is NULL")
         @SqlType(StandardTypes.BOOLEAN)
-        public static boolean isNull(@SqlNullable @SqlType(StandardTypes.VARCHAR) Slice string)
+        public static boolean isNull(
+                @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice string)
         {
             return (string == null);
         }
@@ -59,6 +60,21 @@ The function ``is_null`` takes a single ``VARCHAR`` argument and returns a
 ``BOOLEAN`` indicating if the argument was ``NULL``. Note that the argument to
 the function is of type ``Slice``. ``VARCHAR`` uses ``Slice``, which is essentially
 a wrapper around ``byte[]``, rather than ``String`` for its native container type.
+
+The ``deterministic`` argument indicates that a function has no side effects and,
+for subsequent calls with the same argument(s), the function returns the exact
+same value(s).
+
+In Presto, deterministic functions don't rely on any changing state
+and don't modify any state. The ``deterministic`` flag is optional and defaults
+to ``true``.
+
+For example, the function :func:`shuffle` is non-deterministic, since it uses random
+values. On the other hand, :func:`now` is deterministic, because subsequent calls in a
+single query return the same timestamp.
+
+Any function with non-deterministic behavior is required to set ``deterministic = false``
+to avoid unexpected results.
 
 * ``@SqlType``:
 
@@ -130,7 +146,10 @@ To make our previous example work with any type we need the following:
         @TypeParameter("T")
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isEqualOrNullSlice(
-                @OperatorDependency(operator = OperatorType.EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
+                @OperatorDependency(
+                        operator = OperatorType.EQUAL,
+                        returnType = StandardTypes.BOOLEAN,
+                        argumentTypes = {"T", "T"}) MethodHandle equals,
                 @SqlNullable @SqlType("T") Slice value1,
                 @SqlNullable @SqlType("T") Slice value2)
         {
@@ -157,7 +176,7 @@ The ``lowercaser`` function takes a single ``VARCHAR`` argument and returns a
     public class ExampleStringFunction
     {
         @ScalarFunction("lowercaser")
-        @Description("converts the string to alternating case")
+        @Description("Converts the string to alternating case")
         @SqlType(StandardTypes.VARCHAR)
         public static Slice lowercaser(@SqlType(StandardTypes.VARCHAR) Slice slice)
         {
@@ -165,7 +184,6 @@ The ``lowercaser`` function takes a single ``VARCHAR`` argument and returns a
             return Slices.utf8Slice(argument.toLowerCase());
         }
     }
-
 
 Note that for most common string functions, including converting a string to
 lower case, the Slice library also provides implementations that work directly
@@ -198,14 +216,18 @@ average of a ``DOUBLE`` column:
     public class AverageAggregation
     {
         @InputFunction
-        public static void input(LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
+        public static void input(
+                LongAndDoubleState state,
+                @SqlType(StandardTypes.DOUBLE) double value)
         {
             state.setLong(state.getLong() + 1);
             state.setDouble(state.getDouble() + value);
         }
 
         @CombineFunction
-        public static void combine(LongAndDoubleState state, LongAndDoubleState otherState)
+        public static void combine(
+                LongAndDoubleState state,
+                LongAndDoubleState otherState)
         {
             state.setLong(state.getLong() + otherState.getLong());
             state.setDouble(state.getDouble() + otherState.getDouble());
@@ -282,3 +304,25 @@ function follows:
   is used when performing a ``GROUP BY`` aggregation, and an implementation
   will be automatically generated for you, if you don't specify a
   ``AccumulatorStateFactory``
+
+Deprecated Function
+-------------------
+
+The ``@Deprecated`` annotation has to be used on any function that should no longer be
+used. The annotation causes Presto to generate a warning whenever a SQL statement
+uses a deprecated function. When a function is deprecated, the ``@Description``
+needs to be replaced with a note about the deprecation and the replacement function:
+
+.. code-block:: java
+
+    public class ExampleDeprecatedFunction
+    {
+        @Deprecated
+        @ScalarFunction("bad_function")
+        @Description("(DEPRECATED) Use good_function() instead")
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean bad_function()
+        {
+            return false;
+        }
+    }

@@ -14,7 +14,6 @@
 package io.prestosql.util;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import io.prestosql.client.ErrorLocation;
 import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.Failure;
@@ -24,18 +23,16 @@ import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.PrestoTransportException;
 import io.prestosql.spi.StandardErrorCode;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.parser.ParsingException;
-import io.prestosql.sql.tree.NodeLocation;
 
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
-import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -43,7 +40,6 @@ import static com.google.common.collect.Sets.newIdentityHashSet;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
 import static java.lang.String.format;
-import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 public final class Failures
@@ -96,7 +92,15 @@ public final class Failures
         }
 
         if (seenFailures.contains(throwable)) {
-            return new ExecutionFailureInfo(type, "[cyclic] " + throwable.getMessage(), null, ImmutableList.of(), ImmutableList.of(), null, GENERIC_INTERNAL_ERROR.toErrorCode(), remoteHost);
+            return new ExecutionFailureInfo(
+                    type,
+                    "[cyclic] " + throwable.getMessage(),
+                    null,
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    null,
+                    GENERIC_INTERNAL_ERROR.toErrorCode(),
+                    remoteHost);
         }
         seenFailures.add(throwable);
 
@@ -118,7 +122,9 @@ public final class Failures
                 Arrays.stream(throwable.getSuppressed())
                         .map(failure -> toFailure(failure, seenFailures))
                         .collect(toImmutableList()),
-                Lists.transform(asList(throwable.getStackTrace()), toStringFunction()),
+                Arrays.stream(throwable.getStackTrace())
+                        .map(Objects::toString)
+                        .collect(toImmutableList()),
                 getErrorLocation(throwable),
                 errorCode,
                 remoteHost);
@@ -132,12 +138,10 @@ public final class Failures
             ParsingException e = (ParsingException) throwable;
             return new ErrorLocation(e.getLineNumber(), e.getColumnNumber());
         }
-        else if (throwable instanceof SemanticException) {
-            SemanticException e = (SemanticException) throwable;
-            if (e.getNode().getLocation().isPresent()) {
-                NodeLocation nodeLocation = e.getNode().getLocation().get();
-                return new ErrorLocation(nodeLocation.getLineNumber(), nodeLocation.getColumnNumber());
-            }
+        if (throwable instanceof PrestoException) {
+            return ((PrestoException) throwable).getLocation()
+                    .map(location -> new ErrorLocation(location.getLineNumber(), location.getColumnNumber()))
+                    .orElse(null);
         }
         return null;
     }
@@ -153,7 +157,7 @@ public final class Failures
         if (throwable instanceof Failure && ((Failure) throwable).getErrorCode() != null) {
             return ((Failure) throwable).getErrorCode();
         }
-        if (throwable instanceof ParsingException || throwable instanceof SemanticException) {
+        if (throwable instanceof ParsingException) {
             return SYNTAX_ERROR.toErrorCode();
         }
         return null;

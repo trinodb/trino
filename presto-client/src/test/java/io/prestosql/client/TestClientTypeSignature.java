@@ -48,16 +48,25 @@ public class TestClientTypeSignature
         assertJsonRoundTrip(new ClientTypeSignature(
                 "row",
                 ImmutableList.of(
-                        ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(Optional.of(new RowFieldName("foo", false)), bigint)),
-                        ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(Optional.of(new RowFieldName("bar", false)), bigint)))));
+                        ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(Optional.of(new RowFieldName("foo")), bigint)),
+                        ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(Optional.of(new RowFieldName("bar")), bigint)))));
     }
 
     @Test
-    public void testBackwardsCompatible()
+    public void testStringSerialization()
     {
-        ClientTypeSignature signature = new ClientTypeSignature(StandardTypes.ARRAY, ImmutableList.of(ClientTypeSignatureParameter.ofType(new ClientTypeSignature(StandardTypes.BIGINT))));
-        ClientTypeSignature legacy = CLIENT_TYPE_SIGNATURE_CODEC.fromJson("{\"rawType\":\"array\",\"literalArguments\":[],\"typeArguments\":[{\"rawType\":\"bigint\",\"literalArguments\":[],\"typeArguments\":[]}]}");
-        assertEquals(legacy, signature);
+        ClientTypeSignature bigint = new ClientTypeSignature(StandardTypes.BIGINT);
+        assertEquals(bigint.toString(), "bigint");
+        ClientTypeSignature varchar = new ClientTypeSignature(StandardTypes.VARCHAR, ImmutableList.of(ClientTypeSignatureParameter.ofLong(50)));
+        assertEquals(varchar.toString(), "varchar(50)");
+        ClientTypeSignature array = new ClientTypeSignature(StandardTypes.ARRAY, ImmutableList.of(ClientTypeSignatureParameter.ofType(new ClientTypeSignature(StandardTypes.BIGINT))));
+        assertEquals(array.toString(), "array(bigint)");
+        ClientTypeSignature row = new ClientTypeSignature(
+                StandardTypes.ROW,
+                ImmutableList.of(
+                        ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(Optional.of(new RowFieldName("foo")), bigint)),
+                        ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(Optional.of(new RowFieldName("bar")), bigint))));
+        assertEquals(row.toString(), "row(foo bigint,bar bigint)");
     }
 
     private static void assertJsonRoundTrip(ClientTypeSignature signature)

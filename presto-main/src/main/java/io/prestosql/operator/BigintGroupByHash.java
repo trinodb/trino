@@ -188,7 +188,7 @@ public class BigintGroupByHash
             if (groupId == -1) {
                 return false;
             }
-            else if (value == values.get(hashPosition)) {
+            if (value == values.get(hashPosition)) {
                 return true;
             }
 

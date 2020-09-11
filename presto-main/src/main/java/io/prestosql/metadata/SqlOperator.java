@@ -18,40 +18,44 @@ import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
 
-import static io.prestosql.metadata.FunctionRegistry.mangleOperatorName;
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.Signature.mangleOperatorName;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
+import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
+import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
+import static java.util.Collections.nCopies;
 
 public abstract class SqlOperator
         extends SqlScalarFunction
 {
-    protected SqlOperator(OperatorType operatorType, List<TypeVariableConstraint> typeVariableConstraints, List<LongVariableConstraint> longVariableConstraints, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    protected SqlOperator(
+            OperatorType operatorType,
+            List<TypeVariableConstraint> typeVariableConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
+            TypeSignature returnType,
+            List<TypeSignature> argumentTypes,
+            boolean nullable)
     {
         // TODO This should take Signature!
-        super(new Signature(
-                mangleOperatorName(operatorType),
-                FunctionKind.SCALAR,
-                typeVariableConstraints,
-                longVariableConstraints,
-                returnType,
-                argumentTypes,
-                false));
-    }
-
-    @Override
-    public final boolean isHidden()
-    {
-        return true;
-    }
-
-    @Override
-    public final boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public final String getDescription()
-    {
-        // Operators are internal, and don't need a description
-        return null;
+        super(new FunctionMetadata(
+                new Signature(
+                        mangleOperatorName(operatorType),
+                        typeVariableConstraints,
+                        longVariableConstraints,
+                        returnType,
+                        argumentTypes,
+                        false),
+                nullable,
+                nCopies(argumentTypes.size(), new FunctionArgumentDefinition(operatorType == IS_DISTINCT_FROM || operatorType == INDETERMINATE)),
+                true,
+                true,
+                "",
+                SCALAR));
+        if (operatorType == EQUAL || operatorType == NOT_EQUAL || operatorType == SUBSCRIPT) {
+            checkArgument(nullable, "%s operator for %s must be nullable", operatorType, argumentTypes.get(0));
+        }
     }
 }

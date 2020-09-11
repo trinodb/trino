@@ -15,6 +15,7 @@ package io.prestosql.plugin.atop;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -27,30 +28,34 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class AtopConnectorConfig
 {
-    public static final String SECURITY_NONE = "none";
-    public static final String SECURITY_FILE = "file";
+    public enum AtopSecurity
+    {
+        NONE,
+        FILE,
+    }
 
     private String executablePath = "atop";
     private String timeZone = ZoneId.systemDefault().getId();
-    private String security = SECURITY_NONE;
+    private AtopSecurity security = AtopSecurity.NONE;
     private Duration readTimeout = new Duration(5, MINUTES);
     private int concurrentReadersPerNode = 1;
     private int maxHistoryDays = 30;
 
     @NotNull
-    public String getSecurity()
+    public AtopSecurity getSecurity()
     {
         return security;
     }
 
     @Config("atop.security")
-    public AtopConnectorConfig setSecurity(String security)
+    public AtopConnectorConfig setSecurity(AtopSecurity security)
     {
         this.security = security;
         return this;
     }
 
     @NotNull
+    @FileExists
     public String getExecutablePath()
     {
         return executablePath;

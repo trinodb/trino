@@ -16,14 +16,14 @@ package io.prestosql.sql.gen;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -31,8 +31,8 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.sql.gen.TestVarArgsToArrayAdapterGenerator.TestVarArgsSum.VAR_ARGS_SUM;
 import static io.prestosql.sql.gen.VarArgsToArrayAdapterGenerator.generateVarArgsToArrayAdapter;
@@ -76,49 +76,36 @@ public class TestVarArgsToArrayAdapterGenerator
 
         private TestVarArgsSum()
         {
-            super(new Signature(
-                    "var_args_sum",
-                    FunctionKind.SCALAR,
-                    ImmutableList.of(),
-                    ImmutableList.of(),
-                    INTEGER.getTypeSignature(),
-                    ImmutableList.of(INTEGER.getTypeSignature()),
-                    true));
+            super(new FunctionMetadata(
+                    new Signature(
+                            "var_args_sum",
+                            ImmutableList.of(),
+                            ImmutableList.of(),
+                            INTEGER.getTypeSignature(),
+                            ImmutableList.of(INTEGER.getTypeSignature()),
+                            true),
+                    false,
+                    ImmutableList.of(new FunctionArgumentDefinition(false)),
+                    false,
+                    false,
+                    "return sum of all the parameters",
+                    SCALAR));
         }
 
         @Override
-        public boolean isHidden()
-        {
-            return false;
-        }
-
-        @Override
-        public boolean isDeterministic()
-        {
-            return false;
-        }
-
-        @Override
-        public String getDescription()
-        {
-            return "return sum of all the parameters";
-        }
-
-        @Override
-        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+        protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
         {
             VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
                     long.class,
                     long.class,
-                    arity,
+                    functionBinding.getArity(),
                     METHOD_HANDLE,
                     USER_STATE_FACTORY);
             return new ScalarFunctionImplementation(
-                    false,
-                    nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                    InvocationReturnConvention.FAIL_ON_NULL,
+                    nCopies(functionBinding.getArity(), NEVER_NULL),
                     methodHandleAndConstructor.getMethodHandle(),
-                    Optional.of(methodHandleAndConstructor.getConstructor()),
-                    isDeterministic());
+                    Optional.of(methodHandleAndConstructor.getConstructor()));
         }
 
         @UsedByGeneratedCode

@@ -14,6 +14,7 @@
 package io.prestosql.operator.window;
 
 import io.prestosql.metadata.Signature;
+import io.prestosql.operator.aggregation.LambdaProvider;
 import io.prestosql.spi.function.WindowFunction;
 
 import java.util.List;
@@ -24,5 +25,7 @@ public interface WindowFunctionSupplier
 
     String getDescription();
 
-    WindowFunction createWindowFunction(List<Integer> argumentChannels);
+    WindowFunction createWindowFunction(List<Integer> argumentChannels, boolean ignoreNulls, List<LambdaProvider> lambdaProviders);
+
+    List<Class<?>> getLambdaInterfaces();
 }

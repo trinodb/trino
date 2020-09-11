@@ -15,7 +15,7 @@ package io.prestosql.plugin.tpch.util;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class Types
+public final class Types
 {
     private Types() {}
 

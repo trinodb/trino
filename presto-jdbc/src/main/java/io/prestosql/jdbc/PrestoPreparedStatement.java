@@ -13,8 +13,14 @@
  */
 package io.prestosql.jdbc;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import io.prestosql.client.ClientTypeSignature;
+import io.prestosql.client.ClientTypeSignatureParameter;
+import org.joda.time.DateTimeZone;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -35,6 +41,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLType;
 import java.sql.SQLXML;
+import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
@@ -43,8 +50,16 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base16;
+import static io.prestosql.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
+import static io.prestosql.jdbc.AbstractPrestoResultSet.DATE_FORMATTER;
+import static io.prestosql.jdbc.AbstractPrestoResultSet.TIMESTAMP_FORMATTER;
+import static io.prestosql.jdbc.AbstractPrestoResultSet.TIME_FORMATTER;
+import static io.prestosql.jdbc.ColumnInfo.setTypeInfo;
 import static io.prestosql.jdbc.ObjectCasts.castToBigDecimal;
 import static io.prestosql.jdbc.ObjectCasts.castToBinary;
 import static io.prestosql.jdbc.ObjectCasts.castToBoolean;
@@ -57,9 +72,7 @@ import static io.prestosql.jdbc.ObjectCasts.castToLong;
 import static io.prestosql.jdbc.ObjectCasts.castToShort;
 import static io.prestosql.jdbc.ObjectCasts.castToTime;
 import static io.prestosql.jdbc.ObjectCasts.castToTimestamp;
-import static io.prestosql.jdbc.PrestoResultSet.DATE_FORMATTER;
-import static io.prestosql.jdbc.PrestoResultSet.TIMESTAMP_FORMATTER;
-import static io.prestosql.jdbc.PrestoResultSet.TIME_FORMATTER;
+import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -67,6 +80,10 @@ public class PrestoPreparedStatement
         extends PrestoStatement
         implements PreparedStatement
 {
+    private static final Pattern TOP_LEVEL_TYPE_PATTERN = Pattern.compile("(.+?)\\((.+)\\)");
+    private static final Pattern TIMESTAMP_WITH_TIME_ZONE_PRECISION_PATTERN = Pattern.compile("timestamp\\((\\d+)\\) with time zone");
+    private static final Pattern TIME_WITH_TIME_ZONE_PRECISION_PATTERN = Pattern.compile("time\\((\\d+)\\) with time zone");
+
     private final Map<Integer, String> parameters = new HashMap<>();
     private final String statementName;
     private final String originalSql;
@@ -260,7 +277,22 @@ public class PrestoPreparedStatement
             setNull(parameterIndex, Types.TIMESTAMP);
         }
         else {
-            setParameter(parameterIndex, formatLiteral("TIMESTAMP", TIMESTAMP_FORMATTER.print(x.getTime())));
+            String formattedDateTime = TIMESTAMP_FORMATTER.print(x.getTime());
+            setParameter(parameterIndex, formatLiteral("TIMESTAMP", formattedDateTime));
+        }
+    }
+
+    @Override
+    public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal)
+            throws SQLException
+    {
+        checkOpen();
+        if (x == null || cal == null) {
+            setTimestamp(parameterIndex, x);
+        }
+        else {
+            String formattedDateTime = TIMESTAMP_FORMATTER.withZone(DateTimeZone.forTimeZone(cal.getTimeZone())).print(x.getTime());
+            setParameter(parameterIndex, formatLiteral("TIMESTAMP", formattedDateTime));
         }
     }
 
@@ -463,7 +495,9 @@ public class PrestoPreparedStatement
     public ResultSetMetaData getMetaData()
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getMetaData");
+        try (Statement statement = connection().createStatement(); ResultSet resultSet = statement.executeQuery("DESCRIBE OUTPUT " + statementName)) {
+            return new PrestoResultSetMetaData(getDescribeOutputColumnInfoList(resultSet));
+        }
     }
 
     @Override
@@ -478,13 +512,6 @@ public class PrestoPreparedStatement
             throws SQLException
     {
         throw new NotImplementedException("PreparedStatement", "setTime");
-    }
-
-    @Override
-    public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal)
-            throws SQLException
-    {
-        throw new NotImplementedException("PreparedStatement", "setTimestamp");
     }
 
     @Override
@@ -848,5 +875,71 @@ public class PrestoPreparedStatement
     private static String typedNull(String prestoType)
     {
         return format("CAST(NULL AS %s)", prestoType);
+    }
+
+    private static List<ColumnInfo> getDescribeOutputColumnInfoList(ResultSet resultSet)
+            throws SQLException
+    {
+        ImmutableList.Builder<ColumnInfo> list = ImmutableList.builder();
+        while (resultSet.next()) {
+            String columnName = resultSet.getString("Column Name");
+            String catalog = resultSet.getString("Catalog");
+            String schema = resultSet.getString("Schema");
+            String table = resultSet.getString("Table");
+            ClientTypeSignature clientTypeSignature = getClientTypeSignatureFromTypeString(resultSet.getString("Type"));
+            ColumnInfo.Builder builder = new ColumnInfo.Builder()
+                    .setColumnName(columnName)
+                    .setColumnLabel(columnName)
+                    .setCatalogName(catalog)
+                    .setSchemaName(schema)
+                    .setTableName(table)
+                    .setColumnTypeSignature(clientTypeSignature)
+                    .setNullable(ColumnInfo.Nullable.UNKNOWN);
+            setTypeInfo(builder, clientTypeSignature);
+            list.add(builder.build());
+        }
+        return list.build();
+    }
+
+    @VisibleForTesting
+    static ClientTypeSignature getClientTypeSignatureFromTypeString(String type)
+    {
+        String topLevelType;
+        List<ClientTypeSignatureParameter> arguments = new ArrayList<>();
+        Matcher topLevelMatcher = TOP_LEVEL_TYPE_PATTERN.matcher(type);
+        if (topLevelMatcher.matches()) {
+            topLevelType = topLevelMatcher.group(1);
+            String typeParameters = topLevelMatcher.group(2);
+            if (topLevelType.equals("decimal")) {
+                List<String> precisionAndScale = Splitter.on(',').splitToList(typeParameters);
+                checkArgument(precisionAndScale.size() == 2, "Invalid decimal parameters: %s", typeParameters);
+                arguments.add(ClientTypeSignatureParameter.ofLong(parseLong(precisionAndScale.get(0))));
+                arguments.add(ClientTypeSignatureParameter.ofLong(parseLong(precisionAndScale.get(1))));
+            }
+            else if (topLevelType.equals("char") || topLevelType.equals("varchar")) {
+                long precision = parseLong(typeParameters);
+                arguments.add(ClientTypeSignatureParameter.ofLong(precision));
+            }
+            // TODO support array, map, row etc top level types' parameters using recursive parser, current behavior is their parameter list will be empty
+        }
+        else {
+            Matcher timestampMatcher = TIMESTAMP_WITH_TIME_ZONE_PRECISION_PATTERN.matcher(type);
+            Matcher timeMatcher = TIME_WITH_TIME_ZONE_PRECISION_PATTERN.matcher(type);
+            if (timestampMatcher.matches()) {
+                topLevelType = "timestamp with time zone";
+                arguments.add(ClientTypeSignatureParameter.ofLong(parseLong(timestampMatcher.group(1))));
+            }
+            else if (timeMatcher.matches()) {
+                topLevelType = "time with time zone";
+                arguments.add(ClientTypeSignatureParameter.ofLong(parseLong(timeMatcher.group(1))));
+            }
+            else {
+                topLevelType = type;
+                if (topLevelType.equals("varchar")) {
+                    arguments.add(ClientTypeSignatureParameter.ofLong(VARCHAR_UNBOUNDED_LENGTH));
+                }
+            }
+        }
+        return new ClientTypeSignature(topLevelType, arguments);
     }
 }

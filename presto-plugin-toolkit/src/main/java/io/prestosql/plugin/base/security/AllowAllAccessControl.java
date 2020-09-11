@@ -13,13 +13,17 @@
  */
 package io.prestosql.plugin.base.security;
 
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.ConnectorSecurityContext;
+import io.prestosql.spi.connector.SchemaRoutineName;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.ViewExpression;
+import io.prestosql.spi.type.Type;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -27,154 +31,217 @@ public class AllowAllAccessControl
         implements ConnectorAccessControl
 {
     @Override
-    public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
     {
     }
 
     @Override
-    public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+    public void checkCanDropSchema(ConnectorSecurityContext context, String schemaName)
     {
     }
 
     @Override
-    public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName, String newSchemaName)
+    public void checkCanRenameSchema(ConnectorSecurityContext context, String schemaName, String newSchemaName)
     {
     }
 
     @Override
-    public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity)
+    public void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, PrestoPrincipal principal)
     {
     }
 
     @Override
-    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> schemaNames)
+    public void checkCanShowSchemas(ConnectorSecurityContext context)
+    {
+    }
+
+    @Override
+    public Set<String> filterSchemas(ConnectorSecurityContext context, Set<String> schemaNames)
     {
         return schemaNames;
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanShowCreateSchema(ConnectorSecurityContext context, String schemaName)
     {
     }
 
     @Override
-    public void checkCanDropTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanRenameTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName, SchemaTableName newTableName)
+    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+    public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }
 
     @Override
-    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<SchemaTableName> tableNames)
+    public void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName)
+    {
+    }
+
+    @Override
+    public void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
+    {
+    }
+
+    @Override
+    public Set<SchemaTableName> filterTables(ConnectorSecurityContext context, Set<SchemaTableName> tableNames)
     {
         return tableNames;
     }
 
     @Override
-    public void checkCanAddColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanShowColumns(ConnectorSecurityContext context, SchemaTableName table)
     {
     }
 
     @Override
-    public void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public List<ColumnMetadata> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
+    {
+        return columns;
+    }
+
+    @Override
+    public void checkCanAddColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanRenameColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanDropColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanRenameColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
     }
 
     @Override
-    public void checkCanDeleteFromTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanCreateView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName viewName)
+    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanDropView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName viewName)
+    public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanRenameView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
     {
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String propertyName)
+    public void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
+    public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
     {
     }
 
     @Override
-    public void checkCanCreateRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, Optional<PrestoPrincipal> grantor)
+    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
     }
 
     @Override
-    public void checkCanDropRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role)
+    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
     {
     }
 
     @Override
-    public void checkCanGrantRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanCreateRole(ConnectorSecurityContext context, String role, Optional<PrestoPrincipal> grantor)
     {
     }
 
     @Override
-    public void checkCanRevokeRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanDropRole(ConnectorSecurityContext context, String role)
     {
     }
 
     @Override
-    public void checkCanSetRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, String catalogName)
+    public void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
     }
 
     @Override
-    public void checkCanShowRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    public void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
     }
 
     @Override
-    public void checkCanShowCurrentRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    public void checkCanSetRole(ConnectorSecurityContext context, String role, String catalogName)
     {
     }
 
     @Override
-    public void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
     {
+    }
+
+    @Override
+    public void checkCanShowRoles(ConnectorSecurityContext context, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanShowCurrentRoles(ConnectorSecurityContext context, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
+    {
+    }
+
+    @Override
+    public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        return Optional.empty();
     }
 }

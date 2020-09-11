@@ -17,7 +17,7 @@ import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
@@ -25,13 +25,15 @@ import io.prestosql.sql.planner.plan.ValuesNode;
 import java.util.List;
 
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static io.prestosql.sql.planner.plan.Patterns.lateralJoin;
+import static io.prestosql.sql.planner.plan.Patterns.CorrelatedJoin.filter;
+import static io.prestosql.sql.planner.plan.Patterns.correlatedJoin;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * This optimizer can rewrite correlated single row subquery to projection in a way described here:
  * From:
  * <pre>
- * - Lateral(with correlation list: [A, C])
+ * - CorrelatedJoin (with correlation list: [A, C])
  *   - (input) plan which produces symbols: [A, B, C]
  *   - (subquery)
  *     - Project (A + C)
@@ -45,18 +47,19 @@ import static io.prestosql.sql.planner.plan.Patterns.lateralJoin;
  */
 
 public class TransformCorrelatedSingleRowSubqueryToProject
-        implements Rule<LateralJoinNode>
+        implements Rule<CorrelatedJoinNode>
 {
-    private static final Pattern<LateralJoinNode> PATTERN = lateralJoin();
+    private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
+            .with(filter().equalTo(TRUE_LITERAL));
 
     @Override
-    public Pattern<LateralJoinNode> getPattern()
+    public Pattern<CorrelatedJoinNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Result apply(LateralJoinNode parent, Captures captures, Context context)
+    public Result apply(CorrelatedJoinNode parent, Captures captures, Context context)
     {
         List<ValuesNode> values = searchFrom(parent.getSubquery(), context.getLookup())
                 .recurseOnlyWhen(ProjectNode.class::isInstance)
@@ -74,7 +77,7 @@ public class TransformCorrelatedSingleRowSubqueryToProject
         if (subqueryProjections.size() == 0) {
             return Result.ofPlanNode(parent.getInput());
         }
-        else if (subqueryProjections.size() == 1) {
+        if (subqueryProjections.size() == 1) {
             Assignments assignments = Assignments.builder()
                     .putIdentities(parent.getInput().getOutputSymbols())
                     .putAll(subqueryProjections.get(0).getAssignments())

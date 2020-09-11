@@ -51,7 +51,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.execution.SqlTask.createSqlTask;
@@ -70,7 +69,7 @@ public class TestMemoryRevokingScheduler
 {
     private final AtomicInteger idGeneator = new AtomicInteger();
     private final Session session = TestingSession.testSessionBuilder().build();
-    private final SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(10, GIGABYTE));
+    private final SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(10, GIGABYTE));
 
     private ScheduledExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -82,7 +81,7 @@ public class TestMemoryRevokingScheduler
     @BeforeMethod
     public void setUp()
     {
-        memoryPool = new MemoryPool(GENERAL_POOL, new DataSize(10, BYTE));
+        memoryPool = new MemoryPool(GENERAL_POOL, DataSize.ofBytes(10));
 
         TaskExecutor taskExecutor = new TaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
         taskExecutor.start();
@@ -103,7 +102,7 @@ public class TestMemoryRevokingScheduler
         allOperatorContexts = null;
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         memoryPool = null;
@@ -192,7 +191,7 @@ public class TestMemoryRevokingScheduler
     {
         // Given
         SqlTask sqlTask1 = newSqlTask();
-        MemoryPool anotherMemoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(10, BYTE));
+        MemoryPool anotherMemoryPool = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(10));
         sqlTask1.getQueryContext().setMemoryPool(anotherMemoryPool);
         OperatorContext operatorContext1 = createContexts(sqlTask1);
 
@@ -294,18 +293,18 @@ public class TestMemoryRevokingScheduler
                 location,
                 "fake",
                 new QueryContext(new QueryId("query"),
-                        new DataSize(1, MEGABYTE),
-                        new DataSize(2, MEGABYTE),
+                        DataSize.of(1, MEGABYTE),
+                        DataSize.of(2, MEGABYTE),
                         memoryPool,
                         new TestingGcMonitor(),
                         executor,
                         scheduledExecutor,
-                        new DataSize(1, GIGABYTE),
+                        DataSize.of(1, GIGABYTE),
                         spillSpaceTracker),
                 sqlTaskExecutionFactory,
                 executor,
                 Functions.identity(),
-                new DataSize(32, MEGABYTE),
+                DataSize.of(32, MEGABYTE),
                 new CounterStat());
     }
 }

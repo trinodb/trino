@@ -17,8 +17,6 @@ import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public abstract class AbstractType
@@ -54,7 +52,7 @@ public abstract class AbstractType
     @Override
     public List<Type> getTypeParameters()
     {
-        return Collections.unmodifiableList(new ArrayList<>());
+        return List.of();
     }
 
     @Override
@@ -144,19 +142,19 @@ public abstract class AbstractType
     @Override
     public Object getObject(Block block, int position)
     {
-        throw new UnsupportedOperationException(getClass().getName());
+        return getSlice(block, position);
     }
 
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        throw new UnsupportedOperationException(getClass().getName());
+        writeSlice(blockBuilder, (Slice) value);
     }
 
     @Override
     public String toString()
     {
-        return getTypeSignature().toString();
+        return getDisplayName();
     }
 
     @Override

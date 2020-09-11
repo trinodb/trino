@@ -41,6 +41,7 @@ public interface MySqlShardDao
             "VALUES (:shardUuid, CURRENT_TIMESTAMP)")
     void insertDeletedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
 
+    @Override
     // 'order by' is needed in this statement in order to make it compatible with statement-based replication
     @SqlUpdate("DELETE FROM transactions\n" +
             "WHERE end_time < :maxEndTime\n" +

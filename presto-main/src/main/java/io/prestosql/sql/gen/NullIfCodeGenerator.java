@@ -20,28 +20,48 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.metadata.Signature;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.SpecialForm;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
+import static java.util.Objects.requireNonNull;
 
 public class NullIfCodeGenerator
         implements BytecodeGenerator
 {
+    private final RowExpression first;
+    private final RowExpression second;
+
+    private final ResolvedFunction equalsFunction;
+    private final Optional<ResolvedFunction> firstCast;
+    private final Optional<ResolvedFunction> secondCast;
+
+    public NullIfCodeGenerator(SpecialForm specialForm)
+    {
+        requireNonNull(specialForm, "specialForm is null");
+        checkArgument(specialForm.getArguments().size() == 2);
+
+        first = specialForm.getArguments().get(0);
+        second = specialForm.getArguments().get(1);
+
+        List<ResolvedFunction> functionDependencies = specialForm.getFunctionDependencies();
+        checkArgument(functionDependencies.size() <= 3);
+        equalsFunction = specialForm.getOperatorDependency(EQUAL);
+        firstCast = specialForm.getCastDependency(first.getType(), equalsFunction.getSignature().getArgumentTypes().get(0));
+        secondCast = specialForm.getCastDependency(second.getType(), equalsFunction.getSignature().getArgumentTypes().get(0));
+    }
+
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext)
     {
         Scope scope = generatorContext.getScope();
-
-        RowExpression first = arguments.get(0);
-        RowExpression second = arguments.get(1);
 
         LabelNode notMatch = new LabelNode("notMatch");
 
@@ -54,18 +74,14 @@ public class NullIfCodeGenerator
                 .dup(first.getType().getJavaType())
                 .putVariable(firstValue);
 
-        Type firstType = first.getType();
-        Type secondType = second.getType();
+        BytecodeNode secondValue = generatorContext.generate(second);
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
-        Signature equalsSignature = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
-        ScalarFunctionImplementation equalsFunction = generatorContext.getRegistry().getScalarFunctionImplementation(equalsSignature);
         BytecodeNode equalsCall = generatorContext.generateCall(
-                equalsSignature.getName(),
                 equalsFunction,
                 ImmutableList.of(
-                        cast(generatorContext, firstValue, firstType, equalsSignature.getArgumentTypes().get(0)),
-                        cast(generatorContext, generatorContext.generate(second), secondType, equalsSignature.getArgumentTypes().get(1))));
+                        firstCast.map(cast -> generatorContext.generateCall(cast, ImmutableList.of(firstValue))).orElse(firstValue),
+                        secondCast.map(cast -> generatorContext.generateCall(cast, ImmutableList.of(secondValue))).orElse(secondValue)));
 
         BytecodeBlock conditionBlock = new BytecodeBlock()
                 .append(equalsCall)
@@ -84,23 +100,5 @@ public class NullIfCodeGenerator
                 .ifFalse(notMatch));
 
         return block;
-    }
-
-    private static BytecodeNode cast(
-            BytecodeGeneratorContext generatorContext,
-            BytecodeNode argument,
-            Type actualType,
-            TypeSignature requiredType)
-    {
-        if (actualType.getTypeSignature().equals(requiredType)) {
-            return argument;
-        }
-
-        Signature function = generatorContext
-                .getRegistry()
-                .getCoercion(actualType.getTypeSignature(), requiredType);
-
-        // TODO: do we need a full function call? (nullability checks, etc)
-        return generatorContext.generateCall(function.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function), ImmutableList.of(argument));
     }
 }

@@ -15,13 +15,13 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import org.testng.annotations.Test;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -31,6 +31,7 @@ import static io.prestosql.block.BlockAssertions.createLongsBlock;
 import static io.prestosql.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -129,7 +130,7 @@ public class TestTypedSet
         int initialTypedSetEntryCount = 10;
 
         BlockBuilder emptyBlockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
-        TypedSet typedSet = new TypedSet(BIGINT, emptyBlockBuilder, initialTypedSetEntryCount, FUNCTION_NAME);
+        TypedSet typedSet = new TypedSet(BIGINT, Optional.empty(), emptyBlockBuilder, initialTypedSetEntryCount, FUNCTION_NAME);
         BlockBuilder externalBlockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
         for (int i = 0; i < elementCount; i++) {
             if (i % 10 == 0) {
@@ -167,7 +168,7 @@ public class TestTypedSet
         // The secondBlockBuilder should already have elementCount rows.
         BlockBuilder secondBlockBuilder = pageBuilder.getBlockBuilder(0);
 
-        TypedSet typedSet = new TypedSet(BIGINT, secondBlockBuilder, initialTypedSetEntryCount, FUNCTION_NAME);
+        TypedSet typedSet = new TypedSet(BIGINT, Optional.empty(), secondBlockBuilder, initialTypedSetEntryCount, FUNCTION_NAME);
         BlockBuilder externalBlockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
         for (int i = 0; i < elementCount; i++) {
             if (i % 10 == 0) {
@@ -195,7 +196,7 @@ public class TestTypedSet
         testGetElementPositionRandomFor(set);
 
         BlockBuilder emptyBlockBuilder = VARCHAR.createBlockBuilder(null, 3);
-        TypedSet setWithPassedInBuilder = new TypedSet(VARCHAR, emptyBlockBuilder, 1, FUNCTION_NAME);
+        TypedSet setWithPassedInBuilder = new TypedSet(VARCHAR, Optional.empty(), emptyBlockBuilder, 1, FUNCTION_NAME);
         testGetElementPositionRandomFor(setWithPassedInBuilder);
     }
 
@@ -228,17 +229,13 @@ public class TestTypedSet
     @Test
     public void testMemoryExceeded()
     {
-        try {
+        assertPrestoExceptionThrownBy(() -> {
             TypedSet typedSet = new TypedSet(BIGINT, 10, FUNCTION_NAME);
-            for (int i = 0; i <= TypedSet.FOUR_MEGABYTES + 1; i++) {
+            for (int i = 0; i <= TypedSet.MAX_FUNCTION_MEMORY.toBytes() + 1; i++) {
                 Block block = createLongsBlock(nCopies(1, (long) i));
                 typedSet.add(block, 0);
             }
-            fail("expected exception");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), EXCEEDED_FUNCTION_MEMORY_LIMIT.toErrorCode());
-        }
+        }).hasErrorCode(EXCEEDED_FUNCTION_MEMORY_LIMIT);
     }
 
     private void testGetElementPositionRandomFor(TypedSet set)
@@ -275,7 +272,7 @@ public class TestTypedSet
         testBigintFor(typedSet, longBlock);
 
         BlockBuilder emptyBlockBuilder = BIGINT.createBlockBuilder(null, expectedSetSize);
-        TypedSet typedSetWithPassedInBuilder = new TypedSet(BIGINT, emptyBlockBuilder, expectedSetSize, FUNCTION_NAME);
+        TypedSet typedSetWithPassedInBuilder = new TypedSet(BIGINT, Optional.empty(), emptyBlockBuilder, expectedSetSize, FUNCTION_NAME);
         testBigintFor(typedSetWithPassedInBuilder, longBlock);
     }
 

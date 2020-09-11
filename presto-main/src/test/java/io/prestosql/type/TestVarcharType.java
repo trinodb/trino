@@ -17,8 +17,13 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
+import org.testng.annotations.Test;
 
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static org.testng.Assert.assertEquals;
 
 public class TestVarcharType
         extends AbstractTestType
@@ -49,5 +54,24 @@ public class TestVarcharType
     protected Object getGreaterValue(Object value)
     {
         return Slices.utf8Slice(((Slice) value).toStringUtf8() + "_");
+    }
+
+    @Test
+    public void testRange()
+    {
+        VarcharType type = createVarcharType(5);
+
+        Type.Range range = type.getRange().get();
+
+        String expectedMax = new StringBuilder()
+                .appendCodePoint(Character.MAX_CODE_POINT)
+                .appendCodePoint(Character.MAX_CODE_POINT)
+                .appendCodePoint(Character.MAX_CODE_POINT)
+                .appendCodePoint(Character.MAX_CODE_POINT)
+                .appendCodePoint(Character.MAX_CODE_POINT)
+                .toString();
+
+        assertEquals(Slices.utf8Slice(""), range.getMin());
+        assertEquals(Slices.utf8Slice(expectedMax), range.getMax());
     }
 }

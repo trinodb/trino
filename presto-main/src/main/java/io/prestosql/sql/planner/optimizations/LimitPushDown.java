@@ -112,8 +112,9 @@ public class LimitPushDown
         public PlanNode visitLimit(LimitNode node, RewriteContext<LimitContext> context)
         {
             long count = node.getCount();
-            if (context.get() != null) {
-                count = Math.min(count, context.get().getCount());
+            LimitContext limit = context.get();
+            if (limit != null) {
+                count = Math.min(count, limit.getCount());
             }
 
             // return empty ValuesNode in case of limit 0
@@ -123,8 +124,12 @@ public class LimitPushDown
                         ImmutableList.of());
             }
 
-            // default visitPlan logic will insert the limit node
-            return context.rewrite(node.getSource(), new LimitContext(count, false));
+            if (!node.isWithTies() || (limit != null && node.getCount() >= limit.getCount())) {
+                // default visitPlan logic will insert the limit node
+                return context.rewrite(node.getSource(), new LimitContext(count, false));
+            }
+
+            return context.defaultRewrite(node, context.get());
         }
 
         @Override
@@ -135,6 +140,7 @@ public class LimitPushDown
 
             if (limit != null &&
                     node.getAggregations().isEmpty() &&
+                    !node.getGroupingKeys().isEmpty() &&
                     node.getOutputSymbols().size() == node.getGroupingKeys().size() &&
                     node.getOutputSymbols().containsAll(node.getGroupingKeys())) {
                 PlanNode rewrittenSource = context.rewrite(node.getSource());
@@ -191,8 +197,8 @@ public class LimitPushDown
             if (limit != null) {
                 return new TopNNode(node.getId(), rewrittenSource, limit.getCount(), node.getOrderingScheme(), TopNNode.Step.SINGLE);
             }
-            else if (rewrittenSource != node.getSource()) {
-                return new SortNode(node.getId(), rewrittenSource, node.getOrderingScheme());
+            if (rewrittenSource != node.getSource()) {
+                return new SortNode(node.getId(), rewrittenSource, node.getOrderingScheme(), node.isPartial());
             }
             return node;
         }
@@ -233,7 +239,8 @@ public class LimitPushDown
                         node.getSemiJoinOutput(),
                         node.getSourceHashSymbol(),
                         node.getFilteringSourceHashSymbol(),
-                        node.getDistributionType());
+                        node.getDistributionType(),
+                        node.getDynamicFilterId());
             }
             return node;
         }

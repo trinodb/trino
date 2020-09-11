@@ -17,9 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.connector.ConnectorId;
 import io.prestosql.cost.StatsAndCosts;
-import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
@@ -33,7 +31,6 @@ import io.prestosql.sql.planner.plan.RemoteSourceNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
-import io.prestosql.testing.TestingMetadata.TestingTableHandle;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -51,6 +48,7 @@ import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static org.testng.Assert.assertEquals;
 
 public class TestPhasedExecutionSchedule
@@ -179,9 +177,9 @@ public class TestPhasedExecutionSchedule
     private static PlanFragment createBroadcastJoinPlanFragment(String name, PlanFragment buildFragment)
     {
         Symbol symbol = new Symbol("column");
-        PlanNode tableScan = new TableScanNode(
+        PlanNode tableScan = TableScanNode.newInstance(
                 new PlanNodeId(name),
-                new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
+                TEST_TABLE_HANDLE,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 
@@ -192,14 +190,15 @@ public class TestPhasedExecutionSchedule
                 tableScan,
                 remote,
                 ImmutableList.of(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(tableScan.getOutputSymbols())
-                        .addAll(remote.getOutputSymbols())
-                        .build(),
+                tableScan.getOutputSymbols(),
+                remote.getOutputSymbols(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(REPLICATED));
+                Optional.of(REPLICATED),
+                Optional.empty(),
+                ImmutableMap.of(),
+                Optional.empty());
 
         return createFragment(join);
     }
@@ -214,24 +213,24 @@ public class TestPhasedExecutionSchedule
                 probe,
                 build,
                 ImmutableList.of(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(probe.getOutputSymbols())
-                        .addAll(build.getOutputSymbols())
-                        .build(),
+                probe.getOutputSymbols(),
+                build.getOutputSymbols(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(),
                 Optional.empty());
-
         return createFragment(planNode);
     }
 
     private static PlanFragment createTableScanPlanFragment(String name)
     {
         Symbol symbol = new Symbol("column");
-        PlanNode planNode = new TableScanNode(
+        PlanNode planNode = TableScanNode.newInstance(
                 new PlanNodeId(name),
-                new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
+                TEST_TABLE_HANDLE,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 

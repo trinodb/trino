@@ -30,7 +30,7 @@ public final class LocalAtopQueryRunner
 
     public static LocalQueryRunner createQueryRunner()
     {
-        return createQueryRunner(ImmutableMap.of(), TestingAtopFactory.class);
+        return createQueryRunner(ImmutableMap.of("atop.executable-path", "/dev/null"), TestingAtopFactory.class);
     }
 
     public static LocalQueryRunner createQueryRunner(Map<String, String> catalogProperties, Class<? extends AtopFactory> factoryClass)
@@ -41,13 +41,14 @@ public final class LocalAtopQueryRunner
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID()))
                 .build();
 
-        LocalQueryRunner queryRunner = new LocalQueryRunner(session);
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
 
         try {
             AtopConnectorFactory connectorFactory = new AtopConnectorFactory(factoryClass, LocalAtopQueryRunner.class.getClassLoader());
             ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
                     .putAll(catalogProperties)
                     .put("atop.max-history-days", "1");
+
             queryRunner.createCatalog("atop", connectorFactory, properties.build());
 
             return queryRunner;

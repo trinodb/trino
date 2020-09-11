@@ -14,45 +14,80 @@
 package io.prestosql.plugin.jdbc;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.annotation.Nullable;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.OptionalLong;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public final class JdbcTableHandle
         implements ConnectorTableHandle
 {
-    private final String connectorId;
     private final SchemaTableName schemaTableName;
-    private final String catalogName;
-    private final String schemaName;
-    private final String tableName;
+    private final RemoteTableName remoteTableName;
+    private final TupleDomain<ColumnHandle> constraint;
+
+    // semantically aggregation is applied after constraint
+    private final Optional<List<List<JdbcColumnHandle>>> groupingSets;
+
+    // semantically limit is applied after aggregation
+    private final OptionalLong limit;
+
+    // columns of the relation described by this handle, after projections, aggregations, etc.
+    private final Optional<List<JdbcColumnHandle>> columns;
+
+    @Deprecated
+    public JdbcTableHandle(SchemaTableName schemaTableName, @Nullable String catalogName, @Nullable String schemaName, String tableName)
+    {
+        this(schemaTableName, new RemoteTableName(Optional.ofNullable(catalogName), Optional.ofNullable(schemaName), tableName));
+    }
+
+    public JdbcTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName)
+    {
+        this(
+                schemaTableName,
+                remoteTableName,
+                TupleDomain.all(),
+                Optional.empty(),
+                OptionalLong.empty(),
+                Optional.empty());
+    }
 
     @JsonCreator
     public JdbcTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-            @JsonProperty("catalogName") @Nullable String catalogName,
-            @JsonProperty("schemaName") @Nullable String schemaName,
-            @JsonProperty("tableName") String tableName)
+            @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
+            @JsonProperty("groupingSets") Optional<List<List<JdbcColumnHandle>>> groupingSets,
+            @JsonProperty("limit") OptionalLong limit,
+            @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-        this.catalogName = catalogName;
-        this.schemaName = schemaName;
-        this.tableName = requireNonNull(tableName, "tableName is null");
-    }
+        this.remoteTableName = requireNonNull(remoteTableName, "remoteTable is null");
+        this.constraint = requireNonNull(constraint, "constraint is null");
 
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
+        requireNonNull(groupingSets, "groupingSets is null");
+        checkArgument(groupingSets.isEmpty() || !groupingSets.get().isEmpty(), "Global aggregation should be represented by [[]]");
+        this.groupingSets = groupingSets.map(JdbcTableHandle::copy);
+
+        this.limit = requireNonNull(limit, "limit is null");
+
+        requireNonNull(columns, "columns is null");
+        checkArgument(groupingSets.isEmpty() || columns.isPresent(), "columns should be present when groupingSets is present");
+        this.columns = columns.map(ImmutableList::copyOf);
     }
 
     @JsonProperty
@@ -62,23 +97,59 @@ public final class JdbcTableHandle
     }
 
     @JsonProperty
+    public RemoteTableName getRemoteTableName()
+    {
+        return remoteTableName;
+    }
+
+    @Deprecated
     @Nullable
     public String getCatalogName()
     {
-        return catalogName;
+        return remoteTableName.getCatalogName().orElse(null);
     }
 
-    @JsonProperty
+    @Deprecated
     @Nullable
     public String getSchemaName()
     {
-        return schemaName;
+        return remoteTableName.getSchemaName().orElse(null);
+    }
+
+    @Deprecated
+    public String getTableName()
+    {
+        return remoteTableName.getTableName();
     }
 
     @JsonProperty
-    public String getTableName()
+    public TupleDomain<ColumnHandle> getConstraint()
     {
-        return tableName;
+        return constraint;
+    }
+
+    @JsonProperty
+    public Optional<List<List<JdbcColumnHandle>>> getGroupingSets()
+    {
+        return groupingSets;
+    }
+
+    @JsonProperty
+    public OptionalLong getLimit()
+    {
+        return limit;
+    }
+
+    @JsonProperty
+    public Optional<List<JdbcColumnHandle>> getColumns()
+    {
+        return columns;
+    }
+
+    @JsonIgnore
+    public boolean isSynthetic()
+    {
+        return !constraint.isAll() || groupingSets.isPresent() || limit.isPresent();
     }
 
     @Override
@@ -91,19 +162,35 @@ public final class JdbcTableHandle
             return false;
         }
         JdbcTableHandle o = (JdbcTableHandle) obj;
-        return Objects.equals(this.connectorId, o.connectorId) &&
-                Objects.equals(this.schemaTableName, o.schemaTableName);
+        return Objects.equals(this.schemaTableName, o.schemaTableName) &&
+                Objects.equals(this.constraint, o.constraint) &&
+                Objects.equals(this.groupingSets, o.groupingSets) &&
+                Objects.equals(this.limit, o.limit) &&
+                Objects.equals(this.columns, o.columns);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schemaTableName);
+        return Objects.hash(schemaTableName, constraint, groupingSets, limit, columns);
     }
 
     @Override
     public String toString()
     {
-        return Joiner.on(":").useForNull("null").join(connectorId, schemaTableName, catalogName, schemaName, tableName);
+        StringBuilder builder = new StringBuilder();
+        builder.append(schemaTableName).append(" ");
+        builder.append(remoteTableName);
+        limit.ifPresent(value -> builder.append(" limit=").append(value));
+        columns.ifPresent(value -> builder.append(" columns=").append(value));
+        groupingSets.ifPresent(value -> builder.append(" groupingSets=").append(value));
+        return builder.toString();
+    }
+
+    private static <T> List<List<T>> copy(List<List<T>> listOfLists)
+    {
+        return listOfLists.stream()
+                .map(ImmutableList::copyOf)
+                .collect(toImmutableList());
     }
 }

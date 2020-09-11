@@ -25,7 +25,7 @@ import java.util.Iterator;
 import java.util.List;
 
 public class RangeBoundValueDeserializer
-        extends JsonDeserializer
+        extends JsonDeserializer<RangeBoundValue>
 {
     @Override
     public RangeBoundValue deserialize(JsonParser jp, DeserializationContext ctxt)

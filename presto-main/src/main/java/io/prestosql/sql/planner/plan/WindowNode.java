@@ -19,12 +19,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FrameBound;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.WindowFrame;
 
 import javax.annotation.concurrent.Immutable;
@@ -325,31 +324,34 @@ public class WindowNode
     @Immutable
     public static final class Function
     {
-        private final FunctionCall functionCall;
-        private final Signature signature;
+        private final ResolvedFunction resolvedFunction;
+        private final List<Expression> arguments;
         private final Frame frame;
+        private final boolean ignoreNulls;
 
         @JsonCreator
         public Function(
-                @JsonProperty("functionCall") FunctionCall functionCall,
-                @JsonProperty("signature") Signature signature,
-                @JsonProperty("frame") Frame frame)
+                @JsonProperty("resolvedFunction") ResolvedFunction resolvedFunction,
+                @JsonProperty("arguments") List<Expression> arguments,
+                @JsonProperty("frame") Frame frame,
+                @JsonProperty("ignoreNulls") boolean ignoreNulls)
         {
-            this.functionCall = requireNonNull(functionCall, "functionCall is null");
-            this.signature = requireNonNull(signature, "Signature is null");
-            this.frame = requireNonNull(frame, "Frame is null");
+            this.resolvedFunction = requireNonNull(resolvedFunction, "resolvedFunction is null");
+            this.arguments = requireNonNull(arguments, "arguments is null");
+            this.frame = requireNonNull(frame, "frame is null");
+            this.ignoreNulls = ignoreNulls;
         }
 
         @JsonProperty
-        public FunctionCall getFunctionCall()
+        public ResolvedFunction getResolvedFunction()
         {
-            return functionCall;
+            return resolvedFunction;
         }
 
         @JsonProperty
-        public Signature getSignature()
+        public List<Expression> getArguments()
         {
-            return signature;
+            return arguments;
         }
 
         @JsonProperty
@@ -358,10 +360,16 @@ public class WindowNode
             return frame;
         }
 
+        @JsonProperty
+        public boolean isIgnoreNulls()
+        {
+            return ignoreNulls;
+        }
+
         @Override
         public int hashCode()
         {
-            return Objects.hash(functionCall, signature, frame);
+            return Objects.hash(resolvedFunction, arguments, frame, ignoreNulls);
         }
 
         @Override
@@ -374,9 +382,10 @@ public class WindowNode
                 return false;
             }
             Function other = (Function) obj;
-            return Objects.equals(this.functionCall, other.functionCall) &&
-                    Objects.equals(this.signature, other.signature) &&
-                    Objects.equals(this.frame, other.frame);
+            return Objects.equals(this.resolvedFunction, other.resolvedFunction) &&
+                    Objects.equals(this.arguments, other.arguments) &&
+                    Objects.equals(this.frame, other.frame) &&
+                    this.ignoreNulls == other.ignoreNulls;
         }
     }
 }

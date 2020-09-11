@@ -14,22 +14,20 @@
 package io.prestosql.parquet;
 
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Type;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.ColumnIOFactory;
 import org.apache.parquet.io.GroupColumnIO;
-import org.apache.parquet.io.InvalidRecordException;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.DecimalMetadata;
+import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -39,9 +37,7 @@ import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
 public final class ParquetTypeUtils
 {
-    private ParquetTypeUtils()
-    {
-    }
+    private ParquetTypeUtils() {}
 
     public static List<PrimitiveColumnIO> getColumns(MessageType fileSchema, MessageType requestedSchema)
     {
@@ -145,21 +141,6 @@ public final class ParquetTypeUtils
         return index;
     }
 
-    public static int getFieldIndex(MessageType fileSchema, String name)
-    {
-        try {
-            return fileSchema.getFieldIndex(name.toLowerCase(Locale.ENGLISH));
-        }
-        catch (InvalidRecordException e) {
-            for (org.apache.parquet.schema.Type type : fileSchema.getFields()) {
-                if (type.getName().equalsIgnoreCase(name)) {
-                    return fileSchema.getFieldIndex(type.getName());
-                }
-            }
-            return -1;
-        }
-    }
-
     @SuppressWarnings("deprecation")
     public static ParquetEncoding getParquetEncoding(Encoding encoding)
     {
@@ -185,14 +166,14 @@ public final class ParquetTypeUtils
         }
     }
 
-    public static org.apache.parquet.schema.Type getParquetTypeByName(String columnName, MessageType messageType)
+    public static org.apache.parquet.schema.Type getParquetTypeByName(String columnName, GroupType groupType)
     {
-        if (messageType.containsField(columnName)) {
-            return messageType.getType(columnName);
+        if (groupType.containsField(columnName)) {
+            return groupType.getType(columnName);
         }
         // parquet is case-sensitive, but hive is not. all hive columns get converted to lowercase
         // check for direct match above but if no match found, try case-insensitive match
-        for (org.apache.parquet.schema.Type type : messageType.getFields()) {
+        for (org.apache.parquet.schema.Type type : groupType.getFields()) {
             if (type.getName().equalsIgnoreCase(columnName)) {
                 return type;
             }
@@ -222,17 +203,13 @@ public final class ParquetTypeUtils
         return null;
     }
 
-    public static Optional<Type> createDecimalType(RichColumnDescriptor descriptor)
+    public static Optional<DecimalType> createDecimalType(RichColumnDescriptor descriptor)
     {
         if (descriptor.getPrimitiveType().getOriginalType() != DECIMAL) {
             return Optional.empty();
         }
-        return Optional.of(createDecimalType(descriptor.getPrimitiveType().getDecimalMetadata()));
-    }
-
-    private static Type createDecimalType(DecimalMetadata decimalMetadata)
-    {
-        return DecimalType.createDecimalType(decimalMetadata.getPrecision(), decimalMetadata.getScale());
+        DecimalMetadata decimalMetadata = descriptor.getPrimitiveType().getDecimalMetadata();
+        return Optional.of(DecimalType.createDecimalType(decimalMetadata.getPrecision(), decimalMetadata.getScale()));
     }
 
     /**
@@ -257,7 +234,7 @@ public final class ParquetTypeUtils
         }
 
         for (int i = 0; i < bytes.length; i++) {
-            value |= ((long) bytes[bytes.length - i - 1] & 0xFFL) << (8 * i);
+            value |= (bytes[bytes.length - i - 1] & 0xFFL) << (8 * i);
         }
 
         return value;

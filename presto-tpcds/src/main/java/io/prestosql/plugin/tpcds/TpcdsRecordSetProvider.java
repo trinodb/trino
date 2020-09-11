@@ -14,42 +14,43 @@
 package io.prestosql.plugin.tpcds;
 
 import com.google.common.collect.ImmutableList;
-import com.teradata.tpcds.Results;
-import com.teradata.tpcds.Session;
-import com.teradata.tpcds.Table;
-import com.teradata.tpcds.column.Column;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.tpcds.Results;
+import io.prestosql.tpcds.Session;
+import io.prestosql.tpcds.Table;
+import io.prestosql.tpcds.column.Column;
 
 import java.util.List;
 
-import static com.teradata.tpcds.Results.constructResults;
-import static com.teradata.tpcds.Table.getTable;
+import static io.prestosql.tpcds.Results.constructResults;
+import static io.prestosql.tpcds.Table.getTable;
 
 public class TpcdsRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession connectorSession,
+            ConnectorSplit split,
+            ConnectorTableHandle tableHandle,
+            List<? extends ColumnHandle> columns)
     {
         TpcdsSplit tpcdsSplit = (TpcdsSplit) split;
-        String tableName = tpcdsSplit.getTableHandle().getTableName();
-        Table table = getTable(tableName);
-        return getRecordSet(table, columns, tpcdsSplit.getTableHandle().getScaleFactor(), tpcdsSplit.getPartNumber(), tpcdsSplit.getTotalParts(), tpcdsSplit.isNoSexism());
-    }
+        TpcdsTableHandle tpcdsTable = (TpcdsTableHandle) tableHandle;
 
-    private RecordSet getRecordSet(
-            Table table,
-            List<? extends ColumnHandle> columns,
-            double scaleFactor,
-            int partNumber,
-            int totalParts,
-            boolean noSexism)
-    {
+        Table table = getTable(tpcdsTable.getTableName());
+        double scaleFactor = tpcdsTable.getScaleFactor();
+        int partNumber = tpcdsSplit.getPartNumber();
+        int totalParts = tpcdsSplit.getTotalParts();
+        boolean noSexism = tpcdsSplit.isNoSexism();
+
         ImmutableList.Builder<Column> builder = ImmutableList.builder();
         for (ColumnHandle column : columns) {
             String columnName = ((TpcdsColumnHandle) column).getColumnName();

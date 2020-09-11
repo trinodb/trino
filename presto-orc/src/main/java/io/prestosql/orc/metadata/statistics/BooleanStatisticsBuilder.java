@@ -76,6 +76,7 @@ public class BooleanStatisticsBuilder
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 
@@ -86,7 +87,7 @@ public class BooleanStatisticsBuilder
             BooleanStatistics partialStatistics = columnStatistics.getBooleanStatistics();
             if (columnStatistics.getNumberOfValues() > 0) {
                 if (partialStatistics == null) {
-                    // there are non null values but no statistics, so we can not say anything about the data
+                    // there are non null values but no statistics, so we cannot say anything about the data
                     return Optional.empty();
                 }
                 booleanStatisticsBuilder.addBooleanStatistics(columnStatistics.getNumberOfValues(), partialStatistics);

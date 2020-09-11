@@ -254,7 +254,6 @@ public class TestSmallintOperators
 
     @Test
     public void testIndeterminate()
-            throws Exception
     {
         assertOperator(INDETERMINATE, "cast(null as smallint)", BOOLEAN, true);
         assertOperator(INDETERMINATE, "cast(12 as smallint)", BOOLEAN, false);

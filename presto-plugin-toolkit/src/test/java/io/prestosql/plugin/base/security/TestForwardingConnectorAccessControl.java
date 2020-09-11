@@ -17,6 +17,7 @@ import io.prestosql.spi.connector.ConnectorAccessControl;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.prestosql.spi.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;
 
 public class TestForwardingConnectorAccessControl
 {
@@ -24,5 +25,11 @@ public class TestForwardingConnectorAccessControl
     public void testEverythingDelegated()
     {
         assertAllMethodsOverridden(ConnectorAccessControl.class, ForwardingConnectorAccessControl.class);
+    }
+
+    @Test
+    public void testProperForwardingMethodsAreCalled()
+    {
+        assertProperForwardingMethodsAreCalled(ConnectorAccessControl.class, accessControl -> ForwardingConnectorAccessControl.of(() -> accessControl));
     }
 }

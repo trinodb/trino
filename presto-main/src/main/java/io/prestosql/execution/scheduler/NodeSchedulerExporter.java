@@ -35,12 +35,11 @@ public final class NodeSchedulerExporter
     private final List<MBeanExport> mbeanExports = new ArrayList<>();
 
     @Inject
-    public NodeSchedulerExporter(NodeScheduler nodeScheduler, MBeanExporter exporter)
+    public NodeSchedulerExporter(TopologyAwareNodeSelectorFactory nodeSelectorFactory, MBeanExporter exporter)
     {
-        requireNonNull(nodeScheduler, "nodeScheduler is null");
+        requireNonNull(nodeSelectorFactory, "nodeSelectorFactory is null");
         requireNonNull(exporter, "exporter is null");
-        Map<String, CounterStat> topologicalSplitCounters = nodeScheduler.getTopologicalSplitCounters();
-        for (Map.Entry<String, CounterStat> entry : topologicalSplitCounters.entrySet()) {
+        for (Map.Entry<String, CounterStat> entry : nodeSelectorFactory.getPlacementCountersByName().entrySet()) {
             try {
                 mbeanExports.add(exporter.exportWithGeneratedName(entry.getValue(), NodeScheduler.class, ImmutableMap.of("segment", entry.getKey())));
             }

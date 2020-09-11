@@ -16,16 +16,17 @@ package io.prestosql.plugin.resourcegroups;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spi.resourcegroups.QueryType;
 import io.prestosql.spi.resourcegroups.ResourceGroup;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManager;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.resourcegroups.SelectionContext;
 
 import javax.annotation.concurrent.GuardedBy;
 
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -36,12 +37,13 @@ import java.util.Queue;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static com.google.common.base.Verify.verifyNotNull;
+import static io.prestosql.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static java.lang.String.format;
 import static java.util.function.Predicate.isEqual;
 
 public abstract class AbstractResourceConfigurationManager
-        implements ResourceGroupConfigurationManager<VariableMap>
+        implements ResourceGroupConfigurationManager<ResourceGroupIdTemplate>
 {
     @GuardedBy("generalPoolMemoryFraction")
     private final Map<ResourceGroup, Double> generalPoolMemoryFraction = new HashMap<>();
@@ -60,7 +62,7 @@ public abstract class AbstractResourceConfigurationManager
             List<ResourceGroupSpec> subGroups = group.getSubGroups();
             groups.addAll(subGroups);
             if (group.getSoftCpuLimit().isPresent() || group.getHardCpuLimit().isPresent()) {
-                checkArgument(managerSpec.getCpuQuotaPeriod().isPresent(), "cpuQuotaPeriod must be specified to use cpu limits on group: %s", group.getName());
+                checkArgument(managerSpec.getCpuQuotaPeriod().isPresent(), "cpuQuotaPeriod must be specified to use CPU limits on group: %s", group.getName());
             }
             if (group.getSoftCpuLimit().isPresent()) {
                 checkArgument(group.getHardCpuLimit().isPresent(), "Must specify hard CPU limit in addition to soft limit");
@@ -77,8 +79,7 @@ public abstract class AbstractResourceConfigurationManager
                     case QUERY_PRIORITY:
                     case FAIR:
                         for (ResourceGroupSpec subGroup : subGroups) {
-                            checkArgument(!subGroup.getSchedulingWeight().isPresent(),
-                                    String.format("Must use 'weighted' or 'weighted_fair' scheduling policy if specifying scheduling weight for '%s'", group.getName()));
+                            checkArgument(subGroup.getSchedulingWeight().isEmpty(), "Must use 'weighted' or 'weighted_fair' scheduling policy if specifying scheduling weight for '%s'", group.getName());
                         }
                         break;
                     default:
@@ -95,6 +96,7 @@ public abstract class AbstractResourceConfigurationManager
             validateSelectors(managerSpec.getRootGroups(), spec);
             selectors.add(new StaticSelector(
                     spec.getUserRegex(),
+                    spec.getUserGroupRegex(),
                     spec.getSourceRegex(),
                     spec.getClientTags(),
                     spec.getResourceEstimate(),
@@ -107,21 +109,18 @@ public abstract class AbstractResourceConfigurationManager
     private void validateSelectors(List<ResourceGroupSpec> groups, SelectorSpec spec)
     {
         spec.getQueryType().ifPresent(this::validateQueryType);
-        List<ResourceGroupNameTemplate> selectorGroups = spec.getGroup().getSegments();
         StringBuilder fullyQualifiedGroupName = new StringBuilder();
-        while (!selectorGroups.isEmpty()) {
-            ResourceGroupNameTemplate groupName = selectorGroups.get(0);
+        for (ResourceGroupNameTemplate groupName : spec.getGroup().getSegments()) {
             fullyQualifiedGroupName.append(groupName);
             Optional<ResourceGroupSpec> match = groups
                     .stream()
                     .filter(groupSpec -> groupSpec.getName().equals(groupName))
                     .findFirst();
-            if (!match.isPresent()) {
+            if (match.isEmpty()) {
                 throw new IllegalArgumentException(format("Selector refers to nonexistent group: %s", fullyQualifiedGroupName.toString()));
             }
             fullyQualifiedGroupName.append(".");
             groups = match.get().getSubGroups();
-            selectorGroups = selectorGroups.subList(1, selectorGroups.size());
         }
     }
 
@@ -141,65 +140,67 @@ public abstract class AbstractResourceConfigurationManager
             Map<ResourceGroup, DataSize> memoryLimits = new HashMap<>();
             synchronized (generalPoolMemoryFraction) {
                 for (Map.Entry<ResourceGroup, Double> entry : generalPoolMemoryFraction.entrySet()) {
-                    double bytes = poolInfo.getMaxBytes() * entry.getValue();
+                    long bytes = Math.round(poolInfo.getMaxBytes() * entry.getValue());
                     // setSoftMemoryLimit() acquires a lock on the root group of its tree, which could cause a deadlock if done while holding the "generalPoolMemoryFraction" lock
-                    memoryLimits.put(entry.getKey(), new DataSize(bytes, BYTE));
+                    memoryLimits.put(entry.getKey(), DataSize.ofBytes(bytes));
                 }
                 generalPoolBytes = poolInfo.getMaxBytes();
             }
-            for (Map.Entry<ResourceGroup, DataSize> entry : memoryLimits.entrySet()) {
-                entry.getKey().setSoftMemoryLimit(entry.getValue());
-            }
+            memoryLimits.forEach((group, limit) ->
+                    group.setSoftMemoryLimitBytes(limit.toBytes()));
         });
     }
 
-    protected Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> getMatchingSpec(ResourceGroup group, SelectionContext<VariableMap> context)
+    @Override
+    public SelectionContext<ResourceGroupIdTemplate> parentGroupContext(SelectionContext<ResourceGroupIdTemplate> context)
     {
-        List<ResourceGroupSpec> candidates = getRootGroups();
-        List<String> segments = group.getId().getSegments();
-        ResourceGroupSpec match = null;
-        List<ResourceGroupNameTemplate> templateId = new ArrayList<>();
-        for (int i = 0; i < segments.size(); i++) {
-            List<ResourceGroupSpec> nextCandidates = null;
-            ResourceGroupSpec nextCandidatesParent = null;
-            for (ResourceGroupSpec candidate : candidates) {
-                if (candidate.getName().expandTemplate(context.getContext()).equals(segments.get(i))) {
-                    templateId.add(candidate.getName());
-                    if (i == segments.size() - 1) {
-                        if (match != null) {
-                            throw new IllegalStateException(format("Ambiguous configuration for %s. Matches %s and %s", group.getId(), match.getName(), candidate.getName()));
-                        }
-                        match = candidate;
-                    }
-                    else {
-                        if (nextCandidatesParent != null) {
-                            throw new IllegalStateException(format("Ambiguous configuration for %s. Matches %s and %s", group.getId(), nextCandidatesParent.getName(), candidate.getName()));
-                        }
-                        nextCandidates = candidate.getSubGroups();
-                        nextCandidatesParent = candidate;
-                    }
-                }
-            }
-            if (nextCandidates == null) {
-                break;
-            }
-            candidates = nextCandidates;
-        }
-        checkState(match != null, "No matching configuration found for: %s", group.getId());
-
-        return new AbstractMap.SimpleImmutableEntry<>(ResourceGroupIdTemplate.fromSegments(templateId), match);
+        ResourceGroupId parentGroupId = context.getResourceGroupId().getParent().orElseThrow(() -> new IllegalArgumentException("Group has no parent group: " + context.getResourceGroupId()));
+        List<ResourceGroupNameTemplate> parentGroupIdTemplate = new ArrayList<>(context.getContext().getSegments());
+        parentGroupIdTemplate.remove(parentGroupIdTemplate.size() - 1);
+        return new SelectionContext<>(parentGroupId, ResourceGroupIdTemplate.fromSegments(parentGroupIdTemplate));
     }
 
+    protected ResourceGroupSpec getMatchingSpec(ResourceGroup group, SelectionContext<ResourceGroupIdTemplate> context)
+    {
+        List<ResourceGroupSpec> candidates = getRootGroups();
+        ResourceGroupIdTemplate groupIdTemplate = context.getContext();
+        ResourceGroupSpec match = null;
+
+        for (ResourceGroupNameTemplate segment : groupIdTemplate.getSegments()) {
+            match = null;
+            for (ResourceGroupSpec candidate : candidates) {
+                if (candidate.getName().equals(segment)) {
+                    if (match != null) {
+                        throw new PrestoException(INVALID_RESOURCE_GROUP, format(
+                                "Ambiguous configuration for [%s] using [%s]. Matches [%s] and [%s]",
+                                group.getId(),
+                                groupIdTemplate,
+                                match.getName(),
+                                candidate.getName()));
+                    }
+                    match = candidate;
+                }
+            }
+
+            checkState(match != null, "No matching configuration found for [%s] using [%s]", group.getId(), groupIdTemplate);
+            candidates = match.getSubGroups();
+        }
+
+        verifyNotNull(match, "match is null");
+        return match;
+    }
+
+    @SuppressWarnings("NumericCastThatLosesPrecision")
     protected void configureGroup(ResourceGroup group, ResourceGroupSpec match)
     {
         if (match.getSoftMemoryLimit().isPresent()) {
-            group.setSoftMemoryLimit(match.getSoftMemoryLimit().get());
+            group.setSoftMemoryLimitBytes(match.getSoftMemoryLimit().get().toBytes());
         }
         else {
             synchronized (generalPoolMemoryFraction) {
                 double fraction = match.getSoftMemoryLimitFraction().get();
                 generalPoolMemoryFraction.put(group, fraction);
-                group.setSoftMemoryLimit(new DataSize(generalPoolBytes * fraction, BYTE));
+                group.setSoftMemoryLimitBytes((long) (generalPoolBytes * fraction));
             }
         }
         group.setMaxQueuedQueries(match.getMaxQueued());
@@ -208,11 +209,11 @@ public abstract class AbstractResourceConfigurationManager
         match.getSchedulingPolicy().ifPresent(group::setSchedulingPolicy);
         match.getSchedulingWeight().ifPresent(group::setSchedulingWeight);
         match.getJmxExport().filter(isEqual(group.getJmxExport()).negate()).ifPresent(group::setJmxExport);
-        match.getSoftCpuLimit().ifPresent(group::setSoftCpuLimit);
-        match.getHardCpuLimit().ifPresent(group::setHardCpuLimit);
+        match.getSoftCpuLimit().map(Duration::toMillis).map(java.time.Duration::ofMillis).ifPresent(group::setSoftCpuLimit);
+        match.getHardCpuLimit().map(Duration::toMillis).map(java.time.Duration::ofMillis).ifPresent(group::setHardCpuLimit);
         if (match.getSoftCpuLimit().isPresent() || match.getHardCpuLimit().isPresent()) {
             // This will never throw an exception if the validateRootGroups method succeeds
-            checkState(getCpuQuotaPeriod().isPresent(), "Must specify hard CPU limit in addition to soft limit");
+            checkState(getCpuQuotaPeriod().isPresent(), "cpuQuotaPeriod must be specified to use CPU limits on group: %s", group.getId());
             Duration limit;
             if (match.getHardCpuLimit().isPresent()) {
                 limit = match.getHardCpuLimit().get();

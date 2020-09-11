@@ -34,7 +34,7 @@ import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static io.prestosql.plugin.thrift.api.PrestoThriftBlock.timestampData;
 import static io.prestosql.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.fromLongBasedBlock;
 import static io.prestosql.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.fromLongBasedColumn;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 
 /**
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.
@@ -76,7 +76,7 @@ public final class PrestoThriftTimestamp
     @Override
     public Block toBlock(Type desiredType)
     {
-        checkArgument(TIMESTAMP.equals(desiredType), "type doesn't match: %s", desiredType);
+        checkArgument(TIMESTAMP_MILLIS.equals(desiredType), "type doesn't match: %s", desiredType);
         int numberOfRecords = numberOfRecords();
         return new LongArrayBlock(
                 numberOfRecords,
@@ -126,7 +126,7 @@ public final class PrestoThriftTimestamp
 
     public static PrestoThriftBlock fromBlock(Block block)
     {
-        return fromLongBasedBlock(block, TIMESTAMP, (nulls, longs) -> timestampData(new PrestoThriftTimestamp(nulls, longs)));
+        return fromLongBasedBlock(block, TIMESTAMP_MILLIS, (nulls, longs) -> timestampData(new PrestoThriftTimestamp(nulls, longs)));
     }
 
     public static PrestoThriftBlock fromRecordSetColumn(RecordSet recordSet, int columnIndex, int totalRecords)

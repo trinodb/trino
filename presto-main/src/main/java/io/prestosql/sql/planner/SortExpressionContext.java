@@ -29,7 +29,7 @@ public class SortExpressionContext
 
     public SortExpressionContext(Expression sortExpression, List<Expression> searchExpressions)
     {
-        this.sortExpression = requireNonNull(sortExpression, "sortExpression can not be null");
+        this.sortExpression = requireNonNull(sortExpression, "sortExpression cannot be null");
         this.searchExpressions = ImmutableList.copyOf(searchExpressions);
     }
 

@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
@@ -39,7 +39,6 @@ import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
@@ -64,6 +63,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.or;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.planner.plan.Patterns.Apply.correlation;
 import static io.prestosql.sql.planner.plan.Patterns.applyNode;
@@ -96,6 +96,13 @@ public class TransformCorrelatedInPredicateToJoin
 {
     private static final Pattern<ApplyNode> PATTERN = applyNode()
             .with(nonEmpty(correlation()));
+
+    private final ResolvedFunction countFunction;
+
+    public TransformCorrelatedInPredicateToJoin(Metadata metadata)
+    {
+        countFunction = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of());
+    }
 
     @Override
     public Pattern<ApplyNode> getPattern()
@@ -132,7 +139,7 @@ public class TransformCorrelatedInPredicateToJoin
         Optional<Decorrelated> decorrelated = new DecorrelatingVisitor(lookup, apply.getCorrelation())
                 .decorrelate(apply.getSubquery());
 
-        if (!decorrelated.isPresent()) {
+        if (decorrelated.isEmpty()) {
             return Result.empty();
         }
 
@@ -184,23 +191,34 @@ public class TransformCorrelatedInPredicateToJoin
 
         JoinNode leftOuterJoin = leftOuterJoin(idAllocator, probeSide, buildSide, joinExpression);
 
-        Symbol countMatchesSymbol = symbolAllocator.newSymbol("countMatches", BIGINT);
-        Symbol countNullMatchesSymbol = symbolAllocator.newSymbol("countNullMatches", BIGINT);
-
+        Symbol matchConditionSymbol = symbolAllocator.newSymbol("matchConditionSymbol", BOOLEAN);
         Expression matchCondition = and(
                 isNotNull(probeSideSymbol),
                 isNotNull(buildSideSymbol));
 
+        Symbol nullMatchConditionSymbol = symbolAllocator.newSymbol("nullMatchConditionSymbol", BOOLEAN);
         Expression nullMatchCondition = and(
                 isNotNull(buildSideKnownNonNull),
                 not(matchCondition));
 
-        AggregationNode aggregation = new AggregationNode(
+        ProjectNode preProjection = new ProjectNode(
                 idAllocator.getNextId(),
                 leftOuterJoin,
+                Assignments.builder()
+                        .putIdentities(leftOuterJoin.getOutputSymbols())
+                        .put(matchConditionSymbol, matchCondition)
+                        .put(nullMatchConditionSymbol, nullMatchCondition)
+                        .build());
+
+        Symbol countMatchesSymbol = symbolAllocator.newSymbol("countMatches", BIGINT);
+        Symbol countNullMatchesSymbol = symbolAllocator.newSymbol("countNullMatches", BIGINT);
+
+        AggregationNode aggregation = new AggregationNode(
+                idAllocator.getNextId(),
+                preProjection,
                 ImmutableMap.<Symbol, AggregationNode.Aggregation>builder()
-                        .put(countMatchesSymbol, countWithFilter(matchCondition))
-                        .put(countNullMatchesSymbol, countWithFilter(nullMatchCondition))
+                        .put(countMatchesSymbol, countWithFilter(matchConditionSymbol))
+                        .put(countNullMatchesSymbol, countWithFilter(nullMatchConditionSymbol))
                         .build(),
                 singleGroupingSet(probeSide.getOutputSymbols()),
                 ImmutableList.of(),
@@ -231,30 +249,26 @@ public class TransformCorrelatedInPredicateToJoin
                 probeSide,
                 buildSide,
                 ImmutableList.of(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(probeSide.getOutputSymbols())
-                        .addAll(buildSide.getOutputSymbols())
-                        .build(),
+                probeSide.getOutputSymbols(),
+                buildSide.getOutputSymbols(),
                 Optional.of(joinExpression),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(),
                 Optional.empty());
     }
 
-    private static AggregationNode.Aggregation countWithFilter(Expression condition)
+    private AggregationNode.Aggregation countWithFilter(Symbol filter)
     {
-        FunctionCall countCall = new FunctionCall(
-                QualifiedName.of("count"),
-                Optional.empty(),
-                Optional.of(condition),
-                Optional.empty(),
-                false,
-                ImmutableList.<Expression>of()); /* arguments */
-
         return new AggregationNode.Aggregation(
-                countCall,
-                new Signature("count", FunctionKind.AGGREGATE, BIGINT.getTypeSignature()),
-                Optional.<Symbol>empty()); /* mask */
+                countFunction,
+                ImmutableList.of(),
+                false,
+                Optional.of(filter),
+                Optional.empty(),
+                Optional.empty()); /* mask */
     }
 
     private static Expression isGreaterThan(Symbol symbol, long value)
@@ -277,13 +291,13 @@ public class TransformCorrelatedInPredicateToJoin
 
     private static Expression bigint(long value)
     {
-        return new Cast(new LongLiteral(String.valueOf(value)), BIGINT.toString());
+        return new Cast(new LongLiteral(String.valueOf(value)), toSqlType(BIGINT));
     }
 
     private static Expression booleanConstant(@Nullable Boolean value)
     {
         if (value == null) {
-            return new Cast(new NullLiteral(), BOOLEAN.toString());
+            return new Cast(new NullLiteral(), toSqlType(BOOLEAN));
         }
         return new BooleanLiteral(value.toString());
     }
@@ -329,7 +343,7 @@ public class TransformCorrelatedInPredicateToJoin
                 return new Decorrelated(
                         decorrelated.getCorrelatedPredicates(),
                         new ProjectNode(
-                                node.getId(), // FIXME should I reuse or not?
+                                node.getId(),
                                 decorrelated.getDecorrelatedNode(),
                                 assignments.build()));
             });

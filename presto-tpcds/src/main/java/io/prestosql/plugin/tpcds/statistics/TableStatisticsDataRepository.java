@@ -16,7 +16,7 @@ package io.prestosql.plugin.tpcds.statistics;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.teradata.tpcds.Table;
+import io.prestosql.tpcds.Table;
 
 import java.io.File;
 import java.io.FileWriter;

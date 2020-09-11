@@ -24,12 +24,11 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 import java.util.List;
 
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static java.lang.String.format;
 
-public class DateFormatParser
+public final class DateFormatParser
 {
-    private DateFormatParser()
-    {
-    }
+    private DateFormatParser() {}
 
     public static DateTimeFormatter createDateTimeFormatter(String format)
     {
@@ -67,7 +66,7 @@ public class DateFormatParser
                 default:
                     throw new PrestoException(
                             StandardErrorCode.INVALID_FUNCTION_ARGUMENT,
-                            String.format("Failed to tokenize string [%s] at offset [%d]", token.getText(), token.getCharPositionInLine()));
+                            format("Failed to tokenize string [%s] at offset [%d]", token.getText(), token.getCharPositionInLine()));
             }
         }
 

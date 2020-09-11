@@ -16,6 +16,7 @@ package io.prestosql.orc.metadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -24,15 +25,16 @@ import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
 import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
 import io.prestosql.orc.metadata.Stream.StreamKind;
 import io.prestosql.orc.metadata.statistics.BinaryStatistics;
+import io.prestosql.orc.metadata.statistics.BloomFilter;
 import io.prestosql.orc.metadata.statistics.BooleanStatistics;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import io.prestosql.orc.metadata.statistics.DateStatistics;
 import io.prestosql.orc.metadata.statistics.DecimalStatistics;
 import io.prestosql.orc.metadata.statistics.DoubleStatistics;
-import io.prestosql.orc.metadata.statistics.HiveBloomFilter;
 import io.prestosql.orc.metadata.statistics.IntegerStatistics;
 import io.prestosql.orc.metadata.statistics.StringStatistics;
 import io.prestosql.orc.metadata.statistics.StripeStatistics;
+import io.prestosql.orc.metadata.statistics.TimestampStatistics;
 import io.prestosql.orc.proto.OrcProto;
 import io.prestosql.orc.proto.OrcProto.RowIndexEntry;
 import io.prestosql.orc.protobuf.ByteString;
@@ -41,11 +43,16 @@ import io.prestosql.orc.protobuf.CodedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.nio.ByteOrder;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
@@ -65,6 +72,7 @@ import static io.prestosql.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE
 import static io.prestosql.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
 import static io.prestosql.orc.metadata.statistics.ShortDecimalStatisticsBuilder.SHORT_DECIMAL_VALUE_BYTES;
 import static io.prestosql.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
+import static io.prestosql.orc.metadata.statistics.TimestampStatistics.TIMESTAMP_VALUE_BYTES;
 import static java.lang.Character.MIN_SUPPLEMENTARY_CODE_POINT;
 import static java.lang.Math.toIntExact;
 
@@ -72,13 +80,13 @@ public class OrcMetadataReader
         implements MetadataReader
 {
     private static final int REPLACEMENT_CHARACTER_CODE_POINT = 0xFFFD;
-    private static final int PROTOBUF_MESSAGE_MAX_LIMIT = toIntExact(new DataSize(1, GIGABYTE).toBytes());
+    private static final int PROTOBUF_MESSAGE_MAX_LIMIT = toIntExact(DataSize.of(1, GIGABYTE).toBytes());
 
     @Override
-    public PostScript readPostScript(byte[] data, int offset, int length)
+    public PostScript readPostScript(InputStream inputStream)
             throws IOException
     {
-        CodedInputStream input = CodedInputStream.newInstance(data, offset, length);
+        CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.PostScript postScript = OrcProto.PostScript.parseFrom(input);
 
         return new PostScript(
@@ -108,16 +116,17 @@ public class OrcMetadataReader
         return new Metadata(toStripeStatistics(hiveWriterVersion, metadata.getStripeStatsList()));
     }
 
-    private static List<StripeStatistics> toStripeStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.StripeStatistics> types)
+    private static List<Optional<StripeStatistics>> toStripeStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.StripeStatistics> types)
     {
         return types.stream()
                 .map(stripeStatistics -> toStripeStatistics(hiveWriterVersion, stripeStatistics))
                 .collect(toImmutableList());
     }
 
-    private static StripeStatistics toStripeStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.StripeStatistics stripeStatistics)
+    private static Optional<StripeStatistics> toStripeStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.StripeStatistics stripeStatistics)
     {
-        return new StripeStatistics(toColumnStatistics(hiveWriterVersion, stripeStatistics.getColStatsList(), false));
+        return toColumnStatistics(hiveWriterVersion, stripeStatistics.getColStatsList(), false)
+                .map(StripeStatistics::new);
     }
 
     @Override
@@ -129,7 +138,7 @@ public class OrcMetadataReader
         OrcProto.Footer footer = OrcProto.Footer.parseFrom(input);
         return new Footer(
                 footer.getNumberOfRows(),
-                footer.getRowIndexStride(),
+                footer.getRowIndexStride() == 0 ? OptionalInt.empty() : OptionalInt.of(footer.getRowIndexStride()),
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
                 toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false),
@@ -154,17 +163,22 @@ public class OrcMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(ColumnMetadata<OrcType> types, InputStream inputStream, ZoneId legacyFileTimeZone)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.StripeFooter stripeFooter = OrcProto.StripeFooter.parseFrom(input);
-        return new StripeFooter(toStream(stripeFooter.getStreamsList()), toColumnEncoding(stripeFooter.getColumnsList()));
+        return new StripeFooter(
+                toStream(stripeFooter.getStreamsList()),
+                toColumnEncoding(stripeFooter.getColumnsList()),
+                Optional.ofNullable(emptyToNull(stripeFooter.getWriterTimezone()))
+                        .map(zone -> TimeZone.getTimeZone(zone).toZoneId())
+                        .orElse(legacyFileTimeZone));
     }
 
     private static Stream toStream(OrcProto.Stream stream)
     {
-        return new Stream(stream.getColumn(), toStreamKind(stream.getKind()), toIntExact(stream.getLength()), true);
+        return new Stream(new OrcColumnId(stream.getColumn()), toStreamKind(stream.getKind()), toIntExact(stream.getLength()), true);
     }
 
     private static List<Stream> toStream(List<OrcProto.Stream> streams)
@@ -179,11 +193,11 @@ public class OrcMetadataReader
         return new ColumnEncoding(toColumnEncodingKind(columnEncoding.getKind()), columnEncoding.getDictionarySize());
     }
 
-    private static List<ColumnEncoding> toColumnEncoding(List<OrcProto.ColumnEncoding> columnEncodings)
+    private static ColumnMetadata<ColumnEncoding> toColumnEncoding(List<OrcProto.ColumnEncoding> columnEncodings)
     {
-        return columnEncodings.stream()
+        return new ColumnMetadata<>(columnEncodings.stream()
                 .map(OrcMetadataReader::toColumnEncoding)
-                .collect(toImmutableList());
+                .collect(toImmutableList()));
     }
 
     @Override
@@ -198,15 +212,23 @@ public class OrcMetadataReader
     }
 
     @Override
-    public List<HiveBloomFilter> readBloomFilterIndexes(InputStream inputStream)
+    public List<BloomFilter> readBloomFilterIndexes(InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.BloomFilterIndex bloomFilter = OrcProto.BloomFilterIndex.parseFrom(input);
         List<OrcProto.BloomFilter> bloomFilterList = bloomFilter.getBloomFilterList();
-        ImmutableList.Builder<HiveBloomFilter> builder = ImmutableList.builder();
+        ImmutableList.Builder<BloomFilter> builder = ImmutableList.builder();
         for (OrcProto.BloomFilter orcBloomFilter : bloomFilterList) {
-            builder.add(new HiveBloomFilter(orcBloomFilter.getBitsetList(), orcBloomFilter.getBitsetCount() * 64, orcBloomFilter.getNumHashFunctions()));
+            if (orcBloomFilter.hasUtf8Bitset()) {
+                ByteString utf8Bitset = orcBloomFilter.getUtf8Bitset();
+                long[] bits = new long[utf8Bitset.size() / 8];
+                utf8Bitset.asReadOnlyByteBuffer().order(ByteOrder.LITTLE_ENDIAN).asLongBuffer().get(bits);
+                builder.add(new BloomFilter(bits, orcBloomFilter.getNumHashFunctions()));
+            }
+            else {
+                builder.add(new BloomFilter(Longs.toArray(orcBloomFilter.getBitsetList()), orcBloomFilter.getNumHashFunctions()));
+            }
         }
         return builder.build();
     }
@@ -249,6 +271,9 @@ public class OrcMetadataReader
         else if (statistics.hasDateStatistics()) {
             minAverageValueBytes = DATE_VALUE_BYTES;
         }
+        else if (statistics.hasTimestampStatistics()) {
+            minAverageValueBytes = TIMESTAMP_VALUE_BYTES;
+        }
         else if (statistics.hasDecimalStatistics()) {
             // could be 8 or 16; return the smaller one given it is a min average
             minAverageValueBytes = DECIMAL_VALUE_BYTES_OVERHEAD + SHORT_DECIMAL_VALUE_BYTES;
@@ -264,6 +289,14 @@ public class OrcMetadataReader
             minAverageValueBytes = 0;
         }
 
+        // To handle an existing issue of Hive writer during minor compaction (HIVE-20604):
+        // After minor compaction, stripe stats don't have column statistics and bit field of numberOfValues
+        // is set to 1, but the value is wrongly set to default 0 which implies there is something wrong with
+        // the stats. Drop the column statistics altogether.
+        if (statistics.hasHasNull() && statistics.getNumberOfValues() == 0 && !statistics.getHasNull()) {
+            return new ColumnStatistics(null, 0, null, null, null, null, null, null, null, null, null);
+        }
+
         return new ColumnStatistics(
                 statistics.getNumberOfValues(),
                 minAverageValueBytes,
@@ -272,19 +305,20 @@ public class OrcMetadataReader
                 statistics.hasDoubleStatistics() ? toDoubleStatistics(statistics.getDoubleStatistics()) : null,
                 statistics.hasStringStatistics() ? toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup) : null,
                 statistics.hasDateStatistics() ? toDateStatistics(hiveWriterVersion, statistics.getDateStatistics(), isRowGroup) : null,
+                statistics.hasTimestampStatistics() ? toTimestampStatistics(hiveWriterVersion, statistics.getTimestampStatistics(), isRowGroup) : null,
                 statistics.hasDecimalStatistics() ? toDecimalStatistics(statistics.getDecimalStatistics()) : null,
                 statistics.hasBinaryStatistics() ? toBinaryStatistics(statistics.getBinaryStatistics()) : null,
                 null);
     }
 
-    private static List<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
+    private static Optional<ColumnMetadata<ColumnStatistics>> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
     {
-        if (columnStatistics == null) {
-            return ImmutableList.of();
+        if (columnStatistics == null || columnStatistics.isEmpty()) {
+            return Optional.empty();
         }
-        return columnStatistics.stream()
+        return Optional.of(new ColumnMetadata<>(columnStatistics.stream()
                 .map(statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup))
-                .collect(toImmutableList());
+                .collect(toImmutableList())));
     }
 
     private static Map<String, Slice> toUserMetadata(List<OrcProto.UserMetadataItem> metadataList)
@@ -358,7 +392,7 @@ public class OrcMetadataReader
         return new BinaryStatistics(binaryStatistics.getSum());
     }
 
-    static Slice byteStringToSlice(ByteString value)
+    private static Slice byteStringToSlice(ByteString value)
     {
         return Slices.wrappedBuffer(value.toByteArray());
     }
@@ -463,6 +497,17 @@ public class OrcMetadataReader
                 dateStatistics.hasMaximum() ? dateStatistics.getMaximum() : null);
     }
 
+    private static TimestampStatistics toTimestampStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.TimestampStatistics timestampStatistics, boolean isRowGroup)
+    {
+        if (hiveWriterVersion == ORIGINAL && !isRowGroup) {
+            return null;
+        }
+
+        return new TimestampStatistics(
+                timestampStatistics.hasMinimumUtc() ? timestampStatistics.getMinimumUtc() : null,
+                timestampStatistics.hasMaximumUtc() ? timestampStatistics.getMaximumUtc() : null);
+    }
+
     private static OrcType toType(OrcProto.Type type)
     {
         Optional<Integer> length = Optional.empty();
@@ -475,14 +520,21 @@ public class OrcMetadataReader
             precision = Optional.of(type.getPrecision());
             scale = Optional.of(type.getScale());
         }
-        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), length, precision, scale);
+        return new OrcType(toTypeKind(type.getKind()), toOrcColumnId(type.getSubtypesList()), type.getFieldNamesList(), length, precision, scale, toMap(type.getAttributesList()));
     }
 
-    private static List<OrcType> toType(List<OrcProto.Type> types)
+    private static List<OrcColumnId> toOrcColumnId(List<Integer> columnIds)
     {
-        return types.stream()
-                .map(OrcMetadataReader::toType)
+        return columnIds.stream()
+                .map(OrcColumnId::new)
                 .collect(toImmutableList());
+    }
+
+    private static ColumnMetadata<OrcType> toType(List<OrcProto.Type> types)
+    {
+        return new ColumnMetadata<>(types.stream()
+                .map(OrcMetadataReader::toType)
+                .collect(toImmutableList()));
     }
 
     private static OrcTypeKind toTypeKind(OrcProto.Type.Kind typeKind)
@@ -508,6 +560,8 @@ public class OrcMetadataReader
                 return OrcTypeKind.BINARY;
             case TIMESTAMP:
                 return OrcTypeKind.TIMESTAMP;
+            case TIMESTAMP_INSTANT:
+                return OrcTypeKind.TIMESTAMP_INSTANT;
             case LIST:
                 return OrcTypeKind.LIST;
             case MAP:
@@ -527,6 +581,20 @@ public class OrcMetadataReader
             default:
                 throw new IllegalStateException(typeKind + " stream type not implemented yet");
         }
+    }
+
+    // This method assumes type attributes have no duplicate key
+    private static Map<String, String> toMap(List<OrcProto.StringPair> attributes)
+    {
+        ImmutableMap.Builder<String, String> results = new ImmutableMap.Builder<>();
+        if (attributes != null) {
+            for (OrcProto.StringPair attribute : attributes) {
+                if (attribute.hasKey() && attribute.hasValue()) {
+                    results.put(attribute.getKey(), attribute.getValue());
+                }
+            }
+        }
+        return results.build();
     }
 
     private static StreamKind toStreamKind(OrcProto.Stream.Kind streamKind)

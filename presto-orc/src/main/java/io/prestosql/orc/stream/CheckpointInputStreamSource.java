@@ -37,7 +37,7 @@ public class CheckpointInputStreamSource<S extends ValueInputStream<C>, C extend
     private final S stream;
     private final C checkpoint;
 
-    public CheckpointInputStreamSource(S stream, C checkpoint)
+    private CheckpointInputStreamSource(S stream, C checkpoint)
     {
         this.stream = requireNonNull(stream, "stream is null");
         this.checkpoint = requireNonNull(checkpoint, "checkpoint is null");

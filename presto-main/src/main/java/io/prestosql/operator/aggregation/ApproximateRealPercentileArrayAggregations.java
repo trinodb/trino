@@ -34,7 +34,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 
 @AggregationFunction("approx_percentile")
-public class ApproximateRealPercentileArrayAggregations
+public final class ApproximateRealPercentileArrayAggregations
 {
     private ApproximateRealPercentileArrayAggregations() {}
 
@@ -45,7 +45,7 @@ public class ApproximateRealPercentileArrayAggregations
     }
 
     @InputFunction
-    public static void weightedInput(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.REAL) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array(double)") Block percentilesArrayBlock)
+    public static void weightedInput(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.REAL) long value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         ApproximateLongPercentileArrayAggregations.weightedInput(state, floatToSortableInt(intBitsToFloat((int) value)), weight, percentilesArrayBlock);
     }

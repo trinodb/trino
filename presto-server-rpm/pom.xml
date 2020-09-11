@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>303-SNAPSHOT</version>
+        <version>341</version>
     </parent>
 
     <artifactId>presto-server-rpm</artifactId>
@@ -15,57 +15,128 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
 
-        <air.check.skip-enforcer>true</air.check.skip-enforcer>
-        <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
-        <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
-        <air.check.skip-extended>true</air.check.skip-extended>
-
         <server.tar.package>presto-server-${project.version}</server.tar.package>
     </properties>
 
     <dependencies>
+        <!-- for testing -->
         <dependency>
             <groupId>io.prestosql</groupId>
-            <artifactId>presto-server</artifactId>
-            <version>${project.version}</version>
-            <type>tar.gz</type>
-            <scope>runtime</scope>
+            <artifactId>presto-jdbc</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-main</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
-        <!-- Untar presto-server tgz to target build folder -->
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>com.mycila</groupId>
+                    <artifactId>license-maven-plugin</artifactId>
+                    <configuration>
+                        <excludes combine.children="append">
+                            <exclude>src/main/rpm/**</exclude>
+                        </excludes>
+                        <mapping>
+                            <groovy>SLASHSTAR_STYLE</groovy>
+                        </mapping>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
         <plugins>
+            <!-- the default RPM lifecycle does not include testCompile -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
+                <artifactId>provisio-maven-plugin</artifactId>
                 <executions>
                     <execution>
                         <id>unpack</id>
+                        <phase>prepare-package</phase>
                         <goals>
-                            <goal>unpack</goal>
+                            <goal>provision</goal>
                         </goals>
                         <configuration>
-                            <skip>false</skip>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>io.prestosql</groupId>
-                                    <artifactId>presto-server</artifactId>
-                                    <version>${project.version}</version>
-                                    <type>tar.gz</type>
-                                    <outputDirectory>${project.build.outputDirectory}
-                                    </outputDirectory>
-                                </artifactItem>
-                            </artifactItems>
+                            <outputDirectory>${project.build.outputDirectory}</outputDirectory>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.gmaven</groupId>
+                <artifactId>groovy-maven-plugin</artifactId>
+                <version>2.1.1</version>
+                <executions>
+                    <execution>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>execute</goal>
+                        </goals>
+                        <configuration>
+                            <source>${project.basedir}/src/main/script/symlink.groovy</source>
+                            <properties>
+                                <root>${project.build.outputDirectory}/${server.tar.package}</root>
+                            </properties>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- Build presto-server rpm using the untarred artifacts -->
             <plugin>
-                <groupId>com.teradata</groupId>
-                <artifactId>redlinerpm-maven-plugin-td</artifactId>
-                <version>2.1.5</version>
+                <groupId>io.airlift.maven.plugins</groupId>
+                <artifactId>redlinerpm-maven-plugin</artifactId>
+                <version>2.1.6</version>
                 <extensions>true</extensions>
 
                 <configuration>
@@ -145,6 +216,14 @@
                                 </rule>
 
                                 <rule>
+                                    <destination>/usr/lib/presto/shared</destination>
+                                    <base>${server.tar.package}/shared</base>
+                                    <includes>
+                                        <include>*</include>
+                                    </includes>
+                                </rule>
+
+                                <rule>
                                     <!-- This should go to just /usr/lib/presto eventually. But that needs modifying
                                     launcher.py in airlift, to have a configurable option for install_path -->
                                     <destination>/usr/lib/presto/lib</destination>
@@ -155,7 +234,7 @@
                                 </rule>
 
                                 <rule>
-                                    <destination>/usr/lib/presto/lib/plugin</destination>
+                                    <destination>/usr/lib/presto/plugin</destination>
                                     <base>${server.tar.package}/plugin</base>
                                     <includes>
                                         <include>*/*</include>
@@ -168,6 +247,10 @@
                                     <includes>
                                         <include>*</include>
                                     </includes>
+                                    <directives>
+                                        <directive>config</directive>
+                                        <directive>noreplace</directive>
+                                    </directives>
                                 </rule>
 
                                 <rule>
@@ -185,12 +268,64 @@
                                 <rule>
                                     <destination>/usr/lib/presto/lib</destination>
                                 </rule>
-
                             </rules>
                         </package>
                     </packages>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-file-size</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireFilesSize>
+                                    <!-- Maven Central has a 1GB limit -->
+                                    <maxsize>1106000000</maxsize>
+                                    <files>
+                                        <file>${project.build.directory}/${project.build.finalName}.x86_64.rpm</file>
+                                    </files>
+                                </requireFilesSize>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>ci</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <version>2.22.2</version>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <rpm>${project.build.directory}/${project.build.finalName}.x86_64.rpm</rpm>
+                            </systemPropertyVariables>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

@@ -16,16 +16,17 @@ package io.prestosql.orc.writer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import io.prestosql.orc.OrcEncoding;
 import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
 import io.prestosql.orc.checkpoint.ByteArrayStreamCheckpoint;
 import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.CompressedMetadataWriter;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.RowGroupIndex;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.Stream.StreamKind;
+import io.prestosql.orc.metadata.statistics.BloomFilter;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import io.prestosql.orc.metadata.statistics.SliceColumnStatisticsBuilder;
 import io.prestosql.orc.stream.ByteArrayOutputStream;
@@ -40,13 +41,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.orc.OrcEncoding.DWRF;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static io.prestosql.orc.stream.LongOutputStream.createLengthOutputStream;
@@ -56,7 +57,7 @@ public class SliceDirectColumnWriter
         implements ColumnWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectColumnWriter.class).instanceSize();
-    private final int column;
+    private final OrcColumnId columnId;
     private final Type type;
     private final boolean compressed;
     private final ColumnEncoding columnEncoding;
@@ -71,14 +72,13 @@ public class SliceDirectColumnWriter
 
     private boolean closed;
 
-    public SliceDirectColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, OrcEncoding orcEncoding, Supplier<SliceColumnStatisticsBuilder> statisticsBuilderSupplier)
+    public SliceDirectColumnWriter(OrcColumnId columnId, Type type, CompressionKind compression, int bufferSize, Supplier<SliceColumnStatisticsBuilder> statisticsBuilderSupplier)
     {
-        checkArgument(column >= 0, "column is negative");
-        this.column = column;
+        this.columnId = requireNonNull(columnId, "columnId is null");
         this.type = requireNonNull(type, "type is null");
         this.compressed = requireNonNull(compression, "compression is null") != NONE;
-        this.columnEncoding = new ColumnEncoding(orcEncoding == DWRF ? DIRECT : DIRECT_V2, 0);
-        this.lengthStream = createLengthOutputStream(compression, bufferSize, orcEncoding);
+        this.columnEncoding = new ColumnEncoding(DIRECT_V2, 0);
+        this.lengthStream = createLengthOutputStream(compression, bufferSize);
         this.dataStream = new ByteArrayOutputStream(compression, bufferSize);
         this.presentStream = new PresentOutputStream(compression, bufferSize);
         this.statisticsBuilderSupplier = statisticsBuilderSupplier;
@@ -86,9 +86,9 @@ public class SliceDirectColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnEncoding> getColumnEncodings()
+    public Map<OrcColumnId, ColumnEncoding> getColumnEncodings()
     {
-        return ImmutableMap.of(column, columnEncoding);
+        return ImmutableMap.of(columnId, columnEncoding);
     }
 
     @Override
@@ -123,7 +123,7 @@ public class SliceDirectColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> finishRowGroup()
+    public Map<OrcColumnId, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
 
@@ -131,7 +131,7 @@ public class SliceDirectColumnWriter
         rowGroupColumnStatistics.add(statistics);
 
         statisticsBuilder = statisticsBuilderSupplier.get();
-        return ImmutableMap.of(column, statistics);
+        return ImmutableMap.of(columnId, statistics);
     }
 
     @Override
@@ -145,10 +145,10 @@ public class SliceDirectColumnWriter
     }
 
     @Override
-    public Map<Integer, ColumnStatistics> getColumnStripeStatistics()
+    public Map<OrcColumnId, ColumnStatistics> getColumnStripeStatistics()
     {
         checkState(closed);
-        return ImmutableMap.of(column, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
+        return ImmutableMap.of(columnId, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
     }
 
     @Override
@@ -173,7 +173,7 @@ public class SliceDirectColumnWriter
         }
 
         Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
-        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
+        Stream stream = new Stream(columnId, StreamKind.ROW_INDEX, slice.length(), false);
         return ImmutableList.of(new StreamDataOutput(slice, stream));
     }
 
@@ -191,14 +191,32 @@ public class SliceDirectColumnWriter
     }
 
     @Override
+    public List<StreamDataOutput> getBloomFilters(CompressedMetadataWriter metadataWriter)
+            throws IOException
+    {
+        List<BloomFilter> bloomFilters = rowGroupColumnStatistics.stream()
+                .map(ColumnStatistics::getBloomFilter)
+                .filter(Objects::nonNull)
+                .collect(toImmutableList());
+
+        if (!bloomFilters.isEmpty()) {
+            Slice slice = metadataWriter.writeBloomFilters(bloomFilters);
+            Stream stream = new Stream(columnId, StreamKind.BLOOM_FILTER_UTF8, slice.length(), false);
+            return ImmutableList.of(new StreamDataOutput(slice, stream));
+        }
+
+        return ImmutableList.of();
+    }
+
+    @Override
     public List<StreamDataOutput> getDataStreams()
     {
         checkState(closed);
 
         ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
-        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(lengthStream.getStreamDataOutput(column));
-        outputDataStreams.add(dataStream.getStreamDataOutput(column));
+        presentStream.getStreamDataOutput(columnId).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(lengthStream.getStreamDataOutput(columnId));
+        outputDataStreams.add(dataStream.getStreamDataOutput(columnId));
         return outputDataStreams.build();
     }
 

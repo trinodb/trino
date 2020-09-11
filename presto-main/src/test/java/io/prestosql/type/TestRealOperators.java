@@ -16,6 +16,7 @@ package io.prestosql.type;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -40,6 +41,7 @@ public class TestRealOperators
         assertFunction("REAL'12.2'", REAL, 12.2f);
         assertFunction("REAL'-17.76'", REAL, -17.76f);
         assertFunction("REAL'NaN'", REAL, Float.NaN);
+        assertFunction("REAL '-NaN'", REAL, Float.NaN);
         assertFunction("REAL'Infinity'", REAL, Float.POSITIVE_INFINITY);
         assertFunction("REAL'-Infinity'", REAL, Float.NEGATIVE_INFINITY);
     }
@@ -51,6 +53,9 @@ public class TestRealOperators
         assertFunction("REAL'-17.34' + REAL'-22.891'", REAL, -17.34f + -22.891f);
         assertFunction("REAL'-89.123' + REAL'754.0'", REAL, -89.123f + 754.0f);
         assertFunction("REAL'-0.0' + REAL'0.0'", REAL, -0.0f + 0.0f);
+        assertFunction("REAL'NaN' + REAL'1.23'", REAL, Float.NaN);
+        assertFunction("REAL'1.23' + REAL'NaN'", REAL, Float.NaN);
+        assertFunction("REAL'NaN' + REAL'-NaN'", REAL, Float.NaN);
     }
 
     @Test
@@ -60,6 +65,9 @@ public class TestRealOperators
         assertFunction("REAL'-17.34' - REAL'-22.891'", REAL, -17.34f - -22.891f);
         assertFunction("REAL'-89.123' - REAL'754.0'", REAL, -89.123f - 754.0f);
         assertFunction("REAL'-0.0' - REAL'0.0'", REAL, -0.0f - 0.0f);
+        assertFunction("REAL'NaN' - REAL'1.23'", REAL, Float.NaN);
+        assertFunction("REAL'1.23' - REAL'NaN'", REAL, Float.NaN);
+        assertFunction("REAL'NaN' - REAL'NaN'", REAL, Float.NaN);
     }
 
     @Test
@@ -70,6 +78,9 @@ public class TestRealOperators
         assertFunction("REAL'-89.123' * REAL'754.0'", REAL, -89.123f * 754.0f);
         assertFunction("REAL'-0.0' * REAL'0.0'", REAL, -0.0f * 0.0f);
         assertFunction("REAL'-17.71' * REAL'-1.0'", REAL, -17.71f * -1.0f);
+        assertFunction("REAL'NaN' * REAL'1.23'", REAL, Float.NaN);
+        assertFunction("REAL'1.23' * REAL'NaN'", REAL, Float.NaN);
+        assertFunction("REAL'NaN' * REAL'-NaN'", REAL, Float.NaN);
     }
 
     @Test
@@ -80,6 +91,9 @@ public class TestRealOperators
         assertFunction("REAL'-89.123' / REAL'754.0'", REAL, -89.123f / 754.0f);
         assertFunction("REAL'-0.0' / REAL'0.0'", REAL, -0.0f / 0.0f);
         assertFunction("REAL'-17.71' / REAL'-1.0'", REAL, -17.71f / -1.0f);
+        assertFunction("REAL'NaN' / REAL'1.23'", REAL, Float.NaN);
+        assertFunction("REAL'1.23' / REAL'NaN'", REAL, Float.NaN);
+        assertFunction("REAL'NaN' / REAL'-NaN'", REAL, Float.NaN);
     }
 
     @Test
@@ -90,6 +104,9 @@ public class TestRealOperators
         assertFunction("REAL'-89.123' % REAL'754.0'", REAL, -89.123f % 754.0f);
         assertFunction("REAL'-0.0' % REAL'0.0'", REAL, -0.0f % 0.0f);
         assertFunction("REAL'-17.71' % REAL'-1.0'", REAL, -17.71f % -1.0f);
+        assertFunction("REAL'NaN' % REAL'1.23'", REAL, Float.NaN);
+        assertFunction("REAL'1.23' % REAL'NaN'", REAL, Float.NaN);
+        assertFunction("REAL'NaN' % REAL'NaN'", REAL, Float.NaN);
     }
 
     @Test
@@ -98,6 +115,8 @@ public class TestRealOperators
         assertFunction("-REAL'12.34'", REAL, -12.34f);
         assertFunction("-REAL'-17.34'", REAL, 17.34f);
         assertFunction("-REAL'-0.0'", REAL, -(-0.0f));
+        assertFunction("-REAL'NaN'", REAL, Float.NaN);
+        assertFunction("-REAL'-NaN'", REAL, Float.NaN);
     }
 
     @Test
@@ -108,6 +127,9 @@ public class TestRealOperators
         assertFunction("REAL'-17.34' = REAL'-17.34'", BOOLEAN, true);
         assertFunction("REAL'71.17' = REAL'23.45'", BOOLEAN, false);
         assertFunction("REAL'-0.0' = REAL'0.0'", BOOLEAN, true);
+        assertFunction("REAL'NaN' = REAL'1.23'", BOOLEAN, false);
+        assertFunction("REAL'1.23' = REAL'NaN'", BOOLEAN, false);
+        assertFunction("REAL'NaN' = REAL'NaN'", BOOLEAN, false);
     }
 
     @Test
@@ -118,6 +140,9 @@ public class TestRealOperators
         assertFunction("REAL'-17.34' <> REAL'-17.34'", BOOLEAN, false);
         assertFunction("REAL'71.17' <> REAL'23.45'", BOOLEAN, true);
         assertFunction("REAL'-0.0' <> REAL'0.0'", BOOLEAN, false);
+        assertFunction("REAL'NaN' <> REAL'1.23'", BOOLEAN, true);
+        assertFunction("REAL'1.23' <> REAL'NaN'", BOOLEAN, true);
+        assertFunction("REAL'NaN' <> REAL'NaN'", BOOLEAN, true);
     }
 
     @Test
@@ -127,6 +152,9 @@ public class TestRealOperators
         assertFunction("REAL'-17.34' < REAL'-16.34'", BOOLEAN, true);
         assertFunction("REAL'71.17' < REAL'23.45'", BOOLEAN, false);
         assertFunction("REAL'-0.0' < REAL'0.0'", BOOLEAN, false);
+        assertFunction("REAL'NaN' < REAL'1.23'", BOOLEAN, false);
+        assertFunction("REAL'1.23' < REAL'NaN'", BOOLEAN, false);
+        assertFunction("REAL'NaN' < REAL'NaN'", BOOLEAN, false);
     }
 
     @Test
@@ -136,6 +164,9 @@ public class TestRealOperators
         assertFunction("REAL'-17.34' <= REAL'-17.34'", BOOLEAN, true);
         assertFunction("REAL'71.17' <= REAL'23.45'", BOOLEAN, false);
         assertFunction("REAL'-0.0' <= REAL'0.0'", BOOLEAN, true);
+        assertFunction("REAL'NaN' <= REAL'1.23'", BOOLEAN, false);
+        assertFunction("REAL'1.23' <= REAL'NaN'", BOOLEAN, false);
+        assertFunction("REAL'NaN' <= REAL'NaN'", BOOLEAN, false);
     }
 
     @Test
@@ -145,6 +176,9 @@ public class TestRealOperators
         assertFunction("REAL'-17.34' > REAL'-17.34'", BOOLEAN, false);
         assertFunction("REAL'71.17' > REAL'23.45'", BOOLEAN, true);
         assertFunction("REAL'-0.0' > REAL'0.0'", BOOLEAN, false);
+        assertFunction("REAL'NaN' > REAL'1.23'", BOOLEAN, false);
+        assertFunction("REAL'1.23' > REAL'NaN'", BOOLEAN, false);
+        assertFunction("REAL'NaN' > REAL'NaN'", BOOLEAN, false);
     }
 
     @Test
@@ -154,6 +188,9 @@ public class TestRealOperators
         assertFunction("REAL'-17.34' >= REAL'-17.34'", BOOLEAN, true);
         assertFunction("REAL'71.17' >= REAL'23.45'", BOOLEAN, true);
         assertFunction("REAL'-0.0' >= REAL'0.0'", BOOLEAN, true);
+        assertFunction("REAL'NaN' >= REAL'1.23'", BOOLEAN, false);
+        assertFunction("REAL'1.23' >= REAL'NaN'", BOOLEAN, false);
+        assertFunction("REAL'NaN' >= REAL'NaN'", BOOLEAN, false);
     }
 
     @Test
@@ -165,6 +202,11 @@ public class TestRealOperators
         assertFunction("REAL'0.0' BETWEEN REAL'-1.2' AND REAL'2.3'", BOOLEAN, true);
         assertFunction("REAL'56.78' BETWEEN REAL'12.34' AND REAL'34.56'", BOOLEAN, false);
         assertFunction("REAL'56.78' BETWEEN REAL'78.89' AND REAL'98.765'", BOOLEAN, false);
+        assertFunction("REAL'NaN' BETWEEN REAL'-1.2' AND REAL'2.3'", BOOLEAN, false);
+        assertFunction("REAL'56.78' BETWEEN REAL'-NaN' AND REAL'NaN'", BOOLEAN, false);
+        assertFunction("REAL'56.78' BETWEEN REAL'NaN' AND REAL'-NaN'", BOOLEAN, false);
+        assertFunction("REAL'56.78' BETWEEN REAL'56.78' AND REAL'NaN'", BOOLEAN, false);
+        assertFunction("REAL'NaN' BETWEEN REAL'NaN' AND REAL'NaN'", BOOLEAN, false);
     }
 
     @Test
@@ -183,6 +225,7 @@ public class TestRealOperators
         assertFunction("CAST(REAL'-754.2008' as BIGINT)", BIGINT, -754L);
         assertFunction("CAST(REAL'1.98' as BIGINT)", BIGINT, 2L);
         assertFunction("CAST(REAL'-0.0' as BIGINT)", BIGINT, 0L);
+        assertInvalidFunction("CAST(REAL 'NaN' as BIGINT)", INVALID_CAST_ARGUMENT);
     }
 
     @Test
@@ -192,6 +235,7 @@ public class TestRealOperators
         assertFunction("CAST(REAL'-754.1985' AS INTEGER)", INTEGER, -754);
         assertFunction("CAST(REAL'9.99' AS INTEGER)", INTEGER, 10);
         assertFunction("CAST(REAL'-0.0' AS INTEGER)", INTEGER, 0);
+        assertInvalidFunction("CAST(REAL 'NaN' AS INTEGER)", INVALID_CAST_ARGUMENT);
     }
 
     @Test
@@ -201,6 +245,7 @@ public class TestRealOperators
         assertFunction("CAST(REAL'-754.1985' AS SMALLINT)", SMALLINT, (short) -754);
         assertFunction("CAST(REAL'9.99' AS SMALLINT)", SMALLINT, (short) 10);
         assertFunction("CAST(REAL'-0.0' AS SMALLINT)", SMALLINT, (short) 0);
+        assertInvalidFunction("CAST(REAL 'NaN' AS SMALLINT)", INVALID_CAST_ARGUMENT);
     }
 
     @Test
@@ -210,6 +255,7 @@ public class TestRealOperators
         assertFunction("CAST(REAL'-128.234' AS TINYINT)", TINYINT, (byte) -128);
         assertFunction("CAST(REAL'9.99' AS TINYINT)", TINYINT, (byte) 10);
         assertFunction("CAST(REAL'-0.0' AS TINYINT)", TINYINT, (byte) 0);
+        assertInvalidFunction("CAST(REAL 'NaN' AS TINYINT)", INVALID_CAST_ARGUMENT);
     }
 
     @Test
@@ -220,6 +266,7 @@ public class TestRealOperators
         assertFunction("CAST(REAL'0.0' AS DOUBLE)", DOUBLE, (double) 0.0f);
         assertFunction("CAST(REAL'-0.0' AS DOUBLE)", DOUBLE, (double) -0.0f);
         assertFunction("CAST(CAST(REAL'754.1985' AS DOUBLE) AS REAL)", REAL, 754.1985f);
+        assertFunction("CAST(REAL 'NaN' AS DOUBLE)", DOUBLE, Double.NaN);
     }
 
     @Test
@@ -228,6 +275,7 @@ public class TestRealOperators
         assertFunction("CAST(REAL'754.1985' AS BOOLEAN)", BOOLEAN, true);
         assertFunction("CAST(REAL'0.0' AS BOOLEAN)", BOOLEAN, false);
         assertFunction("CAST(REAL'-0.0' AS BOOLEAN)", BOOLEAN, false);
+        assertFunction("CAST(REAL 'NaN' AS BOOLEAN)", BOOLEAN, true);
     }
 
     @Test
@@ -239,16 +287,18 @@ public class TestRealOperators
         assertFunction("NULL IS DISTINCT FROM REAL'37.7'", BOOLEAN, true);
         assertFunction("REAL'37.7' IS DISTINCT FROM NULL", BOOLEAN, true);
         assertFunction("CAST(nan() AS REAL) IS DISTINCT FROM CAST(nan() AS REAL)", BOOLEAN, false);
+        assertFunction("REAL'NaN' IS DISTINCT FROM REAL'37.8'", BOOLEAN, true);
+        assertFunction("REAL'37.8' IS DISTINCT FROM REAL'NaN'", BOOLEAN, true);
     }
 
     @Test
     public void testIndeterminate()
-            throws Exception
     {
         assertOperator(INDETERMINATE, "cast(null as real)", BOOLEAN, true);
         assertOperator(INDETERMINATE, "cast(-1.2 as real)", BOOLEAN, false);
         assertOperator(INDETERMINATE, "cast(1.2 as real)", BOOLEAN, false);
         assertOperator(INDETERMINATE, "cast(123 as real)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "REAL'NaN'", BOOLEAN, false);
     }
 
     @Test
@@ -258,6 +308,19 @@ public class TestRealOperators
         for (int nanRepresentation : nanRepresentations) {
             assertTrue(isNaN(intBitsToFloat(nanRepresentation)));
             assertEquals(RealOperators.hashCode(nanRepresentation), RealOperators.hashCode(nanRepresentations[0]));
+            assertEquals(RealOperators.xxHash64(nanRepresentation), RealOperators.xxHash64(nanRepresentations[0]));
+        }
+    }
+
+    @Test
+    public void testZeroHash()
+    {
+        int[] zeroes = {floatToIntBits(0.0f), floatToIntBits(-0.0f)};
+        for (int zero : zeroes) {
+            //noinspection SimplifiedTestNGAssertion
+            assertTrue(intBitsToFloat(zero) == 0f);
+            assertEquals(RealOperators.hashCode(zero), RealOperators.hashCode(zeroes[0]));
+            assertEquals(RealOperators.xxHash64(zero), RealOperators.xxHash64(zeroes[0]));
         }
     }
 }

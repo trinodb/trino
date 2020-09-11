@@ -13,46 +13,38 @@
  */
 package io.prestosql.tests.hive;
 
-import io.prestodb.tempto.fulfillment.table.TableDefinitionsRepository;
-import io.prestodb.tempto.fulfillment.table.hive.HiveDataSource;
-import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
+import io.prestosql.tempto.fulfillment.table.hive.HiveDataSource;
+import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
 
 import java.util.Locale;
 import java.util.Optional;
 
-import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
+import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
 public final class AllSimpleTypesTableDefinitions
 {
-    private AllSimpleTypesTableDefinitions()
-    {
-    }
+    private AllSimpleTypesTableDefinitions() {}
 
     private static String tableNameFormat = "%s_all_types";
 
-    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_TEXTFILE = tableDefinitionBuilder("TEXTFILE", Optional.of("DELIMITED FIELDS TERMINATED BY '|'"))
             .setDataSource(getTextFileDataSource())
             .build();
 
-    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_PARQUET = parquetTableDefinitionBuilder()
             .setNoData()
             .build();
 
-    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_AVRO = avroTableDefinitionBuilder()
             .setNoData()
             .build();
 
-    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_ORC = tableDefinitionBuilder("ORC", Optional.empty())
             .setNoData()
             .build();
 
-    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_RCFILE = tableDefinitionBuilder("RCFILE", Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe'"))
             .setNoData()
             .build();

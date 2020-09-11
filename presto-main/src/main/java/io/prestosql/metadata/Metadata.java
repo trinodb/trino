@@ -15,16 +15,34 @@ package io.prestosql.metadata;
 
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
+import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.connector.AggregateFunction;
+import io.prestosql.spi.connector.AggregationApplicationResult;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.ConnectorCapabilities;
+import io.prestosql.spi.connector.ConnectorMaterializedViewDefinition;
 import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
+import io.prestosql.spi.connector.LimitApplicationResult;
+import io.prestosql.spi.connector.MaterializedViewFreshness;
+import io.prestosql.spi.connector.ProjectionApplicationResult;
+import io.prestosql.spi.connector.SampleType;
+import io.prestosql.spi.connector.SortItem;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.connector.TopNApplicationResult;
+import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -33,9 +51,12 @@ import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
+import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.tree.QualifiedName;
 
@@ -46,21 +67,15 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static io.prestosql.spi.function.OperatorType.CAST;
+
 public interface Metadata
 {
-    void verifyComparableOrderableContract();
-
-    Type getType(TypeSignature signature);
-
-    boolean isAggregationFunction(QualifiedName name);
-
-    List<SqlFunction> listFunctions();
-
-    void addFunctions(List<? extends SqlFunction> functions);
-
-    boolean schemaExists(Session session, CatalogSchemaName schema);
+    Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName);
 
     boolean catalogExists(Session session, String catalogName);
+
+    boolean schemaExists(Session session, CatalogSchemaName schema);
 
     List<String> listSchemaNames(Session session, String catalogName);
 
@@ -73,25 +88,26 @@ public interface Metadata
 
     Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);
 
-    List<TableLayoutResult> getLayouts(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
+    @Deprecated
+    Optional<TableLayoutResult> getLayout(Session session, TableHandle tableHandle, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns);
 
-    TableLayout getLayout(Session session, TableLayoutHandle handle);
+    TableProperties getTableProperties(Session session, TableHandle handle);
 
     /**
-     * Return a table layout handle whose partitioning is converted to the provided partitioning handle,
-     * but otherwise identical to the provided table layout handle.
-     * The provided table layout handle must be one that the connector can transparently convert to from
-     * the original partitioning handle associated with the provided table layout handle,
+     * Return a table handle whose partitioning is converted to the provided partitioning handle,
+     * but otherwise identical to the provided table handle.
+     * The provided table handle must be one that the connector can transparently convert to from
+     * the original partitioning handle associated with the provided table handle,
      * as promised by {@link #getCommonPartitioning}.
      */
-    TableLayoutHandle getAlternativeLayoutHandle(Session session, TableLayoutHandle tableLayoutHandle, PartitioningHandle partitioningHandle);
+    TableHandle makeCompatiblePartitioning(Session session, TableHandle table, PartitioningHandle partitioningHandle);
 
     /**
      * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
      */
     Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right);
 
-    Optional<Object> getInfo(Session session, TableLayoutHandle handle);
+    Optional<Object> getInfo(Session session, TableHandle handle);
 
     /**
      * Return the metadata for the specified table handle.
@@ -103,7 +119,7 @@ public interface Metadata
     /**
      * Return statistics for specified table for given filtering contraint.
      */
-    TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint);
+    TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint constraint);
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -111,7 +127,7 @@ public interface Metadata
     List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix);
 
     /**
-     * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
+     * Gets all of the columns on the specified table, or an empty map if the columns cannot be enumerated.
      *
      * @throws RuntimeException if table handle is no longer valid
      */
@@ -131,8 +147,10 @@ public interface Metadata
 
     /**
      * Creates a schema.
+     *
+     * @param principal TODO
      */
-    void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties);
+    void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, PrestoPrincipal principal);
 
     /**
      * Drops the specified schema.
@@ -145,6 +163,11 @@ public interface Metadata
     void renameSchema(Session session, CatalogSchemaName source, String target);
 
     /**
+     * Set the specified schema's user/role.
+     */
+    void setSchemaAuthorization(Session session, CatalogSchemaName source, PrestoPrincipal principal);
+
+    /**
      * Creates a table using the specified table metadata.
      *
      * @throws PrestoException with {@code ALREADY_EXISTS} if the table already exists and {@param ignoreExisting} is not set
@@ -155,6 +178,16 @@ public interface Metadata
      * Rename the specified table.
      */
     void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName);
+
+    /**
+     * Comments to the specified table.
+     */
+    void setTableComment(Session session, TableHandle tableHandle, Optional<String> comment);
+
+    /**
+     * Comments to the specified column.
+     */
+    void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment);
 
     /**
      * Rename the specified column.
@@ -174,7 +207,7 @@ public interface Metadata
     /**
      * Drops the specified table
      *
-     * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
+     * @throws RuntimeException if the table cannot be dropped or table handle is no longer valid
      */
     void dropTable(Session session, TableHandle tableHandle);
 
@@ -213,11 +246,6 @@ public interface Metadata
     void finishStatisticsCollection(Session session, AnalyzeTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics);
 
     /**
-     * Start a SELECT/UPDATE/INSERT/DELETE query
-     */
-    void beginQuery(Session session, Set<ConnectorId> connectors);
-
-    /**
      * Cleanup after a query. This is the very last notification after the query finishes, regardless if it succeeds or fails.
      * An exception thrown in this method will not affect the result of the query.
      */
@@ -226,12 +254,32 @@ public interface Metadata
     /**
      * Begin insert query
      */
-    InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
+    InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<ColumnHandle> columns);
+
+    /**
+     * @return whether connector handles missing columns during insert
+     */
+    boolean supportsMissingColumnsOnInsert(Session session, TableHandle tableHandle);
 
     /**
      * Finish insert query
      */
     Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
+
+    /**
+     * Begin refresh materialized view query
+     */
+    InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle);
+
+    /**
+     * Finish refresh materialized view query
+     */
+    Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+            Session session,
+            InsertTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<TableHandle> sourceTableHandles);
 
     /**
      * Get the row ID column handle used with UpdatablePageSource.
@@ -241,14 +289,17 @@ public interface Metadata
     /**
      * @return whether delete without table scan is supported
      */
-    boolean supportsMetadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle);
+    boolean supportsMetadataDelete(Session session, TableHandle tableHandle);
 
     /**
-     * Delete the provide table layout
-     *
-     * @return number of rows deleted, or empty for unknown
+     * Push delete into connector
      */
-    OptionalLong metadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle);
+    Optional<TableHandle> applyDelete(Session session, TableHandle tableHandle);
+
+    /**
+     * Execute delete in connector
+     */
+    OptionalLong executeDelete(Session session, TableHandle tableHandle);
 
     /**
      * Begin delete query
@@ -263,14 +314,14 @@ public interface Metadata
     /**
      * Returns a connector id for the specified catalog name.
      */
-    Optional<ConnectorId> getCatalogHandle(Session session, String catalogName);
+    Optional<CatalogName> getCatalogHandle(Session session, String catalogName);
 
     /**
      * Gets all the loaded catalogs
      *
      * @return Map of catalog name to connector id
      */
-    Map<String, ConnectorId> getCatalogNames(Session session);
+    Map<String, CatalogName> getCatalogNames(Session session);
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -280,17 +331,32 @@ public interface Metadata
     /**
      * Get the view definitions that match the specified table prefix (never null).
      */
-    Map<QualifiedObjectName, ViewDefinition> getViews(Session session, QualifiedTablePrefix prefix);
+    Map<QualifiedObjectName, ConnectorViewDefinition> getViews(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Returns the view definition for the specified view name.
      */
-    Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName);
+    Optional<ConnectorViewDefinition> getView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Gets the schema properties for the specified schema.
+     */
+    Map<String, Object> getSchemaProperties(Session session, CatalogSchemaName schemaName);
+
+    /**
+     * Gets the schema owner for the specified schema.
+     */
+    Optional<PrestoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName);
 
     /**
      * Creates the specified view with the specified view definition.
      */
-    void createView(Session session, QualifiedObjectName viewName, String viewData, boolean replace);
+    void createView(Session session, QualifiedObjectName viewName, ConnectorViewDefinition definition, boolean replace);
+
+    /**
+     * Rename the specified view.
+     */
+    void renameView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName);
 
     /**
      * Drops the specified view.
@@ -301,6 +367,37 @@ public interface Metadata
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.
      */
     Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain);
+
+    @Deprecated
+    boolean usesLegacyTableLayouts(Session session, TableHandle table);
+
+    Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit);
+
+    Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint constraint);
+
+    Optional<ProjectionApplicationResult<TableHandle>> applyProjection(Session session, TableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments);
+
+    Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio);
+
+    Optional<AggregationApplicationResult<TableHandle>> applyAggregation(
+            Session session,
+            TableHandle table,
+            List<AggregateFunction> aggregations,
+            Map<String, ColumnHandle> assignments,
+            List<List<ColumnHandle>> groupingSets);
+
+    Optional<TopNApplicationResult<TableHandle>> applyTopN(
+            Session session,
+            TableHandle handle,
+            long topNCount,
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments);
+
+    default void validateScan(Session session, TableHandle table) {}
+
+    //
+    // Roles and Grants
+    //
 
     /**
      * Creates the specified role in the specified catalog.
@@ -320,6 +417,12 @@ public interface Metadata
     Set<String> listRoles(Session session, String catalog);
 
     /**
+     * List all role grants in the specified catalog,
+     * optionally filtered by passed role, grantee, and limit predicates.
+     */
+    Set<RoleGrant> listAllRoleGrants(Session session, String catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit);
+
+    /**
      * List roles grants in the specified catalog for a given principal, not recursively.
      */
     Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal);
@@ -329,14 +432,14 @@ public interface Metadata
      *
      * @param grantor represents the principal specified by GRANTED BY statement
      */
-    void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalog);
+    void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalog);
 
     /**
      * Revokes the specified roles from the specified grantees in the specified catalog
      *
      * @param grantor represents the principal specified by GRANTED BY statement
      */
-    void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalog);
+    void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalog);
 
     /**
      * List applicable roles, including the transitive grants, for the specified principal
@@ -363,13 +466,80 @@ public interface Metadata
      */
     List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
 
-    FunctionRegistry getFunctionRegistry();
+    //
+    // Types
+    //
+
+    Type getType(TypeSignature signature);
+
+    Type fromSqlType(String sqlType);
+
+    Type getType(TypeId id);
+
+    default Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+    {
+        return getType(new TypeSignature(baseTypeName, typeParameters));
+    }
+
+    Collection<Type> getTypes();
+
+    Collection<ParametricType> getParametricTypes();
+
+    void verifyComparableOrderableContract();
+
+    //
+    // Functions
+    //
+
+    void addFunctions(List<? extends SqlFunction> functions);
+
+    List<FunctionMetadata> listFunctions();
+
+    ResolvedFunction decodeFunction(QualifiedName name);
+
+    ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
+
+    ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+            throws OperatorNotFoundException;
+
+    default ResolvedFunction getCoercion(Type fromType, Type toType)
+    {
+        return getCoercion(CAST, fromType, toType);
+    }
+
+    ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType);
+
+    ResolvedFunction getCoercion(QualifiedName name, Type fromType, Type toType);
+
+    /**
+     * Is the named function an aggregation function?  This does not need type parameters
+     * because overloads between aggregation and other function types are not allowed.
+     */
+    boolean isAggregationFunction(QualifiedName name);
+
+    FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction);
+
+    AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction);
+
+    WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction);
+
+    InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction);
+
+    FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention);
 
     ProcedureRegistry getProcedureRegistry();
 
-    TypeManager getTypeManager();
+    //
+    // Blocks
+    //
+
+    BlockEncoding getBlockEncoding(String encodingName);
 
     BlockEncodingSerde getBlockEncodingSerde();
+
+    //
+    // Properties
+    //
 
     SessionPropertyManager getSessionPropertyManager();
 
@@ -380,4 +550,25 @@ public interface Metadata
     ColumnPropertyManager getColumnPropertyManager();
 
     AnalyzePropertyManager getAnalyzePropertyManager();
+
+    /**
+     * Creates the specified materialized view with the specified view definition.
+     */
+    void createMaterializedView(Session session, QualifiedObjectName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting);
+
+    /**
+     * Drops the specified materialized view.
+     */
+    void dropMaterializedView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Returns the materialized view definition for the specified view name.
+     */
+    Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Method to get difference between the states of table at two different points in time/or as of given token-ids.
+     * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
+     */
+    MaterializedViewFreshness getMaterializedViewFreshness(Session session, TableHandle tableHandle);
 }

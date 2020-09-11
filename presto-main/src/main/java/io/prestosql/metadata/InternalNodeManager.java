@@ -13,22 +13,20 @@
  */
 package io.prestosql.metadata;
 
-import io.prestosql.connector.ConnectorId;
-import io.prestosql.spi.Node;
-import io.prestosql.spi.NodeState;
+import io.prestosql.connector.CatalogName;
 
 import java.util.Set;
 import java.util.function.Consumer;
 
 public interface InternalNodeManager
 {
-    Set<Node> getNodes(NodeState state);
+    Set<InternalNode> getNodes(NodeState state);
 
-    Set<Node> getActiveConnectorNodes(ConnectorId connectorId);
+    Set<InternalNode> getActiveConnectorNodes(CatalogName catalogName);
 
-    Node getCurrentNode();
+    InternalNode getCurrentNode();
 
-    Set<Node> getCoordinators();
+    Set<InternalNode> getCoordinators();
 
     AllNodes getAllNodes();
 

@@ -49,22 +49,17 @@ public class KuduConnectorFactory
     {
         requireNonNull(config, "config is null");
 
-        try {
-            Bootstrap app = new Bootstrap(
-                    new JsonModule(),
-                    new KuduModule(context.getTypeManager()));
+        Bootstrap app = new Bootstrap(
+                new JsonModule(),
+                new KuduModule(context.getTypeManager()),
+                binder -> binder.bind(ClassLoader.class).toInstance(KuduConnectorFactory.class.getClassLoader()));
 
-            Injector injector =
-                    app.strictConfig().doNotInitializeLogging().setRequiredConfigurationProperties(config)
-                            .initialize();
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
 
-            return injector.getInstance(KuduConnector.class);
-        }
-        catch (RuntimeException e) {
-            throw e;
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return injector.getInstance(KuduConnector.class);
     }
 }

@@ -24,6 +24,9 @@ import javax.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -33,19 +36,19 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class MemoryManagerConfig
 {
     // enforced against user memory allocations
-    private DataSize maxQueryMemory = new DataSize(20, GIGABYTE);
+    private DataSize maxQueryMemory = DataSize.of(20, GIGABYTE);
     // enforced against user + system memory allocations (default is maxQueryMemory * 2)
     private DataSize maxQueryTotalMemory;
-    private String lowMemoryKillerPolicy = LowMemoryKillerPolicy.NONE;
+    private LowMemoryKillerPolicy lowMemoryKillerPolicy = LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
 
-    public String getLowMemoryKillerPolicy()
+    public LowMemoryKillerPolicy getLowMemoryKillerPolicy()
     {
         return lowMemoryKillerPolicy;
     }
 
     @Config("query.low-memory-killer.policy")
-    public MemoryManagerConfig setLowMemoryKillerPolicy(String lowMemoryKillerPolicy)
+    public MemoryManagerConfig setLowMemoryKillerPolicy(LowMemoryKillerPolicy lowMemoryKillerPolicy)
     {
         this.lowMemoryKillerPolicy = lowMemoryKillerPolicy;
         return this;
@@ -95,10 +98,25 @@ public class MemoryManagerConfig
         return this;
     }
 
-    public static class LowMemoryKillerPolicy
+    public enum LowMemoryKillerPolicy
     {
-        public static final String NONE = "none";
-        public static final String TOTAL_RESERVATION = "total-reservation";
-        public static final String TOTAL_RESERVATION_ON_BLOCKED_NODES = "total-reservation-on-blocked-nodes";
+        NONE,
+        TOTAL_RESERVATION,
+        TOTAL_RESERVATION_ON_BLOCKED_NODES,
+        /**/;
+
+        public static LowMemoryKillerPolicy fromString(String value)
+        {
+            switch (requireNonNull(value, "value is null").toLowerCase(ENGLISH)) {
+                case "none":
+                    return NONE;
+                case "total-reservation":
+                    return TOTAL_RESERVATION;
+                case "total-reservation-on-blocked-nodes":
+                    return TOTAL_RESERVATION_ON_BLOCKED_NODES;
+            }
+
+            throw new IllegalArgumentException(format("Unrecognized value: '%s'", value));
+        }
     }
 }

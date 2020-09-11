@@ -13,18 +13,13 @@
  */
 package io.prestosql.orc;
 
-import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
-import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -35,32 +30,23 @@ import org.apache.hadoop.io.Writable;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 
 import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.prestosql.orc.OrcEncoding.ORC;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.prestosql.orc.OrcTester.Format.ORC_12;
 import static io.prestosql.orc.OrcTester.createCustomOrcRecordReader;
 import static io.prestosql.orc.OrcTester.createOrcRecordWriter;
 import static io.prestosql.orc.OrcTester.createSettableStructObjectInspector;
-import static io.prestosql.spi.block.MethodHandleUtil.compose;
-import static io.prestosql.spi.block.MethodHandleUtil.nativeValueGetter;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcReaderMemoryUsage
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-
-    public TestOrcReaderMemoryUsage()
-    {
-        // Associate TYPE_MANAGER with a function registry.
-        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
+    private static final Metadata METADATA = createTestMetadataManager();
 
     @Test
     public void testVarcharTypeWithoutNulls()
@@ -69,7 +55,7 @@ public class TestOrcReaderMemoryUsage
         int rows = 5000;
         OrcRecordReader reader = null;
         try (TempFile tempFile = createSingleColumnVarcharFile(rows, 10)) {
-            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, VARCHAR, INITIAL_BATCH_SIZE);
+            reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, VARCHAR, INITIAL_BATCH_SIZE);
             assertInitialRetainedSizes(reader, rows);
 
             long stripeReaderRetainedSize = reader.getCurrentStripeRetainedSizeInBytes();
@@ -78,17 +64,15 @@ public class TestOrcReaderMemoryUsage
             long readerSystemMemoryUsage = reader.getSystemMemoryUsage();
 
             while (true) {
-                int batchSize = reader.nextBatch();
-                if (batchSize == -1) {
+                Page page = reader.nextPage();
+                if (page == null) {
                     break;
                 }
-
-                Block block = reader.readBlock(VARCHAR, 0);
-                assertEquals(block.getPositionCount(), batchSize);
+                page = page.getLoadedPage();
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
                 // increasing during the test, which will cause the StreamReader buffer sizes to increase too.
-                if (batchSize < MAX_BATCH_SIZE) {
+                if (page.getPositionCount() < MAX_BATCH_SIZE) {
                     continue;
                 }
 
@@ -116,7 +100,7 @@ public class TestOrcReaderMemoryUsage
         int rows = 10000;
         OrcRecordReader reader = null;
         try (TempFile tempFile = createSingleColumnFileWithNullValues(rows)) {
-            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, INITIAL_BATCH_SIZE);
+            reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, BIGINT, INITIAL_BATCH_SIZE);
             assertInitialRetainedSizes(reader, rows);
 
             long stripeReaderRetainedSize = reader.getCurrentStripeRetainedSizeInBytes();
@@ -125,17 +109,15 @@ public class TestOrcReaderMemoryUsage
             long readerSystemMemoryUsage = reader.getSystemMemoryUsage();
 
             while (true) {
-                int batchSize = reader.nextBatch();
-                if (batchSize == -1) {
+                Page page = reader.nextPage();
+                if (page == null) {
                     break;
                 }
-
-                Block block = reader.readBlock(BIGINT, 0);
-                assertEquals(block.getPositionCount(), batchSize);
+                page = page.getLoadedPage();
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
                 // increasing during the test, which will cause the StreamReader buffer sizes to increase too.
-                if (batchSize < MAX_BATCH_SIZE) {
+                if (page.getPositionCount() < MAX_BATCH_SIZE) {
                     continue;
                 }
 
@@ -160,27 +142,12 @@ public class TestOrcReaderMemoryUsage
     public void testMapTypeWithNulls()
             throws Exception
     {
-        Type keyType = BIGINT;
-        Type valueType = BIGINT;
-
-        MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType));
-        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
-        MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
-        MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType));
-        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
-
-        MapType mapType = new MapType(
-                keyType,
-                valueType,
-                keyBlockNativeEquals,
-                keyBlockEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+        Type mapType = METADATA.getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature()), TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature())));
 
         int rows = 10000;
         OrcRecordReader reader = null;
         try (TempFile tempFile = createSingleColumnMapFileWithNullValues(mapType, rows)) {
-            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, mapType, INITIAL_BATCH_SIZE);
+            reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, mapType, INITIAL_BATCH_SIZE);
             assertInitialRetainedSizes(reader, rows);
 
             long stripeReaderRetainedSize = reader.getCurrentStripeRetainedSizeInBytes();
@@ -189,17 +156,15 @@ public class TestOrcReaderMemoryUsage
             long readerSystemMemoryUsage = reader.getSystemMemoryUsage();
 
             while (true) {
-                int batchSize = reader.nextBatch();
-                if (batchSize == -1) {
+                Page page = reader.nextPage();
+                if (page == null) {
                     break;
                 }
-
-                Block block = reader.readBlock(mapType, 0);
-                assertEquals(block.getPositionCount(), batchSize);
+                page = page.getLoadedPage();
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
                 // increasing during the test, which will cause the StreamReader buffer sizes to increase too.
-                if (batchSize < MAX_BATCH_SIZE) {
+                if (page.getPositionCount() < MAX_BATCH_SIZE) {
                     continue;
                 }
 
@@ -224,7 +189,7 @@ public class TestOrcReaderMemoryUsage
      * Write a file that contains a number of rows with 1 BIGINT column, and some rows have null values.
      */
     private static TempFile createSingleColumnFileWithNullValues(int rows)
-            throws IOException, ReflectiveOperationException, SerDeException
+            throws IOException, SerDeException
     {
         Serializer serde = new OrcSerde();
         TempFile tempFile = new TempFile();
@@ -263,7 +228,7 @@ public class TestOrcReaderMemoryUsage
         StructField field = objectInspector.getAllStructFieldRefs().get(0);
 
         for (int i = 0; i < count; i++) {
-            objectInspector.setStructFieldData(row, field, Strings.repeat("0", length));
+            objectInspector.setStructFieldData(row, field, "0".repeat(length));
             Writable record = serde.serialize(row, objectInspector);
             writer.write(record);
         }
@@ -277,7 +242,7 @@ public class TestOrcReaderMemoryUsage
      * and some entries have null keys/values.
      */
     private static TempFile createSingleColumnMapFileWithNullValues(Type mapType, int rows)
-            throws IOException, ReflectiveOperationException, SerDeException
+            throws IOException, SerDeException
     {
         Serializer serde = new OrcSerde();
         TempFile tempFile = new TempFile();

@@ -26,6 +26,7 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
+import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.log.Logger;
 import io.prestosql.operator.PageWithPositionComparator;
 import io.prestosql.operator.PagesIndex;
@@ -248,7 +249,7 @@ public class OrderingCompiler
             comparator = pageWithPositionsComparatorClass.getConstructor().newInstance();
         }
         catch (Throwable t) {
-            log.error(t, "Error compiling merge sort comparator for channels %s with order %s", sortChannels, sortChannels);
+            log.error(t, "Error compiling comparator for channels %s with order %s", sortChannels, sortChannels);
             comparator = new SimplePageWithPositionComparator(types, sortChannels, sortOrders);
         }
         return comparator;

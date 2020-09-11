@@ -14,19 +14,33 @@
 package io.prestosql.sql.analyzer;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Multiset;
+import com.google.common.collect.Streams;
+import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.security.AccessControl;
+import io.prestosql.security.SecurityContext;
+import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.eventlistener.ColumnInfo;
+import io.prestosql.spi.eventlistener.RoutineInfo;
+import io.prestosql.spi.eventlistener.TableInfo;
 import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.ViewExpression;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.tree.AllColumns;
 import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FieldReference;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GroupingOperation;
 import io.prestosql.sql.tree.Identifier;
@@ -35,7 +49,9 @@ import io.prestosql.sql.tree.Join;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.Offset;
 import io.prestosql.sql.tree.OrderBy;
+import io.prestosql.sql.tree.Parameter;
 import io.prestosql.sql.tree.QuantifiedComparisonExpression;
 import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.QuerySpecification;
@@ -44,11 +60,14 @@ import io.prestosql.sql.tree.SampledRelation;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.sql.tree.SubqueryExpression;
 import io.prestosql.sql.tree.Table;
+import io.prestosql.sql.tree.Unnest;
+import io.prestosql.transaction.TransactionId;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.HashSet;
@@ -58,14 +77,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
@@ -75,28 +96,46 @@ public class Analysis
 {
     @Nullable
     private final Statement root;
-    private final List<Expression> parameters;
+    private final Map<NodeRef<Parameter>, Expression> parameters;
     private String updateType;
+    private Optional<QualifiedObjectName> target = Optional.empty();
+    private boolean skipMaterializedViewRefresh;
 
     private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
 
+    // map expandable query to the node being the inner recursive reference
+    private final Map<NodeRef<Query>, Node> expandableNamedQueries = new LinkedHashMap<>();
+
+    // map inner recursive reference in the expandable query to the recursion base scope
+    private final Map<NodeRef<Node>, Scope> expandableBaseScopes = new LinkedHashMap<>();
+
+    // Synthetic scope when a query does not have a FROM clause
+    // We need to track this separately because there's no node we can attach it to.
+    private final Map<NodeRef<QuerySpecification>, Scope> implicitFromScopes = new LinkedHashMap<>();
+
     private final Map<NodeRef<Node>, Scope> scopes = new LinkedHashMap<>();
-    private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, ResolvedField> columnReferences = new LinkedHashMap<>();
 
     // a map of users to the columns per table that they access
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
 
+    // Track referenced fields from source relation node
+    private final Multimap<NodeRef<? extends Node>, Field> referencedFields = HashMultimap.create();
+
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
-    private final Map<NodeRef<QuerySpecification>, List<Expression>> groupByExpressions = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, GroupingSetAnalysis> groupingSets = new LinkedHashMap<>();
 
     private final Map<NodeRef<Node>, Expression> where = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, Expression> having = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, List<Expression>> orderByExpressions = new LinkedHashMap<>();
-    private final Map<NodeRef<Node>, List<Expression>> outputExpressions = new LinkedHashMap<>();
+    private final Set<NodeRef<OrderBy>> redundantOrderBy = new HashSet<>();
+    private final Map<NodeRef<Node>, List<SelectExpression>> selectExpressions = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> windowFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<FunctionCall>> orderByWindowFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<Offset>, Long> offset = new LinkedHashMap<>();
+    private final Map<NodeRef<Node>, OptionalLong> limit = new LinkedHashMap<>();
+    private final Map<NodeRef<AllColumns>, List<Field>> selectAllResultFields = new LinkedHashMap<>();
 
     private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
     private final Map<NodeRef<Join>, JoinUsingAnalysis> joinUsing = new LinkedHashMap<>();
@@ -106,13 +145,13 @@ public class Analysis
     private final ListMultimap<NodeRef<Node>, ExistsPredicate> existsSubqueries = ArrayListMultimap.create();
     private final ListMultimap<NodeRef<Node>, QuantifiedComparisonExpression> quantifiedComparisonSubqueries = ArrayListMultimap.create();
 
-    private final Map<NodeRef<Table>, TableHandle> tables = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, TableEntry> tables = new LinkedHashMap<>();
 
     private final Map<NodeRef<Expression>, Type> types = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> coercions = new LinkedHashMap<>();
     private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
     private final Map<NodeRef<Relation>, List<Type>> relationCoercions = new LinkedHashMap<>();
-    private final Map<NodeRef<FunctionCall>, Signature> functionSignature = new LinkedHashMap<>();
+    private final Map<NodeRef<FunctionCall>, RoutineEntry> resolvedFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
 
     private final Map<Field, ColumnHandle> columns = new LinkedHashMap<>();
@@ -121,15 +160,16 @@ public class Analysis
 
     private final Map<NodeRef<QuerySpecification>, List<GroupingOperation>> groupingOperations = new LinkedHashMap<>();
 
-    // for create table
-    private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
-    private Map<String, Expression> createTableProperties = ImmutableMap.of();
-    private boolean createTableAsSelectWithData = true;
-    private boolean createTableAsSelectNoOp;
-    private Optional<List<Identifier>> createTableColumnAliases = Optional.empty();
-    private Optional<String> createTableComment = Optional.empty();
+    private final Multiset<RowFilterScopeEntry> rowFilterScopes = HashMultiset.create();
+    private final Map<NodeRef<Table>, List<Expression>> rowFilters = new LinkedHashMap<>();
 
+    private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
+    private final Map<NodeRef<Table>, Map<String, List<Expression>>> columnMasks = new LinkedHashMap<>();
+
+    private final Map<NodeRef<Unnest>, UnnestAnalysis> unnestAnalysis = new LinkedHashMap<>();
+    private Optional<Create> create = Optional.empty();
     private Optional<Insert> insert = Optional.empty();
+    private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
     private Optional<TableHandle> analyzeTarget = Optional.empty();
 
     // for describe input and describe output
@@ -138,12 +178,13 @@ public class Analysis
     // for recursive view detection
     private final Deque<Table> tablesForView = new ArrayDeque<>();
 
-    public Analysis(@Nullable Statement root, List<Expression> parameters, boolean isDescribe)
-    {
-        requireNonNull(parameters);
+    // row id field for update/delete queries
+    private final Map<NodeRef<Table>, FieldReference> rowIdField = new LinkedHashMap<>();
 
+    public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
+    {
         this.root = root;
-        this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
+        this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameterMap is null"));
         this.isDescribe = isDescribe;
     }
 
@@ -157,29 +198,31 @@ public class Analysis
         return updateType;
     }
 
-    public void setUpdateType(String updateType)
+    public Optional<Output> getTarget()
+    {
+        return target.map(table -> new Output(table.getCatalogName(), table.getSchemaName(), table.getObjectName()));
+    }
+
+    public void setUpdateType(String updateType, QualifiedObjectName target)
     {
         this.updateType = updateType;
+        this.target = Optional.of(target);
     }
 
-    public boolean isCreateTableAsSelectWithData()
+    public void resetUpdateType()
     {
-        return createTableAsSelectWithData;
+        this.updateType = null;
+        this.target = Optional.empty();
     }
 
-    public void setCreateTableAsSelectWithData(boolean createTableAsSelectWithData)
+    public boolean isSkipMaterializedViewRefresh()
     {
-        this.createTableAsSelectWithData = createTableAsSelectWithData;
+        return skipMaterializedViewRefresh;
     }
 
-    public boolean isCreateTableAsSelectNoOp()
+    public void setSkipMaterializedViewRefresh(boolean skipMaterializedViewRefresh)
     {
-        return createTableAsSelectNoOp;
-    }
-
-    public void setCreateTableAsSelectNoOp(boolean createTableAsSelectNoOp)
-    {
-        this.createTableAsSelectNoOp = createTableAsSelectNoOp;
+        this.skipMaterializedViewRefresh = skipMaterializedViewRefresh;
     }
 
     public void setAggregates(QuerySpecification node, List<FunctionCall> aggregates)
@@ -214,21 +257,9 @@ public class Analysis
         return type;
     }
 
-    public Type getTypeWithCoercions(Expression expression)
+    public List<Type> getRelationCoercion(Relation relation)
     {
-        NodeRef<Expression> key = NodeRef.of(expression);
-        checkArgument(types.containsKey(key), "Expression not analyzed: %s", expression);
-        if (coercions.containsKey(key)) {
-            return coercions.get(key);
-        }
-        return types.get(key);
-    }
-
-    public Type[] getRelationCoercion(Relation relation)
-    {
-        return Optional.ofNullable(relationCoercions.get(NodeRef.of(relation)))
-                .map(types -> types.stream().toArray(Type[]::new))
-                .orElse(null);
+        return relationCoercions.get(NodeRef.of(relation));
     }
 
     public void addRelationCoercion(Relation relation, Type[] types)
@@ -271,14 +302,9 @@ public class Analysis
         this.groupingSets.put(NodeRef.of(node), groupingSets);
     }
 
-    public void setGroupByExpressions(QuerySpecification node, List<Expression> expressions)
-    {
-        groupByExpressions.put(NodeRef.of(node), expressions);
-    }
-
     public boolean isAggregation(QuerySpecification node)
     {
-        return groupByExpressions.containsKey(NodeRef.of(node));
+        return groupingSets.containsKey(NodeRef.of(node));
     }
 
     public boolean isTypeOnlyCoercion(Expression expression)
@@ -289,11 +315,6 @@ public class Analysis
     public GroupingSetAnalysis getGroupingSets(QuerySpecification node)
     {
         return groupingSets.get(NodeRef.of(node));
-    }
-
-    public List<Expression> getGroupByExpressions(QuerySpecification node)
-    {
-        return groupByExpressions.get(NodeRef.of(node));
     }
 
     public void setWhere(Node node, Expression expression)
@@ -316,14 +337,51 @@ public class Analysis
         return orderByExpressions.get(NodeRef.of(node));
     }
 
-    public void setOutputExpressions(Node node, List<Expression> expressions)
+    public void setOffset(Offset node, long rowCount)
     {
-        outputExpressions.put(NodeRef.of(node), ImmutableList.copyOf(expressions));
+        offset.put(NodeRef.of(node), rowCount);
     }
 
-    public List<Expression> getOutputExpressions(Node node)
+    public long getOffset(Offset node)
     {
-        return outputExpressions.get(NodeRef.of(node));
+        checkState(offset.containsKey(NodeRef.of(node)), "missing OFFSET value for node %s", node);
+        return offset.get(NodeRef.of(node));
+    }
+
+    public void setLimit(Node node, OptionalLong rowCount)
+    {
+        limit.put(NodeRef.of(node), rowCount);
+    }
+
+    public void setLimit(Node node, long rowCount)
+    {
+        limit.put(NodeRef.of(node), OptionalLong.of(rowCount));
+    }
+
+    public OptionalLong getLimit(Node node)
+    {
+        checkState(limit.containsKey(NodeRef.of(node)), "missing LIMIT value for node %s", node);
+        return limit.get(NodeRef.of(node));
+    }
+
+    public void setSelectAllResultFields(AllColumns node, List<Field> expressions)
+    {
+        selectAllResultFields.put(NodeRef.of(node), ImmutableList.copyOf(expressions));
+    }
+
+    public List<Field> getSelectAllResultFields(AllColumns node)
+    {
+        return selectAllResultFields.get(NodeRef.of(node));
+    }
+
+    public void setSelectExpressions(Node node, List<SelectExpression> expressions)
+    {
+        selectExpressions.put(NodeRef.of(node), ImmutableList.copyOf(expressions));
+    }
+
+    public List<SelectExpression> getSelectExpressions(Node node)
+    {
+        return selectExpressions.get(NodeRef.of(node));
     }
 
     public void setHaving(QuerySpecification node, Expression expression)
@@ -397,7 +455,7 @@ public class Analysis
         return orderByWindowFunctions.get(NodeRef.of(query));
     }
 
-    public void addColumnReferences(Map<NodeRef<Expression>, FieldId> columnReferences)
+    public void addColumnReferences(Map<NodeRef<Expression>, ResolvedField> columnReferences)
     {
         this.columnReferences.putAll(columnReferences);
     }
@@ -439,27 +497,40 @@ public class Analysis
 
     public TableHandle getTableHandle(Table table)
     {
-        return tables.get(NodeRef.of(table));
+        return tables.get(NodeRef.of(table))
+                .getHandle()
+                .orElseThrow(() -> new IllegalArgumentException(format("%s is not a table reference", table)));
     }
 
     public Collection<TableHandle> getTables()
     {
-        return unmodifiableCollection(tables.values());
+        return tables.values().stream()
+                .map(TableEntry::getHandle)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableList());
     }
 
-    public void registerTable(Table table, TableHandle handle)
+    public void registerTable(
+            Table table,
+            Optional<TableHandle> handle,
+            QualifiedObjectName name,
+            List<ViewExpression> filters,
+            Map<Field, List<ViewExpression>> columnMasks,
+            String authorization,
+            Scope accessControlScope)
     {
-        tables.put(NodeRef.of(table), handle);
+        tables.put(NodeRef.of(table), new TableEntry(handle, name, filters, columnMasks, authorization, accessControlScope));
     }
 
-    public Signature getFunctionSignature(FunctionCall function)
+    public ResolvedFunction getResolvedFunction(FunctionCall function)
     {
-        return functionSignature.get(NodeRef.of(function));
+        return resolvedFunctions.get(NodeRef.of(function)).getFunction();
     }
 
-    public void addFunctionSignatures(Map<NodeRef<FunctionCall>, Signature> infos)
+    public void addResolvedFunction(FunctionCall node, ResolvedFunction function, String authorization)
     {
-        functionSignature.putAll(infos);
+        resolvedFunctions.put(NodeRef.of(node), new RoutineEntry(function, authorization));
     }
 
     public Set<NodeRef<Expression>> getColumnReferences()
@@ -467,15 +538,20 @@ public class Analysis
         return unmodifiableSet(columnReferences.keySet());
     }
 
-    public Map<NodeRef<Expression>, FieldId> getColumnReferenceFields()
+    public Map<NodeRef<Expression>, ResolvedField> getColumnReferenceFields()
     {
         return unmodifiableMap(columnReferences);
+    }
+
+    public ResolvedField getResolvedField(Expression expression)
+    {
+        checkArgument(isColumnReference(expression), "Expression is not a column reference: %s", expression);
+        return columnReferences.get(NodeRef.of(expression));
     }
 
     public boolean isColumnReference(Expression expression)
     {
         requireNonNull(expression, "expression is null");
-        checkArgument(getType(expression) != null, "expression %s has not been analyzed", expression);
         return columnReferences.containsKey(NodeRef.of(expression));
     }
 
@@ -513,16 +589,6 @@ public class Analysis
         return columns.get(field);
     }
 
-    public void setCreateTableDestination(QualifiedObjectName destination)
-    {
-        this.createTableDestination = Optional.of(destination);
-    }
-
-    public Optional<QualifiedObjectName> getCreateTableDestination()
-    {
-        return createTableDestination;
-    }
-
     public Optional<TableHandle> getAnalyzeTarget()
     {
         return analyzeTarget;
@@ -533,34 +599,14 @@ public class Analysis
         this.analyzeTarget = Optional.of(analyzeTarget);
     }
 
-    public void setCreateTableProperties(Map<String, Expression> createTableProperties)
+    public void setCreate(Create create)
     {
-        this.createTableProperties = ImmutableMap.copyOf(createTableProperties);
+        this.create = Optional.of(create);
     }
 
-    public Map<String, Expression> getCreateTableProperties()
+    public Optional<Create> getCreate()
     {
-        return createTableProperties;
-    }
-
-    public Optional<List<Identifier>> getColumnAliases()
-    {
-        return createTableColumnAliases;
-    }
-
-    public void setCreateTableColumnAliases(List<Identifier> createTableColumnAliases)
-    {
-        this.createTableColumnAliases = Optional.of(createTableColumnAliases);
-    }
-
-    public void setCreateTableComment(Optional<String> createTableComment)
-    {
-        this.createTableComment = requireNonNull(createTableComment);
-    }
-
-    public Optional<String> getCreateTableComment()
-    {
-        return createTableComment;
+        return create;
     }
 
     public void setInsert(Insert insert)
@@ -571,6 +617,16 @@ public class Analysis
     public Optional<Insert> getInsert()
     {
         return insert;
+    }
+
+    public void setRefreshMaterializedView(RefreshMaterializedViewAnalysis refreshMaterializedView)
+    {
+        this.refreshMaterializedView = Optional.of(refreshMaterializedView);
+    }
+
+    public Optional<RefreshMaterializedViewAnalysis> getRefreshMaterializedView()
+    {
+        return refreshMaterializedView;
     }
 
     public Query getNamedQuery(Table table)
@@ -584,6 +640,35 @@ public class Analysis
         requireNonNull(query, "query is null");
 
         namedQueries.put(NodeRef.of(tableReference), query);
+    }
+
+    public void registerExpandableQuery(Query query, Node recursiveReference)
+    {
+        requireNonNull(query, "query is null");
+        requireNonNull(recursiveReference, "recursiveReference is null");
+
+        expandableNamedQueries.put(NodeRef.of(query), recursiveReference);
+    }
+
+    public boolean isExpandableQuery(Query query)
+    {
+        return expandableNamedQueries.containsKey(NodeRef.of(query));
+    }
+
+    public Node getRecursiveReference(Query query)
+    {
+        checkArgument(isExpandableQuery(query), "query is not registered as expandable");
+        return expandableNamedQueries.get(NodeRef.of(query));
+    }
+
+    public void setExpandableBaseScope(Node node, Scope scope)
+    {
+        expandableBaseScopes.put(NodeRef.of(node), scope);
+    }
+
+    public Optional<Scope> getExpandableBaseScope(Node node)
+    {
+        return Optional.ofNullable(expandableBaseScopes.get(NodeRef.of(node)));
     }
 
     public void registerTableForView(Table tableReference)
@@ -624,7 +709,7 @@ public class Analysis
                 .orElse(emptyList());
     }
 
-    public List<Expression> getParameters()
+    public Map<NodeRef<Parameter>, Expression> getParameters()
     {
         return parameters;
     }
@@ -644,6 +729,16 @@ public class Analysis
         return joinUsing.get(NodeRef.of(node));
     }
 
+    public void setUnnest(Unnest node, UnnestAnalysis analysis)
+    {
+        unnestAnalysis.put(NodeRef.of(node), analysis);
+    }
+
+    public UnnestAnalysis getUnnest(Unnest node)
+    {
+        return unnestAnalysis.get(NodeRef.of(node));
+    }
+
     public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<QualifiedObjectName, String> tableColumnMap)
     {
         AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
@@ -658,9 +753,218 @@ public class Analysis
         tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
     }
 
+    public void addReferencedFields(Multimap<NodeRef<Node>, Field> references)
+    {
+        referencedFields.putAll(references);
+    }
+
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
     {
         return tableColumnReferences;
+    }
+
+    public void markRedundantOrderBy(OrderBy orderBy)
+    {
+        redundantOrderBy.add(NodeRef.of(orderBy));
+    }
+
+    public boolean isOrderByRedundant(OrderBy orderBy)
+    {
+        return redundantOrderBy.contains(NodeRef.of(orderBy));
+    }
+
+    public boolean hasRowFilter(QualifiedObjectName table, String identity)
+    {
+        return rowFilterScopes.contains(new RowFilterScopeEntry(table, identity));
+    }
+
+    public void registerTableForRowFiltering(QualifiedObjectName table, String identity)
+    {
+        rowFilterScopes.add(new RowFilterScopeEntry(table, identity));
+    }
+
+    public void unregisterTableForRowFiltering(QualifiedObjectName table, String identity)
+    {
+        rowFilterScopes.remove(new RowFilterScopeEntry(table, identity));
+    }
+
+    public void addRowFilter(Table table, Expression filter)
+    {
+        rowFilters.computeIfAbsent(NodeRef.of(table), node -> new ArrayList<>())
+                .add(filter);
+    }
+
+    public List<Expression> getRowFilters(Table node)
+    {
+        return rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of());
+    }
+
+    public boolean hasColumnMask(QualifiedObjectName table, String column, String identity)
+    {
+        return columnMaskScopes.contains(new ColumnMaskScopeEntry(table, column, identity));
+    }
+
+    public void registerTableForColumnMasking(QualifiedObjectName table, String column, String identity)
+    {
+        columnMaskScopes.add(new ColumnMaskScopeEntry(table, column, identity));
+    }
+
+    public void unregisterTableForColumnMasking(QualifiedObjectName table, String column, String identity)
+    {
+        columnMaskScopes.remove(new ColumnMaskScopeEntry(table, column, identity));
+    }
+
+    public void addColumnMask(Table table, String column, Expression mask)
+    {
+        Map<String, List<Expression>> masks = columnMasks.computeIfAbsent(NodeRef.of(table), node -> new LinkedHashMap<>());
+        masks.computeIfAbsent(column, name -> new ArrayList<>())
+                .add(mask);
+    }
+
+    public Map<String, List<Expression>> getColumnMasks(Table table)
+    {
+        return columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of());
+    }
+
+    public List<TableInfo> getReferencedTables()
+    {
+        return tables.entrySet().stream()
+                .map(entry -> {
+                    NodeRef<Table> table = entry.getKey();
+
+                    List<ColumnInfo> columns = referencedFields.get(table).stream()
+                            .filter(field -> field.getName().isPresent()) // For DELETE queries, the synthetic column for row id doesn't have a name
+                            .map(field -> {
+                                String fieldName = field.getName().get();
+
+                                return new ColumnInfo(
+                                        fieldName,
+                                        columnMasks.getOrDefault(table, ImmutableMap.of())
+                                                .getOrDefault(fieldName, ImmutableList.of()).stream()
+                                                .map(Expression::toString)
+                                                .collect(toImmutableList()));
+                            })
+                            .collect(toImmutableList());
+
+                    TableEntry info = entry.getValue();
+                    return new TableInfo(
+                            info.getName().getCatalogName(),
+                            info.getName().getSchemaName(),
+                            info.getName().getObjectName(),
+                            info.getAuthorization(),
+                            rowFilters.getOrDefault(table, ImmutableList.of()).stream()
+                                    .map(Expression::toString)
+                                    .collect(toImmutableList()),
+                            columns);
+                })
+                .collect(toImmutableList());
+    }
+
+    public List<RoutineInfo> getRoutines()
+    {
+        return resolvedFunctions.entrySet().stream()
+                .map(entry -> new RoutineInfo(entry.getValue().function.getSignature().getName(), entry.getValue().getAuthorization()))
+                .collect(toImmutableList());
+    }
+
+    public void setRowIdField(Table table, FieldReference field)
+    {
+        rowIdField.put(NodeRef.of(table), field);
+    }
+
+    public FieldReference getRowIdField(Table table)
+    {
+        return rowIdField.get(NodeRef.of(table));
+    }
+
+    public Scope getAccessControlScope(Table node)
+    {
+        return tables.get(NodeRef.of(node)).getAccessControlScope();
+    }
+
+    public void setImplicitFromScope(QuerySpecification node, Scope scope)
+    {
+        implicitFromScopes.put(NodeRef.of(node), scope);
+    }
+
+    public Scope getImplicitFromScope(QuerySpecification node)
+    {
+        return implicitFromScopes.get(NodeRef.of(node));
+    }
+
+    @Immutable
+    public static final class SelectExpression
+    {
+        // expression refers to a select item, either to be returned directly, or unfolded by all-fields reference
+        // unfoldedExpressions applies to the latter case, and is a list of subscript expressions
+        // referencing each field of the row.
+        private final Expression expression;
+        private final Optional<List<Expression>> unfoldedExpressions;
+
+        public SelectExpression(Expression expression, Optional<List<Expression>> unfoldedExpressions)
+        {
+            this.expression = requireNonNull(expression, "expression is null");
+            this.unfoldedExpressions = requireNonNull(unfoldedExpressions);
+        }
+
+        public Expression getExpression()
+        {
+            return expression;
+        }
+
+        public Optional<List<Expression>> getUnfoldedExpressions()
+        {
+            return unfoldedExpressions;
+        }
+    }
+
+    @Immutable
+    public static final class Create
+    {
+        private final Optional<QualifiedObjectName> destination;
+        private final Optional<ConnectorTableMetadata> metadata;
+        private final Optional<NewTableLayout> layout;
+        private final boolean createTableAsSelectWithData;
+        private final boolean createTableAsSelectNoOp;
+
+        public Create(
+                Optional<QualifiedObjectName> destination,
+                Optional<ConnectorTableMetadata> metadata,
+                Optional<NewTableLayout> layout,
+                boolean createTableAsSelectWithData,
+                boolean createTableAsSelectNoOp)
+        {
+            this.destination = requireNonNull(destination, "destination is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.layout = requireNonNull(layout, "layout is null");
+            this.createTableAsSelectWithData = createTableAsSelectWithData;
+            this.createTableAsSelectNoOp = createTableAsSelectNoOp;
+        }
+
+        public Optional<QualifiedObjectName> getDestination()
+        {
+            return destination;
+        }
+
+        public Optional<ConnectorTableMetadata> getMetadata()
+        {
+            return metadata;
+        }
+
+        public Optional<NewTableLayout> getLayout()
+        {
+            return layout;
+        }
+
+        public boolean isCreateTableAsSelectWithData()
+        {
+            return createTableAsSelectWithData;
+        }
+
+        public boolean isCreateTableAsSelectNoOp()
+        {
+            return createTableAsSelectNoOp;
+        }
     }
 
     @Immutable
@@ -668,12 +972,14 @@ public class Analysis
     {
         private final TableHandle target;
         private final List<ColumnHandle> columns;
+        private final Optional<NewTableLayout> newTableLayout;
 
-        public Insert(TableHandle target, List<ColumnHandle> columns)
+        public Insert(TableHandle target, List<ColumnHandle> columns, Optional<NewTableLayout> newTableLayout)
         {
             this.target = requireNonNull(target, "target is null");
             this.columns = requireNonNull(columns, "columns is null");
             checkArgument(columns.size() > 0, "No columns given to insert");
+            this.newTableLayout = requireNonNull(newTableLayout, "newTableLayout is null");
         }
 
         public List<ColumnHandle> getColumns()
@@ -684,6 +990,49 @@ public class Analysis
         public TableHandle getTarget()
         {
             return target;
+        }
+
+        public Optional<NewTableLayout> getNewTableLayout()
+        {
+            return newTableLayout;
+        }
+    }
+
+    @Immutable
+    public static final class RefreshMaterializedViewAnalysis
+    {
+        private final TableHandle materializedViewHandle;
+        private final TableHandle target;
+        private final Query query;
+        private final List<ColumnHandle> columns;
+
+        public RefreshMaterializedViewAnalysis(TableHandle materializedViewHandle, TableHandle target, Query query, List<ColumnHandle> columns)
+        {
+            this.materializedViewHandle = requireNonNull(materializedViewHandle, "Materialized view handle is null");
+            this.target = requireNonNull(target, "target is null");
+            this.query = query;
+            this.columns = requireNonNull(columns, "columns is null");
+            checkArgument(columns.size() > 0, "No columns given to refresh materialized view");
+        }
+
+        public Query getQuery()
+        {
+            return query;
+        }
+
+        public List<ColumnHandle> getColumns()
+        {
+            return columns;
+        }
+
+        public TableHandle getTarget()
+        {
+            return target;
+        }
+
+        public TableHandle getMaterializedViewHandle()
+        {
+            return materializedViewHandle;
         }
     }
 
@@ -727,21 +1076,30 @@ public class Analysis
 
     public static class GroupingSetAnalysis
     {
+        private final List<Expression> originalExpressions;
+
         private final List<Set<FieldId>> cubes;
         private final List<List<FieldId>> rollups;
         private final List<List<Set<FieldId>>> ordinarySets;
         private final List<Expression> complexExpressions;
 
         public GroupingSetAnalysis(
+                List<Expression> originalExpressions,
                 List<Set<FieldId>> cubes,
                 List<List<FieldId>> rollups,
                 List<List<Set<FieldId>>> ordinarySets,
                 List<Expression> complexExpressions)
         {
+            this.originalExpressions = ImmutableList.copyOf(originalExpressions);
             this.cubes = ImmutableList.copyOf(cubes);
             this.rollups = ImmutableList.copyOf(rollups);
             this.ordinarySets = ImmutableList.copyOf(ordinarySets);
             this.complexExpressions = ImmutableList.copyOf(complexExpressions);
+        }
+
+        public List<Expression> getOriginalExpressions()
+        {
+            return originalExpressions;
         }
 
         public List<Set<FieldId>> getCubes()
@@ -763,6 +1121,42 @@ public class Analysis
         {
             return complexExpressions;
         }
+
+        public Set<FieldId> getAllFields()
+        {
+            return Streams.concat(
+                    cubes.stream().flatMap(Collection::stream),
+                    rollups.stream().flatMap(Collection::stream),
+                    ordinarySets.stream()
+                            .flatMap(Collection::stream)
+                            .flatMap(Collection::stream))
+                    .collect(toImmutableSet());
+        }
+    }
+
+    public static class UnnestAnalysis
+    {
+        private final Map<NodeRef<Expression>, List<Field>> mappings;
+        private final Optional<Field> ordinalityField;
+
+        public UnnestAnalysis(Map<NodeRef<Expression>, List<Field>> mappings, Optional<Field> ordinalityField)
+        {
+            requireNonNull(mappings, "mappings is null");
+            this.mappings = mappings.entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableList.copyOf(entry.getValue())));
+
+            this.ordinalityField = requireNonNull(ordinalityField, "ordinalityField is null");
+        }
+
+        public Map<NodeRef<Expression>, List<Field>> getMappings()
+        {
+            return mappings;
+        }
+
+        public Optional<Field> getOrdinalityField()
+        {
+            return ordinalityField;
+        }
     }
 
     public static final class AccessControlInfo
@@ -781,9 +1175,9 @@ public class Analysis
             return accessControl;
         }
 
-        public Identity getIdentity()
+        public SecurityContext getSecurityContext(TransactionId transactionId, QueryId queryId)
         {
-            return identity;
+            return new SecurityContext(transactionId, identity, queryId);
         }
 
         @Override
@@ -811,6 +1205,151 @@ public class Analysis
         public String toString()
         {
             return format("AccessControl: %s, Identity: %s", accessControl.getClass(), identity);
+        }
+    }
+
+    private static class RowFilterScopeEntry
+    {
+        private final QualifiedObjectName table;
+        private final String identity;
+
+        public RowFilterScopeEntry(QualifiedObjectName table, String identity)
+        {
+            this.table = requireNonNull(table, "table is null");
+            this.identity = requireNonNull(identity, "identity is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            RowFilterScopeEntry that = (RowFilterScopeEntry) o;
+            return table.equals(that.table) &&
+                    identity.equals(that.identity);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(table, identity);
+        }
+    }
+
+    private static class ColumnMaskScopeEntry
+    {
+        private final QualifiedObjectName table;
+        private final String column;
+        private final String identity;
+
+        public ColumnMaskScopeEntry(QualifiedObjectName table, String column, String identity)
+        {
+            this.table = requireNonNull(table, "table is null");
+            this.column = requireNonNull(column, "column is null");
+            this.identity = requireNonNull(identity, "identity is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ColumnMaskScopeEntry that = (ColumnMaskScopeEntry) o;
+            return table.equals(that.table) &&
+                    column.equals(that.column) &&
+                    identity.equals(that.identity);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(table, column, identity);
+        }
+    }
+
+    private static class TableEntry
+    {
+        private final Optional<TableHandle> handle;
+        private final QualifiedObjectName name;
+        private final List<ViewExpression> filters;
+        private final Map<Field, List<ViewExpression>> columnMasks;
+        private final String authorization;
+        private final Scope accessControlScope; // synthetic scope for analysis of row filters and masks
+
+        public TableEntry(
+                Optional<TableHandle> handle,
+                QualifiedObjectName name,
+                List<ViewExpression> filters,
+                Map<Field, List<ViewExpression>> columnMasks,
+                String authorization,
+                Scope accessControlScope)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+            this.name = requireNonNull(name, "name is null");
+            this.filters = requireNonNull(filters, "filters is null");
+            this.columnMasks = requireNonNull(columnMasks, "columnMasks is null");
+            this.authorization = requireNonNull(authorization, "authorization is null");
+            this.accessControlScope = requireNonNull(accessControlScope, "accessControlScope is null");
+        }
+
+        public Optional<TableHandle> getHandle()
+        {
+            return handle;
+        }
+
+        public QualifiedObjectName getName()
+        {
+            return name;
+        }
+
+        public List<ViewExpression> getFilters()
+        {
+            return filters;
+        }
+
+        public Map<Field, List<ViewExpression>> getColumnMasks()
+        {
+            return columnMasks;
+        }
+
+        public String getAuthorization()
+        {
+            return authorization;
+        }
+
+        public Scope getAccessControlScope()
+        {
+            return accessControlScope;
+        }
+    }
+
+    private static class RoutineEntry
+    {
+        private final ResolvedFunction function;
+        private final String authorization;
+
+        public RoutineEntry(ResolvedFunction function, String authorization)
+        {
+            this.function = requireNonNull(function, "function is null");
+            this.authorization = requireNonNull(authorization, "authorization is null");
+        }
+
+        public ResolvedFunction getFunction()
+        {
+            return function;
+        }
+
+        public String getAuthorization()
+        {
+            return authorization;
         }
     }
 }

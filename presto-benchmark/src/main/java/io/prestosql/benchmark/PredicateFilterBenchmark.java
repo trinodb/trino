@@ -28,11 +28,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.sql.relational.Expressions.call;
 import static io.prestosql.sql.relational.Expressions.constant;
@@ -51,19 +48,18 @@ public class PredicateFilterBenchmark
     {
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
         RowExpression filter = call(
-                internalOperator(GREATER_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), ImmutableList.of(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature())),
-                BOOLEAN,
+                localQueryRunner.getMetadata().resolveOperator(GREATER_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
                 field(0, DOUBLE),
                 constant(50000.0, DOUBLE));
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(localQueryRunner.getMetadata(), new PageFunctionCompiler(localQueryRunner.getMetadata(), 0));
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, DOUBLE)));
 
-        FilterAndProjectOperator.FilterAndProjectOperatorFactory filterAndProjectOperator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+        OperatorFactory filterAndProjectOperator = FilterAndProjectOperator.createOperatorFactory(
                 1,
                 new PlanNodeId("test"),
                 pageProcessor,
                 ImmutableList.of(DOUBLE),
-                new DataSize(0, BYTE),
+                DataSize.ofBytes(0),
                 0);
 
         return ImmutableList.of(tableScanOperator, filterAndProjectOperator);

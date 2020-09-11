@@ -15,13 +15,14 @@ package io.prestosql.metadata;
 
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.procedure.Procedure;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -37,8 +38,6 @@ import static io.prestosql.spi.procedure.Procedure.Argument;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.MAP;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -46,18 +45,18 @@ import static java.util.stream.Collectors.toList;
 @ThreadSafe
 public class ProcedureRegistry
 {
-    private final Map<ConnectorId, Map<SchemaTableName, Procedure>> connectorProcedures = new ConcurrentHashMap<>();
+    private final Map<CatalogName, Map<SchemaTableName, Procedure>> connectorProcedures = new ConcurrentHashMap<>();
 
-    private final TypeManager typeManager;
+    private final Metadata metadata;
 
-    public ProcedureRegistry(TypeManager typeManager)
+    public ProcedureRegistry(Metadata metadata)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.metadata = requireNonNull(metadata, "typeManager is null");
     }
 
-    public void addProcedures(ConnectorId connectorId, Collection<Procedure> procedures)
+    public void addProcedures(CatalogName catalogName, Collection<Procedure> procedures)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(procedures, "procedures is null");
 
         procedures.forEach(this::validateProcedure);
@@ -66,17 +65,17 @@ public class ProcedureRegistry
                 procedures,
                 procedure -> new SchemaTableName(procedure.getSchema(), procedure.getName()));
 
-        checkState(connectorProcedures.putIfAbsent(connectorId, proceduresByName) == null, "Procedures already registered for connector: %s", connectorId);
+        checkState(connectorProcedures.putIfAbsent(catalogName, proceduresByName) == null, "Procedures already registered for connector: %s", catalogName);
     }
 
-    public void removeProcedures(ConnectorId connectorId)
+    public void removeProcedures(CatalogName catalogName)
     {
-        connectorProcedures.remove(connectorId);
+        connectorProcedures.remove(catalogName);
     }
 
-    public Procedure resolve(ConnectorId connectorId, SchemaTableName name)
+    public Procedure resolve(CatalogName catalogName, SchemaTableName name)
     {
-        Map<SchemaTableName, Procedure> procedures = connectorProcedures.get(connectorId);
+        Map<SchemaTableName, Procedure> procedures = connectorProcedures.get(catalogName);
         if (procedures != null) {
             Procedure procedure = procedures.get(name);
             if (procedure != null) {
@@ -94,7 +93,7 @@ public class ProcedureRegistry
 
         for (int i = 0; i < procedure.getArguments().size(); i++) {
             Argument argument = procedure.getArguments().get(i);
-            Type type = typeManager.getType(argument.getType());
+            Type type = argument.getType();
 
             Class<?> argumentType = Primitives.unwrap(parameters.get(i));
             Class<?> expectedType = getObjectType(type);
@@ -120,11 +119,11 @@ public class ProcedureRegistry
         if (type.equals(VARCHAR)) {
             return String.class;
         }
-        if (type.getTypeSignature().getBase().equals(ARRAY)) {
+        if (type instanceof ArrayType) {
             getObjectType(type.getTypeParameters().get(0));
             return List.class;
         }
-        if (type.getTypeSignature().getBase().equals(MAP)) {
+        if (type instanceof MapType) {
             getObjectType(type.getTypeParameters().get(0));
             getObjectType(type.getTypeParameters().get(1));
             return Map.class;

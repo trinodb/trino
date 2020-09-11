@@ -19,13 +19,12 @@ import io.prestosql.Session;
 import io.prestosql.Session.SessionBuilder;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.CatalogManager;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AccessControlConfig;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.AllowAllAccessControl;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.transaction.IsolationLevel;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.Isolation;
 import io.prestosql.sql.tree.StartTransaction;
 import io.prestosql.sql.tree.TransactionAccessMode;
@@ -40,16 +39,20 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_TRANSACTION_MODE;
+import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
+import static io.prestosql.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -61,7 +64,7 @@ import static org.testng.Assert.fail;
 
 public class TestStartTransactionTask
 {
-    private final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    private final Metadata metadata = createTestMetadataManager();
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%s"));
     private final ScheduledExecutorService scheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("scheduled-executor-%s"));
 
@@ -80,13 +83,10 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
-        try {
-            getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
-            fail();
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INCOMPATIBLE_CLIENT.toErrorCode());
-        }
+        assertPrestoExceptionThrownBy(
+                () -> getFutureValue((Future<?>) new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList())))
+                .hasErrorCode(INCOMPATIBLE_CLIENT);
+
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
 
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
@@ -103,13 +103,10 @@ public class TestStartTransactionTask
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
 
-        try {
-            getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
-            fail();
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
-        }
+        assertPrestoExceptionThrownBy(
+                () -> getFutureValue((Future<?>) new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList())))
+                .hasErrorCode(NOT_SUPPORTED);
+
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
 
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
@@ -172,19 +169,16 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
-        try {
-            getFutureValue(new StartTransactionTask().execute(
-                    new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.READ_COMMITTED), new Isolation(Isolation.Level.READ_COMMITTED))),
-                    transactionManager,
-                    metadata,
-                    new AllowAllAccessControl(),
-                    stateMachine,
-                    emptyList()));
-            fail();
-        }
-        catch (SemanticException e) {
-            assertEquals(e.getCode(), INVALID_TRANSACTION_MODE);
-        }
+        assertPrestoExceptionThrownBy(() ->
+                getFutureValue(new StartTransactionTask().execute(
+                        new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.READ_COMMITTED), new Isolation(Isolation.Level.READ_COMMITTED))),
+                        transactionManager,
+                        metadata,
+                        new AllowAllAccessControl(),
+                        stateMachine,
+                        emptyList())))
+                .hasErrorCode(SYNTAX_ERROR);
+
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
 
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
@@ -201,19 +195,16 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
-        try {
-            getFutureValue(new StartTransactionTask().execute(
-                    new StartTransaction(ImmutableList.of(new TransactionAccessMode(true), new TransactionAccessMode(true))),
-                    transactionManager,
-                    metadata,
-                    new AllowAllAccessControl(),
-                    stateMachine,
-                    emptyList()));
-            fail();
-        }
-        catch (SemanticException e) {
-            assertEquals(e.getCode(), INVALID_TRANSACTION_MODE);
-        }
+        assertPrestoExceptionThrownBy(() ->
+                getFutureValue(new StartTransactionTask().execute(
+                        new StartTransaction(ImmutableList.of(new TransactionAccessMode(true), new TransactionAccessMode(true))),
+                        transactionManager,
+                        metadata,
+                        new AllowAllAccessControl(),
+                        stateMachine,
+                        emptyList())))
+                .hasErrorCode(SYNTAX_ERROR);
+
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
 
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
@@ -260,15 +251,17 @@ public class TestStartTransactionTask
     {
         return QueryStateMachine.begin(
                 query,
+                Optional.empty(),
                 session,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
                 true,
                 transactionManager,
-                new AccessControlManager(transactionManager),
+                new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig()),
                 executor,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                Optional.empty());
     }
 
     private static SessionBuilder sessionBuilder()

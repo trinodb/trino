@@ -33,9 +33,7 @@ import static com.google.common.collect.Iterators.peekingIterator;
 
 public final class LocalProperties
 {
-    private LocalProperties()
-    {
-    }
+    private LocalProperties() {}
 
     public static <T> List<LocalProperty<T>> none()
     {
@@ -107,7 +105,7 @@ public final class LocalProperties
                 constants.addAll(actualIterator.next().getColumns());
             }
             Optional<LocalProperty<T>> simplifiedDesired = desiredProperty.withConstants(constants);
-            consumeMoreActuals &= !simplifiedDesired.isPresent(); // Only continue processing actuals if all previous desired properties were fully satisfied
+            consumeMoreActuals &= simplifiedDesired.isEmpty(); // Only continue processing actuals if all previous desired properties were fully satisfied
             result.add(simplifiedDesired);
         }
         return result;

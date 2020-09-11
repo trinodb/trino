@@ -21,9 +21,11 @@ import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.block.ShortArrayBlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 
+import java.util.Optional;
+
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Long.rotateLeft;
+import static java.lang.String.format;
 
 public final class SmallintType
         extends AbstractType
@@ -33,7 +35,7 @@ public final class SmallintType
 
     private SmallintType()
     {
-        super(parseTypeSignature(StandardTypes.SMALLINT), long.class);
+        super(new TypeSignature(StandardTypes.SMALLINT), long.class);
     }
 
     @Override
@@ -116,6 +118,12 @@ public final class SmallintType
     }
 
     @Override
+    public Optional<Range> getRange()
+    {
+        return Optional.of(new Range((long) Short.MIN_VALUE, (long) Short.MAX_VALUE));
+    }
+
+    @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {
@@ -136,10 +144,10 @@ public final class SmallintType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         if (value > Short.MAX_VALUE) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, String.format("Value %d exceeds MAX_SHORT", value));
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_SHORT", value));
         }
-        else if (value < Short.MIN_VALUE) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, String.format("Value %d is less than MIN_SHORT", value));
+        if (value < Short.MIN_VALUE) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_SHORT", value));
         }
 
         blockBuilder.writeShort((int) value).closeEntry();

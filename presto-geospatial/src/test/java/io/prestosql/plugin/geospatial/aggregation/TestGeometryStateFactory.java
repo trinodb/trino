@@ -14,7 +14,6 @@
 package io.prestosql.plugin.geospatial.aggregation;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
@@ -24,13 +23,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestGeometryStateFactory
 {
-    private GeometryStateFactory factory;
-
-    @BeforeMethod
-    public void init()
-    {
-        factory = new GeometryStateFactory();
-    }
+    private final GeometryStateFactory factory = new GeometryStateFactory();
 
     @Test
     public void testCreateSingleStateEmpty()
@@ -46,7 +39,7 @@ public class TestGeometryStateFactory
         GeometryState state = factory.createSingleState();
         state.setGeometry(OGCGeometry.fromText("POINT (1 2)"));
         assertEquals(OGCGeometry.fromText("POINT (1 2)"), state.getGeometry());
-        assertTrue(state.getEstimatedSize() > 0, String.format("Estimated memory size was %d", state.getEstimatedSize()));
+        assertTrue(state.getEstimatedSize() > 0, "Estimated memory size was " + state.getEstimatedSize());
     }
 
     @Test
@@ -54,7 +47,7 @@ public class TestGeometryStateFactory
     {
         GeometryState state = factory.createGroupedState();
         assertNull(state.getGeometry());
-        assertTrue(state.getEstimatedSize() > 0, String.format("Estimated memory size was %d", state.getEstimatedSize()));
+        assertTrue(state.getEstimatedSize() > 0, "Estimated memory size was " + state.getEstimatedSize());
     }
 
     @Test

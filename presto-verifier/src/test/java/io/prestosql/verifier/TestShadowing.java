@@ -16,6 +16,7 @@ package io.prestosql.verifier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.CreateTable;
 import io.prestosql.sql.tree.CreateTableAsSelect;
@@ -25,8 +26,6 @@ import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.Insert;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.QuerySpecification;
-import io.prestosql.sql.tree.Select;
 import io.prestosql.sql.tree.SingleColumn;
 import io.prestosql.sql.tree.Table;
 import org.jdbi.v3.core.Handle;
@@ -37,6 +36,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.prestosql.sql.QueryUtil.identifier;
+import static io.prestosql.sql.QueryUtil.selectList;
+import static io.prestosql.sql.QueryUtil.simpleQuery;
 import static io.prestosql.verifier.QueryType.READ;
 import static io.prestosql.verifier.VerifyCommand.statementToQueryType;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -49,6 +50,7 @@ public class TestShadowing
     private static final String CATALOG = "TEST_REWRITE";
     private static final String SCHEMA = "PUBLIC";
     private static final String URL = "jdbc:h2:mem:" + CATALOG;
+    private static final ParsingOptions PARSING_OPTIONS = new ParsingOptions();
 
     private final Handle handle;
 
@@ -75,7 +77,7 @@ public class TestShadowing
         assertEquals(rewrittenQuery.getPreQueries().size(), 1);
         assertEquals(rewrittenQuery.getPostQueries().size(), 1);
 
-        CreateTableAsSelect createTableAs = (CreateTableAsSelect) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
+        CreateTableAsSelect createTableAs = (CreateTableAsSelect) parser.createStatement(rewrittenQuery.getPreQueries().get(0), PARSING_OPTIONS);
         assertEquals(createTableAs.getName().getParts().size(), 1);
         assertTrue(createTableAs.getName().getSuffix().startsWith("tmp_"));
         assertFalse(createTableAs.getName().getSuffix().contains("my_test_table"));
@@ -85,11 +87,9 @@ public class TestShadowing
         Table table = new Table(createTableAs.getName());
         SingleColumn column1 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("COLUMN1"))));
         SingleColumn column2 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new Identifier("COLUMN2"), new LongLiteral("1"))))));
-        Select select = new Select(false, ImmutableList.of(column1, column2));
-        QuerySpecification querySpecification = new QuerySpecification(select, Optional.of(table), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-        assertEquals(parser.createStatement(rewrittenQuery.getQuery()), new io.prestosql.sql.tree.Query(Optional.empty(), querySpecification, Optional.empty(), Optional.empty()));
+        assertEquals(parser.createStatement(rewrittenQuery.getQuery(), PARSING_OPTIONS), simpleQuery(selectList(column1, column2), table));
 
-        assertEquals(parser.createStatement(rewrittenQuery.getPostQueries().get(0)), new DropTable(createTableAs.getName(), true));
+        assertEquals(parser.createStatement(rewrittenQuery.getPostQueries().get(0), PARSING_OPTIONS), new DropTable(createTableAs.getName(), true));
     }
 
     @Test
@@ -102,7 +102,7 @@ public class TestShadowing
         QueryRewriter rewriter = new QueryRewriter(parser, URL, QualifiedName.of("other_catalog", "other_schema", "tmp_"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), 1, new Duration(10, SECONDS));
         Query rewrittenQuery = rewriter.shadowQuery(query);
         assertEquals(rewrittenQuery.getPreQueries().size(), 1);
-        CreateTableAsSelect createTableAs = (CreateTableAsSelect) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
+        CreateTableAsSelect createTableAs = (CreateTableAsSelect) parser.createStatement(rewrittenQuery.getPreQueries().get(0), PARSING_OPTIONS);
         assertEquals(createTableAs.getName().getParts().size(), 3);
         assertEquals(createTableAs.getName().getPrefix().get(), QualifiedName.of("other_catalog", "other_schema"));
         assertTrue(createTableAs.getName().getSuffix().startsWith("tmp_"));
@@ -120,13 +120,13 @@ public class TestShadowing
         Query rewrittenQuery = rewriter.shadowQuery(query);
 
         assertEquals(rewrittenQuery.getPreQueries().size(), 2);
-        CreateTable createTable = (CreateTable) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
+        CreateTable createTable = (CreateTable) parser.createStatement(rewrittenQuery.getPreQueries().get(0), PARSING_OPTIONS);
         assertEquals(createTable.getName().getParts().size(), 3);
         assertEquals(createTable.getName().getPrefix().get(), QualifiedName.of("other_catalog", "other_schema"));
         assertTrue(createTable.getName().getSuffix().startsWith("tmp_"));
         assertFalse(createTable.getName().getSuffix().contains("test_insert_table"));
 
-        Insert insert = (Insert) parser.createStatement(rewrittenQuery.getPreQueries().get(1));
+        Insert insert = (Insert) parser.createStatement(rewrittenQuery.getPreQueries().get(1), PARSING_OPTIONS);
         assertEquals(insert.getTarget(), createTable.getName());
         assertEquals(insert.getColumns(), Optional.of(ImmutableList.of(identifier("b"), identifier("a"), identifier("c"))));
 
@@ -134,11 +134,9 @@ public class TestShadowing
         SingleColumn columnA = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("A"))));
         SingleColumn columnB = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new Identifier("B"), new LongLiteral("1"))))));
         SingleColumn columnC = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("C"))));
-        Select select = new Select(false, ImmutableList.of(columnA, columnB, columnC));
-        QuerySpecification querySpecification = new QuerySpecification(select, Optional.of(table), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-        assertEquals(parser.createStatement(rewrittenQuery.getQuery()), new io.prestosql.sql.tree.Query(Optional.empty(), querySpecification, Optional.empty(), Optional.empty()));
+        assertEquals(parser.createStatement(rewrittenQuery.getQuery(), PARSING_OPTIONS), simpleQuery(selectList(columnA, columnB, columnC), table));
 
         assertEquals(rewrittenQuery.getPostQueries().size(), 1);
-        assertEquals(parser.createStatement(rewrittenQuery.getPostQueries().get(0)), new DropTable(createTable.getName(), true));
+        assertEquals(parser.createStatement(rewrittenQuery.getPostQueries().get(0), PARSING_OPTIONS), new DropTable(createTable.getName(), true));
     }
 }

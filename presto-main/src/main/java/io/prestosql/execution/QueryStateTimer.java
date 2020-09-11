@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.units.Duration.succinctNanos;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -33,21 +34,20 @@ class QueryStateTimer
 
     private final long createNanos;
     private final AtomicReference<Long> beginResourceWaitingNanos = new AtomicReference<>();
+    private final AtomicReference<Long> beginDispatchingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginPlanningNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginFinishingNanos = new AtomicReference<>();
     private final AtomicReference<Long> endNanos = new AtomicReference<>();
 
     private final AtomicReference<Duration> queuedTime = new AtomicReference<>();
     private final AtomicReference<Duration> resourceWaitingTime = new AtomicReference<>();
+    private final AtomicReference<Duration> dispatchingTime = new AtomicReference<>();
     private final AtomicReference<Duration> executionTime = new AtomicReference<>();
     private final AtomicReference<Duration> planningTime = new AtomicReference<>();
     private final AtomicReference<Duration> finishingTime = new AtomicReference<>();
 
     private final AtomicReference<Long> beginAnalysisNanos = new AtomicReference<>();
     private final AtomicReference<Duration> analysisTime = new AtomicReference<>();
-
-    private final AtomicReference<Long> beginDistributedPlanningNanos = new AtomicReference<>();
-    private final AtomicReference<Duration> distributedPlanningTime = new AtomicReference<>();
 
     private final AtomicReference<Long> lastHeartbeatNanos;
 
@@ -73,6 +73,18 @@ class QueryStateTimer
         beginResourceWaitingNanos.compareAndSet(null, now);
     }
 
+    public void beginDispatching()
+    {
+        beginDispatching(tickerNanos());
+    }
+
+    private void beginDispatching(long now)
+    {
+        beginWaitingForResources(now);
+        resourceWaitingTime.compareAndSet(null, nanosSince(beginResourceWaitingNanos, now));
+        beginDispatchingNanos.compareAndSet(null, now);
+    }
+
     public void beginPlanning()
     {
         beginPlanning(tickerNanos());
@@ -80,8 +92,8 @@ class QueryStateTimer
 
     private void beginPlanning(long now)
     {
-        beginWaitingForResources(now);
-        resourceWaitingTime.compareAndSet(null, nanosSince(beginResourceWaitingNanos, now));
+        beginDispatching(now);
+        dispatchingTime.compareAndSet(null, nanosSince(beginDispatchingNanos, now));
         beginPlanningNanos.compareAndSet(null, now);
     }
 
@@ -128,30 +140,34 @@ class QueryStateTimer
         finishingTime.compareAndSet(null, nanosSince(beginFinishingNanos, now));
         executionTime.compareAndSet(null, nanosSince(beginPlanningNanos, now));
         endNanos.compareAndSet(null, now);
+
+        // Analysis is run in separate thread and there is no query state for analysis.
+        // In case when analysis thread was canceled the analysis should be marked as finished.
+        if (beginAnalysisNanos.get() == null) {
+            analysisTime.compareAndSet(null, succinctNanos(0));
+        }
+        else {
+            endAnalysis(now);
+        }
     }
 
     //
     //  Additional timings
     //
 
-    public void beginAnalyzing()
+    public void beginAnalysis()
     {
         beginAnalysisNanos.compareAndSet(null, tickerNanos());
     }
 
     public void endAnalysis()
     {
-        analysisTime.compareAndSet(null, nanosSince(beginAnalysisNanos, tickerNanos()));
+        endAnalysis(tickerNanos());
     }
 
-    public void beginDistributedPlanning()
+    private void endAnalysis(long now)
     {
-        beginDistributedPlanningNanos.compareAndSet(null, tickerNanos());
-    }
-
-    public void endDistributedPlanning()
-    {
-        distributedPlanningTime.compareAndSet(null, nanosSince(beginDistributedPlanningNanos, tickerNanos()));
+        analysisTime.compareAndSet(null, nanosSince(beginAnalysisNanos, now));
     }
 
     public void recordHeartbeat()
@@ -197,6 +213,11 @@ class QueryStateTimer
         return getDuration(resourceWaitingTime, beginResourceWaitingNanos);
     }
 
+    public Duration getDispatchingTime()
+    {
+        return getDuration(dispatchingTime, beginDispatchingNanos);
+    }
+
     public Duration getPlanningTime()
     {
         return getDuration(planningTime, beginPlanningNanos);
@@ -220,11 +241,6 @@ class QueryStateTimer
     public Duration getAnalysisTime()
     {
         return getDuration(analysisTime, beginAnalysisNanos);
-    }
-
-    public Duration getDistributedPlanningTime()
-    {
-        return getDuration(distributedPlanningTime, beginDistributedPlanningNanos);
     }
 
     public DateTime getLastHeartbeat()
@@ -252,7 +268,7 @@ class QueryStateTimer
 
     private static Duration nanosSince(long start, long now)
     {
-        return succinctNanos(now - start);
+        return succinctNanos(max(0, now - start));
     }
 
     private Duration getDuration(AtomicReference<Duration> finalDuration, AtomicReference<Long> start)

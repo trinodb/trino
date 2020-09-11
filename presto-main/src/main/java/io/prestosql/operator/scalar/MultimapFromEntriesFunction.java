@@ -35,7 +35,7 @@ import static com.google.common.base.Verify.verify;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 @ScalarFunction("multimap_from_entries")
-@Description("construct a multimap from an array of entries")
+@Description("Construct a multimap from an array of entries")
 public final class MultimapFromEntriesFunction
 {
     private static final String NAME = "multimap_from_entries";

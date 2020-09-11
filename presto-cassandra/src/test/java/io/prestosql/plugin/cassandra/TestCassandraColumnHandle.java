@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.cassandra;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
@@ -27,7 +26,7 @@ public class TestCassandraColumnHandle
     @Test
     public void testRoundTrip()
     {
-        CassandraColumnHandle expected = new CassandraColumnHandle("name", 42, CassandraType.FLOAT, null, true, false, false, false);
+        CassandraColumnHandle expected = new CassandraColumnHandle("name", 42, CassandraType.FLOAT, true, false, false, false);
 
         String json = codec.toJson(expected);
         CassandraColumnHandle actual = codec.fromJson(json);
@@ -46,7 +45,6 @@ public class TestCassandraColumnHandle
                 "name2",
                 1,
                 CassandraType.MAP,
-                ImmutableList.of(CassandraType.VARCHAR, CassandraType.UUID),
                 false,
                 true,
                 false,

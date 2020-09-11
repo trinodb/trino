@@ -40,8 +40,6 @@ import org.testng.annotations.Test;
 import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Consumer;
-import java.util.regex.Pattern;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -49,6 +47,7 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -57,11 +56,11 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestMemoryTracking
 {
-    private static final DataSize queryMaxMemory = new DataSize(1, GIGABYTE);
-    private static final DataSize queryMaxTotalMemory = new DataSize(1, GIGABYTE);
-    private static final DataSize memoryPoolSize = new DataSize(1, GIGABYTE);
-    private static final DataSize maxSpillSize = new DataSize(1, GIGABYTE);
-    private static final DataSize queryMaxSpillSize = new DataSize(1, GIGABYTE);
+    private static final DataSize queryMaxMemory = DataSize.of(1, GIGABYTE);
+    private static final DataSize queryMaxTotalMemory = DataSize.of(1, GIGABYTE);
+    private static final DataSize memoryPoolSize = DataSize.of(1, GIGABYTE);
+    private static final DataSize maxSpillSize = DataSize.of(1, GIGABYTE);
+    private static final DataSize queryMaxSpillSize = DataSize.of(1, GIGABYTE);
     private static final SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillSize);
 
     private QueryContext queryContext;
@@ -137,7 +136,9 @@ public class TestMemoryTracking
         assertOperatorMemoryAllocations(operatorMemoryContext, 0, 2_000_000, 0);
         revocableMemory.setBytes(300);
         assertOperatorMemoryAllocations(operatorMemoryContext, 0, 2_000_000, 300);
-        assertAllocationFails((ignored) -> userMemory.setBytes(userMemory.getBytes() - 500), "bytes cannot be negative");
+        assertThatThrownBy(() -> userMemory.setBytes(userMemory.getBytes() - 500))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("bytes cannot be negative");
         operatorContext.destroy();
         assertOperatorMemoryAllocations(operatorMemoryContext, 0, 0, 0);
     }
@@ -376,18 +377,6 @@ public class TestMemoryTracking
         assertEquals(driverStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
         assertEquals(pipelineStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
         assertEquals(taskStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
-    }
-
-    private void assertAllocationFails(Consumer<Void> allocationFunction, String expectedPattern)
-    {
-        try {
-            allocationFunction.accept(null);
-            fail("Expected exception");
-        }
-        catch (IllegalArgumentException e) {
-            assertTrue(Pattern.matches(expectedPattern, e.getMessage()),
-                    "\nExpected (re) :" + expectedPattern + "\nActual :" + e.getMessage());
-        }
     }
 
     // the allocations that are done at the operator level are reflected at that level and all the way up to the pools

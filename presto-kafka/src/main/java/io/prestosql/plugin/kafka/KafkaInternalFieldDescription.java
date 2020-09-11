@@ -19,6 +19,7 @@ import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.Type;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -45,21 +46,6 @@ public enum KafkaInternalFieldDescription
      * <tt>_partition_offset</tt> - The current offset of the message in the partition.
      */
     PARTITION_OFFSET_FIELD("_partition_offset", BigintType.BIGINT, "Offset for the message within the partition"),
-
-    /**
-     * <tt>_segment_start</tt> - Kafka start offset for the segment which contains the current message. This is per-partition.
-     */
-    SEGMENT_START_FIELD("_segment_start", BigintType.BIGINT, "Segment start offset"),
-
-    /**
-     * <tt>_segment_end</tt> - Kafka end offset for the segment which contains the current message. This is per-partition. The end offset is the first offset that is *not* in the segment.
-     */
-    SEGMENT_END_FIELD("_segment_end", BigintType.BIGINT, "Segment end offset"),
-
-    /**
-     * <tt>_segment_count</tt> - Running count of messages in a segment.
-     */
-    SEGMENT_COUNT_FIELD("_segment_count", BigintType.BIGINT, "Running message count per segment"),
 
     /**
      * <tt>_message_corrupt</tt> - True if the row converter could not read the a message. May be null if the row converter does not set a value (e.g. the dummy row converter does not).
@@ -122,15 +108,14 @@ public enum KafkaInternalFieldDescription
         return columnName;
     }
 
-    public Type getType()
+    private Type getType()
     {
         return type;
     }
 
-    KafkaColumnHandle getColumnHandle(String connectorId, int index, boolean hidden)
+    KafkaColumnHandle getColumnHandle(int index, boolean hidden)
     {
-        return new KafkaColumnHandle(connectorId,
-                index,
+        return new KafkaColumnHandle(
                 getColumnName(),
                 getType(),
                 null,
@@ -143,6 +128,11 @@ public enum KafkaInternalFieldDescription
 
     ColumnMetadata getColumnMetadata(boolean hidden)
     {
-        return new ColumnMetadata(columnName, type, comment, hidden);
+        return ColumnMetadata.builder()
+                .setName(columnName)
+                .setType(type)
+                .setComment(Optional.ofNullable(comment))
+                .setHidden(hidden)
+                .build();
     }
 }

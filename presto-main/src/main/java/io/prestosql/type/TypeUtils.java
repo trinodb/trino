@@ -13,6 +13,7 @@
  */
 package io.prestosql.type;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.operator.HashGenerator;
@@ -21,10 +22,18 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.FixedWidthType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimeWithTimeZoneType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.VarcharType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -34,6 +43,10 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.StandardTypes.ARRAY;
+import static io.prestosql.spi.type.StandardTypes.MAP;
+import static io.prestosql.spi.type.StandardTypes.ROW;
+import static java.lang.String.format;
 
 public final class TypeUtils
 {
@@ -47,6 +60,16 @@ public final class TypeUtils
     {
         if (type instanceof FixedWidthType) {
             return ((FixedWidthType) type).getFixedSize();
+        }
+        // If bound on length of varchar or char is smaller than defaultSize, use that as expected size
+        // The data can take up to 4 bytes per character due to UTF-8 encoding, but we assume it is ASCII and only needs one byte.
+        if (type instanceof VarcharType) {
+            return ((VarcharType) type).getLength()
+                    .map(length -> Math.min(length, defaultSize))
+                    .orElse(defaultSize);
+        }
+        if (type instanceof CharType) {
+            return Math.min(((CharType) type).getLength(), defaultSize);
         }
         return defaultSize;
     }
@@ -68,21 +91,19 @@ public final class TypeUtils
             if (type.getJavaType() == boolean.class) {
                 return (long) methodHandle.invoke(type.getBoolean(block, position));
             }
-            else if (type.getJavaType() == long.class) {
+            if (type.getJavaType() == long.class) {
                 return (long) methodHandle.invoke(type.getLong(block, position));
             }
-            else if (type.getJavaType() == double.class) {
+            if (type.getJavaType() == double.class) {
                 return (long) methodHandle.invoke(type.getDouble(block, position));
             }
-            else if (type.getJavaType() == Slice.class) {
+            if (type.getJavaType() == Slice.class) {
                 return (long) methodHandle.invoke(type.getSlice(block, position));
             }
-            else if (!type.getJavaType().isPrimitive()) {
+            if (!type.getJavaType().isPrimitive()) {
                 return (long) methodHandle.invoke(type.getObject(block, position));
             }
-            else {
-                throw new UnsupportedOperationException("Unsupported native container type: " + type.getJavaType() + " with type " + type.getTypeSignature());
-            }
+            throw new UnsupportedOperationException("Unsupported native container type: " + type.getJavaType() + " with type " + type.getTypeSignature());
         }
         catch (Throwable throwable) {
             throwIfUnchecked(throwable);
@@ -98,18 +119,6 @@ public final class TypeUtils
             return leftIsNull && rightIsNull;
         }
         return type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
-    }
-
-    public static Type resolveType(TypeSignature typeName, TypeManager typeManager)
-    {
-        return typeManager.getType(typeName);
-    }
-
-    public static List<Type> resolveTypes(List<TypeSignature> typeNames, TypeManager typeManager)
-    {
-        return typeNames.stream()
-                .map((TypeSignature type) -> resolveType(type, typeManager))
-                .collect(toImmutableList());
     }
 
     public static long getHashPosition(List<? extends Type> hashTypes, Block[] hashBlocks, int position)
@@ -158,5 +167,57 @@ public final class TypeUtils
         if (isNull) {
             throw new PrestoException(NOT_SUPPORTED, errorMsg);
         }
+    }
+
+    public static String getDisplayLabel(Type type, boolean legacy)
+    {
+        if (legacy) {
+            return getDisplayLabelForLegacyClients(type);
+        }
+        return type.getDisplayName();
+    }
+
+    private static String getDisplayLabelForLegacyClients(Type type)
+    {
+        if (type instanceof TimestampType && ((TimestampType) type).getPrecision() == TimestampType.DEFAULT_PRECISION) {
+            return StandardTypes.TIMESTAMP;
+        }
+        if (type instanceof TimestampWithTimeZoneType && ((TimestampWithTimeZoneType) type).getPrecision() == TimestampWithTimeZoneType.DEFAULT_PRECISION) {
+            return StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+        }
+        if (type instanceof TimeType && ((TimeType) type).getPrecision() == TimeType.DEFAULT_PRECISION) {
+            return StandardTypes.TIME;
+        }
+        if (type instanceof TimeWithTimeZoneType && ((TimeWithTimeZoneType) type).getPrecision() == TimeWithTimeZoneType.DEFAULT_PRECISION) {
+            return StandardTypes.TIME_WITH_TIME_ZONE;
+        }
+        if (type instanceof ArrayType) {
+            return ARRAY + "(" + getDisplayLabelForLegacyClients(((ArrayType) type).getElementType()) + ")";
+        }
+        if (type instanceof MapType) {
+            return MAP + "(" + getDisplayLabelForLegacyClients(((MapType) type).getKeyType()) + ", " + getDisplayLabelForLegacyClients(((MapType) type).getValueType()) + ")";
+        }
+        if (type instanceof RowType) {
+            return getRowDisplayLabelForLegacyClients((RowType) type);
+        }
+
+        return type.getDisplayName();
+    }
+
+    private static String getRowDisplayLabelForLegacyClients(RowType type)
+    {
+        List<String> fields = type.getFields().stream()
+                .map(field -> {
+                    String typeDisplayName = getDisplayLabelForLegacyClients(field.getType());
+                    if (field.getName().isPresent()) {
+                        return field.getName().get() + ' ' + typeDisplayName;
+                    }
+                    else {
+                        return typeDisplayName;
+                    }
+                })
+                .collect(toImmutableList());
+
+        return format("%s(%s)", ROW, Joiner.on(", ").join(fields));
     }
 }

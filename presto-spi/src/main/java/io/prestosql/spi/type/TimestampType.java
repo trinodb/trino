@@ -13,50 +13,78 @@
  */
 package io.prestosql.spi.type;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.PrestoException;
 
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static java.lang.String.format;
 
-//
-// A timestamp is stored as milliseconds from 1970-01-01T00:00:00 UTC.  When performing calculations
-// on a timestamp the client's time zone must be taken into account.
-//
-public final class TimestampType
-        extends AbstractLongType
+/**
+ * A timestamp is encoded as milliseconds from 1970-01-01T00:00:00 UTC and is to be interpreted as local date time without regards to any time zone.
+ */
+public abstract class TimestampType
+        extends AbstractType
+        implements FixedWidthType
 {
-    public static final TimestampType TIMESTAMP = new TimestampType();
+    public static final int MAX_PRECISION = 12;
 
-    private TimestampType()
-    {
-        super(parseTypeSignature(StandardTypes.TIMESTAMP));
-    }
+    public static final int MAX_SHORT_PRECISION = 6;
+    public static final int DEFAULT_PRECISION = 3; // TODO: should be 6 per SQL spec
 
-    @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
-    {
-        if (block.isNull(position)) {
-            return null;
-        }
+    private static final TimestampType[] TYPES = new TimestampType[MAX_PRECISION + 1];
 
-        if (session.isLegacyTimestamp()) {
-            return new SqlTimestamp(block.getLong(position, 0), session.getTimeZoneKey());
-        }
-        else {
-            return new SqlTimestamp(block.getLong(position, 0));
+    static {
+        for (int precision = 0; precision <= MAX_PRECISION; precision++) {
+            TYPES[precision] = (precision <= MAX_SHORT_PRECISION) ? new ShortTimestampType(precision) : new LongTimestampType(precision);
         }
     }
 
-    @Override
-    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
-    public boolean equals(Object other)
+    public static final TimestampType TIMESTAMP_SECONDS = createTimestampType(0);
+    public static final TimestampType TIMESTAMP_MILLIS = createTimestampType(3);
+    public static final TimestampType TIMESTAMP_MICROS = createTimestampType(6);
+    public static final TimestampType TIMESTAMP_NANOS = createTimestampType(9);
+    public static final TimestampType TIMESTAMP_PICOS = createTimestampType(12);
+
+    /**
+     * @deprecated use {@link #TIMESTAMP_MILLIS} instead
+     */
+    @Deprecated
+    public static final TimestampType TIMESTAMP = TIMESTAMP_MILLIS;
+
+    private final int precision;
+
+    public static TimestampType createTimestampType(int precision)
     {
-        return other == TIMESTAMP;
+        if (precision < 0 || precision > MAX_PRECISION) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIMESTAMP precision must be in range [0, %s]", MAX_PRECISION));
+        }
+        return TYPES[precision];
+    }
+
+    TimestampType(int precision, Class<?> javaType)
+    {
+        super(new TypeSignature(StandardTypes.TIMESTAMP, TypeSignatureParameter.numericParameter(precision)), javaType);
+        this.precision = precision;
+    }
+
+    public int getPrecision()
+    {
+        return precision;
+    }
+
+    public final boolean isShort()
+    {
+        return precision <= MAX_SHORT_PRECISION;
     }
 
     @Override
-    public int hashCode()
+    public boolean isComparable()
     {
-        return getClass().hashCode();
+        return true;
+    }
+
+    @Override
+    public boolean isOrderable()
+    {
+        return true;
     }
 }

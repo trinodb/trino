@@ -19,9 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import io.prestosql.client.NodeVersion;
-import io.prestosql.connector.ConnectorId;
-import io.prestosql.spi.Node;
-import io.prestosql.spi.NodeState;
+import io.prestosql.connector.CatalogName;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -37,8 +35,8 @@ import static java.util.Objects.requireNonNull;
 public class InMemoryNodeManager
         implements InternalNodeManager
 {
-    private final Node localNode;
-    private final SetMultimap<ConnectorId, Node> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.create());
+    private final InternalNode localNode;
+    private final SetMultimap<CatalogName, InternalNode> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.create());
 
     @GuardedBy("this")
     private final List<Consumer<AllNodes>> listeners = new ArrayList<>();
@@ -46,27 +44,27 @@ public class InMemoryNodeManager
     @Inject
     public InMemoryNodeManager()
     {
-        this(URI.create("local://127.0.0.1"));
+        this(URI.create("local://127.0.0.1:8080"));
     }
 
     public InMemoryNodeManager(URI localUri)
     {
-        localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN, false);
+        localNode = new InternalNode("local", localUri, NodeVersion.UNKNOWN, true);
     }
 
-    public void addCurrentNodeConnector(ConnectorId connectorId)
+    public void addCurrentNodeConnector(CatalogName catalogName)
     {
-        addNode(connectorId, localNode);
+        addNode(catalogName, localNode);
     }
 
-    public void addNode(ConnectorId connectorId, Node... nodes)
+    public void addNode(CatalogName catalogName, InternalNode... nodes)
     {
-        addNode(connectorId, ImmutableList.copyOf(nodes));
+        addNode(catalogName, ImmutableList.copyOf(nodes));
     }
 
-    public void addNode(ConnectorId connectorId, Iterable<Node> nodes)
+    public void addNode(CatalogName catalogName, Iterable<InternalNode> nodes)
     {
-        remoteNodes.putAll(connectorId, nodes);
+        remoteNodes.putAll(catalogName, nodes);
 
         List<Consumer<AllNodes>> listeners;
         synchronized (this) {
@@ -77,7 +75,7 @@ public class InMemoryNodeManager
     }
 
     @Override
-    public Set<Node> getNodes(NodeState state)
+    public Set<InternalNode> getNodes(NodeState state)
     {
         switch (state) {
             case ACTIVE:
@@ -92,25 +90,25 @@ public class InMemoryNodeManager
     }
 
     @Override
-    public Set<Node> getActiveConnectorNodes(ConnectorId connectorId)
+    public Set<InternalNode> getActiveConnectorNodes(CatalogName catalogName)
     {
-        return ImmutableSet.copyOf(remoteNodes.get(connectorId));
+        return ImmutableSet.copyOf(remoteNodes.get(catalogName));
     }
 
     @Override
     public AllNodes getAllNodes()
     {
-        return new AllNodes(ImmutableSet.<Node>builder().add(localNode).addAll(remoteNodes.values()).build(), ImmutableSet.of(), ImmutableSet.of(), ImmutableSet.of(localNode));
+        return new AllNodes(ImmutableSet.<InternalNode>builder().add(localNode).addAll(remoteNodes.values()).build(), ImmutableSet.of(), ImmutableSet.of(), ImmutableSet.of(localNode));
     }
 
     @Override
-    public Node getCurrentNode()
+    public InternalNode getCurrentNode()
     {
         return localNode;
     }
 
     @Override
-    public Set<Node> getCoordinators()
+    public Set<InternalNode> getCoordinators()
     {
         // always use localNode as coordinator
         return ImmutableSet.of(localNode);

@@ -17,6 +17,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 public class TestGroupingSets
 {
     private QueryAssertions assertions;
@@ -37,7 +39,7 @@ public class TestGroupingSets
     @Test
     public void testPredicateOverGroupingKeysWithEmptyGroupingSet()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "WITH t AS (" +
                         "    SELECT a" +
                         "    FROM (" +
@@ -47,29 +49,40 @@ public class TestGroupingSets
                         ")" +
                         "SELECT * " +
                         "FROM t " +
-                        "WHERE a IS NOT NULL",
-                "VALUES 1, 2");
+                        "WHERE a IS NOT NULL"))
+                .matches("VALUES 1, 2");
     }
 
     @Test
     public void testDistinctWithMixedReferences()
     {
-        assertions.assertQuery("" +
+        assertThat(assertions.query("" +
                         "SELECT a " +
                         "FROM (VALUES 1) t(a) " +
-                        "GROUP BY DISTINCT ROLLUP(a, t.a)",
-                "VALUES (1), (NULL)");
+                        "GROUP BY DISTINCT ROLLUP(a, t.a)"))
+                .matches("VALUES (1), (NULL)");
 
-        assertions.assertQuery("" +
+        assertThat(assertions.query("" +
                         "SELECT a " +
                         "FROM (VALUES 1) t(a) " +
-                        "GROUP BY DISTINCT GROUPING SETS ((a), (t.a))",
-                "VALUES 1");
+                        "GROUP BY DISTINCT GROUPING SETS ((a), (t.a))"))
+                .matches("VALUES 1");
 
-        assertions.assertQuery("" +
+        assertThat(assertions.query("" +
                         "SELECT a " +
                         "FROM (VALUES 1) t(a) " +
-                        "GROUP BY DISTINCT a, GROUPING SETS ((), (t.a))",
-                "VALUES 1");
+                        "GROUP BY DISTINCT a, GROUPING SETS ((), (t.a))"))
+                .matches("VALUES 1");
+    }
+
+    @Test
+    public void testRollupAggregationWithOrderedLimit()
+    {
+        assertThat(assertions.query("" +
+                        "SELECT a " +
+                        "FROM (VALUES 3, 2, 1) t(a) " +
+                        "GROUP BY ROLLUP (a) " +
+                        "ORDER BY a LIMIT 2"))
+                .matches("VALUES 1, 2");
     }
 }

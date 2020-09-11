@@ -109,4 +109,10 @@ public class LikePredicate
     {
         return Objects.hash(value, pattern, escape);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

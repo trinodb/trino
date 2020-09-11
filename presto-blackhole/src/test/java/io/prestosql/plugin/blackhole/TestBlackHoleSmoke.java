@@ -39,10 +39,10 @@ import static io.prestosql.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPE
 import static io.prestosql.plugin.blackhole.BlackHoleQueryRunner.createQueryRunner;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -69,8 +69,14 @@ public class TestBlackHoleSmoke
     public void testCreateSchema()
     {
         assertEquals(queryRunner.execute("SHOW SCHEMAS FROM blackhole").getRowCount(), 2);
+        assertThatQueryReturnsValue("CREATE TABLE test_schema as SELECT * FROM tpch.tiny.nation", 25L);
+
         queryRunner.execute("CREATE SCHEMA blackhole.test");
         assertEquals(queryRunner.execute("SHOW SCHEMAS FROM blackhole").getRowCount(), 3);
+        assertThatQueryReturnsValue("CREATE TABLE test.test_schema as SELECT * FROM tpch.tiny.region", 5L);
+
+        assertThatQueryReturnsValue("DROP TABLE test_schema", true);
+        assertThatQueryReturnsValue("DROP TABLE test.test_schema", true);
     }
 
     @Test
@@ -83,7 +89,7 @@ public class TestBlackHoleSmoke
             fail("Expected exception to be thrown here!");
         }
         catch (RuntimeException ex) { // it has to RuntimeException as FailureInfo$FailureException is private
-            assertTrue(ex.getMessage().equals("line 1:1: Destination table 'blackhole.default.nation' already exists"));
+            assertEquals(ex.getMessage(), "line 1:1: Destination table 'blackhole.default.nation' already exists");
         }
         finally {
             assertThatQueryReturnsValue("DROP TABLE nation", true);
@@ -96,8 +102,8 @@ public class TestBlackHoleSmoke
         assertThatQueryReturnsValue("CREATE TABLE nation as SELECT * FROM tpch.tiny.nation", 25L);
 
         List<QualifiedObjectName> tableNames = listBlackHoleTables();
-        assertTrue(tableNames.size() == 1, "Expected only one table.");
-        assertTrue(tableNames.get(0).getObjectName().equals("nation"), "Expected 'nation' table.");
+        assertEquals(tableNames.size(), 1, "Expected only one table.");
+        assertEquals(tableNames.get(0).getObjectName(), "nation", "Expected 'nation' table.");
 
         assertThatQueryReturnsValue("INSERT INTO nation SELECT * FROM tpch.tiny.nation", 25L);
 
@@ -150,7 +156,7 @@ public class TestBlackHoleSmoke
             fail("Expected exception to be thrown here!");
         }
         catch (RuntimeException ex) {
-            assertTrue(ex.getMessage().equals("Schema schema1 not found"));
+            assertEquals(ex.getMessage(), "Schema schema1 not found");
         }
 
         int tablesAfterCreate = listBlackHoleTables().size();
@@ -258,9 +264,8 @@ public class TestBlackHoleSmoke
         assertEquals(row.getField(6), 0.0);
         assertEquals(row.getField(7), false);
         assertEquals(row.getField(8), LocalDate.ofEpochDay(0));
-        // TODO should be 1970-01-01 00:00:00 after https://github.com/prestodb/presto/issues/7122
-        assertEquals(row.getField(9), LocalDateTime.of(1969, 12, 31, 13, 0, 0));
-        assertEquals(row.getField(10), "****************".getBytes());
+        assertEquals(row.getField(9), LocalDateTime.of(1970, 1, 1, 0, 0, 0));
+        assertEquals(row.getField(10), "****************".getBytes(UTF_8));
         assertEquals(row.getField(11), new BigDecimal("0.00"));
         assertEquals(row.getField(12), new BigDecimal("00000000000000000000.0000000000"));
         dropBlackholeAllTypesTable();
@@ -339,7 +344,7 @@ public class TestBlackHoleSmoke
 
     private void assertThatNoBlackHoleTableIsCreated()
     {
-        assertTrue(listBlackHoleTables().size() == 0, "No blackhole tables expected");
+        assertEquals(listBlackHoleTables().size(), 0, "No blackhole tables expected");
     }
 
     private List<QualifiedObjectName> listBlackHoleTables()
@@ -357,9 +362,9 @@ public class TestBlackHoleSmoke
         MaterializedResult rows = session == null ? queryRunner.execute(sql) : queryRunner.execute(session, sql);
         MaterializedRow materializedRow = Iterables.getOnlyElement(rows);
         int fieldCount = materializedRow.getFieldCount();
-        assertTrue(fieldCount == 1, format("Expected only one column, but got '%d'", fieldCount));
+        assertEquals(fieldCount, 1, format("Expected only one column, but got '%d'", fieldCount));
         Object value = materializedRow.getField(0);
         assertEquals(value, expected);
-        assertTrue(Iterables.getOnlyElement(rows).getFieldCount() == 1);
+        assertEquals(Iterables.getOnlyElement(rows).getFieldCount(), 1);
     }
 }

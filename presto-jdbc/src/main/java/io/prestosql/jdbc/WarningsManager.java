@@ -26,7 +26,7 @@ import java.util.Set;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class WarningsManager
+final class WarningsManager
 {
     @GuardedBy("this")
     private final Set<Warning.Code> warningsSeen = new HashSet<>();

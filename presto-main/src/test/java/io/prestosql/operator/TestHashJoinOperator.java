@@ -14,7 +14,6 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
@@ -37,6 +36,7 @@ import io.prestosql.operator.index.PageBuffer;
 import io.prestosql.operator.index.PageBufferOperator.PageBufferOperatorFactory;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spiller.GenericPartitioningSpillerFactory;
 import io.prestosql.spiller.PartitioningSpillerFactory;
@@ -71,21 +71,24 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.unmodifiableIterator;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.operator.OperatorAssertion.assertOperatorEquals;
 import static io.prestosql.operator.OperatorAssertion.dropChannel;
 import static io.prestosql.operator.OperatorAssertion.without;
 import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.prestosql.operator.WorkProcessor.ProcessState.finished;
+import static io.prestosql.operator.WorkProcessor.ProcessState.ofResult;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -97,6 +100,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -127,7 +131,7 @@ public class TestHashJoinOperator
                 Integer.MAX_VALUE,
                 60L,
                 SECONDS,
-                new SynchronousQueue<Runnable>(),
+                new SynchronousQueue<>(),
                 daemonThreadsNamed("test-executor-%s"),
                 new ThreadPoolExecutor.DiscardPolicy());
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
@@ -323,7 +327,7 @@ public class TestHashJoinOperator
 
     @Test(dataProvider = "joinWithFailingSpillValues")
     public void testInnerJoinWithFailingSpill(boolean probeHashEnabled, List<WhenSpill> whenSpill, WhenSpillFails whenSpillFails, boolean isDictionaryProcessingJoinEnabled)
-            throws Throwable
+            throws Exception
     {
         DummySpillerFactory buildSpillerFactory = new DummySpillerFactory();
         DummySpillerFactory joinSpillerFactory = new DummySpillerFactory();
@@ -477,7 +481,7 @@ public class TestHashJoinOperator
         }
     }
 
-    private static void processRow(final Driver joinDriver, final TaskStateMachine taskStateMachine)
+    private static void processRow(Driver joinDriver, TaskStateMachine taskStateMachine)
     {
         joinDriver.getDriverContext().getYieldSignal().setWithDelay(TimeUnit.SECONDS.toNanos(1), joinDriver.getDriverContext().getYieldExecutor());
         joinDriver.process();
@@ -1015,7 +1019,7 @@ public class TestHashJoinOperator
     @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of.*", dataProvider = "testMemoryLimitProvider")
     public void testMemoryLimit(boolean parallelBuild, boolean buildHashEnabled)
     {
-        TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(100, BYTE));
+        TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.ofBytes(100));
 
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
                 .addSequencePage(10, 20, 30, 40);
@@ -1225,6 +1229,152 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
+    @Test(dataProvider = "hashJoinTestValues")
+    public void testInnerJoinWithBlockingLookupSourceAndEmptyProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+            throws Exception
+    {
+        TaskContext taskContext = createTaskContext();
+        OperatorFactory joinOperatorFactory = createJoinOperatorFactoryWithBlockingLookupSource(taskContext, parallelBuild, probeHashEnabled, buildHashEnabled);
+
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+        try (Operator joinOperator = joinOperatorFactory.createOperator(driverContext)) {
+            joinOperatorFactory.noMoreOperators();
+            assertFalse(joinOperator.needsInput());
+            joinOperator.finish();
+            // lookup join operator will yield once before finishing
+            assertNull(joinOperator.getOutput());
+            assertNull(joinOperator.getOutput());
+            assertTrue(joinOperator.isBlocked().isDone());
+            assertTrue(joinOperator.isFinished());
+        }
+    }
+
+    @Test(dataProvider = "hashJoinTestValues")
+    public void testInnerJoinWithBlockingLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+            throws Exception
+    {
+        TaskContext taskContext = createTaskContext();
+        OperatorFactory joinOperatorFactory = createJoinOperatorFactoryWithBlockingLookupSource(taskContext, parallelBuild, probeHashEnabled, buildHashEnabled);
+
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+        try (Operator joinOperator = joinOperatorFactory.createOperator(driverContext)) {
+            joinOperatorFactory.noMoreOperators();
+            assertFalse(joinOperator.needsInput());
+            assertNull(joinOperator.getOutput());
+            // lookup join operator got blocked waiting for build side
+            assertFalse(joinOperator.isBlocked().isDone());
+            assertFalse(joinOperator.isFinished());
+        }
+    }
+
+    @Test
+    public void testInnerJoinLoadsPagesInOrder()
+    {
+        TaskContext taskContext = createTaskContext();
+
+        // build factory
+        List<Type> buildTypes = ImmutableList.of(VARCHAR);
+        RowPagesBuilder buildPages = rowPagesBuilder(false, Ints.asList(0), buildTypes);
+        for (int i = 0; i < 100_000; ++i) {
+            buildPages.row("a");
+        }
+        BuildSideSetup buildSideSetup = setupBuildSide(false, taskContext, Ints.asList(0), buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
+
+        // probe factory
+        List<Type> probeTypes = ImmutableList.of(VARCHAR, INTEGER, INTEGER);
+        RowPagesBuilder probePages = rowPagesBuilder(false, Ints.asList(0), probeTypes);
+        probePages.row("a", 1L, 2L);
+        WorkProcessorOperatorFactory joinOperatorFactory = (WorkProcessorOperatorFactory) innerJoinOperatorFactory(lookupSourceFactory, probePages, PARTITIONING_SPILLER_FACTORY);
+
+        // build drivers and operators
+        instantiateBuildDrivers(buildSideSetup, taskContext);
+        buildLookupSource(buildSideSetup);
+
+        Page probePage = getOnlyElement(probePages.build());
+        AtomicInteger totalProbePages = new AtomicInteger();
+        WorkProcessor<Page> inputPages = WorkProcessor.create(() -> {
+            int probePageNumber = totalProbePages.incrementAndGet();
+            if (probePageNumber == 5) {
+                return finished();
+            }
+
+            return ofResult(new Page(
+                    1,
+                    probePage.getBlock(0),
+                    // this block should not be loaded by join operator as it's not being used by join
+                    new LazyBlock(1, () -> probePage.getBlock(1)),
+                    // this block is force loaded in test to ensure join doesn't fetch next probe page before joining
+                    // and outputting current probe page
+                    new LazyBlock(
+                            1,
+                            () -> {
+                                // when loaded this block should be the latest one
+                                assertEquals(probePageNumber, totalProbePages.get());
+                                return probePage.getBlock(2);
+                            })));
+        });
+
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+        OperatorContext operatorContext = driverContext.addOperatorContext(joinOperatorFactory.getOperatorId(), joinOperatorFactory.getPlanNodeId(), joinOperatorFactory.getOperatorType());
+        WorkProcessorOperator joinOperator = joinOperatorFactory.create(
+                new ProcessorContext(taskContext.getSession(), taskContext.getTaskMemoryContext(), operatorContext),
+                inputPages);
+        WorkProcessor<Page> outputPages = joinOperator.getOutputPages();
+        int totalOutputPages = 0;
+        for (int i = 0; i < 1_000_000; ++i) {
+            if (!outputPages.process()) {
+                // allow join to progress
+                driverContext.getYieldSignal().resetYieldForTesting();
+                continue;
+            }
+
+            if (outputPages.isFinished()) {
+                break;
+            }
+
+            Page page = outputPages.getResult();
+            totalOutputPages++;
+            assertFalse(page.getBlock(1).isLoaded());
+            page.getBlock(2).getLoadedBlock();
+
+            // yield to enforce more complex execution
+            driverContext.getYieldSignal().forceYieldForTesting();
+        }
+
+        // make sure that multiple pages were produced for some probe pages
+        assertTrue(totalOutputPages > totalProbePages.get());
+        assertTrue(outputPages.isFinished());
+    }
+
+    private OperatorFactory createJoinOperatorFactoryWithBlockingLookupSource(TaskContext taskContext, boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    {
+        // build factory
+        List<Type> buildTypes = ImmutableList.of(VARCHAR);
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
+        BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
+
+        // probe factory
+        List<Type> probeTypes = ImmutableList.of(VARCHAR);
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
+        OperatorFactory joinOperatorFactory = new LookupJoinOperators().innerJoin(
+                0,
+                new PlanNodeId("test"),
+                lookupSourceFactoryManager,
+                probePages.getTypes(),
+                Ints.asList(0),
+                getHashChannelAsInt(probePages),
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY);
+
+        // build drivers and operators
+        instantiateBuildDrivers(buildSideSetup, taskContext);
+
+        return joinOperatorFactory;
+    }
+
     @DataProvider
     public static Object[][] testMemoryLimitProvider()
     {
@@ -1300,7 +1450,7 @@ public class TestHashJoinOperator
                 hashChannels,
                 buildPages.getHashChannel(),
                 UNGROUPED_EXECUTION,
-                new DataSize(32, DataSize.Unit.MEGABYTE));
+                DataSize.of(32, DataSize.Unit.MEGABYTE));
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
@@ -1329,7 +1479,6 @@ public class TestHashJoinOperator
                         .map(buildPages.getTypes()::get)
                         .collect(toImmutableList()),
                 partitionCount,
-                requireNonNull(ImmutableMap.of(), "layout is null"),
                 false));
 
         HashBuilderOperatorFactory buildOperatorFactory = new HashBuilderOperatorFactory(
@@ -1401,7 +1550,7 @@ public class TestHashJoinOperator
                 }
                 catch (PrestoException e) {
                     driver.getDriverContext().failed(e);
-                    throw e;
+                    return;
                 }
                 runDriverInThread(executor, driver);
             }

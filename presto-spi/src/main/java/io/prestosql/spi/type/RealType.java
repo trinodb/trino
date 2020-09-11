@@ -18,8 +18,9 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 
+import java.util.Optional;
+
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -32,7 +33,7 @@ public final class RealType
 
     private RealType()
     {
-        super(parseTypeSignature(StandardTypes.REAL));
+        super(new TypeSignature(StandardTypes.REAL));
     }
 
     @Override
@@ -75,13 +76,14 @@ public final class RealType
     @Override
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
+        int floatValue;
         try {
-            toIntExact(value);
+            floatValue = toIntExact(value);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value (%sb) is not a valid single-precision float", Long.toBinaryString(value).replace(' ', '0')));
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value (%sb) is not a valid single-precision float", Long.toBinaryString(value)));
         }
-        blockBuilder.writeInt((int) value).closeEntry();
+        blockBuilder.writeInt(floatValue).closeEntry();
     }
 
     @Override
@@ -94,5 +96,13 @@ public final class RealType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        // The range for real is undefined because NaN is a special value that
+        // is *not* in any reasonable definition of a range for this type.
+        return Optional.empty();
     }
 }

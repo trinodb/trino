@@ -14,7 +14,6 @@
 
 package io.prestosql.sql.planner;
 
-import com.google.common.base.Strings;
 import com.google.common.base.VerifyException;
 import com.google.common.io.Resources;
 import io.prestosql.plugin.tpcds.TpcdsTableHandle;
@@ -41,6 +40,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.io.Files.createParentDirs;
 import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.testing.TestngUtils.toDataProvider;
@@ -54,11 +54,6 @@ import static org.testng.Assert.assertEquals;
 public abstract class AbstractCostBasedPlanTest
         extends BasePlanTest
 {
-    public AbstractCostBasedPlanTest(LocalQueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     protected abstract Stream<String> getQueryResourcePaths();
 
     @DataProvider
@@ -79,8 +74,7 @@ public abstract class AbstractCostBasedPlanTest
         return queryResourcePath.replaceAll("\\.sql$", ".plan.txt");
     }
 
-    public void generate()
-            throws Exception
+    protected void generate()
     {
         initPlanTest();
         try {
@@ -121,7 +115,7 @@ public abstract class AbstractCostBasedPlanTest
         String sql = query.replaceAll("\\s+;\\s+$", "")
                 .replace("${database}.${schema}.", "")
                 .replace("\"${database}\".\"${schema}\".\"${prefix}", "\"");
-        Plan plan = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false);
+        Plan plan = plan(sql, OPTIMIZED_AND_VALIDATED, false);
 
         JoinOrderPrinter joinOrderPrinter = new JoinOrderPrinter();
         plan.getRoot().accept(joinOrderPrinter, 0);
@@ -220,7 +214,7 @@ public abstract class AbstractCostBasedPlanTest
         }
 
         @Override
-        public Void visitSemiJoin(final SemiJoinNode node, Integer indent)
+        public Void visitSemiJoin(SemiJoinNode node, Integer indent)
         {
             output(indent, "semijoin (%s):", node.getDistributionType().get());
 
@@ -238,7 +232,7 @@ public abstract class AbstractCostBasedPlanTest
         private void output(int indent, String message, Object... args)
         {
             String formattedMessage = format(message, args);
-            result.append(format("%s%s\n", Strings.repeat("    ", indent), formattedMessage));
+            result.append(format("%s%s\n", "    ".repeat(indent), formattedMessage));
         }
     }
 }

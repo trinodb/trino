@@ -45,8 +45,8 @@ public class MarkDistinctNode
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
         super(id);
-        this.source = source;
-        this.markerSymbol = markerSymbol;
+        this.source = requireNonNull(source, "source is null");
+        this.markerSymbol = requireNonNull(markerSymbol, "markerSymbol is null");
         this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
         requireNonNull(distinctSymbols, "distinctSymbols is null");
         checkArgument(!distinctSymbols.isEmpty(), "distinctSymbols cannot be empty");

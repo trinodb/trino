@@ -24,8 +24,8 @@ import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.RemoteTask;
 import io.prestosql.execution.SqlStageExecution;
 import io.prestosql.execution.scheduler.FixedSourcePartitionedScheduler.BucketedSplitPlacementPolicy;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
-import io.prestosql.spi.Node;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.split.EmptySplit;
 import io.prestosql.split.SplitSource;
@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -90,6 +91,7 @@ public class SourcePartitionedScheduler
     private final int splitBatchSize;
     private final PlanNodeId partitionedNode;
     private final boolean groupedExecution;
+    private final BooleanSupplier anySourceTaskBlocked;
 
     private final Map<Lifespan, ScheduleGroup> scheduleGroups = new HashMap<>();
     private boolean noMoreScheduleGroups;
@@ -103,18 +105,21 @@ public class SourcePartitionedScheduler
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
-            boolean groupedExecution)
+            boolean groupedExecution,
+            BooleanSupplier anySourceTaskBlocked)
     {
         this.stage = requireNonNull(stage, "stage is null");
         this.partitionedNode = requireNonNull(partitionedNode, "partitionedNode is null");
         this.splitSource = requireNonNull(splitSource, "splitSource is null");
         this.splitPlacementPolicy = requireNonNull(splitPlacementPolicy, "splitPlacementPolicy is null");
+        this.anySourceTaskBlocked = requireNonNull(anySourceTaskBlocked, "anySourceTaskBlocked is null");
 
         checkArgument(splitBatchSize > 0, "splitBatchSize must be at least one");
         this.splitBatchSize = splitBatchSize;
         this.groupedExecution = groupedExecution;
     }
 
+    @Override
     public PlanNodeId getPlanNodeId()
     {
         return partitionedNode;
@@ -132,9 +137,17 @@ public class SourcePartitionedScheduler
             PlanNodeId partitionedNode,
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
-            int splitBatchSize)
+            int splitBatchSize,
+            BooleanSupplier anySourceTaskBlocked)
     {
-        SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, false);
+        SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(
+                stage,
+                partitionedNode,
+                splitSource,
+                splitPlacementPolicy,
+                splitBatchSize,
+                false,
+                anySourceTaskBlocked);
         sourcePartitionedScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
         sourcePartitionedScheduler.noMoreLifespans();
 
@@ -173,9 +186,17 @@ public class SourcePartitionedScheduler
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
-            boolean groupedExecution)
+            boolean groupedExecution,
+            BooleanSupplier anySourceTaskBlocked)
     {
-        return new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, groupedExecution);
+        return new SourcePartitionedScheduler(
+                stage,
+                partitionedNode,
+                splitSource,
+                splitPlacementPolicy,
+                splitBatchSize,
+                groupedExecution,
+                anySourceTaskBlocked);
     }
 
     @Override
@@ -241,9 +262,8 @@ public class SourcePartitionedScheduler
                             // for example, 1) an AggregationOperator, 2) a HashAggregationOperator where one of the grouping sets is ().
                             // Scheduling an empty split kicks off necessary driver instantiation to make this work.
                             pendingSplits.add(new Split(
-                                    splitSource.getConnectorId(),
-                                    splitSource.getTransactionHandle(),
-                                    new EmptySplit(splitSource.getConnectorId()),
+                                    splitSource.getCatalogName(),
+                                    new EmptySplit(splitSource.getCatalogName()),
                                     lifespan));
                         }
                         scheduleGroup.state = ScheduleGroupState.NO_MORE_SPLITS;
@@ -256,7 +276,7 @@ public class SourcePartitionedScheduler
                 }
             }
 
-            Multimap<Node, Split> splitAssignment = ImmutableMultimap.of();
+            Multimap<InternalNode, Split> splitAssignment = ImmutableMultimap.of();
             if (!pendingSplits.isEmpty()) {
                 if (!scheduleGroup.placementFuture.isDone()) {
                     anyBlockedOnPlacements = true;
@@ -287,11 +307,11 @@ public class SourcePartitionedScheduler
             }
 
             // if no new splits will be assigned, update state and attach completion event
-            Multimap<Node, Lifespan> noMoreSplitsNotification = ImmutableMultimap.of();
+            Multimap<InternalNode, Lifespan> noMoreSplitsNotification = ImmutableMultimap.of();
             if (pendingSplits.isEmpty() && scheduleGroup.state == ScheduleGroupState.NO_MORE_SPLITS) {
                 scheduleGroup.state = ScheduleGroupState.DONE;
                 if (!lifespan.isTaskWide()) {
-                    Node node = ((BucketedSplitPlacementPolicy) splitPlacementPolicy).getNodeForBucket(lifespan.getId());
+                    InternalNode node = ((BucketedSplitPlacementPolicy) splitPlacementPolicy).getNodeForBucket(lifespan.getId());
                     noMoreSplitsNotification = ImmutableMultimap.of(node, lifespan);
                 }
             }
@@ -346,7 +366,10 @@ public class SourcePartitionedScheduler
             return new ScheduleResult(false, overallNewTasks.build(), overallSplitAssignmentCount);
         }
 
-        if (anyBlockedOnPlacements || groupedExecution) {
+        if (groupedExecution) {
+            overallNewTasks.addAll(finalizeTaskCreationIfNecessary());
+        }
+        else if (anyBlockedOnPlacements && anySourceTaskBlocked.getAsBoolean()) {
             // In a broadcast join, output buffers of the tasks in build source stage have to
             // hold onto all data produced before probe side task scheduling finishes,
             // even if the data is acknowledged by all known consumers. This is because
@@ -430,15 +453,15 @@ public class SourcePartitionedScheduler
         return result.build();
     }
 
-    private Set<RemoteTask> assignSplits(Multimap<Node, Split> splitAssignment, Multimap<Node, Lifespan> noMoreSplitsNotification)
+    private Set<RemoteTask> assignSplits(Multimap<InternalNode, Split> splitAssignment, Multimap<InternalNode, Lifespan> noMoreSplitsNotification)
     {
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
 
-        ImmutableSet<Node> nodes = ImmutableSet.<Node>builder()
+        ImmutableSet<InternalNode> nodes = ImmutableSet.<InternalNode>builder()
                 .addAll(splitAssignment.keySet())
                 .addAll(noMoreSplitsNotification.keySet())
                 .build();
-        for (Node node : nodes) {
+        for (InternalNode node : nodes) {
             // source partitioned tasks can only receive broadcast data; otherwise it would have a different distribution
             ImmutableMultimap<PlanNodeId, Split> splits = ImmutableMultimap.<PlanNodeId, Split>builder()
                     .putAll(partitionedNode, splitAssignment.get(node))
@@ -464,7 +487,7 @@ public class SourcePartitionedScheduler
 
         splitPlacementPolicy.lockDownNodes();
 
-        Set<Node> scheduledNodes = stage.getScheduledNodes();
+        Set<InternalNode> scheduledNodes = stage.getScheduledNodes();
         Set<RemoteTask> newTasks = splitPlacementPolicy.allNodes().stream()
                 .filter(node -> !scheduledNodes.contains(node))
                 .flatMap(node -> stage.scheduleSplits(node, ImmutableMultimap.of(), ImmutableMultimap.of()).stream())

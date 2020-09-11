@@ -30,27 +30,18 @@ import static java.util.Objects.requireNonNull;
 public class AtopSplit
         implements ConnectorSplit
 {
-    private final AtopTable table;
     private final HostAddress host;
     private final ZonedDateTime date;
 
     @JsonCreator
     public AtopSplit(
-            @JsonProperty("table") AtopTable table,
             @JsonProperty("host") HostAddress host,
             @JsonProperty("epochSeconds") long epochSeconds,
             @JsonProperty("timeZone") ZoneId timeZone)
     {
-        this.table = requireNonNull(table, "table name is null");
         this.host = requireNonNull(host, "host is null");
         requireNonNull(timeZone, "timeZone is null");
         this.date = ZonedDateTime.ofInstant(ofEpochSecond(epochSeconds), timeZone);
-    }
-
-    @JsonProperty
-    public AtopTable getTable()
-    {
-        return table;
     }
 
     @JsonProperty
@@ -99,7 +90,6 @@ public class AtopSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("table", table)
                 .add("host", host)
                 .add("date", date)
                 .toString();

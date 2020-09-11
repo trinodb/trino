@@ -16,7 +16,7 @@ package io.prestosql.cli;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
+import io.airlift.log.Logger;
 import io.prestosql.cli.ClientOptions.OutputFormat;
 import io.prestosql.client.ClientSelectedRole;
 import io.prestosql.client.Column;
@@ -25,10 +25,12 @@ import io.prestosql.client.QueryError;
 import io.prestosql.client.QueryStatusInfo;
 import io.prestosql.client.StatementClient;
 import io.prestosql.client.Warning;
-import org.fusesource.jansi.Ansi;
-import sun.misc.Signal;
-import sun.misc.SignalHandler;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.Terminal.Signal;
+import org.jline.terminal.Terminal.SignalHandler;
+import org.jline.utils.AttributedStringBuilder;
 
+import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -45,15 +47,23 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.cli.ConsolePrinter.REAL_TERMINAL;
+import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_HEADER;
+import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_HEADER_AND_QUOTES;
+import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_QUOTES;
+import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.STANDARD;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static org.jline.utils.AttributedStyle.CYAN;
+import static org.jline.utils.AttributedStyle.DEFAULT;
+import static org.jline.utils.AttributedStyle.RED;
 
 public class Query
         implements Closeable
 {
-    private static final Signal SIGINT = new Signal("INT");
+    private static final Logger log = Logger.get(Query.class);
 
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
     private final StatementClient client;
@@ -115,10 +125,10 @@ public class Query
         return client.isClearTransactionId();
     }
 
-    public boolean renderOutput(PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, boolean usePager, boolean showProgress)
+    public boolean renderOutput(Terminal terminal, PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, boolean usePager, boolean showProgress)
     {
         Thread clientThread = Thread.currentThread();
-        SignalHandler oldHandler = Signal.handle(SIGINT, signal -> {
+        SignalHandler oldHandler = terminal.handle(Signal.INT, signal -> {
             if (ignoreUserInterrupt.get() || client.isClientAborted()) {
                 return;
             }
@@ -126,22 +136,22 @@ public class Query
             clientThread.interrupt();
         });
         try {
-            return renderQueryOutput(out, errorChannel, outputFormat, usePager, showProgress);
+            return renderQueryOutput(terminal, out, errorChannel, outputFormat, usePager, showProgress);
         }
         finally {
-            Signal.handle(SIGINT, oldHandler);
+            terminal.handle(Signal.INT, oldHandler);
             Thread.interrupted(); // clear interrupt status
         }
     }
 
-    private boolean renderQueryOutput(PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, boolean usePager, boolean showProgress)
+    private boolean renderQueryOutput(Terminal terminal, PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, boolean usePager, boolean showProgress)
     {
         StatusPrinter statusPrinter = null;
         WarningsPrinter warningsPrinter = new PrintStreamWarningsPrinter(errorChannel);
 
         if (showProgress) {
             statusPrinter = new StatusPrinter(client, errorChannel, debug);
-            statusPrinter.printInitialStatusUpdates();
+            statusPrinter.printInitialStatusUpdates(terminal);
         }
         else {
             processInitialStatusUpdates(warningsPrinter);
@@ -192,7 +202,12 @@ public class Query
     {
         while (client.isRunning() && (client.currentData().getData() == null)) {
             warningsPrinter.print(client.currentStatusInfo().getWarnings(), true, false);
-            client.advance();
+            try {
+                client.advance();
+            }
+            catch (RuntimeException e) {
+                log.debug(e, "error printing status");
+            }
         }
         List<Warning> warnings;
         if (client.isRunning()) {
@@ -242,22 +257,21 @@ public class Query
     private void doRenderResults(PrintStream out, OutputFormat format, boolean interactive, List<Column> columns)
             throws IOException
     {
-        List<String> fieldNames = Lists.transform(columns, Column::getName);
         if (interactive) {
-            pageOutput(format, fieldNames);
+            pageOutput(format, columns);
         }
         else {
-            sendOutput(out, format, fieldNames);
+            sendOutput(out, format, columns);
         }
     }
 
-    private void pageOutput(OutputFormat format, List<String> fieldNames)
+    private void pageOutput(OutputFormat format, List<Column> columns)
             throws IOException
     {
         try (Pager pager = Pager.create();
                 ThreadInterruptor clientThread = new ThreadInterruptor();
                 Writer writer = createWriter(pager);
-                OutputHandler handler = createOutputHandler(format, writer, fieldNames)) {
+                OutputHandler handler = createOutputHandler(format, writer, columns)) {
             if (!pager.isNullPager()) {
                 // ignore the user pressing ctrl-C while in the pager
                 ignoreUserInterrupt.set(true);
@@ -277,7 +291,7 @@ public class Query
         }
     }
 
-    private void sendOutput(PrintStream out, OutputFormat format, List<String> fieldNames)
+    private void sendOutput(PrintStream out, OutputFormat format, List<Column> fieldNames)
             throws IOException
     {
         try (OutputHandler handler = createOutputHandler(format, createWriter(out), fieldNames)) {
@@ -285,26 +299,35 @@ public class Query
         }
     }
 
-    private static OutputHandler createOutputHandler(OutputFormat format, Writer writer, List<String> fieldNames)
+    private static OutputHandler createOutputHandler(OutputFormat format, Writer writer, List<Column> columns)
     {
-        return new OutputHandler(createOutputPrinter(format, writer, fieldNames));
+        return new OutputHandler(createOutputPrinter(format, writer, columns));
     }
 
-    private static OutputPrinter createOutputPrinter(OutputFormat format, Writer writer, List<String> fieldNames)
+    private static OutputPrinter createOutputPrinter(OutputFormat format, Writer writer, List<Column> columns)
     {
+        List<String> fieldNames = columns.stream()
+                .map(Column::getName)
+                .collect(toImmutableList());
         switch (format) {
             case ALIGNED:
-                return new AlignedTablePrinter(fieldNames, writer);
+                return new AlignedTablePrinter(columns, writer);
             case VERTICAL:
                 return new VerticalRecordPrinter(fieldNames, writer);
             case CSV:
-                return new CsvPrinter(fieldNames, writer, false);
+                return new CsvPrinter(fieldNames, writer, NO_HEADER);
             case CSV_HEADER:
-                return new CsvPrinter(fieldNames, writer, true);
+                return new CsvPrinter(fieldNames, writer, STANDARD);
+            case CSV_UNQUOTED:
+                return new CsvPrinter(fieldNames, writer, NO_HEADER_AND_QUOTES);
+            case CSV_HEADER_UNQUOTED:
+                return new CsvPrinter(fieldNames, writer, NO_QUOTES);
             case TSV:
                 return new TsvPrinter(fieldNames, writer, false);
             case TSV_HEADER:
                 return new TsvPrinter(fieldNames, writer, true);
+            case JSON:
+                return new JsonPrinter(fieldNames, writer);
             case NULL:
                 return new NullPrinter();
         }
@@ -313,7 +336,7 @@ public class Query
 
     private static Writer createWriter(OutputStream out)
     {
-        return new OutputStreamWriter(out, UTF_8);
+        return new BufferedWriter(new OutputStreamWriter(out, UTF_8), 16384);
     }
 
     @Override
@@ -351,22 +374,22 @@ public class Query
         }
 
         if (REAL_TERMINAL) {
-            Ansi ansi = Ansi.ansi();
+            AttributedStringBuilder builder = new AttributedStringBuilder();
 
-            ansi.fg(Ansi.Color.CYAN);
+            builder.style(DEFAULT.foreground(CYAN));
             for (int i = 1; i < location.getLineNumber(); i++) {
-                ansi.a(lines.get(i - 1)).newline();
+                builder.append(lines.get(i - 1)).append("\n");
             }
-            ansi.a(good);
+            builder.append(good);
 
-            ansi.fg(Ansi.Color.RED);
-            ansi.a(bad).newline();
+            builder.style(DEFAULT.foreground(RED));
+            builder.append(bad).append("\n");
             for (int i = location.getLineNumber(); i < lines.size(); i++) {
-                ansi.a(lines.get(i)).newline();
+                builder.append(lines.get(i)).append("\n");
             }
 
-            ansi.reset();
-            out.print(ansi);
+            builder.style(DEFAULT);
+            out.print(builder.toAnsi());
         }
         else {
             String prefix = format("LINE %s: ", location.getLineNumber());

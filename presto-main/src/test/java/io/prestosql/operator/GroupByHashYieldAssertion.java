@@ -78,17 +78,17 @@ public final class GroupByHashYieldAssertion
 
         // mock an adjustable memory pool
         QueryId queryId = new QueryId("test_query");
-        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
+        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE));
         QueryContext queryContext = new QueryContext(
                 queryId,
-                new DataSize(512, MEGABYTE),
-                new DataSize(1024, MEGABYTE),
+                DataSize.of(512, MEGABYTE),
+                DataSize.of(1024, MEGABYTE),
                 memoryPool,
                 new TestingGcMonitor(),
                 EXECUTOR,
                 SCHEDULED_EXECUTOR,
-                new DataSize(512, MEGABYTE),
-                new SpillSpaceTracker(new DataSize(512, MEGABYTE)));
+                DataSize.of(512, MEGABYTE),
+                new SpillSpaceTracker(DataSize.of(512, MEGABYTE)));
 
         DriverContext driverContext = createTaskContext(queryContext, EXECUTOR, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
@@ -122,7 +122,7 @@ public final class GroupByHashYieldAssertion
 
             // Skip if the memory usage is not large enough since we cannot distinguish
             // between rehash and memory used by aggregator
-            if (newMemoryUsage < new DataSize(4, MEGABYTE).toBytes()) {
+            if (newMemoryUsage < DataSize.of(4, MEGABYTE).toBytes()) {
                 // free the pool for the next iteration
                 memoryPool.free(queryId, "test", reservedMemoryInBytes);
                 // this required in case input is blocked

@@ -131,7 +131,7 @@ class ContinuousTaskStatusFetcher
         // outstanding request?
         if (future != null && !future.isDone()) {
             // this should never happen
-            log.error("Can not reschedule update because an update is already running");
+            log.error("Cannot reschedule update because an update is already running");
             return;
         }
 
@@ -237,11 +237,6 @@ class ContinuousTaskStatusFetcher
             // While sending the DELETE is not required, it is preferred because a task was created by the previous request.
             onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().getSelf()))));
         }
-    }
-
-    public synchronized boolean isRunning()
-    {
-        return running;
     }
 
     /**

@@ -16,7 +16,6 @@ package io.prestosql.plugin.accumulo.io;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.plugin.accumulo.Types;
-import io.prestosql.plugin.accumulo.model.AccumuloColumnConstraint;
 import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
 import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.prestosql.spi.PrestoException;
@@ -50,7 +49,8 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -80,8 +80,7 @@ public class AccumuloRecordCursor
             AccumuloRowSerializer serializer,
             BatchScanner scanner,
             String rowIdName,
-            List<AccumuloColumnHandle> columnHandles,
-            List<AccumuloColumnConstraint> constraints)
+            List<AccumuloColumnHandle> columnHandles)
     {
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         this.scanner = requireNonNull(scanner, "scanner is null");
@@ -89,7 +88,6 @@ public class AccumuloRecordCursor
         this.serializer.setRowIdName(requireNonNull(rowIdName, "rowIdName is null"));
 
         requireNonNull(columnHandles, "columnHandles is null");
-        requireNonNull(constraints, "constraints is null");
 
         if (retrieveOnlyRowIds(rowIdName)) {
             this.scanner.addScanIterator(new IteratorSetting(1, "firstentryiter", FirstEntryInRowIterator.class));
@@ -168,9 +166,7 @@ public class AccumuloRecordCursor
                 }
                 return true;
             }
-            else {
-                return false;
-            }
+            return false;
         }
         catch (IOException e) {
             throw new PrestoException(IO_ERROR, "Caught IO error from serializer on read", e);
@@ -201,35 +197,33 @@ public class AccumuloRecordCursor
     @Override
     public long getLong(int field)
     {
-        checkFieldType(field, BIGINT, DATE, INTEGER, REAL, SMALLINT, TIME, TIMESTAMP, TINYINT);
+        checkFieldType(field, BIGINT, DATE, INTEGER, REAL, SMALLINT, TIME, TIMESTAMP_MILLIS, TINYINT);
         Type type = getType(field);
         if (type.equals(BIGINT)) {
             return serializer.getLong(fieldToColumnName[field]);
         }
-        else if (type.equals(DATE)) {
+        if (type.equals(DATE)) {
             return MILLISECONDS.toDays(serializer.getDate(fieldToColumnName[field]).getTime());
         }
-        else if (type.equals(INTEGER)) {
+        if (type.equals(INTEGER)) {
             return serializer.getInt(fieldToColumnName[field]);
         }
-        else if (type.equals(REAL)) {
+        if (type.equals(REAL)) {
             return Float.floatToIntBits(serializer.getFloat(fieldToColumnName[field]));
         }
-        else if (type.equals(SMALLINT)) {
+        if (type.equals(SMALLINT)) {
             return serializer.getShort(fieldToColumnName[field]);
         }
-        else if (type.equals(TIME)) {
+        if (type.equals(TIME)) {
             return serializer.getTime(fieldToColumnName[field]).getTime();
         }
-        else if (type.equals(TIMESTAMP)) {
-            return serializer.getTimestamp(fieldToColumnName[field]).getTime();
+        if (type.equals(TIMESTAMP_MILLIS)) {
+            return serializer.getTimestamp(fieldToColumnName[field]).getTime() * MICROSECONDS_PER_MILLISECOND;
         }
-        else if (type.equals(TINYINT)) {
+        if (type.equals(TINYINT)) {
             return serializer.getByte(fieldToColumnName[field]);
         }
-        else {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
-        }
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
     }
 
     @Override
@@ -252,12 +246,10 @@ public class AccumuloRecordCursor
         if (type instanceof VarbinaryType) {
             return Slices.wrappedBuffer(serializer.getVarbinary(fieldToColumnName[field]));
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return Slices.utf8Slice(serializer.getVarchar(fieldToColumnName[field]));
         }
-        else {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
-        }
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
     }
 
     @Override

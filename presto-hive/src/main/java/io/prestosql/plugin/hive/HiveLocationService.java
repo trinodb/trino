@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive;
 
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.LocationHandle.WriteMode;
+import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.metastore.Table;
@@ -28,13 +29,15 @@ import java.util.Optional;
 
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
-import static io.prestosql.plugin.hive.HiveWriteUtils.createTemporaryPath;
-import static io.prestosql.plugin.hive.HiveWriteUtils.getTableDefaultLocation;
-import static io.prestosql.plugin.hive.HiveWriteUtils.isS3FileSystem;
-import static io.prestosql.plugin.hive.HiveWriteUtils.pathExists;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.createTemporaryPath;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.isHdfsEncrypted;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.isS3FileSystem;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.pathExists;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -42,26 +45,29 @@ public class HiveLocationService
         implements LocationService
 {
     private final HdfsEnvironment hdfsEnvironment;
+    private final boolean hdfsImpersonationEnabled;
 
     @Inject
-    public HiveLocationService(HdfsEnvironment hdfsEnvironment)
+    public HiveLocationService(HdfsEnvironment hdfsEnvironment, HiveAuthenticationConfig hiveAuthenticationConfig)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.hdfsImpersonationEnabled = requireNonNull(hiveAuthenticationConfig, "hiveAuthenticationConfig is null").isHdfsImpersonationEnabled();
     }
 
     @Override
-    public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName)
+    public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Path> externalLocation)
     {
         HdfsContext context = new HdfsContext(session, schemaName, tableName);
-        Path targetPath = getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName);
+        Path targetPath = externalLocation.orElseGet(() -> getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName));
 
         // verify the target directory for the table
         if (pathExists(context, hdfsEnvironment, targetPath)) {
             throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
         }
 
-        if (shouldUseTemporaryDirectory(session, context, targetPath)) {
-            Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath);
+        // TODO detect when existing table's location is a on a different file system than the temporary directory
+        if (shouldUseTemporaryDirectory(session, context, targetPath, externalLocation)) {
+            Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath, hdfsImpersonationEnabled);
             return new LocationHandle(targetPath, writePath, false, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         else {
@@ -75,8 +81,8 @@ public class HiveLocationService
         HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
         Path targetPath = new Path(table.getStorage().getLocation());
 
-        if (shouldUseTemporaryDirectory(session, context, targetPath)) {
-            Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath);
+        if (shouldUseTemporaryDirectory(session, context, targetPath, Optional.empty())) {
+            Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath, hdfsImpersonationEnabled);
             return new LocationHandle(targetPath, writePath, true, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         else {
@@ -84,11 +90,15 @@ public class HiveLocationService
         }
     }
 
-    private boolean shouldUseTemporaryDirectory(ConnectorSession session, HdfsContext context, Path path)
+    private boolean shouldUseTemporaryDirectory(ConnectorSession session, HdfsContext context, Path path, Optional<Path> externalLocation)
     {
         return isTemporaryStagingDirectoryEnabled(session)
                 // skip using temporary directory for S3
-                && !isS3FileSystem(context, hdfsEnvironment, path);
+                && !isS3FileSystem(context, hdfsEnvironment, path)
+                // skip using temporary directory if destination is encrypted; it's not possible to move a file between encryption zones
+                && !isHdfsEncrypted(context, hdfsEnvironment, path)
+                // Skip using temporary directory if destination is external. Target may be on a different file system.
+                && !externalLocation.isPresent();
     }
 
     @Override
@@ -98,8 +108,11 @@ public class HiveLocationService
     }
 
     @Override
-    public WriteInfo getTableWriteInfo(LocationHandle locationHandle)
+    public WriteInfo getTableWriteInfo(LocationHandle locationHandle, boolean overwrite)
     {
+        if (overwrite && locationHandle.getWriteMode() != STAGE_AND_MOVE_TO_TARGET_DIRECTORY) {
+            throw new PrestoException(NOT_SUPPORTED, "Overwriting unpartitioned table not supported when writing directly to target directory");
+        }
         return new WriteInfo(locationHandle.getTargetPath(), locationHandle.getWritePath(), locationHandle.getWriteMode());
     }
 

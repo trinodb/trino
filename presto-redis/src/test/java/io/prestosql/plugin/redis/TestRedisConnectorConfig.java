@@ -14,18 +14,21 @@
 package io.prestosql.plugin.redis;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Map;
+
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestRedisConnectorConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(RedisConnectorConfig.class)
+        assertRecordedDefaults(recordDefaults(RedisConnectorConfig.class)
                 .setNodes("")
                 .setDefaultSchema("default")
                 .setTableNames("")
@@ -69,6 +72,6 @@ public class TestRedisConnectorConfig
                 .setRedisKeyDelimiter(",")
                 .setKeyPrefixSchemaTable(true);
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

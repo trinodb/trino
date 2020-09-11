@@ -21,7 +21,7 @@ import java.io.UncheckedIOException;
 import static com.google.common.io.Resources.getResource;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-public class BenchmarkGeometrySerializationData
+public final class BenchmarkGeometrySerializationData
 {
     public static final String POINT = "POINT (-2e3 -4e33)";
     public static final String MULTIPOINT = "MULTIPOINT (-2e3 -4e33, 0 0, 1 1, 2 3)";

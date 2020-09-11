@@ -29,35 +29,24 @@ public class Stream
         ROW_INDEX,
         BLOOM_FILTER,
         BLOOM_FILTER_UTF8,
-        IN_DICTIONARY,
-        ROW_GROUP_DICTIONARY,
-        ROW_GROUP_DICTIONARY_LENGTH,
-        IN_MAP,
     }
 
-    private final int column;
+    private final OrcColumnId columnId;
     private final StreamKind streamKind;
     private final int length;
     private final boolean useVInts;
-    private final int sequence;
 
-    public Stream(int column, StreamKind streamKind, int length, boolean useVInts)
+    public Stream(OrcColumnId columnId, StreamKind streamKind, int length, boolean useVInts)
     {
-        this(column, streamKind, length, useVInts, ColumnEncoding.DEFAULT_SEQUENCE_ID);
-    }
-
-    public Stream(int column, StreamKind streamKind, int length, boolean useVInts, int sequence)
-    {
-        this.column = column;
+        this.columnId = columnId;
         this.streamKind = requireNonNull(streamKind, "streamKind is null");
         this.length = length;
         this.useVInts = useVInts;
-        this.sequence = sequence;
     }
 
-    public int getColumn()
+    public OrcColumnId getColumnId()
     {
-        return column;
+        return columnId;
     }
 
     public StreamKind getStreamKind()
@@ -75,20 +64,14 @@ public class Stream
         return useVInts;
     }
 
-    public int getSequence()
-    {
-        return sequence;
-    }
-
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("column", column)
+                .add("column", columnId)
                 .add("streamKind", streamKind)
                 .add("length", length)
                 .add("useVInts", useVInts)
-                .add("sequence", sequence)
                 .toString();
     }
 }

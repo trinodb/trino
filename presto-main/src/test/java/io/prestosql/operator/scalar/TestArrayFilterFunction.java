@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.util.Arrays.asList;
@@ -35,6 +36,10 @@ public class TestArrayFilterFunction
         assertFunction("filter(ARRAY [5 + RANDOM(1), 6 + RANDOM(1)], x -> x = 5)", new ArrayType(INTEGER), ImmutableList.of(5));
         assertFunction("filter(ARRAY [true, false, true, false], x -> nullif(x, false))", new ArrayType(BOOLEAN), ImmutableList.of(true, true));
         assertFunction("filter(ARRAY [true, false, null, true, false, null], x -> not x)", new ArrayType(BOOLEAN), ImmutableList.of(false, false));
+        assertFunction(
+                "filter(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], t -> year(t) = 1111)",
+                new ArrayType(createTimestampType(9)),
+                ImmutableList.of(timestamp(9, "1111-05-10 12:34:56.123456789")));
     }
 
     @Test

@@ -15,21 +15,24 @@ package io.prestosql.server.security;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static io.prestosql.server.security.SecurityConfig.AuthenticationType.KERBEROS;
-import static io.prestosql.server.security.SecurityConfig.AuthenticationType.PASSWORD;
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestSecurityConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(SecurityConfig.class)
-                .setAuthenticationTypes(""));
+        assertRecordedDefaults(recordDefaults(SecurityConfig.class)
+                .setAuthenticationTypes("insecure")
+                .setInsecureAuthenticationOverHttpAllowed(true)
+                .setFixedManagementUser(null)
+                .setFixedManagementUserForHttps(false));
     }
 
     @Test
@@ -37,11 +40,17 @@ public class TestSecurityConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("http-server.authentication.type", "KERBEROS,PASSWORD")
+                .put("http-server.authentication.allow-insecure-over-http", "false")
+                .put("management.user", "management-user")
+                .put("management.user.https-enabled", "true")
                 .build();
 
         SecurityConfig expected = new SecurityConfig()
-                .setAuthenticationTypes(ImmutableList.of(KERBEROS, PASSWORD));
+                .setAuthenticationTypes(ImmutableList.of("KERBEROS", "PASSWORD"))
+                .setInsecureAuthenticationOverHttpAllowed(false)
+                .setFixedManagementUser("management-user")
+                .setFixedManagementUserForHttps(true);
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

@@ -20,33 +20,50 @@ import io.airlift.configuration.LegacyConfig;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import static java.util.Locale.ENGLISH;
+
 @DefunctConfig({"node-scheduler.location-aware-scheduling-enabled", "node-scheduler.multiple-tasks-per-node-enabled"})
 public class NodeSchedulerConfig
 {
-    public static class NetworkTopologyType
+    public enum NodeSchedulerPolicy
     {
-        public static final String LEGACY = "legacy";
-        public static final String FLAT = "flat";
-        public static final String BENCHMARK = "benchmark";
+        UNIFORM, TOPOLOGY
     }
 
     private int minCandidates = 10;
     private boolean includeCoordinator = true;
     private int maxSplitsPerNode = 100;
     private int maxPendingSplitsPerTask = 10;
-    private String networkTopology = NetworkTopologyType.LEGACY;
+    private NodeSchedulerPolicy nodeSchedulerPolicy = NodeSchedulerPolicy.UNIFORM;
+    private boolean optimizedLocalScheduling = true;
 
     @NotNull
-    public String getNetworkTopology()
+    public NodeSchedulerPolicy getNodeSchedulerPolicy()
     {
-        return networkTopology;
+        return nodeSchedulerPolicy;
     }
 
-    @Config("node-scheduler.network-topology")
-    public NodeSchedulerConfig setNetworkTopology(String networkTopology)
+    @LegacyConfig("node-scheduler.network-topology")
+    @Config("node-scheduler.policy")
+    public NodeSchedulerConfig setNodeSchedulerPolicy(String nodeSchedulerPolicy)
     {
-        this.networkTopology = networkTopology;
+        this.nodeSchedulerPolicy = toNodeSchedulerPolicy(nodeSchedulerPolicy);
         return this;
+    }
+
+    private static NodeSchedulerPolicy toNodeSchedulerPolicy(String nodeSchedulerPolicy)
+    {
+        // "legacy" and "flat" are here for backward compatibility
+        switch (nodeSchedulerPolicy.toLowerCase(ENGLISH)) {
+            case "legacy":
+            case "uniform":
+                return NodeSchedulerPolicy.UNIFORM;
+            case "flat":
+            case "topology":
+                return NodeSchedulerPolicy.TOPOLOGY;
+            default:
+                throw new IllegalArgumentException("Unknown node scheduler policy: " + nodeSchedulerPolicy);
+        }
     }
 
     @Min(1)
@@ -96,6 +113,18 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setMaxSplitsPerNode(int maxSplitsPerNode)
     {
         this.maxSplitsPerNode = maxSplitsPerNode;
+        return this;
+    }
+
+    public boolean getOptimizedLocalScheduling()
+    {
+        return optimizedLocalScheduling;
+    }
+
+    @Config("node-scheduler.optimized-local-scheduling")
+    public NodeSchedulerConfig setOptimizedLocalScheduling(boolean optimizedLocalScheduling)
+    {
+        this.optimizedLocalScheduling = optimizedLocalScheduling;
         return this;
     }
 }

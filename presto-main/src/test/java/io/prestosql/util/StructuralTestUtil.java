@@ -16,33 +16,28 @@ package io.prestosql.util;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignatureParameter;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 
 public final class StructuralTestUtil
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-
-    static {
-        // associate TYPE_MANAGER with a function registry
-        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
+    private static final Metadata METADATA = createTestMetadataManager();
 
     private StructuralTestUtil() {}
 
@@ -70,9 +65,9 @@ public final class StructuralTestUtil
 
     public static MapType mapType(Type keyType, Type valueType)
     {
-        return (MapType) TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.of(keyType.getTypeSignature()),
-                TypeSignatureParameter.of(valueType.getTypeSignature())));
+        return (MapType) METADATA.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
+                TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
     }
 
     public static void appendToBlockBuilder(Type type, Object element, BlockBuilder blockBuilder)
@@ -81,14 +76,14 @@ public final class StructuralTestUtil
         if (element == null) {
             blockBuilder.appendNull();
         }
-        else if (type.getTypeSignature().getBase().equals(StandardTypes.ARRAY) && element instanceof Iterable<?>) {
+        else if (type instanceof ArrayType && element instanceof Iterable<?>) {
             BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
             for (Object subElement : (Iterable<?>) element) {
                 appendToBlockBuilder(type.getTypeParameters().get(0), subElement, subBlockBuilder);
             }
             blockBuilder.closeEntry();
         }
-        else if (type.getTypeSignature().getBase().equals(StandardTypes.ROW) && element instanceof Iterable<?>) {
+        else if (type instanceof RowType && element instanceof Iterable<?>) {
             BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
             int field = 0;
             for (Object subElement : (Iterable<?>) element) {
@@ -97,7 +92,7 @@ public final class StructuralTestUtil
             }
             blockBuilder.closeEntry();
         }
-        else if (type.getTypeSignature().getBase().equals(StandardTypes.MAP) && element instanceof Map<?, ?>) {
+        else if (type instanceof MapType && element instanceof Map<?, ?>) {
             BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
             for (Map.Entry<?, ?> entry : ((Map<?, ?>) element).entrySet()) {
                 appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
@@ -131,6 +126,9 @@ public final class StructuralTestUtil
             }
             else if (element instanceof SqlDecimal) {
                 type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(((SqlDecimal) element).getUnscaledValue()));
+            }
+            else if (element instanceof BigDecimal) {
+                type.writeSlice(blockBuilder, Decimals.encodeScaledValue((BigDecimal) element));
             }
             else {
                 type.writeSlice(blockBuilder, (Slice) element);

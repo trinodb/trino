@@ -23,6 +23,6 @@ public class CassandraPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new CassandraConnectorFactory("cassandra"));
+        return ImmutableList.of(new CassandraConnectorFactory());
     }
 }

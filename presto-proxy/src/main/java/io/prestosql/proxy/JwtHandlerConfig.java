@@ -16,6 +16,7 @@ package io.prestosql.proxy;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.validation.FileExists;
 
 import java.io.File;
 
@@ -27,6 +28,7 @@ public class JwtHandlerConfig
     private String jwtIssuer;
     private String jwtAudience;
 
+    @FileExists
     public File getJwtKeyFile()
     {
         return jwtKeyFile;

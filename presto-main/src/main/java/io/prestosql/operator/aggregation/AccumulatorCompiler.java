@@ -77,11 +77,9 @@ import static io.prestosql.util.CompilerUtils.makeClassName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class AccumulatorCompiler
+public final class AccumulatorCompiler
 {
-    private AccumulatorCompiler()
-    {
-    }
+    private AccumulatorCompiler() {}
 
     public static GenericAccumulatorFactoryBinder generateAccumulatorFactoryBinder(AggregationMetadata metadata, DynamicClassLoader classLoader)
     {
@@ -98,6 +96,7 @@ public class AccumulatorCompiler
         return new GenericAccumulatorFactoryBinder(
                 metadata.getAccumulatorStateDescriptors(),
                 accumulatorClass,
+                metadata.getRemoveInputFunction().isPresent(),
                 groupedAccumulatorClass);
     }
 
@@ -125,7 +124,7 @@ public class AccumulatorCompiler
                     definition.declareField(a(PRIVATE, FINAL), "state_" + i, grouped ? stateDescriptors.get(i).getFactory().getGroupedStateClass() : stateDescriptors.get(i).getFactory().getSingleStateClass()),
                     stateDescriptors.get(i)));
         }
-        List<FieldDefinition> stateFileds = stateFieldAndDescriptors.stream()
+        List<FieldDefinition> stateFields = stateFieldAndDescriptors.stream()
                 .map(StateFieldAndDescriptor::getStateField)
                 .collect(toImmutableList());
 
@@ -150,7 +149,7 @@ public class AccumulatorCompiler
         // Generate methods
         generateAddInput(
                 definition,
-                stateFileds,
+                stateFields,
                 inputChannelsField,
                 maskChannelField,
                 metadata.getValueInputMetadata(),
@@ -159,15 +158,26 @@ public class AccumulatorCompiler
                 metadata.getInputFunction(),
                 callSiteBinder,
                 grouped);
-        generateAddInputWindowIndex(
+        generateAddOrRemoveInputWindowIndex(
                 definition,
-                stateFileds,
+                stateFields,
                 metadata.getValueInputMetadata(),
                 metadata.getLambdaInterfaces(),
                 lambdaProviderFields,
                 metadata.getInputFunction(),
+                "addInput",
                 callSiteBinder);
-        generateGetEstimatedSize(definition, stateFileds);
+        metadata.getRemoveInputFunction().ifPresent(
+                removeInputFunction -> generateAddOrRemoveInputWindowIndex(
+                        definition,
+                        stateFields,
+                        metadata.getValueInputMetadata(),
+                        metadata.getLambdaInterfaces(),
+                        lambdaProviderFields,
+                        removeInputFunction,
+                        "removeInput",
+                        callSiteBinder));
+        generateGetEstimatedSize(definition, stateFields);
 
         generateGetIntermediateType(
                 definition,
@@ -195,10 +205,10 @@ public class AccumulatorCompiler
         }
 
         if (grouped) {
-            generateGroupedEvaluateFinal(definition, stateFileds, metadata.getOutputFunction(), callSiteBinder);
+            generateGroupedEvaluateFinal(definition, stateFields, metadata.getOutputFunction(), callSiteBinder);
         }
         else {
-            generateEvaluateFinal(definition, stateFileds, metadata.getOutputFunction(), callSiteBinder);
+            generateEvaluateFinal(definition, stateFields, metadata.getOutputFunction(), callSiteBinder);
         }
 
         if (grouped) {
@@ -207,7 +217,7 @@ public class AccumulatorCompiler
         return defineClass(definition, accumulatorInterface, callSiteBinder.getBindings(), classLoader);
     }
 
-    private static MethodDefinition generateGetIntermediateType(ClassDefinition definition, CallSiteBinder callSiteBinder, List<Type> type)
+    private static void generateGetIntermediateType(ClassDefinition definition, CallSiteBinder callSiteBinder, List<Type> type)
     {
         MethodDefinition methodDefinition = definition.declareMethod(a(PUBLIC), "getIntermediateType", type(Type.class));
 
@@ -221,19 +231,15 @@ public class AccumulatorCompiler
                     .append(constantType(callSiteBinder, RowType.anonymous(type)))
                     .retObject();
         }
-
-        return methodDefinition;
     }
 
-    private static MethodDefinition generateGetFinalType(ClassDefinition definition, CallSiteBinder callSiteBinder, Type type)
+    private static void generateGetFinalType(ClassDefinition definition, CallSiteBinder callSiteBinder, Type type)
     {
         MethodDefinition methodDefinition = definition.declareMethod(a(PUBLIC), "getFinalType", type(Type.class));
 
         methodDefinition.getBody()
                 .append(constantType(callSiteBinder, type))
                 .retObject();
-
-        return methodDefinition;
     }
 
     private static void generateGetEstimatedSize(ClassDefinition definition, List<FieldDefinition> stateFields)
@@ -258,7 +264,7 @@ public class AccumulatorCompiler
             FieldDefinition inputChannelsField,
             FieldDefinition maskChannelField,
             List<ParameterMetadata> parameterMetadatas,
-            List<Class> lambdaInterfaces,
+            List<Class<?>> lambdaInterfaces,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
             CallSiteBinder callSiteBinder,
@@ -323,13 +329,14 @@ public class AccumulatorCompiler
         body.ret();
     }
 
-    private static void generateAddInputWindowIndex(
+    private static void generateAddOrRemoveInputWindowIndex(
             ClassDefinition definition,
             List<FieldDefinition> stateField,
             List<ParameterMetadata> parameterMetadatas,
-            List<Class> lambdaInterfaces,
+            List<Class<?>> lambdaInterfaces,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
+            String generatedFunctionName,
             CallSiteBinder callSiteBinder)
     {
         // TODO: implement masking based on maskChannel field once Window Functions support DISTINCT arguments to the functions.
@@ -339,7 +346,11 @@ public class AccumulatorCompiler
         Parameter startPosition = arg("startPosition", int.class);
         Parameter endPosition = arg("endPosition", int.class);
 
-        MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), ImmutableList.of(index, channels, startPosition, endPosition));
+        MethodDefinition method = definition.declareMethod(
+                a(PUBLIC),
+                generatedFunctionName,
+                type(void.class),
+                ImmutableList.of(index, channels, startPosition, endPosition));
         Scope scope = method.getScope();
 
         Variable position = scope.declareVariable(int.class, "position");
@@ -348,7 +359,7 @@ public class AccumulatorCompiler
         BytecodeExpression invokeInputFunction = invokeDynamic(
                 BOOTSTRAP_METHOD,
                 ImmutableList.of(binding.getBindingId()),
-                "input",
+                generatedFunctionName,
                 binding.getType(),
                 getInvokeFunctionOnWindowIndexParameters(
                         scope,
@@ -402,7 +413,7 @@ public class AccumulatorCompiler
             Scope scope,
             Class<?>[] parameterTypes,
             List<ParameterMetadata> parameterMetadatas,
-            List<Class> lambdaInterfaces,
+            List<Class<?>> lambdaInterfaces,
             List<FieldDefinition> lambdaProviderFields,
             List<FieldDefinition> stateField,
             Variable index,
@@ -449,13 +460,8 @@ public class AccumulatorCompiler
                     else if (parameterType == Slice.class) {
                         expressions.add(index.invoke("getSlice", Slice.class, getChannel, position));
                     }
-                    else if (parameterType == Block.class) {
-                        // Even though the method signature requires a Block parameter, we can pass an Object here.
-                        // A runtime check will assert that the Object passed as a parameter is actually of type Block.
-                        expressions.add(index.invoke("getObject", Object.class, getChannel, position));
-                    }
                     else {
-                        throw new IllegalArgumentException(format("Unsupported parameter type: %s", parameterType));
+                        expressions.add(index.invoke("getObject", Object.class, getChannel, position));
                     }
 
                     inputChannel++;
@@ -480,7 +486,7 @@ public class AccumulatorCompiler
             MethodHandle inputFunction,
             Scope scope,
             List<Variable> parameterVariables,
-            List<Class> lambdaInterfaces,
+            List<Class<?>> lambdaInterfaces,
             List<FieldDefinition> lambdaProviderFields,
             Variable masksBlock,
             CallSiteBinder callSiteBinder,
@@ -561,7 +567,7 @@ public class AccumulatorCompiler
             Variable position,
             List<Variable> parameterVariables,
             List<ParameterMetadata> parameterMetadatas,
-            List<Class> lambdaInterfaces,
+            List<Class<?>> lambdaInterfaces,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
             CallSiteBinder callSiteBinder,
@@ -658,7 +664,7 @@ public class AccumulatorCompiler
     private static void generateAddIntermediateAsCombine(
             ClassDefinition definition,
             List<StateFieldAndDescriptor> stateFieldAndDescriptors,
-            List<Class> lambdaInterfaces,
+            List<Class<?>> lambdaInterfaces,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle combineFunction,
             CallSiteBinder callSiteBinder,
@@ -836,9 +842,9 @@ public class AccumulatorCompiler
             Variable rowBuilder = method.getScope().declareVariable(BlockBuilder.class, "rowBuilder");
             body.append(rowBuilder.set(out.invoke("beginBlockEntry", BlockBuilder.class)));
 
-            for (int i = 0; i < stateFieldAndDescriptors.size(); i++) {
-                BytecodeExpression stateSerializer = thisVariable.getField(stateFieldAndDescriptors.get(i).getStateSerializerField());
-                BytecodeExpression state = thisVariable.getField(stateFieldAndDescriptors.get(i).getStateField());
+            for (StateFieldAndDescriptor stateFieldAndDescriptor : stateFieldAndDescriptors) {
+                BytecodeExpression stateSerializer = thisVariable.getField(stateFieldAndDescriptor.getStateSerializerField());
+                BytecodeExpression state = thisVariable.getField(stateFieldAndDescriptor.getStateField());
 
                 body.append(state.invoke("setGroupId", void.class, groupId.cast(long.class)))
                         .append(stateSerializer.invoke("serialize", void.class, state.cast(Object.class), rowBuilder));
@@ -871,9 +877,9 @@ public class AccumulatorCompiler
             Variable rowBuilder = method.getScope().declareVariable(BlockBuilder.class, "rowBuilder");
             body.append(rowBuilder.set(out.invoke("beginBlockEntry", BlockBuilder.class)));
 
-            for (int i = 0; i < stateFieldAndDescriptors.size(); i++) {
-                BytecodeExpression stateSerializer = thisVariable.getField(stateFieldAndDescriptors.get(i).getStateSerializerField());
-                BytecodeExpression state = thisVariable.getField(stateFieldAndDescriptors.get(i).getStateField());
+            for (StateFieldAndDescriptor stateFieldAndDescriptor : stateFieldAndDescriptors) {
+                BytecodeExpression stateSerializer = thisVariable.getField(stateFieldAndDescriptor.getStateSerializerField());
+                BytecodeExpression state = thisVariable.getField(stateFieldAndDescriptor.getStateField());
                 body.append(stateSerializer.invoke("serialize", void.class, state.cast(Object.class), rowBuilder));
             }
             body.append(out.invoke("closeEntry", BlockBuilder.class).pop())
@@ -1029,7 +1035,7 @@ public class AccumulatorCompiler
 
         private final AccumulatorStateDescriptor stateDescriptor;
 
-        public StateFieldAndDescriptor(FieldDefinition stateSerializerField, FieldDefinition stateFactoryField, FieldDefinition stateField, AccumulatorStateDescriptor stateDescriptor)
+        private StateFieldAndDescriptor(FieldDefinition stateSerializerField, FieldDefinition stateFactoryField, FieldDefinition stateField, AccumulatorStateDescriptor stateDescriptor)
         {
             this.stateSerializerField = requireNonNull(stateSerializerField, "stateSerializerField is null");
             this.stateFactoryField = requireNonNull(stateFactoryField, "stateFactoryField is null");
@@ -1037,22 +1043,22 @@ public class AccumulatorCompiler
             this.stateDescriptor = requireNonNull(stateDescriptor, "stateDescriptor is null");
         }
 
-        public FieldDefinition getStateSerializerField()
+        private FieldDefinition getStateSerializerField()
         {
             return stateSerializerField;
         }
 
-        public FieldDefinition getStateFactoryField()
+        private FieldDefinition getStateFactoryField()
         {
             return stateFactoryField;
         }
 
-        public FieldDefinition getStateField()
+        private FieldDefinition getStateField()
         {
             return stateField;
         }
 
-        public AccumulatorStateDescriptor getStateDescriptor()
+        private AccumulatorStateDescriptor getStateDescriptor()
         {
             return stateDescriptor;
         }

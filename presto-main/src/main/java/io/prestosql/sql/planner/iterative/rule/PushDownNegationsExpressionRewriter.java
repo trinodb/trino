@@ -13,25 +13,39 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableMap;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.RealType;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.ComparisonExpression.Operator;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
+import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NotExpression;
 
 import java.util.List;
+import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.sql.ExpressionUtils.combinePredicates;
 import static io.prestosql.sql.ExpressionUtils.extractPredicates;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static java.util.Objects.requireNonNull;
 
-public class PushDownNegationsExpressionRewriter
+public final class PushDownNegationsExpressionRewriter
 {
-    public static Expression pushDownNegations(Expression expression)
+    public static Expression pushDownNegations(Metadata metadata, Expression expression, Map<NodeRef<Expression>, Type> expressionTypes)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, expressionTypes), expression);
     }
 
     private PushDownNegationsExpressionRewriter() {}
@@ -39,6 +53,15 @@ public class PushDownNegationsExpressionRewriter
     private static class Visitor
             extends ExpressionRewriter<Void>
     {
+        private final Metadata metadata;
+        private final Map<NodeRef<Expression>, Type> expressionTypes;
+
+        public Visitor(Metadata metadata, Map<NodeRef<Expression>, Type> expressionTypes)
+        {
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
+        }
+
         @Override
         public Expression rewriteNotExpression(NotExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
@@ -46,18 +69,36 @@ public class PushDownNegationsExpressionRewriter
                 LogicalBinaryExpression child = (LogicalBinaryExpression) node.getValue();
                 List<Expression> predicates = extractPredicates(child);
                 List<Expression> negatedPredicates = predicates.stream().map(predicate -> treeRewriter.rewrite((Expression) new NotExpression(predicate), context)).collect(toImmutableList());
-                return combinePredicates(child.getOperator().flip(), negatedPredicates);
+                return combinePredicates(metadata, child.getOperator().flip(), negatedPredicates);
             }
-            else if (node.getValue() instanceof ComparisonExpression && ((ComparisonExpression) node.getValue()).getOperator() != IS_DISTINCT_FROM) {
+            if (node.getValue() instanceof ComparisonExpression && ((ComparisonExpression) node.getValue()).getOperator() != IS_DISTINCT_FROM) {
                 ComparisonExpression child = (ComparisonExpression) node.getValue();
-                return new ComparisonExpression(child.getOperator().negate(), treeRewriter.rewrite(child.getLeft(), context), treeRewriter.rewrite(child.getRight(), context));
+                Operator operator = child.getOperator();
+                Expression left = child.getLeft();
+                Expression right = child.getRight();
+                Type leftType = expressionTypes.get(NodeRef.of(left));
+                Type rightType = expressionTypes.get(NodeRef.of(right));
+                checkState(leftType != null && rightType != null, "missing type for expression");
+                if ((typeHasNaN(leftType) || typeHasNaN(rightType)) && (
+                        operator == GREATER_THAN_OR_EQUAL ||
+                                operator == GREATER_THAN ||
+                                operator == LESS_THAN_OR_EQUAL ||
+                                operator == LESS_THAN)) {
+                    return new NotExpression(new ComparisonExpression(operator, treeRewriter.rewrite(left, context), treeRewriter.rewrite(right, context)));
+                }
+                return new ComparisonExpression(operator.negate(), treeRewriter.rewrite(left, context), treeRewriter.rewrite(right, context));
             }
-            else if (node.getValue() instanceof NotExpression) {
+            if (node.getValue() instanceof NotExpression) {
                 NotExpression child = (NotExpression) node.getValue();
                 return treeRewriter.rewrite(child.getValue(), context);
             }
 
             return new NotExpression(treeRewriter.rewrite(node.getValue(), context));
+        }
+
+        private boolean typeHasNaN(Type type)
+        {
+            return type instanceof DoubleType || type instanceof RealType;
         }
     }
 }

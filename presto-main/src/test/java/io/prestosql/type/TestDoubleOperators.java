@@ -46,9 +46,13 @@ public class TestDoubleOperators
         assertFunction("DOUBLE '12.34'", DOUBLE, 12.34);
         assertFunction("DOUBLE '-17.6'", DOUBLE, -17.6);
         assertFunction("DOUBLE '+754'", DOUBLE, 754.0);
+        assertFunction("DOUBLE 'NaN'", DOUBLE, Double.NaN);
+        assertFunction("DOUBLE '-NaN'", DOUBLE, Double.NaN);
         assertFunction("DOUBLE PRECISION '12.34'", DOUBLE, 12.34);
         assertFunction("DOUBLE PRECISION '-17.6'", DOUBLE, -17.6);
         assertFunction("DOUBLE PRECISION '+754'", DOUBLE, 754.0);
+        assertFunction("DOUBLE PRECISION 'NaN'", DOUBLE, Double.NaN);
+        assertFunction("DOUBLE PRECISION '-NaN'", DOUBLE, Double.NaN);
     }
 
     @Test
@@ -58,6 +62,9 @@ public class TestDoubleOperators
         assertFunction("37.7E0 + 17.1E0", DOUBLE, 37.7 + 17.1);
         assertFunction("17.1E0 + 37.7E0", DOUBLE, 17.1 + 37.7);
         assertFunction("17.1E0 + 17.1E0", DOUBLE, 17.1 + 17.1);
+        assertFunction("DOUBLE 'NaN' + 37.7E0", DOUBLE, Double.NaN);
+        assertFunction("37.7E0 + DOUBLE 'NaN'", DOUBLE, Double.NaN);
+        assertFunction("DOUBLE 'NaN' + DOUBLE '-NaN'", DOUBLE, Double.NaN);
     }
 
     @Test
@@ -67,6 +74,9 @@ public class TestDoubleOperators
         assertFunction("37.7E0 - 17.1E0", DOUBLE, 37.7 - 17.1);
         assertFunction("17.1E0 - 37.7E0", DOUBLE, 17.1 - 37.7);
         assertFunction("17.1E0 - 17.1E0", DOUBLE, 17.1 - 17.1);
+        assertFunction("DOUBLE 'NaN' - 37.7E0", DOUBLE, Double.NaN);
+        assertFunction("37.7E0 - DOUBLE 'NaN'", DOUBLE, Double.NaN);
+        assertFunction("DOUBLE 'NaN' - DOUBLE 'NaN'", DOUBLE, Double.NaN);
     }
 
     @Test
@@ -76,6 +86,9 @@ public class TestDoubleOperators
         assertFunction("37.7E0 * 17.1E0", DOUBLE, 37.7 * 17.1);
         assertFunction("17.1E0 * 37.7E0", DOUBLE, 17.1 * 37.7);
         assertFunction("17.1E0 * 17.1E0", DOUBLE, 17.1 * 17.1);
+        assertFunction("DOUBLE 'NaN' * 37.7E0", DOUBLE, Double.NaN);
+        assertFunction("37.7E0 * DOUBLE 'NaN'", DOUBLE, Double.NaN);
+        assertFunction("DOUBLE 'NaN' * DOUBLE '-NaN'", DOUBLE, Double.NaN);
     }
 
     @Test
@@ -85,6 +98,9 @@ public class TestDoubleOperators
         assertFunction("37.7E0 / 17.1E0", DOUBLE, 37.7 / 17.1);
         assertFunction("17.1E0 / 37.7E0", DOUBLE, 17.1 / 37.7);
         assertFunction("17.1E0 / 17.1E0", DOUBLE, 17.1 / 17.1);
+        assertFunction("DOUBLE 'NaN' / 37.7E0", DOUBLE, Double.NaN);
+        assertFunction("37.7E0 / DOUBLE 'NaN'", DOUBLE, Double.NaN);
+        assertFunction("DOUBLE 'NaN' / DOUBLE '-NaN'", DOUBLE, Double.NaN);
     }
 
     @Test
@@ -94,6 +110,9 @@ public class TestDoubleOperators
         assertFunction("37.7E0 % 17.1E0", DOUBLE, 37.7 % 17.1);
         assertFunction("17.1E0 % 37.7E0", DOUBLE, 17.1 % 37.7);
         assertFunction("17.1E0 % 17.1E0", DOUBLE, 17.1 % 17.1);
+        assertFunction("DOUBLE 'NaN' % 37.7E0", DOUBLE, Double.NaN);
+        assertFunction("37.7E0 % DOUBLE 'NaN'", DOUBLE, Double.NaN);
+        assertFunction("DOUBLE 'NaN' % DOUBLE 'NaN'", DOUBLE, Double.NaN);
     }
 
     @Test
@@ -101,6 +120,7 @@ public class TestDoubleOperators
     {
         assertFunction("-(37.7E0)", DOUBLE, -37.7);
         assertFunction("-(17.1E0)", DOUBLE, -17.1);
+        assertFunction("-DOUBLE 'NaN'", DOUBLE, Double.NaN);
     }
 
     @Test
@@ -110,6 +130,10 @@ public class TestDoubleOperators
         assertFunction("37.7E0 = 17.1E0", BOOLEAN, false);
         assertFunction("17.1E0 = 37.7E0", BOOLEAN, false);
         assertFunction("17.1E0 = 17.1E0", BOOLEAN, true);
+        assertFunction("0E0 = -0E0", BOOLEAN, true);
+        assertFunction("DOUBLE 'NaN' = 37.7E0", BOOLEAN, false);
+        assertFunction("37.7E0 = DOUBLE 'NaN'", BOOLEAN, false);
+        assertFunction("DOUBLE 'NaN' = DOUBLE 'NaN'", BOOLEAN, false);
     }
 
     @Test
@@ -119,6 +143,9 @@ public class TestDoubleOperators
         assertFunction("37.7E0 <> 17.1E0", BOOLEAN, true);
         assertFunction("17.1E0 <> 37.7E0", BOOLEAN, true);
         assertFunction("17.1E0 <> 17.1E0", BOOLEAN, false);
+        assertFunction("DOUBLE 'NaN' <> 37.7E0", BOOLEAN, true);
+        assertFunction("37.7E0 <> DOUBLE 'NaN'", BOOLEAN, true);
+        assertFunction("DOUBLE 'NaN' <> DOUBLE 'NaN'", BOOLEAN, true);
     }
 
     @Test
@@ -128,6 +155,9 @@ public class TestDoubleOperators
         assertFunction("37.7E0 < 17.1E0", BOOLEAN, false);
         assertFunction("17.1E0 < 37.7E0", BOOLEAN, true);
         assertFunction("17.1E0 < 17.1E0", BOOLEAN, false);
+        assertFunction("DOUBLE 'NaN' < 37.7E0", BOOLEAN, false);
+        assertFunction("37.7E0 < DOUBLE 'NaN'", BOOLEAN, false);
+        assertFunction("DOUBLE 'NaN' < DOUBLE 'NaN'", BOOLEAN, false);
     }
 
     @Test
@@ -137,6 +167,9 @@ public class TestDoubleOperators
         assertFunction("37.7E0 <= 17.1E0", BOOLEAN, false);
         assertFunction("17.1E0 <= 37.7E0", BOOLEAN, true);
         assertFunction("17.1E0 <= 17.1E0", BOOLEAN, true);
+        assertFunction("DOUBLE 'NaN' <= 37.7E0", BOOLEAN, false);
+        assertFunction("37.7E0 <= DOUBLE 'NaN'", BOOLEAN, false);
+        assertFunction("DOUBLE 'NaN' <= DOUBLE 'NaN'", BOOLEAN, false);
     }
 
     @Test
@@ -146,6 +179,9 @@ public class TestDoubleOperators
         assertFunction("37.7E0 > 17.1E0", BOOLEAN, true);
         assertFunction("17.1E0 > 37.7E0", BOOLEAN, false);
         assertFunction("17.1E0 > 17.1E0", BOOLEAN, false);
+        assertFunction("DOUBLE 'NaN' > 37.7E0", BOOLEAN, false);
+        assertFunction("37.7E0 > DOUBLE 'NaN'", BOOLEAN, false);
+        assertFunction("DOUBLE 'NaN' > DOUBLE 'NaN'", BOOLEAN, false);
     }
 
     @Test
@@ -155,6 +191,9 @@ public class TestDoubleOperators
         assertFunction("37.7E0 >= 17.1E0", BOOLEAN, true);
         assertFunction("17.1E0 >= 37.7E0", BOOLEAN, false);
         assertFunction("17.1E0 >= 17.1E0", BOOLEAN, true);
+        assertFunction("DOUBLE 'NaN' >= 37.7E0", BOOLEAN, false);
+        assertFunction("37.7E0 >= DOUBLE 'NaN'", BOOLEAN, false);
+        assertFunction("DOUBLE 'NaN' >= DOUBLE 'NaN'", BOOLEAN, false);
     }
 
     @Test
@@ -171,6 +210,12 @@ public class TestDoubleOperators
 
         assertFunction("17.1E0 BETWEEN 17.1E0 AND 37.7E0", BOOLEAN, true);
         assertFunction("17.1E0 BETWEEN 17.1E0 AND 17.1E0", BOOLEAN, true);
+
+        assertFunction("DOUBLE 'NaN' BETWEEN 17.1E0 AND 37.7E0", BOOLEAN, false);
+        assertFunction("17.1E0 BETWEEN DOUBLE '-NaN' AND DOUBLE 'NaN'", BOOLEAN, false);
+        assertFunction("17.1E0 BETWEEN DOUBLE 'NaN' AND DOUBLE '-NaN'", BOOLEAN, false);
+        assertFunction("17.1E0 BETWEEN 17.1E0 AND DOUBLE 'NaN'", BOOLEAN, false);
+        assertFunction("DOUBLE 'NaN' BETWEEN DOUBLE 'NaN' AND DOUBLE 'NaN'", BOOLEAN, false);
     }
 
     @Test
@@ -178,6 +223,7 @@ public class TestDoubleOperators
     {
         assertFunction("cast(37.7E0 as varchar)", VARCHAR, "37.7");
         assertFunction("cast(17.1E0 as varchar)", VARCHAR, "17.1");
+        assertFunction("cast(0E0/0E0 as varchar)", VARCHAR, "NaN");
     }
 
     @Test
@@ -210,11 +256,21 @@ public class TestDoubleOperators
     }
 
     @Test
+    public void testCastNaN()
+    {
+        assertInvalidFunction("cast(nan() as integer)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(nan() as smallint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(nan() as tinyint)", INVALID_CAST_ARGUMENT);
+        assertFunction("cast(nan() as real)", REAL, Float.NaN);
+    }
+
+    @Test
     public void testCastToBoolean()
     {
         assertFunction("cast(37.7E0 as boolean)", BOOLEAN, true);
         assertFunction("cast(17.1E0 as boolean)", BOOLEAN, true);
         assertFunction("cast(0.0E0 as boolean)", BOOLEAN, false);
+        assertFunction("cast(nan() as boolean)", BOOLEAN, true);
     }
 
     @Test
@@ -231,8 +287,10 @@ public class TestDoubleOperators
     {
         assertFunction("cast('37.7' as double)", DOUBLE, 37.7);
         assertFunction("cast('17.1' as double)", DOUBLE, 17.1);
+        assertFunction("cast('NaN' as double)", DOUBLE, Double.NaN);
         assertFunction("cast('37.7' as double precision)", DOUBLE, 37.7);
         assertFunction("cast('17.1' as double precision)", DOUBLE, 17.1);
+        assertFunction("cast('NaN' as double precision)", DOUBLE, Double.NaN);
     }
 
     @Test
@@ -253,6 +311,7 @@ public class TestDoubleOperators
         assertOperator(INDETERMINATE, "1.2", BOOLEAN, false);
         assertOperator(INDETERMINATE, "cast(1.2 as double)", BOOLEAN, false);
         assertOperator(INDETERMINATE, "cast(1 as double)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "nan()", BOOLEAN, false);
     }
 
     @Test
@@ -266,6 +325,19 @@ public class TestDoubleOperators
                     || doubleToRawLongBits(longBitsToDouble(nanRepresentation)) != doubleToRawLongBits(longBitsToDouble(nanRepresentations[0])));
 
             assertEquals(DoubleOperators.hashCode(longBitsToDouble(nanRepresentation)), DoubleOperators.hashCode(longBitsToDouble(nanRepresentations[0])));
+            assertEquals(DoubleOperators.xxHash64(longBitsToDouble(nanRepresentation)), DoubleOperators.xxHash64(longBitsToDouble(nanRepresentations[0])));
+        }
+    }
+
+    @Test
+    public void testZeroHash()
+    {
+        double[] zeroes = {0.0, -0.0};
+        for (double zero : zeroes) {
+            //noinspection SimplifiedTestNGAssertion
+            assertTrue(zero == 0);
+            assertEquals(DoubleOperators.hashCode(zero), DoubleOperators.hashCode(zeroes[0]));
+            assertEquals(DoubleOperators.xxHash64(zero), DoubleOperators.xxHash64(zeroes[0]));
         }
     }
 }

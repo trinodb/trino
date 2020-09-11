@@ -28,6 +28,7 @@ import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
+import org.apache.hadoop.hive.serde2.OpenCSVSerde;
 import org.apache.hadoop.hive.serde2.avro.AvroSerDe;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
@@ -53,47 +54,47 @@ public enum HiveStorageFormat
             OrcSerde.class.getName(),
             OrcInputFormat.class.getName(),
             OrcOutputFormat.class.getName(),
-            new DataSize(256, Unit.MEGABYTE)),
-    DWRF(
-            com.facebook.hive.orc.OrcSerde.class.getName(),
-            com.facebook.hive.orc.OrcInputFormat.class.getName(),
-            com.facebook.hive.orc.OrcOutputFormat.class.getName(),
-            new DataSize(256, Unit.MEGABYTE)),
+            DataSize.of(256, Unit.MEGABYTE)),
     PARQUET(
             ParquetHiveSerDe.class.getName(),
             MapredParquetInputFormat.class.getName(),
             MapredParquetOutputFormat.class.getName(),
-            new DataSize(128, Unit.MEGABYTE)),
+            DataSize.of(128, Unit.MEGABYTE)),
     AVRO(
             AvroSerDe.class.getName(),
             AvroContainerInputFormat.class.getName(),
             AvroContainerOutputFormat.class.getName(),
-            new DataSize(64, Unit.MEGABYTE)),
+            DataSize.of(64, Unit.MEGABYTE)),
     RCBINARY(
             LazyBinaryColumnarSerDe.class.getName(),
             RCFileInputFormat.class.getName(),
             RCFileOutputFormat.class.getName(),
-            new DataSize(8, Unit.MEGABYTE)),
+            DataSize.of(8, Unit.MEGABYTE)),
     RCTEXT(
             ColumnarSerDe.class.getName(),
             RCFileInputFormat.class.getName(),
             RCFileOutputFormat.class.getName(),
-            new DataSize(8, Unit.MEGABYTE)),
+            DataSize.of(8, Unit.MEGABYTE)),
     SEQUENCEFILE(
             LazySimpleSerDe.class.getName(),
             SequenceFileInputFormat.class.getName(),
             HiveSequenceFileOutputFormat.class.getName(),
-            new DataSize(8, Unit.MEGABYTE)),
+            DataSize.of(8, Unit.MEGABYTE)),
     JSON(
             JsonSerDe.class.getName(),
             TextInputFormat.class.getName(),
             HiveIgnoreKeyTextOutputFormat.class.getName(),
-            new DataSize(8, Unit.MEGABYTE)),
+            DataSize.of(8, Unit.MEGABYTE)),
     TEXTFILE(
             LazySimpleSerDe.class.getName(),
             TextInputFormat.class.getName(),
             HiveIgnoreKeyTextOutputFormat.class.getName(),
-            new DataSize(8, Unit.MEGABYTE));
+            DataSize.of(8, Unit.MEGABYTE)),
+    CSV(
+            OpenCSVSerde.class.getName(),
+            TextInputFormat.class.getName(),
+            HiveIgnoreKeyTextOutputFormat.class.getName(),
+            DataSize.of(8, Unit.MEGABYTE));
 
     private final String serde;
     private final String inputFormat;
@@ -145,16 +146,16 @@ public enum HiveStorageFormat
             TypeInfo keyType = mapTypeInfo(type).getMapKeyTypeInfo();
             if ((keyType.getCategory() != Category.PRIMITIVE) ||
                     (primitiveTypeInfo(keyType).getPrimitiveCategory() != PrimitiveCategory.STRING)) {
-                throw new PrestoException(NOT_SUPPORTED, format("Column %s has a non-varchar map key, which is not supported by Avro", columnName));
+                throw new PrestoException(NOT_SUPPORTED, format("Column '%s' has a non-varchar map key, which is not supported by Avro", columnName));
             }
         }
         else if (type.getCategory() == Category.PRIMITIVE) {
             PrimitiveCategory primitive = primitiveTypeInfo(type).getPrimitiveCategory();
             if (primitive == PrimitiveCategory.BYTE) {
-                throw new PrestoException(NOT_SUPPORTED, format("Column %s is tinyint, which is not supported by Avro. Use integer instead.", columnName));
+                throw new PrestoException(NOT_SUPPORTED, format("Column '%s' is tinyint, which is not supported by Avro. Use integer instead.", columnName));
             }
             if (primitive == PrimitiveCategory.SHORT) {
-                throw new PrestoException(NOT_SUPPORTED, format("Column %s is smallint, which is not supported by Avro. Use integer instead.", columnName));
+                throw new PrestoException(NOT_SUPPORTED, format("Column '%s' is smallint, which is not supported by Avro. Use integer instead.", columnName));
             }
         }
     }

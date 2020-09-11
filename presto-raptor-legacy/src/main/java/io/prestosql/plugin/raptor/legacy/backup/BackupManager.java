@@ -37,7 +37,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -81,7 +80,7 @@ public class BackupManager
         requireNonNull(uuid, "uuid is null");
         requireNonNull(source, "source is null");
 
-        if (!backupStore.isPresent()) {
+        if (backupStore.isEmpty()) {
             return completedFuture(null);
         }
 
@@ -113,7 +112,7 @@ public class BackupManager
                 long start = System.nanoTime();
 
                 backupStore.get().backupShard(uuid, source);
-                stats.addCopyShardDataRate(new DataSize(source.length(), BYTE), Duration.nanosSince(start));
+                stats.addCopyShardDataRate(DataSize.ofBytes(source.length()), Duration.nanosSince(start));
 
                 File restored = new File(storageService.getStagingFile(uuid) + ".validate");
                 backupStore.get().restoreShard(uuid, restored);

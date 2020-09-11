@@ -2,23 +2,18 @@
 Kafka Connector Tutorial
 ========================
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 2
-
 Introduction
 ============
 
-The Kafka Connector for Presto allows access to live topic data from
-Apache Kafka using Presto. This tutorial shows how to set up topics and
+The :doc:`kafka` for Presto allows access to live topic data from
+Apache Kafka using Presto. This tutorial shows how to set up topics, and
 how to create the topic description files that back Presto tables.
 
 Installation
 ============
 
 This tutorial assumes familiarity with Presto and a working local Presto
-installation (see :doc:`/installation/deployment`). It will focus on
+installation (see :doc:`/installation/deployment`). It focuses on
 setting up Apache Kafka and integrating it with Presto.
 
 Step 1: Install Apache Kafka
@@ -46,12 +41,12 @@ Start ZooKeeper and the Kafka server:
     [2013-04-22 15:01:47,051] INFO Property socket.send.buffer.bytes is overridden to 1048576 (kafka.utils.VerifiableProperties)
     ...
 
-This will start Zookeeper on port ``2181`` and Kafka on port ``9092``.
+This starts Zookeeper on port ``2181`` and Kafka on port ``9092``.
 
 Step 2: Load data
 -----------------
 
-Download the tpch-kafka loader from Maven central:
+Download the tpch-kafka loader from Maven Central:
 
 .. code-block:: none
 
@@ -114,7 +109,7 @@ Now start Presto:
 
 Because the Kafka tables all have the ``tpch.`` prefix in the configuration,
 the tables are in the ``tpch`` schema. The connector is mounted into the
-``kafka`` catalog because the properties file is named ``kafka.properties``.
+``kafka`` catalog, because the properties file is named ``kafka.properties``.
 
 Start the :doc:`Presto CLI </installation/cli>`:
 
@@ -142,9 +137,9 @@ List the tables to verify that things are working:
 Step 4: Basic data querying
 ---------------------------
 
-Kafka data is unstructured and it has no metadata to describe the format of
+Kafka data is unstructured, and it has no metadata to describe the format of
 the messages. Without further configuration, the Kafka connector can access
-the data and map it in raw form but there are no actual columns besides the
+the data, and map it in raw form. However there are no actual columns besides the
 built-in ones:
 
 .. code-block:: none
@@ -154,9 +149,6 @@ built-in ones:
     -------------------+---------+-------+---------------------------------------------
      _partition_id     | bigint  |       | Partition Id
      _partition_offset | bigint  |       | Offset for the message within the partition
-     _segment_start    | bigint  |       | Segment start offset
-     _segment_end      | bigint  |       | Segment end offset
-     _segment_count    | bigint  |       | Running message count per segment
      _key              | varchar |       | Key text
      _key_corrupt      | boolean |       | Key data is corrupt
      _key_length       | bigint  |       | Total number of key bytes
@@ -186,9 +178,9 @@ built-in ones:
      6681865.59
     (1 row)
 
-The data from Kafka can be queried using Presto but it is not yet in
+The data from Kafka can be queried using Presto, but it is not yet in
 actual table shape. The raw data is available through the ``_message`` and
-``_key`` columns but it is not decoded into columns. As the sample data is
+``_key`` columns, but it is not decoded into columns. As the sample data is
 in JSON format, the :doc:`/functions/json` built into Presto can be used
 to slice the data.
 
@@ -198,7 +190,7 @@ Step 5: Add a topic description file
 The Kafka connector supports topic description files to turn raw data into
 table format. These files are located in the ``etc/kafka`` folder in the
 Presto installation and must end with ``.json``. It is recommended that
-the file name matches the table name but this is not necessary.
+the file name matches the table name, but this is not necessary.
 
 Add the following file as ``etc/kafka/tpch.customer.json`` and restart Presto:
 
@@ -231,9 +223,6 @@ The customer table now has an additional column: ``kafka_key``.
      kafka_key         | bigint  |       |
      _partition_id     | bigint  |       | Partition Id
      _partition_offset | bigint  |       | Offset for the message within the partition
-     _segment_start    | bigint  |       | Segment start offset
-     _segment_end      | bigint  |       | Segment end offset
-     _segment_count    | bigint  |       | Running message count per segment
      _key              | varchar |       | Key text
      _key_corrupt      | boolean |       | Key data is corrupt
      _key_length       | bigint  |       | Total number of key bytes
@@ -257,15 +246,15 @@ The customer table now has an additional column: ``kafka_key``.
              9
     (10 rows)
 
-The topic definition file maps the internal Kafka key (which is a raw long
-in eight bytes) onto a Presto ``BIGINT`` column.
+The topic definition file maps the internal Kafka key, which is a raw long
+in eight bytes, onto a Presto ``BIGINT`` column.
 
 Step 6: Map all the values from the topic message onto columns
 --------------------------------------------------------------
 
 Update the ``etc/kafka/tpch.customer.json`` file to add fields for the
-message and restart Presto. As the fields in the message are JSON, it uses
-the ``json`` data format. This is an example where different data formats
+message, and restart Presto. As the fields in the message are JSON, it uses
+the ``json`` data format. This is an example, where different data formats
 are used for the key and the message.
 
 .. code-block:: json
@@ -357,9 +346,6 @@ the sum query from earlier can operate on the ``account_balance`` column directl
      comment           | varchar |       |
      _partition_id     | bigint  |       | Partition Id
      _partition_offset | bigint  |       | Offset for the message within the partition
-     _segment_start    | bigint  |       | Segment start offset
-     _segment_end      | bigint  |       | Segment end offset
-     _segment_count    | bigint  |       | Running message count per segment
      _key              | varchar |       | Key text
      _key_corrupt      | boolean |       | Key data is corrupt
      _key_length       | bigint  |       | Total number of key bytes
@@ -506,7 +492,7 @@ Add a topic definition file for the Twitter feed as ``etc/kafka/tweets.json``:
         }
     }
 
-As this table does not have an explicit schema name, it will be placed
+As this table does not have an explicit schema name, it is placed
 into the ``default`` schema.
 
 Feed live data
@@ -560,12 +546,12 @@ Now run queries against live data:
      494227750388256769 | jmolas          | es   | 2014-07-29 14:07:32.000
     (10 rows)
 
-There is now a live feed into Kafka which can be queried using Presto.
+There is now a live feed into Kafka, which can be queried using Presto.
 
 Epilogue: Time stamps
 ---------------------
 
-The tweets feed that was set up in the last step contains a time stamp in
+The tweets feed, that was set up in the last step, contains a time stamp in
 RFC 2822 format as ``created_at`` attribute in each tweet.
 
 .. code-block:: none
@@ -614,5 +600,5 @@ This allows the raw data to be mapped onto a Presto timestamp column:
 
 The Kafka connector contains converters for ISO 8601, RFC 2822 text
 formats and for number-based timestamps using seconds or miilliseconds
-since the epoch. There is also a generic, text-based formatter which uses
+since the epoch. There is also a generic, text-based formatter, which uses
 Joda-Time format strings to parse text columns.

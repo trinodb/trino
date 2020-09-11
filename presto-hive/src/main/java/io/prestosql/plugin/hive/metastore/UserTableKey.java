@@ -15,11 +15,11 @@ package io.prestosql.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.security.PrestoPrincipal;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -27,21 +27,26 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class UserTableKey
 {
-    private final PrestoPrincipal principal;
+    private final Optional<HivePrincipal> principal;
     private final String database;
     private final String table;
+    private final String owner;
 
     @JsonCreator
-    public UserTableKey(@JsonProperty("principal") PrestoPrincipal principal, @JsonProperty("database") String database, @JsonProperty("table") String table)
+    public UserTableKey(
+            @JsonProperty("principal") Optional<HivePrincipal> principal,
+            @JsonProperty("database") String database,
+            @JsonProperty("table") String table,
+            @JsonProperty("owner") String owner)
     {
-        // principal can be null when we want to list all privileges for admins
-        this.principal = principal;
+        this.principal = requireNonNull(principal, "principal is null");
         this.database = requireNonNull(database, "database is null");
         this.table = requireNonNull(table, "table is null");
+        this.owner = requireNonNull(owner, "owner is null");
     }
 
     @JsonProperty
-    public PrestoPrincipal getPrincipal()
+    public Optional<HivePrincipal> getPrincipal()
     {
         return principal;
     }
@@ -56,6 +61,12 @@ public class UserTableKey
     public String getTable()
     {
         return table;
+    }
+
+    @JsonProperty
+    public String getOwner()
+    {
+        return owner;
     }
 
     public boolean matches(String databaseName, String tableName)
@@ -75,13 +86,14 @@ public class UserTableKey
         UserTableKey that = (UserTableKey) o;
         return Objects.equals(principal, that.principal) &&
                 Objects.equals(table, that.table) &&
-                Objects.equals(database, that.database);
+                Objects.equals(database, that.database) &&
+                Objects.equals(owner, that.owner);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(principal, table, database);
+        return Objects.hash(principal, table, database, owner);
     }
 
     @Override
@@ -91,6 +103,7 @@ public class UserTableKey
                 .add("principal", principal)
                 .add("table", table)
                 .add("database", database)
+                .add("owner", owner)
                 .toString();
     }
 }

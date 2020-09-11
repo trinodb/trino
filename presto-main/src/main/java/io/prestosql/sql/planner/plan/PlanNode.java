@@ -24,7 +24,6 @@ import static java.util.Objects.requireNonNull;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
-        include = JsonTypeInfo.As.PROPERTY,
         property = "@type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = OutputNode.class, name = "output"),
@@ -50,7 +49,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = IndexSourceNode.class, name = "indexsource"),
         @JsonSubTypes.Type(value = TableWriterNode.class, name = "tablewriter"),
         @JsonSubTypes.Type(value = DeleteNode.class, name = "delete"),
-        @JsonSubTypes.Type(value = MetadataDeleteNode.class, name = "metadatadelete"),
+        @JsonSubTypes.Type(value = TableDeleteNode.class, name = "tableDelete"),
         @JsonSubTypes.Type(value = TableFinishNode.class, name = "tablecommit"),
         @JsonSubTypes.Type(value = UnnestNode.class, name = "unnest"),
         @JsonSubTypes.Type(value = ExchangeNode.class, name = "exchange"),
@@ -61,7 +60,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = ExplainAnalyzeNode.class, name = "explainAnalyze"),
         @JsonSubTypes.Type(value = ApplyNode.class, name = "apply"),
         @JsonSubTypes.Type(value = AssignUniqueId.class, name = "assignUniqueId"),
-        @JsonSubTypes.Type(value = LateralJoinNode.class, name = "lateralJoin"),
+        @JsonSubTypes.Type(value = CorrelatedJoinNode.class, name = "correlatedJoin"),
         @JsonSubTypes.Type(value = StatisticsWriterNode.class, name = "statisticsWriterNode"),
 })
 public abstract class PlanNode

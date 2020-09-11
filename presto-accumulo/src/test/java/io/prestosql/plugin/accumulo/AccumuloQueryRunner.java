@@ -16,15 +16,16 @@ package io.prestosql.plugin.accumulo;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import io.airlift.log.Logger;
-import io.airlift.tpch.TpchTable;
+import io.airlift.log.Logging;
 import io.prestosql.Session;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.accumulo.conf.AccumuloConfig;
 import io.prestosql.plugin.accumulo.serializers.LexicoderRowSerializer;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.tpch.TpchTable;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
@@ -66,8 +67,10 @@ public final class AccumuloQueryRunner
     public static synchronized DistributedQueryRunner createAccumuloQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner =
-                new DistributedQueryRunner(createSession(), 4, extraProperties);
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+                .setNodeCount(4)
+                .setExtraProperties(extraProperties)
+                .build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
@@ -125,7 +128,7 @@ public final class AccumuloQueryRunner
                 sql = format("CREATE TABLE %s WITH (index_columns = 'mktsegment') AS SELECT * FROM %s", target, source);
                 break;
             case "lineitem":
-                sql = format("CREATE TABLE %s WITH (index_columns = 'quantity,discount,returnflag,shipdate,receiptdate,shipinstruct,shipmode') AS SELECT UUID() AS uuid, * FROM %s", target, source);
+                sql = format("CREATE TABLE %s WITH (index_columns = 'quantity,discount,returnflag,shipdate,receiptdate,shipinstruct,shipmode') AS SELECT cast(uuid() AS varchar) AS uuid, * FROM %s", target, source);
                 break;
             case "orders":
                 sql = format("CREATE TABLE %s WITH (index_columns = 'orderdate') AS SELECT * FROM %s", target, source);
@@ -134,7 +137,7 @@ public final class AccumuloQueryRunner
                 sql = format("CREATE TABLE %s WITH (index_columns = 'brand,type,size,container') AS SELECT * FROM %s", target, source);
                 break;
             case "partsupp":
-                sql = format("CREATE TABLE %s WITH (index_columns = 'partkey') AS SELECT UUID() AS uuid, * FROM %s", target, source);
+                sql = format("CREATE TABLE %s WITH (index_columns = 'partkey') AS SELECT cast(uuid() AS varchar) AS uuid, * FROM %s", target, source);
                 break;
             case "supplier":
                 sql = format("CREATE TABLE %s WITH (index_columns = 'name') AS SELECT * FROM %s", target, source);
@@ -219,5 +222,16 @@ public final class AccumuloQueryRunner
         }));
 
         return accumulo;
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+        DistributedQueryRunner queryRunner = createAccumuloQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        Thread.sleep(10);
+        Logger log = Logger.get(AccumuloQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }

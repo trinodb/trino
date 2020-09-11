@@ -24,9 +24,8 @@ import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.hadoop.HadoopNative;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.rcfile.binary.BinaryRcFileEncoding;
 import io.prestosql.rcfile.text.TextRcFileEncoding;
 import io.prestosql.spi.Page;
@@ -41,16 +40,14 @@ import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlVarbinary;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarcharType;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
@@ -61,10 +58,10 @@ import org.apache.hadoop.hive.serde2.StructObject;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
-import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
-import org.apache.hadoop.hive.serde2.io.TimestampWritable;
+import org.apache.hadoop.hive.serde2.io.TimestampWritableV2;
 import org.apache.hadoop.hive.serde2.lazy.LazyArray;
 import org.apache.hadoop.hive.serde2.lazy.LazyMap;
 import org.apache.hadoop.hive.serde2.lazy.LazyPrimitive;
@@ -103,11 +100,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -130,9 +122,9 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.rcfile.RcFileDecoderUtils.findFirstSyncPosition;
 import static io.prestosql.rcfile.RcFileTester.Compression.BZIP2;
 import static io.prestosql.rcfile.RcFileTester.Compression.LZ4;
@@ -149,16 +141,16 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
 import static io.prestosql.spi.type.StandardTypes.MAP;
-import static io.prestosql.spi.type.StandardTypes.ROW;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Math.toIntExact;
+import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
@@ -188,15 +180,11 @@ import static org.testng.Assert.assertTrue;
 @SuppressWarnings("StaticPseudoFunctionalStyleMethod")
 public class RcFileTester
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-
     static {
-        // associate TYPE_MANAGER with a function registry
-        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-
         HadoopNative.requireHadoopNative();
     }
 
+    private static final Metadata METADATA = createTestMetadataManager();
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     public enum Format
@@ -211,7 +199,7 @@ public class RcFileTester
             @Override
             public RcFileEncoding getVectorEncoding()
             {
-                return new BinaryRcFileEncoding();
+                return new BinaryRcFileEncoding(HIVE_STORAGE_TIME_ZONE);
             }
         },
 
@@ -235,7 +223,7 @@ public class RcFileTester
             @Override
             public RcFileEncoding getVectorEncoding()
             {
-                return new TextRcFileEncoding(HIVE_STORAGE_TIME_ZONE);
+                return new TextRcFileEncoding();
             }
         };
 
@@ -469,7 +457,7 @@ public class RcFileTester
 
             Iterator<?> iterator = expectedValues.iterator();
             int totalCount = 0;
-            for (int batchSize = recordReader.advance(); batchSize >= 0; batchSize = toIntExact(recordReader.advance())) {
+            for (int batchSize = recordReader.advance(); batchSize >= 0; batchSize = recordReader.advance()) {
                 totalCount += batchSize;
                 if (readLastBatchOnly && totalCount == expectedValues.size()) {
                     assertEquals(advance(iterator, batchSize), batchSize);
@@ -502,8 +490,7 @@ public class RcFileTester
             assertNull(expected);
             return;
         }
-        String baseType = type.getTypeSignature().getBase();
-        if (ARRAY.equals(baseType)) {
+        if (type instanceof ArrayType) {
             List<?> actualArray = (List<?>) actual;
             List<?> expectedArray = (List<?>) expected;
             assertEquals(actualArray.size(), expectedArray.size());
@@ -515,7 +502,7 @@ public class RcFileTester
                 assertColumnValueEquals(elementType, actualElement, expectedElement);
             }
         }
-        else if (MAP.equals(baseType)) {
+        else if (type instanceof MapType) {
             Map<?, ?> actualMap = (Map<?, ?>) actual;
             Map<?, ?> expectedMap = (Map<?, ?>) expected;
             assertEquals(actualMap.size(), expectedMap.size());
@@ -525,7 +512,8 @@ public class RcFileTester
 
             List<Entry<?, ?>> expectedEntries = new ArrayList<>(expectedMap.entrySet());
             for (Entry<?, ?> actualEntry : actualMap.entrySet()) {
-                for (Iterator<Entry<?, ?>> iterator = expectedEntries.iterator(); iterator.hasNext(); ) {
+                Iterator<Entry<?, ?>> iterator = expectedEntries.iterator();
+                while (iterator.hasNext()) {
                     Entry<?, ?> expectedEntry = iterator.next();
                     try {
                         assertColumnValueEquals(keyType, actualEntry.getKey(), expectedEntry.getKey());
@@ -538,7 +526,7 @@ public class RcFileTester
             }
             assertTrue(expectedEntries.isEmpty(), "Unmatched entries " + expectedEntries);
         }
-        else if (ROW.equals(baseType)) {
+        else if (type instanceof RowType) {
             List<Type> fieldTypes = type.getTypeParameters();
 
             List<?> actualRow = (List<?>) actual;
@@ -579,7 +567,7 @@ public class RcFileTester
 
     private static List<Long> getSyncPositionsBruteForce(RcFileReader recordReader, File file)
     {
-        Slice slice = Slices.allocate((int) file.length());
+        Slice slice = Slices.allocate(toIntExact(file.length()));
         try (InputStream in = new FileInputStream(file)) {
             slice.setBytes(0, in, slice.length());
         }
@@ -594,7 +582,7 @@ public class RcFileTester
 
         long syncPosition = 0;
         while (syncPosition >= 0) {
-            syncPosition = slice.indexOf(sync, (int) syncPosition);
+            syncPosition = slice.indexOf(sync, toIntExact(syncPosition));
             if (syncPosition > 0) {
                 syncPositionsBruteForce.add(syncPosition);
                 syncPosition++;
@@ -642,7 +630,7 @@ public class RcFileTester
                 new AircompressorCodecFactory(new HadoopCodecFactory(RcFileTester.class.getClassLoader())),
                 0,
                 tempFile.getFile().length(),
-                new DataSize(8, MEGABYTE));
+                DataSize.of(8, MEGABYTE));
 
         assertEquals(rcFileReader.getColumnCount(), 1);
 
@@ -661,8 +649,8 @@ public class RcFileTester
                 compression.getCodecName(),
                 codecFactory,
                 metadata,
-                new DataSize(100, KILOBYTE),   // use a smaller size to create more row groups
-                new DataSize(200, KILOBYTE),
+                DataSize.of(100, KILOBYTE),   // use a smaller size to create more row groups
+                DataSize.of(200, KILOBYTE),
                 true);
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1024);
         while (values.hasNext()) {
@@ -675,7 +663,7 @@ public class RcFileTester
 
         writer.validate(new FileRcFileDataSource(outputFile));
 
-        return new DataSize(output.size(), BYTE);
+        return DataSize.ofBytes(output.size());
     }
 
     private static void writeValue(Type type, BlockBuilder blockBuilder, Object value)
@@ -721,13 +709,12 @@ public class RcFileTester
                 long days = ((SqlDate) value).getDays();
                 type.writeLong(blockBuilder, days);
             }
-            else if (TIMESTAMP.equals(type)) {
-                long millis = ((SqlTimestamp) value).getMillisUtc();
-                type.writeLong(blockBuilder, millis);
+            else if (TIMESTAMP_MILLIS.equals(type)) {
+                long millis = ((SqlTimestamp) value).getMillis();
+                type.writeLong(blockBuilder, millis * MICROSECONDS_PER_MILLISECOND);
             }
             else {
-                String baseType = type.getTypeSignature().getBase();
-                if (ARRAY.equals(baseType)) {
+                if (type instanceof ArrayType) {
                     List<?> array = (List<?>) value;
                     Type elementType = type.getTypeParameters().get(0);
                     BlockBuilder arrayBlockBuilder = blockBuilder.beginBlockEntry();
@@ -736,7 +723,7 @@ public class RcFileTester
                     }
                     blockBuilder.closeEntry();
                 }
-                else if (MAP.equals(baseType)) {
+                else if (type instanceof MapType) {
                     Map<?, ?> map = (Map<?, ?>) value;
                     Type keyType = type.getTypeParameters().get(0);
                     Type valueType = type.getTypeParameters().get(1);
@@ -747,7 +734,7 @@ public class RcFileTester
                     }
                     blockBuilder.closeEntry();
                 }
-                else if (ROW.equals(baseType)) {
+                else if (type instanceof RowType) {
                     List<?> array = (List<?>) value;
                     List<Type> fieldTypes = type.getTypeParameters();
                     BlockBuilder rowBlockBuilder = blockBuilder.beginBlockEntry();
@@ -807,13 +794,13 @@ public class RcFileTester
 
             Object rowData = deserializer.deserialize(value);
             Object actualValue = rowInspector.getStructFieldData(rowData, field);
-            actualValue = decodeRecordReaderValue(type, actualValue);
+            actualValue = decodeRecordReaderValue(format, type, actualValue);
             assertColumnValueEquals(type, actualValue, expectedValue);
         }
         assertFalse(iterator.hasNext());
     }
 
-    private static Object decodeRecordReaderValue(Type type, Object actualValue)
+    private static Object decodeRecordReaderValue(Format format, Type type, Object actualValue)
     {
         if (actualValue instanceof LazyPrimitive) {
             actualValue = ((LazyPrimitive<?, ?>) actualValue).getWritableObject();
@@ -827,8 +814,8 @@ public class RcFileTester
         else if (actualValue instanceof BytesWritable) {
             actualValue = new SqlVarbinary(((BytesWritable) actualValue).copyBytes());
         }
-        else if (actualValue instanceof DateWritable) {
-            actualValue = new SqlDate(((DateWritable) actualValue).getDays());
+        else if (actualValue instanceof DateWritableV2) {
+            actualValue = new SqlDate(((DateWritableV2) actualValue).getDays());
         }
         else if (actualValue instanceof DoubleWritable) {
             actualValue = ((DoubleWritable) actualValue).get();
@@ -855,64 +842,64 @@ public class RcFileTester
         else if (actualValue instanceof Text) {
             actualValue = actualValue.toString();
         }
-        else if (actualValue instanceof TimestampWritable) {
-            TimestampWritable timestamp = (TimestampWritable) actualValue;
-            if (SESSION.isLegacyTimestamp()) {
-                actualValue = new SqlTimestamp((timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L), UTC_KEY);
+        else if (actualValue instanceof TimestampWritableV2) {
+            long millis = ((TimestampWritableV2) actualValue).getTimestamp().toEpochMilli();
+            if (format == Format.BINARY) {
+                millis = HIVE_STORAGE_TIME_ZONE.convertUTCToLocal(millis);
             }
-            else {
-                actualValue = new SqlTimestamp((timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L));
-            }
+            actualValue = sqlTimestampOf(3, millis);
         }
         else if (actualValue instanceof StructObject) {
             StructObject structObject = (StructObject) actualValue;
-            actualValue = decodeRecordReaderStruct(type, structObject.getFieldsAsList());
+            actualValue = decodeRecordReaderStruct(format, type, structObject.getFieldsAsList());
         }
         else if (actualValue instanceof LazyBinaryArray) {
-            actualValue = decodeRecordReaderList(type, ((LazyBinaryArray) actualValue).getList());
+            actualValue = decodeRecordReaderList(format, type, ((LazyBinaryArray) actualValue).getList());
         }
         else if (actualValue instanceof LazyBinaryMap) {
-            actualValue = decodeRecordReaderMap(type, ((LazyBinaryMap) actualValue).getMap());
+            actualValue = decodeRecordReaderMap(format, type, ((LazyBinaryMap) actualValue).getMap());
         }
         else if (actualValue instanceof LazyArray) {
-            actualValue = decodeRecordReaderList(type, ((LazyArray) actualValue).getList());
+            actualValue = decodeRecordReaderList(format, type, ((LazyArray) actualValue).getList());
         }
         else if (actualValue instanceof LazyMap) {
-            actualValue = decodeRecordReaderMap(type, ((LazyMap) actualValue).getMap());
+            actualValue = decodeRecordReaderMap(format, type, ((LazyMap) actualValue).getMap());
         }
         else if (actualValue instanceof List) {
-            actualValue = decodeRecordReaderList(type, ((List<?>) actualValue));
+            actualValue = decodeRecordReaderList(format, type, ((List<?>) actualValue));
         }
         return actualValue;
     }
 
-    private static List<Object> decodeRecordReaderList(Type type, List<?> list)
+    private static List<Object> decodeRecordReaderList(Format format, Type type, List<?> list)
     {
         Type elementType = type.getTypeParameters().get(0);
         return list.stream()
-                .map(element -> decodeRecordReaderValue(elementType, element))
+                .map(element -> decodeRecordReaderValue(format, elementType, element))
                 .collect(toList());
     }
 
-    private static Object decodeRecordReaderMap(Type type, Map<?, ?> map)
+    private static Object decodeRecordReaderMap(Format format, Type type, Map<?, ?> map)
     {
         Type keyType = type.getTypeParameters().get(0);
         Type valueType = type.getTypeParameters().get(1);
         Map<Object, Object> newMap = new HashMap<>();
         for (Entry<?, ?> entry : map.entrySet()) {
-            newMap.put(decodeRecordReaderValue(keyType, entry.getKey()), decodeRecordReaderValue(valueType, entry.getValue()));
+            newMap.put(
+                    decodeRecordReaderValue(format, keyType, entry.getKey()),
+                    decodeRecordReaderValue(format, valueType, entry.getValue()));
         }
         return newMap;
     }
 
-    private static List<Object> decodeRecordReaderStruct(Type type, List<?> fields)
+    private static List<Object> decodeRecordReaderStruct(Format format, Type type, List<?> fields)
     {
         List<Type> fieldTypes = type.getTypeParameters();
         List<Object> newFields = new ArrayList<>(fields.size());
         for (int i = 0; i < fields.size(); i++) {
             Type fieldType = fieldTypes.get(i);
             Object field = fields.get(i);
-            newFields.add(decodeRecordReaderValue(fieldType, field));
+            newFields.add(decodeRecordReaderValue(format, fieldType, field));
         }
         return newFields;
     }
@@ -936,7 +923,7 @@ public class RcFileTester
 
         while (values.hasNext()) {
             Object value = values.next();
-            value = preprocessWriteValueOld(type, value);
+            value = preprocessWriteValueOld(format, type, value);
             objectInspector.setStructFieldData(row, fields.get(0), value);
 
             Writable record = serializer.serialize(row, objectInspector);
@@ -944,7 +931,7 @@ public class RcFileTester
         }
 
         recordWriter.close(false);
-        return new DataSize(outputFile.length(), BYTE).convertToMostSuccinctDataSize();
+        return DataSize.ofBytes(outputFile.length()).succinct();
     }
 
     private static ObjectInspector getJavaObjectInspector(Type type)
@@ -952,49 +939,49 @@ public class RcFileTester
         if (type.equals(BOOLEAN)) {
             return javaBooleanObjectInspector;
         }
-        else if (type.equals(BIGINT)) {
+        if (type.equals(BIGINT)) {
             return javaLongObjectInspector;
         }
-        else if (type.equals(INTEGER)) {
+        if (type.equals(INTEGER)) {
             return javaIntObjectInspector;
         }
-        else if (type.equals(SMALLINT)) {
+        if (type.equals(SMALLINT)) {
             return javaShortObjectInspector;
         }
-        else if (type.equals(TINYINT)) {
+        if (type.equals(TINYINT)) {
             return javaByteObjectInspector;
         }
-        else if (type.equals(REAL)) {
+        if (type.equals(REAL)) {
             return javaFloatObjectInspector;
         }
-        else if (type.equals(DOUBLE)) {
+        if (type.equals(DOUBLE)) {
             return javaDoubleObjectInspector;
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return javaStringObjectInspector;
         }
-        else if (type.equals(VARBINARY)) {
+        if (type.equals(VARBINARY)) {
             return javaByteArrayObjectInspector;
         }
-        else if (type.equals(DATE)) {
+        if (type.equals(DATE)) {
             return javaDateObjectInspector;
         }
-        else if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MILLIS)) {
             return javaTimestampObjectInspector;
         }
-        else if (type instanceof DecimalType) {
+        if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
             return getPrimitiveJavaObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
-        else if (type.getTypeSignature().getBase().equals(ARRAY)) {
+        if (type instanceof ArrayType) {
             return ObjectInspectorFactory.getStandardListObjectInspector(getJavaObjectInspector(type.getTypeParameters().get(0)));
         }
-        else if (type.getTypeSignature().getBase().equals(MAP)) {
+        if (type instanceof MapType) {
             ObjectInspector keyObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(0));
             ObjectInspector valueObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(1));
             return ObjectInspectorFactory.getStandardMapObjectInspector(keyObjectInspector, valueObjectInspector);
         }
-        else if (type.getTypeSignature().getBase().equals(ROW)) {
+        if (type instanceof RowType) {
             return getStandardStructObjectInspector(
                     type.getTypeSignature().getParameters().stream()
                             .map(parameter -> parameter.getNamedTypeSignature().getName().get())
@@ -1006,7 +993,7 @@ public class RcFileTester
         throw new IllegalArgumentException("unsupported type: " + type);
     }
 
-    private static Object preprocessWriteValueOld(Type type, Object value)
+    private static Object preprocessWriteValueOld(Format format, Type type, Object value)
     {
         if (value == null) {
             return null;
@@ -1015,69 +1002,66 @@ public class RcFileTester
         if (type.equals(BOOLEAN)) {
             return value;
         }
-        else if (type.equals(TINYINT)) {
+        if (type.equals(TINYINT)) {
             return ((Number) value).byteValue();
         }
-        else if (type.equals(SMALLINT)) {
+        if (type.equals(SMALLINT)) {
             return ((Number) value).shortValue();
         }
-        else if (type.equals(INTEGER)) {
+        if (type.equals(INTEGER)) {
             return ((Number) value).intValue();
         }
-        else if (type.equals(BIGINT)) {
+        if (type.equals(BIGINT)) {
             return ((Number) value).longValue();
         }
-        else if (type.equals(REAL)) {
+        if (type.equals(REAL)) {
             return ((Number) value).floatValue();
         }
-        else if (type.equals(DOUBLE)) {
+        if (type.equals(DOUBLE)) {
             return ((Number) value).doubleValue();
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return value;
         }
-        else if (type.equals(VARBINARY)) {
+        if (type.equals(VARBINARY)) {
             return ((SqlVarbinary) value).getBytes();
         }
-        else if (type.equals(DATE)) {
-            int days = ((SqlDate) value).getDays();
-            LocalDate localDate = LocalDate.ofEpochDay(days);
-            ZonedDateTime zonedDateTime = localDate.atStartOfDay(ZoneId.systemDefault());
-
-            long millis = zonedDateTime.toEpochSecond() * 1000;
-            Date date = new Date(0);
-            // mills must be set separately to avoid masking
-            date.setTime(millis);
-            return date;
+        if (type.equals(DATE)) {
+            return Date.ofEpochDay(((SqlDate) value).getDays());
         }
-        else if (type.equals(TIMESTAMP)) {
-            long millisUtc = (int) ((SqlTimestamp) value).getMillisUtc();
-            return new Timestamp(millisUtc);
+        if (type.equals(TIMESTAMP_MILLIS)) {
+            long millis = ((SqlTimestamp) value).getMillis();
+            if (format == Format.BINARY) {
+                millis = HIVE_STORAGE_TIME_ZONE.convertLocalToUTC(millis, false);
+            }
+            return Timestamp.ofEpochMilli(millis);
         }
-        else if (type instanceof DecimalType) {
+        if (type instanceof DecimalType) {
             return HiveDecimal.create(((SqlDecimal) value).toBigDecimal());
         }
-        else if (type.getTypeSignature().getBase().equals(ARRAY)) {
+        if (type instanceof ArrayType) {
             Type elementType = type.getTypeParameters().get(0);
             return ((List<?>) value).stream()
-                    .map(element -> preprocessWriteValueOld(elementType, element))
+                    .map(element -> preprocessWriteValueOld(format, elementType, element))
                     .collect(toList());
         }
-        else if (type.getTypeSignature().getBase().equals(MAP)) {
+        if (type instanceof MapType) {
             Type keyType = type.getTypeParameters().get(0);
             Type valueType = type.getTypeParameters().get(1);
             Map<Object, Object> newMap = new HashMap<>();
             for (Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
-                newMap.put(preprocessWriteValueOld(keyType, entry.getKey()), preprocessWriteValueOld(valueType, entry.getValue()));
+                newMap.put(
+                        preprocessWriteValueOld(format, keyType, entry.getKey()),
+                        preprocessWriteValueOld(format, valueType, entry.getValue()));
             }
             return newMap;
         }
-        else if (type.getTypeSignature().getBase().equals(ROW)) {
+        if (type instanceof RowType) {
             List<?> fieldValues = (List<?>) value;
             List<Type> fieldTypes = type.getTypeParameters();
             List<Object> newStruct = new ArrayList<>();
             for (int fieldId = 0; fieldId < fieldValues.size(); fieldId++) {
-                newStruct.add(preprocessWriteValueOld(fieldTypes.get(fieldId), fieldValues.get(fieldId)));
+                newStruct.add(preprocessWriteValueOld(format, fieldTypes.get(fieldId), fieldValues.get(fieldId)));
             }
             return newStruct;
         }
@@ -1105,7 +1089,6 @@ public class RcFileTester
         return getStandardStructObjectInspector(ImmutableList.of(name), ImmutableList.of(objectInspector));
     }
 
-    @SuppressWarnings("SpellCheckingInspection")
     private static Properties createTableProperties(String name, String type)
     {
         Properties orderTableProperties = new Properties();
@@ -1124,7 +1107,6 @@ public class RcFileTester
         private TempFile()
         {
             tempDir = createTempDir();
-            tempDir.mkdirs();
             file = new File(tempDir, "data.rcfile");
         }
 
@@ -1144,7 +1126,7 @@ public class RcFileTester
 
     private static <T> Iterable<T> insertNullEvery(int n, Iterable<T> iterable)
     {
-        return () -> new AbstractIterator<T>()
+        return () -> new AbstractIterator<>()
         {
             private final Iterator<T> delegate = iterable.iterator();
             private int position;
@@ -1186,9 +1168,9 @@ public class RcFileTester
 
     private static MapType createMapType(Type type)
     {
-        return (MapType) TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.of(type.getTypeSignature()),
-                TypeSignatureParameter.of(type.getTypeSignature())));
+        return (MapType) METADATA.getParameterizedType(MAP, ImmutableList.of(
+                TypeSignatureParameter.typeParameter(type.getTypeSignature()),
+                TypeSignatureParameter.typeParameter(type.getTypeSignature())));
     }
 
     private static Object toHiveMap(Object nullKeyValue, Object input)
@@ -1211,10 +1193,6 @@ public class RcFileTester
 
     private static Object toHiveList(Object input)
     {
-        ArrayList<Object> list = new ArrayList<>(4);
-        for (int i = 0; i < 4; i++) {
-            list.add(input);
-        }
-        return list;
+        return nCopies(4, input);
     }
 }

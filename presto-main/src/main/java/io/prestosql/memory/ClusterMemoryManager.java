@@ -30,10 +30,10 @@ import io.prestosql.execution.QueryExecution;
 import io.prestosql.execution.QueryIdGenerator;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.memory.LowMemoryKiller.QueryMemoryInfo;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.ServerConfig;
-import io.prestosql.spi.Node;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
@@ -62,7 +62,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
@@ -77,8 +79,8 @@ import static io.prestosql.SystemSessionProperties.getQueryMaxTotalMemory;
 import static io.prestosql.SystemSessionProperties.resourceOvercommit;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.prestosql.memory.LocalMemoryManager.RESERVED_POOL;
-import static io.prestosql.spi.NodeState.ACTIVE;
-import static io.prestosql.spi.NodeState.SHUTTING_DOWN;
+import static io.prestosql.metadata.NodeState.ACTIVE;
+import static io.prestosql.metadata.NodeState.SHUTTING_DOWN;
 import static io.prestosql.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -100,10 +102,10 @@ public class ClusterMemoryManager
     private final JsonCodec<MemoryPoolAssignmentsRequest> assignmentsRequestJsonCodec;
     private final DataSize maxQueryMemory;
     private final DataSize maxQueryTotalMemory;
-    private final boolean enabled;
     private final LowMemoryKiller lowMemoryKiller;
     private final Duration killOnOutOfMemoryDelay;
     private final String coordinatorId;
+    private final AtomicLong totalAvailableProcessors = new AtomicLong();
     private final AtomicLong memoryPoolAssignmentsVersion = new AtomicLong();
     private final AtomicLong clusterUserMemoryReservation = new AtomicLong();
     private final AtomicLong clusterTotalMemoryReservation = new AtomicLong();
@@ -145,6 +147,8 @@ public class ClusterMemoryManager
         requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
         requireNonNull(serverConfig, "serverConfig is null");
         requireNonNull(schedulerConfig, "schedulerConfig is null");
+        checkState(serverConfig.isCoordinator(), "ClusterMemoryManager must not be bound on worker");
+
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -155,14 +159,13 @@ public class ClusterMemoryManager
         this.maxQueryMemory = config.getMaxQueryMemory();
         this.maxQueryTotalMemory = config.getMaxQueryTotalMemory();
         this.coordinatorId = queryIdGenerator.getCoordinatorId();
-        this.enabled = serverConfig.isCoordinator();
         this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
         this.isWorkScheduledOnCoordinator = schedulerConfig.isIncludeCoordinator();
 
         verify(maxQueryMemory.toBytes() <= maxQueryTotalMemory.toBytes(),
                 "maxQueryMemory cannot be greater than maxQueryTotalMemory");
 
-        this.pools = createClusterMemoryPools(nodeMemoryConfig.isReservedPoolEnabled());
+        this.pools = createClusterMemoryPools(!nodeMemoryConfig.isReservedPoolDisabled());
     }
 
     private Map<MemoryPoolId, ClusterMemoryPool> createClusterMemoryPools(boolean reservedPoolEnabled)
@@ -201,10 +204,6 @@ public class ClusterMemoryManager
 
     public synchronized void process(Iterable<QueryExecution> runningQueries, Supplier<List<BasicQueryInfo>> allQueryInfoSupplier)
     {
-        if (!enabled) {
-            return;
-        }
-
         // TODO revocable memory reservations can also leak and may need to be detected in the future
         // We are only concerned about the leaks in general pool.
         memoryLeakDetector.checkForMemoryLeaks(allQueryInfoSupplier, pools.get(GENERAL_POOL).getQueryMemoryReservations());
@@ -383,10 +382,8 @@ public class ClusterMemoryManager
     // RemoteNodeMemory as we don't need to POST anything.
     private synchronized MemoryPoolAssignmentsRequest updateAssignments(Iterable<QueryExecution> queries)
     {
-        ClusterMemoryPool reservedPool = pools.get(RESERVED_POOL);
-        ClusterMemoryPool generalPool = pools.get(GENERAL_POOL);
-        verify(generalPool != null, "generalPool is null");
-        verify(reservedPool != null, "reservedPool is null");
+        ClusterMemoryPool reservedPool = verifyNotNull(pools.get(RESERVED_POOL), "reservedPool is null");
+        ClusterMemoryPool generalPool = verifyNotNull(pools.get(GENERAL_POOL), "generalPool is null");
         long version = memoryPoolAssignmentsVersion.incrementAndGet();
         // Check that all previous assignments have propagated to the visible nodes. This doesn't account for temporary network issues,
         // and is more of a safety check than a guarantee
@@ -453,14 +450,14 @@ public class ClusterMemoryManager
 
     private synchronized void updateNodes(MemoryPoolAssignmentsRequest assignments)
     {
-        ImmutableSet.Builder<Node> builder = ImmutableSet.builder();
-        Set<Node> aliveNodes = builder
+        ImmutableSet.Builder<InternalNode> builder = ImmutableSet.builder();
+        Set<InternalNode> aliveNodes = builder
                 .addAll(nodeManager.getNodes(ACTIVE))
                 .addAll(nodeManager.getNodes(SHUTTING_DOWN))
                 .build();
 
         ImmutableSet<String> aliveNodeIds = aliveNodes.stream()
-                .map(Node::getNodeIdentifier)
+                .map(InternalNode::getNodeIdentifier)
                 .collect(toImmutableSet());
 
         // Remove nodes that don't exist anymore
@@ -469,7 +466,7 @@ public class ClusterMemoryManager
         nodes.keySet().removeAll(deadNodes);
 
         // Add new nodes
-        for (Node node : aliveNodes) {
+        for (InternalNode node : aliveNodes) {
             if (!nodes.containsKey(node.getNodeIdentifier())) {
                 nodes.put(node.getNodeIdentifier(), new RemoteNodeMemory(node, httpClient, memoryInfoCodec, assignmentsRequestJsonCodec, locationFactory.createMemoryInfoLocation(node)));
             }
@@ -496,6 +493,11 @@ public class ClusterMemoryManager
                 .map(Optional::get)
                 .collect(toImmutableList());
 
+        long totalProcessors = nodeMemoryInfos.stream()
+                .mapToLong(MemoryInfo::getAvailableProcessors)
+                .sum();
+        totalAvailableProcessors.set(totalProcessors);
+
         long totalClusterMemory = nodeMemoryInfos.stream()
                 .map(MemoryInfo::getTotalNodeMemory)
                 .mapToLong(DataSize::toBytes)
@@ -518,7 +520,7 @@ public class ClusterMemoryManager
         Map<String, Optional<MemoryInfo>> memoryInfo = new HashMap<>();
         for (Entry<String, RemoteNodeMemory> entry : nodes.entrySet()) {
             // workerId is of the form "node_identifier [node_host]"
-            String workerId = entry.getKey() + " [" + entry.getValue().getNode().getHostAndPort().getHostText() + "]";
+            String workerId = entry.getKey() + " [" + entry.getValue().getNode().getHost() + "]";
             memoryInfo.put(workerId, entry.getValue().getInfo());
         }
         return memoryInfo;
@@ -534,6 +536,12 @@ public class ClusterMemoryManager
             }
             closer.register(listenerExecutor::shutdownNow);
         }
+    }
+
+    @Managed
+    public long getTotalAvailableProcessors()
+    {
+        return totalAvailableProcessors.get();
     }
 
     @Managed

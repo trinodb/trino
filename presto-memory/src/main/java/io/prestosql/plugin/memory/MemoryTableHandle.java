@@ -16,123 +16,82 @@ package io.prestosql.plugin.memory;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.SchemaTableName;
 
-import java.util.List;
 import java.util.Objects;
+import java.util.OptionalDouble;
+import java.util.OptionalLong;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public final class MemoryTableHandle
         implements ConnectorTableHandle
 {
-    private final String connectorId;
-    private final String schemaName;
-    private final String tableName;
-    private final Long tableId;
-    private final List<MemoryColumnHandle> columnHandles;
+    private final long id;
+    private final OptionalLong limit;
+    private final OptionalDouble sampleRatio;
 
-    public MemoryTableHandle(
-            String connectorId,
-            Long tableId,
-            ConnectorTableMetadata tableMetadata)
+    public MemoryTableHandle(long id)
     {
-        this(connectorId,
-                tableMetadata.getTable().getSchemaName(),
-                tableMetadata.getTable().getTableName(),
-                tableId,
-                MemoryColumnHandle.extractColumnHandles(tableMetadata.getColumns()));
+        this(id, OptionalLong.empty(), OptionalDouble.empty());
     }
 
     @JsonCreator
     public MemoryTableHandle(
-            @JsonProperty("connectorId") String connectorId,
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
-            @JsonProperty("tableId") Long tableId,
-            @JsonProperty("columnHandles") List<MemoryColumnHandle> columnHandles)
+            @JsonProperty("id") long id,
+            @JsonProperty("limit") OptionalLong limit,
+            @JsonProperty("sampleRatio") OptionalDouble sampleRatio)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.tableId = requireNonNull(tableId, "tableId is null");
-        this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
+        this.id = id;
+        this.limit = requireNonNull(limit, "limit is null");
+        this.sampleRatio = requireNonNull(sampleRatio, "sampleRatio is null");
     }
 
     @JsonProperty
-    public String getConnectorId()
+    public long getId()
     {
-        return connectorId;
+        return id;
     }
 
     @JsonProperty
-    public String getSchemaName()
+    public OptionalLong getLimit()
     {
-        return schemaName;
+        return limit;
     }
 
     @JsonProperty
-    public String getTableName()
+    public OptionalDouble getSampleRatio()
     {
-        return tableName;
+        return sampleRatio;
     }
 
-    @JsonProperty
-    public Long getTableId()
+    @Override
+    public boolean equals(Object o)
     {
-        return tableId;
-    }
-
-    @JsonProperty
-    public List<MemoryColumnHandle> getColumnHandles()
-    {
-        return columnHandles;
-    }
-
-    public ConnectorTableMetadata toTableMetadata()
-    {
-        return new ConnectorTableMetadata(
-                toSchemaTableName(),
-                columnHandles.stream().map(MemoryColumnHandle::toColumnMetadata).collect(toList()));
-    }
-
-    public SchemaTableName toSchemaTableName()
-    {
-        return new SchemaTableName(schemaName, tableName);
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        MemoryTableHandle that = (MemoryTableHandle) o;
+        return id == that.id &&
+                limit.equals(that.limit) &&
+                sampleRatio.equals(that.sampleRatio);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(getConnectorId(), getTableId());
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        MemoryTableHandle other = (MemoryTableHandle) obj;
-        return Objects.equals(this.getConnectorId(), other.getConnectorId()) &&
-                Objects.equals(this.getTableId(), other.getTableId());
+        return Objects.hash(id, limit, sampleRatio);
     }
 
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("connectorId", connectorId)
-                .add("schemaName", schemaName)
-                .add("tableName", tableName)
-                .add("tableId", tableId)
-                .add("columnHandles", columnHandles)
-                .toString();
+        StringBuilder builder = new StringBuilder();
+        builder.append(id);
+        limit.ifPresent(value -> builder.append("(limit:" + value + ")"));
+        sampleRatio.ifPresent(value -> builder.append("(sampleRatio:" + value + ")"));
+        return builder.toString();
     }
 }

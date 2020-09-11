@@ -38,32 +38,32 @@ public class TestExampleRecordSet
     @Test
     public void testGetColumnTypes()
     {
-        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "text", createUnboundedVarcharType(), 0),
-                new ExampleColumnHandle("test", "value", BIGINT, 1)));
+        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit(dataUri), ImmutableList.of(
+                new ExampleColumnHandle("text", createUnboundedVarcharType(), 0),
+                new ExampleColumnHandle("value", BIGINT, 1)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(createUnboundedVarcharType(), BIGINT));
 
-        recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "value", BIGINT, 1),
-                new ExampleColumnHandle("test", "text", createUnboundedVarcharType(), 0)));
+        recordSet = new ExampleRecordSet(new ExampleSplit(dataUri), ImmutableList.of(
+                new ExampleColumnHandle("value", BIGINT, 1),
+                new ExampleColumnHandle("text", createUnboundedVarcharType(), 0)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, createUnboundedVarcharType()));
 
-        recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "value", BIGINT, 1),
-                new ExampleColumnHandle("test", "value", BIGINT, 1),
-                new ExampleColumnHandle("test", "text", createUnboundedVarcharType(), 0)));
+        recordSet = new ExampleRecordSet(new ExampleSplit(dataUri), ImmutableList.of(
+                new ExampleColumnHandle("value", BIGINT, 1),
+                new ExampleColumnHandle("value", BIGINT, 1),
+                new ExampleColumnHandle("text", createUnboundedVarcharType(), 0)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, createUnboundedVarcharType()));
 
-        recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of());
+        recordSet = new ExampleRecordSet(new ExampleSplit(dataUri), ImmutableList.of());
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
     }
 
     @Test
     public void testCursorSimple()
     {
-        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "text", createUnboundedVarcharType(), 0),
-                new ExampleColumnHandle("test", "value", BIGINT, 1)));
+        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit(dataUri), ImmutableList.of(
+                new ExampleColumnHandle("text", createUnboundedVarcharType(), 0),
+                new ExampleColumnHandle("value", BIGINT, 1)));
         RecordCursor cursor = recordSet.cursor();
 
         assertEquals(cursor.getType(0), createUnboundedVarcharType());
@@ -85,10 +85,10 @@ public class TestExampleRecordSet
     @Test
     public void testCursorMixedOrder()
     {
-        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "value", BIGINT, 1),
-                new ExampleColumnHandle("test", "value", BIGINT, 1),
-                new ExampleColumnHandle("test", "text", createUnboundedVarcharType(), 0)));
+        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit(dataUri), ImmutableList.of(
+                new ExampleColumnHandle("value", BIGINT, 1),
+                new ExampleColumnHandle("value", BIGINT, 1),
+                new ExampleColumnHandle("text", createUnboundedVarcharType(), 0)));
         RecordCursor cursor = recordSet.cursor();
 
         Map<String, Long> data = new LinkedHashMap<>();
@@ -113,7 +113,6 @@ public class TestExampleRecordSet
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         exampleHttpServer = new ExampleHttpServer();
         dataUri = exampleHttpServer.resolve("/example-data/numbers-2.csv");
@@ -121,7 +120,6 @@ public class TestExampleRecordSet
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         if (exampleHttpServer != null) {
             exampleHttpServer.stop();

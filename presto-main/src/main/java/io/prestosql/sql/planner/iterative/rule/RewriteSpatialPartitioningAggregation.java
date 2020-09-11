@@ -18,8 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -32,13 +33,12 @@ import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.getHashPartitionCount;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.prestosql.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
 
@@ -60,9 +60,8 @@ import static java.util.Objects.requireNonNull;
 public class RewriteSpatialPartitioningAggregation
         implements Rule<AggregationNode>
 {
-    private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = parseTypeSignature("Geometry");
+    private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = new TypeSignature("Geometry");
     private static final String NAME = "spatial_partitioning";
-    private static final Signature INTERNAL_SIGNATURE = new Signature(NAME, AGGREGATE, VARCHAR.getTypeSignature(), GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeSignature());
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(RewriteSpatialPartitioningAggregation::hasSpatialPartitioningAggregation);
 
@@ -73,11 +72,10 @@ public class RewriteSpatialPartitioningAggregation
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    private static boolean hasSpatialPartitioningAggregation(AggregationNode aggregation)
+    private static boolean hasSpatialPartitioningAggregation(AggregationNode aggregationNode)
     {
-        return aggregation.getAggregations().values().stream()
-                .map(Aggregation::getCall)
-                .anyMatch(call -> call.getName().toString().equals(NAME) && call.getArguments().size() == 1);
+        return aggregationNode.getAggregations().values().stream()
+                .anyMatch(aggregation -> aggregation.getResolvedFunction().getSignature().getName().equals(NAME) && aggregation.getArguments().size() == 1);
     }
 
     @Override
@@ -89,26 +87,34 @@ public class RewriteSpatialPartitioningAggregation
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
+        ResolvedFunction spatialPartitioningFunction = metadata.resolveFunction(QualifiedName.of(NAME), fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeSignature()));
+        ResolvedFunction stEnvelopeFunction = metadata.resolveFunction(QualifiedName.of("ST_Envelope"), fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE));
+
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         Symbol partitionCountSymbol = context.getSymbolAllocator().newSymbol("partition_count", INTEGER);
         ImmutableMap.Builder<Symbol, Expression> envelopeAssignments = ImmutableMap.builder();
         for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
-            FunctionCall call = aggregation.getCall();
-            QualifiedName name = call.getName();
-            if (name.toString().equals(NAME) && call.getArguments().size() == 1) {
-                Expression geometry = getOnlyElement(call.getArguments());
+            String name = aggregation.getResolvedFunction().getSignature().getName();
+            if (name.equals(NAME) && aggregation.getArguments().size() == 1) {
+                Expression geometry = getOnlyElement(aggregation.getArguments());
                 Symbol envelopeSymbol = context.getSymbolAllocator().newSymbol("envelope", metadata.getType(GEOMETRY_TYPE_SIGNATURE));
-                if (geometry instanceof FunctionCall && ((FunctionCall) geometry).getName().toString().equalsIgnoreCase("ST_Envelope")) {
+                if (isStEnvelopeFunctionCall(geometry, stEnvelopeFunction)) {
                     envelopeAssignments.put(envelopeSymbol, geometry);
                 }
                 else {
-                    envelopeAssignments.put(envelopeSymbol, new FunctionCall(QualifiedName.of("ST_Envelope"), ImmutableList.of(geometry)));
+                    envelopeAssignments.put(envelopeSymbol, new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("ST_Envelope"))
+                            .addArgument(GEOMETRY_TYPE_SIGNATURE, geometry)
+                            .build());
                 }
                 aggregations.put(entry.getKey(),
                         new Aggregation(
-                                new FunctionCall(name, ImmutableList.of(envelopeSymbol.toSymbolReference(), partitionCountSymbol.toSymbolReference())),
-                                INTERNAL_SIGNATURE,
+                                spatialPartitioningFunction,
+                                ImmutableList.of(envelopeSymbol.toSymbolReference(), partitionCountSymbol.toSymbolReference()),
+                                false,
+                                Optional.empty(),
+                                Optional.empty(),
                                 aggregation.getMask()));
             }
             else {
@@ -133,5 +139,17 @@ public class RewriteSpatialPartitioningAggregation
                         node.getStep(),
                         node.getHashSymbol(),
                         node.getGroupIdSymbol()));
+    }
+
+    private boolean isStEnvelopeFunctionCall(Expression expression, ResolvedFunction stEnvelopeFunction)
+    {
+        if (!(expression instanceof FunctionCall)) {
+            return false;
+        }
+
+        FunctionCall functionCall = (FunctionCall) expression;
+        return metadata.decodeFunction(functionCall.getName())
+                .getFunctionId()
+                .equals(stEnvelopeFunction.getFunctionId());
     }
 }

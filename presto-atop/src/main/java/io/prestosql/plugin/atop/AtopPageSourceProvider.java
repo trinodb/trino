@@ -20,7 +20,9 @@ import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 
@@ -51,11 +53,14 @@ public final class AtopPageSourceProvider
 
     @Override
     public ConnectorPageSource createPageSource(
-            ConnectorTransactionHandle transactionHandle,
+            ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorSplit split,
-            List<ColumnHandle> columns)
+            ConnectorTableHandle table,
+            List<ColumnHandle> columns,
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
+        AtopTableHandle tableHandle = (AtopTableHandle) table;
         AtopSplit atopSplit = (AtopSplit) split;
 
         ImmutableList.Builder<Type> types = ImmutableList.builder();
@@ -63,13 +68,13 @@ public final class AtopPageSourceProvider
 
         for (ColumnHandle column : columns) {
             AtopColumnHandle atopColumnHandle = (AtopColumnHandle) column;
-            AtopColumn atopColumn = atopSplit.getTable().getColumn(atopColumnHandle.getName());
+            AtopColumn atopColumn = tableHandle.getTable().getColumn(atopColumnHandle.getName());
             atopColumns.add(atopColumn);
             types.add(typeManager.getType(atopColumn.getType()));
         }
 
         ZonedDateTime date = atopSplit.getDate();
         checkArgument(date.equals(date.withHour(0).withMinute(0).withSecond(0).withNano(0)), "Expected date to be at beginning of day");
-        return new AtopPageSource(readerPermits, atopFactory, session, utf8Slice(atopSplit.getHost().getHostText()), atopSplit.getTable(), date, atopColumns.build(), types.build());
+        return new AtopPageSource(readerPermits, atopFactory, session, utf8Slice(atopSplit.getHost().getHostText()), tableHandle.getTable(), date, atopColumns.build(), types.build());
     }
 }

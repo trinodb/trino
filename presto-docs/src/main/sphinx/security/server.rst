@@ -2,16 +2,15 @@
 Coordinator Kerberos Authentication
 ===================================
 
-The Presto coordinator can be configured to enable Kerberos authentication over
-HTTPS for clients, such as the :doc:`Presto CLI </security/cli>`, or the
-JDBC and ODBC drivers.
+Presto can be configured to enable Kerberos authentication over HTTPS for
+clients, such as the :doc:`Presto CLI </security/cli>`, or the JDBC and ODBC
+drivers.
 
 To enable Kerberos authentication for Presto, configuration changes are made on
-the Presto coordinator. No changes are required to the worker configuration;
-the worker nodes will continue to connect to the coordinator over
+the Presto coordinator. No changes are required to the worker configuration.
+The worker nodes continue to connect to the coordinator over
 unauthenticated HTTP. However, if you want to secure the communication between
 Presto nodes with SSL/TLS, configure :doc:`/security/internal-communication`.
-
 
 Environment Configuration
 -------------------------
@@ -30,7 +29,7 @@ Kerberos Principals and Keytab Files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Presto coordinator needs a Kerberos principal, as do users who are going to
-connect to the Presto coordinator. You will need to create these users in
+connect to the Presto coordinator. You need to create these users in
 Kerberos using `kadmin
 <http://web.mit.edu/kerberos/krb5-latest/doc/admin/admin_commands/kadmin_local.html>`_.
 
@@ -47,8 +46,6 @@ In addition, the Presto coordinator needs a `keytab file
 
 .. include:: ktadd-note.fragment
 
-.. include:: jce-policy.fragment
-
 Java Keystore File for TLS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 When using Kerberos authentication, access to the Presto coordinator should be
@@ -58,7 +55,7 @@ coordinator.
 System Access Control Plugin
 ----------------------------
 
-A Presto coordinator with Kerberos enabled will probably need a
+A Presto coordinator with Kerberos enabled probably needs a
 :doc:`/develop/system-access-control` plugin to achieve
 the desired level of security.
 
@@ -86,9 +83,9 @@ Kerberos authentication is configured in the coordinator node's
 
     http-server.authentication.type=KERBEROS
 
-    http.server.authentication.krb5.service-name=presto
-    http.server.authentication.krb5.principal-hostname=presto.prestosql.io
-    http.server.authentication.krb5.keytab=/etc/presto/presto.keytab
+    http-server.authentication.krb5.service-name=presto
+    http-server.authentication.krb5.principal-hostname=presto.prestosql.io
+    http-server.authentication.krb5.keytab=/etc/presto/presto.keytab
     http.authentication.krb5.config=/etc/krb5.conf
 
     http-server.https.enabled=true
@@ -97,34 +94,44 @@ Kerberos authentication is configured in the coordinator node's
     http-server.https.keystore.path=/etc/presto_keystore.jks
     http-server.https.keystore.key=keystore_password
 
-======================================================= ======================================================
-Property                                                Description
-======================================================= ======================================================
-``http-server.authentication.type``                     Authentication type for the Presto
-                                                        coordinator. Must be set to ``KERBEROS``.
-``http.server.authentication.krb5.service-name``        The Kerberos service name for the Presto coordinator.
-                                                        Must match the Kerberos principal.
-``http.server.authentication.krb5.principal-hostname``  The Kerberos hostname for the Presto coordinator.
-                                                        Must match the Kerberos principal. This parameter is
-                                                        optional. If included, Presto will use this value
-                                                        in the host part of the Kerberos principal instead
-                                                        of the machine's hostname.
-``http.server.authentication.krb5.keytab``              The location of the keytab that can be used to
-                                                        authenticate the Kerberos principal.
-``http.authentication.krb5.config``                     The location of the Kerberos configuration file.
-``http-server.https.enabled``                           Enables HTTPS access for the Presto coordinator.
-                                                        Should be set to ``true``.
-``http-server.https.port``                              HTTPS server port.
-``http-server.https.keystore.path``                     The location of the Java Keystore file that will be
-                                                        used to secure TLS.
-``http-server.https.keystore.key``                      The password for the keystore. This must match the
-                                                        password you specified when creating the keystore.
-======================================================= ======================================================
+    node.internal-address-source=FQDN
+
+========================================================= ======================================================
+Property                                                  Description
+========================================================= ======================================================
+``http-server.authentication.type``                       Authentication type for the Presto
+                                                          coordinator. Must be set to ``KERBEROS``.
+``http-server.authentication.krb5.service-name``          The Kerberos service name for the Presto coordinator.
+                                                          Must match the Kerberos principal.
+``http-server.authentication.krb5.principal-hostname``    The Kerberos hostname for the Presto coordinator.
+                                                          Must match the Kerberos principal. This parameter is
+                                                          optional. If included, Presto uses this value
+                                                          in the host part of the Kerberos principal instead
+                                                          of the machine's hostname.
+``http-server.authentication.krb5.keytab``                The location of the keytab that can be used to
+                                                          authenticate the Kerberos principal.
+``http.authentication.krb5.config``                       The location of the Kerberos configuration file.
+``http-server.https.enabled``                             Enables HTTPS access for the Presto coordinator.
+                                                          Should be set to ``true``.
+``http-server.https.port``                                HTTPS server port.
+``http-server.https.keystore.path``                       The location of the Java Keystore file that is
+                                                          used to secure TLS.
+``http-server.https.keystore.key``                        The password for the keystore. This must match the
+                                                          password you specified when creating the keystore.
+``http-server.authentication.krb5.user-mapping.pattern``  Regex to match against user.  If matched, user will be
+                                                          replaced with first regex group. If not matched,
+                                                          authentication is denied.  Default is ``(.*)``.
+``http-server.authentication.krb5.user-mapping.file``     File containing rules for mapping user.  See
+                                                          :doc:`/security/user-mapping` for more information.
+``node.internal-address-source``                          Kerberos is typically sensitive to DNS names. Setting
+                                                          this property to use ``FQDN`` ensures correct
+                                                          operation and usage of valid DNS host names.
+========================================================= ======================================================
 
 .. note::
 
-    Monitor CPU usage on the Presto coordinator after enabling HTTPS. Java
-    prefers the more CPU-intensive cipher suites if you allow it to choose from
+    Monitor the CPU usage on the Presto coordinator after enabling HTTPS. Java
+    prefers the more CPU-intensive cipher suites, if you allow it to choose from
     a big list. If the CPU usage is unacceptably high after enabling HTTPS,
     you can configure Java to use specific cipher suites by setting
     the ``http-server.https.included-cipher`` property to only allow
@@ -139,7 +146,7 @@ Property                                                Description
         http-server.https.excluded-cipher=
 
     The Java documentation lists the `supported cipher suites
-    <http://docs.oracle.com/javase/8/docs/technotes/guides/security/SunProviders.html#SupportedCipherSuites>`_.
+    <https://docs.oracle.com/en/java/javase/11/security/oracle-providers.html#GUID-7093246A-31A3-4304-AC5F-5FB6400405E2__SUNJSSE_CIPHER_SUITES>`_.
 
 access-controls.properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -151,11 +158,22 @@ See :doc:`/develop/system-access-control` for details.
 
 .. _coordinator-troubleshooting:
 
+User Mapping
+------------
+
+After authenticating with Kerberos, the Presto server receives the user's principal which is typically similar to
+an email address.  For example, when ``alice`` logs in in Presto might receive ``alice@example.com``.  By default,
+Presto will use the full Kerberos principal name, but this can be mapped to a shorter name using a user-mapping
+pattern.  For simple mapping rules, the  ``http-server.authentication.krb5.user-mapping.pattern`` configuration
+property can be set to a Java regular expression, and Presto will use the value of the first matcher group.  If the
+regular expression does not match, the authentication is denied.  For more complex user-mapping rules, see
+:doc:`/security/user-mapping`.
+
 Troubleshooting
 ---------------
 
 Getting Kerberos authentication working can be challenging. You can
-independently verify some of the configuration outside of Presto to help narrow
+independently verify some of the configuration outside of Presto, to help narrow
 your focus when trying to solve a problem.
 
 Kerberos Verification
@@ -204,7 +222,7 @@ to ``stdout`` to appear in the logs.
 
 The amount and usefulness of the information the Kerberos debugging output
 sends to the logs varies depending on where the authentication is failing.
-Exception messages and stack traces can also provide useful clues about the
+Exception messages and stack traces can provide useful clues about the
 nature of the problem.
 
 .. _server_additional_resources:

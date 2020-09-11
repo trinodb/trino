@@ -14,9 +14,9 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PageBuilder;
@@ -24,21 +24,21 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.SingleMapBlock;
 import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.lambda.LambdaFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.type.TypeSignature.functionType;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -53,55 +53,41 @@ public final class MapZipWithFunction
 
     private MapZipWithFunction()
     {
-        super(new Signature(
-                "map_zip_with",
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("K"), typeVariable("V1"), typeVariable("V2"), typeVariable("V3")),
-                ImmutableList.of(),
-                parseTypeSignature("map(K,V3)"),
-                ImmutableList.of(parseTypeSignature("map(K,V1)"), parseTypeSignature("map(K,V2)"), parseTypeSignature("function(K,V1,V2,V3)")),
-                false));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return false;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "merge two maps into a single map by applying the lambda function to the pair of values with the same key";
-    }
-
-    @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        Type keyType = boundVariables.getTypeVariable("K");
-        Type inputValueType1 = boundVariables.getTypeVariable("V1");
-        Type inputValueType2 = boundVariables.getTypeVariable("V2");
-        Type outputValueType = boundVariables.getTypeVariable("V3");
-        Type outputMapType = typeManager.getParameterizedType(
-                StandardTypes.MAP,
-                ImmutableList.of(
-                        TypeSignatureParameter.of(keyType.getTypeSignature()),
-                        TypeSignatureParameter.of(outputValueType.getTypeSignature())));
-        return new ScalarFunctionImplementation(
+        super(new FunctionMetadata(
+                new Signature(
+                        "map_zip_with",
+                        ImmutableList.of(typeVariable("K"), typeVariable("V1"), typeVariable("V2"), typeVariable("V3")),
+                        ImmutableList.of(),
+                        mapType(new TypeSignature("K"), new TypeSignature("V3")),
+                        ImmutableList.of(
+                                mapType(new TypeSignature("K"), new TypeSignature("V1")),
+                                mapType(new TypeSignature("K"), new TypeSignature("V2")),
+                                functionType(new TypeSignature("K"), new TypeSignature("V1"), new TypeSignature("V2"), new TypeSignature("V3"))),
+                        false),
                 false,
                 ImmutableList.of(
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        functionTypeArgumentProperty(MapZipWithLambda.class)),
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false)),
+                false,
+                false,
+                "Merge two maps into a single map by applying the lambda function to the pair of values with the same key",
+                SCALAR));
+    }
+
+    @Override
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    {
+        Type keyType = functionBinding.getTypeVariable("K");
+        Type inputValueType1 = functionBinding.getTypeVariable("V1");
+        Type inputValueType2 = functionBinding.getTypeVariable("V2");
+        Type outputMapType = functionBinding.getBoundSignature().getReturnType();
+        return new ScalarFunctionImplementation(
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL, NEVER_NULL, FUNCTION),
+                ImmutableList.of(Optional.empty(), Optional.empty(), Optional.of(MapZipWithLambda.class)),
                 METHOD_HANDLE.bindTo(keyType).bindTo(inputValueType1).bindTo(inputValueType2).bindTo(outputMapType),
-                Optional.of(STATE_FACTORY.bindTo(outputMapType)),
-                isDeterministic());
+                Optional.of(STATE_FACTORY.bindTo(outputMapType)));
     }
 
     public static Object createState(MapType mapType)

@@ -52,7 +52,7 @@ public class PrivilegeInfo
             return false;
         }
         PrivilegeInfo privilegeInfo = (PrivilegeInfo) o;
-        return Objects.equals(privilege, privilegeInfo.privilege) &&
+        return privilege == privilegeInfo.privilege &&
                 Objects.equals(grantOption, privilegeInfo.grantOption);
     }
 }

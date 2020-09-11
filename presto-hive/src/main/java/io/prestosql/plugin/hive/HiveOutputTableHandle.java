@@ -33,13 +33,13 @@ public class HiveOutputTableHandle
     private final List<String> partitionedBy;
     private final String tableOwner;
     private final Map<String, String> additionalTableParameters;
+    private final boolean external;
 
     @JsonCreator
     public HiveOutputTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("inputColumns") List<HiveColumnHandle> inputColumns,
-            @JsonProperty("filePrefix") String filePrefix,
             @JsonProperty("pageSinkMetadata") HivePageSinkMetadata pageSinkMetadata,
             @JsonProperty("locationHandle") LocationHandle locationHandle,
             @JsonProperty("tableStorageFormat") HiveStorageFormat tableStorageFormat,
@@ -47,22 +47,25 @@ public class HiveOutputTableHandle
             @JsonProperty("partitionedBy") List<String> partitionedBy,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("tableOwner") String tableOwner,
-            @JsonProperty("additionalTableParameters") Map<String, String> additionalTableParameters)
+            @JsonProperty("additionalTableParameters") Map<String, String> additionalTableParameters,
+            @JsonProperty("transactional") boolean transactional,
+            @JsonProperty("external") boolean external)
     {
         super(
                 schemaName,
                 tableName,
                 inputColumns,
-                filePrefix,
                 pageSinkMetadata,
                 locationHandle,
                 bucketProperty,
                 tableStorageFormat,
-                partitionStorageFormat);
+                partitionStorageFormat,
+                transactional);
 
         this.partitionedBy = ImmutableList.copyOf(requireNonNull(partitionedBy, "partitionedBy is null"));
         this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");
         this.additionalTableParameters = ImmutableMap.copyOf(requireNonNull(additionalTableParameters, "additionalTableParameters is null"));
+        this.external = external;
     }
 
     @JsonProperty
@@ -81,5 +84,11 @@ public class HiveOutputTableHandle
     public Map<String, String> getAdditionalTableParameters()
     {
         return additionalTableParameters;
+    }
+
+    @JsonProperty
+    public boolean isExternal()
+    {
+        return external;
     }
 }

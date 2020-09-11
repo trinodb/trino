@@ -21,7 +21,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
 import io.prestosql.spi.predicate.NullableValue;
@@ -52,11 +52,9 @@ public class JmxSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        JmxTableLayoutHandle jmxLayout = (JmxTableLayoutHandle) layout;
-        JmxTableHandle tableHandle = jmxLayout.getTable();
-        TupleDomain<ColumnHandle> predicate = jmxLayout.getConstraint();
+        JmxTableHandle tableHandle = (JmxTableHandle) table;
 
         //TODO is there a better way to get the node column?
         Optional<JmxColumnHandle> nodeColumnHandle = tableHandle.getColumnHandles().stream()
@@ -64,12 +62,14 @@ public class JmxSplitManager
                 .findFirst();
         checkState(nodeColumnHandle.isPresent(), "Failed to find %s column", NODE_COLUMN_NAME);
 
+        TupleDomain<ColumnHandle> nodeFilter = tableHandle.getNodeFilter();
+
         List<ConnectorSplit> splits = nodeManager.getAllNodes().stream()
                 .filter(node -> {
                     NullableValue value = NullableValue.of(createUnboundedVarcharType(), utf8Slice(node.getNodeIdentifier()));
-                    return predicate.overlaps(fromFixedValues(ImmutableMap.of(nodeColumnHandle.get(), value)));
+                    return nodeFilter.overlaps(fromFixedValues(ImmutableMap.of(nodeColumnHandle.get(), value)));
                 })
-                .map(node -> new JmxSplit(tableHandle, ImmutableList.of(node.getHostAndPort())))
+                .map(node -> new JmxSplit(ImmutableList.of(node.getHostAndPort())))
                 .collect(toList());
 
         return new FixedSplitSource(splits);

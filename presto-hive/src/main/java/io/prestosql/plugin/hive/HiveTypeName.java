@@ -13,24 +13,29 @@
  */
 package io.prestosql.plugin.hive;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveTypeName
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HivePartitionKey.class).instanceSize() +
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveTypeName.class).instanceSize() +
             ClassLayout.parseClass(String.class).instanceSize();
 
     private final String value;
 
+    @JsonCreator
     public HiveTypeName(String value)
     {
         this.value = requireNonNull(value, "value is null");
     }
 
+    @JsonValue
     @Override
     public String toString()
     {
@@ -42,9 +47,9 @@ public final class HiveTypeName
         return HiveType.valueOf(value);
     }
 
-    public int getEstimatedSizeInBytes()
+    public long getEstimatedSizeInBytes()
     {
-        return INSTANCE_SIZE + value.length() * Character.BYTES;
+        return INSTANCE_SIZE + estimatedSizeOf(value);
     }
 
     @Override

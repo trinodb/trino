@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
-import io.prestosql.plugin.hive.HiveBucketing.HiveBucketFilter;
+import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.TupleDomain;
 
@@ -35,7 +35,7 @@ public class HivePartitionResult
 {
     private final List<HiveColumnHandle> partitionColumns;
     private final Iterable<HivePartition> partitions;
-    private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
+    private final TupleDomain<HiveColumnHandle> compactEffectivePredicate;
     private final TupleDomain<ColumnHandle> unenforcedConstraint;
     private final TupleDomain<ColumnHandle> enforcedConstraint;
     private final Optional<HiveBucketHandle> bucketHandle;
@@ -44,7 +44,7 @@ public class HivePartitionResult
     public HivePartitionResult(
             List<HiveColumnHandle> partitionColumns,
             Iterable<HivePartition> partitions,
-            TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
+            TupleDomain<HiveColumnHandle> compactEffectivePredicate,
             TupleDomain<ColumnHandle> unenforcedConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint,
             Optional<HiveBucketHandle> bucketHandle,
@@ -69,7 +69,7 @@ public class HivePartitionResult
         return partitions.iterator();
     }
 
-    public TupleDomain<? extends ColumnHandle> getCompactEffectivePredicate()
+    public TupleDomain<HiveColumnHandle> getCompactEffectivePredicate()
     {
         return compactEffectivePredicate;
     }

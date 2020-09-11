@@ -16,18 +16,16 @@ package io.prestosql.sql.planner.sanity;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
-import io.prestosql.metadata.TableLayoutHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchTableHandle;
-import io.prestosql.plugin.tpch.TpchTableLayoutHandle;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
@@ -51,8 +49,6 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 public class TestValidateAggregationsWithDefaultValues
         extends BasePlanTest
 {
-    private static final SqlParser SQL_PARSER = new SqlParser();
-
     private Metadata metadata;
     private PlanBuilder builder;
     private Symbol symbol;
@@ -63,16 +59,15 @@ public class TestValidateAggregationsWithDefaultValues
     {
         metadata = getQueryRunner().getMetadata();
         builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata);
-        ConnectorId connectorId = getCurrentConnectorId();
+        CatalogName catalogName = getCurrentConnectorId();
         TableHandle nationTableHandle = new TableHandle(
-                connectorId,
-                new TpchTableHandle("nation", 1.0));
-        TableLayoutHandle nationTableLayoutHandle = new TableLayoutHandle(connectorId,
+                catalogName,
+                new TpchTableHandle("nation", 1.0),
                 TestingTransactionHandle.create(),
-                new TpchTableLayoutHandle((TpchTableHandle) nationTableHandle.getConnectorHandle(), TupleDomain.all()));
+                Optional.empty());
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
         symbol = new Symbol("nationkey");
-        tableScanNode = builder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, nationkeyColumnHandle), Optional.of(nationTableLayoutHandle));
+        tableScanNode = builder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, nationkeyColumnHandle));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Final aggregation with default value not separated from partial aggregation by remote hash exchange")
@@ -196,7 +191,7 @@ public class TestValidateAggregationsWithDefaultValues
         getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new ValidateAggregationsWithDefaultValues(forceSingleNode).validate(root, session, metadata, SQL_PARSER, TypeProvider.empty(), WarningCollector.NOOP);
+            new ValidateAggregationsWithDefaultValues(forceSingleNode).validate(root, session, metadata, new TypeAnalyzer(new SqlParser(), metadata), TypeProvider.empty(), WarningCollector.NOOP);
             return null;
         });
     }

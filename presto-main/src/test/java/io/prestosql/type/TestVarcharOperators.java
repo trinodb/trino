@@ -44,11 +44,11 @@ public class TestVarcharOperators
     public void testAdd()
     {
         // TODO change expected return type to createVarcharType(6) when function resolving is fixed
-        assertFunction("'foo' || 'foo'", VARCHAR, "foo" + "foo");
-        assertFunction("'foo' || 'bar'", VARCHAR, "foo" + "bar");
-        assertFunction("'bar' || 'foo'", VARCHAR, "bar" + "foo");
-        assertFunction("'bar' || 'bar'", VARCHAR, "bar" + "bar");
-        assertFunction("'bar' || 'barbaz'", VARCHAR, "bar" + "barbaz");
+        assertFunction("'foo' || 'foo'", VARCHAR, "foofoo");
+        assertFunction("'foo' || 'bar'", VARCHAR, "foobar");
+        assertFunction("'bar' || 'foo'", VARCHAR, "barfoo");
+        assertFunction("'bar' || 'bar'", VARCHAR, "barbar");
+        assertFunction("'bar' || 'barbaz'", VARCHAR, "barbarbaz");
     }
 
     @Test

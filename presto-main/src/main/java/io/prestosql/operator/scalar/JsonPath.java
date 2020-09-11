@@ -15,17 +15,26 @@ package io.prestosql.operator.scalar;
 
 import io.airlift.slice.Slice;
 
+import static java.util.Objects.requireNonNull;
+
 public class JsonPath
 {
+    private final String pattern;
     private final JsonExtract.JsonExtractor<Slice> scalarExtractor;
     private final JsonExtract.JsonExtractor<Slice> objectExtractor;
     private final JsonExtract.JsonExtractor<Long> sizeExtractor;
 
     public JsonPath(String pattern)
     {
+        this.pattern = requireNonNull(pattern, "pattern is null");
         scalarExtractor = JsonExtract.generateExtractor(pattern, new JsonExtract.ScalarValueJsonExtractor());
         objectExtractor = JsonExtract.generateExtractor(pattern, new JsonExtract.JsonValueJsonExtractor());
         sizeExtractor = JsonExtract.generateExtractor(pattern, new JsonExtract.JsonSizeExtractor());
+    }
+
+    public String pattern()
+    {
+        return pattern;
     }
 
     public JsonExtract.JsonExtractor<Slice> getScalarExtractor()
@@ -41,5 +50,11 @@ public class JsonPath
     public JsonExtract.JsonExtractor<Long> getSizeExtractor()
     {
         return sizeExtractor;
+    }
+
+    @Override
+    public String toString()
+    {
+        return pattern;
     }
 }

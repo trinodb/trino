@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>303-SNAPSHOT</version>
+        <version>341</version>
     </parent>
 
     <artifactId>presto-parquet</artifactId>
@@ -22,12 +22,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.hadoop</groupId>
-            <artifactId>hadoop-apache</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.prestosql.hive</groupId>
             <artifactId>hive-apache</artifactId>
         </dependency>
@@ -39,7 +33,18 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -53,9 +58,13 @@
         </dependency>
 
         <dependency>
-            <groupId>org.xerial.snappy</groupId>
-            <artifactId>snappy-java</artifactId>
-            <scope>runtime</scope>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
         </dependency>
 
         <!-- used by tests but also needed transitively -->
@@ -65,15 +74,36 @@
             <scope>runtime</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.xerial.snappy</groupId>
+            <artifactId>snappy-java</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-spi</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>slice</artifactId>
+            <groupId>io.prestosql.hadoop</groupId>
+            <artifactId>hadoop-apache</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- for benchmark -->
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-benchmark</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <!-- for testing -->
@@ -85,7 +115,7 @@
 
         <dependency>
             <groupId>io.prestosql</groupId>
-            <artifactId>presto-tests</artifactId>
+            <artifactId>presto-testing</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -96,20 +126,8 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.tpch</groupId>
+            <groupId>io.prestosql.tpch</groupId>
             <artifactId>tpch</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -120,21 +138,14 @@
         </dependency>
 
         <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.anarres.lzo</groupId>
             <artifactId>lzo-hadoop</artifactId>
             <scope>test</scope>
         </dependency>
 
-        <!-- for benchmark -->
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-benchmark</artifactId>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -149,37 +160,11 @@
             <artifactId>jmh-generator-annprocess</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <!-- integration tests take a very long time so only run them in the CI server -->
-                    <excludes>
-                        <exclude>**/TestFullParquetReader.java</exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-
-    <profiles>
-        <profile>
-            <id>ci</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <excludes combine.self="override" />
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

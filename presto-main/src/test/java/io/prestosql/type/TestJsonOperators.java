@@ -16,7 +16,6 @@ package io.prestosql.type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
@@ -28,6 +27,7 @@ import org.testng.annotations.Test;
 
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -39,13 +39,13 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestJsonOperators
         extends AbstractTestFunctions
@@ -57,7 +57,7 @@ public class TestJsonOperators
     @BeforeClass
     public void setUp()
     {
-        runner = new LocalQueryRunner(TEST_SESSION);
+        runner = LocalQueryRunner.create(TEST_SESSION);
     }
 
     @AfterClass(alwaysRun = true)
@@ -393,42 +393,42 @@ public class TestJsonOperators
     public void testCastFromTimestamp()
     {
         assertFunction("cast(cast (null as timestamp) as JSON)", JSON, null);
-        assertFunction("CAST(TIMESTAMP '1970-01-01 00:00:01' AS JSON)", JSON, format("\"%s\"", sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION)));
+        assertFunction("CAST(TIMESTAMP '1970-01-01 00:00:01' AS JSON)", JSON, format("\"%s\"", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
     }
 
     @Test
     public void testCastWithJsonParse()
     {
         // the test is to make sure ExpressionOptimizer works with cast + json_parse
-        assertCastWithJsonParse("[[1,1], [2,2]]", "ARRAY<ARRAY<INTEGER>>", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 1), ImmutableList.of(2, 2)));
-        assertInvalidCastWithJsonParse("[1, \"abc\"]", "ARRAY<INTEGER>", "Cannot cast to array(integer). Cannot cast 'abc' to INT\n[1, \"abc\"]");
+        assertCastWithJsonParse("[[1,1], [2,2]]", "ARRAY(ARRAY(INTEGER))", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 1), ImmutableList.of(2, 2)));
+        assertInvalidCastWithJsonParse("[1, \"abc\"]", "ARRAY(INTEGER)", "Cannot cast to array(integer). Cannot cast 'abc' to INT\n[1, \"abc\"]");
 
         // Since we will not reformat the JSON string before parse and cast with the optimization,
         // these extra whitespaces in JSON string is to make sure the cast will work in such cases.
-        assertCastWithJsonParse("{\"a\"\n:1,  \"b\":\t2}", "MAP<VARCHAR,INTEGER>", mapType(VARCHAR, INTEGER), ImmutableMap.of("a", 1, "b", 2));
-        assertInvalidCastWithJsonParse("{\"[1, 1]\":[2, 2]}", "MAP<ARRAY<INTEGER>,ARRAY<INTEGER>>", "Cannot cast JSON to map(array(integer),array(integer))");
-        assertInvalidCastWithJsonParse("{true: false, false:false}", "MAP<BOOLEAN,BOOLEAN>", "Cannot cast to map(boolean,boolean).\n{true: false, false:false}");
+        assertCastWithJsonParse("{\"a\"\n:1,  \"b\":\t2}", "MAP(VARCHAR,INTEGER)", mapType(VARCHAR, INTEGER), ImmutableMap.of("a", 1, "b", 2));
+        assertInvalidTypeWithJsonParse("{\"[1, 1]\":[2, 2]}", "MAP(ARRAY(INTEGER),ARRAY(INTEGER))", "line 1:8: Cannot cast json to map(array(integer), array(integer))");
+        assertInvalidCastWithJsonParse("{true: false, false:false}", "MAP(BOOLEAN,BOOLEAN)", "Cannot cast to map(boolean, boolean).\n{true: false, false:false}");
 
         assertCastWithJsonParse(
                 "{\"a\"  \n  :1,  \"b\":  \t  [2, 3]}",
-                "ROW(a INTEGER, b ARRAY<INTEGER>)",
+                "ROW(a INTEGER, b ARRAY(INTEGER))",
                 RowType.from(ImmutableList.of(
                         RowType.field("a", INTEGER),
                         RowType.field("b", new ArrayType(INTEGER)))),
                 ImmutableList.of(1, ImmutableList.of(2, 3)));
         assertCastWithJsonParse(
                 "[  1,  [2, 3]  ]",
-                "ROW(INTEGER, ARRAY<INTEGER>)",
+                "ROW(INTEGER, ARRAY(INTEGER))",
                 RowType.anonymous(ImmutableList.of(INTEGER, new ArrayType(INTEGER))),
                 ImmutableList.of(1, ImmutableList.of(2, 3)));
         assertInvalidCastWithJsonParse(
                 "{\"a\" :1,  \"b\": {} }",
-                "ROW(a INTEGER, b ARRAY<INTEGER>)",
-                "Cannot cast to row(a integer,b array(integer)). Expected a json array, but got {\n{\"a\" :1,  \"b\": {} }");
+                "ROW(a INTEGER, b ARRAY(INTEGER))",
+                "Cannot cast to row(a integer, b array(integer)). Expected a json array, but got {\n{\"a\" :1,  \"b\": {} }");
         assertInvalidCastWithJsonParse(
                 "[  1,  {}  ]",
-                "ROW(INTEGER, ARRAY<INTEGER>)",
-                "Cannot cast to row(integer,array(integer)). Expected a json array, but got {\n[  1,  {}  ]");
+                "ROW(INTEGER, ARRAY(INTEGER))",
+                "Cannot cast to row(integer, array(integer)). Expected a json array, but got {\n[  1,  {}  ]");
     }
 
     @Test
@@ -472,13 +472,19 @@ public class TestJsonOperators
                 "SELECT CAST(JSON_PARSE(col) AS " + castSqlType + ") " +
                 "FROM (VALUES('" + json + "')) AS t(col)";
 
-        try {
-            runner.execute(query);
-            fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
-            assertEquals(e.getMessage(), message);
-        }
+        assertPrestoExceptionThrownBy(() -> runner.execute(query))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage(message);
+    }
+
+    private void assertInvalidTypeWithJsonParse(String json, String castSqlType, String message)
+    {
+        String query = "" +
+                "SELECT CAST(JSON_PARSE(col) AS " + castSqlType + ") " +
+                "FROM (VALUES('" + json + "')) AS t(col)";
+
+        assertPrestoExceptionThrownBy(() -> runner.execute(query))
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage(message);
     }
 }

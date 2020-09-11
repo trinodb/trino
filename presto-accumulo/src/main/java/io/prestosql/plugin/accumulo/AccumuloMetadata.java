@@ -16,12 +16,13 @@ package io.prestosql.plugin.accumulo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.accumulo.metadata.AccumuloTable;
-import io.prestosql.plugin.accumulo.metadata.AccumuloView;
 import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
 import io.prestosql.plugin.accumulo.model.AccumuloTableHandle;
-import io.prestosql.plugin.accumulo.model.AccumuloTableLayoutHandle;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -32,15 +33,15 @@ import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ComputedStatistics;
 
 import javax.inject.Inject;
@@ -66,6 +67,9 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloMetadata
         implements ConnectorMetadata
 {
+    private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
+            new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
+
     private final AccumuloClient client;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
@@ -137,8 +141,9 @@ public class AccumuloMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
+        String viewData = VIEW_CODEC.toJson(definition);
         if (replace) {
             client.createOrReplaceView(viewName, viewData);
         }
@@ -154,16 +159,10 @@ public class AccumuloMetadata
     }
 
     @Override
-    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
-        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> builder = ImmutableMap.builder();
-        for (SchemaTableName stName : listViews(session, prefix.getSchema())) {
-            AccumuloView view = client.getView(stName);
-            if (view != null) {
-                builder.put(stName, new ConnectorViewDefinition(stName, Optional.empty(), view.getData()));
-            }
-        }
-        return builder.build();
+        return Optional.ofNullable(client.getView(viewName))
+                .map(view -> VIEW_CODEC.fromJson(view.getData()));
     }
 
     @Override
@@ -251,24 +250,6 @@ public class AccumuloMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
-            ConnectorSession session,
-            ConnectorTableHandle table,
-            Constraint<ColumnHandle> constraint,
-            Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        AccumuloTableHandle tableHandle = (AccumuloTableHandle) table;
-        ConnectorTableLayout layout = new ConnectorTableLayout(new AccumuloTableLayoutHandle(tableHandle, constraint.getSummary()));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        return new ConnectorTableLayout(handle);
-    }
-
-    @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         AccumuloTableHandle handle = (AccumuloTableHandle) table;
@@ -352,6 +333,41 @@ public class AccumuloMetadata
         return columns.build();
     }
 
+    @Override
+    public boolean usesLegacyTableLayouts()
+    {
+        return false;
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    {
+        AccumuloTableHandle handle = (AccumuloTableHandle) table;
+
+        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        if (oldDomain.equals(newDomain)) {
+            return Optional.empty();
+        }
+
+        handle = new AccumuloTableHandle(
+                handle.getSchema(),
+                handle.getTable(),
+                handle.getRowId(),
+                newDomain,
+                handle.isExternal(),
+                handle.getSerializerClassName(),
+                handle.getScanAuthorizations());
+
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        return new ConnectorTableProperties();
+    }
+
     private void checkNoRollback()
     {
         checkState(rollbackAction.get() == null, "Cannot begin a new write while in an existing one");
@@ -397,7 +413,7 @@ public class AccumuloMetadata
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
         // List all tables if schema or table is null
-        if (prefix.isEmpty()) {
+        if (prefix.getTable().isEmpty()) {
             return listTables(session, prefix.getSchema());
         }
 

@@ -14,36 +14,40 @@
 package io.prestosql.plugin.tpch;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.tpch.TpchColumn;
-import io.airlift.tpch.TpchColumnType;
-import io.airlift.tpch.TpchEntity;
-import io.airlift.tpch.TpchTable;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.tpch.TpchColumn;
+import io.prestosql.tpch.TpchColumnType;
+import io.prestosql.tpch.TpchEntity;
+import io.prestosql.tpch.TpchTable;
 
 import java.util.List;
 
-import static io.airlift.tpch.TpchColumnTypes.IDENTIFIER;
 import static io.prestosql.plugin.tpch.TpchRecordSet.createTpchRecordSet;
+import static io.prestosql.tpch.TpchColumnTypes.IDENTIFIER;
 
 public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
         TpchSplit tpchSplit = (TpchSplit) split;
+        TpchTableHandle tpchTable = (TpchTableHandle) table;
 
-        String tableName = tpchSplit.getTableHandle().getTableName();
-
-        TpchTable<?> tpchTable = TpchTable.getTable(tableName);
-
-        return getRecordSet(tpchTable, columns, tpchSplit.getTableHandle().getScaleFactor(), tpchSplit.getPartNumber(), tpchSplit.getTotalParts(), tpchSplit.getPredicate());
+        return getRecordSet(
+                TpchTable.getTable(tpchTable.getTableName()),
+                columns,
+                tpchTable.getScaleFactor(),
+                tpchSplit.getPartNumber(),
+                tpchSplit.getTotalParts(),
+                tpchTable.getConstraint());
     }
 
     public <E extends TpchEntity> RecordSet getRecordSet(
@@ -58,7 +62,7 @@ public class TpchRecordSetProvider
         for (ColumnHandle column : columns) {
             String columnName = ((TpchColumnHandle) column).getColumnName();
             if (columnName.equalsIgnoreCase(TpchMetadata.ROW_NUMBER_COLUMN_NAME)) {
-                builder.add(new RowNumberTpchColumn<E>());
+                builder.add(new RowNumberTpchColumn<>());
             }
             else {
                 builder.add(table.getColumn(columnName));

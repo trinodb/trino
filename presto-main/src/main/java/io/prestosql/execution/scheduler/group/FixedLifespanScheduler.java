@@ -18,7 +18,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.scheduler.BucketNodeMap;
 import io.prestosql.execution.scheduler.SourceScheduler;
-import io.prestosql.spi.Node;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -47,8 +47,8 @@ import static java.util.Objects.requireNonNull;
 public class FixedLifespanScheduler
         implements LifespanScheduler
 {
-    private final Int2ObjectMap<Node> driverGroupToNodeMap;
-    private final Map<Node, IntListIterator> nodeToDriverGroupsMap;
+    private final Int2ObjectMap<InternalNode> driverGroupToNodeMap;
+    private final Map<InternalNode, IntListIterator> nodeToDriverGroupsMap;
     private final List<ConnectorPartitionHandle> partitionHandles;
     private final OptionalInt concurrentLifespansPerTask;
 
@@ -63,10 +63,10 @@ public class FixedLifespanScheduler
         checkArgument(!partitionHandles.equals(ImmutableList.of(NOT_PARTITIONED)));
         checkArgument(partitionHandles.size() == bucketNodeMap.getBucketCount());
 
-        Map<Node, IntList> nodeToDriverGroupMap = new HashMap<>();
-        Int2ObjectMap<Node> driverGroupToNodeMap = new Int2ObjectOpenHashMap<>();
+        Map<InternalNode, IntList> nodeToDriverGroupMap = new HashMap<>();
+        Int2ObjectMap<InternalNode> driverGroupToNodeMap = new Int2ObjectOpenHashMap<>();
         for (int bucket = 0; bucket < bucketNodeMap.getBucketCount(); bucket++) {
-            Node node = bucketNodeMap.getAssignedNode(bucket).get();
+            InternalNode node = bucketNodeMap.getAssignedNode(bucket).get();
             nodeToDriverGroupMap.computeIfAbsent(node, key -> new IntArrayList()).add(bucket);
             driverGroupToNodeMap.put(bucket, node);
         }
@@ -81,12 +81,13 @@ public class FixedLifespanScheduler
         this.concurrentLifespansPerTask = requireNonNull(concurrentLifespansPerTask, "concurrentLifespansPerTask is null");
     }
 
+    @Override
     public void scheduleInitial(SourceScheduler scheduler)
     {
         checkState(!initialScheduled);
         initialScheduled = true;
 
-        for (Map.Entry<Node, IntListIterator> entry : nodeToDriverGroupsMap.entrySet()) {
+        for (Map.Entry<InternalNode, IntListIterator> entry : nodeToDriverGroupsMap.entrySet()) {
             IntListIterator driverGroupsIterator = entry.getValue();
             int driverGroupsScheduled = 0;
             while (driverGroupsIterator.hasNext()) {
@@ -107,6 +108,7 @@ public class FixedLifespanScheduler
         }
     }
 
+    @Override
     public void onLifespanFinished(Iterable<Lifespan> newlyCompletedDriverGroups)
     {
         checkState(initialScheduled);
@@ -122,7 +124,8 @@ public class FixedLifespanScheduler
         newDriverGroupReady.set(null);
     }
 
-    public SettableFuture schedule(SourceScheduler scheduler)
+    @Override
+    public SettableFuture<?> schedule(SourceScheduler scheduler)
     {
         // Return a new future even if newDriverGroupReady has not finished.
         // Returning the same SettableFuture instance could lead to ListenableFuture retaining too many listener objects.

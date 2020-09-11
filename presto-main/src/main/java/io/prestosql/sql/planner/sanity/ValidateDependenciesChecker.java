@@ -15,17 +15,19 @@ package io.prestosql.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolsExtractor;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
@@ -38,10 +40,9 @@ import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.IndexSourceNode;
 import io.prestosql.sql.planner.plan.IntersectNode;
 import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
-import io.prestosql.sql.planner.plan.MetadataDeleteNode;
+import io.prestosql.sql.planner.plan.OffsetNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
@@ -55,6 +56,7 @@ import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
+import io.prestosql.sql.planner.plan.TableDeleteNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -77,6 +79,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * Ensures that all dependencies (i.e., symbols in expressions) for a plan node are provided by its source nodes
@@ -85,7 +88,7 @@ public final class ValidateDependenciesChecker
         implements PlanSanityChecker.Checker
 {
     @Override
-    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode plan, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
     {
         validate(plan);
     }
@@ -123,11 +126,8 @@ public final class ValidateDependenciesChecker
             checkDependencies(inputs, node.getGroupingKeys(), "Invalid node. Grouping key symbols (%s) not in source plan output (%s)", node.getGroupingKeys(), node.getSource().getOutputSymbols());
 
             for (Aggregation aggregation : node.getAggregations().values()) {
-                Set<Symbol> dependencies = SymbolsExtractor.extractUnique(aggregation.getCall());
+                Set<Symbol> dependencies = SymbolsExtractor.extractUnique(aggregation);
                 checkDependencies(inputs, dependencies, "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
-                aggregation.getMask().ifPresent(mask -> {
-                    checkDependencies(inputs, ImmutableSet.of(mask), "Invalid node. Aggregation mask symbol (%s) not in source plan output (%s)", mask, node.getSource().getOutputSymbols());
-                });
             }
 
             return null;
@@ -184,7 +184,7 @@ public final class ValidateDependenciesChecker
             checkDependencies(inputs, bounds.build(), "Invalid node. Frame bounds (%s) not in source plan output (%s)", bounds.build(), node.getSource().getOutputSymbols());
 
             for (WindowNode.Function function : node.getWindowFunctions().values()) {
-                Set<Symbol> dependencies = SymbolsExtractor.extractUnique(function.getFunctionCall());
+                Set<Symbol> dependencies = SymbolsExtractor.extractUnique(function);
                 checkDependencies(inputs, dependencies, "Invalid node. Window function dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
             }
 
@@ -305,10 +305,27 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
+        public Void visitOffset(OffsetNode node, Set<Symbol> boundSymbols)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundSymbols); // visit child
+
+            return null;
+        }
+
+        @Override
         public Void visitLimit(LimitNode node, Set<Symbol> boundSymbols)
         {
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols); // visit child
+
+            if (node.getTiesResolvingScheme().isPresent()) {
+                checkDependencies(
+                        createInputs(source, boundSymbols),
+                        node.getTiesResolvingScheme().get().getOrderBy(),
+                        "Invalid node. Ties resolving dependencies (%s) not in source plan output (%s)",
+                        node.getTiesResolvingScheme().get().getOrderBy(), node.getSource().getOutputSymbols());
+            }
 
             return null;
         }
@@ -351,7 +368,14 @@ public final class ValidateDependenciesChecker
                         allInputs);
             });
 
-            checkLeftOutputSymbolsBeforeRight(node.getLeft().getOutputSymbols(), node.getOutputSymbols());
+            if (node.isCrossJoin()) {
+                Set<Symbol> inputs = ImmutableSet.<Symbol>builder()
+                        .addAll(node.getLeft().getOutputSymbols())
+                        .addAll(node.getRight().getOutputSymbols())
+                        .build();
+                checkDependencies(node.getOutputSymbols(), inputs, "Cross join output symbols (%s) must contain all of the source symbols (%s)", node.getOutputSymbols(), inputs);
+            }
+
             return null;
         }
 
@@ -408,11 +432,11 @@ public final class ValidateDependenciesChecker
                 if (leftSymbolsSet.contains(symbol)) {
                     leftMaxPosition = i;
                 }
-                else if (!rightMinPosition.isPresent()) {
+                else if (rightMinPosition.isEmpty()) {
                     rightMinPosition = Optional.of(i);
                 }
             }
-            checkState(!rightMinPosition.isPresent() || rightMinPosition.get() > leftMaxPosition, "Not all left output symbols are before right output symbols");
+            checkState(rightMinPosition.isEmpty() || rightMinPosition.get() > leftMaxPosition, "Not all left output symbols are before right output symbols");
         }
 
         @Override
@@ -432,9 +456,7 @@ public final class ValidateDependenciesChecker
                     .map(IndexJoinNode.EquiJoinClause::getIndex)
                     .collect(toImmutableSet());
             Map<Symbol, Symbol> trace = IndexKeyTracer.trace(node.getIndexSource(), lookupSymbols);
-            checkArgument(!trace.isEmpty() && lookupSymbols.containsAll(trace.keySet()),
-                    "Index lookup symbols are not traceable to index source: %s",
-                    lookupSymbols);
+            checkArgument(!trace.isEmpty(), "Index lookup symbols are not traceable to index source: %s", lookupSymbols);
 
             return null;
         }
@@ -474,12 +496,21 @@ public final class ValidateDependenciesChecker
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols);
 
-            Set<Symbol> required = ImmutableSet.<Symbol>builder()
-                    .addAll(node.getReplicateSymbols())
-                    .addAll(node.getUnnestSymbols().keySet())
-                    .build();
+            ImmutableSet.Builder<Symbol> required = ImmutableSet.<Symbol>builder()
+                    .addAll(node.getReplicateSymbols());
 
-            checkDependencies(source.getOutputSymbols(), required, "Invalid node. Dependencies (%s) not in source plan output (%s)", required, source.getOutputSymbols());
+            node.getMappings().stream()
+                    .map(UnnestNode.Mapping::getInput)
+                    .forEach(required::add);
+
+            Set<Symbol> unnestedSymbols = node.getMappings().stream()
+                    .map(UnnestNode.Mapping::getOutputs)
+                    .flatMap(Collection::stream)
+                    .collect(toImmutableSet());
+
+            Set<Symbol> expectedFilterSymbols = Sets.difference(SymbolsExtractor.extractUnique(node.getFilter().orElse(TRUE_LITERAL)), unnestedSymbols);
+            required.addAll(expectedFilterSymbols);
+            checkDependencies(source.getOutputSymbols(), required.build(), "Invalid node. Dependencies (%s) not in source plan output (%s)", required, source.getOutputSymbols());
 
             return null;
         }
@@ -525,7 +556,7 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitMetadataDelete(MetadataDeleteNode node, Set<Symbol> boundSymbols)
+        public Void visitTableDelete(TableDeleteNode node, Set<Symbol> boundSymbols)
         {
             return null;
         }
@@ -542,7 +573,7 @@ public final class ValidateDependenciesChecker
                     .addAll(descriptor.getTableStatistics().values())
                     .build();
             List<Symbol> outputSymbols = node.getSource().getOutputSymbols();
-            checkDependencies(dependencies, dependencies, "Invalid node. Dependencies (%s) not in source plan output (%s)", dependencies, outputSymbols);
+            checkDependencies(outputSymbols, dependencies, "Invalid node. Dependencies (%s) not in source plan output (%s)", dependencies, outputSymbols);
             return null;
         }
 
@@ -611,7 +642,6 @@ public final class ValidateDependenciesChecker
             node.getSubquery().accept(this, subqueryCorrelation); // visit child
 
             checkDependencies(node.getInput().getOutputSymbols(), node.getCorrelation(), "APPLY input must provide all the necessary correlation symbols for subquery");
-            checkDependencies(SymbolsExtractor.extractUnique(node.getSubquery()), node.getCorrelation(), "not all APPLY correlation symbols are used in subquery");
 
             ImmutableSet<Symbol> inputs = ImmutableSet.<Symbol>builder()
                     .addAll(createInputs(node.getSubquery(), boundSymbols))
@@ -627,7 +657,7 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitLateralJoin(LateralJoinNode node, Set<Symbol> boundSymbols)
+        public Void visitCorrelatedJoin(CorrelatedJoinNode node, Set<Symbol> boundSymbols)
         {
             Set<Symbol> subqueryCorrelation = ImmutableSet.<Symbol>builder()
                     .addAll(boundSymbols)
@@ -640,11 +670,16 @@ public final class ValidateDependenciesChecker
             checkDependencies(
                     node.getInput().getOutputSymbols(),
                     node.getCorrelation(),
-                    "LATERAL input must provide all the necessary correlation symbols for subquery");
-            checkDependencies(
-                    SymbolsExtractor.extractUnique(node.getSubquery()),
-                    node.getCorrelation(),
-                    "not all LATERAL correlation symbols are used in subquery");
+                    "Correlated JOIN input must provide all the necessary correlation symbols for subquery");
+
+            Set<Symbol> inputs = ImmutableSet.<Symbol>builder()
+                    .addAll(createInputs(node.getInput(), boundSymbols))
+                    .addAll(createInputs(node.getSubquery(), boundSymbols))
+                    .build();
+
+            Set<Symbol> filterSymbols = SymbolsExtractor.extractUnique(node.getFilter());
+
+            checkDependencies(inputs, filterSymbols, "filter symbols (%s) not in sources (%s)", filterSymbols, inputs);
 
             return null;
         }

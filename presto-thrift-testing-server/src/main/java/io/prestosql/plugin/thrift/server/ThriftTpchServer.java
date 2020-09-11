@@ -25,12 +25,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class ThriftTpchServer
 {
-    private ThriftTpchServer()
-    {
-    }
+    private ThriftTpchServer() {}
 
     public static void start(List<Module> extraModules)
-            throws Exception
     {
         Bootstrap app = new Bootstrap(
                 ImmutableList.<Module>builder()

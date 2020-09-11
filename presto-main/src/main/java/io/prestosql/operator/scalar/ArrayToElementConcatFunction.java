@@ -15,21 +15,22 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.util.Reflection.methodHandle;
 
 public class ArrayToElementConcatFunction
@@ -46,37 +47,28 @@ public class ArrayToElementConcatFunction
 
     public ArrayToElementConcatFunction()
     {
-        super(new Signature(FUNCTION_NAME,
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("E")),
-                ImmutableList.of(),
-                parseTypeSignature("array(E)"),
-                ImmutableList.of(parseTypeSignature("array(E)"), parseTypeSignature("E")),
-                false));
+        super(new FunctionMetadata(
+                new Signature(
+                        FUNCTION_NAME,
+                        ImmutableList.of(typeVariable("E")),
+                        ImmutableList.of(),
+                        arrayType(new TypeSignature("E")),
+                        ImmutableList.of(arrayType(new TypeSignature("E")), new TypeSignature("E")),
+                        false),
+                false,
+                ImmutableList.of(
+                        new FunctionArgumentDefinition(false),
+                        new FunctionArgumentDefinition(false)),
+                false,
+                true,
+                "Concatenates an array to an element",
+                SCALAR));
     }
 
     @Override
-    public boolean isHidden()
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Concatenates an array to an element";
-    }
-
-    @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        Type type = boundVariables.getTypeVariable("E");
+        Type type = functionBinding.getTypeVariable("E");
         MethodHandle methodHandle;
         if (type.getJavaType() == boolean.class) {
             methodHandle = METHOD_HANDLE_BOOLEAN;
@@ -96,11 +88,8 @@ public class ArrayToElementConcatFunction
         methodHandle = methodHandle.bindTo(type);
 
         return new ScalarFunctionImplementation(
-                false,
-                ImmutableList.of(
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandle,
-                isDeterministic());
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL, NEVER_NULL),
+                methodHandle);
     }
 }

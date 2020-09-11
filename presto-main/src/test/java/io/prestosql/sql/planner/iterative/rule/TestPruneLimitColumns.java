@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -28,8 +29,11 @@ import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.limit;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
+import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
 
 public class TestPruneLimitColumns
         extends BaseRuleTest
@@ -55,6 +59,28 @@ public class TestPruneLimitColumns
         tester().assertThat(new PruneLimitColumns())
                 .on(p -> buildProjectedLimit(p, alwaysTrue()))
                 .doesNotFire();
+    }
+
+    @Test
+    public void testDoNotPruneTiesResolvingSymbols()
+    {
+        tester().assertThat(new PruneLimitColumns())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    return p.project(
+                            Assignments.of(),
+                            p.limit(1, ImmutableList.of(a), p.values(a, b)));
+                })
+                .matches(
+                        strictProject(
+                                ImmutableMap.of(),
+                                limit(
+                                        1,
+                                        ImmutableList.of(sort("a", ASCENDING, FIRST)),
+                                        strictProject(
+                                                ImmutableMap.of("a", expression("a")),
+                                                values("a", "b")))));
     }
 
     private ProjectNode buildProjectedLimit(PlanBuilder planBuilder, Predicate<Symbol> projectionFilter)

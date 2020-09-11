@@ -20,14 +20,14 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.block.BlockSerdeUtil;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
-import io.prestosql.type.TypeRegistry;
+import org.apache.hadoop.hive.common.type.Date;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.io.BytesWritable;
@@ -35,13 +35,14 @@ import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Type;
-import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.hive.HiveTestUtils.mapType;
 import static io.prestosql.plugin.hive.util.SerDeUtils.getBlockObject;
 import static io.prestosql.plugin.hive.util.SerDeUtils.serializeObject;
@@ -55,11 +56,13 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.tests.StructuralTestUtil.arrayBlockOf;
-import static io.prestosql.tests.StructuralTestUtil.mapBlockOf;
-import static io.prestosql.tests.StructuralTestUtil.rowBlockOf;
+import static io.prestosql.testing.StructuralTestUtil.arrayBlockOf;
+import static io.prestosql.testing.StructuralTestUtil.mapBlockOf;
+import static io.prestosql.testing.StructuralTestUtil.rowBlockOf;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.ObjectInspectorOptions;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getReflectionObjectInspector;
@@ -68,7 +71,7 @@ import static org.testng.Assert.assertEquals;
 @SuppressWarnings("PackageVisibleField")
 public class TestSerDeUtils
 {
-    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+    private final BlockEncodingSerde blockEncodingSerde = createTestMetadataManager().getBlockEncodingSerde();
 
     private static class ListHolder
     {
@@ -157,10 +160,16 @@ public class TestSerDeUtils
         Block actualString = toBinaryBlock(createUnboundedVarcharType(), "abdd", getInspector(String.class));
         assertBlockEquals(actualString, expectedString);
 
+        // date
+        int date = toIntExact(LocalDate.of(2008, 10, 28).toEpochDay());
+        Block expectedDate = VARBINARY.createBlockBuilder(null, 1).writeInt(date).closeEntry().build();
+        Block actualDate = toBinaryBlock(BIGINT, Date.ofEpochDay(date), getInspector(Date.class));
+        assertBlockEquals(actualDate, expectedDate);
+
         // timestamp
         DateTime dateTime = new DateTime(2008, 10, 28, 16, 7, 15, 0);
-        Block expectedTimestamp = VARBINARY.createBlockBuilder(null, 1).writeLong(dateTime.getMillis()).closeEntry().build();
-        Block actualTimestamp = toBinaryBlock(BIGINT, new Timestamp(dateTime.getMillis()), getInspector(Timestamp.class));
+        Block expectedTimestamp = VARBINARY.createBlockBuilder(null, 1).writeLong(dateTime.getMillis() * MICROSECONDS_PER_MILLISECOND).closeEntry().build();
+        Block actualTimestamp = toBinaryBlock(BIGINT, Timestamp.ofEpochMilli(dateTime.getMillis()), getInspector(Timestamp.class));
         assertBlockEquals(actualTimestamp, expectedTimestamp);
 
         // binary

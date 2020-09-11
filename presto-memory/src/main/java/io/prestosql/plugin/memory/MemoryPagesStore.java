@@ -28,7 +28,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static io.prestosql.plugin.memory.MemoryErrorCode.MEMORY_LIMIT_EXCEEDED;
 import static io.prestosql.plugin.memory.MemoryErrorCode.MISSING_DATA;
@@ -80,7 +83,9 @@ public class MemoryPagesStore
             int partNumber,
             int totalParts,
             List<Integer> columnIndexes,
-            long expectedRows)
+            long expectedRows,
+            OptionalLong limit,
+            OptionalDouble sampleRatio)
     {
         if (!contains(tableId)) {
             throw new PrestoException(MISSING_DATA, "Failed to find table on a worker.");
@@ -93,8 +98,20 @@ public class MemoryPagesStore
 
         ImmutableList.Builder<Page> partitionedPages = ImmutableList.builder();
 
-        for (int i = partNumber; i < tableData.getPages().size(); i += totalParts) {
-            partitionedPages.add(getColumns(tableData.getPages().get(i), columnIndexes));
+        boolean done = false;
+        long totalRows = 0;
+        for (int i = partNumber; i < tableData.getPages().size() && !done; i += totalParts) {
+            if (sampleRatio.isPresent() && ThreadLocalRandom.current().nextDouble() >= sampleRatio.getAsDouble()) {
+                continue;
+            }
+
+            Page page = tableData.getPages().get(i);
+            totalRows += page.getPositionCount();
+            if (limit.isPresent() && totalRows > limit.getAsLong()) {
+                page = page.getRegion(0, (int) (page.getPositionCount() - (totalRows - limit.getAsLong())));
+                done = true;
+            }
+            partitionedPages.add(getColumns(page, columnIndexes));
         }
 
         return partitionedPages.build();
@@ -116,7 +133,7 @@ public class MemoryPagesStore
         // - are missing from activeTableIds set
 
         if (activeTableIds.isEmpty()) {
-            // if activeTableIds is empty, we can not determine latestTableId...
+            // if activeTableIds is empty, we cannot determine latestTableId...
             return;
         }
         long latestTableId = Collections.max(activeTableIds);
@@ -146,7 +163,7 @@ public class MemoryPagesStore
 
     private static final class TableData
     {
-        private List<Page> pages = new ArrayList<>();
+        private final List<Page> pages = new ArrayList<>();
         private long rows;
 
         public void add(Page page)

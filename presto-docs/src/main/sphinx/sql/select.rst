@@ -8,14 +8,16 @@ Synopsis
 .. code-block:: none
 
     [ WITH with_query [, ...] ]
-    SELECT [ ALL | DISTINCT ] select_expr [, ...]
+    SELECT [ ALL | DISTINCT ] select_expression [, ...]
     [ FROM from_item [, ...] ]
     [ WHERE condition ]
     [ GROUP BY [ ALL | DISTINCT ] grouping_element [, ...] ]
     [ HAVING condition]
     [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] select ]
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
-    [ LIMIT [ count | ALL ] ]
+    [ OFFSET count [ ROW | ROWS ] ]
+    [ LIMIT { count | ALL } ]
+    [ FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } { ONLY | WITH TIES } ]
 
 where ``from_item`` is one of
 
@@ -25,7 +27,8 @@ where ``from_item`` is one of
 
 .. code-block:: none
 
-    from_item join_type from_item [ ON join_condition | USING ( join_column [, ...] ) ]
+    from_item join_type from_item
+      [ ON join_condition | USING ( join_column [, ...] ) ]
 
 and ``join_type`` is one of
 
@@ -84,6 +87,102 @@ Additionally, the relations within a ``WITH`` clause can chain::
       z AS (SELECT b AS c FROM y)
     SELECT c FROM z;
 
+.. warning::
+    Currently, the SQL for the ``WITH`` clause will be inlined anywhere the named
+    relation is used. This means that if the relation is used more than once and the query
+    is non-deterministic, the results may be different each time.
+
+SELECT Clause
+-------------
+
+The ``SELECT`` clause specifies the output of the query. Each ``select_expression``
+defines a column or columns to be included in the result.
+
+.. code-block:: none
+
+    SELECT [ ALL | DISTINCT ] select_expression [, ...]
+
+The ``ALL`` and ``DISTINCT`` quantifiers determine whether duplicate rows
+are included in the result set. If the argument ``ALL`` is specified,
+all rows are included. If the argument ``DISTINCT`` is specified, only unique
+rows are included in the result set. In this case, each output column must
+be of a type that allows comparison. If neither argument is specified,
+the behavior defaults to ``ALL``.
+
+Select expressions
+^^^^^^^^^^^^^^^^^^
+
+Each ``select_expression`` must be in one of the following forms:
+
+.. code-block:: none
+
+    expression [ [ AS ] column_alias ]
+
+.. code-block:: none
+
+    row_expression.* [ AS ( column_alias [, ...] ) ]
+
+.. code-block:: none
+
+    relation.*
+
+.. code-block:: none
+
+    *
+
+In the case of ``expression [ [ AS ] column_alias ]``, a single output column
+is defined.
+
+In the case of ``row_expression.* [ AS ( column_alias [, ...] ) ]``,
+the ``row_expression`` is an arbitrary expression of type ``ROW``.
+All fields of the row define output columns to be included in the result set.
+
+In the case of ``relation.*``, all columns of ``relation`` are included
+in the result set. In this case column aliases are not allowed.
+
+In the case of ``*``, all columns of the relation defined by the query
+are included in the result set.
+
+In the result set, the order of columns is the same as the order of their
+specification by the select expressions. If a select expression returns multiple
+columns, they are ordered the same way they were ordered in the source
+relation or row type expression.
+
+If column aliases are specified, they override any preexisting column
+or row field names::
+
+    SELECT (CAST(ROW(1, true) AS ROW(field1 bigint, field2 boolean))).* AS (alias1, alias2);
+
+.. code-block:: none
+
+     alias1 | alias2
+    --------+--------
+          1 | true
+    (1 row)
+
+Otherwise, the existing names are used::
+
+    SELECT (CAST(ROW(1, true) AS ROW(field1 bigint, field2 boolean))).*;
+
+.. code-block:: none
+
+     field1 | field2
+    --------+--------
+          1 | true
+    (1 row)
+
+and in their absence, anonymous columns are produced::
+
+    SELECT (ROW(1, true)).*;
+
+.. code-block:: none
+
+     _col0 | _col1
+    -------+-------
+         1 | true
+    (1 row)
+
+
 GROUP BY Clause
 ---------------
 
@@ -124,7 +223,8 @@ the ``GROUP BY`` clause.
 
 .. _complex_grouping_operations:
 
-**Complex Grouping Operations**
+Complex Grouping Operations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Presto also supports complex aggregations using the ``GROUPING SETS``, ``CUBE``
 and ``ROLLUP`` syntax. This syntax allows users to perform analysis that requires
@@ -137,7 +237,8 @@ Complex grouping operations are often equivalent to a ``UNION ALL`` of simple
 does not apply, however, when the source of data for the aggregation
 is non-deterministic.
 
-**GROUPING SETS**
+GROUPING SETS
+^^^^^^^^^^^^^
 
 Grouping sets allow users to specify multiple lists of columns to group on.
 The columns not part of a given sublist of grouping columns are set to ``NULL``.
@@ -204,7 +305,8 @@ query with the ``UNION ALL`` reads the underlying data three times. This is why
 queries with a ``UNION ALL`` may produce inconsistent results when the data
 source is not deterministic.
 
-**CUBE**
+CUBE
+^^^^
 
 The ``CUBE`` operator generates all possible grouping sets (i.e. a power set)
 for a given set of columns. For example, the query::
@@ -241,7 +343,8 @@ is equivalent to::
      NULL         | NULL              |  1625
     (12 rows)
 
-**ROLLUP**
+ROLLUP
+^^^^^^
 
 The ``ROLLUP`` operator generates all possible subtotals for a given set of
 columns. For example, the query::
@@ -270,7 +373,8 @@ is equivalent to::
     FROM shipping
     GROUP BY GROUPING SETS ((origin_state, origin_zip), (origin_state), ());
 
-**Combining multiple grouping expressions**
+Combining multiple grouping expressions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Multiple grouping expressions in the same query are interpreted as having
 cross-product semantics. For example, the following query::
@@ -364,7 +468,8 @@ only unique grouping sets are generated::
 
 The default set quantifier is ``ALL``.
 
-**GROUPING Operation**
+GROUPING Operation
+^^^^^^^^^^^^^^^^^^
 
 ``grouping(col1, ..., colN) -> bigint``
 
@@ -438,8 +543,8 @@ with an account balance greater than the specified value::
       1247 | FURNITURE  |         8 |  5701952
     (7 rows)
 
-UNION | INTERSECT | EXCEPT Clause
----------------------------------
+Set Operations
+--------------
 
 ``UNION``  ``INTERSECT`` and ``EXCEPT`` are all set operations.  These clauses are used
 to combine the results of more than one select statement into a single result set:
@@ -469,7 +574,8 @@ specified via parentheses. Additionally, ``INTERSECT`` binds more tightly
 than ``EXCEPT`` and ``UNION``. That means ``A UNION B INTERSECT C EXCEPT D``
 is the same as ``A UNION (B INTERSECT C) EXCEPT D``.
 
-**UNION**
+UNION Clause
+^^^^^^^^^^^^
 
 ``UNION`` combines all the rows that are in the result set from the
 first query with those that are in the result set for the second query.
@@ -520,7 +626,8 @@ selects the values ``42`` and ``13``::
         13
     (2 rows)
 
-**INTERSECT**
+INTERSECT Clause
+^^^^^^^^^^^^^^^^
 
 ``INTERSECT`` returns only the rows that are in the result sets of both the first and
 the second queries. The following is an example of one of the simplest
@@ -539,7 +646,8 @@ is only in the result set of the first query, it is not included in the final re
         13
     (2 rows)
 
-**EXCEPT**
+EXCEPT Clause
+^^^^^^^^^^^^^
 
 ``EXCEPT`` returns the rows that are in the result set of the first query,
 but not the second. The following is an example of one of the simplest
@@ -570,32 +678,156 @@ output expressions:
 
     ORDER BY expression [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...]
 
-Each expression may be composed of output columns or it may be an ordinal
-number selecting an output column by position (starting at one). The
-``ORDER BY`` clause is evaluated as the last step of a query after any
-``GROUP BY`` or ``HAVING`` clause. The default null ordering is ``NULLS LAST``,
-regardless of the ordering direction.
+Each expression may be composed of output columns, or it may be an ordinal
+number selecting an output column by position, starting at one. The
+``ORDER BY`` clause is evaluated after any ``GROUP BY`` or ``HAVING`` clause,
+and before any ``OFFSET``, ``LIMIT`` or ``FETCH FIRST`` clause.
+The default null ordering is ``NULLS LAST``, regardless of the ordering direction.
 
-LIMIT Clause
-------------
+Note that, following the SQL specification, an ``ORDER BY`` clause only
+affects the order of rows for queries that immediately contain the clause.
+Presto follows that specification, and drops redundant usage of the clause to
+avoid negative performance impacts.
 
-The ``LIMIT`` clause restricts the number of rows in the result set.
-``LIMIT ALL`` is the same as omitting the ``LIMIT`` clause.
-The following example queries a large table, but the limit clause restricts
-the output to only have five rows (because the query lacks an ``ORDER BY``,
+In the following example, the clause only applies to the select statement.
+
+.. code-block:: SQL
+
+    INSERT INTO some_table
+    SELECT * FROM another_table
+    ORDER BY field
+
+Since tables in SQL are inherently unordered, and the ``ORDER BY`` clause in
+this case does not result in any difference, but negatively impacts performance
+of running the overall insert statement, Presto skips the sort operation.
+
+Another example where the ``ORDER BY`` clause is redundant, and does not affect
+the outcome of the overall statement, is a nested query:
+
+.. code-block:: SQL
+
+    SELECT *
+    FROM some_table
+        JOIN (SELECT * FROM another_table ORDER BY field) u
+        ON some_table.key = u.key
+
+More background information and details can be found in
+`a blog post about this optimization <https://prestosql.io/blog/2019/06/03/redundant-order-by.html>`_.
+
+.. _offset-clause:
+
+OFFSET Clause
+-------------
+
+The ``OFFSET`` clause is used to discard a number of leading rows
+from the result set:
+
+.. code-block:: none
+
+    OFFSET count [ ROW | ROWS ]
+
+If the ``ORDER BY`` clause is present, the ``OFFSET`` clause is evaluated
+over a sorted result set, and the set remains sorted after the
+leading rows are discarded::
+
+    SELECT name FROM nation ORDER BY name OFFSET 22;
+
+.. code-block:: none
+
+          name
+    ----------------
+     UNITED KINGDOM
+     UNITED STATES
+     VIETNAM
+    (3 rows)
+
+Otherwise, it is arbitrary which rows are discarded.
+If the count specified in the ``OFFSET`` clause equals or exceeds the size
+of the result set, the final result is empty.
+
+LIMIT or FETCH FIRST Clauses
+----------------------------
+
+The ``LIMIT`` or ``FETCH FIRST`` clause restricts the number of rows
+in the result set.
+
+.. code-block:: none
+
+    LIMIT { count | ALL }
+
+.. code-block:: none
+
+    FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } { ONLY | WITH TIES }
+
+The following example queries a large table, but the ``LIMIT`` clause
+restricts the output to only have five rows (because the query lacks an ``ORDER BY``,
 exactly which rows are returned is arbitrary)::
 
     SELECT orderdate FROM orders LIMIT 5;
 
 .. code-block:: none
 
-     o_orderdate
-    -------------
-     1996-04-14
-     1992-01-15
-     1995-02-01
-     1995-11-12
-     1992-04-26
+     orderdate
+    ------------
+     1994-07-25
+     1993-11-12
+     1992-10-06
+     1994-01-04
+     1997-12-28
+    (5 rows)
+
+``LIMIT ALL`` is the same as omitting the ``LIMIT`` clause.
+
+The ``FETCH FIRST`` clause supports either the ``FIRST`` or ``NEXT`` keywords
+and the ``ROW`` or ``ROWS`` keywords. These keywords are equivalent and
+the choice of keyword has no effect on query execution.
+
+If the count is not specified in the ``FETCH FIRST`` clause, it defaults to ``1``::
+
+    SELECT orderdate FROM orders FETCH FIRST ROW ONLY;
+
+.. code-block:: none
+
+     orderdate
+    ------------
+     1994-02-12
+    (1 row)
+
+If the ``OFFSET`` clause is present, the ``LIMIT`` or ``FETCH FIRST`` clause
+is evaluated after the ``OFFSET`` clause::
+
+    SELECT * FROM (VALUES 5, 2, 4, 1, 3) t(x) ORDER BY x OFFSET 2 LIMIT 2;
+
+.. code-block:: none
+
+     x
+    ---
+     3
+     4
+    (2 rows)
+
+For the ``FETCH FIRST`` clause, the argument ``ONLY`` or ``WITH TIES``
+controls which rows are included in the result set.
+
+If the argument ``ONLY`` is specified, the result set is limited to the exact
+number of leading rows determined by the count.
+
+If the argument ``WITH TIES`` is specified, it is required that the ``ORDER BY``
+clause be present. The result set consists of the same set of leading rows
+and all of the rows in the same peer group as the last of them ('ties')
+as established by the ordering in the ``ORDER BY`` clause. The result set is sorted::
+
+    SELECT name, regionkey FROM nation ORDER BY regionkey FETCH FIRST ROW WITH TIES;
+
+.. code-block:: none
+
+        name    | regionkey
+    ------------+-----------
+     ETHIOPIA   |         0
+     MOROCCO    |         0
+     KENYA      |         0
+     ALGERIA    |         0
+     MOZAMBIQUE |         0
     (5 rows)
 
 TABLESAMPLE
@@ -771,8 +1003,8 @@ This is repeated for set of rows from the column source tables.
 computing the rows to be joined::
 
     SELECT name, x, y
-    FROM nation,
-    CROSS JOIN LATERAL (SELECT name || ' :-' AS x),
+    FROM nation
+    CROSS JOIN LATERAL (SELECT name || ' :-' AS x)
     CROSS JOIN LATERAL (SELECT x || ')' AS y)
 
 Qualifying Column Names

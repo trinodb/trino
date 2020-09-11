@@ -16,15 +16,18 @@ package io.prestosql.sql.planner.assertions;
 import io.prestosql.Session;
 import io.prestosql.cost.StatsProvider;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode.Type;
 import io.prestosql.sql.tree.Expression;
 
+import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.prestosql.sql.planner.assertions.MatchResult.match;
 import static java.util.Objects.requireNonNull;
@@ -35,12 +38,14 @@ public class SpatialJoinMatcher
     private final Type type;
     private final Expression filter;
     private final Optional<String> kdbTree;
+    private final Optional<List<String>> outputSymbols;
 
-    public SpatialJoinMatcher(Type type, Expression filter, Optional<String> kdbTree)
+    public SpatialJoinMatcher(Type type, Expression filter, Optional<String> kdbTree, Optional<List<String>> outputSymbols)
     {
         this.type = type;
-        this.filter = requireNonNull(filter, "filter can not be null");
-        this.kdbTree = requireNonNull(kdbTree, "kdbTree can not be null");
+        this.filter = requireNonNull(filter, "filter cannot be null");
+        this.kdbTree = requireNonNull(kdbTree, "kdbTree cannot be null");
+        this.outputSymbols = requireNonNull(outputSymbols, "outputSymbols is null");
     }
 
     @Override
@@ -65,6 +70,18 @@ public class SpatialJoinMatcher
         }
         if (!joinNode.getKdbTree().equals(kdbTree)) {
             return NO_MATCH;
+        }
+        if (outputSymbols.isPresent()) {
+            if (outputSymbols.get().size() != joinNode.getOutputSymbols().size()) {
+                return NO_MATCH;
+            }
+            if (!outputSymbols.get().stream()
+                    .map(symbolAliases::get)
+                    .map(Symbol::from)
+                    .collect(toImmutableList())
+                    .equals(joinNode.getOutputSymbols())) {
+                return NO_MATCH;
+            }
         }
         return match();
     }

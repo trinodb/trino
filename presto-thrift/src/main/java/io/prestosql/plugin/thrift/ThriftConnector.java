@@ -14,7 +14,6 @@
 package io.prestosql.plugin.thrift;
 
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorIndexProvider;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -33,8 +32,6 @@ import static java.util.Objects.requireNonNull;
 public class ThriftConnector
         implements Connector
 {
-    private static final Logger log = Logger.get(ThriftConnector.class);
-
     private final LifeCycleManager lifeCycleManager;
     private final ThriftMetadata metadata;
     private final ThriftSplitManager splitManager;
@@ -98,15 +95,6 @@ public class ThriftConnector
     @Override
     public final void shutdown()
     {
-        try {
-            lifeCycleManager.stop();
-        }
-        catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            log.error(ie, "Interrupted while shutting down connector");
-        }
-        catch (Exception e) {
-            log.error(e, "Error shutting down connector");
-        }
+        lifeCycleManager.stop();
     }
 }

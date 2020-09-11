@@ -13,38 +13,46 @@
  */
 package io.prestosql.cost;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.prestosql.Session;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AllowAllAccessControl;
+import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.LiteralEncoder;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.DecimalLiteral;
 import io.prestosql.sql.tree.DoubleLiteral;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.SymbolReference;
+import io.prestosql.transaction.TestingTransactionManager;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 
 public class TestScalarStatsCalculator
 {
+    private Metadata metadata;
     private ScalarStatsCalculator calculator;
     private Session session;
     private final SqlParser sqlParser = new SqlParser();
@@ -52,7 +60,8 @@ public class TestScalarStatsCalculator
     @BeforeClass
     public void setUp()
     {
-        calculator = new ScalarStatsCalculator(MetadataManager.createTestMetadataManager());
+        metadata = createTestMetadataManager();
+        calculator = new ScalarStatsCalculator(metadata, new TypeAnalyzer(sqlParser, metadata));
         session = testSessionBuilder().build();
     }
 
@@ -112,18 +121,20 @@ public class TestScalarStatsCalculator
     public void testFunctionCall()
     {
         assertCalculate(
-                new FunctionCall(
-                        QualifiedName.of("length"),
-                        ImmutableList.of(new Cast(new NullLiteral(), "VARCHAR(10)"))))
+                new FunctionCallBuilder(metadata)
+                        .setName(QualifiedName.of("length"))
+                        .addArgument(createVarcharType(10), new Cast(new NullLiteral(), toSqlType(createVarcharType(10))))
+                        .build())
                 .distinctValuesCount(0.0)
                 .lowValueUnknown()
                 .highValueUnknown()
                 .nullsFraction(1.0);
 
         assertCalculate(
-                new FunctionCall(
-                        QualifiedName.of("length"),
-                        ImmutableList.of(new SymbolReference("x"))),
+                new FunctionCallBuilder(metadata)
+                        .setName(QualifiedName.of("length"))
+                        .addArgument(createVarcharType(2), new SymbolReference("x"))
+                        .build(),
                 PlanNodeStatsEstimate.unknown(),
                 TypeProvider.viewOf(ImmutableMap.of(new Symbol("x"), createVarcharType(2))))
                 .distinctValuesCountUnknown()
@@ -135,8 +146,7 @@ public class TestScalarStatsCalculator
     @Test
     public void testVarbinaryConstant()
     {
-        MetadataManager metadata = createTestMetadataManager();
-        LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+        LiteralEncoder literalEncoder = new LiteralEncoder(metadata);
         Expression expression = literalEncoder.toExpression(Slices.utf8Slice("ala ma kota"), VARBINARY);
 
         assertCalculate(expression)
@@ -177,7 +187,10 @@ public class TestScalarStatsCalculator
                         .build())
                 .build();
 
-        assertCalculate(new Cast(new SymbolReference("a"), "bigint"), inputStatistics)
+        assertCalculate(
+                new Cast(new SymbolReference("a"), toSqlType(BIGINT)),
+                inputStatistics,
+                TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), BIGINT)))
                 .lowValue(2.0)
                 .highValue(17.0)
                 .distinctValuesCount(10)
@@ -198,7 +211,10 @@ public class TestScalarStatsCalculator
                         .build())
                 .build();
 
-        assertCalculate(new Cast(new SymbolReference("a"), "bigint"), inputStatistics)
+        assertCalculate(
+                new Cast(new SymbolReference("a"), toSqlType(BIGINT)),
+                inputStatistics,
+                TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), BIGINT)))
                 .lowValue(2.0)
                 .highValue(3.0)
                 .distinctValuesCount(2)
@@ -218,7 +234,10 @@ public class TestScalarStatsCalculator
                         .build())
                 .build();
 
-        assertCalculate(new Cast(new SymbolReference("a"), "bigint"), inputStatistics)
+        assertCalculate(
+                new Cast(new SymbolReference("a"), toSqlType(BIGINT)),
+                inputStatistics,
+                TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), BIGINT)))
                 .lowValue(2.0)
                 .highValue(3.0)
                 .distinctValuesCountUnknown()
@@ -239,7 +258,10 @@ public class TestScalarStatsCalculator
                         .build())
                 .build();
 
-        assertCalculate(new Cast(new SymbolReference("a"), "double"), inputStatistics)
+        assertCalculate(
+                new Cast(new SymbolReference("a"), toSqlType(DOUBLE)),
+                inputStatistics,
+                TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), DOUBLE)))
                 .lowValue(2.0)
                 .highValue(10.0)
                 .distinctValuesCount(4)
@@ -250,7 +272,10 @@ public class TestScalarStatsCalculator
     @Test
     public void testCastUnknown()
     {
-        assertCalculate(new Cast(new SymbolReference("a"), "bigint"), PlanNodeStatsEstimate.unknown())
+        assertCalculate(
+                new Cast(new SymbolReference("a"), toSqlType(BIGINT)),
+                PlanNodeStatsEstimate.unknown(),
+                TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), BIGINT)))
                 .lowValueUnknown()
                 .highValueUnknown()
                 .distinctValuesCountUnknown()
@@ -270,7 +295,11 @@ public class TestScalarStatsCalculator
 
     private SymbolStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, TypeProvider types)
     {
-        return SymbolStatsAssertion.assertThat(calculator.calculate(scalarExpression, inputStatistics, session, types));
+        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+                .singleStatement()
+                .execute(session, transactionSession -> {
+                    return SymbolStatsAssertion.assertThat(calculator.calculate(scalarExpression, inputStatistics, transactionSession, types));
+                });
     }
 
     @Test
@@ -475,6 +504,6 @@ public class TestScalarStatsCalculator
 
     private Expression expression(String sqlExpression)
     {
-        return rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(sqlExpression));
+        return rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(sqlExpression, new ParsingOptions()));
     }
 }

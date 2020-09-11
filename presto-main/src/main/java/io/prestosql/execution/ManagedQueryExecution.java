@@ -24,7 +24,7 @@ import java.util.Optional;
 
 public interface ManagedQueryExecution
 {
-    void start();
+    void startWaitingForResources();
 
     void fail(Throwable cause);
 
@@ -44,6 +44,10 @@ public interface ManagedQueryExecution
     Duration getTotalCpuTime();
 
     BasicQueryInfo getBasicQueryInfo();
+
+    QueryInfo getFullQueryInfo();
+
+    QueryState getState();
 
     boolean isDone();
 

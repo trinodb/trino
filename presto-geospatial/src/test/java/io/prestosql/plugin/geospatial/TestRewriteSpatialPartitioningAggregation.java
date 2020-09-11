@@ -23,6 +23,7 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
@@ -43,9 +44,9 @@ public class TestRewriteSpatialPartitioningAggregation
         assertRuleApplication()
                 .on(p -> p.aggregation(a ->
                         a.globalGrouping()
-                                .step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.symbol("sp"), PlanBuilder.expression("spatial_partitioning(geometry, 10)"), ImmutableList.of(GEOMETRY))
-                                .source(p.values(p.symbol("geometry")))))
+                                .step(AggregationNode.Step.SINGLE)
+                                .addAggregation(p.symbol("sp"), PlanBuilder.expression("spatial_partitioning(geometry, n)"), ImmutableList.of(GEOMETRY, INTEGER))
+                                .source(p.values(p.symbol("geometry"), p.symbol("n")))))
                 .doesNotFire();
     }
 
@@ -55,7 +56,7 @@ public class TestRewriteSpatialPartitioningAggregation
         assertRuleApplication()
                 .on(p -> p.aggregation(a ->
                         a.globalGrouping()
-                                .step(AggregationNode.Step.FINAL)
+                                .step(AggregationNode.Step.SINGLE)
                                 .addAggregation(p.symbol("sp"), PlanBuilder.expression("spatial_partitioning(geometry)"), ImmutableList.of(GEOMETRY))
                                 .source(p.values(p.symbol("geometry")))))
                 .matches(
@@ -69,9 +70,9 @@ public class TestRewriteSpatialPartitioningAggregation
         assertRuleApplication()
                 .on(p -> p.aggregation(a ->
                         a.globalGrouping()
-                                .step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.symbol("sp"), PlanBuilder.expression("spatial_partitioning(ST_Envelope(geometry))"), ImmutableList.of(GEOMETRY))
-                                .source(p.values(p.symbol("geometry")))))
+                                .step(AggregationNode.Step.SINGLE)
+                                .addAggregation(p.symbol("sp"), PlanBuilder.expression("spatial_partitioning(envelope)"), ImmutableList.of(GEOMETRY))
+                                .source(p.values(p.symbol("envelope")))))
                 .matches(
                         aggregation(
                                 ImmutableMap.of("sp", functionCall("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),

@@ -41,6 +41,7 @@ public class StaticSelector
     private static final String SOURCE_VARIABLE = "SOURCE";
 
     private final Optional<Pattern> userRegex;
+    private final Optional<Pattern> userGroupRegex;
     private final Optional<Pattern> sourceRegex;
     private final Set<String> clientTags;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
@@ -50,6 +51,7 @@ public class StaticSelector
 
     public StaticSelector(
             Optional<Pattern> userRegex,
+            Optional<Pattern> userGroupRegex,
             Optional<Pattern> sourceRegex,
             Optional<List<String>> clientTags,
             Optional<SelectorResourceEstimate> selectorResourceEstimate,
@@ -57,6 +59,7 @@ public class StaticSelector
             ResourceGroupIdTemplate group)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
+        this.userGroupRegex = requireNonNull(userGroupRegex, "userGroupRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         requireNonNull(clientTags, "clientTags is null");
         this.clientTags = ImmutableSet.copyOf(clientTags.orElse(ImmutableList.of()));
@@ -74,7 +77,7 @@ public class StaticSelector
     }
 
     @Override
-    public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria)
+    public Optional<SelectionContext<ResourceGroupIdTemplate>> match(SelectionCriteria criteria)
     {
         Map<String, String> variables = new HashMap<>();
 
@@ -85,6 +88,10 @@ public class StaticSelector
             }
 
             addVariableValues(userRegex.get(), criteria.getUser(), variables);
+        }
+
+        if (userGroupRegex.isPresent() && criteria.getUserGroups().stream().noneMatch(group -> userGroupRegex.get().matcher(group).matches())) {
+            return Optional.empty();
         }
 
         if (sourceRegex.isPresent()) {
@@ -116,10 +123,8 @@ public class StaticSelector
         // Special handling for source, which is an optional field that is part of the standard variables
         variables.putIfAbsent(SOURCE_VARIABLE, criteria.getSource().orElse(""));
 
-        VariableMap map = new VariableMap(variables);
-        ResourceGroupId id = group.expandTemplate(map);
-
-        return Optional.of(new SelectionContext<>(id, map));
+        ResourceGroupId id = group.expandTemplate(new VariableMap(variables));
+        return Optional.of(new SelectionContext<>(id, group));
     }
 
     private static void addNamedGroups(Pattern pattern, HashSet<String> variables)

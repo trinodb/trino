@@ -1,4 +1,3 @@
-package io.prestosql.operator.scalar;
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,6 +11,7 @@ package io.prestosql.operator.scalar;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.prestosql.operator.scalar;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.OperatorDependency;
@@ -38,7 +38,7 @@ public final class ArrayGreaterThanOrEqualOperator
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThanOrEqual(
-            @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle greaterThanFunction,
+            @OperatorDependency(operator = GREATER_THAN, argumentTypes = {"T", "T"}) MethodHandle greaterThanFunction,
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block leftArray,
             @SqlType("array(T)") Block rightArray)

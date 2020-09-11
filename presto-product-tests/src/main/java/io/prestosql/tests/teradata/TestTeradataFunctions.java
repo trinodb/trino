@@ -13,15 +13,15 @@
  */
 package io.prestosql.tests.teradata;
 
-import io.prestodb.tempto.ProductTest;
+import io.prestosql.tempto.ProductTest;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.TestGroups.FUNCTIONS;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 

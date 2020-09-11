@@ -13,7 +13,8 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.tree.CurrentPath;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
@@ -25,25 +26,27 @@ import static io.prestosql.sql.tree.ExpressionTreeRewriter.rewriteWith;
 public class DesugarCurrentPath
         extends ExpressionRewriteRuleSet
 {
-    public DesugarCurrentPath()
+    public DesugarCurrentPath(Metadata metadata)
     {
-        super(createRewrite());
+        super(createRewrite(metadata));
     }
 
-    private static ExpressionRewriter createRewrite()
+    private static ExpressionRewriter createRewrite(Metadata metadata)
     {
-        return (expression, context) -> rewriteWith(new io.prestosql.sql.tree.ExpressionRewriter<Void>()
+        return (expression, context) -> rewriteWith(new io.prestosql.sql.tree.ExpressionRewriter<>()
         {
             @Override
             public Expression rewriteCurrentPath(CurrentPath node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                return DesugarCurrentPath.getCall(node);
+                return getCall(node, metadata);
             }
         }, expression);
     }
 
-    public static FunctionCall getCall(CurrentPath node)
+    public static FunctionCall getCall(CurrentPath node, Metadata metadata)
     {
-        return new FunctionCall(QualifiedName.of("$current_path"), ImmutableList.of());
+        return new FunctionCallBuilder(metadata)
+                .setName(QualifiedName.of("$current_path"))
+                .build();
     }
 }

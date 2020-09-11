@@ -16,14 +16,16 @@ package io.prestosql.operator.aggregation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.MoreCollectors;
+import io.prestosql.metadata.Signature;
 import io.prestosql.operator.ParametricImplementationsGroup;
 import io.prestosql.operator.annotations.FunctionsParserHelper;
 import io.prestosql.spi.function.AccumulatorState;
 import io.prestosql.spi.function.AggregationFunction;
-import io.prestosql.spi.function.AggregationStateSerializerFactory;
 import io.prestosql.spi.function.CombineFunction;
 import io.prestosql.spi.function.InputFunction;
 import io.prestosql.spi.function.OutputFunction;
+import io.prestosql.spi.function.RemoveInputFunction;
 import io.prestosql.spi.type.TypeSignature;
 
 import javax.annotation.Nullable;
@@ -40,13 +42,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
 import static io.prestosql.operator.annotations.FunctionsParserHelper.parseDescription;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class AggregationFromAnnotationsParser
+public final class AggregationFromAnnotationsParser
 {
-    private AggregationFromAnnotationsParser()
-    {
-    }
+    private AggregationFromAnnotationsParser() {}
 
     // This function should only be used for function matching for testing purposes.
     // General purpose function matching is done through FunctionRegistry.
@@ -56,30 +57,32 @@ public class AggregationFromAnnotationsParser
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
         for (ParametricAggregation aggregation : parseFunctionDefinitions(clazz)) {
-            if (aggregation.getSignature().getReturnType().equals(returnType) &&
-                    aggregation.getSignature().getArgumentTypes().equals(argumentTypes)) {
+            Signature signature = aggregation.getFunctionMetadata().getSignature();
+            if (signature.getReturnType().equals(returnType) &&
+                    signature.getArgumentTypes().equals(argumentTypes)) {
                 return aggregation;
             }
         }
-        throw new IllegalArgumentException(String.format("No method with return type %s and arguments %s", returnType, argumentTypes));
+        throw new IllegalArgumentException(format("No method with return type %s and arguments %s", returnType, argumentTypes));
     }
 
     public static List<ParametricAggregation> parseFunctionDefinitions(Class<?> aggregationDefinition)
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
+        boolean deprecated = aggregationDefinition.getAnnotationsByType(Deprecated.class).length > 0;
 
         ImmutableList.Builder<ParametricAggregation> builder = ImmutableList.builder();
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
             Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
-            Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
+                    Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, inputFunction);
                     for (AggregationHeader header : parseHeaders(aggregationDefinition, outputFunction)) {
-                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction);
                         ParametricImplementationsGroup<AggregationImplementation> implementations = ParametricImplementationsGroup.of(onlyImplementation);
-                        builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations));
+                        builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations, deprecated));
                     }
                 }
             }
@@ -92,39 +95,20 @@ public class AggregationFromAnnotationsParser
     {
         ParametricImplementationsGroup.Builder<AggregationImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
         AggregationHeader header = parseHeader(aggregationDefinition);
+        boolean deprecated = aggregationDefinition.getAnnotationsByType(Deprecated.class).length > 0;
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
             Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
-            Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             Method outputFunction = getOnlyElement(getOutputFunctions(aggregationDefinition, stateClass));
             for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
-                AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, inputFunction);
+                AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction);
                 implementationsBuilder.addImplementation(implementation);
             }
         }
 
         ParametricImplementationsGroup<AggregationImplementation> implementations = implementationsBuilder.build();
-        return new ParametricAggregation(implementations.getSignature(), header, implementations);
-    }
-
-    private static Optional<Method> getAggregationStateSerializerFactory(Class<?> aggregationDefinition, Class<?> stateClass)
-    {
-        // Only include methods that match this state class
-        List<Method> stateSerializerFactories = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(aggregationDefinition, AggregationStateSerializerFactory.class).stream()
-                .filter(method -> ((AggregationStateSerializerFactory) method.getAnnotation(AggregationStateSerializerFactory.class)).value().equals(stateClass))
-                .collect(toImmutableList());
-
-        if (stateSerializerFactories.isEmpty()) {
-            return Optional.empty();
-        }
-
-        checkArgument(stateSerializerFactories.size() == 1,
-                String.format(
-                        "Expect at most 1 @AggregationStateSerializerFactory(%s.class) annotation, found %s in %s",
-                        stateClass.toGenericString(),
-                        stateSerializerFactories.size(),
-                        aggregationDefinition.toGenericString()));
-        return Optional.of(getOnlyElement(stateSerializerFactories));
+        return new ParametricAggregation(implementations.getSignature(), header, implementations, deprecated);
     }
 
     private static AggregationHeader parseHeader(AnnotatedElement aggregationDefinition)
@@ -171,7 +155,7 @@ public class AggregationFromAnnotationsParser
         }
     }
 
-    public static Method getCombineFunction(Class<?> clazz, Class<?> stateClass)
+    private static Method getCombineFunction(Class<?> clazz, Class<?> stateClass)
     {
         // Only include methods that match this state class
         List<Method> combineFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, CombineFunction.class).stream()
@@ -179,7 +163,7 @@ public class AggregationFromAnnotationsParser
                 .filter(method -> method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method, 1)] == stateClass)
                 .collect(toImmutableList());
 
-        checkArgument(combineFunctions.size() == 1, String.format("There must be exactly one @CombineFunction in class %s for the @AggregationState %s ", clazz.toGenericString(), stateClass.toGenericString()));
+        checkArgument(combineFunctions.size() == 1, "There must be exactly one @CombineFunction in class %s for the @AggregationState %s", clazz.toGenericString(), stateClass.toGenericString());
         return getOnlyElement(combineFunctions);
     }
 
@@ -203,6 +187,15 @@ public class AggregationFromAnnotationsParser
 
         checkArgument(!inputFunctions.isEmpty(), "Aggregation has no input functions");
         return inputFunctions;
+    }
+
+    private static Optional<Method> getRemoveInputFunction(Class<?> clazz, Method inputFunction)
+    {
+        // Only include methods which take the same parameters as the corresponding input function
+        return FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, RemoveInputFunction.class).stream()
+                .filter(method -> Arrays.equals(method.getParameterTypes(), inputFunction.getParameterTypes()))
+                .filter(method -> Arrays.deepEquals(method.getParameterAnnotations(), inputFunction.getParameterAnnotations()))
+                .collect(MoreCollectors.toOptional());
     }
 
     private static Set<Class<?>> getStateClasses(Class<?> clazz)

@@ -24,6 +24,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class SelectorResourceEstimate
 {
@@ -64,22 +65,25 @@ public final class SelectorResourceEstimate
     boolean match(ResourceEstimates resourceEstimates)
     {
         if (executionTime.isPresent()) {
-            Optional<Duration> executionTimeEstimate = resourceEstimates.getExecutionTime();
-            if (!executionTimeEstimate.isPresent() || !executionTime.get().contains(executionTimeEstimate.get())) {
+            Optional<Duration> executionTimeEstimate = resourceEstimates.getExecutionTime()
+                    .map(value -> new Duration(value.toMillis(), MILLISECONDS));
+            if (executionTimeEstimate.isEmpty() || !executionTime.get().contains(executionTimeEstimate.get())) {
                 return false;
             }
         }
 
         if (cpuTime.isPresent()) {
-            Optional<Duration> cpuTimeEstimate = resourceEstimates.getCpuTime();
-            if (!cpuTimeEstimate.isPresent() || !cpuTime.get().contains(cpuTimeEstimate.get())) {
+            Optional<Duration> cpuTimeEstimate = resourceEstimates.getCpuTime()
+                    .map(value -> new Duration(value.toMillis(), MILLISECONDS));
+            if (cpuTimeEstimate.isEmpty() || !cpuTime.get().contains(cpuTimeEstimate.get())) {
                 return false;
             }
         }
 
         if (peakMemory.isPresent()) {
-            Optional<DataSize> peakMemoryEstimate = resourceEstimates.getPeakMemory();
-            if (!peakMemoryEstimate.isPresent() || !peakMemory.get().contains(peakMemoryEstimate.get())) {
+            Optional<DataSize> peakMemoryEstimate = resourceEstimates.getPeakMemoryBytes()
+                    .map(DataSize::ofBytes);
+            if (peakMemoryEstimate.isEmpty() || !peakMemory.get().contains(peakMemoryEstimate.get())) {
                 return false;
             }
         }
@@ -139,8 +143,8 @@ public final class SelectorResourceEstimate
 
         boolean contains(T value)
         {
-            return (!min.isPresent() || min.get().compareTo(value) <= 0) &&
-                    (!max.isPresent() || max.get().compareTo(value) >= 0);
+            return (min.isEmpty() || min.get().compareTo(value) <= 0) &&
+                    (max.isEmpty() || max.get().compareTo(value) >= 0);
         }
 
         @JsonProperty

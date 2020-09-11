@@ -33,12 +33,12 @@ source /etc/presto/env.sh
 
 start () {
     echo "Starting ${SERVICE_NAME} "
-    if [ -z "$JAVA8_HOME" ]
+    if [ -z "${JAVA_HOME}" ]
     then
-        echo "Warning: No value found for JAVA8_HOME. Default Java will be used."
+        echo "Warning: No value found for \$JAVA_HOME. Default Java will be used." >&2
         sudo -u $SERVICE_USER /usr/lib/presto/bin/launcher start "${CONFIGURATION[@]}"
     else
-        sudo -u $SERVICE_USER PATH=${JAVA8_HOME}/bin:$PATH /usr/lib/presto/bin/launcher start "${CONFIGURATION[@]}"
+        sudo -u $SERVICE_USER PATH=${JAVA_HOME}/bin:$PATH /usr/lib/presto/bin/launcher start "${CONFIGURATION[@]}"
     fi
     return $?
 }

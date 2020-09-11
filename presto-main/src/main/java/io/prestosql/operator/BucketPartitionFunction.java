@@ -34,14 +34,13 @@ public class BucketPartitionFunction
         partitionCount = IntStream.of(bucketToPartition).max().getAsInt() + 1;
     }
 
+    @Override
     public int getPartitionCount()
     {
         return partitionCount;
     }
 
-    /**
-     * @param functionArguments the arguments to bucketing function in order (no extra columns)
-     */
+    @Override
     public int getPartition(Page functionArguments, int position)
     {
         int bucket = bucketFunction.getBucket(functionArguments, position);

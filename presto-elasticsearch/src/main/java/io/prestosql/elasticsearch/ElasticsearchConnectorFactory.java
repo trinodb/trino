@@ -14,15 +14,17 @@
 package io.prestosql.elasticsearch;
 
 import com.google.inject.Injector;
-import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.prestosql.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
+import io.prestosql.plugin.base.jmx.MBeanServerModule;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.type.TypeManager;
+import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -51,25 +53,22 @@ public class ElasticsearchConnectorFactory
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
 
-        try {
-            Bootstrap app = new Bootstrap(
-                    new JsonModule(),
-                    new ElasticsearchConnectorModule(),
-                    binder -> {
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        binder.bind(ElasticsearchTableDescriptionProvider.class).in(Scopes.SINGLETON);
-                    });
+        Bootstrap app = new Bootstrap(
+                new MBeanModule(),
+                new MBeanServerModule(),
+                new ConnectorObjectNameGeneratorModule(catalogName, "io.prestosql.elasticsearch", "presto.plugin.elasticsearch"),
+                new JsonModule(),
+                new ElasticsearchConnectorModule(),
+                binder -> {
+                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                    binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                });
 
-            Injector injector = app.strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
+        Injector injector = app.strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
 
-            return injector.getInstance(ElasticsearchConnector.class);
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return injector.getInstance(ElasticsearchConnector.class);
     }
 }

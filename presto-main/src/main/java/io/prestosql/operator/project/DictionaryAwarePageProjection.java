@@ -20,6 +20,7 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.DictionaryId;
+import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
@@ -36,17 +37,21 @@ import static java.util.Objects.requireNonNull;
 public class DictionaryAwarePageProjection
         implements PageProjection
 {
+    private static final DriverYieldSignal NON_YIELDING_SIGNAL = new DriverYieldSignal();
+
     private final PageProjection projection;
     private final Function<DictionaryBlock, DictionaryId> sourceIdFunction;
+    private final boolean produceLazyBlock;
 
     private Block lastInputDictionary;
     private Optional<Block> lastOutputDictionary;
     private long lastDictionaryUsageCount;
 
-    public DictionaryAwarePageProjection(PageProjection projection, Function<DictionaryBlock, DictionaryId> sourceIdFunction)
+    public DictionaryAwarePageProjection(PageProjection projection, Function<DictionaryBlock, DictionaryId> sourceIdFunction, boolean produceLazyBlock)
     {
         this.projection = requireNonNull(projection, "projection is null");
         this.sourceIdFunction = sourceIdFunction;
+        this.produceLazyBlock = produceLazyBlock;
         verify(projection.isDeterministic(), "projection must be deterministic");
         verify(projection.getInputChannels().size() == 1, "projection must have only one input");
     }
@@ -80,9 +85,10 @@ public class DictionaryAwarePageProjection
     {
         private final ConnectorSession session;
         private final DriverYieldSignal yieldSignal;
-        private final Block block;
         private final SelectedPositions selectedPositions;
+        private final boolean produceLazyBlock;
 
+        private Block block;
         private Block result;
         // if the block is RLE or dictionary block, we may use dictionary processing
         private Work<Block> dictionaryProcessingProjectionWork;
@@ -92,27 +98,31 @@ public class DictionaryAwarePageProjection
         public DictionaryAwarePageProjectionWork(@Nullable ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
             this.session = session;
-            this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
-
-            Block block = requireNonNull(page, "page is null").getBlock(0).getLoadedBlock();
-            this.block = block;
+            this.block = requireNonNull(page, "page is null").getBlock(0);
             this.selectedPositions = requireNonNull(selectedPositions, "selectedPositions is null");
+            this.produceLazyBlock = DictionaryAwarePageProjection.this.produceLazyBlock && !block.isLoaded();
 
-            Optional<Block> dictionary = Optional.empty();
-            if (block instanceof RunLengthEncodedBlock) {
-                dictionary = Optional.of(((RunLengthEncodedBlock) block).getValue());
+            if (produceLazyBlock) {
+                this.yieldSignal = NON_YIELDING_SIGNAL;
             }
-            else if (block instanceof DictionaryBlock) {
-                dictionary = Optional.of(((DictionaryBlock) block).getDictionary());
+            else {
+                this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
+                setupDictionaryBlockProjection();
             }
-
-            // Try use dictionary processing first; if it fails, fall back to the generic case
-            dictionaryProcessingProjectionWork = createDictionaryBlockProjection(dictionary);
-            fallbackProcessingProjectionWork = null;
         }
 
         @Override
         public boolean process()
+        {
+            if (produceLazyBlock) {
+                return true;
+            }
+            else {
+                return processInternal();
+            }
+        }
+
+        private boolean processInternal()
         {
             checkState(result == null, "result has been generated");
             if (fallbackProcessingProjectionWork != null) {
@@ -182,13 +192,39 @@ public class DictionaryAwarePageProjection
         @Override
         public Block getResult()
         {
-            checkState(result != null, "result has not been generated");
-            return result;
+            if (produceLazyBlock) {
+                return new LazyBlock(selectedPositions.size(), () -> {
+                    setupDictionaryBlockProjection();
+                    checkState(processInternal(), "processInternal() yielded");
+                    checkState(result != null, "result has not been generated");
+                    return result.getLoadedBlock();
+                });
+            }
+            else {
+                checkState(result != null, "result has not been generated");
+                return result;
+            }
+        }
+
+        private void setupDictionaryBlockProjection()
+        {
+            block = block.getLoadedBlock();
+
+            Optional<Block> dictionary = Optional.empty();
+            if (block instanceof RunLengthEncodedBlock) {
+                dictionary = Optional.of(((RunLengthEncodedBlock) block).getValue());
+            }
+            else if (block instanceof DictionaryBlock) {
+                dictionary = Optional.of(((DictionaryBlock) block).getDictionary());
+            }
+
+            // Try use dictionary processing first; if it fails, fall back to the generic case
+            dictionaryProcessingProjectionWork = createDictionaryBlockProjection(dictionary);
         }
 
         private Work<Block> createDictionaryBlockProjection(Optional<Block> dictionary)
         {
-            if (!dictionary.isPresent()) {
+            if (dictionary.isEmpty()) {
                 lastOutputDictionary = Optional.empty();
                 return null;
             }

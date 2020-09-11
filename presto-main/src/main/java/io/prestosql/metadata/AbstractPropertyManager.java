@@ -16,16 +16,18 @@ package io.prestosql.metadata;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
+import io.prestosql.security.AccessControl;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.planner.ParameterRewriter;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.Parameter;
 
 import java.util.List;
 import java.util.Map;
@@ -42,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 
 abstract class AbstractPropertyManager
 {
-    private final ConcurrentMap<ConnectorId, Map<String, PropertyMetadata<?>>> connectorProperties = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, Map<String, PropertyMetadata<?>>> connectorProperties = new ConcurrentHashMap<>();
     private final String propertyType;
     private final ErrorCodeSupplier propertyError;
 
@@ -53,30 +55,31 @@ abstract class AbstractPropertyManager
         this.propertyError = requireNonNull(propertyError, "propertyError is null");
     }
 
-    public final void addProperties(ConnectorId connectorId, List<PropertyMetadata<?>> properties)
+    public final void addProperties(CatalogName catalogName, List<PropertyMetadata<?>> properties)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(properties, "properties is null");
 
         Map<String, PropertyMetadata<?>> propertiesByName = Maps.uniqueIndex(properties, PropertyMetadata::getName);
 
-        checkState(connectorProperties.putIfAbsent(connectorId, propertiesByName) == null, "Properties for connector '%s' are already registered", connectorId);
+        checkState(connectorProperties.putIfAbsent(catalogName, propertiesByName) == null, "Properties for connector '%s' are already registered", catalogName);
     }
 
-    public final void removeProperties(ConnectorId connectorId)
+    public final void removeProperties(CatalogName catalogName)
     {
-        connectorProperties.remove(connectorId);
+        connectorProperties.remove(catalogName);
     }
 
     public final Map<String, Object> getProperties(
-            ConnectorId connectorId,
+            CatalogName catalogName,
             String catalog, // only use this for error messages
             Map<String, Expression> sqlPropertyValues,
             Session session,
             Metadata metadata,
-            List<Expression> parameters)
+            AccessControl accessControl,
+            Map<NodeRef<Parameter>, Expression> parameters)
     {
-        Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(connectorId);
+        Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(catalogName);
         if (supportedProperties == null) {
             throw new PrestoException(NOT_FOUND, "Catalog not found: " + catalog);
         }
@@ -88,7 +91,8 @@ abstract class AbstractPropertyManager
             String propertyName = sqlProperty.getKey().toLowerCase(ENGLISH);
             PropertyMetadata<?> property = supportedProperties.get(propertyName);
             if (property == null) {
-                throw new PrestoException(propertyError,
+                throw new PrestoException(
+                        propertyError,
                         format("Catalog '%s' does not support %s property '%s'",
                                 catalog,
                                 propertyType,
@@ -97,15 +101,17 @@ abstract class AbstractPropertyManager
 
             Object sqlObjectValue;
             try {
-                sqlObjectValue = evaluatePropertyValue(sqlProperty.getValue(), property.getSqlType(), session, metadata, parameters);
+                sqlObjectValue = evaluatePropertyValue(sqlProperty.getValue(), property.getSqlType(), session, metadata, accessControl, parameters);
             }
-            catch (SemanticException e) {
-                throw new PrestoException(propertyError,
-                        format("Invalid value for %s property '%s': Cannot convert '%s' to %s",
+            catch (PrestoException e) {
+                throw new PrestoException(
+                        propertyError,
+                        format("Invalid value for %s property '%s': Cannot convert [%s] to %s",
                                 propertyType,
                                 property.getName(),
                                 sqlProperty.getValue(),
-                                property.getSqlType()), e);
+                                property.getSqlType()),
+                        e);
             }
 
             Object value;
@@ -113,12 +119,15 @@ abstract class AbstractPropertyManager
                 value = property.decode(sqlObjectValue);
             }
             catch (Exception e) {
-                throw new PrestoException(propertyError,
-                        format("Unable to set %s property '%s' to '%s': %s",
+                throw new PrestoException(
+                        propertyError,
+                        format(
+                                "Unable to set %s property '%s' to [%s]: %s",
                                 propertyType,
                                 property.getName(),
                                 sqlProperty.getValue(),
-                                e.getMessage()), e);
+                                e.getMessage()),
+                        e);
             }
 
             properties.put(property.getName(), value);
@@ -137,15 +146,21 @@ abstract class AbstractPropertyManager
         return properties.build();
     }
 
-    public Map<ConnectorId, Map<String, PropertyMetadata<?>>> getAllProperties()
+    public Map<CatalogName, Map<String, PropertyMetadata<?>>> getAllProperties()
     {
         return ImmutableMap.copyOf(connectorProperties);
     }
 
-    private Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, List<Expression> parameters)
+    private Object evaluatePropertyValue(
+            Expression expression,
+            Type expectedType,
+            Session session,
+            Metadata metadata,
+            AccessControl accessControl,
+            Map<NodeRef<Parameter>, Expression> parameters)
     {
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
-        Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, parameters);
+        Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, accessControl, parameters);
 
         // convert to object value type of SQL type
         BlockBuilder blockBuilder = expectedType.createBlockBuilder(null, 1);

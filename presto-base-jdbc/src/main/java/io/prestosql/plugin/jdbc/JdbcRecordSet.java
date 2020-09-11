@@ -27,17 +27,18 @@ public class JdbcRecordSet
         implements RecordSet
 {
     private final JdbcClient jdbcClient;
+    private final JdbcTableHandle table;
     private final List<JdbcColumnHandle> columnHandles;
     private final List<Type> columnTypes;
     private final JdbcSplit split;
     private final ConnectorSession session;
 
-    public JdbcRecordSet(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordSet(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.split = requireNonNull(split, "split is null");
 
-        requireNonNull(split, "split is null");
+        this.table = requireNonNull(table, "table is null");
         this.columnHandles = requireNonNull(columnHandles, "column handles is null");
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (JdbcColumnHandle column : columnHandles) {
@@ -56,6 +57,6 @@ public class JdbcRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new JdbcRecordCursor(jdbcClient, session, split, columnHandles);
+        return new JdbcRecordCursor(jdbcClient, session, split, table, columnHandles);
     }
 }

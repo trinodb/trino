@@ -19,6 +19,7 @@ import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.Type;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -102,9 +103,9 @@ public enum RedisInternalFieldDescription
         return type;
     }
 
-    RedisColumnHandle getColumnHandle(String connectorId, int index, boolean hidden)
+    RedisColumnHandle getColumnHandle(int index, boolean hidden)
     {
-        return new RedisColumnHandle(connectorId,
+        return new RedisColumnHandle(
                 index,
                 getColumnName(),
                 getType(),
@@ -118,6 +119,11 @@ public enum RedisInternalFieldDescription
 
     ColumnMetadata getColumnMetadata(boolean hidden)
     {
-        return new ColumnMetadata(columnName, type, comment, hidden);
+        return ColumnMetadata.builder()
+                .setName(columnName)
+                .setType(type)
+                .setComment(Optional.ofNullable(comment))
+                .setHidden(hidden)
+                .build();
     }
 }

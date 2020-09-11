@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Set;
 
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static java.lang.String.format;
 
 public final class GlueExpressionUtil
 {
@@ -72,9 +73,9 @@ public final class GlueExpressionUtil
     private static String buildPredicate(Column partitionKey, String value)
     {
         if (isQuotedType(partitionKey.getType())) {
-            return String.format("(%s='%s')", partitionKey.getName(), value);
+            return format("(%s='%s')", partitionKey.getName(), value);
         }
-        return String.format("(%s=%s)", partitionKey.getName(), value);
+        return format("(%s=%s)", partitionKey.getName(), value);
     }
 
     private static boolean isQuotedType(HiveType type)

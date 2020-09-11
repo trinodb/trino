@@ -15,9 +15,8 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
@@ -58,6 +57,7 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.block.BlockAssertions.createSlicesBlock;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -105,7 +105,7 @@ public class BenchmarkMapSubscript
         @Setup
         public void setup()
         {
-            MetadataManager metadata = MetadataManager.createTestMetadataManager();
+            Metadata metadata = createTestMetadataManager();
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
             List<String> keys;
@@ -146,16 +146,10 @@ public class BenchmarkMapSubscript
 
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
 
-            Signature signature = new Signature(
-                    "$operator$" + SUBSCRIPT.name(),
-                    FunctionKind.SCALAR,
-                    mapType.getValueType().getTypeSignature(),
-                    mapType.getTypeSignature(),
-                    mapType.getKeyType().getTypeSignature());
+            ResolvedFunction resolvedFunction = metadata.resolveOperator(SUBSCRIPT, ImmutableList.of(mapType, mapType.getKeyType()));
             for (int i = 0; i < mapSize; i++) {
                 projectionsBuilder.add(new CallExpression(
-                        signature,
-                        mapType.getValueType(),
+                        resolvedFunction,
                         ImmutableList.of(field(0, mapType), constant(utf8Slice(keys.get(i)), createUnboundedVarcharType()))));
             }
 
@@ -255,7 +249,7 @@ public class BenchmarkMapSubscript
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();

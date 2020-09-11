@@ -21,7 +21,6 @@ import io.prestosql.sql.planner.plan.GroupIdNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -31,15 +30,15 @@ import static io.prestosql.sql.planner.assertions.MatchResult.match;
 public class GroupIdMatcher
         implements Matcher
 {
-    private final List<List<String>> groups;
-    private final Map<String, String> identityMappings;
-    private final String groupIdAlias;
+    private final List<List<String>> groupingSets;
+    private final List<String> aggregationArguments;
+    private final String groupIdSymbol;
 
-    public GroupIdMatcher(List<List<String>> groups, Map<String, String> identityMappings, String groupIdAlias)
+    public GroupIdMatcher(List<List<String>> groupingSets, List<String> aggregationArguments, String groupIdSymbol)
     {
-        this.groups = groups;
-        this.identityMappings = identityMappings;
-        this.groupIdAlias = groupIdAlias;
+        this.groupingSets = groupingSets;
+        this.aggregationArguments = aggregationArguments;
+        this.groupIdSymbol = groupIdSymbol;
     }
 
     @Override
@@ -54,31 +53,33 @@ public class GroupIdMatcher
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         GroupIdNode groudIdNode = (GroupIdNode) node;
-        List<List<Symbol>> actualGroups = groudIdNode.getGroupingSets();
+        List<List<Symbol>> actualGroupingSets = groudIdNode.getGroupingSets();
         List<Symbol> actualAggregationArguments = groudIdNode.getAggregationArguments();
 
-        if (actualGroups.size() != groups.size()) {
+        if (actualGroupingSets.size() != groupingSets.size()) {
             return NO_MATCH;
         }
 
-        for (int i = 0; i < actualGroups.size(); i++) {
-            if (!AggregationMatcher.matches(groups.get(i), actualGroups.get(i), symbolAliases)) {
+        for (int i = 0; i < actualGroupingSets.size(); i++) {
+            if (!AggregationMatcher.matches(groupingSets.get(i), actualGroupingSets.get(i), symbolAliases)) {
                 return NO_MATCH;
             }
         }
 
-        if (!AggregationMatcher.matches(identityMappings.keySet(), actualAggregationArguments, symbolAliases)) {
+        if (!AggregationMatcher.matches(aggregationArguments, actualAggregationArguments, symbolAliases)) {
             return NO_MATCH;
         }
 
-        return match(groupIdAlias, groudIdNode.getGroupIdSymbol().toSymbolReference());
+        return match(groupIdSymbol, groudIdNode.getGroupIdSymbol().toSymbolReference());
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("groups", groups)
+                .add("groupingSets", groupingSets)
+                .add("aggregationArguments", aggregationArguments)
+                .add("groupIdSymbol", groupIdSymbol)
                 .toString();
     }
 }

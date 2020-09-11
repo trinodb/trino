@@ -30,7 +30,6 @@ import io.prestosql.operator.TaskContext;
 import io.prestosql.plugin.memory.MemoryConnectorFactory;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spiller.SpillSpaceTracker;
@@ -67,24 +66,19 @@ public class MemoryLocalQueryRunner
         localQueryRunner = createMemoryLocalQueryRunner(sessionBuilder.build());
     }
 
-    public void installPlugin(Plugin plugin)
-    {
-        localQueryRunner.installPlugin(plugin);
-    }
-
     public List<Page> execute(@Language("SQL") String query)
     {
-        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(2, GIGABYTE));
-        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
+        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), DataSize.of(2, GIGABYTE));
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
         QueryContext queryContext = new QueryContext(
                 new QueryId("test"),
-                new DataSize(1, GIGABYTE),
-                new DataSize(2, GIGABYTE),
+                DataSize.of(1, GIGABYTE),
+                DataSize.of(2, GIGABYTE),
                 memoryPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),
                 localQueryRunner.getScheduler(),
-                new DataSize(4, GIGABYTE),
+                DataSize.of(4, GIGABYTE),
                 spillSpaceTracker);
 
         TaskContext taskContext = queryContext
@@ -118,7 +112,9 @@ public class MemoryLocalQueryRunner
 
     private static LocalQueryRunner createMemoryLocalQueryRunner(Session session)
     {
-        LocalQueryRunner localQueryRunner = LocalQueryRunner.queryRunnerWithInitialTransaction(session);
+        LocalQueryRunner localQueryRunner = LocalQueryRunner.builder(session)
+                .withInitialTransaction()
+                .build();
 
         // add tpch
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());

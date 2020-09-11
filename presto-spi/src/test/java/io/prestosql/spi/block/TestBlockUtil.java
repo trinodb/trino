@@ -30,7 +30,7 @@ public class TestBlockUtil
             BlockUtil.calculateNewArraySize(MAX_ARRAY_SIZE);
         }
         catch (IllegalArgumentException e) {
-            assertEquals(e.getMessage(), format("Can not grow array beyond '%s'", MAX_ARRAY_SIZE));
+            assertEquals(e.getMessage(), format("Cannot grow array beyond '%s'", MAX_ARRAY_SIZE));
         }
     }
 }

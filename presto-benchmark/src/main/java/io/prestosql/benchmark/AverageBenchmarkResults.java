@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AverageBenchmarkResults
@@ -50,7 +51,7 @@ public class AverageBenchmarkResults
 
     public Map<String, String> getAverageResultsStrings()
     {
-        return Maps.transformValues(resultsSum, input -> String.format("%,3.2f", 1.0 * input / resultsCount));
+        return Maps.transformValues(resultsSum, input -> format("%,3.2f", 1.0 * input / resultsCount));
     }
 
     @Override

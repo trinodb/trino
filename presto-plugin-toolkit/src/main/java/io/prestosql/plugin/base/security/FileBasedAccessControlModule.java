@@ -22,12 +22,20 @@ import io.prestosql.spi.connector.ConnectorAccessControl;
 
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class FileBasedAccessControlModule
         implements Module
 {
     private static final Logger log = Logger.get(FileBasedAccessControlModule.class);
+
+    private final String catalogName;
+
+    public FileBasedAccessControlModule(String catalogName)
+    {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+    }
 
     @Override
     public void configure(Binder binder)
@@ -42,7 +50,7 @@ public class FileBasedAccessControlModule
         if (config.getRefreshPeriod() != null) {
             return ForwardingConnectorAccessControl.of(memoizeWithExpiration(
                     () -> {
-                        log.info("Refreshing system access control from %s", config.getConfigFile());
+                        log.info("Refreshing access control for catalog '%s' from: %s", catalogName, config.getConfigFile());
                         return new FileBasedAccessControl(config);
                     },
                     config.getRefreshPeriod().toMillis(),

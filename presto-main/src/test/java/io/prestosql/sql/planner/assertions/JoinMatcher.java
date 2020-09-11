@@ -39,13 +39,23 @@ final class JoinMatcher
     private final List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria;
     private final Optional<Expression> filter;
     private final Optional<DistributionType> distributionType;
+    private final Optional<Boolean> spillable;
+    private final Optional<DynamicFilterMatcher> dynamicFilter;
 
-    JoinMatcher(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria, Optional<Expression> filter, Optional<DistributionType> distributionType)
+    JoinMatcher(
+            JoinNode.Type joinType,
+            List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria,
+            Optional<Expression> filter,
+            Optional<DistributionType> distributionType,
+            Optional<Boolean> spillable,
+            Optional<DynamicFilterMatcher> dynamicFilter)
     {
         this.joinType = requireNonNull(joinType, "joinType is null");
         this.equiCriteria = requireNonNull(equiCriteria, "equiCriteria is null");
-        this.filter = requireNonNull(filter, "filter can not be null");
+        this.filter = requireNonNull(filter, "filter cannot be null");
         this.distributionType = requireNonNull(distributionType, "distributionType is null");
+        this.spillable = requireNonNull(spillable, "spillable is null");
+        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
     }
 
     @Override
@@ -71,7 +81,7 @@ final class JoinMatcher
         }
 
         if (filter.isPresent()) {
-            if (!joinNode.getFilter().isPresent()) {
+            if (joinNode.getFilter().isEmpty()) {
                 return NO_MATCH;
             }
             if (!new ExpressionVerifier(symbolAliases).process(joinNode.getFilter().get(), filter.get())) {
@@ -88,6 +98,10 @@ final class JoinMatcher
             return NO_MATCH;
         }
 
+        if (spillable.isPresent() && !spillable.equals(joinNode.isSpillable())) {
+            return NO_MATCH;
+        }
+
         /*
          * Have to use order-independent comparison; there are no guarantees what order
          * the equi criteria will have after planning and optimizing.
@@ -98,7 +112,15 @@ final class JoinMatcher
                         .map(maker -> maker.getExpectedValue(symbolAliases))
                         .collect(toImmutableSet());
 
-        return new MatchResult(expected.equals(actual));
+        if (!expected.equals(actual)) {
+            return NO_MATCH;
+        }
+
+        if (dynamicFilter.isPresent() && !dynamicFilter.get().match(joinNode, symbolAliases).isMatch()) {
+            return NO_MATCH;
+        }
+
+        return MatchResult.match();
     }
 
     @Override
@@ -110,6 +132,7 @@ final class JoinMatcher
                 .add("equiCriteria", equiCriteria)
                 .add("filter", filter.orElse(null))
                 .add("distributionType", distributionType)
+                .add("dynamicFilter", dynamicFilter.map(DynamicFilterMatcher::getJoinExpectedMappings))
                 .toString();
     }
 }

@@ -22,6 +22,7 @@ import java.util.List;
 
 import static io.prestosql.cli.TestAlignedTablePrinter.row;
 import static io.prestosql.cli.TestAlignedTablePrinter.rows;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
 public class TestTsvPrinter
@@ -89,14 +90,14 @@ public class TestTsvPrinter
     }
 
     @Test
-    public void testCsvVarbinaryPrinting()
+    public void testTsvVarbinaryPrinting()
             throws IOException
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
         OutputPrinter printer = new TsvPrinter(fieldNames, writer, false);
 
-        printer.printRows(rows(row("hello".getBytes(), null, 123)), true);
+        printer.printRows(rows(row("hello".getBytes(UTF_8), null, 123)), true);
         printer.finish();
 
         String expected = "68 65 6c 6c 6f\t\t123\n";

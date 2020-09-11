@@ -14,7 +14,6 @@
 package io.prestosql.memory;
 
 import com.google.common.base.Predicate;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
@@ -47,14 +46,14 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.testing.LocalQueryRunner.queryRunnerWithInitialTransaction;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -64,9 +63,9 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestMemoryPools
 {
-    private static final DataSize TEN_MEGABYTES = new DataSize(10, MEGABYTE);
-    private static final DataSize TEN_MEGABYTES_WITHOUT_TWO_BYTES = new DataSize(TEN_MEGABYTES.toBytes() - 2, BYTE);
-    private static final DataSize ONE_BYTE = new DataSize(1, BYTE);
+    private static final DataSize TEN_MEGABYTES = DataSize.of(10, MEGABYTE);
+    private static final DataSize TEN_MEGABYTES_WITHOUT_TWO_BYTES = DataSize.ofBytes(TEN_MEGABYTES.toBytes() - 2);
+    private static final DataSize ONE_BYTE = DataSize.ofBytes(1);
 
     private QueryId fakeQueryId;
     private LocalQueryRunner localQueryRunner;
@@ -84,24 +83,26 @@ public class TestMemoryPools
                 .setSystemProperty("task_default_concurrency", "1")
                 .build();
 
-        localQueryRunner = queryRunnerWithInitialTransaction(session);
+        localQueryRunner = LocalQueryRunner.builder(session)
+                .withInitialTransaction()
+                .build();
 
         // add tpch
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
 
         userPool = new MemoryPool(new MemoryPoolId("test"), TEN_MEGABYTES);
         fakeQueryId = new QueryId("fake");
-        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
         QueryContext queryContext = new QueryContext(new QueryId("query"),
                 TEN_MEGABYTES,
-                new DataSize(20, MEGABYTE),
+                DataSize.of(20, MEGABYTE),
                 userPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),
                 localQueryRunner.getScheduler(),
                 TEN_MEGABYTES,
                 spillSpaceTracker);
-        taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), session);
+        taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), localQueryRunner.getDefaultSession());
         drivers = driversSupplier.get();
     }
 
@@ -150,7 +151,7 @@ public class TestMemoryPools
         setUpCountStarFromOrdersWithJoin();
         assertTrue(userPool.tryReserve(fakeQueryId, "test", TEN_MEGABYTES.toBytes()));
         runDriversUntilBlocked(waitingForUserMemory());
-        assertTrue(userPool.getFreeBytes() <= 0, String.format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
+        assertTrue(userPool.getFreeBytes() <= 0, format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
         userPool.free(fakeQueryId, "test", TEN_MEGABYTES.toBytes());
         assertDriversProgress(waitingForUserMemory());
     }
@@ -175,7 +176,7 @@ public class TestMemoryPools
     public void testMemoryFutureCancellation()
     {
         setUpCountStarFromOrdersWithJoin();
-        ListenableFuture future = userPool.reserve(fakeQueryId, "test", TEN_MEGABYTES.toBytes());
+        ListenableFuture<?> future = userPool.reserve(fakeQueryId, "test", TEN_MEGABYTES.toBytes());
         assertTrue(!future.isDone());
         try {
             future.cancel(true);
@@ -196,12 +197,12 @@ public class TestMemoryPools
 
         // we expect 2 iterations as we have 2 bytes remaining in memory pool and we allocate 1 byte per page
         assertEquals(runDriversUntilBlocked(waitingForRevocableSystemMemory()), 2);
-        assertTrue(userPool.getFreeBytes() <= 0, String.format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
+        assertTrue(userPool.getFreeBytes() <= 0, format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
 
         // lets free 5 bytes
         userPool.free(fakeQueryId, "test", 5);
         assertEquals(runDriversUntilBlocked(waitingForRevocableSystemMemory()), 5);
-        assertTrue(userPool.getFreeBytes() <= 0, String.format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
+        assertTrue(userPool.getFreeBytes() <= 0, format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
 
         // 3 more bytes is enough for driver to finish
         userPool.free(fakeQueryId, "test", 3);
@@ -232,7 +233,7 @@ public class TestMemoryPools
     public void testTaggedAllocations()
     {
         QueryId testQuery = new QueryId("test_query");
-        MemoryPool testPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1000, BYTE));
+        MemoryPool testPool = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
 
         testPool.reserve(testQuery, "test_tag", 10);
 
@@ -259,8 +260,8 @@ public class TestMemoryPools
     public void testMoveQuery()
     {
         QueryId testQuery = new QueryId("test_query");
-        MemoryPool pool1 = new MemoryPool(new MemoryPoolId("test"), new DataSize(1000, BYTE));
-        MemoryPool pool2 = new MemoryPool(new MemoryPoolId("test"), new DataSize(1000, BYTE));
+        MemoryPool pool1 = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
+        MemoryPool pool2 = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
         pool1.reserve(testQuery, "test_tag", 10);
 
         Map<String, Long> allocations = pool1.getTaggedMemoryAllocations().get(testQuery);
@@ -276,6 +277,20 @@ public class TestMemoryPools
 
         pool2.free(testQuery, "test", 10);
         assertEquals(pool2.getFreeBytes(), 1000);
+    }
+
+    @Test
+    public void testMoveUnknownQuery()
+    {
+        QueryId testQuery = new QueryId("test_query");
+        MemoryPool pool1 = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
+        MemoryPool pool2 = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
+
+        assertNull(pool1.getTaggedMemoryAllocations().get(testQuery));
+
+        pool1.moveQuery(testQuery, pool2);
+        assertNull(pool1.getTaggedMemoryAllocations().get(testQuery));
+        assertNull(pool2.getTaggedMemoryAllocations().get(testQuery));
     }
 
     private long runDriversUntilBlocked(Predicate<OperatorContext> reason)
@@ -336,7 +351,7 @@ public class TestMemoryPools
         return false;
     }
 
-    private class RevocableMemoryOperator
+    private static class RevocableMemoryOperator
             implements Operator
     {
         private final DataSize reservedPerPage;

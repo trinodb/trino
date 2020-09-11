@@ -14,7 +14,9 @@
 package io.prestosql.type;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 import io.prestosql.client.IntervalYearMonth;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.BlockIndex;
 import io.prestosql.spi.function.BlockPosition;
@@ -27,8 +29,8 @@ import io.prestosql.spi.type.AbstractIntType;
 import io.prestosql.spi.type.StandardTypes;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.DIVIDE;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
@@ -43,14 +45,14 @@ import static io.prestosql.spi.function.OperatorType.MULTIPLY;
 import static io.prestosql.spi.function.OperatorType.NEGATION;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 
 public final class IntervalYearMonthOperators
 {
-    private IntervalYearMonthOperators()
-    {
-    }
+    private IntervalYearMonthOperators() {}
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
@@ -77,6 +79,9 @@ public final class IntervalYearMonthOperators
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
     public static long multiplyByDouble(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
+        if (Double.isNaN(right)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot multiply by double NaN");
+        }
         return (long) (left * right);
     }
 
@@ -91,6 +96,9 @@ public final class IntervalYearMonthOperators
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
     public static long doubleMultiply(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
+        if (Double.isNaN(left)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot multiply by double NaN");
+        }
         return (long) (left * right);
     }
 
@@ -98,6 +106,9 @@ public final class IntervalYearMonthOperators
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
     public static long divideByDouble(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
+        if (Double.isNaN(right) || right == 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Cannot divide by double %s", right));
+        }
         return (long) (left / right);
     }
 
@@ -152,16 +163,6 @@ public final class IntervalYearMonthOperators
         return left >= right;
     }
 
-    @ScalarOperator(BETWEEN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(
-            @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value,
-            @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long min,
-            @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long max)
-    {
-        return min <= value && value <= max;
-    }
-
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -177,8 +178,15 @@ public final class IntervalYearMonthOperators
         return AbstractIntType.hash((int) value);
     }
 
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash64(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
+    {
+        return XxHash64.hash(value);
+    }
+
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class IntervalYearMonthDistinctFromOperator
+    public static final class IntervalYearMonthDistinctFromOperator
     {
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isDistinctFrom(

@@ -35,25 +35,21 @@ public class StringStatisticsBuilder
     private Slice minimum;
     private Slice maximum;
     private long sum;
+    private final BloomFilterBuilder bloomFilterBuilder;
 
-    public StringStatisticsBuilder(int stringStatisticsLimitInBytes)
+    public StringStatisticsBuilder(int stringStatisticsLimitInBytes, BloomFilterBuilder bloomFilterBuilder)
     {
-        this(stringStatisticsLimitInBytes, 0, null, null, 0);
+        this(stringStatisticsLimitInBytes, 0, null, null, 0, bloomFilterBuilder);
     }
 
-    private StringStatisticsBuilder(int stringStatisticsLimitInBytes, long nonNullValueCount, Slice minimum, Slice maximum, long sum)
+    private StringStatisticsBuilder(int stringStatisticsLimitInBytes, long nonNullValueCount, Slice minimum, Slice maximum, long sum, BloomFilterBuilder bloomFilterBuilder)
     {
         this.stringStatisticsLimitInBytes = stringStatisticsLimitInBytes;
         this.nonNullValueCount = nonNullValueCount;
         this.minimum = minimum;
         this.maximum = maximum;
         this.sum = sum;
-    }
-
-    public StringStatisticsBuilder withStringStatisticsLimit(int limitInBytes)
-    {
-        checkArgument(limitInBytes >= 0, "limitInBytes is less than 0");
-        return new StringStatisticsBuilder(limitInBytes, nonNullValueCount, minimum, maximum, sum);
+        this.bloomFilterBuilder = requireNonNull(bloomFilterBuilder, "bloomFilterBuilder");
     }
 
     public long getNonNullValueCount()
@@ -77,6 +73,7 @@ public class StringStatisticsBuilder
         else if (maximum != null && value.compareTo(maximum) >= 0) {
             maximum = value;
         }
+        bloomFilterBuilder.addString(value);
 
         nonNullValueCount++;
         sum = addExact(sum, value.length());
@@ -140,18 +137,19 @@ public class StringStatisticsBuilder
                 null,
                 null,
                 null,
-                null);
+                null,
+                bloomFilterBuilder.buildBloomFilter());
     }
 
     public static Optional<StringStatistics> mergeStringStatistics(List<ColumnStatistics> stats)
     {
         // no need to set the stats limit for the builder given we assume the given stats are within the same limit
-        StringStatisticsBuilder stringStatisticsBuilder = new StringStatisticsBuilder(Integer.MAX_VALUE);
+        StringStatisticsBuilder stringStatisticsBuilder = new StringStatisticsBuilder(Integer.MAX_VALUE, new NoOpBloomFilterBuilder());
         for (ColumnStatistics columnStatistics : stats) {
             StringStatistics partialStatistics = columnStatistics.getStringStatistics();
             if (columnStatistics.getNumberOfValues() > 0) {
                 if (partialStatistics == null || (partialStatistics.getMin() == null && partialStatistics.getMax() == null)) {
-                    // there are non null values but no statistics, so we can not say anything about the data
+                    // there are non null values but no statistics, so we cannot say anything about the data
                     return Optional.empty();
                 }
                 stringStatisticsBuilder.addStringStatistics(columnStatistics.getNumberOfValues(), partialStatistics);

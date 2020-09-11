@@ -20,6 +20,7 @@ import io.prestosql.sql.relational.InputReferenceExpression;
 import io.prestosql.sql.relational.LambdaDefinitionExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.RowExpressionVisitor;
+import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.sql.relational.VariableReferenceExpression;
 
 import java.util.ArrayList;
@@ -77,11 +78,22 @@ public final class PageFieldsToInputParametersRewriter
         public RowExpression visitCall(CallExpression call, Void context)
         {
             return new CallExpression(
-                    call.getSignature(),
-                    call.getType(),
+                    call.getResolvedFunction(),
                     call.getArguments().stream()
                             .map(expression -> expression.accept(this, context))
                             .collect(toImmutableList()));
+        }
+
+        @Override
+        public RowExpression visitSpecialForm(SpecialForm specialForm, Void context)
+        {
+            return new SpecialForm(
+                    specialForm.getForm(),
+                    specialForm.getType(),
+                    specialForm.getArguments().stream()
+                            .map(expression -> expression.accept(this, context))
+                            .collect(toImmutableList()),
+                    specialForm.getFunctionDependencies());
         }
 
         @Override

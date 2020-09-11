@@ -19,8 +19,11 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
+import java.util.Map;
 
 import static io.prestosql.cli.AlignedTablePrinter.formatHexDump;
+import static io.prestosql.cli.AlignedTablePrinter.formatList;
+import static io.prestosql.cli.AlignedTablePrinter.formatMap;
 import static java.util.Objects.requireNonNull;
 
 public class CsvPrinter
@@ -31,13 +34,40 @@ public class CsvPrinter
 
     private boolean needHeader;
 
-    public CsvPrinter(List<String> fieldNames, Writer writer, boolean header)
+    public enum CsvOutputFormat
+    {
+        STANDARD(true, true),
+        NO_HEADER(false, true),
+        NO_QUOTES(true, false),
+        NO_HEADER_AND_QUOTES(false, false);
+
+        private boolean header;
+        private boolean quote;
+
+        CsvOutputFormat(boolean header, boolean quote)
+        {
+            this.header = header;
+            this.quote = quote;
+        }
+
+        public boolean showHeader()
+        {
+            return header;
+        }
+
+        public boolean isQuoted()
+        {
+            return quote;
+        }
+    }
+
+    public CsvPrinter(List<String> fieldNames, Writer writer, CsvOutputFormat csvOutputFormat)
     {
         requireNonNull(fieldNames, "fieldNames is null");
         requireNonNull(writer, "writer is null");
         this.fieldNames = ImmutableList.copyOf(fieldNames);
-        this.writer = new CSVWriter(writer);
-        this.needHeader = header;
+        this.writer = csvOutputFormat.isQuoted() ? new CSVWriter(writer) : new CSVWriter(writer, CSVWriter.DEFAULT_SEPARATOR, CSVWriter.NO_QUOTE_CHARACTER);
+        this.needHeader = csvOutputFormat.showHeader();
     }
 
     @Override
@@ -85,6 +115,14 @@ public class CsvPrinter
     {
         if (o == null) {
             return "";
+        }
+
+        if (o instanceof Map) {
+            return formatMap((Map<?, ?>) o);
+        }
+
+        if (o instanceof List) {
+            return formatList((List<?>) o);
         }
 
         if (o instanceof byte[]) {

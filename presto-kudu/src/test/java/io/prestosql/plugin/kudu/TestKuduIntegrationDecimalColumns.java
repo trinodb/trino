@@ -13,95 +13,127 @@
  */
 package io.prestosql.plugin.kudu;
 
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.AbstractTestQueryFramework;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.prestosql.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunner;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestKuduIntegrationDecimalColumns
         extends AbstractTestQueryFramework
 {
-    private QueryRunner queryRunner;
-
-    static final TestDec[] testDecList = {
-            new TestDec(10, 0),
-            new TestDec(15, 4),
-            new TestDec(18, 6),
-            new TestDec(18, 7),
-            new TestDec(19, 8),
-            new TestDec(24, 14),
-            new TestDec(38, 20),
-            new TestDec(38, 28),
+    private static final TestDecimal[] TEST_DECIMALS = {
+            new TestDecimal(10, 0),
+            new TestDecimal(15, 4),
+            new TestDecimal(18, 6),
+            new TestDecimal(18, 7),
+            new TestDecimal(19, 8),
+            new TestDecimal(24, 14),
+            new TestDecimal(38, 20),
+            new TestDecimal(38, 28),
     };
 
-    public TestKuduIntegrationDecimalColumns()
+    private TestingKuduServer kuduServer;
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> KuduQueryRunnerFactory.createKuduQueryRunner("decimal"));
-    }
-
-    @Test
-    public void testCreateTableWithDecimalColumn()
-    {
-        for (TestDec dec : testDecList) {
-            doTestCreateTableWithDecimalColumn(dec);
-        }
-    }
-
-    private void doTestCreateTableWithDecimalColumn(TestDec dec)
-    {
-        String tableName = dec.getTableName();
-        String dropTable = "DROP TABLE IF EXISTS " + tableName;
-        String createTable = "CREATE TABLE " + tableName + " (\n";
-        createTable += "  id INT WITH (primary_key=true),\n";
-        createTable += "  dec DECIMAL(" + dec.precision + "," + dec.scale + ")\n";
-        createTable += ") WITH (\n" +
-                " partition_by_hash_columns = ARRAY['id'],\n" +
-                " partition_by_hash_buckets = 2\n" +
-                ")";
-
-        queryRunner.execute(dropTable);
-        queryRunner.execute(createTable);
-
-        String fullPrecisionValue = "1234567890.1234567890123456789012345678";
-        int maxScale = dec.precision - 10;
-        int valuePrecision = dec.precision - maxScale + Math.min(maxScale, dec.scale);
-        String insertValue = fullPrecisionValue.substring(0, valuePrecision + 1);
-        queryRunner.execute("INSERT INTO " + tableName + " VALUES(1, DECIMAL '" + insertValue + "')");
-
-        MaterializedResult result = queryRunner.execute("SELECT id, CAST((dec - (DECIMAL '" + insertValue + "')) as DOUBLE) FROM " + tableName);
-        assertEquals(result.getRowCount(), 1);
-        Object obj = result.getMaterializedRows().get(0).getField(1);
-        assertTrue(obj instanceof Double);
-        Double actual = (Double) obj;
-        assertEquals(0, actual, 0.3 * Math.pow(0.1, dec.scale), "p=" + dec.precision + ",s=" + dec.scale + " => " + actual + ",insert = " + insertValue);
-    }
-
-    @BeforeClass
-    public void setUp()
-    {
-        queryRunner = getQueryRunner();
+        kuduServer = new TestingKuduServer();
+        return createKuduQueryRunner(kuduServer, "decimal");
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        if (queryRunner != null) {
-            queryRunner.close();
-            queryRunner = null;
+        kuduServer.close();
+    }
+
+    @Test
+    public void testCreateTableWithDecimalColumn()
+    {
+        for (TestDecimal decimal : TEST_DECIMALS) {
+            doTestCreateTableWithDecimalColumn(decimal);
         }
     }
 
-    static class TestDec
+    @Test
+    public void testDecimalColumn()
+    {
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_decimal (" +
+                "id INT WITH (primary_key=true), " +
+                "col_decimal decimal(10, 6)" +
+                ") WITH (" +
+                " partition_by_hash_columns = ARRAY['id'], " +
+                " partition_by_hash_buckets = 2" +
+                ")");
+
+        assertUpdate("INSERT INTO test_decimal VALUES (0, 0.0), (2, 2.2), (1, 1.1)", 3);
+        assertQuery("SELECT * FROM test_decimal WHERE col_decimal = 1.1", "VALUES (1, 1.1)");
+        assertUpdate("DELETE FROM test_decimal WHERE col_decimal = 1.1", 1);
+
+        assertUpdate("DROP TABLE test_decimal");
+    }
+
+    @Test
+    public void testDeleteByPrimaryKeyDecimalColumn()
+    {
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_decimal (" +
+                "decimal_id decimal(18, 3) WITH (primary_key=true), " +
+                "col_decimal decimal(18, 3)" +
+                ") WITH (" +
+                " partition_by_hash_columns = ARRAY['decimal_id'], " +
+                " partition_by_hash_buckets = 2" +
+                ")");
+
+        assertUpdate("INSERT INTO test_decimal VALUES (1.1, 1.1), (2.2, 2.2)", 2);
+        assertUpdate("DELETE FROM test_decimal WHERE decimal_id = 2.2", 1);
+        assertQuery("SELECT * FROM test_decimal", "VALUES (1.1, 1.1)");
+
+        assertUpdate("DROP TABLE test_decimal");
+    }
+
+    private void doTestCreateTableWithDecimalColumn(TestDecimal decimal)
+    {
+        String tableName = decimal.getTableName();
+        String dropTable = "DROP TABLE IF EXISTS " + tableName;
+        String createTable = "" +
+                "CREATE TABLE " + tableName + " (\n" +
+                "  id INT WITH (primary_key=true),\n" +
+                "  dec DECIMAL(" + decimal.precision + "," + decimal.scale + ")\n" +
+                ") WITH (\n" +
+                " partition_by_hash_columns = ARRAY['id'],\n" +
+                " partition_by_hash_buckets = 2\n" +
+                ")";
+
+        assertUpdate(dropTable);
+        assertUpdate(createTable);
+
+        String fullPrecisionValue = "1234567890.1234567890123456789012345678";
+        int maxScale = decimal.precision - 10;
+        int valuePrecision = decimal.precision - maxScale + Math.min(maxScale, decimal.scale);
+        String insertValue = fullPrecisionValue.substring(0, valuePrecision + 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, DECIMAL '" + insertValue + "')", 1);
+
+        MaterializedResult result = computeActual("SELECT id, CAST((dec - (DECIMAL '" + insertValue + "')) as DOUBLE) FROM " + tableName);
+        assertEquals(result.getRowCount(), 1);
+        Object obj = result.getMaterializedRows().get(0).getField(1);
+        assertTrue(obj instanceof Double);
+        Double actual = (Double) obj;
+        assertEquals(0, actual, 0.3 * Math.pow(0.1, decimal.scale), "p=" + decimal.precision + ",s=" + decimal.scale + " => " + actual + ",insert = " + insertValue);
+    }
+
+    static class TestDecimal
     {
         final int precision;
         final int scale;
 
-        TestDec(int precision, int scale)
+        TestDecimal(int precision, int scale)
         {
             this.precision = precision;
             this.scale = scale;
@@ -109,7 +141,7 @@ public class TestKuduIntegrationDecimalColumns
 
         String getTableName()
         {
-            return "test_dec_" + precision + "_" + scale;
+            return format("test_decimal_%s_%s", precision, scale);
         }
     }
 }

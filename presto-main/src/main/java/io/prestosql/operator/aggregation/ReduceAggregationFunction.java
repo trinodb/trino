@@ -15,8 +15,10 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionMetadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -27,18 +29,20 @@ import io.prestosql.operator.aggregation.state.StateCompiler;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.lambda.BinaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
@@ -62,28 +66,44 @@ public class ReduceAggregationFunction
 
     public ReduceAggregationFunction()
     {
-        super(NAME,
-                ImmutableList.of(typeVariable("T"), typeVariable("S")),
-                ImmutableList.of(),
-                parseTypeSignature("S"),
-                ImmutableList.of(
-                        parseTypeSignature("T"),
-                        parseTypeSignature("S"),
-                        parseTypeSignature("function(S,T,S)"),
-                        parseTypeSignature("function(S,S,S)")));
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                NAME,
+                                ImmutableList.of(typeVariable("T"), typeVariable("S")),
+                                ImmutableList.of(),
+                                new TypeSignature("S"),
+                                ImmutableList.of(
+                                        new TypeSignature("T"),
+                                        new TypeSignature("S"),
+                                        functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")),
+                                        functionType(new TypeSignature("S"), new TypeSignature("S"), new TypeSignature("S"))),
+                                false),
+                        true,
+                        ImmutableList.of(
+                                new FunctionArgumentDefinition(false),
+                                new FunctionArgumentDefinition(false),
+                                new FunctionArgumentDefinition(false),
+                                new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        "Reduce input elements into a single value",
+                        AGGREGATE),
+                true,
+                false);
     }
 
     @Override
-    public String getDescription()
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
     {
-        return "Reduce input elements into a single value";
+        return ImmutableList.of(functionBinding.getTypeVariable("S").getTypeSignature());
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
-        Type inputType = boundVariables.getTypeVariable("T");
-        Type stateType = boundVariables.getTypeVariable("S");
+        Type inputType = functionBinding.getTypeVariable("T");
+        Type stateType = functionBinding.getTypeVariable("S");
         return generateAggregation(inputType, stateType);
     }
 
@@ -130,12 +150,14 @@ public class ReduceAggregationFunction
             throw new PrestoException(NOT_SUPPORTED, format("State type not supported for %s: %s", NAME, stateType.getDisplayName()));
         }
 
+        String name = getFunctionMetadata().getSignature().getName();
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(getSignature().getName(), inputType.getTypeSignature(), ImmutableList.of(inputType.getTypeSignature())),
+                generateAggregationName(name, inputType.getTypeSignature(), ImmutableList.of(inputType.getTypeSignature())),
                 createInputParameterMetadata(inputType, stateType),
                 inputMethodHandle.asType(
                         inputMethodHandle.type()
                                 .changeParameterType(1, inputType.getJavaType())),
+                Optional.empty(),
                 combineMethodHandle,
                 outputMethodHandle,
                 ImmutableList.of(stateDescriptor),
@@ -144,12 +166,10 @@ public class ReduceAggregationFunction
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
         return new InternalAggregationFunction(
-                getSignature().getName(),
+                name,
                 ImmutableList.of(inputType),
                 ImmutableList.of(stateType),
                 stateType,
-                true,
-                false,
                 factory,
                 ImmutableList.of(BinaryFunctionInterface.class, BinaryFunctionInterface.class));
     }

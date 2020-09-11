@@ -42,13 +42,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.prestosql.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
+import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static java.util.Arrays.asList;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -71,7 +72,7 @@ public class TestShardCleaner
     @BeforeMethod
     public void setup()
     {
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 

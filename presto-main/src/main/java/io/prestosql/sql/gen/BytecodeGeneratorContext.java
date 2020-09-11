@@ -14,16 +14,21 @@
 package io.prestosql.sql.gen;
 
 import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
-import io.prestosql.metadata.FunctionRegistry;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.metadata.FunctionInvoker;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.sql.relational.RowExpression;
 
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.sql.gen.BytecodeUtils.generateFullInvocation;
 import static io.prestosql.sql.gen.BytecodeUtils.generateInvocation;
 import static java.util.Objects.requireNonNull;
 
@@ -33,7 +38,7 @@ public class BytecodeGeneratorContext
     private final Scope scope;
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
-    private final FunctionRegistry registry;
+    private final Metadata metadata;
     private final Variable wasNull;
 
     public BytecodeGeneratorContext(
@@ -41,19 +46,19 @@ public class BytecodeGeneratorContext
             Scope scope,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            FunctionRegistry registry)
+            Metadata metadata)
     {
         requireNonNull(rowExpressionCompiler, "bytecodeGenerator is null");
         requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
         requireNonNull(scope, "scope is null");
         requireNonNull(callSiteBinder, "callSiteBinder is null");
-        requireNonNull(registry, "registry is null");
+        requireNonNull(metadata, "metadata is null");
 
         this.rowExpressionCompiler = rowExpressionCompiler;
         this.scope = scope;
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
-        this.registry = registry;
+        this.metadata = metadata;
         this.wasNull = scope.getVariable("wasNull");
     }
 
@@ -69,30 +74,37 @@ public class BytecodeGeneratorContext
 
     public BytecodeNode generate(RowExpression expression)
     {
-        return generate(expression, Optional.empty());
+        return rowExpressionCompiler.compile(expression, scope);
     }
 
-    public BytecodeNode generate(RowExpression expression, Optional<Class> lambdaInterface)
+    public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction,
+            Optional<InvocationConvention> invocationConvention)
     {
-        return rowExpressionCompiler.compile(expression, scope, lambdaInterface);
-    }
-
-    public FunctionRegistry getRegistry()
-    {
-        return registry;
+        return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
     }
 
     /**
      * Generates a function call with null handling, automatic binding of session parameter, etc.
      */
-    public BytecodeNode generateCall(String name, ScalarFunctionImplementation function, List<BytecodeNode> arguments)
+    public BytecodeNode generateCall(ResolvedFunction resolvedFunction, List<BytecodeNode> arguments)
     {
-        Optional<BytecodeNode> instance = Optional.empty();
-        if (function.getInstanceFactory().isPresent()) {
-            FieldDefinition field = cachedInstanceBinder.getCachedInstance(function.getInstanceFactory().get());
-            instance = Optional.of(scope.getThis().getField(field));
-        }
-        return generateInvocation(scope, name, function, instance, arguments, callSiteBinder);
+        return generateInvocation(scope, resolvedFunction, metadata, arguments, callSiteBinder);
+    }
+
+    public BytecodeNode generateFullCall(ResolvedFunction resolvedFunction, List<RowExpression> arguments)
+    {
+        List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers = arguments.stream()
+                .map(this::argumentCompiler)
+                .collect(toImmutableList());
+
+        Function<MethodHandle, BytecodeNode> instance = instanceFactory -> scope.getThis().getField(cachedInstanceBinder.getCachedInstance(instanceFactory));
+
+        return generateFullInvocation(scope, resolvedFunction, metadata, instance, argumentCompilers, callSiteBinder);
+    }
+
+    private Function<Optional<Class<?>>, BytecodeNode> argumentCompiler(RowExpression argument)
+    {
+        return lambdaInterface -> rowExpressionCompiler.compile(argument, scope, lambdaInterface);
     }
 
     public Variable wasNull()

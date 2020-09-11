@@ -15,8 +15,8 @@ package io.prestosql.execution.scheduler;
 
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.execution.RemoteTask;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
-import io.prestosql.spi.Node;
 
 import java.util.List;
 import java.util.Set;
@@ -25,16 +25,16 @@ public interface NodeSelector
 {
     void lockDownNodes();
 
-    List<Node> allNodes();
+    List<InternalNode> allNodes();
 
-    Node selectCurrentNode();
+    InternalNode selectCurrentNode();
 
-    default List<Node> selectRandomNodes(int limit)
+    default List<InternalNode> selectRandomNodes(int limit)
     {
         return selectRandomNodes(limit, ImmutableSet.of());
     }
 
-    List<Node> selectRandomNodes(int limit, Set<Node> excludedNodes);
+    List<InternalNode> selectRandomNodes(int limit, Set<InternalNode> excludedNodes);
 
     /**
      * Identifies the nodes for running the specified splits.

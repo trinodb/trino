@@ -23,6 +23,7 @@ import {
     getQueryStateColor,
     GLYPHICON_DEFAULT,
     GLYPHICON_HIGHLIGHT,
+    parseAndFormatDataSize,
     parseDataSize,
     parseDuration,
     truncateString
@@ -103,13 +104,13 @@ export class QueryListItem extends React.Component {
 
         const memoryDetails = (
             <div className="col-xs-12 tinystat-row">
-                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Current reserved memory">
+                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Current total reserved memory">
                     <span className="glyphicon glyphicon-scale" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {query.queryStats.userMemoryReservation}
+                    {parseAndFormatDataSize(query.queryStats.totalMemoryReservation)}
                 </span>
-                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Peak memory">
+                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Peak total memory">
                     <span className="glyphicon glyphicon-fire" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {query.queryStats.peakUserMemoryReservation}
+                    {parseAndFormatDataSize(query.queryStats.peakTotalMemoryReservation)}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Cumulative user memory">
                     <span className="glyphicon glyphicon-equalizer" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
@@ -129,7 +130,7 @@ export class QueryListItem extends React.Component {
                 <div className="row">
                     <div className="col-xs-4">
                         <div className="row stat-row query-header query-header-queryid">
-                            <div className="col-xs-9" data-toggle="tooltip" data-placement="bottom" title="Query ID">
+                            <div className="col-xs-9" data-toggle="tooltip" data-placement="bottom" data-trigger="hover" title="Query ID">
                                 <a href={"query.html?" + query.queryId} target="_blank">{query.queryId}</a>
                             </div>
                             <div className="col-xs-3 query-header-timestamp" data-toggle="tooltip" data-placement="bottom" title="Submit time">
@@ -326,7 +327,7 @@ export class QueryList extends React.Component {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         clearTimeout(this.searchTimeoutId);
 
-        $.get('/v1/query', function (queryList) {
+        $.get('/ui/api/query', function (queryList) {
             const queryMap = queryList.reduce(function (map, query) {
                 map[query.queryId] = query;
                 return map;
@@ -375,7 +376,7 @@ export class QueryList extends React.Component {
             });
             this.resetTimer();
         }.bind(this))
-            .error(function () {
+            .fail(function () {
                 this.setState({
                     initialized: true,
                 });
@@ -568,7 +569,7 @@ export class QueryList extends React.Component {
                 <div className="row toolbar-row">
                     <div className="col-xs-12 toolbar-col">
                         <div className="input-group input-group-sm">
-                            <input type="text" className="form-control form-control-small search-bar" placeholder="User, source, query ID, resource group, or query text"
+                            <input type="text" className="form-control form-control-small search-bar" placeholder="User, source, query ID, query state, resource group, or query text"
                                    onChange={this.handleSearchStringChange} value={this.state.searchString}/>
                             <span className="input-group-addon filter-addon">State:</span>
                             <div className="input-group-btn">

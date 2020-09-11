@@ -23,8 +23,6 @@ import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 
 import java.util.Map;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
-
 public class FileResourceGroupConfigurationManagerFactory
         implements ResourceGroupConfigurationManagerFactory
 {
@@ -35,24 +33,19 @@ public class FileResourceGroupConfigurationManagerFactory
     }
 
     @Override
-    public ResourceGroupConfigurationManager<VariableMap> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
+    public ResourceGroupConfigurationManager<?> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
     {
-        try {
-            Bootstrap app = new Bootstrap(
-                    new JsonModule(),
-                    new FileResourceGroupsModule(),
-                    binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
+        Bootstrap app = new Bootstrap(
+                new JsonModule(),
+                new FileResourceGroupsModule(),
+                binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
 
-            Injector injector = app
-                    .strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
-            return injector.getInstance(FileResourceGroupConfigurationManager.class);
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
+
+        return injector.getInstance(FileResourceGroupConfigurationManager.class);
     }
 }

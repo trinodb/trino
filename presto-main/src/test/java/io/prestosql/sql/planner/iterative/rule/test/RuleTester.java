@@ -13,16 +13,17 @@
  */
 package io.prestosql.sql.planner.iterative.rule.test;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.Plugin;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
-import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.transaction.TransactionManager;
@@ -33,13 +34,13 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 
 public class RuleTester
         implements Closeable
 {
     public static final String CATALOG_ID = "local";
-    public static final ConnectorId CONNECTOR_ID = new ConnectorId(CATALOG_ID);
+    public static final CatalogName CONNECTOR_ID = new CatalogName(CATALOG_ID);
 
     private final Metadata metadata;
     private final Session session;
@@ -48,24 +49,14 @@ public class RuleTester
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
     private final AccessControl accessControl;
-    private final SqlParser sqlParser;
+    private final TypeAnalyzer typeAnalyzer;
 
-    public RuleTester()
+    public static RuleTester defaultRuleTester()
     {
-        this(emptyList());
+        return defaultRuleTester(ImmutableList.of(), ImmutableMap.of(), Optional.empty());
     }
 
-    public RuleTester(List<Plugin> plugins)
-    {
-        this(plugins, ImmutableMap.of());
-    }
-
-    public RuleTester(List<Plugin> plugins, Map<String, String> sessionProperties)
-    {
-        this(plugins, sessionProperties, Optional.empty());
-    }
-
-    public RuleTester(List<Plugin> plugins, Map<String, String> sessionProperties, Optional<Integer> nodeCountForStats)
+    public static RuleTester defaultRuleTester(List<Plugin> plugins, Map<String, String> sessionProperties, Optional<Integer> nodeCountForStats)
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(CATALOG_ID)
@@ -76,25 +67,35 @@ public class RuleTester
             sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
         }
 
-        session = sessionBuilder.build();
+        Session session = sessionBuilder.build();
 
-        queryRunner = nodeCountForStats
-                .map(nodeCount -> LocalQueryRunner.queryRunnerWithFakeNodeCountForStats(session, nodeCount))
-                .orElseGet(() -> new LocalQueryRunner(session));
+        LocalQueryRunner queryRunner = nodeCountForStats
+                .map(nodeCount -> LocalQueryRunner.builder(session)
+                        .withNodeCountForStats(nodeCount)
+                        .build())
+                .orElseGet(() -> LocalQueryRunner.create(session));
+
         queryRunner.createCatalog(session.getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
-        plugins.stream().forEach(queryRunner::installPlugin);
+        plugins.forEach(queryRunner::installPlugin);
 
+        return new RuleTester(queryRunner);
+    }
+
+    public RuleTester(LocalQueryRunner queryRunner)
+    {
+        this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
+        this.session = queryRunner.getDefaultSession();
         this.metadata = queryRunner.getMetadata();
         this.transactionManager = queryRunner.getTransactionManager();
         this.splitManager = queryRunner.getSplitManager();
         this.pageSourceManager = queryRunner.getPageSourceManager();
         this.accessControl = queryRunner.getAccessControl();
-        this.sqlParser = queryRunner.getSqlParser();
+        this.typeAnalyzer = new TypeAnalyzer(queryRunner.getSqlParser(), metadata);
     }
 
-    public RuleAssert assertThat(Rule rule)
+    public RuleAssert assertThat(Rule<?> rule)
     {
         return new RuleAssert(metadata, queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl);
     }
@@ -110,6 +111,11 @@ public class RuleTester
         return metadata;
     }
 
+    public Session getSession()
+    {
+        return session;
+    }
+
     public SplitManager getSplitManager()
     {
         return splitManager;
@@ -120,16 +126,18 @@ public class RuleTester
         return pageSourceManager;
     }
 
-    // TODO: this is only being used by rules that need to get the type of an expression
-    // In the short term, it should be encapsulated into something that knows how to provide types
-    // Rules should *not* need to use the parser otherwise.
-    public SqlParser getSqlParser()
+    public TypeAnalyzer getTypeAnalyzer()
     {
-        return sqlParser;
+        return typeAnalyzer;
     }
 
-    public ConnectorId getCurrentConnectorId()
+    public CatalogName getCurrentConnectorId()
     {
         return queryRunner.inTransaction(transactionSession -> metadata.getCatalogHandle(transactionSession, session.getCatalog().get())).get();
+    }
+
+    public LocalQueryRunner getQueryRunner()
+    {
+        return queryRunner;
     }
 }

@@ -13,17 +13,32 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.assertions.ExpressionMatcher;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.tree.ArithmeticBinaryExpression;
+import io.prestosql.sql.tree.DereferenceExpression;
+import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.limit;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
+import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
 
 public class TestPushLimitThroughProject
         extends BaseRuleTest
@@ -46,6 +61,73 @@ public class TestPushLimitThroughProject
     }
 
     @Test
+    public void testPushdownLimitWithTiesNNonIdentityProjection()
+    {
+        tester().assertThat(new PushLimitThroughProject())
+                .on(p -> {
+                    Symbol projectedA = p.symbol("projectedA");
+                    Symbol a = p.symbol("a");
+                    Symbol projectedB = p.symbol("projectedB");
+                    Symbol b = p.symbol("b");
+                    return p.limit(
+                            1,
+                            ImmutableList.of(projectedA),
+                            p.project(
+                                    Assignments.of(projectedA, new SymbolReference("a"), projectedB, new SymbolReference("b")),
+                                    p.values(a, b)));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("projectedA", new ExpressionMatcher("a"), "projectedB", new ExpressionMatcher("b")),
+                                limit(1, ImmutableList.of(sort("a", ASCENDING, FIRST)), values("a", "b"))));
+    }
+
+    @Test
+    public void testPushdownLimitWithTiesThroughProjectionWithExpression()
+    {
+        tester().assertThat(new PushLimitThroughProject())
+                .on(p -> {
+                    Symbol projectedA = p.symbol("projectedA");
+                    Symbol a = p.symbol("a");
+                    Symbol projectedC = p.symbol("projectedC");
+                    Symbol b = p.symbol("b");
+                    return p.limit(
+                            1,
+                            ImmutableList.of(projectedA),
+                            p.project(
+                                    Assignments.of(
+                                            projectedA, new SymbolReference("a"),
+                                            projectedC, new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("b"))),
+                                    p.values(a, b)));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("projectedA", new ExpressionMatcher("a"), "projectedC", new ExpressionMatcher("a + b")),
+                                limit(1, ImmutableList.of(sort("a", ASCENDING, FIRST)), values("a", "b"))));
+    }
+
+    @Test
+    public void testDoNotPushdownLimitWithTiesThroughProjectionWithExpression()
+    {
+        tester().assertThat(new PushLimitThroughProject())
+                .on(p -> {
+                    Symbol projectedA = p.symbol("projectedA");
+                    Symbol a = p.symbol("a");
+                    Symbol projectedC = p.symbol("projectedC");
+                    Symbol b = p.symbol("b");
+                    return p.limit(
+                            1,
+                            ImmutableList.of(projectedC),
+                            p.project(
+                                    Assignments.of(
+                                            projectedA, new SymbolReference("a"),
+                                            projectedC, new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("b"))),
+                                    p.values(a, b)));
+                })
+                .doesNotFire();
+    }
+
+    @Test
     public void testDoesntPushdownLimitThroughIdentityProjection()
     {
         tester().assertThat(new PushLimitThroughProject())
@@ -56,5 +138,45 @@ public class TestPushLimitThroughProject
                                     Assignments.of(a, a.toSymbolReference()),
                                     p.values(a)));
                 }).doesNotFire();
+    }
+
+    @Test
+    public void testDoesntPushDownLimitThroughExclusiveDereferences()
+    {
+        RowType rowType = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("x"), BIGINT), new RowType.Field(Optional.of("y"), BIGINT)));
+
+        tester().assertThat(new PushLimitThroughProject())
+                .on(p -> {
+                    Symbol a = p.symbol("a", rowType);
+                    return p.limit(1,
+                            p.project(
+                                    Assignments.of(
+                                            p.symbol("b"), new DereferenceExpression(a.toSymbolReference(), new Identifier("x")),
+                                            p.symbol("c"), new DereferenceExpression(a.toSymbolReference(), new Identifier("y"))),
+                                    p.values(a)));
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testPushDownLimitThroughOverlappingDereferences()
+    {
+        RowType rowType = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("x"), BIGINT), new RowType.Field(Optional.of("y"), BIGINT)));
+
+        tester().assertThat(new PushLimitThroughProject())
+                .on(p -> {
+                    Symbol a = p.symbol("a", rowType);
+                    return p.limit(1,
+                            p.project(
+                                    Assignments.of(
+                                            p.symbol("b"), new DereferenceExpression(a.toSymbolReference(), new Identifier("x")),
+                                            p.symbol("c", rowType), a.toSymbolReference()),
+                                    p.values(a)));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("b", expression("a.x"), "c", expression("a")),
+                                limit(1,
+                                        values("a"))));
     }
 }

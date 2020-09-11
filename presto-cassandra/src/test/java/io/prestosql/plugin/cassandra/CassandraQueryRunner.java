@@ -13,51 +13,55 @@
  */
 package io.prestosql.plugin.cassandra;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.tpch.TpchTable;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.testing.DistributedQueryRunner;
+import io.prestosql.tpch.TpchTable;
 
-import java.util.List;
+import java.util.Map;
 
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.createKeyspace;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.QueryAssertions.copyTpchTables;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.tests.QueryAssertions.copyTpchTables;
 
 public final class CassandraQueryRunner
 {
-    private CassandraQueryRunner()
-    {
-    }
+    private CassandraQueryRunner() {}
 
-    private static boolean tpchLoaded;
-
-    public static synchronized DistributedQueryRunner createCassandraQueryRunner()
+    public static DistributedQueryRunner createCassandraQueryRunner(CassandraServer server, TpchTable<?>... tables)
             throws Exception
     {
-        EmbeddedCassandra.start();
+        return createCassandraQueryRunner(server, ImmutableMap.of(), ImmutableList.copyOf(tables));
+    }
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createCassandraSession("tpch"), 4);
+    public static DistributedQueryRunner createCassandraQueryRunner(
+            CassandraServer server,
+            Map<String, String> extraProperties,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createCassandraSession("tpch"))
+                .setExtraProperties(extraProperties)
+                .build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
         queryRunner.installPlugin(new CassandraPlugin());
         queryRunner.createCatalog("cassandra", "cassandra", ImmutableMap.of(
-                "cassandra.contact-points", EmbeddedCassandra.getHost(),
-                "cassandra.native-protocol-port", Integer.toString(EmbeddedCassandra.getPort()),
+                "cassandra.contact-points", server.getHost(),
+                "cassandra.native-protocol-port", Integer.toString(server.getPort()),
                 "cassandra.allow-drop-table", "true"));
 
-        if (!tpchLoaded) {
-            createKeyspace(EmbeddedCassandra.getSession(), "tpch");
-            List<TpchTable<?>> tables = TpchTable.getTables();
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables);
-            for (TpchTable table : tables) {
-                EmbeddedCassandra.refreshSizeEstimates("tpch", table.getTableName());
-            }
-            tpchLoaded = true;
+        createKeyspace(server.getSession(), "tpch");
+        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables);
+        for (TpchTable<?> table : tables) {
+            server.refreshSizeEstimates("tpch", table.getTableName());
         }
 
         return queryRunner;
@@ -69,5 +73,20 @@ public final class CassandraQueryRunner
                 .setCatalog("cassandra")
                 .setSchema(schema)
                 .build();
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+
+        DistributedQueryRunner queryRunner = createCassandraQueryRunner(
+                new CassandraServer(),
+                ImmutableMap.of("http-server.http.port", "8080"),
+                TpchTable.getTables());
+
+        Logger log = Logger.get(CassandraQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }

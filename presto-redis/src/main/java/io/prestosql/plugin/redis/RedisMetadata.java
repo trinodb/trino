@@ -24,11 +24,8 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -45,7 +42,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static io.prestosql.plugin.redis.RedisHandleResolver.convertColumnHandle;
-import static io.prestosql.plugin.redis.RedisHandleResolver.convertLayout;
 import static io.prestosql.plugin.redis.RedisHandleResolver.convertTableHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -59,19 +55,15 @@ public class RedisMetadata
 {
     private static final Logger log = Logger.get(RedisMetadata.class);
 
-    private final String connectorId;
     private final boolean hideInternalColumns;
 
     private final Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier;
 
     @Inject
     RedisMetadata(
-            RedisConnectorId connectorId,
             RedisConnectorConfig redisConnectorConfig,
             Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-
         requireNonNull(redisConnectorConfig, "redisConfig is null");
         hideInternalColumns = redisConnectorConfig.isHideInternalColumns();
 
@@ -106,7 +98,6 @@ public class RedisMetadata
         }
 
         return new RedisTableHandle(
-                connectorId,
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 getDataFormat(table.getKey()),
@@ -128,31 +119,6 @@ public class RedisMetadata
             throw new TableNotFoundException(schemaTableName);
         }
         return tableMetadata;
-    }
-
-    @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
-            ConnectorSession session,
-            ConnectorTableHandle table,
-            Constraint<ColumnHandle> constraint,
-            Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        RedisTableHandle tableHandle = convertTableHandle(table);
-
-        ConnectorTableLayout layout = new ConnectorTableLayout(new RedisTableLayoutHandle(tableHandle));
-
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        RedisTableLayoutHandle layout = convertLayout(handle);
-
-        // tables in this connector have a single layout
-        return getTableLayouts(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
-                .get(0)
-                .getTableLayout();
     }
 
     @Override
@@ -186,7 +152,7 @@ public class RedisMetadata
             List<RedisTableFieldDescription> fields = key.getFields();
             if (fields != null) {
                 for (RedisTableFieldDescription field : fields) {
-                    columnHandles.put(field.getName(), field.getColumnHandle(connectorId, true, index));
+                    columnHandles.put(field.getName(), field.getColumnHandle(true, index));
                     index++;
                 }
             }
@@ -197,14 +163,14 @@ public class RedisMetadata
             List<RedisTableFieldDescription> fields = value.getFields();
             if (fields != null) {
                 for (RedisTableFieldDescription field : fields) {
-                    columnHandles.put(field.getName(), field.getColumnHandle(connectorId, false, index));
+                    columnHandles.put(field.getName(), field.getColumnHandle(false, index));
                     index++;
                 }
             }
         }
 
         for (RedisInternalFieldDescription field : RedisInternalFieldDescription.values()) {
-            columnHandles.put(field.getColumnName(), field.getColumnHandle(connectorId, index, hideInternalColumns));
+            columnHandles.put(field.getColumnName(), field.getColumnHandle(index, hideInternalColumns));
             index++;
         }
 
@@ -219,7 +185,7 @@ public class RedisMetadata
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
 
         List<SchemaTableName> tableNames;
-        if (!prefix.getTable().isPresent()) {
+        if (prefix.getTable().isEmpty()) {
             tableNames = listTables(session, prefix.getSchema());
         }
         else {
@@ -241,6 +207,18 @@ public class RedisMetadata
     {
         convertTableHandle(tableHandle);
         return convertColumnHandle(columnHandle).getColumnMetadata();
+    }
+
+    @Override
+    public boolean usesLegacyTableLayouts()
+    {
+        return false;
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return new ConnectorTableProperties();
     }
 
     @VisibleForTesting

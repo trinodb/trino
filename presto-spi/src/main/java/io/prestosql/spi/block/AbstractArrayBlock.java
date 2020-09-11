@@ -15,16 +15,25 @@ package io.prestosql.spi.block;
 
 import javax.annotation.Nullable;
 
+import java.util.List;
+
 import static io.prestosql.spi.block.ArrayBlock.createArrayBlockInternal;
 import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
 import static io.prestosql.spi.block.BlockUtil.checkValidPositions;
 import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
 import static io.prestosql.spi.block.BlockUtil.compactArray;
 import static io.prestosql.spi.block.BlockUtil.compactOffsets;
+import static java.util.Collections.singletonList;
 
 public abstract class AbstractArrayBlock
         implements Block
 {
+    @Override
+    public final List<Block> getChildren()
+    {
+        return singletonList(getRawElementBlock());
+    }
+
     protected abstract Block getRawElementBlock();
 
     protected abstract int[] getOffsets();

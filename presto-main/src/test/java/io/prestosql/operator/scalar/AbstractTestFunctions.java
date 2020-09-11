@@ -17,20 +17,17 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.metadata.FunctionListBuilder;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.SqlFunction;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.Plugin;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.DecimalParseResult;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.SqlDecimal;
+import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.sql.analyzer.SemanticErrorCode;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
@@ -41,14 +38,14 @@ import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
-import static io.prestosql.metadata.FunctionRegistry.mangleOperatorName;
+import static io.prestosql.metadata.Signature.mangleOperatorName;
+import static io.prestosql.operator.scalar.timestamp.VarcharToTimestampCast.castToLongTimestamp;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestFunctions
@@ -116,24 +113,14 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertInvalidFunction(projection);
     }
 
-    protected void assertInvalidFunction(String projection, StandardErrorCode errorCode, String messagePattern)
+    protected void assertInvalidFunction(String projection, ErrorCodeSupplier errorCode, String message)
     {
-        functionAssertions.assertInvalidFunction(projection, errorCode, messagePattern);
+        functionAssertions.assertInvalidFunction(projection, errorCode, message);
     }
 
-    protected void assertInvalidFunction(String projection, String messagePattern)
+    protected void assertInvalidFunction(String projection, String message)
     {
-        functionAssertions.assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, messagePattern);
-    }
-
-    protected void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode)
-    {
-        functionAssertions.assertInvalidFunction(projection, expectedErrorCode);
-    }
-
-    protected void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode, String message)
-    {
-        functionAssertions.assertInvalidFunction(projection, expectedErrorCode, message);
+        functionAssertions.assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, message);
     }
 
     protected void assertInvalidFunction(String projection, ErrorCodeSupplier expectedErrorCode)
@@ -156,27 +143,16 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertInvalidCast(projection, message);
     }
 
-    public void assertCachedInstanceHasBoundedRetainedSize(String projection)
+    protected void assertCachedInstanceHasBoundedRetainedSize(String projection)
     {
         functionAssertions.assertCachedInstanceHasBoundedRetainedSize(projection);
     }
 
     protected void assertNotSupported(String projection, String message)
     {
-        try {
-            functionAssertions.executeProjectionWithFullEngine(projection);
-            fail("expected exception");
-        }
-        catch (PrestoException e) {
-            try {
-                assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
-                assertEquals(e.getMessage(), message);
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        assertPrestoExceptionThrownBy(() -> functionAssertions.executeProjectionWithFullEngine(projection))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage(message);
     }
 
     protected void tryEvaluateWithAll(String projection, Type expectedType)
@@ -186,38 +162,26 @@ public abstract class AbstractTestFunctions
 
     protected void registerScalarFunction(SqlScalarFunction sqlScalarFunction)
     {
-        Metadata metadata = functionAssertions.getMetadata();
-        metadata.getFunctionRegistry().addFunctions(ImmutableList.of(sqlScalarFunction));
+        functionAssertions.getMetadata().addFunctions(ImmutableList.of(sqlScalarFunction));
     }
 
     protected void registerScalar(Class<?> clazz)
     {
-        Metadata metadata = functionAssertions.getMetadata();
-        List<SqlFunction> functions = new FunctionListBuilder()
+        functionAssertions.getMetadata().addFunctions(new FunctionListBuilder()
                 .scalars(clazz)
-                .getFunctions();
-        metadata.getFunctionRegistry().addFunctions(functions);
+                .getFunctions());
     }
 
     protected void registerParametricScalar(Class<?> clazz)
     {
-        Metadata metadata = functionAssertions.getMetadata();
-        List<SqlFunction> functions = new FunctionListBuilder()
+        functionAssertions.getMetadata().addFunctions(new FunctionListBuilder()
                 .scalar(clazz)
-                .getFunctions();
-        metadata.getFunctionRegistry().addFunctions(functions);
+                .getFunctions());
     }
 
-    protected void registerFunctions(Plugin plugin)
+    protected void installPlugin(Plugin plugin)
     {
-        functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
-    }
-
-    protected void registerTypes(Plugin plugin)
-    {
-        for (Type type : plugin.getTypes()) {
-            functionAssertions.getTypeRegistry().addType(type);
-        }
+        functionAssertions.installPlugin(plugin);
     }
 
     protected static SqlDecimal decimal(String decimalString)
@@ -233,20 +197,26 @@ public abstract class AbstractTestFunctions
         return new SqlDecimal(unscaledValue, parseResult.getType().getPrecision(), parseResult.getType().getScale());
     }
 
+    protected static SqlTimestamp timestamp(int precision, String timestampValue)
+    {
+        LongTimestamp longTimestamp = castToLongTimestamp(precision, timestampValue);
+        return SqlTimestamp.newInstance(precision, longTimestamp.getEpochMicros(), longTimestamp.getPicosOfMicro());
+    }
+
     protected static SqlDecimal maxPrecisionDecimal(long value)
     {
-        final String maxPrecisionFormat = "%0" + (Decimals.MAX_PRECISION + (value < 0 ? 1 : 0)) + "d";
-        return decimal(String.format(maxPrecisionFormat, value));
+        String maxPrecisionFormat = "%0" + (Decimals.MAX_PRECISION + (value < 0 ? 1 : 0)) + "d";
+        return decimal(format(maxPrecisionFormat, value));
     }
 
     // this help function should only be used when the map contains null value
     // otherwise, use ImmutableMap.of()
-    protected static Map asMap(List keyList, List valueList)
+    protected static <K, V> Map<K, V> asMap(List<K> keyList, List<V> valueList)
     {
         if (keyList.size() != valueList.size()) {
             fail("keyList should have same size with valueList");
         }
-        Map map = new HashMap<>();
+        Map<K, V> map = new HashMap<>();
         for (int i = 0; i < keyList.size(); i++) {
             if (map.put(keyList.get(i), valueList.get(i)) != null) {
                 fail("keyList should have same size with valueList");

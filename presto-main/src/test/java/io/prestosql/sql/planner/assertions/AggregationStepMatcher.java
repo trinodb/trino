@@ -20,6 +20,7 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Step;
 import io.prestosql.sql.planner.plan.PlanNode;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.prestosql.sql.planner.assertions.MatchResult.match;
@@ -50,5 +51,13 @@ public class AggregationStepMatcher
             return NO_MATCH;
         }
         return match();
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("step", step)
+                .toString();
     }
 }

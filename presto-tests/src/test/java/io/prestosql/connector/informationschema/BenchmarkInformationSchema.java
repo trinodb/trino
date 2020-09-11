@@ -17,15 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.connector.MockConnectorFactory;
-import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.DistributedQueryRunner;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -51,8 +49,6 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -71,16 +67,15 @@ public class BenchmarkInformationSchema
         private final Map<String, String> queries = ImmutableMap.of(
                 "FULL_SCAN", "SELECT count(*) FROM information_schema.columns",
                 "LIKE_PREDICATE", "SELECT count(*) FROM information_schema.columns WHERE table_name LIKE 'table_0' AND table_schema LIKE 'schema_0'",
-                "MIXED_PREDICATE", "SELECT count(*) FROM information_schema.columns WHERE table_name LIKE 'table_0' AND table_schema = 'schema_0'");
+                "MIXED_PREDICATE", "SELECT count(*) FROM information_schema.columns WHERE table_name LIKE 'table_0' AND table_schema = 'schema_0'",
+                "LIMIT_SCAN", "SELECT column_name FROM information_schema.columns LIMIT 100");
 
-        @Param({"FULL_SCAN", "LIKE_PREDICATE", "MIXED_PREDICATE"})
+        @Param({"FULL_SCAN", "LIKE_PREDICATE", "MIXED_PREDICATE", "LIMIT_SCAN"})
         private String queryId = "LIKE_PREDICATE";
         @Param("200")
         private String schemasCount = "200";
         @Param("200")
         private String tablesCount = "200";
-        @Param("100")
-        private String columnsCount = "100";
 
         private QueryRunner queryRunner;
 
@@ -123,15 +118,10 @@ public class BenchmarkInformationSchema
                                 .collect(toImmutableList());
                     };
 
-                    BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles = (session, tableHandle) -> IntStream.range(0, Integer.parseInt(columnsCount))
-                            .boxed()
-                            .map(i -> "column_" + i)
-                            .collect(toImmutableMap(column -> column, column -> new TpchColumnHandle(column, createUnboundedVarcharType()) {}));
                     MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                             .withListSchemaNames(listSchemaNames)
                             .withListTables(listTables)
                             .withGetViews((session, prefix) -> ImmutableMap.of())
-                            .withGetColumnHandles(getColumnHandles)
                             .build();
                     return ImmutableList.of(connectorFactory);
                 }
@@ -156,7 +146,7 @@ public class BenchmarkInformationSchema
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();

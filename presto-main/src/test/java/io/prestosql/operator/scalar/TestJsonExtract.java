@@ -18,7 +18,6 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.PrestoException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -32,9 +31,9 @@ import static io.prestosql.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
 import static io.prestosql.operator.scalar.JsonExtract.generateExtractor;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestJsonExtract
         extends AbstractTestFunctions
@@ -133,13 +132,8 @@ public class TestJsonExtract
 
     public static void assertInvalidPath(String path)
     {
-        try {
-            tokenizePath(path);
-            fail("Expected PrestoException");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
-        }
+        assertPrestoExceptionThrownBy(() -> tokenizePath(path))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
@@ -374,12 +368,7 @@ public class TestJsonExtract
 
     private static void assertInvalidExtract(String inputJson, String jsonPath, String message)
     {
-        try {
-            doJsonExtract(inputJson, jsonPath);
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
-            assertEquals(e.getMessage(), message);
-        }
+        assertPrestoExceptionThrownBy(() -> doJsonExtract(inputJson, jsonPath))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 }

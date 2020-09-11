@@ -15,20 +15,23 @@ package io.prestosql.tests.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
-import io.prestodb.tempto.AfterTestWithContext;
-import io.prestodb.tempto.BeforeTestWithContext;
-import io.prestodb.tempto.ProductTest;
-import io.prestodb.tempto.query.QueryExecutor;
+import com.google.inject.Inject;
+import com.google.inject.name.Named;
+import io.prestosql.tempto.AfterTestWithContext;
+import io.prestosql.tempto.BeforeTestWithContext;
+import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.query.QueryExecutor;
+import io.prestosql.tempto.query.QueryResult;
+import org.assertj.core.api.Condition;
 import org.testng.annotations.Test;
 
 import java.util.Set;
 
-import static io.prestodb.tempto.assertions.QueryAssert.Row;
-import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
-import static io.prestodb.tempto.context.ContextDsl.executeWith;
-import static io.prestodb.tempto.sql.SqlContexts.createViewAs;
+import static io.prestosql.tempto.assertions.QueryAssert.Row;
+import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.context.ContextDsl.executeWith;
+import static io.prestosql.tempto.sql.SqlContexts.createViewAs;
 import static io.prestosql.tests.TestGroups.AUTHORIZATION;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
@@ -36,11 +39,16 @@ import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toSet;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestGrantRevoke
         extends ProductTest
 {
     private static final Set<String> PREDEFINED_ROLES = ImmutableSet.of("admin", "public");
+
+    @Inject
+    @Named("databases.presto.jdbc_user")
+    private String userName;
 
     private String tableName;
     private String viewName;
@@ -76,14 +84,9 @@ public class TestGrantRevoke
     @AfterTestWithContext
     public void cleanup()
     {
-        try {
-            aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-            aliceExecutor.executeQuery(format("DROP VIEW IF EXISTS %s", viewName));
-            cleanupRoles();
-        }
-        catch (Exception e) {
-            Logger.get(getClass()).warn(e, "failed to drop table/view");
-        }
+        aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        aliceExecutor.executeQuery(format("DROP VIEW IF EXISTS %s", viewName));
+        cleanupRoles();
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -141,7 +144,7 @@ public class TestGrantRevoke
                 .containsOnly(ImmutableList.of(
                         row("alice", "USER", "bob", "USER", "hive", "default", "alice_owned_table", "SELECT", "YES", null),
                         row("alice", "USER", "bob", "USER", "hive", "default", "alice_owned_table", "INSERT", "NO", null),
-                        row("hdfs", "USER", "role1", "ROLE", "hive", "default", "alice_owned_table", "SELECT", "NO", null)));
+                        row(userName, "USER", "role1", "ROLE", "hive", "default", "alice_owned_table", "SELECT", "NO", null)));
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -229,6 +232,30 @@ public class TestGrantRevoke
                     .project(7, 8)) // Project only two relevant columns of SHOW GRANT: Privilege and Grant Option
                     .containsOnly(ownerGrants());
         });
+    }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testTablePrivilegesWithHiveOnlyViews()
+    {
+        executeWith(createViewAs("hive_only_view", format("SELECT * FROM %s", tableName), onHive()), view -> {
+            assertThatThrownBy(() -> onPresto().executeQuery(format("SELECT * FROM %s", view.getName())))
+                    .hasMessageContaining("Hive views are not supported");
+
+            assertThat(onPresto().executeQuery("SELECT DISTINCT table_name FROM information_schema.table_privileges"))
+                    .contains(row(tableName))
+                    .doesNotHave(expectedRow(row(view.getName())));
+            assertThat(onPresto().executeQuery("SHOW GRANTS").project(7))
+                    .contains(row(tableName))
+                    .doesNotHave(expectedRow(row(view.getName())));
+        });
+    }
+
+    private Condition<? super QueryResult> expectedRow(Row row)
+    {
+        return new Condition<>(
+                (QueryResult qr) -> qr.rows().contains(row.getValues()),
+                "expected row %s",
+                row);
     }
 
     private ImmutableList<Row> ownerGrants()

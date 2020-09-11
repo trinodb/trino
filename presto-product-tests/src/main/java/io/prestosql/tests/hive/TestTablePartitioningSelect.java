@@ -14,28 +14,28 @@
 package io.prestosql.tests.hive;
 
 import com.google.inject.Inject;
-import io.prestodb.tempto.ProductTest;
-import io.prestodb.tempto.Requirement;
-import io.prestodb.tempto.RequirementsProvider;
-import io.prestodb.tempto.configuration.Configuration;
-import io.prestodb.tempto.fulfillment.table.MutableTablesState;
-import io.prestodb.tempto.fulfillment.table.hive.HiveDataSource;
-import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
-import io.prestodb.tempto.query.QueryExecutionException;
-import io.prestodb.tempto.query.QueryResult;
+import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.Requirement;
+import io.prestosql.tempto.RequirementsProvider;
+import io.prestosql.tempto.configuration.Configuration;
+import io.prestosql.tempto.fulfillment.table.MutableTablesState;
+import io.prestosql.tempto.fulfillment.table.hive.HiveDataSource;
+import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
+import io.prestosql.tempto.query.QueryExecutionException;
+import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.util.Locale;
 import java.util.Optional;
 
-import static io.prestodb.tempto.Requirements.allOf;
-import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
-import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.LOADED;
-import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
-import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
-import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tempto.Requirements.allOf;
+import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.fulfillment.table.MutableTableRequirement.State.LOADED;
+import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
+import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
+import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
+import static io.prestosql.tempto.query.QueryExecutor.query;
 
 public class TestTablePartitioningSelect
         extends ProductTest
@@ -74,6 +74,7 @@ public class TestTablePartitioningSelect
             sb.append("ROW FORMAT ").append(rowFormat.get());
         }
         sb.append(" STORED AS " + fileFormat);
+        sb.append(" TBLPROPERTIES ('transactional'='false')");
         return sb.toString();
     }
 

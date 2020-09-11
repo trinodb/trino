@@ -19,11 +19,9 @@ import org.apache.kudu.client.RowResult;
 
 import java.nio.charset.StandardCharsets;
 
-public class RowHelper
+public final class RowHelper
 {
-    private RowHelper()
-    {
-    }
+    private RowHelper() {}
 
     public static void copyPrimaryKey(Schema schema, RowResult from, PartialRow to)
     {
@@ -50,6 +48,9 @@ public class RowHelper
                     break;
                 case FLOAT:
                     to.addFloat(i, from.getFloat(i));
+                    break;
+                case DECIMAL:
+                    to.addDecimal(i, from.getDecimal(i));
                     break;
                 case BOOL:
                     to.addBoolean(i, from.getBoolean(i));
@@ -89,6 +90,9 @@ public class RowHelper
                     break;
                 case FLOAT:
                     to.addFloat(i, from.getFloat(i));
+                    break;
+                case DECIMAL:
+                    to.addDecimal(i, from.getDecimal(i));
                     break;
                 case BOOL:
                     to.addBoolean(i, from.getBoolean(i));

@@ -16,7 +16,6 @@ package io.prestosql.plugin.hive.metastore;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.PrivilegeInfo;
 
@@ -42,15 +41,15 @@ public class HivePrivilegeInfo
 
     private final HivePrivilege hivePrivilege;
     private final boolean grantOption;
-    private final PrestoPrincipal grantor;
-    private final PrestoPrincipal grantee;
+    private final HivePrincipal grantor;
+    private final HivePrincipal grantee;
 
     @JsonCreator
     public HivePrivilegeInfo(
             @JsonProperty("hivePrivilege") HivePrivilege hivePrivilege,
             @JsonProperty("grantOption") boolean grantOption,
-            @JsonProperty("grantor") PrestoPrincipal grantor,
-            @JsonProperty("grantee") PrestoPrincipal grantee)
+            @JsonProperty("grantor") HivePrincipal grantor,
+            @JsonProperty("grantee") HivePrincipal grantee)
     {
         this.hivePrivilege = requireNonNull(hivePrivilege, "hivePrivilege is null");
         this.grantOption = grantOption;
@@ -71,13 +70,13 @@ public class HivePrivilegeInfo
     }
 
     @JsonProperty
-    public PrestoPrincipal getGrantor()
+    public HivePrincipal getGrantor()
     {
         return grantor;
     }
 
     @JsonProperty
-    public PrestoPrincipal getGrantee()
+    public HivePrincipal getGrantee()
     {
         return grantee;
     }
@@ -100,7 +99,7 @@ public class HivePrivilegeInfo
 
     public boolean isContainedIn(HivePrivilegeInfo hivePrivilegeInfo)
     {
-        return (getHivePrivilege().equals(hivePrivilegeInfo.getHivePrivilege()) &&
+        return (getHivePrivilege() == hivePrivilegeInfo.getHivePrivilege() &&
                 (isGrantOption() == hivePrivilegeInfo.isGrantOption() ||
                         (!isGrantOption() && hivePrivilegeInfo.isGrantOption())));
     }
@@ -139,7 +138,7 @@ public class HivePrivilegeInfo
             return false;
         }
         HivePrivilegeInfo hivePrivilegeInfo = (HivePrivilegeInfo) o;
-        return Objects.equals(hivePrivilege, hivePrivilegeInfo.hivePrivilege) &&
+        return hivePrivilege == hivePrivilegeInfo.hivePrivilege &&
                 Objects.equals(grantOption, hivePrivilegeInfo.grantOption) &&
                 Objects.equals(grantor, hivePrivilegeInfo.grantor) &&
                 Objects.equals(grantee, hivePrivilegeInfo.grantee);

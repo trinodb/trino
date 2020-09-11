@@ -30,46 +30,26 @@ public class CassandraSplit
 {
     private final String partitionId;
     private final List<HostAddress> addresses;
-    private final String schema;
-    private final String table;
     private final String splitCondition;
 
     @JsonCreator
     public CassandraSplit(
-            @JsonProperty("schema") String schema,
-            @JsonProperty("table") String table,
             @JsonProperty("partitionId") String partitionId,
             @JsonProperty("splitCondition") String splitCondition,
             @JsonProperty("addresses") List<HostAddress> addresses)
     {
-        requireNonNull(schema, "schema is null");
-        requireNonNull(table, "table is null");
         requireNonNull(partitionId, "partitionName is null");
         requireNonNull(addresses, "addresses is null");
 
-        this.schema = schema;
-        this.table = table;
         this.partitionId = partitionId;
         this.addresses = ImmutableList.copyOf(addresses);
         this.splitCondition = splitCondition;
     }
 
     @JsonProperty
-    public String getSchema()
-    {
-        return schema;
-    }
-
-    @JsonProperty
     public String getSplitCondition()
     {
         return splitCondition;
-    }
-
-    @JsonProperty
-    public String getTable()
-    {
-        return table;
     }
 
     @JsonProperty
@@ -96,8 +76,6 @@ public class CassandraSplit
     {
         return ImmutableMap.builder()
                 .put("hosts", addresses)
-                .put("schema", schema)
-                .put("table", table)
                 .put("partitionId", partitionId)
                 .build();
     }
@@ -106,7 +84,6 @@ public class CassandraSplit
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(table)
                 .addValue(partitionId)
                 .toString();
     }
@@ -129,10 +106,5 @@ public class CassandraSplit
                 return " WHERE " + partitionId;
             }
         }
-    }
-
-    public CassandraTableHandle getCassandraTableHandle()
-    {
-        return new CassandraTableHandle(schema, table);
     }
 }

@@ -15,14 +15,15 @@ package io.prestosql.cost;
 
 import io.prestosql.Session;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
-import io.prestosql.spi.Node;
 
 import javax.inject.Inject;
 
 import java.util.Set;
 import java.util.function.IntSupplier;
 
+import static io.prestosql.SystemSessionProperties.getCostEstimationWorkerCount;
 import static io.prestosql.SystemSessionProperties.getHashPartitionCount;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -38,7 +39,7 @@ public class TaskCountEstimator
         requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
         requireNonNull(nodeManager, "nodeManager is null");
         this.numberOfNodes = () -> {
-            Set<Node> activeNodes = nodeManager.getAllNodes().getActiveNodes();
+            Set<InternalNode> activeNodes = nodeManager.getAllNodes().getActiveNodes();
             if (nodeSchedulerConfig.isIncludeCoordinator()) {
                 return activeNodes.size();
             }
@@ -53,13 +54,17 @@ public class TaskCountEstimator
         this.numberOfNodes = requireNonNull(numberOfNodes, "numberOfNodes is null");
     }
 
-    public int estimateSourceDistributedTaskCount()
+    public int estimateSourceDistributedTaskCount(Session session)
     {
+        Integer costEstimationWorkerCount = getCostEstimationWorkerCount(session);
+        if (costEstimationWorkerCount != null) {
+            return costEstimationWorkerCount;
+        }
         return numberOfNodes.getAsInt();
     }
 
     public int estimateHashedTaskCount(Session session)
     {
-        return min(numberOfNodes.getAsInt(), getHashPartitionCount(session));
+        return min(estimateSourceDistributedTaskCount(session), getHashPartitionCount(session));
     }
 }

@@ -90,7 +90,7 @@ public class UnloadedIndexKeyRecordSet
             checkArgument(groupIds.getGroupCount() <= Integer.MAX_VALUE);
             IntList positions = new IntArrayList((int) groupIds.getGroupCount());
             for (int position = 0; position < positionCount; position++) {
-                // We are reading ahead in the cursors, so we need to filter any nulls since they can not join
+                // We are reading ahead in the cursors, so we need to filter any nulls since they cannot join
                 if (!containsNullValue(position, page)) {
                     // Only include the key if it is not already in the index
                     if (existingSnapshot.getJoinPosition(position, page) == UNLOADED_INDEX_KEY) {

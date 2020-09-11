@@ -17,6 +17,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 public class TestDistinctAggregations
 {
     protected QueryAssertions assertions;
@@ -37,21 +39,21 @@ public class TestDistinctAggregations
     @Test
     public void testGroupAllSingleDistinct()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT count(DISTINCT x) FROM " +
-                        "(VALUES 1, 1, 2, 3) t(x)",
-                "VALUES BIGINT '3'");
+                        "(VALUES 1, 1, 2, 3) t(x)"))
+                .matches("VALUES BIGINT '3'");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT count(DISTINCT x), sum(DISTINCT x) FROM " +
-                        "(VALUES 1, 1, 2, 3) t(x)",
-                "VALUES (BIGINT '3', BIGINT '6')");
+                        "(VALUES 1, 1, 2, 3) t(x)"))
+                .matches("VALUES (BIGINT '3', BIGINT '6')");
     }
 
     @Test
     public void testGroupBySingleDistinct()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT k, count(DISTINCT x) FROM " +
                         "(VALUES " +
                         "   (1, 1), " +
@@ -64,12 +66,12 @@ public class TestDistinctAggregations
                         "   (2, 20)," +
                         "   (2, 30)" +
                         ") t(k, x) " +
-                        "GROUP BY k",
-                "VALUES " +
+                        "GROUP BY k"))
+                .matches("VALUES " +
                         "(1, BIGINT '3'), " +
                         "(2, BIGINT '4')");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT k, count(DISTINCT x), sum(DISTINCT x) FROM " +
                         "(VALUES " +
                         "   (1, 1), " +
@@ -82,8 +84,8 @@ public class TestDistinctAggregations
                         "   (2, 20)," +
                         "   (2, 30)" +
                         ") t(k, x) " +
-                        "GROUP BY k",
-                "VALUES " +
+                        "GROUP BY k"))
+                .matches("VALUES " +
                         "(1, BIGINT '3', BIGINT '6'), " +
                         "(2, BIGINT '4', BIGINT '61')");
     }
@@ -91,7 +93,7 @@ public class TestDistinctAggregations
     @Test
     public void testGroupingSetsSingleDistinct()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT k, count(DISTINCT x) FROM " +
                         "(VALUES " +
                         "   (1, 1), " +
@@ -104,13 +106,13 @@ public class TestDistinctAggregations
                         "   (2, 20)," +
                         "   (2, 30)" +
                         ") t(k, x) " +
-                        "GROUP BY GROUPING SETS ((), (k))",
-                "VALUES " +
+                        "GROUP BY GROUPING SETS ((), (k))"))
+                .matches("VALUES " +
                         "(1, BIGINT '3'), " +
                         "(2, BIGINT '4'), " +
                         "(CAST(NULL AS INTEGER), BIGINT '6')");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT k, count(DISTINCT x), sum(DISTINCT x) FROM " +
                         "(VALUES " +
                         "   (1, 1), " +
@@ -123,8 +125,8 @@ public class TestDistinctAggregations
                         "   (2, 20)," +
                         "   (2, 30)" +
                         ") t(k, x) " +
-                        "GROUP BY GROUPING SETS ((), (k))",
-                "VALUES " +
+                        "GROUP BY GROUPING SETS ((), (k))"))
+                .matches("VALUES " +
                         "(1, BIGINT '3', BIGINT '6'), " +
                         "(2, BIGINT '4', BIGINT '61'), " +
                         "(CAST(NULL AS INTEGER), BIGINT '6', BIGINT '66')");
@@ -133,21 +135,21 @@ public class TestDistinctAggregations
     @Test
     public void testGroupAllMixedDistinct()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT count(DISTINCT x), count(*) FROM " +
-                        "(VALUES 1, 1, 2, 3) t(x)",
-                "VALUES (BIGINT '3', BIGINT '4')");
+                        "(VALUES 1, 1, 2, 3) t(x)"))
+                .matches("VALUES (BIGINT '3', BIGINT '4')");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT count(DISTINCT x), count(DISTINCT y) FROM " +
                         "(VALUES " +
                         "   (1, 10), " +
                         "   (1, 20)," +
                         "   (1, 30)," +
-                        "   (2, 30)) t(x, y)",
-                "VALUES (BIGINT '2', BIGINT '3')");
+                        "   (2, 30)) t(x, y)"))
+                .matches("VALUES (BIGINT '2', BIGINT '3')");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT k, count(DISTINCT x), count(DISTINCT y) FROM " +
                         "(VALUES " +
                         "   (1, 1, 100), " +
@@ -160,8 +162,8 @@ public class TestDistinctAggregations
                         "   (2, 20, 400)," +
                         "   (2, 30, 400)" +
                         ") t(k, x, y) " +
-                        "GROUP BY GROUPING SETS ((), (k))",
-                "VALUES " +
+                        "GROUP BY GROUPING SETS ((), (k))"))
+                .matches("VALUES " +
                         "(1, BIGINT '3', BIGINT '2'), " +
                         "(2, BIGINT '4', BIGINT '4'), " +
                         "(CAST(NULL AS INTEGER), BIGINT '6', BIGINT '4')");
@@ -170,106 +172,126 @@ public class TestDistinctAggregations
     @Test
     public void testMultipleInputs()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT corr(DISTINCT x, y) FROM " +
                         "(VALUES " +
                         "   (1, 1)," +
                         "   (2, 2)," +
                         "   (2, 2)," +
                         "   (3, 3)" +
-                        ") t(x, y)",
-                "VALUES (REAL '1.0')");
+                        ") t(x, y)"))
+                .matches("VALUES (REAL '1.0')");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT corr(DISTINCT x, y), corr(DISTINCT y, x) FROM " +
                         "(VALUES " +
                         "   (1, 1)," +
                         "   (2, 2)," +
                         "   (2, 2)," +
                         "   (3, 3)" +
-                        ") t(x, y)",
-                "VALUES (REAL '1.0', REAL '1.0')");
+                        ") t(x, y)"))
+                .matches("VALUES (REAL '1.0', REAL '1.0')");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT corr(DISTINCT x, y), corr(DISTINCT y, x), count(*) FROM " +
                         "(VALUES " +
                         "   (1, 1)," +
                         "   (2, 2)," +
                         "   (2, 2)," +
                         "   (3, 3)" +
-                        ") t(x, y)",
-                "VALUES (REAL '1.0', REAL '1.0', BIGINT '4')");
+                        ") t(x, y)"))
+                .matches("VALUES (REAL '1.0', REAL '1.0', BIGINT '4')");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT corr(DISTINCT x, y), corr(DISTINCT y, x), count(DISTINCT x) FROM " +
                         "(VALUES " +
                         "   (1, 1)," +
                         "   (2, 2)," +
                         "   (2, 2)," +
                         "   (3, 3)" +
-                        ") t(x, y)",
-                "VALUES (REAL '1.0', REAL '1.0', BIGINT '3')");
+                        ") t(x, y)"))
+                .matches("VALUES (REAL '1.0', REAL '1.0', BIGINT '3')");
     }
 
     @Test
     public void testMixedDistinctAndNonDistinct()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT sum(DISTINCT x), sum(DISTINCT y), sum(z) FROM " +
                         "(VALUES " +
                         "   (1, 10, 100), " +
                         "   (1, 20, 200)," +
                         "   (2, 20, 300)," +
-                        "   (3, 30, 300)) t(x, y, z)",
-                "VALUES (BIGINT '6', BIGINT '60', BIGINT '900')");
+                        "   (3, 30, 300)) t(x, y, z)"))
+                .matches("VALUES (BIGINT '6', BIGINT '60', BIGINT '900')");
     }
 
     @Test
     public void testMixedDistinctWithFilter()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT " +
                         "     count(DISTINCT x) FILTER (WHERE x > 0), " +
                         "     sum(x) " +
-                        "FROM (VALUES 0, 1, 1, 2) t(x)",
-                "VALUES (BIGINT '2', BIGINT '4')");
+                        "FROM (VALUES 0, 1, 1, 2) t(x)"))
+                .matches("VALUES (BIGINT '2', BIGINT '4')");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT count(DISTINCT x) FILTER (where y = 1)" +
-                        "FROM (VALUES (2, 1), (1, 2), (1,1)) t(x, y)",
-                "VALUES (BIGINT '2')");
+                        "FROM (VALUES (2, 1), (1, 2), (1,1)) t(x, y)"))
+                .matches("VALUES (BIGINT '2')");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT " +
                         "     count(DISTINCT x), " +
                         "     sum(x) FILTER (WHERE x > 0) " +
-                        "FROM (VALUES 0, 1, 1, 2) t(x)",
-                "VALUES (BIGINT '3', BIGINT '4')");
+                        "FROM (VALUES 0, 1, 1, 2) t(x)"))
+                .matches("VALUES (BIGINT '3', BIGINT '4')");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT" +
                         "     sum(DISTINCT x) FILTER (WHERE y > 3)," +
                         "     sum(DISTINCT y) FILTER (WHERE x > 1)" +
-                        "FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)",
-                "VALUES (BIGINT '6', BIGINT '9')");
+                        "FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)"))
+                .matches("VALUES (BIGINT '6', BIGINT '9')");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT" +
                         "     sum(x) FILTER (WHERE x > 1) AS x," +
                         "     sum(DISTINCT x)" +
-                        "FROM (VALUES (1), (2), (2), (4)) t (x)",
-                "VALUES (BIGINT '8', BIGINT '7')");
+                        "FROM (VALUES (1), (2), (2), (4)) t (x)"))
+                .matches("VALUES (BIGINT '8', BIGINT '7')");
 
         // filter out all rows
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT sum(DISTINCT x) FILTER (WHERE y > 5)" +
-                        "FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)",
-                "VALUES (CAST(NULL AS BIGINT))");
-        assertions.assertQuery(
+                        "FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)"))
+                .matches("VALUES (CAST(NULL AS BIGINT))");
+        assertThat(assertions.query(
                 "SELECT" +
                         "     count(DISTINCT y) FILTER (WHERE x > 4)," +
                         "     sum(DISTINCT x) FILTER (WHERE y > 5)" +
-                        "FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)",
-                "VALUES (BIGINT '0', CAST(NULL AS BIGINT))");
+                        "FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)"))
+                .matches("VALUES (BIGINT '0', CAST(NULL AS BIGINT))");
+    }
+
+    @Test
+    public void testUuidDistinct()
+    {
+        assertThat(assertions.query(
+                "SELECT DISTINCT uuid_col " +
+                        "FROM (VALUES (UUID'be0b0518-35a1-4d10-b7f1-1b61355fa741')," +
+                        "             (UUID'be0b0518-35a1-4d10-b7f1-1b61355fa741')) AS t (uuid_col)"))
+                .matches("VALUES UUID'be0b0518-35a1-4d10-b7f1-1b61355fa741'");
+    }
+
+    @Test
+    public void testIpAddressDistinct()
+    {
+        assertThat(assertions.query(
+                "SELECT DISTINCT ipaddress_col " +
+                        "FROM (VALUES (IPADDRESS'2001:db8:0:0:1::1')," +
+                        "             (IPADDRESS'2001:db8:0:0:1::1')) AS t (ipaddress_col)"))
+                .matches("VALUES IPADDRESS'2001:db8:0:0:1::1'");
     }
 }

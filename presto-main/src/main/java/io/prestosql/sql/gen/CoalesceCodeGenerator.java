@@ -18,21 +18,32 @@ import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.SpecialForm;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
+import static java.util.Objects.requireNonNull;
 
 public class CoalesceCodeGenerator
         implements BytecodeGenerator
 {
+    private final Type returnType;
+    private final List<RowExpression> arguments;
+
+    public CoalesceCodeGenerator(SpecialForm specialForm)
+    {
+        requireNonNull(specialForm, "specialForm is null");
+        returnType = specialForm.getType();
+        arguments = specialForm.getArguments();
+    }
+
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext)
     {
         List<BytecodeNode> operands = new ArrayList<>();
         for (RowExpression expression : arguments) {

@@ -16,11 +16,17 @@ package io.prestosql.spi.connector;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
+import io.prestosql.spi.VersionEmbedder;
 import io.prestosql.spi.type.TypeManager;
 
 public interface ConnectorContext
 {
     default NodeManager getNodeManager()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default VersionEmbedder getVersionEmbedder()
     {
         throw new UnsupportedOperationException();
     }
@@ -36,6 +42,11 @@ public interface ConnectorContext
     }
 
     default PageIndexerFactory getPageIndexerFactory()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default ClassLoader duplicatePluginClassLoader()
     {
         throw new UnsupportedOperationException();
     }

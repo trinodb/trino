@@ -15,8 +15,10 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionMetadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.prestosql.operator.aggregation.state.BlockPositionState;
@@ -30,19 +32,20 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.AccumulatorState;
 import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.util.Reflection.methodHandle;
 
 public class ArbitraryAggregationFunction
@@ -68,23 +71,46 @@ public class ArbitraryAggregationFunction
 
     protected ArbitraryAggregationFunction()
     {
-        super(NAME,
-                ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
-                parseTypeSignature("T"),
-                ImmutableList.of(parseTypeSignature("T")));
+        super(
+                new FunctionMetadata(
+                        new Signature(
+                                NAME,
+                                ImmutableList.of(typeVariable("T")),
+                                ImmutableList.of(),
+                                new TypeSignature("T"),
+                                ImmutableList.of(new TypeSignature("T")),
+                                false),
+                        true,
+                        ImmutableList.of(new FunctionArgumentDefinition(false)),
+                        false,
+                        true,
+                        "Return an arbitrary non-null input value",
+                        AGGREGATE),
+                true,
+                false);
     }
 
     @Override
-    public String getDescription()
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
     {
-        return "return an arbitrary non-null input value";
+        Type type = functionBinding.getTypeVariable("T");
+        if (type.getJavaType() == long.class) {
+            return ImmutableList.of(StateCompiler.getSerializedType(NullableLongState.class).getTypeSignature());
+        }
+        if (type.getJavaType() == double.class) {
+            return ImmutableList.of(StateCompiler.getSerializedType(NullableDoubleState.class).getTypeSignature());
+        }
+        if (type.getJavaType() == boolean.class) {
+            return ImmutableList.of(StateCompiler.getSerializedType(NullableBooleanState.class).getTypeSignature());
+        }
+        // native container type is Slice or Block
+        return ImmutableList.of(new BlockPositionStateSerializer(type).getSerializedType().getTypeSignature());
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
-        Type valueType = boundVariables.getTypeVariable("T");
+        Type valueType = functionBinding.getTypeVariable("T");
         return generateAggregation(valueType);
     }
 
@@ -137,6 +163,7 @@ public class ArbitraryAggregationFunction
                 generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
                 inputFunction,
+                Optional.empty(),
                 combineFunction,
                 outputFunction.bindTo(type),
                 ImmutableList.of(new AccumulatorStateDescriptor(
@@ -146,7 +173,7 @@ public class ArbitraryAggregationFunction
                 type);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), type, true, false, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), type, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value)

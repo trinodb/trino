@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.connector.ConnectorPartitioningHandle;
 
 import java.util.List;
@@ -27,19 +28,28 @@ import static java.util.Objects.requireNonNull;
 public class HivePartitioningHandle
         implements ConnectorPartitioningHandle
 {
+    private final BucketingVersion bucketingVersion;
     private final int bucketCount;
     private final List<HiveType> hiveTypes;
     private final OptionalInt maxCompatibleBucketCount;
 
     @JsonCreator
     public HivePartitioningHandle(
+            @JsonProperty("bucketingVersion") BucketingVersion bucketingVersion,
             @JsonProperty("bucketCount") int bucketCount,
             @JsonProperty("hiveTypes") List<HiveType> hiveTypes,
             @JsonProperty("maxCompatibleBucketCount") OptionalInt maxCompatibleBucketCount)
     {
+        this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
         this.bucketCount = bucketCount;
         this.hiveTypes = requireNonNull(hiveTypes, "hiveTypes is null");
         this.maxCompatibleBucketCount = maxCompatibleBucketCount;
+    }
+
+    @JsonProperty
+    public BucketingVersion getBucketingVersion()
+    {
+        return bucketingVersion;
     }
 
     @JsonProperty

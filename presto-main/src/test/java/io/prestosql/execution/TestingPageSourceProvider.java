@@ -16,16 +16,19 @@ package io.prestosql.execution;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.FixedWidthBlockBuilder;
+import io.prestosql.spi.block.ByteArrayBlock;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedPageSource;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -39,12 +42,18 @@ public class TestingPageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
+            List<ColumnHandle> columns,
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
         requireNonNull(columns, "columns is null");
 
         ImmutableList<Block> blocks = columns.stream()
-                .map(column -> new FixedWidthBlockBuilder(0, 1).appendNull().build())
+                .map(column -> new ByteArrayBlock(1, Optional.of(new boolean[] {true}), new byte[1]))
                 .collect(toImmutableList());
 
         return new FixedPageSource(ImmutableList.of(new Page(blocks.toArray(new Block[blocks.size()]))));

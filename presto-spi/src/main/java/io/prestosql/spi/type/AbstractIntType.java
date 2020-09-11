@@ -14,13 +14,16 @@
 package io.prestosql.spi.type;
 
 import io.airlift.slice.Slice;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.block.IntArrayBlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Long.rotateLeft;
+import static java.lang.String.format;
 
 public abstract class AbstractIntType
         extends AbstractType
@@ -64,6 +67,13 @@ public abstract class AbstractIntType
     @Override
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
+        if (value > Integer.MAX_VALUE) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_INT", value));
+        }
+        if (value < Integer.MIN_VALUE) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_INT", value));
+        }
+
         blockBuilder.writeInt((int) value).closeEntry();
     }
 

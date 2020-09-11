@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.execution.Lifespan;
-import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.geospatial.KdbTree;
 import io.prestosql.geospatial.KdbTreeUtils;
 import io.prestosql.matching.Capture;
@@ -31,12 +30,11 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.Split;
 import io.prestosql.metadata.TableHandle;
-import io.prestosql.metadata.TableLayoutResult;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
@@ -44,8 +42,9 @@ import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
 import io.prestosql.split.SplitSource;
 import io.prestosql.split.SplitSource.SplitBatch;
-import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.iterative.Rule.Context;
 import io.prestosql.sql.planner.iterative.Rule.Result;
@@ -61,7 +60,6 @@ import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.SymbolReference;
@@ -82,12 +80,12 @@ import static io.prestosql.SystemSessionProperties.isSpatialJoinEnabled;
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static io.prestosql.spi.connector.DynamicFilter.EMPTY;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
@@ -100,7 +98,6 @@ import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_E
 import static io.prestosql.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static io.prestosql.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -153,28 +150,28 @@ import static java.util.Objects.requireNonNull;
  */
 public class ExtractSpatialJoins
 {
-    private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = parseTypeSignature("Geometry");
-    private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = parseTypeSignature("SphericalGeography");
+    private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = new TypeSignature("Geometry");
+    private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = new TypeSignature("SphericalGeography");
     private static final String KDB_TREE_TYPENAME = "KdbTree";
 
     private final Metadata metadata;
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
-    private final SqlParser sqlParser;
+    private final TypeAnalyzer typeAnalyzer;
 
-    public ExtractSpatialJoins(Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager, SqlParser sqlParser)
+    public ExtractSpatialJoins(Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager, TypeAnalyzer typeAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     public Set<Rule<?>> rules()
     {
         return ImmutableSet.of(
-                new ExtractSpatialInnerJoin(metadata, splitManager, pageSourceManager, sqlParser),
-                new ExtractSpatialLeftJoin(metadata, splitManager, pageSourceManager, sqlParser));
+                new ExtractSpatialInnerJoin(metadata, splitManager, pageSourceManager, typeAnalyzer),
+                new ExtractSpatialLeftJoin(metadata, splitManager, pageSourceManager, typeAnalyzer));
     }
 
     @VisibleForTesting
@@ -188,14 +185,14 @@ public class ExtractSpatialJoins
         private final Metadata metadata;
         private final SplitManager splitManager;
         private final PageSourceManager pageSourceManager;
-        private final SqlParser sqlParser;
+        private final TypeAnalyzer typeAnalyzer;
 
-        public ExtractSpatialInnerJoin(Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager, SqlParser sqlParser)
+        public ExtractSpatialInnerJoin(Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager, TypeAnalyzer typeAnalyzer)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
-            this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         }
 
         @Override
@@ -217,7 +214,7 @@ public class ExtractSpatialJoins
             Expression filter = node.getPredicate();
             List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);
             for (FunctionCall spatialFunction : spatialFunctions) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, sqlParser);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, typeAnalyzer);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -225,7 +222,7 @@ public class ExtractSpatialJoins
 
             List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filter);
             for (ComparisonExpression spatialComparison : spatialComparisons) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialComparison, metadata, splitManager, pageSourceManager, sqlParser);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialComparison, metadata, splitManager, pageSourceManager, typeAnalyzer);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -244,14 +241,14 @@ public class ExtractSpatialJoins
         private final Metadata metadata;
         private final SplitManager splitManager;
         private final PageSourceManager pageSourceManager;
-        private final SqlParser sqlParser;
+        private final TypeAnalyzer typeAnalyzer;
 
-        public ExtractSpatialLeftJoin(Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager, SqlParser sqlParser)
+        public ExtractSpatialLeftJoin(Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager, TypeAnalyzer typeAnalyzer)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
-            this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         }
 
         @Override
@@ -272,7 +269,7 @@ public class ExtractSpatialJoins
             Expression filter = joinNode.getFilter().get();
             List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);
             for (FunctionCall spatialFunction : spatialFunctions) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, sqlParser);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, typeAnalyzer);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -280,7 +277,7 @@ public class ExtractSpatialJoins
 
             List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filter);
             for (ComparisonExpression spatialComparison : spatialComparisons) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialComparison, metadata, splitManager, pageSourceManager, sqlParser);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialComparison, metadata, splitManager, pageSourceManager, typeAnalyzer);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -300,7 +297,7 @@ public class ExtractSpatialJoins
             Metadata metadata,
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
-            SqlParser sqlParser)
+            TypeAnalyzer typeAnalyzer)
     {
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
@@ -345,13 +342,17 @@ public class ExtractSpatialJoins
                 leftNode,
                 newRightNode,
                 joinNode.getCriteria(),
-                joinNode.getOutputSymbols(),
+                joinNode.getLeftOutputSymbols(),
+                joinNode.getRightOutputSymbols(),
                 Optional.of(newFilter),
                 joinNode.getLeftHashSymbol(),
                 joinNode.getRightHashSymbol(),
-                joinNode.getDistributionType());
+                joinNode.getDistributionType(),
+                joinNode.isSpillable(),
+                joinNode.getDynamicFilters(),
+                joinNode.getReorderJoinStatsAndCost());
 
-        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputSymbols, (FunctionCall) newComparison.getLeft(), Optional.of(newComparison.getRight()), metadata, splitManager, pageSourceManager, sqlParser);
+        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputSymbols, (FunctionCall) newComparison.getLeft(), Optional.of(newComparison.getRight()), metadata, splitManager, pageSourceManager, typeAnalyzer);
     }
 
     private static Result tryCreateSpatialJoin(
@@ -365,7 +366,7 @@ public class ExtractSpatialJoins
             Metadata metadata,
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
-            SqlParser sqlParser)
+            TypeAnalyzer typeAnalyzer)
     {
         // TODO Add support for distributed left spatial joins
         Optional<String> spatialPartitioningTableName = joinNode.getType() == INNER ? getSpatialPartitioningTableName(context.getSession()) : Optional.empty();
@@ -378,8 +379,8 @@ public class ExtractSpatialJoins
         Expression secondArgument = arguments.get(1);
 
         Type sphericalGeographyType = metadata.getType(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE);
-        if (getExpressionType(firstArgument, context, metadata, sqlParser).equals(sphericalGeographyType)
-                || getExpressionType(secondArgument, context, metadata, sqlParser).equals(sphericalGeographyType)) {
+        if (typeAnalyzer.getType(context.getSession(), context.getSymbolAllocator().getTypes(), firstArgument).equals(sphericalGeographyType)
+                || typeAnalyzer.getType(context.getSession(), context.getSymbolAllocator().getTypes(), secondArgument).equals(sphericalGeographyType)) {
             return Result.empty();
         }
 
@@ -423,16 +424,20 @@ public class ExtractSpatialJoins
             rightPartitionSymbol = Optional.of(context.getSymbolAllocator().newSymbol("pid", INTEGER));
 
             if (alignment > 0) {
-                newLeftNode = addPartitioningNodes(context, newLeftNode, leftPartitionSymbol.get(), kdbTree.get(), newFirstArgument, Optional.empty());
-                newRightNode = addPartitioningNodes(context, newRightNode, rightPartitionSymbol.get(), kdbTree.get(), newSecondArgument, radius);
+                newLeftNode = addPartitioningNodes(metadata, context, newLeftNode, leftPartitionSymbol.get(), kdbTree.get(), newFirstArgument, Optional.empty());
+                newRightNode = addPartitioningNodes(metadata, context, newRightNode, rightPartitionSymbol.get(), kdbTree.get(), newSecondArgument, radius);
             }
             else {
-                newLeftNode = addPartitioningNodes(context, newLeftNode, leftPartitionSymbol.get(), kdbTree.get(), newSecondArgument, Optional.empty());
-                newRightNode = addPartitioningNodes(context, newRightNode, rightPartitionSymbol.get(), kdbTree.get(), newFirstArgument, radius);
+                newLeftNode = addPartitioningNodes(metadata, context, newLeftNode, leftPartitionSymbol.get(), kdbTree.get(), newSecondArgument, Optional.empty());
+                newRightNode = addPartitioningNodes(metadata, context, newRightNode, rightPartitionSymbol.get(), kdbTree.get(), newFirstArgument, radius);
             }
         }
 
-        Expression newSpatialFunction = new FunctionCall(spatialFunction.getName(), ImmutableList.of(newFirstArgument, newSecondArgument));
+        Expression newSpatialFunction = new FunctionCallBuilder(metadata)
+                .setName(spatialFunction.getName())
+                .addArgument(GEOMETRY_TYPE_SIGNATURE, newFirstArgument)
+                .addArgument(GEOMETRY_TYPE_SIGNATURE, newSecondArgument)
+                .build();
         Expression newFilter = replaceExpression(filter, ImmutableMap.of(spatialFunction, newSpatialFunction));
 
         return Result.ofPlanNode(new SpatialJoinNode(
@@ -445,14 +450,6 @@ public class ExtractSpatialJoins
                 leftPartitionSymbol,
                 rightPartitionSymbol,
                 kdbTree.map(KdbTreeUtils::toJson)));
-    }
-
-    private static Type getExpressionType(Expression expression, Context context, Metadata metadata, SqlParser sqlParser)
-    {
-        Type type = getExpressionTypes(context.getSession(), metadata, sqlParser, context.getSymbolAllocator().getTypes(), expression, emptyList(), WarningCollector.NOOP)
-                .get(NodeRef.of(expression));
-        verify(type != null);
-        return type;
     }
 
     private static KdbTree loadKdbTree(String tableName, Session session, Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager)
@@ -468,22 +465,19 @@ public class ExtractSpatialJoins
 
         ColumnHandle kdbTreeColumn = Iterables.getOnlyElement(visibleColumnHandles);
 
-        List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle, Constraint.alwaysTrue(), Optional.of(ImmutableSet.of(kdbTreeColumn)));
-        checkSpatialPartitioningTable(!layouts.isEmpty(), "Table is empty: %s", name);
-
         Optional<KdbTree> kdbTree = Optional.empty();
-        try (SplitSource splitSource = splitManager.getSplits(session, layouts.get(0).getLayout().getHandle(), UNGROUPED_SCHEDULING)) {
+        try (SplitSource splitSource = splitManager.getSplits(session, tableHandle, UNGROUPED_SCHEDULING, EMPTY)) {
             while (!Thread.currentThread().isInterrupted()) {
                 SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000));
                 List<Split> splits = splitBatch.getSplits();
 
                 for (Split split : splits) {
-                    try (ConnectorPageSource pageSource = pageSourceManager.createPageSource(session, split, ImmutableList.of(kdbTreeColumn))) {
+                    try (ConnectorPageSource pageSource = pageSourceManager.createPageSource(session, split, tableHandle, ImmutableList.of(kdbTreeColumn), DynamicFilter.EMPTY)) {
                         do {
                             getFutureValue(pageSource.isBlocked());
                             Page page = pageSource.getNextPage();
                             if (page != null && page.getPositionCount() > 0) {
-                                checkSpatialPartitioningTable(!kdbTree.isPresent(), "Expected exactly one row for table %s, but found more", name);
+                                checkSpatialPartitioningTable(kdbTree.isEmpty(), "Expected exactly one row for table %s, but found more", name);
                                 checkSpatialPartitioningTable(page.getPositionCount() == 1, "Expected exactly one row for table %s, but found %s rows", name, page.getPositionCount());
                                 String kdbTreeJson = VARCHAR.getSlice(page.getBlock(0), 0).toStringUtf8();
                                 try {
@@ -592,19 +586,21 @@ public class ExtractSpatialJoins
         return new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build());
     }
 
-    private static PlanNode addPartitioningNodes(Context context, PlanNode node, Symbol partitionSymbol, KdbTree kdbTree, Expression geometry, Optional<Expression> radius)
+    private static PlanNode addPartitioningNodes(Metadata metadata, Context context, PlanNode node, Symbol partitionSymbol, KdbTree kdbTree, Expression geometry, Optional<Expression> radius)
     {
         Assignments.Builder projections = Assignments.builder();
         for (Symbol outputSymbol : node.getOutputSymbols()) {
             projections.putIdentity(outputSymbol);
         }
 
-        ImmutableList.Builder<Expression> partitioningArguments = ImmutableList.<Expression>builder()
-                .add(new Cast(new StringLiteral(KdbTreeUtils.toJson(kdbTree)), KDB_TREE_TYPENAME))
-                .add(geometry);
-        radius.map(partitioningArguments::add);
+        TypeSignature typeSignature = new TypeSignature(KDB_TREE_TYPENAME);
+        FunctionCallBuilder spatialPartitionsCall = new FunctionCallBuilder(metadata)
+                .setName(QualifiedName.of("spatial_partitions"))
+                .addArgument(typeSignature, new Cast(new StringLiteral(KdbTreeUtils.toJson(kdbTree)), toSqlType(metadata.getType(typeSignature))))
+                .addArgument(GEOMETRY_TYPE_SIGNATURE, geometry);
+        radius.map(value -> spatialPartitionsCall.addArgument(DOUBLE, value));
+        FunctionCall partitioningFunction = spatialPartitionsCall.build();
 
-        FunctionCall partitioningFunction = new FunctionCall(QualifiedName.of("spatial_partitions"), partitioningArguments.build());
         Symbol partitionsSymbol = context.getSymbolAllocator().newSymbol(partitioningFunction, new ArrayType(INTEGER));
         projections.put(partitionsSymbol, partitioningFunction);
 
@@ -612,7 +608,9 @@ public class ExtractSpatialJoins
                 context.getIdAllocator().getNextId(),
                 new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build()),
                 node.getOutputSymbols(),
-                ImmutableMap.of(partitionsSymbol, ImmutableList.of(partitionSymbol)),
+                ImmutableList.of(new UnnestNode.Mapping(partitionsSymbol, ImmutableList.of(partitionSymbol))),
+                Optional.empty(),
+                INNER,
                 Optional.empty());
     }
 

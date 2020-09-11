@@ -15,45 +15,44 @@ package io.prestosql.plugin.redshift;
 
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
-import io.prestosql.plugin.jdbc.DriverConnectionFactory;
-import io.prestosql.plugin.jdbc.JdbcConnectorId;
-import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
+import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.spi.PrestoException;
-import org.postgresql.Driver;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.Optional;
+import java.util.function.BiFunction;
 
-import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 
 public class RedshiftClient
         extends BaseJdbcClient
 {
     @Inject
-    public RedshiftClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
+    public RedshiftClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
-        super(connectorId, config, "\"", new DriverConnectionFactory(new Driver(), config));
+        super(config, "\"", connectionFactory);
     }
 
     @Override
-    public void commitCreateTable(JdbcOutputTableHandle handle)
+    protected void renameTable(JdbcIdentity identity, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
-        // Redshift does not allow qualifying the target of a rename
+        if (!schemaName.equals(newTable.getSchemaName())) {
+            throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported");
+        }
+
         String sql = format(
                 "ALTER TABLE %s RENAME TO %s",
-                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
-                quoted(handle.getTableName()));
-
-        try (Connection connection = getConnection(handle)) {
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
+                quoted(catalogName, schemaName, tableName),
+                quoted(newTable.getTableName()));
+        execute(identity, sql);
     }
 
     @Override
@@ -64,5 +63,17 @@ public class RedshiftClient
         PreparedStatement statement = connection.prepareStatement(sql);
         statement.setFetchSize(1000);
         return statement;
+    }
+
+    @Override
+    protected Optional<BiFunction<String, Long, String>> limitFunction()
+    {
+        return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
+    }
+
+    @Override
+    public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return true;
     }
 }

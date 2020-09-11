@@ -14,15 +14,14 @@
 package org.apache.kudu.client;
 
 import org.apache.kudu.Schema;
+import org.apache.kudu.client.PartitionSchema.HashBucketSchema;
 
 /**
  * Little wrapper to access KeyEncoder in Kudu Java client.
  */
-public class KeyEncoderAccessor
+public final class KeyEncoderAccessor
 {
-    private KeyEncoderAccessor()
-    {
-    }
+    private KeyEncoderAccessor() {}
 
     public static byte[] encodePrimaryKey(PartialRow row)
     {
@@ -42,5 +41,18 @@ public class KeyEncoderAccessor
     public static PartialRow decodeRangePartitionKey(Schema schema, PartitionSchema partitionSchema, byte[] key)
     {
         return KeyEncoder.decodeRangePartitionKey(schema, partitionSchema, key);
+    }
+
+    /**
+     * Returns the bucket of the row for the given hash bucket schema. All columns
+     * in the hash bucket schema must be set in the row.
+     *
+     * @param row the row containing hash schema columns
+     * @param hashSchema the hash schema
+     * @return the hash bucket of the row
+     */
+    public static int getHashBucket(PartialRow row, HashBucketSchema hashSchema)
+    {
+        return KeyEncoder.getHashBucket(row, hashSchema);
     }
 }

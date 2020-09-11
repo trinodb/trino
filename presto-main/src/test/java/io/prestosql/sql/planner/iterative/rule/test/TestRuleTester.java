@@ -23,13 +23,14 @@ import org.testng.annotations.Test;
 
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.prestosql.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 
 public class TestRuleTester
 {
     @Test(expectedExceptions = AssertionError.class, expectedExceptionsMessageRegExp = "Plan does not match, expected .* but found .*")
     public void testReportWrongMatch()
     {
-        try (RuleTester tester = new RuleTester()) {
+        try (RuleTester tester = defaultRuleTester()) {
             tester.assertThat(new DummyReplaceNodeRule())
                     .on(p ->
                             p.project(

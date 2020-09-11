@@ -32,6 +32,8 @@ import org.testng.annotations.Test;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -44,7 +46,6 @@ import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
-@Test
 public class TestJdbcRecordSetProvider
 {
     private TestingDatabase database;
@@ -62,11 +63,10 @@ public class TestJdbcRecordSetProvider
     {
         database = new TestingDatabase();
         jdbcClient = database.getJdbcClient();
-        split = database.getSplit("example", "numbers");
+        table = database.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
+        split = database.getSplit(SESSION, table);
 
-        table = jdbcClient.getTableHandle(new SchemaTableName("example", "numbers"));
-
-        Map<String, JdbcColumnHandle> columns = database.getColumnHandles("example", "numbers");
+        Map<String, JdbcColumnHandle> columns = database.getColumnHandles(SESSION, table);
         textColumn = columns.get("text");
         textShortColumn = columns.get("text_short");
         valueColumn = columns.get("value");
@@ -84,7 +84,7 @@ public class TestJdbcRecordSetProvider
     {
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
-        RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, ImmutableList.of(textColumn, textShortColumn, valueColumn));
+        RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, table, ImmutableList.of(textColumn, textShortColumn, valueColumn));
         assertNotNull(recordSet, "recordSet is null");
 
         RecordCursor cursor = recordSet.cursor();
@@ -178,13 +178,20 @@ public class TestJdbcRecordSetProvider
 
     private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> domain)
     {
-        JdbcTableLayoutHandle layoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, domain);
-        ConnectorSplitSource splits = jdbcClient.getSplits(layoutHandle);
+        jdbcTableHandle = new JdbcTableHandle(
+                jdbcTableHandle.getSchemaTableName(),
+                jdbcTableHandle.getRemoteTableName(),
+                domain,
+                Optional.empty(),
+                OptionalLong.empty(),
+                Optional.empty());
+
+        ConnectorSplitSource splits = jdbcClient.getSplits(SESSION, jdbcTableHandle);
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
-        RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, columns);
+        RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, jdbcTableHandle, columns);
 
         return recordSet.cursor();
     }

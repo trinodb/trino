@@ -24,10 +24,10 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
+import static io.prestosql.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class RaptorSessionProperties
 {
@@ -51,22 +51,22 @@ public class RaptorSessionProperties
                         "Two-phase commit batch ID",
                         null,
                         true),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         READER_MAX_MERGE_DISTANCE,
                         "Reader: Maximum size of gap between two reads to merge into a single read",
                         config.getOrcMaxMergeDistance(),
                         false),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         READER_MAX_READ_SIZE,
                         "Reader: Maximum size of a single read",
                         config.getOrcMaxReadSize(),
                         false),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         READER_STREAM_BUFFER_SIZE,
                         "Reader: Size of buffer for streaming reads",
                         config.getOrcStreamBufferSize(),
                         false),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         READER_TINY_STRIPE_THRESHOLD,
                         "Reader: Threshold below which an ORC stripe or file will read in its entirety",
                         config.getOrcTinyStripeThreshold(),
@@ -121,18 +121,5 @@ public class RaptorSessionProperties
     public static int getOneSplitPerBucketThreshold(ConnectorSession session)
     {
         return session.getProperty(ONE_SPLIT_PER_BUCKET_THRESHOLD, Integer.class);
-    }
-
-    public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
-    {
-        return new PropertyMetadata<>(
-                name,
-                description,
-                createUnboundedVarcharType(),
-                DataSize.class,
-                defaultValue,
-                hidden,
-                value -> DataSize.valueOf((String) value),
-                DataSize::toString);
     }
 }

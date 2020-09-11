@@ -16,7 +16,6 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.joni.Matcher;
 import io.airlift.joni.Option;
-import io.airlift.joni.Regex;
 import io.airlift.joni.Region;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -30,12 +29,14 @@ import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.sql.gen.lambda.UnaryFunctionInterface;
+import io.prestosql.type.JoniRegexp;
 import io.prestosql.type.JoniRegexpType;
 
+import static io.airlift.slice.SliceUtf8.lengthOfCodePointFromStartByte;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 @ScalarFunction("regexp_replace")
-@Description("replaces substrings matching a regular expression using a lambda function")
+@Description("Replaces substrings matching a regular expression using a lambda function")
 public final class JoniRegexpReplaceLambdaFunction
 {
     private final PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(VARCHAR));
@@ -45,7 +46,7 @@ public final class JoniRegexpReplaceLambdaFunction
     @SqlNullable
     public Slice regexpReplace(
             @SqlType("varchar") Slice source,
-            @SqlType(JoniRegexpType.NAME) Regex pattern,
+            @SqlType(JoniRegexpType.NAME) JoniRegexp pattern,
             @SqlType("function(array(varchar), varchar(x))") UnaryFunctionInterface replaceFunction)
     {
         // If there is no match we can simply return the original source without doing copy.
@@ -63,15 +64,20 @@ public final class JoniRegexpReplaceLambdaFunction
         }
         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
 
-        int groupCount = pattern.numberOfCaptures();
+        int groupCount = pattern.regex().numberOfCaptures();
         int appendPosition = 0;
         int nextStart;
 
         do {
             // nextStart is the same as the last appendPosition, unless the last match was zero-width.
-            // In such case, nextStart is last appendPosition + 1.
             if (matcher.getEnd() == matcher.getBegin()) {
-                nextStart = matcher.getEnd() + 1;
+                if (matcher.getBegin() < source.length()) {
+                    nextStart = matcher.getEnd() + lengthOfCodePointFromStartByte(source.getByte(matcher.getBegin()));
+                }
+                else {
+                    // last match is empty and we matched end of source, move past the source length to terminate the loop
+                    nextStart = matcher.getEnd() + 1;
+                }
             }
             else {
                 nextStart = matcher.getEnd();

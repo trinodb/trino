@@ -64,7 +64,7 @@ public class TestPruneJoinColumns
     }
 
     @Test
-    public void testCrossJoinDoesNotFire()
+    public void testCrossJoin()
     {
         tester().assertThat(new PruneJoinColumns())
                 .on(p -> {
@@ -77,12 +77,22 @@ public class TestPruneJoinColumns
                                     p.values(leftValue),
                                     p.values(rightValue),
                                     ImmutableList.of(),
-                                    ImmutableList.of(leftValue, rightValue),
+                                    ImmutableList.of(leftValue),
+                                    ImmutableList.of(rightValue),
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty()));
                 })
-                .doesNotFire();
+                .matches(
+                        strictProject(
+                                ImmutableMap.of(),
+                                join(
+                                        JoinNode.Type.INNER,
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        values(ImmutableList.of("leftValue")),
+                                        values(ImmutableList.of("rightValue")))
+                                        .withExactOutputs()));
     }
 
     private static PlanNode buildProjectedJoin(PlanBuilder p, Predicate<Symbol> projectionFilter)
@@ -91,10 +101,11 @@ public class TestPruneJoinColumns
         Symbol leftValue = p.symbol("leftValue");
         Symbol rightKey = p.symbol("rightKey");
         Symbol rightValue = p.symbol("rightValue");
-        List<Symbol> outputs = ImmutableList.of(leftKey, leftValue, rightKey, rightValue);
+        List<Symbol> leftOutputs = ImmutableList.of(leftKey, leftValue);
+        List<Symbol> rightOutputs = ImmutableList.of(rightKey, rightValue);
         return p.project(
                 Assignments.identity(
-                        outputs.stream()
+                        ImmutableList.of(leftKey, leftValue, rightKey, rightValue).stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),
                 p.join(
@@ -102,7 +113,8 @@ public class TestPruneJoinColumns
                         p.values(leftKey, leftValue),
                         p.values(rightKey, rightValue),
                         ImmutableList.of(new JoinNode.EquiJoinClause(leftKey, rightKey)),
-                        outputs,
+                        leftOutputs,
+                        rightOutputs,
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));
