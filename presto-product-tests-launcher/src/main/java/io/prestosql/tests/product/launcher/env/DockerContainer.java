@@ -13,11 +13,15 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
+import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.model.Statistics;
+import com.github.dockerjava.core.InvocationBuilder;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
 import com.google.common.io.RecursiveDeleteOption;
 import io.airlift.log.Logger;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.SelinuxContext;
@@ -208,6 +212,18 @@ public class DockerContainer
         }
 
         return Stream.empty();
+    }
+
+    public Statistics getStats()
+    {
+        try (DockerClient client = DockerClientFactory.lazyClient()) {
+            InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>();
+            client.statsCmd(getContainerId()).exec(callback);
+            return callback.awaitResult();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override

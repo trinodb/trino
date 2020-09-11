@@ -13,6 +13,8 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import io.airlift.log.Logger;
 
@@ -23,6 +25,7 @@ import java.util.Optional;
 public interface EnvironmentListener
 {
     Logger log = Logger.get(EnvironmentListener.class);
+    ObjectMapper mapper = new ObjectMapper();
 
     default void environmentStarting(Environment environment)
     {
@@ -175,6 +178,23 @@ public interface EnvironmentListener
             public void containerStopping(DockerContainer container, InspectContainerResponse response)
             {
                 container.copyLogsToHostPath(logBaseDir.get());
+            }
+        };
+    }
+
+    static EnvironmentListener statsPrintingListener()
+    {
+        return new EnvironmentListener()
+        {
+            @Override
+            public void containerStopping(DockerContainer container, InspectContainerResponse response)
+            {
+                try {
+                    log.info("Container %s stats: %s", container, mapper.writeValueAsString(container.getStats()));
+                }
+                catch (JsonProcessingException e) {
+                    log.warn("Could not display container %s stats: %s", container, e);
+                }
             }
         };
     }
