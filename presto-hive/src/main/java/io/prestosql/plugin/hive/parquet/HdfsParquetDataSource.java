@@ -103,8 +103,7 @@ public class HdfsParquetDataSource
         readFully(position, buffer, 0, buffer.length);
     }
 
-    @Override
-    public final void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
+    private void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
     {
         readBytes += bufferLength;
 
