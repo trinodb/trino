@@ -20,6 +20,7 @@ import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.docker.ContainerUtil;
+import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
@@ -115,6 +116,7 @@ public final class EnvironmentUp
         private final boolean debug;
         private final EnvironmentConfig environmentConfig;
         private final Optional<Path> logsDirBase;
+        private final DockerContainer.OutputMode outputMode;
 
         @Inject
         public Execution(EnvironmentFactory environmentFactory, EnvironmentConfig environmentConfig, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions)
@@ -125,6 +127,7 @@ public final class EnvironmentUp
             this.background = environmentUpOptions.background;
             this.environment = environmentUpOptions.environment;
             this.debug = options.debug;
+            this.outputMode = requireNonNull(options.output, "options.output is null");
             this.logsDirBase = requireNonNull(environmentUpOptions.logsDirBase, "environmentUpOptions.logsDirBase is null");
         }
 
@@ -135,6 +138,8 @@ public final class EnvironmentUp
             Environments.pruneEnvironment();
 
             Environment.Builder builder = environmentFactory.get(environment)
+                    .setContainerOutputMode(outputMode)
+                    .setLogsBaseDir(logsDirBase)
                     .removeContainer(TESTS);
 
             if (withoutPrestoMaster) {
