@@ -19,7 +19,6 @@ import io.prestosql.Session;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingSession;
 import io.prestosql.testing.datatype.CreateAndInsertDataSetup;
 import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
@@ -29,7 +28,6 @@ import io.prestosql.testing.datatype.DataTypeTest;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
 import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -82,7 +80,6 @@ import static io.prestosql.plugin.oracle.OracleDataTypes.tooLargeCharDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.tooLargeVarcharDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.unspecifiedNumberDataType;
 import static io.prestosql.plugin.oracle.OracleDataTypes.varchar2DataType;
-import static io.prestosql.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static io.prestosql.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
 import static io.prestosql.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
@@ -98,7 +95,7 @@ import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 
-public class TestOracleTypes
+public abstract class AbstractTestOracleTypeMapping
         extends AbstractTestQueryFramework
 {
     private static final String NO_SUPPORTED_COLUMNS = "Table '.*' has no supported columns \\(all \\d+ columns are not supported\\)";
@@ -124,16 +121,6 @@ public class TestOracleTypes
     private final ZoneOffset fixedOffsetEast = ZoneOffset.ofHoursMinutes(2, 17);
     private final ZoneOffset fixedOffsetWest = ZoneOffset.ofHoursMinutes(-7, -31);
 
-    private TestingOracleServer oracleServer;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        this.oracleServer = new TestingOracleServer();
-        return createOracleQueryRunner(oracleServer, ImmutableList.of());
-    }
-
     @BeforeClass
     public void setUp()
     {
@@ -145,14 +132,6 @@ public class TestOracleTypes
         checkIsDoubled(vilnius, timeDoubledInVilnius);
 
         checkIsGap(kathmandu, timeGapInKathmandu);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        if (oracleServer != null) {
-            oracleServer.close();
-        }
     }
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
@@ -564,8 +543,8 @@ public class TestOracleTypes
     @Test
     public void testSpecialNumberFormats()
     {
-        oracleServer.execute("CREATE TABLE test (num1 number)");
-        oracleServer.execute("INSERT INTO test VALUES (12345678901234567890.12345678901234567890123456789012345678)");
+        getOracleSqlExecutor().execute("CREATE TABLE test (num1 number)");
+        getOracleSqlExecutor().execute("INSERT INTO test VALUES (12345678901234567890.12345678901234567890123456789012345678)");
         assertQuery(number(HALF_UP, 10), "SELECT * FROM test", "VALUES (12345678901234567890.1234567890)");
     }
 
@@ -711,13 +690,12 @@ public class TestOracleTypes
                 .addRoundTrip(timestampDataType(), beforeEpoch)
                 .addRoundTrip(timestampDataType(), afterEpoch)
                 .addRoundTrip(timestampDataType(), timeDoubledInJvmZone)
-                .addRoundTrip(timestampDataType(), timeDoubledInVilnius);
-
-        addTimestampTestIfSupported(tests, epoch); // epoch also is a gap in JVM zone
-        addTimestampTestIfSupported(tests, timeGapInJvmZone1);
-        addTimestampTestIfSupported(tests, timeGapInJvmZone2);
-        addTimestampTestIfSupported(tests, timeGapInVilnius);
-        addTimestampTestIfSupported(tests, timeGapInKathmandu);
+                .addRoundTrip(timestampDataType(), timeDoubledInVilnius)
+                .addRoundTrip(timestampDataType(), epoch) // epoch also is a gap in JVM zone
+                .addRoundTrip(timestampDataType(), timeGapInJvmZone1)
+                .addRoundTrip(timestampDataType(), timeGapInJvmZone2)
+                .addRoundTrip(timestampDataType(), timeGapInVilnius)
+                .addRoundTrip(timestampDataType(), timeGapInKathmandu);
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -729,11 +707,6 @@ public class TestOracleTypes
         else {
             tests.execute(getQueryRunner(), session, oracleCreateAndInsert("test_timestamp"));
         }
-    }
-
-    private static void addTimestampTestIfSupported(DataTypeTest tests, LocalDateTime dateTime)
-    {
-        tests.addRoundTrip(timestampDataType(), dateTime);
     }
 
     @DataProvider
@@ -835,14 +808,14 @@ public class TestOracleTypes
      */
     private void testUnsupportedOracleType(String dataTypeName)
     {
-        try (TestTable table = new TestTable(getSqlExecutor(), "unsupported_type", format("(unsupported_type %s)", dataTypeName))) {
+        try (TestTable table = new TestTable(getOracleSqlExecutor(), "unsupported_type", format("(unsupported_type %s)", dataTypeName))) {
             assertQueryFails("SELECT * FROM " + table.getName(), NO_SUPPORTED_COLUMNS);
         }
     }
 
     private DataSetup oracleCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(getSqlExecutor(), tableNamePrefix);
+        return new CreateAndInsertDataSetup(getOracleSqlExecutor(), tableNamePrefix);
     }
 
     /**
@@ -896,10 +869,7 @@ public class TestOracleTypes
         test.execute(getQueryRunner(), session.build(), dataSetup);
     }
 
-    private SqlExecutor getSqlExecutor()
-    {
-        return sql -> oracleServer.execute(sql);
-    }
+    protected abstract SqlExecutor getOracleSqlExecutor();
 
     private static ToIntFunction<String> codePoints()
     {
@@ -928,6 +898,6 @@ public class TestOracleTypes
 
     private TestTable oracleTable(String tableName, String schema, String data)
     {
-        return new TestTable(getSqlExecutor(), tableName, format("(%s)", schema), ImmutableList.of(data));
+        return new TestTable(getOracleSqlExecutor(), tableName, format("(%s)", schema), ImmutableList.of(data));
     }
 }

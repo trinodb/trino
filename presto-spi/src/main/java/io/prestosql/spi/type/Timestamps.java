@@ -45,6 +45,9 @@ public class Timestamps
     };
 
     public static final int MILLISECONDS_PER_SECOND = 1_000;
+    public static final int MILLISECONDS_PER_MINUTE = MILLISECONDS_PER_SECOND * 60;
+    public static final int MILLISECONDS_PER_HOUR = MILLISECONDS_PER_MINUTE * 60;
+    public static final int MILLISECONDS_PER_DAY = MILLISECONDS_PER_HOUR * 24;
     public static final int MICROSECONDS_PER_MILLISECOND = 1_000;
     public static final int MICROSECONDS_PER_SECOND = 1_000_000;
     public static final long MICROSECONDS_PER_DAY = 24 * 60 * 60 * 1_000_000L;

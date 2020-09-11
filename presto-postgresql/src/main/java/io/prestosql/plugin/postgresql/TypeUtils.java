@@ -22,6 +22,9 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import org.joda.time.DateTimeZone;
@@ -34,7 +37,9 @@ import java.math.MathContext;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
@@ -48,8 +53,10 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static java.lang.Float.intBitsToFloat;
@@ -77,6 +84,18 @@ final class TypeUtils
         // Since PostgreSQL char[] can only hold single byte elements, map all CharType to varchar
         if (elementType instanceof VarcharType || elementType instanceof CharType) {
             return "varchar";
+        }
+
+        // TypeInfoCache#getPGArrayType apparently doesn't allow for specifying variable-length limits.
+        // Map all timestamptz(x) types to unparametrized one which defaults to highest precision
+        if (elementType instanceof TimestampWithTimeZoneType) {
+            return "timestamptz";
+        }
+
+        // TypeInfoCache#getPGArrayType doesn't allow for specifying variable-length limits.
+        // Map all timestamp(x) types to unparametrized one which defaults to highest precision
+        if (elementType instanceof TimestampType) {
+            return "timestamp";
         }
 
         if (elementType instanceof DecimalType) {
@@ -176,14 +195,25 @@ final class TypeUtils
             return new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis));
         }
 
-        if (TIMESTAMP_MILLIS.equals(prestoType)) {
+        if (prestoType instanceof TimestampType && ((TimestampType) prestoType).isShort()) {
+            TimestampType timestampType = (TimestampType) prestoType;
             return toPgTimestamp(fromPrestoTimestamp((long) prestoNative));
         }
 
-        if (TIMESTAMP_WITH_TIME_ZONE.equals(prestoType)) {
-            long millisUtc = unpackMillisUtc((long) prestoNative);
+        if (prestoType instanceof TimestampWithTimeZoneType) {
             // PostgreSQL does not store zone, only the point in time
-            return new Timestamp(millisUtc);
+            int precision = ((TimestampWithTimeZoneType) prestoType).getPrecision();
+            if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
+                long millisUtc = unpackMillisUtc((long) prestoNative);
+                return new Timestamp(millisUtc);
+            }
+            else {
+                LongTimestampWithTimeZone value = (LongTimestampWithTimeZone) prestoNative;
+                long epochSeconds = value.getEpochMillis() / MILLISECONDS_PER_SECOND;
+                long nanosOfSecond = value.getEpochMillis() % MILLISECONDS_PER_SECOND * NANOSECONDS_PER_MILLISECOND
+                        + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
+                return OffsetDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds, nanosOfSecond), UTC_KEY.getZoneId());
+            }
         }
 
         if (prestoType instanceof VarcharType || prestoType instanceof CharType) {

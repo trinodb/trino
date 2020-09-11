@@ -114,6 +114,27 @@ public class TestLazyCoordinatorDynamicFiltering
         // for broadcast joins lazy dynamic filters are non blocking
     }
 
+    @Test(enabled = false)
+    @Override
+    public void testBroadcastSemiJoinWithSelectiveBuildSide()
+    {
+        // for broadcast semi-joins lazy dynamic filters are non blocking
+    }
+
+    @Test(enabled = false)
+    @Override
+    public void testBroadcastSemiJoinWithEmptyBuildSide()
+    {
+        // for broadcast semi-joins lazy dynamic filters are non blocking
+    }
+
+    @Test(enabled = false)
+    @Override
+    public void testBroadcastSemiJoinWithLargeBuildSide()
+    {
+        // for broadcast semi-joins lazy dynamic filters are non blocking
+    }
+
     private class TestPlugin
             implements Plugin
     {
@@ -190,17 +211,15 @@ public class TestLazyCoordinatorDynamicFiltering
                         @Override
                         public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
                         {
-                            CompletableFuture<?> blocked = dynamicFilter.isBlocked();
-
-                            if (blocked.isDone()) {
-                                splitProduced.set(true);
-                                return completedFuture(new ConnectorSplitBatch(ImmutableList.of(new EmptySplit(new CatalogName("test"))), isFinished()));
+                            if (dynamicFilter.isAwaitable()) {
+                                return dynamicFilter.isBlocked().thenApply(ignored -> {
+                                    // yield until dynamic filter is fully loaded
+                                    return new ConnectorSplitBatch(ImmutableList.of(), false);
+                                });
                             }
 
-                            return blocked.thenApply(ignored -> {
-                                // yield until dynamic filter is fully loaded
-                                return new ConnectorSplitBatch(ImmutableList.of(), false);
-                            });
+                            splitProduced.set(true);
+                            return completedFuture(new ConnectorSplitBatch(ImmutableList.of(new EmptySplit(new CatalogName("test"))), isFinished()));
                         }
 
                         @Override
@@ -211,7 +230,7 @@ public class TestLazyCoordinatorDynamicFiltering
                         @Override
                         public boolean isFinished()
                         {
-                            if (!dynamicFilter.isComplete() || !splitProduced.get()) {
+                            if (!splitProduced.get()) {
                                 return false;
                             }
 

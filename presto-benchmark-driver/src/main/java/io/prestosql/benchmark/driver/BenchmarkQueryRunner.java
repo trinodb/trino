@@ -63,6 +63,7 @@ public class BenchmarkQueryRunner
     private final int runs;
     private final boolean debug;
     private final int maxFailures;
+    private final String user;
 
     private final HttpClient httpClient;
     private final OkHttpClient okHttpClient;
@@ -95,8 +96,8 @@ public class BenchmarkQueryRunner
         setupCookieJar(builder);
         setupSocksProxy(builder, socksProxy);
         this.okHttpClient = builder.build();
-
-        nodes = getAllNodes(requireNonNull(serverUri, "serverUri is null"), requireNonNull(user, "user is null"));
+        this.user = requireNonNull(user, "user is null");
+        nodes = getAllNodes(requireNonNull(serverUri, "serverUri is null"), user);
     }
 
     @SuppressWarnings("AssignmentToForLoopParameter")
@@ -265,8 +266,13 @@ public class BenchmarkQueryRunner
     {
         long totalCpuTime = 0;
         for (URI server : nodes) {
-            URI addressUri = uriBuilderFrom(server).replacePath("/v1/jmx/mbean/java.lang:type=OperatingSystem/ProcessCpuTime").build();
-            String data = httpClient.execute(prepareGet().setUri(addressUri).build(), createStringResponseHandler()).getBody();
+            Request request = prepareGet()
+                    .setHeader(PrestoHeaders.PRESTO_USER, user)
+                    .setUri(uriBuilderFrom(server)
+                            .replacePath("/v1/jmx/mbean/java.lang:type=OperatingSystem/ProcessCpuTime")
+                            .build())
+                    .build();
+            String data = httpClient.execute(request, createStringResponseHandler()).getBody();
             totalCpuTime += parseLong(data.trim());
         }
         return TimeUnit.NANOSECONDS.toNanos(totalCpuTime);

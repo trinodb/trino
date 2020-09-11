@@ -15,6 +15,7 @@ package io.prestosql.testing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.MoreCollectors;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.cost.CostCalculator;
@@ -22,10 +23,13 @@ import io.prestosql.cost.CostCalculatorUsingExchanges;
 import io.prestosql.cost.CostCalculatorWithEstimatedExchanges;
 import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.TaskCountEstimator;
+import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.operator.OperatorStats;
+import io.prestosql.spi.QueryId;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.FeaturesConfig;
@@ -37,7 +41,12 @@ import io.prestosql.sql.planner.PlanFragmenter;
 import io.prestosql.sql.planner.PlanOptimizers;
 import io.prestosql.sql.planner.RuleStatsRecorder;
 import io.prestosql.sql.planner.TypeAnalyzer;
+import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
+import io.prestosql.sql.planner.plan.FilterNode;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.query.QueryAssertions.QueryAssert;
 import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.testing.TestingAccessControlManager.TestingPrivilege;
@@ -53,6 +62,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -63,9 +73,11 @@ import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.SqlFormatter.formatSql;
+import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -417,5 +429,38 @@ public abstract class AbstractTestQueryFramework
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, distributionType.name())
                 .build();
+    }
+
+    protected OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)
+    {
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        Plan plan = runner.getQueryPlan(queryId);
+        PlanNodeId nodeId = PlanNodeSearcher.searchFrom(plan.getRoot())
+                .where(node -> {
+                    if (!(node instanceof ProjectNode)) {
+                        return false;
+                    }
+                    ProjectNode projectNode = (ProjectNode) node;
+                    if (!(projectNode.getSource() instanceof FilterNode)) {
+                        return false;
+                    }
+                    FilterNode filterNode = (FilterNode) projectNode.getSource();
+                    TableScanNode tableScanNode = (TableScanNode) filterNode.getSource();
+                    return tableName.equals(tableScanNode.getTable().getConnectorHandle().toString());
+                })
+                .findOnlyElement()
+                .getId();
+
+        Supplier<QueryInfo> queryInfoSupplier = () -> runner.getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(queryId);
+        assertEventually(new Duration(5, SECONDS), () -> assertThat(queryInfoSupplier.get().isFinalQueryInfo()));
+
+        return queryInfoSupplier.get()
+                .getQueryStats()
+                .getOperatorSummaries()
+                .stream()
+                .filter(summary -> nodeId.equals(summary.getPlanNodeId()) && summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
+                .collect(MoreCollectors.onlyElement());
     }
 }

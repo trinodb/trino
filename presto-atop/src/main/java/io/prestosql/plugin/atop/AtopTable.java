@@ -35,7 +35,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -61,7 +61,7 @@ public enum AtopTable
             new AtopColumn("write_requests", BIGINT.getTypeSignature(), bigintParser(10)),
             new AtopColumn("sectors_written", BIGINT.getTypeSignature(), bigintParser(11)))),
 
-    REBOOTS("reboots", "DSK", ImmutableList.of(HOST_IP, new AtopColumn("power_on_time", TIMESTAMP_WITH_TIME_ZONE.getTypeSignature(), (fields, type, builder, session) -> {
+    REBOOTS("reboots", "DSK", ImmutableList.of(HOST_IP, new AtopColumn("power_on_time", TIMESTAMP_TZ_MILLIS.getTypeSignature(), (fields, type, builder, session) -> {
         long millisUtc = Long.valueOf(fields.get(2)) * 1000;
         long durationMillis = Long.valueOf(fields.get(5)) * 1000;
         long value = packDateTimeWithZone(millisUtc - durationMillis, session.getTimeZoneKey());
@@ -121,14 +121,14 @@ public enum AtopTable
     {
         public static final AtopColumn HOST_IP = new AtopColumn("host_ip", VARCHAR.getTypeSignature(), (fields, type, builder, session) -> { throw new UnsupportedOperationException(); });
 
-        public static final AtopColumn START_TIME = new AtopColumn("start_time", TIMESTAMP_WITH_TIME_ZONE.getTypeSignature(), ((fields, type, builder, session) -> {
+        public static final AtopColumn START_TIME = new AtopColumn("start_time", TIMESTAMP_TZ_MILLIS.getTypeSignature(), ((fields, type, builder, session) -> {
             long millisUtc = Long.valueOf(fields.get(2)) * 1000;
             long durationMillis = Long.valueOf(fields.get(5)) * 1000;
             long value = packDateTimeWithZone(millisUtc - durationMillis, session.getTimeZoneKey());
             type.writeLong(builder, value);
         }));
 
-        public static final AtopColumn END_TIME = new AtopColumn("end_time", TIMESTAMP_WITH_TIME_ZONE.getTypeSignature(), ((fields, type, builder, session) -> {
+        public static final AtopColumn END_TIME = new AtopColumn("end_time", TIMESTAMP_TZ_MILLIS.getTypeSignature(), ((fields, type, builder, session) -> {
             long millisUtc = Long.valueOf(fields.get(2)) * 1000;
             type.writeLong(builder, packDateTimeWithZone(millisUtc, session.getTimeZoneKey()));
         }));

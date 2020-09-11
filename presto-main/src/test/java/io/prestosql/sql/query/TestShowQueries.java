@@ -57,6 +57,7 @@ public class TestShowQueries
                                                 .setName("colabc")
                                                 .setType(BIGINT)
                                                 .build()))
+                        .withListSchemaNames(session -> ImmutableList.of("mockschema"))
                         .withListTables((session, schemaName) -> ImmutableList.of(new SchemaTableName("mockSchema", "mockTable")))
                         .build(),
                 ImmutableMap.of());

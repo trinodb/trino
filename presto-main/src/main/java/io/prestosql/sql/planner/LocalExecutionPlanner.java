@@ -2223,6 +2223,12 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitSemiJoin(SemiJoinNode node, LocalExecutionPlanContext context)
         {
+            node.getDynamicFilterId().ifPresent(filterId -> {
+                // Register locally if the table scan is on the same node (e.g., in case of broadcast semi-joins)
+                if (getConsumedDynamicFilterIds(node.getSource()).contains(filterId)) {
+                    context.getDynamicFiltersCollector().register(ImmutableSet.of(filterId));
+                }
+            });
             // Plan probe
             PhysicalOperation probeSource = node.getSource().accept(this, context);
 
@@ -2230,10 +2236,31 @@ public class LocalExecutionPlanner
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = node.getFilteringSource().accept(this, buildContext);
             checkState(buildSource.getPipelineExecutionStrategy() == probeSource.getPipelineExecutionStrategy(), "build and probe have different pipelineExecutionStrategy");
-            checkArgument(buildContext.getDriverInstanceCount().orElse(1) == 1, "Expected local execution to not be parallel");
+            int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
+            checkArgument(partitionCount == 1, "Expected local execution to not be parallel");
 
             int probeChannel = probeSource.getLayout().get(node.getSourceJoinSymbol());
             int buildChannel = buildSource.getLayout().get(node.getFilteringSourceJoinSymbol());
+
+            ImmutableList.Builder<OperatorFactory> buildOperatorFactories = new ImmutableList.Builder<>();
+            buildOperatorFactories.addAll(buildSource.getOperatorFactories());
+
+            node.getDynamicFilterId().ifPresent(filterId -> {
+                // Add a DynamicFilterSourceOperatorFactory to build operator factories
+                log.debug("[Semi-join] Dynamic filter: %s", filterId);
+                LocalDynamicFilterConsumer filterConsumer = new LocalDynamicFilterConsumer(
+                        ImmutableMap.of(filterId, buildChannel),
+                        ImmutableMap.of(filterId, buildSource.getTypes().get(buildChannel)),
+                        partitionCount);
+                addSuccessCallback(filterConsumer.getDynamicFilterDomains(), context::addDynamicFilter);
+                buildOperatorFactories.add(new DynamicFilterSourceOperatorFactory(
+                        buildContext.getNextOperatorId(),
+                        node.getId(),
+                        filterConsumer.getTupleDomainConsumer(),
+                        ImmutableList.of(new DynamicFilterSourceOperator.Channel(filterId, buildSource.getTypes().get(buildChannel), buildChannel)),
+                        getDynamicFilteringMaxPerDriverRowCount(context.getSession()),
+                        getDynamicFilteringMaxPerDriverSize(context.getSession())));
+            });
 
             Optional<Integer> buildHashChannel = node.getFilteringSourceHashSymbol().map(channelGetter(buildSource));
             Optional<Integer> probeHashChannel = node.getSourceHashSymbol().map(channelGetter(probeSource));
@@ -2246,14 +2273,12 @@ public class LocalExecutionPlanner
                     buildHashChannel,
                     10_000,
                     joinCompiler);
+            buildOperatorFactories.add(setBuilderOperatorFactory);
             SetSupplier setProvider = setBuilderOperatorFactory.getSetProvider();
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
-                    ImmutableList.<OperatorFactory>builder()
-                            .addAll(buildSource.getOperatorFactories())
-                            .add(setBuilderOperatorFactory)
-                            .build(),
+                    buildOperatorFactories.build(),
                     buildContext.getDriverInstanceCount(),
                     buildSource.getPipelineExecutionStrategy());
 

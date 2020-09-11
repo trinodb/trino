@@ -261,7 +261,7 @@ public class MaterializedResult
             type.writeLong(blockBuilder, ((Number) value).byteValue());
         }
         else if (REAL.equals(type)) {
-            type.writeLong(blockBuilder, (long) floatToRawIntBits(((Number) value).floatValue()));
+            type.writeLong(blockBuilder, floatToRawIntBits(((Number) value).floatValue()));
         }
         else if (DOUBLE.equals(type)) {
             type.writeDouble(blockBuilder, ((Number) value).doubleValue());

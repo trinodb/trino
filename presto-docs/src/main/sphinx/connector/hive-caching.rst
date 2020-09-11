@@ -158,7 +158,6 @@ Object storage systems
 The following object storage systems are tested:
 
 * HDFS
-* HDFS secured by Kerberos access
 * :doc:`Amazon S3 and S3-compatible systems <hive-s3>`
 * :doc:`Azure storage systems <hive-azure>`
 * Google Cloud Storage
@@ -193,7 +192,7 @@ The following example query returns the average cache hit ratio for the ``hive``
 Limitations
 -----------
 
-Caching does not support user impersonation. It does not take any user-specific
-access rights to the object storage into account. The cached objects are simply
-transparent binary blobs to the caching system and full access to all content is
-available.
+Caching does not support user impersonation and cannot be used with HDFS secured by Kerberos.
+It does not take any user-specific access rights to the object storage into account.
+The cached objects are simply transparent binary blobs to the caching system and full
+access to all content is available.

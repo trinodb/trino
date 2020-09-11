@@ -23,9 +23,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.atop.LocalAtopQueryRunner.createQueryRunner;
-import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestAtopSmoke
 {
@@ -54,6 +52,7 @@ public class TestAtopSmoke
     public void testPredicatePushdown()
     {
         assertThatQueryReturnsValue("SELECT device_name FROM disks WHERE start_time < current_timestamp LIMIT 1", "sda");
+        assertThatQueryReturnsValue("SELECT device_name FROM disks WHERE start_time > current_timestamp - INTERVAL '2' DAY LIMIT 1", "sda");
     }
 
     @Test
@@ -66,10 +65,8 @@ public class TestAtopSmoke
     {
         MaterializedResult rows = queryRunner.execute(sql);
         MaterializedRow materializedRow = Iterables.getOnlyElement(rows);
-        int fieldCount = materializedRow.getFieldCount();
-        assertTrue(fieldCount == 1, format("Expected only one column, but got '%d'", fieldCount));
+        assertEquals(materializedRow.getFieldCount(), 1, "column count");
         Object value = materializedRow.getField(0);
         assertEquals(value, expected);
-        assertTrue(Iterables.getOnlyElement(rows).getFieldCount() == 1);
     }
 }

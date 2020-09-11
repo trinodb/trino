@@ -112,37 +112,18 @@ public class AcidInfo
 
     public static class DeleteDeltaInfo
     {
-        private final long minWriteId;
-        private final long maxWriteId;
-        private final int statementId;
+        private final String directoryName;
 
         @JsonCreator
-        public DeleteDeltaInfo(
-                @JsonProperty("minWriteId") long minWriteId,
-                @JsonProperty("maxWriteId") long maxWriteId,
-                @JsonProperty("statementId") int statementId)
+        public DeleteDeltaInfo(@JsonProperty("directoryName") String directoryName)
         {
-            this.minWriteId = minWriteId;
-            this.maxWriteId = maxWriteId;
-            this.statementId = statementId;
+            this.directoryName = directoryName;
         }
 
         @JsonProperty
-        public long getMinWriteId()
+        public String getDirectoryName()
         {
-            return minWriteId;
-        }
-
-        @JsonProperty
-        public long getMaxWriteId()
-        {
-            return maxWriteId;
-        }
-
-        @JsonProperty
-        public int getStatementId()
-        {
-            return statementId;
+            return directoryName;
         }
 
         @Override
@@ -151,30 +132,24 @@ public class AcidInfo
             if (this == o) {
                 return true;
             }
-
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-
             DeleteDeltaInfo that = (DeleteDeltaInfo) o;
-            return minWriteId == that.minWriteId &&
-                    maxWriteId == that.maxWriteId &&
-                    statementId == that.statementId;
+            return Objects.equals(directoryName, that.directoryName);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(minWriteId, maxWriteId, statementId);
+            return Objects.hash(directoryName);
         }
 
         @Override
         public String toString()
         {
             return toStringHelper(this)
-                    .add("minWriteId", minWriteId)
-                    .add("maxWriteId", maxWriteId)
-                    .add("statementId", statementId)
+                    .add("directoryName", directoryName)
                     .toString();
         }
     }
@@ -262,7 +237,7 @@ public class AcidInfo
             deleteDeltaInfos.addAll(acidInfo.deleteDeltas);
         }
 
-        public Builder addDeleteDelta(Path deleteDeltaPath, long minWriteId, long maxWriteId, int statementId)
+        public Builder addDeleteDelta(Path deleteDeltaPath)
         {
             requireNonNull(deleteDeltaPath, "deleteDeltaPath is null");
             Path partitionPathFromDeleteDelta = deleteDeltaPath.getParent();
@@ -272,7 +247,7 @@ public class AcidInfo
                     deleteDeltaPath.getParent().toString(),
                     partitionLocation);
 
-            deleteDeltaInfos.add(new DeleteDeltaInfo(minWriteId, maxWriteId, statementId));
+            deleteDeltaInfos.add(new DeleteDeltaInfo(deleteDeltaPath.getName()));
             return this;
         }
 
