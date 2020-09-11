@@ -298,5 +298,5 @@ jobs:
           rm -rf ~/.m2/repository
       - name: Product Tests
         run: |
-          presto-product-tests-launcher/bin/run-launcher suite run --suite ${{ matrix.suite }} --config ${{ matrix.config }} --no-bind
+          presto-product-tests-launcher/bin/run-launcher suite run --suite ${{ matrix.suite }} --config ${{ matrix.config }} --no-bind --logs-dir logs/
 
