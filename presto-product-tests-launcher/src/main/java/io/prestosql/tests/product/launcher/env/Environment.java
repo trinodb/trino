@@ -26,13 +26,17 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.ContainerState;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
+import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.lifecycle.Startables;
 
 import java.io.FileDescriptor;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
+import java.io.UncheckedIOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -40,10 +44,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
+import static com.google.common.base.Verify.verify;
+import static io.prestosql.tests.product.launcher.env.DockerContainer.ensurePathExists;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.prestosql.tests.product.launcher.env.Environments.pruneEnvironment;
 import static java.lang.String.format;
@@ -62,7 +69,7 @@ public final class Environment
     private final Map<String, DockerContainer> containers;
     private final Optional<EnvironmentListener> listener;
 
-    public Environment(String name, Map<String, DockerContainer> containers, Optional<EnvironmentListener> listener)
+    private Environment(String name, Map<String, DockerContainer> containers, Optional<EnvironmentListener> listener)
     {
         this.name = requireNonNull(name, "name is null");
         this.containers = requireNonNull(containers, "containers is null");
@@ -187,6 +194,7 @@ public final class Environment
     public static class Builder
     {
         private final String name;
+        private DockerContainer.OutputMode outputMode;
 
         @SuppressWarnings("resource")
         private Network network = Network.builder()
@@ -197,6 +205,7 @@ public final class Environment
                 .build();
 
         private Map<String, DockerContainer> containers = new HashMap<>();
+        private Optional<Path> logsBaseDir = Optional.empty();
 
         public Builder(String name)
         {
@@ -268,6 +277,12 @@ public final class Environment
             return this;
         }
 
+        public Builder setContainerOutputMode(DockerContainer.OutputMode outputMode)
+        {
+            this.outputMode = outputMode;
+            return this;
+        }
+
         public Environment build()
         {
             return build(Optional.empty());
@@ -280,20 +295,32 @@ public final class Environment
 
         private Environment build(Optional<EnvironmentListener> listener)
         {
-            // write directly to System.out, bypassing logging & io.airlift.log.Logging#rewireStdStreams
-            PrintStream out;
-            try {
-                //noinspection resource
-                out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
-            }
-            catch (UnsupportedEncodingException e) {
-                throw new RuntimeException(e);
+            switch (outputMode) {
+                case DISCARD:
+                    log.warn("Containers logs are not printed to stdout");
+                    setContainerOutputConsumer(this::discardContainerLogs);
+                    break;
+
+                case PRINT:
+                    setContainerOutputConsumer(this::printContainerLogs);
+                    break;
+
+                case PRINT_WRITE:
+                    verify(logsBaseDir.isPresent(), "--logs-dir must be set with --output WRITE");
+
+                    setContainerOutputConsumer(container -> combineConsumers(
+                            writeContainerLogs(container, logsBaseDir.get()),
+                            printContainerLogs(container)));
+                    break;
+
+                case WRITE:
+                    verify(logsBaseDir.isPresent(), "--logs-dir must be set with --output WRITE");
+                    setContainerOutputConsumer(container -> writeContainerLogs(container, logsBaseDir.get()));
             }
 
             containers.forEach((name, container) -> {
                 container
                         .withEnvironmentListener(listener)
-                        .withLogConsumer(new PrintingLogConsumer(out, format("%-20s| ", name)))
                         .withCreateContainerCmdModifier(createContainerCmd -> {
                             Map<String, Bind> binds = new HashMap<>();
                             HostConfig hostConfig = createContainerCmd.getHostConfig();
@@ -305,6 +332,55 @@ public final class Environment
             });
 
             return new Environment(name, containers, listener);
+        }
+
+        private Consumer<OutputFrame> writeContainerLogs(DockerContainer container, Path path)
+        {
+            Path containerLogFile = path.resolve(container.getLogicalName() + "/container.log");
+            log.info("Writing container %s logs to %s", container, containerLogFile);
+
+            try {
+                ensurePathExists(containerLogFile.getParent());
+                return new PrintingLogConsumer(new PrintStream(containerLogFile.toFile()), "");
+            }
+            catch (FileNotFoundException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        private Consumer<OutputFrame> printContainerLogs(DockerContainer container)
+        {
+            try {
+                // write directly to System.out, bypassing logging & io.airlift.log.Logging#rewireStdStreams
+                //noinspection resource
+                PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
+                return new PrintingLogConsumer(out, format("%-20s| ", container.getLogicalName()));
+            }
+            catch (UnsupportedEncodingException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        private Consumer<OutputFrame> discardContainerLogs(DockerContainer container)
+        {
+            // Discard log frames
+            return outputFrame -> {};
+        }
+
+        private Consumer<OutputFrame> combineConsumers(Consumer<OutputFrame>... consumers)
+        {
+            return outputFrame -> Arrays.stream(consumers).forEach(consumer -> consumer.accept(outputFrame));
+        }
+
+        private void setContainerOutputConsumer(Function<DockerContainer, Consumer<OutputFrame>> consumer)
+        {
+            configureContainers(container -> container.withLogConsumer(consumer.apply(container)));
+        }
+
+        public Builder setLogsBaseDir(Optional<Path> baseDir)
+        {
+            this.logsBaseDir = baseDir;
+            return this;
         }
     }
 }

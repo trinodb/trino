@@ -37,6 +37,9 @@ public final class EnvironmentOptions
     @Option(names = "--debug", description = "Open Java debug ports")
     public boolean debug;
 
+    @Option(names = "--output", description = "Container output handling mode: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "PRINT")
+    public DockerContainer.OutputMode output;
+
     @Option(names = "--launcher-bin", paramLabel = "<launcher bin>", description = "Launcher bin path (used to display run commands)", defaultValue = "${launcher.bin}", hidden = true)
     public String launcherBin;
 

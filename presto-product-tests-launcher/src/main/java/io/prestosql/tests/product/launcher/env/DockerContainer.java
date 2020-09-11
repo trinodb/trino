@@ -172,7 +172,7 @@ public class DockerContainer
         log.info("Copying container %s logs to '%s'", logicalName, hostPath);
 
         Path hostLogPath = Paths.get(hostPath.toString(), logicalName);
-        cleanOrCreateHostPath(hostLogPath);
+        ensurePathExists(hostLogPath);
 
         for (String containerLogPath : logPaths) {
             try {
@@ -264,5 +264,14 @@ public class DockerContainer
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    public enum OutputMode
+    {
+        PRINT,
+        DISCARD,
+        WRITE,
+        PRINT_WRITE,
+        /**/;
     }
 }
