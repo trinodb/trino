@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.rcfile;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -25,11 +26,13 @@ import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
 import io.prestosql.plugin.hive.ReaderProjections;
+import io.prestosql.plugin.hive.util.FSDataInputStreamTail;
 import io.prestosql.rcfile.AircompressorCodecFactory;
 import io.prestosql.rcfile.HadoopCodecFactory;
 import io.prestosql.rcfile.MemoryRcFileDataSource;
 import io.prestosql.rcfile.RcFileCorruptionException;
 import io.prestosql.rcfile.RcFileDataSource;
+import io.prestosql.rcfile.RcFileDataSourceId;
 import io.prestosql.rcfile.RcFileEncoding;
 import io.prestosql.rcfile.RcFileReader;
 import io.prestosql.rcfile.binary.BinaryRcFileEncoding;
@@ -37,6 +40,7 @@ import io.prestosql.rcfile.text.TextRcFileEncoding;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -63,10 +67,12 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjections.noProjectionAdaptation;
 import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.prestosql.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
 import static io.prestosql.rcfile.text.TextRcFileEncoding.DEFAULT_SEPARATORS;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -142,16 +148,19 @@ public class RcFilePageSourceFactory
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
             FSDataInputStream inputStream = hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.open(path));
-            dataSource = new HdfsRcFileDataSource(path.toString(), inputStream, estimatedFileSize, stats);
             if (estimatedFileSize < BUFFER_SIZE.toBytes()) {
-                byte[] buffer = new byte[toIntExact(estimatedFileSize)];
+                //  Handle potentially imprecise file lengths by reading the footer
                 try {
-                    dataSource.readFully(0, buffer, 0, buffer.length);
+                    FSDataInputStreamTail fileTail = FSDataInputStreamTail.readTail(path.toString(), estimatedFileSize, inputStream, toIntExact(BUFFER_SIZE.toBytes()));
+                    dataSource = new MemoryRcFileDataSource(new RcFileDataSourceId(path.toString()), fileTail.getTailSlice());
                 }
                 finally {
-                    dataSource.close();
+                    inputStream.close();
                 }
-                dataSource = new MemoryRcFileDataSource(dataSource.getId(), Slices.wrappedBuffer(buffer));
+            }
+            else {
+                long fileSize = hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.getFileStatus(path).getLen());
+                dataSource = new HdfsRcFileDataSource(path.toString(), inputStream, fileSize, stats);
             }
         }
         catch (Exception e) {
@@ -160,6 +169,12 @@ public class RcFilePageSourceFactory
                 throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, e);
             }
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
+        }
+
+        length = min(dataSource.getSize() - start, length);
+        // Split may be empty now that the correct file size is known
+        if (length <= 0) {
+            return Optional.of(noProjectionAdaptation(new FixedPageSource(ImmutableList.of())));
         }
 
         try {

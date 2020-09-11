@@ -113,6 +113,12 @@ public class TestHiveFileFormats
         return new Object[][] {{0}, {1000}};
     }
 
+    @DataProvider(name = "validRowAndFileSizePadding")
+    public static Object[][] validFileSizePaddingProvider()
+    {
+        return new Object[][] {{0, 0L}, {0, 16L}, {10, 1L}, {1000, 64L}};
+    }
+
     @BeforeClass(alwaysRun = true)
     public void setUp()
     {
@@ -122,8 +128,8 @@ public class TestHiveFileFormats
                 "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
     }
 
-    @Test(dataProvider = "rowCount")
-    public void testTextFile(int rowCount)
+    @Test(dataProvider = "validRowAndFileSizePadding")
+    public void testTextFile(int rowCount, long fileSizePadding)
             throws Exception
     {
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
@@ -133,11 +139,12 @@ public class TestHiveFileFormats
         assertThatFileFormat(TEXTFILE)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
+                .withFileSizePadding(fileSizePadding)
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
 
-    @Test(dataProvider = "rowCount")
-    public void testSequenceFile(int rowCount)
+    @Test(dataProvider = "validRowAndFileSizePadding")
+    public void testSequenceFile(int rowCount, long fileSizePadding)
             throws Exception
     {
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
@@ -147,11 +154,12 @@ public class TestHiveFileFormats
         assertThatFileFormat(SEQUENCEFILE)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
+                .withFileSizePadding(fileSizePadding)
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
 
-    @Test(dataProvider = "rowCount")
-    public void testCsvFile(int rowCount)
+    @Test(dataProvider = "validRowAndFileSizePadding")
+    public void testCsvFile(int rowCount, long fileSizePadding)
             throws Exception
     {
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
@@ -164,6 +172,7 @@ public class TestHiveFileFormats
         assertThatFileFormat(CSV)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
+                .withFileSizePadding(fileSizePadding)
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
 
@@ -179,8 +188,8 @@ public class TestHiveFileFormats
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
 
-    @Test(dataProvider = "rowCount")
-    public void testJson(int rowCount)
+    @Test(dataProvider = "validRowAndFileSizePadding")
+    public void testJson(int rowCount, long fileSizePadding)
             throws Exception
     {
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
@@ -204,16 +213,18 @@ public class TestHiveFileFormats
         assertThatFileFormat(JSON)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
+                .withFileSizePadding(fileSizePadding)
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
 
-    @Test(dataProvider = "rowCount")
-    public void testRcTextPageSource(int rowCount)
+    @Test(dataProvider = "validRowAndFileSizePadding")
+    public void testRcTextPageSource(int rowCount, long fileSizePadding)
             throws Exception
     {
         assertThatFileFormat(RCTEXT)
                 .withColumns(TEST_COLUMNS)
                 .withRowsCount(rowCount)
+                .withFileSizePadding(fileSizePadding)
                 .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()));
     }
 
@@ -276,8 +287,8 @@ public class TestHiveFileFormats
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
 
-    @Test(dataProvider = "rowCount")
-    public void testOrc(int rowCount)
+    @Test(dataProvider = "validRowAndFileSizePadding")
+    public void testOrc(int rowCount, long fileSizePadding)
             throws Exception
     {
         // Hive binary writers are broken for timestamps
@@ -288,11 +299,12 @@ public class TestHiveFileFormats
         assertThatFileFormat(ORC)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
+                .withFileSizePadding(fileSizePadding)
                 .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS, UTC));
     }
 
-    @Test(dataProvider = "rowCount")
-    public void testOrcOptimizedWriter(int rowCount)
+    @Test(dataProvider = "validRowAndFileSizePadding")
+    public void testOrcOptimizedWriter(int rowCount, long fileSizePadding)
             throws Exception
     {
         HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
@@ -315,6 +327,7 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withSession(session)
+                .withFileSizePadding(fileSizePadding)
                 .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), false, STATS, new OrcWriterOptions()))
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
                 .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS, UTC));
@@ -356,13 +369,14 @@ public class TestHiveFileFormats
                 .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS, UTC));
     }
 
-    @Test(dataProvider = "rowCount")
-    public void testAvro(int rowCount)
+    @Test(dataProvider = "validRowAndFileSizePadding")
+    public void testAvro(int rowCount, long fileSizePadding)
             throws Exception
     {
         assertThatFileFormat(AVRO)
                 .withColumns(getTestColumnsSupportedByAvro())
                 .withRowsCount(rowCount)
+                .withFileSizePadding(fileSizePadding)
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
 
@@ -378,7 +392,7 @@ public class TestHiveFileFormats
             Properties splitProperties = new Properties();
             splitProperties.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
             splitProperties.setProperty(SERIALIZATION_LIB, AVRO.getSerDe());
-            testCursorProvider(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), split, splitProperties, getTestColumnsSupportedByAvro(), SESSION, rowCount);
+            testCursorProvider(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), split, splitProperties, getTestColumnsSupportedByAvro(), SESSION, file.length(), rowCount);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
@@ -396,8 +410,8 @@ public class TestHiveFileFormats
                 .collect(toList());
     }
 
-    @Test(dataProvider = "rowCount")
-    public void testParquetPageSource(int rowCount)
+    @Test(dataProvider = "validRowAndFileSizePadding")
+    public void testParquetPageSource(int rowCount, long fileSizePadding)
             throws Exception
     {
         List<TestColumn> testColumns = getTestColumnsSupportedByParquet();
@@ -405,11 +419,12 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withSession(PARQUET_SESSION)
                 .withRowsCount(rowCount)
+                .withFileSizePadding(fileSizePadding)
                 .isReadableByPageSource(new ParquetPageSourceFactory(HDFS_ENVIRONMENT, STATS, new ParquetReaderConfig(), new HiveConfig()));
     }
 
-    @Test(dataProvider = "rowCount")
-    public void testParquetPageSourceGzip(int rowCount)
+    @Test(dataProvider = "validRowAndFileSizePadding")
+    public void testParquetPageSourceGzip(int rowCount, long fileSizePadding)
             throws Exception
     {
         List<TestColumn> testColumns = getTestColumnsSupportedByParquet();
@@ -417,6 +432,7 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withSession(PARQUET_SESSION)
                 .withCompressionCodec(HiveCompressionCodec.GZIP)
+                .withFileSizePadding(fileSizePadding)
                 .withRowsCount(rowCount)
                 .isReadableByPageSource(new ParquetPageSourceFactory(HDFS_ENVIRONMENT, STATS, new ParquetReaderConfig(), new HiveConfig()));
     }
@@ -828,13 +844,14 @@ public class TestHiveFileFormats
             HiveStorageFormat storageFormat,
             List<TestColumn> testReadColumns,
             ConnectorSession session,
+            long fileSize,
             int rowCount)
             throws Exception
     {
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, storageFormat.getInputFormat());
         splitProperties.setProperty(SERIALIZATION_LIB, storageFormat.getSerDe());
-        ConnectorPageSource pageSource = createPageSourceFromCursorProvider(cursorProvider, split, splitProperties, testReadColumns, session);
+        ConnectorPageSource pageSource = createPageSourceFromCursorProvider(cursorProvider, split, splitProperties, fileSize, testReadColumns, session);
         checkPageSource(pageSource, testReadColumns, getTypes(getColumnHandles(testReadColumns)), rowCount);
     }
 
@@ -844,12 +861,13 @@ public class TestHiveFileFormats
             HiveStorageFormat storageFormat,
             List<TestColumn> testReadColumns,
             ConnectorSession session,
+            long fileSize,
             int rowCount)
     {
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, storageFormat.getInputFormat());
         splitProperties.setProperty(SERIALIZATION_LIB, storageFormat.getSerDe());
-        testCursorProvider(cursorProvider, split, splitProperties, testReadColumns, session, rowCount);
+        testCursorProvider(cursorProvider, split, splitProperties, testReadColumns, session, fileSize, rowCount);
     }
 
     private void testCursorProvider(
@@ -858,9 +876,10 @@ public class TestHiveFileFormats
             Properties splitProperties,
             List<TestColumn> testReadColumns,
             ConnectorSession session,
+            long fileSize,
             int rowCount)
     {
-        ConnectorPageSource pageSource = createPageSourceFromCursorProvider(cursorProvider, split, splitProperties, testReadColumns, session);
+        ConnectorPageSource pageSource = createPageSourceFromCursorProvider(cursorProvider, split, splitProperties, fileSize, testReadColumns, session);
         RecordCursor cursor = ((RecordPageSource) pageSource).getCursor();
         checkCursor(cursor, testReadColumns, rowCount);
     }
@@ -869,6 +888,7 @@ public class TestHiveFileFormats
             HiveRecordCursorProvider cursorProvider,
             FileSplit split,
             Properties splitProperties,
+            long fileSize,
             List<TestColumn> testReadColumns,
             ConnectorSession session)
     {
@@ -916,7 +936,7 @@ public class TestHiveFileFormats
                 OptionalInt.empty(),
                 split.getStart(),
                 split.getLength(),
-                split.getLength(),
+                fileSize,
                 Instant.now().toEpochMilli(),
                 splitProperties,
                 TupleDomain.all(),
@@ -938,6 +958,7 @@ public class TestHiveFileFormats
             HiveStorageFormat storageFormat,
             List<TestColumn> testReadColumns,
             ConnectorSession session,
+            long fileSize,
             int rowCount)
             throws IOException
     {
@@ -982,7 +1003,7 @@ public class TestHiveFileFormats
                 OptionalInt.empty(),
                 split.getStart(),
                 split.getLength(),
-                split.getLength(),
+                fileSize,
                 Instant.now().toEpochMilli(),
                 splitProperties,
                 TupleDomain.all(),
@@ -1115,6 +1136,7 @@ public class TestHiveFileFormats
         private ConnectorSession session = SESSION;
         private int rowsCount = 1000;
         private HiveFileWriterFactory fileWriterFactory;
+        private long fileSizePadding;
 
         private FileFormatAssertion(String formatName)
         {
@@ -1167,6 +1189,12 @@ public class TestHiveFileFormats
         public FileFormatAssertion withSession(ConnectorSession session)
         {
             this.session = requireNonNull(session, "session is null");
+            return this;
+        }
+
+        public FileFormatAssertion withFileSizePadding(long fileSizePadding)
+        {
+            this.fileSizePadding = fileSizePadding;
             return this;
         }
 
@@ -1236,15 +1264,16 @@ public class TestHiveFileFormats
                     split = createTestFileHive(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, rowsCount);
                 }
 
+                long fileSize = split.getLength() + fileSizePadding;
                 if (pageSourceFactory.isPresent()) {
-                    testPageSourceFactory(pageSourceFactory.get(), split, storageFormat, readColumns, session, rowsCount);
+                    testPageSourceFactory(pageSourceFactory.get(), split, storageFormat, readColumns, session, fileSize, rowsCount);
                 }
                 if (cursorProvider.isPresent()) {
                     if (withRecordPageSource) {
-                        testRecordPageSource(cursorProvider.get(), split, storageFormat, readColumns, session, rowsCount);
+                        testRecordPageSource(cursorProvider.get(), split, storageFormat, readColumns, session, fileSize, rowsCount);
                     }
                     else {
-                        testCursorProvider(cursorProvider.get(), split, storageFormat, readColumns, session, rowsCount);
+                        testCursorProvider(cursorProvider.get(), split, storageFormat, readColumns, session, fileSize, rowsCount);
                     }
                 }
             }
