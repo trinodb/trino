@@ -48,10 +48,7 @@ import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
 import static io.prestosql.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
-import static io.prestosql.tests.product.launcher.env.EnvironmentListener.compose;
-import static io.prestosql.tests.product.launcher.env.EnvironmentListener.logCopyingListener;
-import static io.prestosql.tests.product.launcher.env.EnvironmentListener.loggingListener;
-import static io.prestosql.tests.product.launcher.env.EnvironmentListener.statsPrintingListener;
+import static io.prestosql.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.lang.StrictMath.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -248,10 +245,7 @@ public final class TestRun
 
             environmentConfig.extendEnvironment(this.environment).ifPresent(extender -> extender.extendEnvironment(environment));
 
-            return environment.build(compose(
-                    loggingListener(),
-                    logCopyingListener(logsDirBase),
-                    statsPrintingListener()));
+            return environment.build(getStandardListeners(logsDirBase));
         }
 
         private static Iterable<? extends String> reportsDirOptions(Path path)

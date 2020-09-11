@@ -43,10 +43,7 @@ import java.util.concurrent.Callable;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
-import static io.prestosql.tests.product.launcher.env.EnvironmentListener.compose;
-import static io.prestosql.tests.product.launcher.env.EnvironmentListener.logCopyingListener;
-import static io.prestosql.tests.product.launcher.env.EnvironmentListener.loggingListener;
-import static io.prestosql.tests.product.launcher.env.EnvironmentListener.statsPrintingListener;
+import static io.prestosql.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Mixin;
 import static picocli.CommandLine.Option;
@@ -137,9 +134,11 @@ public final class EnvironmentUp
             log.info("Pruning old environment(s)");
             Environments.pruneEnvironment();
 
+            Optional<Path> environmentLogPath = logsDirBase.map(dir -> dir.resolve(environment));
+
             Environment.Builder builder = environmentFactory.get(environment)
                     .setContainerOutputMode(outputMode)
-                    .setLogsBaseDir(logsDirBase)
+                    .setLogsBaseDir(environmentLogPath)
                     .removeContainer(TESTS);
 
             if (withoutPrestoMaster) {
@@ -151,12 +150,7 @@ public final class EnvironmentUp
                 builder.configureContainers(Standard::enablePrestoJavaDebugger);
             }
 
-            Optional<Path> environmentLogPath = logsDirBase.map(dir -> dir.resolve(environment));
-            Environment environment = builder.build(compose(
-                    loggingListener(),
-                    logCopyingListener(environmentLogPath),
-                    statsPrintingListener()));
-
+            Environment environment = builder.build(getStandardListeners(environmentLogPath));
             environment.start();
 
             if (background) {
