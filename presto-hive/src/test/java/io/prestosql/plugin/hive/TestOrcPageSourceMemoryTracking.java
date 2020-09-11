@@ -194,7 +194,13 @@ public class TestOrcPageSourceMemoryTracking
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         ConnectorPageSource pageSource = testPreparer.newPageSource(stats, useCache ? CACHED_SESSION : UNCACHED_SESSION);
 
-        assertEquals(pageSource.getSystemMemoryUsage(), 0);
+        if (useCache) {
+            // file is fully cached
+            assertBetweenInclusive(pageSource.getSystemMemoryUsage(), testPreparer.getFileSize(), testPreparer.getFileSize() + 200);
+        }
+        else {
+            assertEquals(pageSource.getSystemMemoryUsage(), 0);
+        }
 
         long memoryUsage = -1;
         int totalRows = 0;
@@ -207,7 +213,7 @@ public class TestOrcPageSourceMemoryTracking
             if (memoryUsage == -1) {
                 // Memory usage before lazy-loading the block
                 if (useCache) {
-                    assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 180_000L, 189_999L);
+                    assertBetweenInclusive(pageSource.getSystemMemoryUsage(), testPreparer.getFileSize(), testPreparer.getFileSize() + 2000);
                 }
                 else {
                     assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 0L, 1000L);
@@ -215,7 +221,12 @@ public class TestOrcPageSourceMemoryTracking
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 memoryUsage = pageSource.getSystemMemoryUsage();
                 // Memory usage after lazy-loading the actual block
-                assertBetweenInclusive(memoryUsage, 460_000L, 469_999L);
+                if (useCache) {
+                    assertBetweenInclusive(pageSource.getSystemMemoryUsage(), testPreparer.getFileSize() + 270_000, testPreparer.getFileSize() + 280_000);
+                }
+                else {
+                    assertBetweenInclusive(memoryUsage, 460_000L, 469_999L);
+                }
             }
             else {
                 assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
@@ -235,7 +246,7 @@ public class TestOrcPageSourceMemoryTracking
             if (memoryUsage == -1) {
                 // Memory usage before lazy-loading the block
                 if (useCache) {
-                    assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 180_000L, 189_999L);
+                    assertBetweenInclusive(pageSource.getSystemMemoryUsage(), testPreparer.getFileSize(), testPreparer.getFileSize() + 2000);
                 }
                 else {
                     assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 0L, 1000L);
@@ -243,7 +254,12 @@ public class TestOrcPageSourceMemoryTracking
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 memoryUsage = pageSource.getSystemMemoryUsage();
                 // Memory usage after lazy-loading the actual block
-                assertBetweenInclusive(memoryUsage, 460000L, 469999L);
+                if (useCache) {
+                    assertBetweenInclusive(pageSource.getSystemMemoryUsage(), testPreparer.getFileSize() + 270_000, testPreparer.getFileSize() + 280_000);
+                }
+                else {
+                    assertBetweenInclusive(memoryUsage, 460_000L, 469_999L);
+                }
             }
             else {
                 assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
@@ -263,7 +279,7 @@ public class TestOrcPageSourceMemoryTracking
             if (memoryUsage == -1) {
                 // Memory usage before lazy-loading the block
                 if (useCache) {
-                    assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 90_000L, 99_999L);
+                    assertBetweenInclusive(pageSource.getSystemMemoryUsage(), testPreparer.getFileSize(), testPreparer.getFileSize() + 2000);
                 }
                 else {
                     assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 0L, 1000L);
@@ -271,7 +287,12 @@ public class TestOrcPageSourceMemoryTracking
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 memoryUsage = pageSource.getSystemMemoryUsage();
                 // Memory usage after loading the actual block
-                assertBetweenInclusive(memoryUsage, 360_000L, 369_999L);
+                if (useCache) {
+                    assertBetweenInclusive(pageSource.getSystemMemoryUsage(), testPreparer.getFileSize() + 260_000, testPreparer.getFileSize() + 270_000);
+                }
+                else {
+                    assertBetweenInclusive(memoryUsage, 360_000L, 369_999L);
+                }
             }
             else {
                 assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
@@ -284,7 +305,13 @@ public class TestOrcPageSourceMemoryTracking
         assertFalse(pageSource.isFinished());
         assertNull(pageSource.getNextPage());
         assertTrue(pageSource.isFinished());
-        assertEquals(pageSource.getSystemMemoryUsage(), 0);
+        if (useCache) {
+            // file is fully cached
+            assertBetweenInclusive(pageSource.getSystemMemoryUsage(), testPreparer.getFileSize(), testPreparer.getFileSize() + 200);
+        }
+        else {
+            assertEquals(pageSource.getSystemMemoryUsage(), 0);
+        }
         pageSource.close();
     }
 
@@ -435,7 +462,11 @@ public class TestOrcPageSourceMemoryTracking
             assertFalse(operator.isFinished());
             Page page = operator.getOutput();
             assertNotNull(page);
-            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 90_000L, 499_999L);
+
+            // memory usage varies depending on stripe alignment
+            long memoryUsage = driverContext.getSystemMemoryUsage();
+            assertTrue(memoryUsage < 1000 || (memoryUsage > 350_000L && memoryUsage < 465_000L));
+
             totalRows += page.getPositionCount();
         }
 
@@ -506,14 +537,14 @@ public class TestOrcPageSourceMemoryTracking
             fileSplit = createTestFile(tempFilePath, serde, null, testColumns, numRows, stripeRows);
         }
 
-        public ConnectorPageSource newPageSource()
+        public long getFileSize()
         {
-            return newPageSource(new FileFormatDataSourceStats(), SESSION);
+            return fileSplit.getLength();
         }
 
-        public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats)
+        public ConnectorPageSource newPageSource()
         {
-            return newPageSource(stats, SESSION);
+            return newPageSource(new FileFormatDataSourceStats(), UNCACHED_SESSION);
         }
 
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
