@@ -28,8 +28,6 @@ import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.Environments;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.Container;
-import org.testcontainers.containers.ContainerState;
 import picocli.CommandLine.Command;
 
 import javax.inject.Inject;
@@ -37,10 +35,10 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.Optional;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
+import static io.prestosql.tests.product.launcher.env.EnvironmentListener.loggingListener;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Mixin;
 import static picocli.CommandLine.Option;
@@ -144,17 +142,15 @@ public final class EnvironmentUp
             Optional<Path> environmentLogPath = logsDirBase.map(dir -> dir.resolve(environment));
             environmentLogPath.ifPresent(builder::exposeLogsInHostPath);
 
-            Environment environment = builder.build();
-            log.info("Starting the environment '%s'", this.environment);
+            Environment environment = builder.build(loggingListener());
             environment.start();
-            log.info("Environment '%s' started", this.environment);
 
             if (background) {
                 killContainersReaperContainer();
                 return;
             }
 
-            wait(environment.getContainers());
+            environment.awaitContainersStopped();
             log.info("Exiting, the containers will exit too");
         }
 
@@ -166,20 +162,6 @@ public final class EnvironmentUp
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
-            }
-        }
-
-        private void wait(Collection<Container<?>> containers)
-        {
-            try {
-                while (containers.stream().anyMatch(ContainerState::isRunning)) {
-                    Thread.sleep(1_000);
-                }
-                throw new RuntimeException("All containers have been stopped");
-            }
-            catch (InterruptedException e) {
-                log.info("Interrupted");
-                // It's OK not to restore interrupt flag here. When we return we're exiting the process.
             }
         }
     }

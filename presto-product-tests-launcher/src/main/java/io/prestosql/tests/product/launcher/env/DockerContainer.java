@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.google.common.base.Stopwatch;
 import com.google.common.io.RecursiveDeleteOption;
 import io.airlift.log.Logger;
@@ -31,7 +32,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -42,6 +45,7 @@ public class DockerContainer
 {
     private static final Logger log = Logger.get(DockerContainer.class);
     private List<String> logPaths = new ArrayList<>();
+    private Optional<EnvironmentListener> listener = Optional.empty();
 
     public DockerContainer(String dockerImageName)
     {
@@ -49,6 +53,12 @@ public class DockerContainer
 
         // workaround for https://github.com/testcontainers/testcontainers-java/pull/2861
         setCopyToFileContainerPathMap(new LinkedHashMap<>());
+    }
+
+    public DockerContainer withEnvironmentListener(Optional<EnvironmentListener> listener)
+    {
+        this.listener = requireNonNull(listener, "listener is null");
+        return this;
     }
 
     @Override
@@ -110,11 +120,39 @@ public class DockerContainer
         logPaths = null;
     }
 
+    @Override
+    protected void containerIsStarting(InspectContainerResponse containerInfo)
+    {
+        super.containerIsStarting(containerInfo);
+        this.listener.ifPresent(listener -> listener.containerStarting(this, containerInfo));
+    }
+
+    @Override
+    protected void containerIsStarted(InspectContainerResponse containerInfo)
+    {
+        super.containerIsStarted(containerInfo);
+        this.listener.ifPresent(listener -> listener.containerStarted(this, containerInfo));
+    }
+
+    @Override
+    protected void containerIsStopping(InspectContainerResponse containerInfo)
+    {
+        super.containerIsStopping(containerInfo);
+        this.listener.ifPresent(listener -> listener.containerStopping(this, containerInfo));
+    }
+
+    @Override
+    protected void containerIsStopped(InspectContainerResponse containerInfo)
+    {
+        super.containerIsStopped(containerInfo);
+        this.listener.ifPresent(listener -> listener.containerStopped(this, containerInfo));
+    }
+
     private void copyFileToContainer(String containerPath, Runnable copy)
     {
         Stopwatch stopwatch = Stopwatch.createStarted();
         copy.run();
-        log.info("Copied files into %s in %.1f s", containerPath, stopwatch.elapsed(MILLISECONDS) / 1000.);
+        log.info("Copied files into %s %s in %.1f s", this, containerPath, stopwatch.elapsed(MILLISECONDS) / 1000.);
     }
 
     // Mounting a non-existing file results in docker creating a directory. This is often not the desired effect. Fail fast instead.
@@ -128,6 +166,15 @@ public class DockerContainer
     public void clearDependencies()
     {
         dependencies.clear();
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("dockerImageName", getDockerImageName())
+                .add("networkAliases", getNetworkAliases())
+                .toString();
     }
 
     public static void cleanOrCreateHostPath(Path path)
