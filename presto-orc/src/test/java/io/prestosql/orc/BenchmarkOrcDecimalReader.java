@@ -115,7 +115,8 @@ public class BenchmarkOrcDecimalReader
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(dataPath, READER_OPTIONS);
-            OrcReader orcReader = new OrcReader(dataSource, READER_OPTIONS);
+            OrcReader orcReader = OrcReader.createOrcReader(dataSource, READER_OPTIONS)
+                    .orElseThrow(() -> new RuntimeException("File is empty"));
             return orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     ImmutableList.of(DECIMAL_TYPE),

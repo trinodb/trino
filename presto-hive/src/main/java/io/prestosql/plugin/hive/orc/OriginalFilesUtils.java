@@ -27,6 +27,7 @@ import org.apache.hadoop.fs.Path;
 
 import java.util.Collection;
 
+import static io.prestosql.orc.OrcReader.createOrcReader;
 import static io.prestosql.plugin.hive.AcidInfo.OriginalFileInfo;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 
@@ -84,9 +85,13 @@ public final class OriginalFilesUtils
                     options,
                     inputStream,
                     stats)) {
-                OrcReader reader = new OrcReader(orcDataSource, options);
+                OrcReader reader = createOrcReader(orcDataSource, options)
+                        .orElseThrow(() -> new PrestoException(HIVE_CANNOT_OPEN_SPLIT, "Could not read ORC footer from empty file: " + splitPath));
                 return reader.getFooter().getNumberOfRows();
             }
+        }
+        catch (PrestoException e) {
+            throw e;
         }
         catch (Exception e) {
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, "Could not read ORC footer from file: " + splitPath, e);

@@ -16,9 +16,13 @@ package io.prestosql.plugin.hive.orc;
 import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
+import io.prestosql.spi.connector.ConnectorPageSource;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
+import java.util.Optional;
+
+import static io.prestosql.plugin.hive.orc.OrcDeleteDeltaPageSource.createOrcDeleteDeltaPageSource;
 import static java.util.Objects.requireNonNull;
 
 public class OrcDeleteDeltaPageSourceFactory
@@ -43,9 +47,9 @@ public class OrcDeleteDeltaPageSourceFactory
         this.stats = requireNonNull(stats, "stats is null");
     }
 
-    public OrcDeleteDeltaPageSource createPageSource(Path path, long fileSize)
+    public Optional<ConnectorPageSource> createPageSource(Path path, long fileSize)
     {
-        return new OrcDeleteDeltaPageSource(
+        return createOrcDeleteDeltaPageSource(
                 path,
                 fileSize,
                 options,

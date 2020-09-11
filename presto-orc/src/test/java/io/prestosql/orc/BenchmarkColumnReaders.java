@@ -361,7 +361,8 @@ public class BenchmarkColumnReaders
         OrcRecordReader createRecordReader()
                 throws IOException
         {
-            OrcReader orcReader = new OrcReader(dataSource, new OrcReaderOptions());
+            OrcReader orcReader = OrcReader.createOrcReader(dataSource, new OrcReaderOptions())
+                    .orElseThrow(() -> new RuntimeException("File is empty"));
             return orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     ImmutableList.of(type),

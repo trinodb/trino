@@ -63,9 +63,9 @@ public class CachingOrcDataSource
     }
 
     @Override
-    public long getSize()
+    public long getEstimatedSize()
     {
-        return dataSource.getSize();
+        return dataSource.getEstimatedSize();
     }
 
     @Override
@@ -85,6 +85,13 @@ public class CachingOrcDataSource
         cachePosition = newCacheRange.getOffset();
         cacheLength = newCacheRange.getLength();
         cache = dataSource.readFully(newCacheRange.getOffset(), cacheLength);
+    }
+
+    @Override
+    public Slice readTail(int length)
+    {
+        // caching data source is not used for tail reads, and would be complex to implement
+        throw new UnsupportedOperationException();
     }
 
     @Override

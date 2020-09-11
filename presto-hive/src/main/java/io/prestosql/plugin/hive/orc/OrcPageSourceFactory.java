@@ -190,14 +190,14 @@ public class OrcPageSourceFactory
         return Optional.of(new ReaderPageSourceWithProjections(orcPageSource, projectedReaderColumns));
     }
 
-    private static OrcPageSource createOrcPageSource(
+    private static ConnectorPageSource createOrcPageSource(
             HdfsEnvironment hdfsEnvironment,
             String sessionUser,
             Configuration configuration,
             Path path,
             long start,
             long length,
-            long fileSize,
+            long estimatedFileSize,
             List<HiveColumnHandle> columns,
             List<HiveColumnHandle> projections,
             boolean useOrcColumnNames,
@@ -221,7 +221,7 @@ public class OrcPageSourceFactory
             FSDataInputStream inputStream = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.open(path));
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
-                    fileSize,
+                    estimatedFileSize,
                     options,
                     inputStream,
                     stats);
@@ -236,7 +236,11 @@ public class OrcPageSourceFactory
 
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, options);
+            Optional<OrcReader> optionalOrcReader = OrcReader.createOrcReader(orcDataSource, options);
+            if (optionalOrcReader.isEmpty()) {
+                return new FixedPageSource(ImmutableList.of());
+            }
+            OrcReader reader = optionalOrcReader.get();
 
             List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
             List<OrcColumn> fileReadColumns = new ArrayList<>(columns.size() + (isFullAcid ? 2 : 0));
