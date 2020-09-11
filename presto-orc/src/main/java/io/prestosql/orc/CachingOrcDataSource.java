@@ -68,6 +68,15 @@ public class CachingOrcDataSource
         return dataSource.getSize();
     }
 
+    @Override
+    public long getRetainedSize()
+    {
+        // Only return retained memory from delegate data source. The cache in this class
+        // is normally reported by an OrcDataReader, and we favor missing memory reporting
+        // to double reporting.
+        return dataSource.getRetainedSize();
+    }
+
     @VisibleForTesting
     void readCacheAt(long offset)
             throws IOException
