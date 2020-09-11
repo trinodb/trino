@@ -29,6 +29,7 @@ import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.testcontainers.ExistingNetwork;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
+import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
 
@@ -39,6 +40,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
@@ -50,6 +52,7 @@ import static io.prestosql.tests.product.launcher.env.EnvironmentListener.logCop
 import static io.prestosql.tests.product.launcher.env.EnvironmentListener.loggingListener;
 import static io.prestosql.tests.product.launcher.env.EnvironmentListener.statsPrintingListener;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
+import static java.lang.StrictMath.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
@@ -61,7 +64,7 @@ import static picocli.CommandLine.Option;
         description = "Run a Presto product test",
         usageHelpAutoWidth = true)
 public final class TestRun
-        implements Runnable
+        implements Callable<Integer>
 {
     private static final Logger log = Logger.get(TestRun.class);
 
@@ -82,9 +85,9 @@ public final class TestRun
     }
 
     @Override
-    public void run()
+    public Integer call()
     {
-        runCommand(
+        return runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
                         .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
@@ -125,7 +128,7 @@ public final class TestRun
     }
 
     public static class Execution
-            implements Runnable
+            implements Callable<Integer>
     {
         private static final String CONTAINER_REPORTS_DIR = "/docker/test-reports";
         private final EnvironmentFactory environmentFactory;
@@ -156,19 +159,16 @@ public final class TestRun
         }
 
         @Override
-        public void run()
+        public Integer call()
         {
             try (Environment environment = startEnvironment()) {
-                long exitCode = environment.awaitTestsCompletion();
-
-                if (exitCode != 0L) {
-                    throw new RuntimeException("Tests exited with " + exitCode);
-                }
+                return toIntExact(environment.awaitTestsCompletion());
             }
             catch (Throwable e) {
                 // log failure (tersely) because cleanup may take some time
                 log.error("Failure: %s", e);
-                throw e;
+
+                return ExitCode.SOFTWARE;
             }
         }
 

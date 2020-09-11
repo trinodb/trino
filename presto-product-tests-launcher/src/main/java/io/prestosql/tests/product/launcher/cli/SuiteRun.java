@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests.product.launcher.cli;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
@@ -30,6 +31,7 @@ import io.prestosql.tests.product.launcher.suite.SuiteFactory;
 import io.prestosql.tests.product.launcher.suite.SuiteModule;
 import io.prestosql.tests.product.launcher.suite.SuiteTestRun;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
@@ -40,20 +42,21 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static java.lang.String.format;
-import static java.lang.System.exit;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @Command(
         name = "run",
         description = "Run suite tests",
         usageHelpAutoWidth = true)
 public class SuiteRun
-        implements Runnable
+        implements Callable<Integer>
 {
     private static final Logger log = Logger.get(SuiteRun.class);
 
@@ -76,9 +79,9 @@ public class SuiteRun
     }
 
     @Override
-    public void run()
+    public Integer call()
     {
-        runCommand(
+        return runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
                         .add(new SuiteModule(additionalSuites))
@@ -108,7 +111,7 @@ public class SuiteRun
     }
 
     public static class Execution
-            implements Runnable
+            implements Callable<Integer>
     {
         private final SuiteRunOptions suiteRunOptions;
         private final EnvironmentOptions environmentOptions;
@@ -132,7 +135,7 @@ public class SuiteRun
         }
 
         @Override
-        public void run()
+        public Integer call()
         {
             String suiteName = requireNonNull(suiteRunOptions.suite, "suiteRunOptions.suite is null");
 
@@ -162,13 +165,13 @@ public class SuiteRun
 
             List<TestRunResult> testRunsResults = results.build();
             printTestRunsSummary(suiteStartTime, suiteName, testRunsResults);
+
+            return getFailedCount(testRunsResults) == 0 ? ExitCode.OK : ExitCode.SOFTWARE;
         }
 
-        private static void printTestRunsSummary(long startTime, String suiteName, List<TestRunResult> results)
+        private static int printTestRunsSummary(long startTime, String suiteName, List<TestRunResult> results)
         {
-            long failedRuns = results.stream()
-                    .filter(TestRunResult::hasFailed)
-                    .count();
+            long failedRuns = getFailedCount(results);
 
             if (failedRuns > 0) {
                 log.info("Suite %s failed in %s (%d passed, %d failed): ", suiteName, nanosSince(startTime), results.size() - failedRuns, failedRuns);
@@ -185,7 +188,14 @@ public class SuiteRun
                     .filter(TestRunResult::hasFailed)
                     .forEach(Execution::printTestRunSummary);
 
-            exit(failedRuns == 0L ? 0 : 1);
+            return failedRuns == 0L ? 0 : 1;
+        }
+
+        private static long getFailedCount(List<TestRunResult> results)
+        {
+            return results.stream()
+                    .filter(TestRunResult::hasFailed)
+                    .count();
         }
 
         private static void printTestRunSummary(TestRunResult result)
@@ -201,20 +211,29 @@ public class SuiteRun
         public TestRunResult executeSuiteTestRun(int runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
         {
             log.info("Starting test run #%02d %s with config %s", runId, suiteTestRun, environmentConfig);
-            long startTime = System.nanoTime();
+            TestRun.TestRunOptions testRunOptions = createTestRunOptions(runId, suiteName, suiteTestRun, environmentConfig, suiteRunOptions.logsDirBase);
+            log.info("Execute this test run using:\npresto-product-tests-launcher/bin/run-launcher test run %s", OptionsPrinter.format(environmentOptions, testRunOptions));
 
-            Throwable t = null;
+            Stopwatch stopwatch = Stopwatch.createStarted();
+            Optional<Throwable> exception = runTest(environmentConfig, testRunOptions);
+            return new TestRunResult(runId, suiteTestRun, environmentConfig, nanosSince(stopwatch.elapsed(NANOSECONDS)), exception);
+        }
+
+        private Optional<Throwable> runTest(EnvironmentConfig environmentConfig, TestRun.TestRunOptions testRunOptions)
+        {
             try {
-                TestRun.TestRunOptions testRunOptions = createTestRunOptions(runId, suiteName, suiteTestRun, environmentConfig, suiteRunOptions.logsDirBase);
-                log.info("Execute this test run using:\npresto-product-tests-launcher/bin/run-launcher test run %s", OptionsPrinter.format(environmentOptions, testRunOptions));
-                new TestRun.Execution(environmentFactory, environmentOptions, environmentConfig, testRunOptions).run();
+                TestRun.Execution execution = new TestRun.Execution(environmentFactory, environmentOptions, environmentConfig, testRunOptions);
+                int exitCode = execution.call();
+
+                if (exitCode > 0) {
+                    return Optional.of(new RuntimeException(format("Tests exited with code %d", exitCode)));
+                }
+
+                return Optional.empty();
             }
             catch (Exception e) {
-                t = e;
-                log.error("Failed to execute test run %s", suiteTestRun, e);
+                return Optional.of(e);
             }
-
-            return new TestRunResult(runId, suiteTestRun, environmentConfig, nanosSince(startTime), Optional.ofNullable(t));
         }
 
         private TestRun.TestRunOptions createTestRunOptions(int runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig, Optional<Path> logsDirBase)
