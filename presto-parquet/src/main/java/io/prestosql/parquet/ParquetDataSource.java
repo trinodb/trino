@@ -13,6 +13,8 @@
  */
 package io.prestosql.parquet;
 
+import io.airlift.slice.Slice;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
@@ -28,7 +30,7 @@ public interface ParquetDataSource
 
     long getSize();
 
-    void readFully(long position, byte[] buffer);
+    Slice readFully(long position, int length);
 
     <K> Map<K, ChunkReader> planRead(Map<K, DiskRange> diskRanges);
 

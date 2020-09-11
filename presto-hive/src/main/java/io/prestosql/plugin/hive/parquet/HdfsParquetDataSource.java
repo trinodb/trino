@@ -98,9 +98,11 @@ public class HdfsParquetDataSource
     }
 
     @Override
-    public final void readFully(long position, byte[] buffer)
+    public final Slice readFully(long position, int length)
     {
-        readFully(position, buffer, 0, buffer.length);
+        byte[] buffer = new byte[length];
+        readFully(position, buffer, 0, length);
+        return Slices.wrappedBuffer(buffer);
     }
 
     private void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
