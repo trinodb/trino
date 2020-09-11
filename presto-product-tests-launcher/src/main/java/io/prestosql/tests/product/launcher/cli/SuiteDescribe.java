@@ -37,6 +37,7 @@ import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.nio.file.Paths;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
@@ -155,6 +156,8 @@ public class SuiteDescribe
             testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments(environmentConfig);
             testRunOptions.testJar = testJar;
             testRunOptions.reportsDir = Paths.get(format("presto-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName()));
+            testRunOptions.startupRetries = null;
+            testRunOptions.logsDirBase = Optional.empty();
             return testRunOptions;
         }
     }
