@@ -71,6 +71,12 @@ class TestingOrcDataSource
     }
 
     @Override
+    public long getRetainedSize()
+    {
+        return 0;
+    }
+
+    @Override
     public Slice readFully(long position, int length)
             throws IOException
     {

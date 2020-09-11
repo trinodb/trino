@@ -80,6 +80,12 @@ public abstract class AbstractOrcDataSource
     }
 
     @Override
+    public long getRetainedSize()
+    {
+        return 0;
+    }
+
+    @Override
     public final Slice readFully(long position, int length)
             throws IOException
     {

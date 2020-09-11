@@ -289,6 +289,12 @@ public class TestCachingOrcDataSource
         }
 
         @Override
+        public long getRetainedSize()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public Slice readFully(long position, int length)
         {
             return Slices.allocate(length);
