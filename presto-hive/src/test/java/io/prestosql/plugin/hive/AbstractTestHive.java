@@ -4347,11 +4347,12 @@ public abstract class AbstractTestHive
 
                 long newCompletedBytes = pageSource.getCompletedBytes();
                 assertTrue(newCompletedBytes >= completedBytes);
-                assertTrue(newCompletedBytes <= hiveSplit.getLength());
+                // some formats (e.g., parquet) over read the data by a bit
+                assertLessThanOrEqual(newCompletedBytes, hiveSplit.getLength() + (100 * 1024));
                 completedBytes = newCompletedBytes;
             }
 
-            assertTrue(completedBytes <= hiveSplit.getLength());
+            assertLessThanOrEqual(completedBytes, hiveSplit.getLength() + (100 * 1024));
             assertEquals(rowNumber, 100);
         }
         finally {

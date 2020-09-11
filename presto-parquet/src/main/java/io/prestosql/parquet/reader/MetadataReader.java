@@ -57,13 +57,16 @@ import java.util.Set;
 import static io.prestosql.parquet.ParquetValidationUtils.validateParquet;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
+import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static org.apache.parquet.format.Util.readFileMetaData;
 import static org.apache.parquet.format.converter.ParquetMetadataConverterUtil.getLogicalTypeAnnotation;
 
 public final class MetadataReader
 {
-    private static final int PARQUET_METADATA_LENGTH = 4;
     private static final Slice MAGIC = Slices.utf8Slice("PAR1");
+    private static final int POST_SCRIPT_SIZE = Integer.BYTES + MAGIC.length();
+    private static final int EXPECTED_FOOTER_SIZE = 16 * 1024;
     private static final ParquetMetadataConverter PARQUET_METADATA_CONVERTER = new ParquetMetadataConverter();
 
     private MetadataReader() {}
@@ -79,23 +82,31 @@ public final class MetadataReader
         // 4 bytes: MetadataLength
         // MAGIC
 
-        long fileSize = dataSource.getSize();
-        validateParquet(fileSize >= MAGIC.length() + PARQUET_METADATA_LENGTH + MAGIC.length(), "%s is not a valid Parquet File", dataSource.getId());
-        long metadataLengthIndex = fileSize - PARQUET_METADATA_LENGTH - MAGIC.length();
+        validateParquet(dataSource.getEstimatedSize() >= MAGIC.length() + POST_SCRIPT_SIZE, "%s is not a valid Parquet File", dataSource.getId());
 
-        Slice footerStream = dataSource.readFully(metadataLengthIndex, PARQUET_METADATA_LENGTH + MAGIC.length());
-        int metadataLength = footerStream.getInt(0);
+        // Read the tail of the file
+        long estimatedFileSize = dataSource.getEstimatedSize();
+        long expectedReadSize = min(estimatedFileSize, EXPECTED_FOOTER_SIZE);
+        Slice buffer = dataSource.readTail(toIntExact(expectedReadSize));
 
-        Slice magic = footerStream.slice(Integer.BYTES, MAGIC.length());
-        validateParquet(!MAGIC.equals(magic), "Not valid Parquet file: %s expected magic number: %s got: %s", dataSource.getId(), MAGIC.toStringUtf8(), magic.toStringUtf8());
+        Slice magic = buffer.slice(buffer.length() - MAGIC.length(), MAGIC.length());
+        validateParquet(MAGIC.equals(magic), "Not valid Parquet file: %s expected magic number: %s got: %s", dataSource.getId(), MAGIC.toStringUtf8(), magic.toStringUtf8());
 
-        long metadataIndex = metadataLengthIndex - metadataLength;
+        int metadataLength = buffer.getInt(buffer.length() - POST_SCRIPT_SIZE);
+        long metadataIndex = estimatedFileSize - POST_SCRIPT_SIZE - metadataLength;
         validateParquet(
-                metadataIndex >= MAGIC.length() && metadataIndex < metadataLengthIndex,
+                metadataIndex >= MAGIC.length() && metadataIndex < estimatedFileSize - POST_SCRIPT_SIZE,
                 "Corrupted Parquet file: %s metadata index: %s out of range",
                 dataSource.getId(),
                 metadataIndex);
-        InputStream metadataStream = dataSource.readFully(metadataIndex, metadataLength).getInput();
+
+        int completeFooterSize = metadataLength + POST_SCRIPT_SIZE;
+        if (completeFooterSize > buffer.length()) {
+            // initial read was not large enough, so just read again with the correct size
+            buffer = dataSource.readTail(completeFooterSize);
+        }
+        InputStream metadataStream = buffer.slice(buffer.length() - completeFooterSize, metadataLength).getInput();
+
         FileMetaData fileMetaData = readFileMetaData(metadataStream);
         List<SchemaElement> schema = fileMetaData.getSchema();
         validateParquet(!schema.isEmpty(), "Empty Parquet schema in file: %s", dataSource.getId());
