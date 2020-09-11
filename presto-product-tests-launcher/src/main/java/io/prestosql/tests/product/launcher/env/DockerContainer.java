@@ -34,7 +34,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -44,15 +43,23 @@ public class DockerContainer
         extends FixedHostPortGenericContainer<DockerContainer>
 {
     private static final Logger log = Logger.get(DockerContainer.class);
+
+    private String logicalName;
     private List<String> logPaths = new ArrayList<>();
     private Optional<EnvironmentListener> listener = Optional.empty();
 
-    public DockerContainer(String dockerImageName)
+    public DockerContainer(String dockerImageName, String logicalName)
     {
         super(dockerImageName);
+        this.logicalName = requireNonNull(logicalName, "logicalName is null");
 
         // workaround for https://github.com/testcontainers/testcontainers-java/pull/2861
         setCopyToFileContainerPathMap(new LinkedHashMap<>());
+    }
+
+    public String getLogicalName()
+    {
+        return logicalName;
     }
 
     public DockerContainer withEnvironmentListener(Optional<EnvironmentListener> listener)
@@ -155,14 +162,6 @@ public class DockerContainer
         log.info("Copied files into %s %s in %.1f s", this, containerPath, stopwatch.elapsed(MILLISECONDS) / 1000.);
     }
 
-    // Mounting a non-existing file results in docker creating a directory. This is often not the desired effect. Fail fast instead.
-    private static void verifyHostPath(String hostPath)
-    {
-        if (!Files.exists(Paths.get(hostPath))) {
-            throw new IllegalArgumentException("Host path does not exist: " + hostPath);
-        }
-    }
-
     public void clearDependencies()
     {
         dependencies.clear();
@@ -171,10 +170,15 @@ public class DockerContainer
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("dockerImageName", getDockerImageName())
-                .add("networkAliases", getNetworkAliases())
-                .toString();
+        return logicalName;
+    }
+
+    // Mounting a non-existing file results in docker creating a directory. This is often not the desired effect. Fail fast instead.
+    private static void verifyHostPath(String hostPath)
+    {
+        if (!Files.exists(Paths.get(hostPath))) {
+            throw new IllegalArgumentException("Host path does not exist: " + hostPath);
+        }
     }
 
     public static void cleanOrCreateHostPath(Path path)

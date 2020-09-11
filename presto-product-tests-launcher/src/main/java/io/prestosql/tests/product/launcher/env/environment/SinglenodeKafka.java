@@ -24,6 +24,7 @@ import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -44,7 +45,7 @@ public final class SinglenodeKafka
     @Override
     protected void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer("presto-master", container -> container
+        builder.configureContainer(COORDINATOR, container -> container
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kafka/kafka.properties")),
                         CONTAINER_PRESTO_ETC + "/catalog/kafka.properties"));
