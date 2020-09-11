@@ -33,44 +33,10 @@ public class Suite2
     public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         return ImmutableList.of(
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode \
-                 *     -- -g hdfs_no_impersonation,hive_compression -x "${DISTRO_SKIP_GROUP}" -e "${DISTRO_SKIP_TEST}" \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(Singlenode.class).withGroups("hdfs_no_impersonation", "hive_compression").build(),
-
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-kerberos-hdfs-no-impersonation \
-                 *     -- -g storage_formats,hdfs_no_impersonation -x "${DISTRO_SKIP_GROUP}" -e "${DISTRO_SKIP_TEST}" \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeKerberosHdfsNoImpersonation.class).withGroups("storage_formats", "hdfs_no_impersonation").build(),
-
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-hdfs-impersonation \
-                 *     -- -g storage_formats,cli,hdfs_impersonation -x "${DISTRO_SKIP_GROUP}" -e "${DISTRO_SKIP_TEST}" \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeHdfsImpersonation.class).withGroups("storage_formats", "cli", "hdfs_impersonation").build(),
-
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-kerberos-hdfs-impersonation \
-                 *     -- -g storage_formats,cli,hdfs_impersonation,authorization,hive_file_header -x "${DISTRO_SKIP_GROUP}" -e "${DISTRO_SKIP_TEST}" \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeKerberosHdfsImpersonation.class).withGroups("storage_formats", "cli", "hdfs_impersonation", "authorization", "hive_file_header").build(),
-
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode \
-                 *     -- -g hive_with_external_writes -x "${DISTRO_SKIP_GROUP}" -e "${DISTRO_SKIP_TEST}" \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(Singlenode.class).withGroups("hive_with_external_writes").build());
     }
 }
