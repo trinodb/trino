@@ -369,7 +369,7 @@ class HiveSplitSource
                         internalSplit.getPath(),
                         internalSplit.getStart(),
                         splitBytes,
-                        internalSplit.getFileSize(),
+                        internalSplit.getEstimatedFileSize(),
                         internalSplit.getFileModifiedTime(),
                         internalSplit.getSchema(),
                         internalSplit.getPartitionKeys(),

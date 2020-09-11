@@ -104,7 +104,7 @@ public class RcFilePageSourceFactory
             Path path,
             long start,
             long length,
-            long fileSize,
+            long estimatedFileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -124,7 +124,7 @@ public class RcFilePageSourceFactory
 
         checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
-        if (fileSize == 0) {
+        if (estimatedFileSize == 0) {
             throw new PrestoException(HIVE_BAD_DATA, "RCFile is empty: " + path);
         }
 
@@ -154,7 +154,7 @@ public class RcFilePageSourceFactory
             }
 
             RcFileReader rcFileReader = new RcFileReader(
-                    new HdfsRcFileDataSource(path.toString(), inputStream, fileSize, stats),
+                    new HdfsRcFileDataSource(path.toString(), inputStream, estimatedFileSize, stats),
                     rcFileEncoding,
                     readColumns.build(),
                     new AircompressorCodecFactory(new HadoopCodecFactory(configuration.getClassLoader())),

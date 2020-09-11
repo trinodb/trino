@@ -141,7 +141,7 @@ public class OrcPageSourceFactory
             Path path,
             long start,
             long length,
-            long fileSize,
+            long estimatedFileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -152,7 +152,7 @@ public class OrcPageSourceFactory
         }
 
         // per HIVE-13040 and ORC-162, empty files are allowed
-        if (fileSize == 0) {
+        if (estimatedFileSize == 0) {
             ReaderPageSourceWithProjections context = noProjectionAdaptation(new FixedPageSource(ImmutableList.of()));
             return Optional.of(context);
         }
@@ -166,7 +166,7 @@ public class OrcPageSourceFactory
                 path,
                 start,
                 length,
-                fileSize,
+                estimatedFileSize,
                 projectedReaderColumns
                         .map(ReaderProjections::getReaderColumns)
                         .orElse(columns),

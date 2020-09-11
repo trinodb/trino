@@ -44,7 +44,7 @@ public class InternalHiveSplit
 
     private final String path;
     private final long end;
-    private final long fileSize;
+    private final long estimatedFileSize;
     private final long fileModifiedTime;
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
@@ -66,7 +66,7 @@ public class InternalHiveSplit
             String path,
             long start,
             long end,
-            long fileSize,
+            long estimatedFileSize,
             long fileModifiedTime,
             Properties schema,
             List<HivePartitionKey> partitionKeys,
@@ -81,7 +81,7 @@ public class InternalHiveSplit
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "length must be positive");
-        checkArgument(fileSize >= 0, "fileSize must be positive");
+        checkArgument(estimatedFileSize >= 0, "fileSize must be positive");
         requireNonNull(partitionName, "partitionName is null");
         requireNonNull(path, "path is null");
         requireNonNull(schema, "schema is null");
@@ -96,7 +96,7 @@ public class InternalHiveSplit
         this.path = path;
         this.start = start;
         this.end = end;
-        this.fileSize = fileSize;
+        this.estimatedFileSize = estimatedFileSize;
         this.fileModifiedTime = fileModifiedTime;
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
@@ -125,9 +125,9 @@ public class InternalHiveSplit
         return end;
     }
 
-    public long getFileSize()
+    public long getEstimatedFileSize()
     {
-        return fileSize;
+        return estimatedFileSize;
     }
 
     public long getFileModifiedTime()
@@ -226,7 +226,7 @@ public class InternalHiveSplit
                 .add("path", path)
                 .add("start", start)
                 .add("end", end)
-                .add("fileSize", fileSize)
+                .add("estimatedFileSize", estimatedFileSize)
                 .toString();
     }
 
