@@ -28,27 +28,21 @@ import static io.prestosql.client.ClientStandardTypes.ARRAY;
 import static io.prestosql.client.ClientStandardTypes.BIGINT;
 import static io.prestosql.client.ClientStandardTypes.BING_TILE;
 import static io.prestosql.client.ClientStandardTypes.BOOLEAN;
-import static io.prestosql.client.ClientStandardTypes.CHAR;
-import static io.prestosql.client.ClientStandardTypes.DATE;
-import static io.prestosql.client.ClientStandardTypes.DECIMAL;
 import static io.prestosql.client.ClientStandardTypes.DOUBLE;
-import static io.prestosql.client.ClientStandardTypes.GEOMETRY;
+import static io.prestosql.client.ClientStandardTypes.HYPER_LOG_LOG;
 import static io.prestosql.client.ClientStandardTypes.INTEGER;
-import static io.prestosql.client.ClientStandardTypes.INTERVAL_DAY_TO_SECOND;
-import static io.prestosql.client.ClientStandardTypes.INTERVAL_YEAR_TO_MONTH;
-import static io.prestosql.client.ClientStandardTypes.IPADDRESS;
-import static io.prestosql.client.ClientStandardTypes.JSON;
 import static io.prestosql.client.ClientStandardTypes.MAP;
+import static io.prestosql.client.ClientStandardTypes.MODEL;
+import static io.prestosql.client.ClientStandardTypes.OBJECT_ID;
+import static io.prestosql.client.ClientStandardTypes.P4_HYPER_LOG_LOG;
+import static io.prestosql.client.ClientStandardTypes.QDIGEST;
 import static io.prestosql.client.ClientStandardTypes.REAL;
+import static io.prestosql.client.ClientStandardTypes.REGRESSOR;
 import static io.prestosql.client.ClientStandardTypes.ROW;
+import static io.prestosql.client.ClientStandardTypes.SET_DIGEST;
 import static io.prestosql.client.ClientStandardTypes.SMALLINT;
-import static io.prestosql.client.ClientStandardTypes.TIME;
-import static io.prestosql.client.ClientStandardTypes.TIMESTAMP;
-import static io.prestosql.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.client.ClientStandardTypes.TIME_WITH_TIME_ZONE;
 import static io.prestosql.client.ClientStandardTypes.TINYINT;
-import static io.prestosql.client.ClientStandardTypes.UUID;
-import static io.prestosql.client.ClientStandardTypes.VARCHAR;
+import static io.prestosql.client.ClientStandardTypes.VARBINARY;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -155,31 +149,26 @@ final class FixJsonDataUtils
                     return Boolean.parseBoolean((String) value);
                 }
                 return Boolean.class.cast(value);
-            case VARCHAR:
-            case JSON:
-            case TIME:
-            case TIME_WITH_TIME_ZONE:
-            case TIMESTAMP:
-            case TIMESTAMP_WITH_TIME_ZONE:
-            case DATE:
-            case INTERVAL_YEAR_TO_MONTH:
-            case INTERVAL_DAY_TO_SECOND:
-            case IPADDRESS:
-            case UUID:
-            case DECIMAL:
-            case CHAR:
-            case GEOMETRY:
-                return String.class.cast(value);
+            case VARBINARY:
+            case HYPER_LOG_LOG:
+            case P4_HYPER_LOG_LOG:
+            case QDIGEST:
+            case SET_DIGEST:
+            case OBJECT_ID:
+            case MODEL:
+            case REGRESSOR:
+                // This is known to be a base64 encoded binary value.
+                if (value instanceof String) {
+                    return Base64.getDecoder().decode((String) value);
+                }
+                return value;
             case BING_TILE:
                 // Bing tiles are serialized as strings when used as map keys,
                 // they are serialized as json otherwise (value will be a LinkedHashMap).
                 return value;
             default:
-                // for now we assume that only the explicit types above are passed
-                // as a plain text and everything else is base64 encoded binary
-                if (value instanceof String) {
-                    return Base64.getDecoder().decode((String) value);
-                }
+                // Assume the native JSON object representation is a usable value.
+                // Any types that use base64 encoded binary must be listed above.
                 return value;
         }
     }
