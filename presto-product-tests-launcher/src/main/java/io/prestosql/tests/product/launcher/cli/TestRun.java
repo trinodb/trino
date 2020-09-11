@@ -43,6 +43,7 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
 import static io.prestosql.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
@@ -137,6 +138,7 @@ public final class TestRun
         private final List<String> testArguments;
         private final String environment;
         private final boolean attach;
+        private final DockerContainer.OutputMode outputMode;
         private final int startupRetries;
         private final Path reportsDirBase;
         private final Optional<Path> logsDirBase;
@@ -152,6 +154,7 @@ public final class TestRun
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testOptions.testArguments is null"));
             this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
             this.attach = testRunOptions.attach;
+            this.outputMode = requireNonNull(environmentOptions.output, "environmentOptions.output is null");
             this.startupRetries = testRunOptions.startupRetries;
             this.reportsDirBase = requireNonNull(testRunOptions.reportsDir, "testRunOptions.reportsDirBase is empty");
             this.logsDirBase = requireNonNull(testRunOptions.logsDirBase, "testRunOptions.logsDirBase is empty");
@@ -166,7 +169,7 @@ public final class TestRun
             }
             catch (Throwable e) {
                 // log failure (tersely) because cleanup may take some time
-                log.error("Failure: %s", e);
+                log.error("Failure: %s", getStackTraceAsString(e));
 
                 return ExitCode.SOFTWARE;
             }
@@ -194,7 +197,9 @@ public final class TestRun
         private Environment getEnvironment()
         {
             Environment.Builder environment = environmentFactory.get(this.environment)
-                    .containerDependsOnRest(TESTS);
+                    .containerDependsOnRest(TESTS)
+                    .setContainerOutputMode(outputMode)
+                    .setLogsBaseDir(logsDirBase);
 
             if (debug) {
                 environment.configureContainers(Standard::enablePrestoJavaDebugger);
