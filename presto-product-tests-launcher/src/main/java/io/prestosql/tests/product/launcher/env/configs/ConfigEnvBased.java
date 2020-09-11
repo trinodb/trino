@@ -23,6 +23,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.PRESTO;
 import static java.lang.System.getenv;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -89,8 +90,8 @@ public class ConfigEnvBased
     @Override
     public Optional<EnvironmentExtender> extendEnvironment(String environmentName)
     {
-        return Optional.of((builder -> builder.configureContainers((containerName, container) -> {
-            if (containerName.startsWith("presto-")) {
+        return Optional.of((builder -> builder.configureContainers(container -> {
+            if (container.getLogicalName().startsWith(PRESTO)) {
                 String hadoopInitScript = getenv("HADOOP_PRESTO_INIT_SCRIPT");
 
                 if (!Strings.isNullOrEmpty(hadoopInitScript)) {

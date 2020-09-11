@@ -24,6 +24,7 @@ import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
 import static java.util.Objects.requireNonNull;
@@ -46,7 +47,7 @@ public final class SinglenodeKerberosHdfsImpersonationCrossRealm
     @SuppressWarnings("resource")
     protected void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer("presto-master", container -> {
+        builder.configureContainer(COORDINATOR, container -> {
             container
                     .withCopyFileToContainer(
                             forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-cross-realm/hive.properties")),

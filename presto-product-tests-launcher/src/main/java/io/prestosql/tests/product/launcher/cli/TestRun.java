@@ -44,6 +44,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
 import static io.prestosql.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.prestosql.tests.product.launcher.env.EnvironmentListener.loggingListener;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
@@ -177,7 +178,7 @@ public final class TestRun
                 environment.start(startupRetries);
             }
             else {
-                DockerContainer tests = (DockerContainer) environment.getContainer("tests");
+                DockerContainer tests = environment.getContainer(TESTS);
                 tests.clearDependencies();
                 tests.setNetwork(new ExistingNetwork(Environment.PRODUCT_TEST_LAUNCHER_NETWORK));
                 // TODO prune previous ptl-tests container
@@ -190,14 +191,14 @@ public final class TestRun
         private Environment getEnvironment()
         {
             Environment.Builder environment = environmentFactory.get(this.environment)
-                    .containerDependsOnRest("tests");
+                    .containerDependsOnRest(TESTS);
 
             if (debug) {
                 environment.configureContainers(Standard::enablePrestoJavaDebugger);
             }
 
-            environment.configureContainer("tests", this::mountReportsDir);
-            environment.configureContainer("tests", container -> {
+            environment.configureContainer(TESTS, this::mountReportsDir);
+            environment.configureContainer(TESTS, container -> {
                 List<String> temptoJavaOptions = Splitter.on(" ").omitEmptyStrings().splitToList(
                         container.getEnvMap().getOrDefault("TEMPTO_JAVA_OPTS", ""));
 
@@ -240,9 +241,7 @@ public final class TestRun
             environmentConfig.extendEnvironment(this.environment).ifPresent(extender -> extender.extendEnvironment(environment));
 
             logsDirBase.ifPresent(environment::exposeLogsInHostPath);
-
-            return environment
-                    .build(loggingListener());
+            return environment.build(loggingListener());
         }
 
         private static Iterable<? extends String> reportsDirOptions(Path path)
@@ -264,12 +263,5 @@ public final class TestRun
             container.withFileSystemBind(reportsDirBase.toString(), CONTAINER_REPORTS_DIR, READ_WRITE);
             log.info("Exposing tests report dir in host directory '%s'", reportsDirBase);
         }
-    }
-
-    private interface UncheckedCloseable
-            extends AutoCloseable
-    {
-        @Override
-        void close();
     }
 }

@@ -25,6 +25,8 @@ import javax.inject.Inject;
 
 import java.time.Duration;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -57,9 +59,9 @@ public final class Hadoop
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addContainer("hadoop-master", createHadoopMaster());
+        builder.addContainer(createHadoopMaster());
 
-        builder.configureContainer("presto-master", container -> container
+        builder.configureContainer(COORDINATOR, container -> container
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_with_external_writes.properties")), CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES));
@@ -68,7 +70,7 @@ public final class Hadoop
     @SuppressWarnings("resource")
     private DockerContainer createHadoopMaster()
     {
-        DockerContainer container = new DockerContainer(hadoopBaseImage + ":" + hadoopImagesVersion)
+        DockerContainer container = new DockerContainer(hadoopBaseImage + ":" + hadoopImagesVersion, HADOOP)
                 // TODO HIVE_PROXY_PORT:1180
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withExposedLogPaths("/var/log/hadoop-yarn", "/var/log/hadoop-hdfs", "/var/log/hive")

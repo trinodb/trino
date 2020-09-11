@@ -31,6 +31,8 @@ import java.io.File;
 import java.util.Objects;
 
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.worker;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
@@ -68,7 +70,7 @@ public final class MultinodeTlsKerberos
     @SuppressWarnings("resource")
     protected void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer("presto-master", container -> {
+        builder.configureContainer(COORDINATOR, container -> {
             verify(Objects.equals(container.getDockerImageName(), prestoDockerImageName), "Expected image '%s', but is '%s'", prestoDockerImageName, container.getDockerImageName());
             container
                     .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/config-master.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
@@ -76,20 +78,16 @@ public final class MultinodeTlsKerberos
                     .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES);
         });
 
-        addPrestoWorker(builder, "presto-worker-1");
-        addPrestoWorker(builder, "presto-worker-2");
+        builder.addContainers(createPrestoWorker(worker(1)), createPrestoWorker(worker(2)));
     }
 
     @SuppressWarnings("resource")
-    private void addPrestoWorker(Environment.Builder builder, String workerName)
+    private DockerContainer createPrestoWorker(String workerName)
     {
-        DockerContainer container = createPrestoContainer(dockerFiles, serverPackage, prestoDockerImageName)
+        return createPrestoContainer(dockerFiles, serverPackage, prestoDockerImageName, workerName)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
-                .withNetworkAliases(workerName + ".docker.cluster")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/config-worker.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES);
-
-        builder.addContainer(workerName, container);
     }
 }
