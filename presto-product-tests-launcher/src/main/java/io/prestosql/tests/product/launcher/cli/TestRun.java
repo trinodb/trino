@@ -178,7 +178,7 @@ public final class TestRun
 
             if (!attach) {
                 log.info("Starting the environment '%s' with configuration %s", this.environment, environmentConfig);
-                environment.start(startupRetries);
+                environment.start();
             }
             else {
                 DockerContainer tests = environment.getContainer(TESTS);
@@ -196,6 +196,7 @@ public final class TestRun
             Environment.Builder environment = environmentFactory.get(this.environment)
                     .containerDependsOnRest(TESTS)
                     .setContainerOutputMode(outputMode)
+                    .setStartupRetries(startupRetries)
                     .setLogsBaseDir(logsDirBase);
 
             if (debug) {
