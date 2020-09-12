@@ -226,7 +226,7 @@ public class TestMemorySmoke
                 ImmutableSet.of(1, ORDERS_COUNT, PART_COUNT));
     }
 
-    private void assertDynamicFiltering(String selectQuery, Session session, int expectedRowCount, Set<Integer> expectedOperatorRowsRead)
+    private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, Set<Integer> expectedOperatorRowsRead)
     {
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(session, selectQuery);
