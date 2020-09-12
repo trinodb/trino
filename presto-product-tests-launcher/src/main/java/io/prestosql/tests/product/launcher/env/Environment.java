@@ -66,22 +66,19 @@ public final class Environment
     private static final Logger log = Logger.get(Environment.class);
 
     private final String name;
+    private final int startupRetries;
     private final Map<String, DockerContainer> containers;
     private final Optional<EnvironmentListener> listener;
 
-    private Environment(String name, Map<String, DockerContainer> containers, Optional<EnvironmentListener> listener)
+    private Environment(String name, int startupRetries, Map<String, DockerContainer> containers, Optional<EnvironmentListener> listener)
     {
         this.name = requireNonNull(name, "name is null");
+        this.startupRetries = startupRetries;
         this.containers = requireNonNull(containers, "containers is null");
         this.listener = requireNonNull(listener, "listener is null");
     }
 
-    public void start()
-    {
-        start(1);
-    }
-
-    public Environment start(int startupRetries)
+    public Environment start()
     {
         RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
                 .withMaxRetries(startupRetries)
@@ -195,6 +192,7 @@ public final class Environment
     {
         private final String name;
         private DockerContainer.OutputMode outputMode;
+        private int startupRetries = 1;
 
         @SuppressWarnings("resource")
         private Network network = Network.builder()
@@ -283,6 +281,12 @@ public final class Environment
             return this;
         }
 
+        public Builder setStartupRetries(int retries)
+        {
+            this.startupRetries = retries;
+            return this;
+        }
+
         public Environment build()
         {
             return build(Optional.empty());
@@ -331,7 +335,7 @@ public final class Environment
                         });
             });
 
-            return new Environment(name, containers, listener);
+            return new Environment(name, startupRetries, containers, listener);
         }
 
         private Consumer<OutputFrame> writeContainerLogs(DockerContainer container, Path path)
