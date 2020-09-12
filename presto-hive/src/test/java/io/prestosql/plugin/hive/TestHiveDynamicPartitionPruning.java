@@ -227,6 +227,111 @@ public class TestHiveDynamicPartitionPruning
         });
     }
 
+    @Test(timeOut = 30_000)
+    public void testSemiJoinWithEmptyBuildSide()
+    {
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                getSession(),
+                "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'abc')");
+        assertEquals(result.getResult().getRowCount(), 0);
+
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch:" + PARTITIONED_LINEITEM);
+        assertEquals(probeStats.getInputPositions(), 0L);
+        assertEquals(probeStats.getDynamicFilterSplitsProcessed(), 0L);
+
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
+        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+
+        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
+        assertEquals(domainStats.getSimplifiedDomain(), none(INTEGER).toString(getSession().toConnectorSession()));
+        assertEquals(domainStats.getDiscreteValuesCount(), 0);
+        assertEquals(domainStats.getRangeCount(), 0);
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSemiJoinWithSelectiveBuildSide()
+    {
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                getSession(),
+                "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'Supplier#000000001')");
+        assertGreaterThan(result.getResult().getRowCount(), 0);
+
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch:" + PARTITIONED_LINEITEM);
+        // Probe-side is partially scanned
+        assertEquals(probeStats.getInputPositions(), 615);
+        assertEquals(probeStats.getDynamicFilterSplitsProcessed(), 0L);
+
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
+        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+
+        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
+        assertEquals(domainStats.getSimplifiedDomain(), singleValue(INTEGER, 1L).toString(getSession().toConnectorSession()));
+        assertEquals(domainStats.getDiscreteValuesCount(), 0);
+        assertEquals(domainStats.getRangeCount(), 1);
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSemiJoinWithNonSelectiveBuildSide()
+    {
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                getSession(),
+                "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier)");
+        assertGreaterThan(result.getResult().getRowCount(), 0);
+
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch:" + PARTITIONED_LINEITEM);
+        // Probe-side is fully scanned
+        assertEquals(probeStats.getInputPositions(), LINEITEM_COUNT);
+        assertEquals(probeStats.getDynamicFilterSplitsProcessed(), 0L);
+
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
+        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+
+        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
+        assertEquals(domainStats.getSimplifiedDomain(), Domain.create(ValueSet.ofRanges(
+                range(INTEGER, 1L, true, 100L, true)), false)
+                .toString(getSession().toConnectorSession()));
+        assertEquals(domainStats.getDiscreteValuesCount(), 0);
+        assertEquals(domainStats.getRangeCount(), 1);
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSemiJoinLargeBuildSideNoDynamicFiltering()
+    {
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                getSession(),
+                "SELECT * FROM partitioned_lineitem WHERE orderkey IN (SELECT orderkey FROM orders)");
+        assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
+
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch:" + PARTITIONED_LINEITEM);
+        // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
+        assertEquals(probeStats.getInputPositions(), LINEITEM_COUNT);
+        assertEquals(probeStats.getDynamicFilterSplitsProcessed(), 0L);
+
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
+        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+
+        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
+        assertEquals(domainStats.getSimplifiedDomain(), Domain.all(INTEGER).toString(getSession().toConnectorSession()));
+        assertEquals(domainStats.getDiscreteValuesCount(), 0);
+        assertEquals(domainStats.getRangeCount(), 1);
+    }
+
     private DynamicFiltersStats getDynamicFilteringStats(QueryId queryId)
     {
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
