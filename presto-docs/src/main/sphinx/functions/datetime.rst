@@ -445,6 +445,11 @@ Convenience Extraction Functions
     Returns the ISO day of the week from ``x``.
     The value ranges from ``1`` (Monday) to ``7`` (Sunday).
 
+.. function:: day_of_week(x, y) -> bigint
+
+        Returns the day of the week from ``x`` based on the start day of the week ``y``.
+        The value ranges from ``1`` (Monday) to ``7`` (Sunday).
+
 .. function:: day_of_year(x) -> bigint
 
     Returns the day of the year from ``x``.
@@ -453,6 +458,10 @@ Convenience Extraction Functions
 .. function:: dow(x) -> bigint
 
     This is an alias for :func:`day_of_week`.
+
+.. function:: dow(x, y) -> bigint
+
+        This is an alias for :func:`day_of_week`.
 
 .. function:: doy(x) -> bigint
 

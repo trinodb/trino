@@ -165,6 +165,7 @@ import io.prestosql.operator.scalar.timestamp.DateToTimestampCast;
 import io.prestosql.operator.scalar.timestamp.DateTrunc;
 import io.prestosql.operator.scalar.timestamp.ExtractDay;
 import io.prestosql.operator.scalar.timestamp.ExtractDayOfWeek;
+import io.prestosql.operator.scalar.timestamp.ExtractDayOfWeekWithWeekStart;
 import io.prestosql.operator.scalar.timestamp.ExtractDayOfYear;
 import io.prestosql.operator.scalar.timestamp.ExtractHour;
 import io.prestosql.operator.scalar.timestamp.ExtractMillisecond;
@@ -649,6 +650,7 @@ public class FunctionRegistry
                 .scalar(ExtractMillisecond.class)
                 .scalar(ExtractDayOfYear.class)
                 .scalar(ExtractDayOfWeek.class)
+                .scalar(ExtractDayOfWeekWithWeekStart.class)
                 .scalar(ExtractWeekOfYear.class)
                 .scalar(ExtractYearOfWeek.class)
                 .scalar(LastDayOfMonth.class);
@@ -673,6 +675,7 @@ public class FunctionRegistry
                 .scalar(io.prestosql.operator.scalar.timestamptz.ExtractMillisecond.class)
                 .scalar(io.prestosql.operator.scalar.timestamptz.ExtractDayOfYear.class)
                 .scalar(io.prestosql.operator.scalar.timestamptz.ExtractDayOfWeek.class)
+                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractDayOfWeekWithWeekStart.class)
                 .scalar(io.prestosql.operator.scalar.timestamptz.ExtractWeekOfYear.class)
                 .scalar(io.prestosql.operator.scalar.timestamptz.ExtractYearOfWeek.class)
                 .scalar(io.prestosql.operator.scalar.timestamptz.ToIso8601.class)

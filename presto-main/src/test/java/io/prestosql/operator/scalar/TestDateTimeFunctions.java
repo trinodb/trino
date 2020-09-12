@@ -68,6 +68,7 @@ import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoField.MILLI_OF_SECOND;
@@ -117,6 +118,7 @@ public class TestDateTimeFunctions
 
     protected static final String INTERVAL_LITERAL = "INTERVAL '90061.234' SECOND";
     protected static final Duration DAY_TO_SECOND_INTERVAL = Duration.ofMillis(90061234);
+    private static final int DAYS_IN_WEEK = 7;
 
     public TestDateTimeFunctions()
     {
@@ -372,7 +374,9 @@ public class TestDateTimeFunctions
         assertFunction("minute(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getMinuteOfHour());
         assertFunction("hour(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getHourOfDay());
         assertFunction("day_of_week(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.dayOfWeek().get());
+        assertFunction("day_of_week(" + TIMESTAMP_LITERAL + ", 5)", BIGINT, (long) floorMod(TIMESTAMP.dayOfWeek().get() - 5, DAYS_IN_WEEK) + 1);
         assertFunction("dow(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.dayOfWeek().get());
+        assertFunction("dow(" + TIMESTAMP_LITERAL + ", 5)", BIGINT, (long) floorMod(TIMESTAMP.dayOfWeek().get() - 5, DAYS_IN_WEEK) + 1);
         assertFunction("day(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getDayOfMonth());
         assertFunction("day_of_month(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getDayOfMonth());
         assertFunction("day_of_year(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.dayOfYear().get());
@@ -393,7 +397,9 @@ public class TestDateTimeFunctions
         assertFunction("minute(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getMinuteOfHour());
         assertFunction("hour(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getHourOfDay());
         assertFunction("day_of_week(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.dayOfWeek().get());
+        assertFunction("day_of_week(" + WEIRD_TIMESTAMP_LITERAL + ", 5)", BIGINT, (long) floorMod(WEIRD_TIMESTAMP.dayOfWeek().get() - 5, DAYS_IN_WEEK) + 1);
         assertFunction("dow(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.dayOfWeek().get());
+        assertFunction("dow(" + WEIRD_TIMESTAMP_LITERAL + ", 5)", BIGINT, (long) floorMod(WEIRD_TIMESTAMP.dayOfWeek().get() - 5, DAYS_IN_WEEK) + 1);
         assertFunction("day(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getDayOfMonth());
         assertFunction("day_of_month(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getDayOfMonth());
         assertFunction("day_of_year(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.dayOfYear().get());
