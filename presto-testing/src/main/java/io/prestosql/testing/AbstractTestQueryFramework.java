@@ -23,7 +23,6 @@ import io.prestosql.cost.CostCalculatorUsingExchanges;
 import io.prestosql.cost.CostCalculatorWithEstimatedExchanges;
 import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.TaskCountEstimator;
-import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.execution.warnings.WarningCollector;
@@ -445,22 +444,24 @@ public abstract class AbstractTestQueryFramework
                         return false;
                     }
                     FilterNode filterNode = (FilterNode) projectNode.getSource();
+                    if (!(filterNode.getSource() instanceof TableScanNode)) {
+                        return false;
+                    }
                     TableScanNode tableScanNode = (TableScanNode) filterNode.getSource();
                     return tableName.equals(tableScanNode.getTable().getConnectorHandle().toString());
                 })
                 .findOnlyElement()
                 .getId();
 
-        Supplier<QueryInfo> queryInfoSupplier = () -> runner.getCoordinator()
+        Supplier<OperatorStats> operatorStatsSupplier = () -> runner.getCoordinator()
                 .getQueryManager()
-                .getFullQueryInfo(queryId);
-        assertEventually(new Duration(5, SECONDS), () -> assertThat(queryInfoSupplier.get().isFinalQueryInfo()));
-
-        return queryInfoSupplier.get()
+                .getFullQueryInfo(queryId)
                 .getQueryStats()
                 .getOperatorSummaries()
                 .stream()
                 .filter(summary -> nodeId.equals(summary.getPlanNodeId()) && summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
                 .collect(MoreCollectors.onlyElement());
+        assertEventually(new Duration(5, SECONDS), () -> assertThat(operatorStatsSupplier.get()).isNotNull());
+        return operatorStatsSupplier.get();
     }
 }
