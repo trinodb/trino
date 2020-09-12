@@ -46,6 +46,7 @@ import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIM
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.prestosql.type.ColorType.COLOR;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -558,6 +559,15 @@ public final class BlockAssertions
             type.writeSlice(builder, encodeUnscaledValue(BigInteger.valueOf(i).multiply(base)));
         }
 
+        return builder.build();
+    }
+
+    public static Block createColorSequenceBlock(int start, int end)
+    {
+        BlockBuilder builder = COLOR.createBlockBuilder(null, end - start);
+        for (int i = start; i < end; ++i) {
+            COLOR.writeLong(builder, i);
+        }
         return builder.build();
     }
 
