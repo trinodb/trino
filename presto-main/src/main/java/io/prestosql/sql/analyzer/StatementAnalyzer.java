@@ -14,7 +14,6 @@
 package io.prestosql.sql.analyzer;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -504,7 +503,7 @@ class StatementAnalyzer
             accessControl.checkCanInsertIntoTable(session.toSecurityContext(), targetTable);
 
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
-            Preconditions.checkState(materializedViewHandle.isPresent());
+            checkState(materializedViewHandle.isPresent());
             analysis.setRefreshMaterializedView(new Analysis.RefreshMaterializedViewAnalysis(
                     materializedViewHandle.get(),
                     targetTableHandle.get(), query,
