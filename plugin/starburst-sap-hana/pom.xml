@@ -75,7 +75,6 @@
         <dependency>
             <groupId>com.sap.cloud.db.jdbc</groupId>
             <artifactId>ngdbc</artifactId>
-            <version>2.5.50</version>
             <!-- The driver's license doesn't allow redistribution (https://starburstdata.atlassian.net/browse/PRESTO-4063), hence provided scope -->
             <scope>provided</scope>
         </dependency>
