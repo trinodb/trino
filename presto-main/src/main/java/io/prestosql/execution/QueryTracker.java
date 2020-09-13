@@ -41,6 +41,7 @@ import static io.prestosql.SystemSessionProperties.getQueryMaxExecutionTime;
 import static io.prestosql.SystemSessionProperties.getQueryMaxRunTime;
 import static io.prestosql.spi.StandardErrorCode.ABANDONED_QUERY;
 import static io.prestosql.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -176,15 +177,20 @@ public class QueryTracker<T extends TrackedQuery>
             if (query.isDone()) {
                 continue;
             }
-            Duration queryMaxRunTime = getQueryMaxRunTime(query.getSession());
-            Duration queryMaxExecutionTime = getQueryMaxExecutionTime(query.getSession());
-            Optional<DateTime> executionStartTime = query.getExecutionStartTime();
-            DateTime createTime = query.getCreateTime();
-            if (executionStartTime.isPresent() && executionStartTime.get().plus(queryMaxExecutionTime.toMillis()).isBeforeNow()) {
-                query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded the maximum execution time limit of " + queryMaxExecutionTime));
+            try {
+                Duration queryMaxRunTime = getQueryMaxRunTime(query.getSession());
+                Duration queryMaxExecutionTime = getQueryMaxExecutionTime(query.getSession());
+                Optional<DateTime> executionStartTime = query.getExecutionStartTime();
+                DateTime createTime = query.getCreateTime();
+                if (executionStartTime.isPresent() && executionStartTime.get().plus(queryMaxExecutionTime.toMillis()).isBeforeNow()) {
+                    query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded the maximum execution time limit of " + queryMaxExecutionTime));
+                }
+                if (createTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
+                    query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
+                }
             }
-            if (createTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
-                query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
+            catch (Exception e) {
+                query.fail(new PrestoException(GENERIC_INTERNAL_ERROR, "Error in fetching query info of query " + query.getQueryId().getId(), e));
             }
         }
     }
