@@ -257,6 +257,9 @@ public class SpnegoHandler
         if (useCanonicalHostname) {
             serviceHostName = canonicalizeServiceHostName(hostName);
         }
+        else {
+            serviceHostName = KerberosUtil.resolve(hostName);
+        }
         return servicePrincipalPattern.replaceAll("\\$\\{SERVICE}", serviceName).replaceAll("\\$\\{HOST}", serviceHostName.toLowerCase(Locale.US));
     }
 
