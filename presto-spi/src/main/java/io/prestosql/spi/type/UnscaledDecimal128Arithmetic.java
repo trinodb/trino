@@ -70,6 +70,14 @@ public final class UnscaledDecimal128Arithmetic
     private static final int[] POWERS_OF_FIVES_INT = new int[MAX_POWER_OF_FIVE_INT + 1];
 
     /**
+     * 5^27 fits in 2^31.
+     */
+    private static final int MAX_POWER_OF_FIVE_LONG = 27;
+    /**
+     * 5^x. All unsigned values.
+     */
+    private static final long[] POWERS_OF_FIVE_LONG = new long[MAX_POWER_OF_FIVE_LONG + 1];
+    /**
      * 10^9 fits in 2^31.
      */
     private static final int MAX_POWER_OF_TEN_INT = 9;
@@ -93,6 +101,11 @@ public final class UnscaledDecimal128Arithmetic
         POWERS_OF_FIVES_INT[0] = 1;
         for (int i = 1; i < POWERS_OF_FIVES_INT.length; ++i) {
             POWERS_OF_FIVES_INT[i] = POWERS_OF_FIVES_INT[i - 1] * 5;
+        }
+
+        POWERS_OF_FIVE_LONG[0] = 1;
+        for (int i = 1; i < POWERS_OF_FIVE_LONG.length; ++i) {
+            POWERS_OF_FIVE_LONG[i] = POWERS_OF_FIVE_LONG[i - 1] * 5;
         }
 
         POWERS_OF_TEN_INT[0] = 1;
@@ -808,6 +821,115 @@ public final class UnscaledDecimal128Arithmetic
         setRawInt(result, 7, (int) z7);
     }
 
+    public static void multiply256(Slice left, long right, Slice result)
+    {
+        checkArgument(result.length() >= NUMBER_OF_LONGS * Long.BYTES * 2);
+
+        long l0 = toUnsignedLong(getInt(left, 0));
+        long l1 = toUnsignedLong(getInt(left, 1));
+        long l2 = toUnsignedLong(getInt(left, 2));
+        long l3 = toUnsignedLong(getInt(left, 3));
+
+        right = abs(right);
+        long r0 = right & LOW_32_BITS;
+        long r1 = right >>> 32;
+
+        long z0 = 0;
+        long z1 = 0;
+        long z2 = 0;
+        long z3 = 0;
+        long z4 = 0;
+        long z5 = 0;
+
+        if (l0 != 0) {
+            long accumulator = r0 * l0;
+            z0 = accumulator & LOW_32_BITS;
+            accumulator = (accumulator >>> 32) + r1 * l0;
+
+            z1 = accumulator & LOW_32_BITS;
+            z2 = accumulator >>> 32;
+        }
+
+        if (l1 != 0) {
+            long accumulator = r0 * l1 + z1;
+            z1 = accumulator & LOW_32_BITS;
+            accumulator = (accumulator >>> 32) + r1 * l1 + z2;
+
+            z2 = accumulator & LOW_32_BITS;
+            z3 = accumulator >>> 32;
+        }
+
+        if (l2 != 0) {
+            long accumulator = r0 * l2 + z2;
+            z2 = accumulator & LOW_32_BITS;
+            accumulator = (accumulator >>> 32) + r1 * l2 + z3;
+
+            z3 = accumulator & LOW_32_BITS;
+            z4 = accumulator >>> 32;
+        }
+
+        if (l3 != 0) {
+            long accumulator = r0 * l3 + z3;
+            z3 = accumulator & LOW_32_BITS;
+            accumulator = (accumulator >>> 32) + r1 * l3 + z4;
+
+            z4 = accumulator & LOW_32_BITS;
+            z5 = accumulator >>> 32;
+        }
+
+        setRawInt(result, 0, (int) z0);
+        setRawInt(result, 1, (int) z1);
+        setRawInt(result, 2, (int) z2);
+        setRawInt(result, 3, (int) z3);
+        setRawInt(result, 4, (int) z4);
+        setRawInt(result, 5, (int) z5);
+        setRawInt(result, 6, 0);
+        setRawInt(result, 7, 0);
+    }
+
+    public static void multiply256(Slice left, int right, Slice result)
+    {
+        checkArgument(result.length() >= NUMBER_OF_LONGS * Long.BYTES * 2);
+
+        long l0 = toUnsignedLong(getInt(left, 0));
+        long l1 = toUnsignedLong(getInt(left, 1));
+        long l2 = toUnsignedLong(getInt(left, 2));
+        long l3 = toUnsignedLong(getInt(left, 3));
+
+        long r0 = abs(right);
+
+        long z0;
+        long z1;
+        long z2;
+        long z3;
+        long z4;
+
+        long accumulator = r0 * l0;
+        z0 = accumulator & LOW_32_BITS;
+        z1 = accumulator >>> 32;
+
+        accumulator = r0 * l1 + z1;
+        z1 = accumulator & LOW_32_BITS;
+        z2 = accumulator >>> 32;
+
+        accumulator = r0 * l2 + z2;
+        z2 = accumulator & LOW_32_BITS;
+        z3 = accumulator >>> 32;
+
+        accumulator = r0 * l3 + z3;
+        z3 = accumulator & LOW_32_BITS;
+        z4 = accumulator >>> 32;
+
+        setRawInt(result, 0, (int) z0);
+        setRawInt(result, 1, (int) z1);
+        setRawInt(result, 2, (int) z2);
+        setRawInt(result, 3, (int) z3);
+        setRawInt(result, 4, (int) z4);
+        setRawInt(result, 5, 0);
+        setRawInt(result, 6, 0);
+        setRawInt(result, 7, 0);
+    }
+
     public static Slice multiply(Slice decimal, int multiplier)
     {
         Slice result = Slices.copyOf(decimal);
@@ -1415,7 +1537,7 @@ public final class UnscaledDecimal128Arithmetic
 
         if (dividendScaleFactor > 0) {
             Slice sliceDividend = Slices.wrappedIntArray(dividend);
-            multiply256(POWERS_OF_FIVE[dividendScaleFactor], sliceDividend, sliceDividend);
+            shiftLeftBy5Destructive(sliceDividend, dividendScaleFactor);
             shiftLeftMultiPrecision(dividend, NUMBER_OF_INTS * 2, dividendScaleFactor);
         }
 
@@ -1427,7 +1549,7 @@ public final class UnscaledDecimal128Arithmetic
 
         if (divisorScaleFactor > 0) {
             Slice sliceDivisor = Slices.wrappedIntArray(divisor);
-            multiply256(POWERS_OF_FIVE[divisorScaleFactor], sliceDivisor, sliceDivisor);
+            shiftLeftBy5Destructive(sliceDivisor, divisorScaleFactor);
             shiftLeftMultiPrecision(divisor, NUMBER_OF_INTS * 2, divisorScaleFactor);
         }
 
@@ -1440,6 +1562,22 @@ public final class UnscaledDecimal128Arithmetic
         setNegative(remainder, dividendIsNegative);
         throwIfOverflows(quotient);
         throwIfOverflows(remainder);
+    }
+
+    /**
+     * Value must be a 256-bit slice
+     */
+    private static void shiftLeftBy5Destructive(Slice value, int shift)
+    {
+        if (shift <= MAX_POWER_OF_FIVE_INT) {
+            multiply256(value, POWERS_OF_FIVES_INT[shift], value);
+        }
+        else if (shift < MAX_POWER_OF_TEN_LONG) {
+            multiply256(value, POWERS_OF_FIVE_LONG[shift], value);
+        }
+        else {
+            multiply256(value, POWERS_OF_FIVE[shift], value);
+        }
     }
 
     /**
