@@ -191,7 +191,7 @@ public final class OracleQueryRunner
         // using single node so JMX stats can be queried
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(TestingOracleServer.connectionProperties())
+                        .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("allow-drop-table", "true")
                         .build())
                 .withNodesCount(1)

@@ -25,7 +25,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
-public final class TestingOracleServer
+public final class TestingStarburstOracleServer
 {
     private static final OracleContainer CONTAINER = new CustomOracleContainer(
             "harbor.starburstdata.net/testing/oracledb:12.2.0.1-ee")
@@ -101,7 +101,7 @@ public final class TestingOracleServer
         return () -> executeInOracle(format("DROP SYNONYM %s", tableName));
     }
 
-    private TestingOracleServer() {}
+    private TestingStarburstOracleServer() {}
 
     private static class CustomOracleContainer
             extends OracleContainer

@@ -34,7 +34,7 @@ public abstract class BaseOracleJdbcImpersonationTest
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .putAll(TestingOracleServer.connectionProperties())
+                .putAll(TestingStarburstOracleServer.connectionProperties())
                 .put("allow-drop-table", "true")
                 .put("oracle.impersonation.enabled", "true")
                 .put("oracle.synonyms.enabled", "true")
