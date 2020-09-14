@@ -32,6 +32,8 @@ import static io.prestosql.JdbcDriverCapabilities.testedVersion;
 import static io.prestosql.TestingServerUtils.setTestingServer;
 import static org.assertj.core.api.Assertions.assertThat;
 
+// We need to keep @Test(singleThreaded = true) even though current version of superclass does not require it.
+// This class is compiled against older versions of TestJdbcResultSet which require single threaded execution of tests.
 @Test(singleThreaded = true)
 public class TestJdbcResultSetCompatibilityOldDriver
         extends TestJdbcResultSet
@@ -80,5 +82,8 @@ public class TestJdbcResultSetCompatibilityOldDriver
     }
 
     @Test
+    // We add the extra public method to enforce the class to be run single-thread.
+    // See TestNG bug https://github.com/cbeust/testng/issues/2361#issuecomment-688393166
+    // We need to run this class single-threaded where we compile against older version of JDBC tests.
     public void forceTestNgToRespectSingleThreaded() {}
 }
