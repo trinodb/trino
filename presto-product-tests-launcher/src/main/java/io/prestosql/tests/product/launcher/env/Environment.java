@@ -158,6 +158,8 @@ public final class Environment
             return exitCode;
         }
         catch (InterruptedException e) {
+            // Gracefully stop environment and trigger listeners
+            stop();
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted", e);
         }

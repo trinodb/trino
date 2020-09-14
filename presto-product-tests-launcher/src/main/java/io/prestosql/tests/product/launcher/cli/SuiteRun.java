@@ -46,6 +46,7 @@ import java.util.concurrent.Callable;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.units.Duration.nanosSince;
+import static io.airlift.units.Duration.succinctNanos;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -104,6 +105,9 @@ public class SuiteRun
         @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory " + DEFAULT_VALUE, converter = OptionalPathConverter.class, defaultValue = "")
         public Optional<Path> logsDirBase;
 
+        @Option(names = "--timeout", paramLabel = "<timeout>", description = "Maximum duration of suite execution " + DEFAULT_VALUE, converter = DurationConverter.class, defaultValue = "2h")
+        public Duration timeout;
+
         public Module toModule()
         {
             return binder -> binder.bind(SuiteRunOptions.class).toInstance(this);
@@ -118,6 +122,7 @@ public class SuiteRun
         private final SuiteFactory suiteFactory;
         private final EnvironmentFactory environmentFactory;
         private final EnvironmentConfigFactory configFactory;
+        private final long suiteStartTime;
 
         @Inject
         public Execution(
@@ -132,6 +137,7 @@ public class SuiteRun
             this.suiteFactory = requireNonNull(suiteFactory, "suiteFactory is null");
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.configFactory = requireNonNull(configFactory, "configFactory is null");
+            this.suiteStartTime = System.nanoTime();
         }
 
         @Override
@@ -155,8 +161,6 @@ public class SuiteRun
                         testRun.getTests(),
                         testRun.getExcludedTests());
             }
-
-            long suiteStartTime = System.nanoTime();
             ImmutableList.Builder<TestRunResult> results = ImmutableList.builder();
 
             for (int runId = 0; runId < suiteTestRuns.size(); runId++) {
@@ -164,20 +168,20 @@ public class SuiteRun
             }
 
             List<TestRunResult> testRunsResults = results.build();
-            printTestRunsSummary(suiteStartTime, suiteName, testRunsResults);
+            printTestRunsSummary(suiteName, testRunsResults);
 
             return getFailedCount(testRunsResults) == 0 ? ExitCode.OK : ExitCode.SOFTWARE;
         }
 
-        private static int printTestRunsSummary(long startTime, String suiteName, List<TestRunResult> results)
+        private int printTestRunsSummary(String suiteName, List<TestRunResult> results)
         {
             long failedRuns = getFailedCount(results);
 
             if (failedRuns > 0) {
-                log.info("Suite %s failed in %s (%d passed, %d failed): ", suiteName, nanosSince(startTime), results.size() - failedRuns, failedRuns);
+                log.info("Suite %s failed in %s (%d passed, %d failed): ", suiteName, nanosSince(suiteStartTime), results.size() - failedRuns, failedRuns);
             }
             else {
-                log.info("Suite %s succeeded in %s: ", suiteName, nanosSince(startTime));
+                log.info("Suite %s succeeded in %s: ", suiteName, nanosSince(suiteStartTime));
             }
 
             results.stream()
@@ -210,8 +214,8 @@ public class SuiteRun
 
         public TestRunResult executeSuiteTestRun(int runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
         {
-            log.info("Starting test run #%02d %s with config %s", runId, suiteTestRun, environmentConfig);
             TestRun.TestRunOptions testRunOptions = createTestRunOptions(runId, suiteName, suiteTestRun, environmentConfig, suiteRunOptions.logsDirBase);
+            log.info("Starting test run #%02d %s with config %s and remaining timeout %s", runId, suiteTestRun, environmentConfig, testRunOptions.timeout);
             log.info("Execute this test run using:\n%s test run %s", environmentOptions.launcherBin, OptionsPrinter.format(environmentOptions, testRunOptions));
 
             Stopwatch stopwatch = Stopwatch.createStarted();
@@ -245,7 +249,15 @@ public class SuiteRun
             String suiteRunId = suiteRunId(runId, suiteName, suiteTestRun, environmentConfig);
             testRunOptions.reportsDir = Paths.get("presto-product-tests/target/reports/" + suiteRunId);
             testRunOptions.logsDirBase = logsDirBase.map(dir -> dir.resolve(suiteRunId));
+            // Calculate remaining time
+            testRunOptions.timeout = remainingTimeout();
             return testRunOptions;
+        }
+
+        private Duration remainingTimeout()
+        {
+            return succinctNanos(
+                    suiteRunOptions.timeout.roundTo(NANOSECONDS) - nanosSince(suiteStartTime).roundTo(NANOSECONDS));
         }
 
         private static String suiteRunId(int runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
