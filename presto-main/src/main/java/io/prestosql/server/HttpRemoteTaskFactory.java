@@ -20,6 +20,7 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.LocationFactory;
 import io.prestosql.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.prestosql.execution.QueryManagerConfig;
@@ -60,6 +61,7 @@ public class HttpRemoteTaskFactory
     private final HttpClient httpClient;
     private final LocationFactory locationFactory;
     private final JsonCodec<TaskStatus> taskStatusCodec;
+    private final JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final Duration maxErrorDuration;
@@ -79,6 +81,7 @@ public class HttpRemoteTaskFactory
             @ForScheduler HttpClient httpClient,
             LocationFactory locationFactory,
             JsonCodec<TaskStatus> taskStatusCodec,
+            JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
             RemoteTaskStats stats)
@@ -86,6 +89,7 @@ public class HttpRemoteTaskFactory
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
         this.taskStatusCodec = taskStatusCodec;
+        this.dynamicFilterDomainsCodec = dynamicFilterDomainsCodec;
         this.taskInfoCodec = taskInfoCodec;
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
         this.maxErrorDuration = config.getRemoteTaskMaxErrorDuration();
@@ -144,6 +148,7 @@ public class HttpRemoteTaskFactory
                 taskInfoUpdateInterval,
                 summarizeTaskInfo,
                 taskStatusCodec,
+                dynamicFilterDomainsCodec,
                 taskInfoCodec,
                 taskUpdateRequestCodec,
                 partitionedSplitCountTracker,

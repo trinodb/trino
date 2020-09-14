@@ -16,6 +16,7 @@ package io.prestosql.execution;
 import com.google.common.base.Functions;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
@@ -28,10 +29,13 @@ import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.execution.executor.TaskExecutor;
 import io.prestosql.memory.MemoryPool;
 import io.prestosql.memory.QueryContext;
+import io.prestosql.operator.TaskContext;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spiller.SpillSpaceTracker;
 import io.prestosql.sql.planner.LocalExecutionPlanner;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -46,6 +50,7 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.prestosql.execution.SqlTask.createSqlTask;
 import static io.prestosql.execution.TaskStatus.STARTING_VERSION;
 import static io.prestosql.execution.TaskTestUtils.EMPTY_SOURCES;
@@ -57,6 +62,7 @@ import static io.prestosql.execution.TaskTestUtils.createTestingPlanner;
 import static io.prestosql.execution.TaskTestUtils.updateTask;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -313,6 +319,33 @@ public class TestSqlTask
         assertFalse(sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE)).isDone());
     }
 
+    @Test(timeOut = 30_000)
+    public void testDynamicFilters()
+            throws Exception
+    {
+        SqlTask sqlTask = createInitialTask();
+        sqlTask.updateTask(TEST_SESSION,
+                Optional.of(PLAN_FRAGMENT),
+                ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
+                createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withBuffer(OUT, 0)
+                        .withNoMoreBufferIds(),
+                OptionalInt.empty());
+
+        assertEquals(sqlTask.getTaskStatus().getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION);
+
+        TaskContext taskContext = sqlTask.getQueryContext().getTaskContextByTaskId(sqlTask.getTaskId());
+
+        ListenableFuture<?> future = sqlTask.getTaskStatus(STARTING_VERSION);
+        assertFalse(future.isDone());
+
+        // make sure future gets unblocked when dynamic filters version is updated
+        taskContext.updateDomains(ImmutableMap.of(new DynamicFilterId("filter"), Domain.none(BIGINT)));
+        assertEquals(sqlTask.getTaskStatus().getVersion(), STARTING_VERSION + 1);
+        assertEquals(sqlTask.getTaskStatus().getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION + 1);
+        future.get();
+    }
+
     private SqlTask createInitialTask()
     {
         TaskId taskId = new TaskId("query", 0, nextTaskId.incrementAndGet());
@@ -328,7 +361,7 @@ public class TestSqlTask
                 DataSize.of(1, MEGABYTE),
                 new SpillSpaceTracker(DataSize.of(1, GIGABYTE)));
 
-        queryContext.addTaskContext(new TaskStateMachine(taskId, taskNotificationExecutor), testSessionBuilder().build(), false, false, OptionalInt.empty());
+        queryContext.addTaskContext(new TaskStateMachine(taskId, taskNotificationExecutor), testSessionBuilder().build(), () -> {}, false, false, OptionalInt.empty());
 
         return createSqlTask(
                 taskId,
