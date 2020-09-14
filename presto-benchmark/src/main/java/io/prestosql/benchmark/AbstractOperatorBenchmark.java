@@ -297,6 +297,7 @@ public abstract class AbstractOperatorBenchmark
                 spillSpaceTracker)
                 .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), localQueryRunner.getExecutor()),
                         session,
+                        () -> {},
                         false,
                         false,
                         OptionalInt.empty());
