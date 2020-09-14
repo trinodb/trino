@@ -33,7 +33,6 @@ import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -306,17 +305,6 @@ public final class Environment
             });
 
             return new Environment(name, containers, listener);
-        }
-
-        public Builder exposeLogsInHostPath(Path basePath)
-        {
-            log.info("Exposing environment '%s' logs in: '%s'", name, basePath);
-
-            return configureContainers(dockerContainer -> {
-                Path containerLogPath = basePath.resolve(dockerContainer.getLogicalName());
-                log.info("Exposing container '%s' logs in host directory '%s'", dockerContainer.getLogicalName(), containerLogPath);
-                dockerContainer.exposeLogsInHostPath(containerLogPath);
-            });
         }
     }
 }

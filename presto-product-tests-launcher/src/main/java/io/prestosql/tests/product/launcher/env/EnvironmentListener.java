@@ -16,7 +16,9 @@ package io.prestosql.tests.product.launcher.env;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import io.airlift.log.Logger;
 
+import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Optional;
 
 public interface EnvironmentListener
 {
@@ -160,5 +162,25 @@ public interface EnvironmentListener
                 log.info("Container stopped: %s", container);
             }
         };
+    }
+
+    static EnvironmentListener logCopyingListener(Optional<Path> logBaseDir)
+    {
+        if (logBaseDir.isEmpty()) {
+            return noop();
+        }
+
+        return new EnvironmentListener() {
+            @Override
+            public void containerStopping(DockerContainer container, InspectContainerResponse response)
+            {
+                container.copyLogsToHostPath(logBaseDir.get());
+            }
+        };
+    }
+
+    static EnvironmentListener noop()
+    {
+        return new EnvironmentListener() {};
     }
 }
