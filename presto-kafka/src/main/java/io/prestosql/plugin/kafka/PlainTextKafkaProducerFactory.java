@@ -16,6 +16,7 @@ package io.prestosql.plugin.kafka;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.HostAddress;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 import javax.inject.Inject;
@@ -48,19 +49,22 @@ public class PlainTextKafkaProducerFactory
             properties.put("security.protocol", kafkaConfig.getSecurityProtocol());
         }
         if (kafkaConfig.getSslTruststoreLocation() != null) {
-            properties.put("ssl.truststore.location", kafkaConfig.getSslTruststoreLocation());
+            properties.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, kafkaConfig.getSslTruststoreLocation());
         }
         if (kafkaConfig.getSslTruststorePassword() != null) {
-            properties.put("ssl.truststore.password", kafkaConfig.getSslTruststorePassword());
+            properties.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, kafkaConfig.getSslTruststorePassword());
         }
         if (kafkaConfig.getSslKeystoreLocation() != null) {
-            properties.put("ssl.keystore.location", kafkaConfig.getSslKeystoreLocation());
+            properties.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, kafkaConfig.getSslKeystoreLocation());
         }
         if (kafkaConfig.getSslKeystorePassword() != null) {
-            properties.put("ssl.keystore.password", kafkaConfig.getSslKeystorePassword());
+            properties.put(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, kafkaConfig.getSslKeystorePassword());
         }
         if (kafkaConfig.getSslEndpointIdentificationAlgorithm() != null) {
-            properties.put("ssl.endpoint.identification.algorithm", kafkaConfig.getSslEndpointIdentificationAlgorithm());
+            properties.put(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, kafkaConfig.getSslEndpointIdentificationAlgorithm());
+        }
+        if (kafkaConfig.getSslKeyPassword() != null) {
+            properties.put(SslConfigs.SSL_KEY_PASSWORD_CONFIG, kafkaConfig.getSslKeyPassword());
         }
     }
 

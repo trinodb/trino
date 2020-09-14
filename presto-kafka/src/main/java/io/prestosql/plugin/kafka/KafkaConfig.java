@@ -50,6 +50,7 @@ public class KafkaConfig
     private String sslKeystoreLocation;
     private String sslKeystorePassword;
     private String sslEndpointIdentificationAlgorithm;
+    private String sslKeyPassword;
 
     @Size(min = 1)
     public Set<HostAddress> getNodes()
@@ -226,7 +227,7 @@ public class KafkaConfig
     }
 
     @Config("kafka.ssl.endpoint.identification.algorithm")
-    @ConfigDescription("SSL endpoint identificationn algorithm for Kafka connection.")
+    @ConfigDescription("SSL endpoint identification algorithm for Kafka connection.")
     public KafkaConfig setSslEndpointIdentificationAlgorithm(String sslEndpointIdentificationAlgorithm)
     {
         this.sslEndpointIdentificationAlgorithm = sslEndpointIdentificationAlgorithm;
@@ -236,5 +237,18 @@ public class KafkaConfig
     public String getSslEndpointIdentificationAlgorithm()
     {
         return sslEndpointIdentificationAlgorithm;
+    }
+
+    @Config("kafka.ssl.key.password")
+    @ConfigDescription("SSL key password for Kafka connection.")
+    public KafkaConfig setSslKeyPassword(String sslKeyPassword)
+    {
+        this.sslKeyPassword = sslKeyPassword;
+        return this;
+    }
+
+    public String getSslKeyPassword()
+    {
+        return sslKeyPassword;
     }
 }
