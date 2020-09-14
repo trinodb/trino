@@ -220,7 +220,7 @@ public class SuiteRun
 
             Stopwatch stopwatch = Stopwatch.createStarted();
             Optional<Throwable> exception = runTest(environmentConfig, testRunOptions);
-            return new TestRunResult(runId, suiteTestRun, environmentConfig, nanosSince(stopwatch.elapsed(NANOSECONDS)), exception);
+            return new TestRunResult(runId, suiteTestRun, environmentConfig, succinctNanos(stopwatch.stop().elapsed(NANOSECONDS)), exception);
         }
 
         private Optional<Throwable> runTest(EnvironmentConfig environmentConfig, TestRun.TestRunOptions testRunOptions)
