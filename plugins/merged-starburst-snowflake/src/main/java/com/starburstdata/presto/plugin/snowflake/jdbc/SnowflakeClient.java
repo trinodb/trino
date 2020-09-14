@@ -314,7 +314,7 @@ public class SnowflakeClient
     {
         return ColumnMapping.longMapping(
                 TIMESTAMP_MILLIS,
-                (resultSet, columnIndex) -> toPrestoTimestamp(toLocalDateTime(resultSet, columnIndex)),
+                (resultSet, columnIndex) -> toPrestoTimestamp(TIMESTAMP_MILLIS, toLocalDateTime(resultSet, columnIndex)),
                 timestampWriteFunction());
     }
 

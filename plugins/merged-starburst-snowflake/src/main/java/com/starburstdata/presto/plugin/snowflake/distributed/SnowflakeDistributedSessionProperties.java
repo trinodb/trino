@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.prestosql.plugin.jdbc.SessionPropertiesProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.session.PropertyMetadata;
@@ -19,9 +20,11 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static io.prestosql.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class SnowflakeDistributedSessionProperties
         implements SessionPropertiesProvider
@@ -33,6 +36,7 @@ public class SnowflakeDistributedSessionProperties
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
     private static final String PARTITION_USE_COLUMN_NAMES = "partition_use_column_names";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
+    private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
 
     private final SnowflakeDistributedConfig snowflakeConfig;
 
@@ -82,6 +86,11 @@ public class SnowflakeDistributedSessionProperties
                         PARTITION_USE_COLUMN_NAMES,
                         "Internal Snowflake connector property",
                         false,
+                        true),
+                durationProperty(
+                        DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT,
+                        "Internal Snowflake connector property",
+                        new Duration(0, MINUTES),
                         true));
     }
 

@@ -56,7 +56,7 @@ public class SnowflakeSplit
                 hiveSplit.getPath(),
                 hiveSplit.getStart(),
                 hiveSplit.getLength(),
-                hiveSplit.getFileSize(),
+                hiveSplit.getEstimatedFileSize(),
                 hiveSplit.getSchema(),
                 hiveSplit.getAddresses(),
                 hiveSplit.isForceLocalScheduling(),
