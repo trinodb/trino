@@ -30,6 +30,9 @@ public class Kafka
 {
     private static final String CONFLUENT_VERSION = "5.5.2";
     private static final int SCHEMA_REGISTRY_PORT = 8081;
+    static final String KAFKA = "kafka";
+    static final String SCHEMA_REGISTRY = "schema-registry";
+    static final String ZOOKEEPER = "zookeeper";
 
     private final PortBinder portBinder;
 
@@ -43,14 +46,14 @@ public class Kafka
     public void extendEnvironment(Environment.Builder builder)
     {
         builder.addContainers(createZookeeper(), createKafka(), createSchemaRegistry())
-                .containerDependsOn("kafka", "zookeeper")
-                .containerDependsOn("schema-registry", "kafka");
+                .containerDependsOn(KAFKA, ZOOKEEPER)
+                .containerDependsOn(SCHEMA_REGISTRY, KAFKA);
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createZookeeper()
     {
-        DockerContainer container = new DockerContainer("confluentinc/cp-zookeeper:" + CONFLUENT_VERSION, "zookeeper")
+        DockerContainer container = new DockerContainer("confluentinc/cp-zookeeper:" + CONFLUENT_VERSION, ZOOKEEPER)
                 .withEnv("ZOOKEEPER_CLIENT_PORT", "2181")
                 .withEnv("ZOOKEEPER_TICK_TIME", "2000")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
@@ -64,7 +67,7 @@ public class Kafka
     @SuppressWarnings("resource")
     private DockerContainer createKafka()
     {
-        DockerContainer container = new DockerContainer("confluentinc/cp-kafka:" + CONFLUENT_VERSION, "kafka")
+        DockerContainer container = new DockerContainer("confluentinc/cp-kafka:" + CONFLUENT_VERSION, KAFKA)
                 .withEnv("KAFKA_BROKER_ID", "1")
                 .withEnv("KAFKA_ZOOKEEPER_CONNECT", "zookeeper:2181")
                 .withEnv("KAFKA_ADVERTISED_LISTENERS", "PLAINTEXT://kafka:9092")
@@ -81,7 +84,7 @@ public class Kafka
     @SuppressWarnings("resource")
     private DockerContainer createSchemaRegistry()
     {
-        DockerContainer container = new DockerContainer("confluentinc/cp-schema-registry:" + CONFLUENT_VERSION, "schema-registry")
+        DockerContainer container = new DockerContainer("confluentinc/cp-schema-registry:" + CONFLUENT_VERSION, SCHEMA_REGISTRY)
                 .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9092")
                 .withEnv("SCHEMA_REGISTRY_HOST_NAME", "0.0.0.0")
                 .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:" + SCHEMA_REGISTRY_PORT)

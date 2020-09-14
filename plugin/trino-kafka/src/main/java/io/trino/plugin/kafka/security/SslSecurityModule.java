@@ -11,18 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.kafka;
+package io.trino.plugin.kafka.security;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.google.inject.Scopes;
 
-public class KafkaConsumerModule
+import static io.airlift.configuration.ConfigBinder.configBinder;
+
+public class SslSecurityModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(KafkaConsumerFactory.class).to(PlainTextKafkaConsumerFactory.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(KafkaSslConfig.class);
     }
 }

@@ -15,6 +15,7 @@ package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.kafka.schema.file.FileTableDescriptionSupplier;
+import io.trino.plugin.kafka.security.SecurityProtocol;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -35,7 +36,8 @@ public class TestKafkaConfig
                 .setTableDescriptionSupplier(FileTableDescriptionSupplier.NAME)
                 .setHideInternalColumns(true)
                 .setMessagesPerSplit(100_000)
-                .setTimestampUpperBoundPushDownEnabled(false));
+                .setTimestampUpperBoundPushDownEnabled(false)
+                .setSecurityProtocol(SecurityProtocol.PLAINTEXT));
     }
 
     @Test
@@ -49,6 +51,7 @@ public class TestKafkaConfig
                 .put("kafka.hide-internal-columns", "false")
                 .put("kafka.messages-per-split", "1")
                 .put("kafka.timestamp-upper-bound-force-push-down-enabled", "true")
+                .put("kafka.security-protocol", "SSL")
                 .build();
 
         KafkaConfig expected = new KafkaConfig()
@@ -58,7 +61,8 @@ public class TestKafkaConfig
                 .setKafkaBufferSize("1MB")
                 .setHideInternalColumns(false)
                 .setMessagesPerSplit(1)
-                .setTimestampUpperBoundPushDownEnabled(true);
+                .setTimestampUpperBoundPushDownEnabled(true)
+                .setSecurityProtocol(SecurityProtocol.SSL);
 
         assertFullMapping(properties, expected);
     }

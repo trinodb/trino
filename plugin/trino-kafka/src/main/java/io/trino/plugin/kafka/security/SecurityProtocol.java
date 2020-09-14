@@ -11,18 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.kafka;
+package io.trino.plugin.kafka.security;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
-
-public class KafkaAdminModule
-        implements Module
+public enum SecurityProtocol
 {
-    @Override
-    public void configure(Binder binder)
-    {
-        binder.bind(KafkaAdminFactory.class).to(PlainTextKafkaAdminFactory.class).in(Scopes.SINGLETON);
-    }
+    PLAINTEXT,
+    SSL
 }
