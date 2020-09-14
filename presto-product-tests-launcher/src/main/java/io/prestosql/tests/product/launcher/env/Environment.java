@@ -13,9 +13,11 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
+import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HostConfig;
+import com.github.dockerjava.api.model.Ulimit;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
@@ -40,6 +42,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -233,7 +236,40 @@ public final class Environment
                             .withName("ptl-" + containerName)
                             .withHostName(containerName));
 
+            container.withCreateContainerCmdModifier(Builder::updateContainerHostConfig);
+
+            if (!container.getLogicalName().equals(TESTS)) {
+                // Tests container cannot be auto removed as we need to inspect it's exit code
+                container.withCreateContainerCmdModifier(Builder::setContainerAutoRemove);
+            }
+
             return this;
+        }
+
+        private static void updateContainerHostConfig(CreateContainerCmd createContainerCmd)
+        {
+            HostConfig hostConfig = requireNonNull(createContainerCmd.getHostConfig(), "hostConfig is null");
+
+            // Disable OOM killer
+            hostConfig.withOomKillDisable(true);
+            // Apply ulimits
+            hostConfig.withUlimits(standardUlimits());
+        }
+
+        private static void setContainerAutoRemove(CreateContainerCmd createContainerCmd)
+        {
+            HostConfig hostConfig = requireNonNull(createContainerCmd.getHostConfig(), "hostConfig is null");
+            // Automatically remove container on exit
+            hostConfig.withAutoRemove(true);
+        }
+
+        private static List<Ulimit> standardUlimits()
+        {
+            return ImmutableList.of(
+                // Number of open file descriptors
+                new Ulimit("nofile", 65535L, 65535L),
+                // Number of processes
+                new Ulimit("nproc", 8096L, 8096L));
         }
 
         public Builder containerDependsOnRest(String logicalName)
