@@ -63,7 +63,9 @@ public class Launcher
     public static void run(Launcher launcher, String[] args)
     {
         IFactory factory = createFactory(launcher.getExtensions());
-        System.exit(new CommandLine(launcher, factory).setResourceBundle(new LauncherBundle()).execute(args));
+        System.exit(new CommandLine(launcher, factory)
+                .setCaseInsensitiveEnumValuesAllowed(true)
+                .setResourceBundle(new LauncherBundle()).execute(args));
     }
 
     private static IFactory createFactory(Extensions extensions)
