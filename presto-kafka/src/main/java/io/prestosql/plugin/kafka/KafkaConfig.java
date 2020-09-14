@@ -44,6 +44,12 @@ public class KafkaConfig
     private File tableDescriptionDir = new File("etc/kafka/");
     private boolean hideInternalColumns = true;
     private int messagesPerSplit = 100_000;
+    private String securityProtocol;
+    private String sslTruststoreLocation;
+    private String sslTruststorePassword;
+    private String sslKeystoreLocation;
+    private String sslKeystorePassword;
+    private String sslEndpointIdentificationAlgorithm;
 
     @Size(min = 1)
     public Set<HostAddress> getNodes()
@@ -152,5 +158,83 @@ public class KafkaConfig
     {
         this.messagesPerSplit = messagesPerSplit;
         return this;
+    }
+
+    @Config("kafka.security.protocol")
+    @ConfigDescription("Security protocol used for Kafka connection.")
+    public KafkaConfig setSecurityProtocol(String securityProtocol)
+    {
+        this.securityProtocol = securityProtocol;
+        return this;
+    }
+
+    public String getSecurityProtocol()
+    {
+        return securityProtocol;
+    }
+
+    @Config("kafka.ssl.truststore.location")
+    @ConfigDescription("SSL truststore location for Kafka connection.")
+    public KafkaConfig setSslTruststoreLocation(String sslTruststoreLocation)
+    {
+        this.sslTruststoreLocation = sslTruststoreLocation;
+        return this;
+    }
+
+    public String getSslTruststoreLocation()
+    {
+        return sslTruststoreLocation;
+    }
+
+    @Config("kafka.ssl.truststore.password")
+    @ConfigDescription("SSL truststore password for Kafka connection.")
+    public KafkaConfig setSslTruststorePassword(String sslTruststorePassword)
+    {
+        this.sslTruststorePassword = sslTruststorePassword;
+        return this;
+    }
+
+    public String getSslTruststorePassword()
+    {
+        return sslTruststorePassword;
+    }
+
+    @Config("kafka.ssl.keystore.location")
+    @ConfigDescription("SSL keystore location for Kafka connection.")
+    public KafkaConfig setSslKeystoreLocation(String sslKeystoreLocation)
+    {
+        this.sslKeystoreLocation = sslKeystoreLocation;
+        return this;
+    }
+
+    public String getSslKeystoreLocation()
+    {
+        return sslKeystoreLocation;
+    }
+
+    @Config("kafka.ssl.keystore.password")
+    @ConfigDescription("SSL keystore password for Kafka connection.")
+    public KafkaConfig setSslKeystorePassword(String sslKeystorePassword)
+    {
+        this.sslKeystorePassword = sslKeystorePassword;
+        return this;
+    }
+
+    public String getSslKeystorePassword()
+    {
+        return sslKeystorePassword;
+    }
+
+    @Config("kafka.ssl.endpoint.identification.algorithm")
+    @ConfigDescription("SSL endpoint identificationn algorithm for Kafka connection.")
+    public KafkaConfig setSslEndpointIdentificationAlgorithm(String sslEndpointIdentificationAlgorithm)
+    {
+        this.sslEndpointIdentificationAlgorithm = sslEndpointIdentificationAlgorithm;
+        return this;
+    }
+
+    public String getSslEndpointIdentificationAlgorithm()
+    {
+        return sslEndpointIdentificationAlgorithm;
     }
 }

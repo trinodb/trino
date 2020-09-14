@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.kafka;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.HostAddress;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -21,7 +20,7 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 import javax.inject.Inject;
 
-import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -32,20 +31,37 @@ import static org.apache.kafka.clients.producer.ProducerConfig.LINGER_MS_CONFIG;
 
 public class PlainTextKafkaProducerFactory
 {
-    private final Map<String, Object> properties;
+    private Properties properties;
 
     @Inject
     public PlainTextKafkaProducerFactory(KafkaConfig kafkaConfig)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
         Set<HostAddress> nodes = ImmutableSet.copyOf(kafkaConfig.getNodes());
-        properties = ImmutableMap.<String, Object>builder()
-                .put(BOOTSTRAP_SERVERS_CONFIG, nodes.stream()
-                        .map(HostAddress::toString)
-                        .collect(joining(",")))
-                .put(ACKS_CONFIG, "all")
-                .put(LINGER_MS_CONFIG, 5)
-                .build();
+        Properties properties = new Properties();
+        properties.put(BOOTSTRAP_SERVERS_CONFIG, nodes.stream()
+                .map(HostAddress::toString)
+                .collect(joining(",")));
+        properties.put(ACKS_CONFIG, "all");
+        properties.put(LINGER_MS_CONFIG, 5);
+        if (kafkaConfig.getSecurityProtocol() != null) {
+            properties.put("security.protocol", kafkaConfig.getSecurityProtocol());
+        }
+        if (kafkaConfig.getSslTruststoreLocation() != null) {
+            properties.put("ssl.truststore.location", kafkaConfig.getSslTruststoreLocation());
+        }
+        if (kafkaConfig.getSslTruststorePassword() != null) {
+            properties.put("ssl.truststore.password", kafkaConfig.getSslTruststorePassword());
+        }
+        if (kafkaConfig.getSslKeystoreLocation() != null) {
+            properties.put("ssl.keystore.location", kafkaConfig.getSslKeystoreLocation());
+        }
+        if (kafkaConfig.getSslKeystorePassword() != null) {
+            properties.put("ssl.keystore.password", kafkaConfig.getSslKeystorePassword());
+        }
+        if (kafkaConfig.getSslEndpointIdentificationAlgorithm() != null) {
+            properties.put("ssl.endpoint.identification.algorithm", kafkaConfig.getSslEndpointIdentificationAlgorithm());
+        }
     }
 
     /**

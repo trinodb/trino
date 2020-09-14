@@ -33,6 +33,7 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZE
 public class PlainTextKafkaConsumerFactory
         implements KafkaConsumerFactory
 {
+    private final KafkaConfig kafkaConfig;
     private final Set<HostAddress> nodes;
     private final DataSize kafkaBufferSize;
 
@@ -40,7 +41,7 @@ public class PlainTextKafkaConsumerFactory
     public PlainTextKafkaConsumerFactory(KafkaConfig kafkaConfig)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
-
+        this.kafkaConfig = kafkaConfig;
         nodes = kafkaConfig.getNodes();
         kafkaBufferSize = kafkaConfig.getKafkaBufferSize();
     }
@@ -56,6 +57,24 @@ public class PlainTextKafkaConsumerFactory
         properties.setProperty(VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         properties.setProperty(RECEIVE_BUFFER_CONFIG, Long.toString(kafkaBufferSize.toBytes()));
         properties.setProperty(ENABLE_AUTO_COMMIT_CONFIG, Boolean.toString(false));
+        if (kafkaConfig.getSecurityProtocol() != null) {
+            properties.setProperty("security.protocol", kafkaConfig.getSecurityProtocol());
+        }
+        if (kafkaConfig.getSslTruststoreLocation() != null) {
+            properties.setProperty("ssl.truststore.location", kafkaConfig.getSslTruststoreLocation());
+        }
+        if (kafkaConfig.getSslTruststorePassword() != null) {
+            properties.setProperty("ssl.truststore.password", kafkaConfig.getSslTruststorePassword());
+        }
+        if (kafkaConfig.getSslKeystoreLocation() != null) {
+            properties.setProperty("ssl.keystore.location", kafkaConfig.getSslKeystoreLocation());
+        }
+        if (kafkaConfig.getSslKeystorePassword() != null) {
+            properties.setProperty("ssl.keystore.password", kafkaConfig.getSslKeystorePassword());
+        }
+        if (kafkaConfig.getSslEndpointIdentificationAlgorithm() != null) {
+            properties.setProperty("ssl.endpoint.identification.algorithm", kafkaConfig.getSslEndpointIdentificationAlgorithm());
+        }
         return properties;
     }
 }
