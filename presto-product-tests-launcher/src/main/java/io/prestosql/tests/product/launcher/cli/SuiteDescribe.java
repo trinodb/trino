@@ -143,7 +143,7 @@ public class SuiteDescribe
 
             for (SuiteTestRun testRun : suite.getTestRuns(config)) {
                 TestRun.TestRunOptions runOptions = createTestRunOptions(suiteName, testRun, config);
-                out.println(format("\n%s run %s\n", environmentOptions.launcherBin, OptionsPrinter.format(environmentOptions, runOptions)));
+                out.println(format("\n%s test run %s\n", environmentOptions.launcherBin, OptionsPrinter.format(environmentOptions, runOptions)));
             }
 
             return OK;
