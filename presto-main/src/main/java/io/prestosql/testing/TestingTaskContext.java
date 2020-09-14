@@ -69,6 +69,7 @@ public final class TestingTaskContext
         return queryContext.addTaskContext(
                 taskStateMachine,
                 session,
+                () -> {},
                 true,
                 true,
                 OptionalInt.empty());

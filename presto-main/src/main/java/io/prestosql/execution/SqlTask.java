@@ -14,7 +14,6 @@
 package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -24,6 +23,7 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.LazyOutputBuffer;
@@ -35,9 +35,7 @@ import io.prestosql.operator.PipelineContext;
 import io.prestosql.operator.PipelineStatus;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskStats;
-import io.prestosql.spi.predicate.Domain;
 import io.prestosql.sql.planner.PlanFragment;
-import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 
@@ -45,7 +43,6 @@ import javax.annotation.Nullable;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -59,10 +56,11 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
+import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTER_DOMAINS;
 import static io.prestosql.execution.TaskState.ABORTED;
 import static io.prestosql.execution.TaskState.FAILED;
 import static io.prestosql.execution.TaskState.RUNNING;
@@ -230,6 +228,22 @@ public class SqlTask
         }
     }
 
+    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersDynamicFiltersVersion)
+    {
+        TaskHolder taskHolder = taskHolderReference.get();
+        if (taskHolder.getTaskExecution() == null) {
+            // Dynamic filters are only available during task execution.
+            // Dynamic filters are collected by same tasks that run corresponding
+            // join operators. When task (and implicitly join operator) is done it
+            // means that all potential consumers (that belong to probe side of join)
+            // of dynamic filters are either finished or cancelled. Therefore dynamic
+            // filters are no longer required.
+            return INITIAL_DYNAMIC_FILTER_DOMAINS;
+        }
+
+        return taskHolder.getTaskExecution().getTaskContext().acknowledgeAndGetNewDynamicFilterDomains(callersDynamicFiltersVersion);
+    }
+
     private synchronized void notifyStatusChanged()
     {
         taskStatusVersion.incrementAndGet();
@@ -259,7 +273,7 @@ public class SqlTask
         Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
         Duration fullGcTime = new Duration(0, MILLISECONDS);
-        Map<DynamicFilterId, Domain> dynamicTupleDomains = ImmutableMap.of();
+        long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
             TaskStats taskStats = taskInfo.getStats();
@@ -271,7 +285,6 @@ public class SqlTask
             revocableMemoryReservation = taskStats.getRevocableMemoryReservation();
             fullGcCount = taskStats.getFullGcCount();
             fullGcTime = taskStats.getFullGcTime();
-            dynamicTupleDomains = taskInfo.getTaskStatus().getDynamicFilterDomains();
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -289,11 +302,8 @@ public class SqlTask
             completedDriverGroups = taskContext.getCompletedDriverGroups();
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
-            dynamicTupleDomains = taskContext.getDynamicTupleDomains();
+            dynamicFiltersVersion = taskContext.getDynamicFiltersVersion();
         }
-        // Compact TupleDomain before reporting dynamic filters to coordinator to avoid bloating QueryInfo
-        Map<DynamicFilterId, Domain> compactDynamicTupleDomains = dynamicTupleDomains.entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().simplify()));
 
         return new TaskStatus(taskStateMachine.getTaskId(),
                 taskInstanceId,
@@ -312,7 +322,7 @@ public class SqlTask
                 revocableMemoryReservation,
                 fullGcCount,
                 fullGcTime,
-                compactDynamicTupleDomains);
+                dynamicFiltersVersion);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)
@@ -401,7 +411,15 @@ public class SqlTask
                 taskExecution = taskHolder.getTaskExecution();
                 if (taskExecution == null) {
                     checkState(fragment.isPresent(), "fragment must be present");
-                    taskExecution = sqlTaskExecutionFactory.create(session, queryContext, taskStateMachine, outputBuffer, fragment.get(), sources, totalPartitions);
+                    taskExecution = sqlTaskExecutionFactory.create(
+                            session,
+                            queryContext,
+                            taskStateMachine,
+                            outputBuffer,
+                            fragment.get(),
+                            sources,
+                            this::notifyStatusChanged,
+                            totalPartitions);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
                 }
