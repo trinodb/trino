@@ -14,43 +14,38 @@
 
 package io.trino.plugin.kafka;
 
-import io.trino.plugin.kafka.security.SecurityProtocol;
-import io.trino.spi.HostAddress;
+import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.kafka.security.ForKafkaSsl;
+import io.trino.plugin.kafka.security.KafkaSslConfig;
 import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
 
 import java.util.Properties;
-import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
-import static org.apache.kafka.clients.CommonClientConfigs.SECURITY_PROTOCOL_CONFIG;
-import static org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG;
 
-public class PlainTextKafkaAdminFactory
+public class SslKafkaAdminFactory
         implements KafkaAdminFactory
 {
-    private final Set<HostAddress> nodes;
-    private final SecurityProtocol securityProtocol;
+    private final ImmutableMap<String, Object> map;
+    private final KafkaAdminFactory delegate;
 
     @Inject
-    public PlainTextKafkaAdminFactory(KafkaConfig kafkaConfig)
+    public SslKafkaAdminFactory(@ForKafkaSsl KafkaAdminFactory delegate, KafkaSslConfig sslConfig)
     {
-        requireNonNull(kafkaConfig, "kafkaConfig is null");
+        this.delegate = requireNonNull(delegate, "delegate is null");
+        requireNonNull(sslConfig, "sslConfig is null");
 
-        nodes = kafkaConfig.getNodes();
-        securityProtocol = kafkaConfig.getSecurityProtocol();
+        map = ImmutableMap.copyOf(sslConfig.getKafkaClientProperties());
     }
 
     @Override
     public Properties configure(ConnectorSession session)
     {
         Properties properties = new Properties();
-        properties.setProperty(BOOTSTRAP_SERVERS_CONFIG, nodes.stream()
-                .map(HostAddress::toString)
-                .collect(joining(",")));
-        properties.setProperty(SECURITY_PROTOCOL_CONFIG, securityProtocol.name());
+        properties.putAll(delegate.configure(session));
+        properties.putAll(map);
         return properties;
     }
 }

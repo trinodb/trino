@@ -14,7 +14,10 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Binder;
 import com.google.inject.Module;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.kafka.security.KafkaSecurityModule;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
@@ -23,10 +26,14 @@ import static java.util.Objects.requireNonNull;
 public class KafkaPlugin
         implements Plugin
 {
-    public static final Module DEFAULT_EXTENSION = binder -> {
-        binder.install(new KafkaConsumerModule());
-        binder.install(new KafkaProducerModule());
-        binder.install(new KafkaAdminModule());
+    public static final Module DEFAULT_EXTENSION = new AbstractConfigurationAwareModule()
+    {
+        @Override
+        protected void setup(Binder binder)
+        {
+            install(new KafkaClientsModule());
+            install(new KafkaSecurityModule());
+        }
     };
 
     private final Module extension;

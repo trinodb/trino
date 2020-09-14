@@ -1,0 +1,17 @@
+schema-registry:
+  url: http://schema-registry:8081
+
+databases:
+  kafka:
+    broker:
+      host: kafka
+      port: 9092
+      security.protocol: "SSL"
+      ssl.endpoint.identification.algorithm: "https"
+      ssl.key.password: "confluent"
+      ssl.keystore.location: "/docker/presto-product-tests/conf/tempto/secrets/kafka.client.keystore"
+      ssl.keystore.password: "confluent"
+      ssl.keystore.type: "JKS"
+      ssl.truststore.location: "/docker/presto-product-tests/conf/tempto/secrets/kafka.client.truststore"
+      ssl.truststore.password: "confluent"
+      ssl.truststore.type: "JKS"

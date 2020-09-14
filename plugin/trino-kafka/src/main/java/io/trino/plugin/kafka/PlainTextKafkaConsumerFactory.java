@@ -14,6 +14,7 @@
 package io.trino.plugin.kafka;
 
 import io.airlift.units.DataSize;
+import io.trino.plugin.kafka.security.SecurityProtocol;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
@@ -25,6 +26,7 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static org.apache.kafka.clients.CommonClientConfigs.SECURITY_PROTOCOL_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG;
@@ -36,6 +38,7 @@ public class PlainTextKafkaConsumerFactory
 {
     private final Set<HostAddress> nodes;
     private final DataSize kafkaBufferSize;
+    private final SecurityProtocol securityProtocol;
 
     @Inject
     public PlainTextKafkaConsumerFactory(KafkaConfig kafkaConfig)
@@ -44,6 +47,7 @@ public class PlainTextKafkaConsumerFactory
 
         nodes = kafkaConfig.getNodes();
         kafkaBufferSize = kafkaConfig.getKafkaBufferSize();
+        securityProtocol = kafkaConfig.getSecurityProtocol();
     }
 
     @Override
@@ -57,6 +61,7 @@ public class PlainTextKafkaConsumerFactory
         properties.setProperty(VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         properties.setProperty(RECEIVE_BUFFER_CONFIG, Long.toString(kafkaBufferSize.toBytes()));
         properties.setProperty(ENABLE_AUTO_COMMIT_CONFIG, Boolean.toString(false));
+        properties.setProperty(SECURITY_PROTOCOL_CONFIG, securityProtocol.name());
         return properties;
     }
 }
