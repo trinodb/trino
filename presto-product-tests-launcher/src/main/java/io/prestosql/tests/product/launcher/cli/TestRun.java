@@ -17,6 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
@@ -27,6 +28,9 @@ import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.testcontainers.ExistingNetwork;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.Timeout;
+import net.jodah.failsafe.TimeoutExceededException;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import picocli.CommandLine.ExitCode;
@@ -116,6 +120,9 @@ public final class TestRun
         @Option(names = "--startup-retries", paramLabel = "<retries>", description = "Environment startup retries " + DEFAULT_VALUE, defaultValue = "5")
         public Integer startupRetries = 5;
 
+        @Option(names = "--timeout", paramLabel = "<timeout>", description = "Maximum duration of tests execution " + DEFAULT_VALUE, converter = DurationConverter.class, defaultValue = "2h")
+        public Duration timeout;
+
         @Parameters(paramLabel = "<argument>", description = "Test arguments")
         public List<String> testArguments;
 
@@ -135,6 +142,7 @@ public final class TestRun
         private final List<String> testArguments;
         private final String environment;
         private final boolean attach;
+        private final Duration timeout;
         private final DockerContainer.OutputMode outputMode;
         private final int startupRetries;
         private final Path reportsDirBase;
@@ -151,6 +159,7 @@ public final class TestRun
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testOptions.testArguments is null"));
             this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
             this.attach = testRunOptions.attach;
+            this.timeout = requireNonNull(testRunOptions.timeout, "testRunOptions.timeout is null");
             this.outputMode = requireNonNull(environmentOptions.output, "environmentOptions.output is null");
             this.startupRetries = testRunOptions.startupRetries;
             this.reportsDirBase = requireNonNull(testRunOptions.reportsDir, "testRunOptions.reportsDirBase is empty");
@@ -161,14 +170,27 @@ public final class TestRun
         @Override
         public Integer call()
         {
-            try (Environment environment = startEnvironment()) {
-                return toIntExact(environment.awaitTestsCompletion());
+            try {
+                return Failsafe
+                        .with(Timeout.of(java.time.Duration.ofMillis(timeout.toMillis()))
+                                .withCancel(true))
+                        .get(() -> tryExecuteTests());
+            }
+            catch (TimeoutExceededException ignored) {
+                log.error("Test execution exceeded timeout of %s", timeout);
             }
             catch (Throwable e) {
                 // log failure (tersely) because cleanup may take some time
                 log.error("Failure: %s", getStackTraceAsString(e));
+            }
 
-                return ExitCode.SOFTWARE;
+            return ExitCode.SOFTWARE;
+        }
+
+        private Integer tryExecuteTests()
+        {
+            try (Environment environment = startEnvironment()) {
+                return toIntExact(environment.awaitTestsCompletion());
             }
         }
 
