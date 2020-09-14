@@ -13,15 +13,16 @@
  */
 package io.prestosql.plugin.kafka;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import io.prestosql.spi.HostAddress;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 import javax.inject.Inject;
 
-import java.util.Properties;
+import java.util.Map;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -32,40 +33,21 @@ import static org.apache.kafka.clients.producer.ProducerConfig.LINGER_MS_CONFIG;
 
 public class PlainTextKafkaProducerFactory
 {
-    private Properties properties;
+    private final Map<String, Object> properties;
 
     @Inject
     public PlainTextKafkaProducerFactory(KafkaConfig kafkaConfig)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
         Set<HostAddress> nodes = ImmutableSet.copyOf(kafkaConfig.getNodes());
-        Properties properties = new Properties();
-        properties.put(BOOTSTRAP_SERVERS_CONFIG, nodes.stream()
-                .map(HostAddress::toString)
-                .collect(joining(",")));
-        properties.put(ACKS_CONFIG, "all");
-        properties.put(LINGER_MS_CONFIG, 5);
-        if (kafkaConfig.getSecurityProtocol() != null) {
-            properties.put("security.protocol", kafkaConfig.getSecurityProtocol());
-        }
-        if (kafkaConfig.getSslTruststoreLocation() != null) {
-            properties.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, kafkaConfig.getSslTruststoreLocation());
-        }
-        if (kafkaConfig.getSslTruststorePassword() != null) {
-            properties.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, kafkaConfig.getSslTruststorePassword());
-        }
-        if (kafkaConfig.getSslKeystoreLocation() != null) {
-            properties.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, kafkaConfig.getSslKeystoreLocation());
-        }
-        if (kafkaConfig.getSslKeystorePassword() != null) {
-            properties.put(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, kafkaConfig.getSslKeystorePassword());
-        }
-        if (kafkaConfig.getSslEndpointIdentificationAlgorithm() != null) {
-            properties.put(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, kafkaConfig.getSslEndpointIdentificationAlgorithm());
-        }
-        if (kafkaConfig.getSslKeyPassword() != null) {
-            properties.put(SslConfigs.SSL_KEY_PASSWORD_CONFIG, kafkaConfig.getSslKeyPassword());
-        }
+        properties = ImmutableMap.<String, Object>builder()
+                .put(BOOTSTRAP_SERVERS_CONFIG, nodes.stream()
+                        .map(HostAddress::toString)
+                        .collect(joining(",")))
+                .put(ACKS_CONFIG, "all")
+                .put(LINGER_MS_CONFIG, 5)
+                .putAll(Maps.fromProperties(kafkaConfig.getSecurityConfigProperties()))
+                .build();
     }
 
     /**

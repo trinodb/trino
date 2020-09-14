@@ -15,7 +15,6 @@ package io.prestosql.plugin.kafka;
 
 import io.airlift.units.DataSize;
 import io.prestosql.spi.HostAddress;
-import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 
 import javax.inject.Inject;
@@ -58,27 +57,7 @@ public class PlainTextKafkaConsumerFactory
         properties.setProperty(VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         properties.setProperty(RECEIVE_BUFFER_CONFIG, Long.toString(kafkaBufferSize.toBytes()));
         properties.setProperty(ENABLE_AUTO_COMMIT_CONFIG, Boolean.toString(false));
-        if (kafkaConfig.getSecurityProtocol() != null) {
-            properties.setProperty("security.protocol", kafkaConfig.getSecurityProtocol());
-        }
-        if (kafkaConfig.getSslTruststoreLocation() != null) {
-            properties.setProperty(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, kafkaConfig.getSslTruststoreLocation());
-        }
-        if (kafkaConfig.getSslTruststorePassword() != null) {
-            properties.setProperty(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, kafkaConfig.getSslTruststorePassword());
-        }
-        if (kafkaConfig.getSslKeystoreLocation() != null) {
-            properties.setProperty(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, kafkaConfig.getSslKeystoreLocation());
-        }
-        if (kafkaConfig.getSslKeystorePassword() != null) {
-            properties.setProperty(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, kafkaConfig.getSslKeystorePassword());
-        }
-        if (kafkaConfig.getSslEndpointIdentificationAlgorithm() != null) {
-            properties.setProperty(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, kafkaConfig.getSslEndpointIdentificationAlgorithm());
-        }
-        if (kafkaConfig.getSslKeyPassword() != null) {
-            properties.setProperty(SslConfigs.SSL_KEY_PASSWORD_CONFIG, kafkaConfig.getSslKeyPassword());
-        }
+        properties.putAll(kafkaConfig.getSecurityConfigProperties());
         return properties;
     }
 }
