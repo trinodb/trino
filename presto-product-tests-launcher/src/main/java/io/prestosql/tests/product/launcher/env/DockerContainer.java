@@ -14,6 +14,7 @@
 package io.prestosql.tests.product.launcher.env;
 
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
 import com.google.common.io.RecursiveDeleteOption;
 import io.airlift.log.Logger;
@@ -33,11 +34,12 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.testcontainers.containers.BindMode.READ_WRITE;
 
 public class DockerContainer
         extends FixedHostPortGenericContainer<DockerContainer>
@@ -116,17 +118,6 @@ public class DockerContainer
         return this;
     }
 
-    public void exposeLogsInHostPath(Path hostBasePath)
-    {
-        for (String containerLogPath : logPaths) {
-            Path hostLogPath = Paths.get(hostBasePath.toString(), containerLogPath);
-            cleanOrCreateHostPath(hostLogPath);
-            withFileSystemBind(hostLogPath.toString(), containerLogPath, READ_WRITE);
-        }
-
-        logPaths = null;
-    }
-
     @Override
     protected void containerIsStarting(InspectContainerResponse containerInfo)
     {
@@ -165,6 +156,58 @@ public class DockerContainer
     public void clearDependencies()
     {
         dependencies.clear();
+    }
+
+    public void copyLogsToHostPath(Path hostPath)
+    {
+        if (!isRunning()) {
+            log.warn("Could not copy files from stopped container %s", logicalName);
+            return;
+        }
+
+        log.info("Copying container %s logs to '%s'", logicalName, hostPath);
+
+        Path hostLogPath = Paths.get(hostPath.toString(), logicalName);
+        cleanOrCreateHostPath(hostLogPath);
+
+        for (String containerLogPath : logPaths) {
+            try {
+                listFilesInContainer(containerLogPath).forEach(filename ->
+                        copyFileFromContainer(filename, hostLogPath));
+            }
+            catch (Exception e) {
+                log.warn("Could not copy logs from %s to '%s': %s", logicalName, hostPath, e);
+            }
+        }
+    }
+
+    private void copyFileFromContainer(String filename, Path rootHostPath)
+    {
+        Path targetPath = rootHostPath.resolve(filename.replaceFirst("^\\/", ""));
+
+        log.info("Copying file %s to %s", filename, targetPath);
+        ensurePathExists(targetPath.getParent());
+        copyFileFromContainer(filename, targetPath.toString());
+    }
+
+    private Stream<String> listFilesInContainer(String path)
+    {
+        try {
+            ExecResult result = execInContainer("/usr/bin/find", path, "-type", "f", "-print");
+
+            if (result.getExitCode() == 0L) {
+                return Splitter.on("\n")
+                        .omitEmptyStrings()
+                        .splitToStream(result.getStdout());
+            }
+
+            throw new RuntimeException(format("Could not list files in %s: %s", path, result.getStderr()));
+        }
+        catch (Exception e) {
+            log.warn("Could not list files in container '%s': %s", logicalName, e);
+        }
+
+        return Stream.empty();
     }
 
     @Override
