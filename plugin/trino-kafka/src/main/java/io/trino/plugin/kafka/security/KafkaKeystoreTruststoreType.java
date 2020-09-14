@@ -11,19 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.kafka;
+package io.trino.plugin.kafka.security;
 
-import io.trino.spi.connector.ConnectorSession;
-import org.apache.kafka.clients.producer.KafkaProducer;
+import java.util.Optional;
 
-import java.util.Properties;
+import static java.util.Locale.ENGLISH;
 
-public interface KafkaProducerFactory
+public enum KafkaKeystoreTruststoreType
 {
-    default KafkaProducer<byte[], byte[]> create(ConnectorSession session)
-    {
-        return new KafkaProducer<>(configure(session));
-    }
+    JKS,
+    PKCS12;
 
-    Properties configure(ConnectorSession session);
+    public static Optional<KafkaKeystoreTruststoreType> fromString(String value)
+    {
+        return Optional.of(KafkaKeystoreTruststoreType.valueOf(value.toUpperCase(ENGLISH)));
+    }
 }

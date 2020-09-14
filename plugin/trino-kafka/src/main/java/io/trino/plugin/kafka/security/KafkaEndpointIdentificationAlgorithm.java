@@ -11,19 +11,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.kafka;
+package io.trino.plugin.kafka.security;
 
-import io.trino.spi.connector.ConnectorSession;
-import org.apache.kafka.clients.producer.KafkaProducer;
+import java.util.Optional;
 
-import java.util.Properties;
+import static java.util.Locale.ENGLISH;
 
-public interface KafkaProducerFactory
+public enum KafkaEndpointIdentificationAlgorithm
 {
-    default KafkaProducer<byte[], byte[]> create(ConnectorSession session)
+    HTTPS("https"),
+    DISABLED("");
+
+    private final String value;
+
+    KafkaEndpointIdentificationAlgorithm(String value)
     {
-        return new KafkaProducer<>(configure(session));
+        this.value = value;
     }
 
-    Properties configure(ConnectorSession session);
+    public static Optional<KafkaEndpointIdentificationAlgorithm> fromString(String value)
+    {
+        return Optional.of(KafkaEndpointIdentificationAlgorithm.valueOf(value.toUpperCase(ENGLISH)));
+    }
+
+    public String getValue()
+    {
+        return value;
+    }
 }

@@ -67,6 +67,15 @@ Property Name                                              Description
 ``kafka.hide-internal-columns``                            Controls whether internal columns are part of the table schema or not
 ``kafka.messages-per-split``                               Number of messages that are processed by each Trino split, defaults to 100000
 ``kafka.timestamp-upper-bound-force-push-down-enabled``    Controls if upper bound timestamp push down is enabled for topics using ``CreateTime`` mode
+``kafka.security-protocol``                                Security protocol for connection to Kafka cluster, defaults to ``PLAINTEXT``
+``kafka.ssl.keystore.location``                            Location of the keystore file
+``kafka.ssl.keystore.password``                            Password for the keystore file
+``kafka.ssl.keystore.type``                                File format of the keystore file, defaults to ``JKS``
+``kafka.ssl.truststore.location``                          Location of the truststore file
+``kafka.ssl.truststore.password``                          Password for the truststore file
+``kafka.ssl.truststore.type``                              File format of the truststore file, defaults to ``JKS``
+``kafka.ssl.key.password``                                 Password for the private key in the keystore file
+``kafka.ssl.endpoint-identification-algorithm``            Endpoint identification algorithm used by clients to validate server host name, defaults to ``https``
 ========================================================== ==============================================================================
 
 In addition, you need to configure :ref:`table schema and schema registry usage
@@ -124,6 +133,73 @@ these columns are hidden, they can still be used in queries but do not
 show up in ``DESCRIBE <table-name>`` or ``SELECT *``.
 
 This property is optional; the default is ``true``.
+
+``kafka.security-protocol``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Protocol used to communicate with brokers.
+Valid values are: PLAINTEXT, SSL.
+
+This property is optional; default is ``PLAINTEXT``.
+
+``kafka.ssl.keystore.location``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Location of the keystore file used for connection to Kafka cluster.
+
+This property is optional.
+
+``kafka.ssl.keystore.password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Password for the keystore file used for connection to Kafka cluster.
+
+This property is optional, but required when ``kafka.ssl.keystore.location`` is given.
+
+``kafka.ssl.keystore.type``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+File format of the keystore file.
+Valid values are: JKS, PKCS12.
+
+This property is optional; default is ``JKS``.
+
+``kafka.ssl.truststore.location``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Location of the truststore file used for connection to Kafka cluster.
+
+This property is optional.
+
+``kafka.ssl.truststore.password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Password for the truststore file used for connection to Kafka cluster.
+
+This property is optional, but required when ``kafka.ssl.truststore.location`` is given.
+
+``kafka.ssl.truststore.type``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+File format of the truststore file.
+Valid values are: JKS, PKCS12.
+
+This property is optional; default is ``JKS``.
+
+``kafka.ssl.key.password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Password for the private key in the keystore file used for connection to Kafka cluster.
+
+This property is optional. This is required for clients only if two-way authentication is configured i.e. ``ssl.client.auth=required``.
+
+``kafka.ssl.endpoint-identification-algorithm``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The endpoint identification algorithm used by clients to validate server host name for connection to Kafka cluster.
+Kafka uses ``https`` as default. Use ``disabled`` to disable server host name validation.
+
+This property is optional; default is ``https``.
 
 Internal columns
 ----------------
