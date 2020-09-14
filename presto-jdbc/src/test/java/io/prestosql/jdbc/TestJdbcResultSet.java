@@ -17,7 +17,6 @@ import io.airlift.log.Logging;
 import io.prestosql.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -25,7 +24,6 @@ import java.sql.SQLException;
 
 import static java.lang.String.format;
 
-@Test(singleThreaded = true)
 public class TestJdbcResultSet
         extends BaseTestJdbcResultSet
 {
@@ -52,8 +50,4 @@ public class TestJdbcResultSet
         String url = format("jdbc:presto://%s", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
     }
-
-    @Override
-    @Test
-    public void forceTestNgToRespectSingleThreaded() {}
 }
