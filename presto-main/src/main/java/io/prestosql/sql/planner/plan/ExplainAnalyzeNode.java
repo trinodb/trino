@@ -16,6 +16,7 @@ package io.prestosql.sql.planner.plan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.prestosql.sql.planner.Symbol;
 
@@ -23,6 +24,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -31,6 +33,7 @@ public class ExplainAnalyzeNode
 {
     private final PlanNode source;
     private final Symbol outputSymbol;
+    private final List<Symbol> actualOutputs;
     private final boolean verbose;
 
     @JsonCreator
@@ -38,11 +41,15 @@ public class ExplainAnalyzeNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("outputSymbol") Symbol outputSymbol,
+            @JsonProperty("actualOutputs") List<Symbol> actualOutputs,
             @JsonProperty("verbose") boolean verbose)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
         this.outputSymbol = requireNonNull(outputSymbol, "outputSymbol is null");
+        requireNonNull(actualOutputs, "actualOutputs is null");
+        checkArgument(ImmutableSet.copyOf(source.getOutputSymbols()).containsAll(actualOutputs), "Source does not supply all required input symbols");
+        this.actualOutputs = ImmutableList.copyOf(actualOutputs);
         this.verbose = verbose;
     }
 
@@ -50,6 +57,12 @@ public class ExplainAnalyzeNode
     public Symbol getOutputSymbol()
     {
         return outputSymbol;
+    }
+
+    @JsonProperty("actualOutputs")
+    public List<Symbol> getActualOutputs()
+    {
+        return actualOutputs;
     }
 
     @JsonProperty("source")
@@ -85,6 +98,6 @@ public class ExplainAnalyzeNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new ExplainAnalyzeNode(getId(), Iterables.getOnlyElement(newChildren), outputSymbol, isVerbose());
+        return new ExplainAnalyzeNode(getId(), Iterables.getOnlyElement(newChildren), outputSymbol, actualOutputs, isVerbose());
     }
 }
