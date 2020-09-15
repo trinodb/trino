@@ -40,8 +40,8 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
 import static io.prestosql.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Mixin;
@@ -138,7 +138,7 @@ public final class EnvironmentUp
                     .removeContainer(TESTS);
 
             if (withoutPrestoMaster) {
-                builder.removeContainer(COORDINATOR);
+                builder.removeContainers(container -> isPrestoContainer(container.getLogicalName()));
             }
 
             log.info("Creating environment '%s' with configuration %s", environment, environmentConfig);
