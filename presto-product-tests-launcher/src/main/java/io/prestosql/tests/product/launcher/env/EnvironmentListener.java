@@ -188,12 +188,14 @@ public interface EnvironmentListener
             @Override
             public void containerStopping(DockerContainer container, InspectContainerResponse response)
             {
-                try {
-                    log.info("Container %s stats: %s", container, mapper.writeValueAsString(container.getStats()));
-                }
-                catch (JsonProcessingException e) {
-                    log.warn("Could not display container %s stats: %s", container, e);
-                }
+                container.getStats().ifPresent(statistics -> {
+                    try {
+                        log.info("Container %s stats: %s", container, mapper.writeValueAsString(statistics));
+                    }
+                    catch (JsonProcessingException e) {
+                        log.warn("Could not display container %s stats: %s", container, e);
+                    }
+                });
             }
         };
     }
