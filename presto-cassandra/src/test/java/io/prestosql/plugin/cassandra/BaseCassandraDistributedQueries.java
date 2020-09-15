@@ -29,12 +29,6 @@ public abstract class BaseCassandraDistributedQueries
         extends AbstractTestDistributedQueries
 {
     @Override
-    protected boolean supportsDelete()
-    {
-        return false;
-    }
-
-    @Override
     protected boolean supportsViews()
     {
         return false;
@@ -98,6 +92,13 @@ public abstract class BaseCassandraDistributedQueries
         assertThatThrownBy(super::testInsertArray)
                 .hasMessage("unsupported type: array(double)");
         throw new SkipException("Unsupported");
+    }
+
+    @Override
+    public void testDelete()
+    {
+        assertThatThrownBy(super::testDelete)
+                .hasStackTraceContaining("This connector only supports delete with primary key or partition key");
     }
 
     @Override

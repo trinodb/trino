@@ -14,7 +14,6 @@
 package io.prestosql.plugin.cassandra;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.ConnectorTableHandle;
@@ -34,19 +33,17 @@ public class CassandraTableHandle
     private final Optional<List<CassandraPartition>> partitions;
     private final String clusteringKeyPredicates;
 
-    @JsonCreator
-    public CassandraTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName)
+    public CassandraTableHandle(String schemaName, String tableName)
     {
         this(schemaName, tableName, Optional.empty(), "");
     }
 
+    @JsonCreator
     public CassandraTableHandle(
-            String schemaName,
-            String tableName,
-            Optional<List<CassandraPartition>> partitions,
-            String clusteringKeyPredicates)
+            @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("partitions") Optional<List<CassandraPartition>> partitions,
+            @JsonProperty("clusteringKeyPredicates") String clusteringKeyPredicates)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -66,15 +63,13 @@ public class CassandraTableHandle
         return tableName;
     }
 
-    // do not serialize partitions as they are not needed on workers
-    @JsonIgnore
+    @JsonProperty
     public Optional<List<CassandraPartition>> getPartitions()
     {
         return partitions;
     }
 
-    // do not serialize clustered predicate as they are not needed on workers
-    @JsonIgnore
+    @JsonProperty
     public String getClusteringKeyPredicates()
     {
         return clusteringKeyPredicates;

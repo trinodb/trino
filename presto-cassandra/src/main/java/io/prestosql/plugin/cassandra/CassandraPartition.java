@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.cassandra;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.TupleDomain;
 
@@ -38,7 +40,12 @@ public class CassandraPartition
         indexedColumnPredicatePushdown = false;
     }
 
-    public CassandraPartition(byte[] key, String partitionId, TupleDomain<ColumnHandle> tupleDomain, boolean indexedColumnPredicatePushdown)
+    @JsonCreator
+    public CassandraPartition(
+            @JsonProperty("key") byte[] key,
+            @JsonProperty("partitionId") String partitionId,
+            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
+            @JsonProperty("indexedColumnPredicatePushdown") boolean indexedColumnPredicatePushdown)
     {
         this.key = key;
         this.partitionId = partitionId;
@@ -51,16 +58,19 @@ public class CassandraPartition
         return partitionId.equals(UNPARTITIONED_ID);
     }
 
+    @JsonProperty
     public boolean isIndexedColumnPredicatePushdown()
     {
         return indexedColumnPredicatePushdown;
     }
 
+    @JsonProperty
     public TupleDomain<ColumnHandle> getTupleDomain()
     {
         return tupleDomain;
     }
 
+    @JsonProperty
     public String getPartitionId()
     {
         return partitionId;
@@ -77,6 +87,7 @@ public class CassandraPartition
         return ByteBuffer.wrap(key);
     }
 
+    @JsonProperty
     public byte[] getKey()
     {
         return key;

@@ -34,6 +34,8 @@ import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.testing.TestingConnectorContext;
@@ -51,6 +53,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
+import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_DELETE_DATA;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.createTestTables;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -80,6 +83,7 @@ public class TestCassandraConnector
     private CassandraServer server;
     protected String database;
     protected SchemaTableName table;
+    protected SchemaTableName tableForDelete;
     private ConnectorMetadata metadata;
     private ConnectorSplitManager splitManager;
     private ConnectorRecordSetProvider recordSetProvider;
@@ -111,6 +115,7 @@ public class TestCassandraConnector
 
         database = keyspace;
         table = new SchemaTableName(database, TABLE_ALL_TYPES.toLowerCase(ENGLISH));
+        tableForDelete = new SchemaTableName(database, TABLE_DELETE_DATA.toLowerCase(ENGLISH));
     }
 
     @AfterClass(alwaysRun = true)
@@ -204,6 +209,23 @@ public class TestCassandraConnector
         assertEquals(rowNumber, 9);
     }
 
+    @Test
+    public void testExecuteDelete()
+    {
+        assertNumberOfRows(tableForDelete, 15);
+        CassandraTableHandle handle1 = getTableHandle(Optional.of(List.of(createPartition(1, 1))), "");
+        metadata.executeDelete(SESSION, handle1);
+        assertNumberOfRows(tableForDelete, 12);
+
+        CassandraTableHandle handle2 = getTableHandle(Optional.of(List.of(createPartition(1, 2))), "clust_one='clust_one_2'");
+        metadata.executeDelete(SESSION, handle2);
+        assertNumberOfRows(tableForDelete, 11);
+
+        CassandraTableHandle handle3 = getTableHandle(Optional.of(List.of(createPartition(1, 2), createPartition(2, 2))), "");
+        metadata.executeDelete(SESSION, handle3);
+        assertNumberOfRows(tableForDelete, 7);
+    }
+
     private static void assertReadFields(RecordCursor cursor, List<ColumnMetadata> schema)
     {
         for (int columnIndex = 0; columnIndex < schema.size(); columnIndex++) {
@@ -269,5 +291,29 @@ public class TestCassandraConnector
             i++;
         }
         return index.build();
+    }
+
+    private CassandraTableHandle getTableHandle(Optional<List<CassandraPartition>> partitions, String clusteringKeyPredicates)
+    {
+        CassandraTableHandle handle = (CassandraTableHandle) getTableHandle(tableForDelete);
+        return new CassandraTableHandle(handle.getSchemaName(), handle.getTableName(), partitions, clusteringKeyPredicates);
+    }
+
+    private CassandraPartition createPartition(long value1, long value2)
+    {
+        CassandraColumnHandle column1 = new CassandraColumnHandle("partition_one", 1, CassandraType.BIGINT, true, false, false, false);
+        CassandraColumnHandle column2 = new CassandraColumnHandle("partition_two", 2, CassandraType.INT, true, false, false, false);
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(
+                        column1, Domain.singleValue(BIGINT, value1),
+                        column2, Domain.singleValue(INTEGER, value2)));
+        String partitionId = format("partition_one=%d AND partition_two=%d", value1, value2);
+        return new CassandraPartition(new byte[0], partitionId, tupleDomain, true);
+    }
+
+    private void assertNumberOfRows(SchemaTableName tableName, int rowsCount)
+    {
+        CassandraSession session = server.getSession();
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + tableName).all().get(0).getLong(0), rowsCount);
     }
 }

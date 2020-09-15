@@ -40,6 +40,7 @@ public final class CassandraTestingUtils
     public static final String TABLE_CLUSTERING_KEYS_LARGE = "table_clustering_keys_large";
     public static final String TABLE_MULTI_PARTITION_CLUSTERING_KEYS = "table_multi_partition_clustering_keys";
     public static final String TABLE_CLUSTERING_KEYS_INEQUALITY = "table_clustering_keys_inequality";
+    public static final String TABLE_DELETE_DATA = "table_delete_data";
 
     private CassandraTestingUtils() {}
 
@@ -53,6 +54,7 @@ public final class CassandraTestingUtils
         createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS_LARGE), 1000);
         createTableMultiPartitionClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_MULTI_PARTITION_CLUSTERING_KEYS));
         createTableClusteringKeysInequality(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS_INEQUALITY), date, 4);
+        createTableDeleteData(cassandraSession, new SchemaTableName(keyspace, TABLE_DELETE_DATA));
     }
 
     public static void createKeyspace(CassandraSession session, String keyspaceName)
@@ -247,5 +249,64 @@ public final class CassandraTestingUtils
             session.execute(insert);
         }
         assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), rowsCount);
+    }
+
+    private static void createTableDeleteData(CassandraSession session, SchemaTableName table)
+    {
+        session.execute("DROP TABLE IF EXISTS " + table);
+        session.execute("CREATE TABLE " + table + " (" +
+                "partition_one bigint, " +
+                "partition_two int, " +
+                "clust_one text, " +
+                "data text, " +
+                "PRIMARY KEY((partition_one, partition_two), clust_one) " +
+                ")");
+        insertIntoTableDeleteData(session, table);
+    }
+
+    private static void insertIntoTableDeleteData(CassandraSession session, SchemaTableName table)
+    {
+        /*   This function inserts data (15 records) as below.
+             partition_one | partition_two | clust_one   | data
+            ---------------+---------------+-------------+------
+                         1 |             1 | clust_one_1 | null
+                         1 |             1 | clust_one_2 | null
+                         1 |             1 | clust_one_3 | null
+                         1 |             2 | clust_one_1 | null
+                         1 |             2 | clust_one_2 | null
+                         1 |             2 | clust_one_3 | null
+                         2 |             2 | clust_one_1 | null
+                         2 |             2 | clust_one_2 | null
+                         3 |             3 | clust_one_3 | null
+                         4 |             4 | clust_one_4 | null
+                         5 |             5 | clust_one_5 | null
+                         6 |             6 | clust_one_6 | null
+                         7 |             7 | clust_one_7 | null
+                         8 |             8 | clust_one_8 | null
+                         9 |             9 | clust_one_9 | null
+         */
+        for (int rowNumber = 1; rowNumber < 10; rowNumber++) {
+            Insert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
+                    .value("partition_one", rowNumber)
+                    .value("partition_two", rowNumber)
+                    .value("clust_one", "clust_one_" + rowNumber);
+            session.execute(insert);
+        }
+        session.execute(QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
+                .value("partition_one", 1L).value("partition_two", 1).value("clust_one", "clust_one_" + 2));
+        session.execute(QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
+                .value("partition_one", 1L).value("partition_two", 1).value("clust_one", "clust_one_" + 3));
+
+        session.execute(QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
+                .value("partition_one", 1L).value("partition_two", 2).value("clust_one", "clust_one_" + 1));
+        session.execute(QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
+                .value("partition_one", 1L).value("partition_two", 2).value("clust_one", "clust_one_" + 2));
+        session.execute(QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
+                .value("partition_one", 1L).value("partition_two", 2).value("clust_one", "clust_one_" + 3));
+
+        session.execute(QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
+                .value("partition_one", 2L).value("partition_two", 2).value("clust_one", "clust_one_" + 1));
+
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 15);
     }
 }
