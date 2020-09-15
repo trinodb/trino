@@ -362,7 +362,7 @@ public class HivePageSourceProvider
                     }
 
                     checkArgument(
-                            projectionsForColumn.computeIfAbsent(column.getBaseHiveColumnIndex(), HashSet::new).add(column.getHiveColumnProjectionInfo()),
+                            projectionsForColumn.computeIfAbsent(column.getBaseHiveColumnIndex(), columnIndex -> new HashSet<>()).add(column.getHiveColumnProjectionInfo()),
                             "duplicate column in columns list");
 
                     // Add regular mapping if projection is valid for partition schema, otherwise add an empty mapping
