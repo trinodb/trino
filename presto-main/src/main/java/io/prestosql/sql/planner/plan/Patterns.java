@@ -62,6 +62,11 @@ public final class Patterns
         return typeOf(ExchangeNode.class);
     }
 
+    public static Pattern<ExplainAnalyzeNode> explainAnalyze()
+    {
+        return typeOf(ExplainAnalyzeNode.class);
+    }
+
     public static Pattern<EnforceSingleRowNode> enforceSingleRow()
     {
         return typeOf(EnforceSingleRowNode.class);
