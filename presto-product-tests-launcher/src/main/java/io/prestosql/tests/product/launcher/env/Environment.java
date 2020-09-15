@@ -55,7 +55,6 @@ import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.tests.product.launcher.env.DockerContainer.ensurePathExists;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
-import static io.prestosql.tests.product.launcher.env.Environments.pruneContainers;
 import static io.prestosql.tests.product.launcher.env.Environments.pruneEnvironment;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -66,6 +65,7 @@ public final class Environment
     public static final String PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME = Environment.class.getName() + ".ptl-started";
     public static final String PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE = "true";
     public static final String PRODUCT_TEST_LAUNCHER_NETWORK = "ptl-network";
+    public static final String PRODUCT_TEST_LAUNCHER_ENVIRONMENT_LABEL_NAME = "ptl-environment-name";
 
     private static final Logger log = Logger.get(Environment.class);
 
@@ -98,10 +98,13 @@ public final class Environment
 
     private Environment tryStart()
     {
-        try {
-            // We need to prune containers only as we are reusing existing network
-            pruneContainers();
-            Startables.deepStart(ImmutableList.copyOf(containers.values())).get();
+        pruneEnvironment();
+
+        // Create new network when environment tries to start
+        try (Network network = createNetwork(name)) {
+            List<DockerContainer> containers = ImmutableList.copyOf(this.containers.values());
+            attachNetwork(containers, network);
+            Startables.deepStart(containers).get();
             this.listener.ifPresent(listener -> listener.environmentStarted(this));
             return this;
         }
@@ -195,20 +198,30 @@ public final class Environment
         stop();
     }
 
+    private static void attachNetwork(Collection<DockerContainer> values, Network network)
+    {
+        values.forEach(container -> container.withNetwork(network));
+    }
+
+    private static Network createNetwork(String environmentName)
+    {
+        Network network = Network.builder()
+                .createNetworkCmdModifier(createNetworkCmd ->
+                        createNetworkCmd
+                                .withName(PRODUCT_TEST_LAUNCHER_NETWORK)
+                                .withLabels(ImmutableMap.of(
+                                        PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE,
+                                        PRODUCT_TEST_LAUNCHER_ENVIRONMENT_LABEL_NAME, environmentName)))
+                .build();
+        log.info("Created new network %s for environment %s", network.getId(), environmentName);
+        return network;
+    }
+
     public static class Builder
     {
         private final String name;
         private DockerContainer.OutputMode outputMode;
         private int startupRetries = 1;
-
-        @SuppressWarnings("resource")
-        private Network network = Network.builder()
-                .createNetworkCmdModifier(createNetworkCmd ->
-                        createNetworkCmd
-                                .withName(PRODUCT_TEST_LAUNCHER_NETWORK)
-                                .withLabels(ImmutableMap.of(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)))
-                .build();
-
         private Map<String, DockerContainer> containers = new HashMap<>();
         private Optional<Path> logsBaseDir = Optional.empty();
 
@@ -233,7 +246,6 @@ public final class Environment
             containers.put(containerName, requireNonNull(container, "container is null"));
 
             container
-                    .withNetwork(network)
                     .withNetworkAliases(containerName)
                     .withLabel(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)
                     .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd
