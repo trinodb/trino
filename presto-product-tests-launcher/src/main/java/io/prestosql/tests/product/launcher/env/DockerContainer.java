@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -214,15 +215,19 @@ public class DockerContainer
         return Stream.empty();
     }
 
-    public Statistics getStats()
+    public Optional<Statistics> getStats()
     {
         try (DockerClient client = DockerClientFactory.lazyClient()) {
             InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>();
             client.statsCmd(getContainerId()).exec(callback);
-            return callback.awaitResult();
+            return Optional.ofNullable(callback.awaitResult());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+        catch (Exception e) {
+            log.error("Could not fetch container %s statistics: %s", logicalName, getStackTraceAsString(e));
+            return Optional.empty();
         }
     }
 
