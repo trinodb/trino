@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import io.prestosql.plugin.cassandra.util.CassandraCqlUtils;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -46,6 +47,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -368,5 +370,41 @@ public class CassandraMetadata
     private static boolean isHiddenIdColumn(CassandraColumnHandle columnHandle)
     {
         return columnHandle.isHidden() && ID_COLUMN_NAME.equals(columnHandle.getName());
+    }
+
+    @Override
+    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return new CassandraColumnHandle("$update_row_id", 0, CassandraType.TEXT, false, false, false, true);
+    }
+
+    @Override
+    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete with primary key or partition key");
+    }
+
+    @Override
+    public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        return Optional.of(handle);
+    }
+
+    @Override
+    public OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle deleteHandle)
+    {
+        CassandraTableHandle handle = (CassandraTableHandle) deleteHandle;
+        Optional<List<CassandraPartition>> partitions = handle.getPartitions();
+        if (partitions.isEmpty()) {
+            throw new PrestoException(NOT_SUPPORTED, "Deleting without partition key is unsupported");
+        }
+        if (partitions.get().isEmpty()) {
+            // there are no records of a given partition key
+            return OptionalLong.empty();
+        }
+        for (String cql : CassandraCqlUtils.getDeleteQueries(handle)) {
+            cassandraSession.execute(cql);
+        }
+        return OptionalLong.empty();
     }
 }

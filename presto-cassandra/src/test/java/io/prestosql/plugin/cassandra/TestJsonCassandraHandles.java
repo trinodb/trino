@@ -18,11 +18,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -31,7 +36,19 @@ public class TestJsonCassandraHandles
 {
     private static final Map<String, Object> TABLE_HANDLE_AS_MAP = ImmutableMap.of(
             "schemaName", "cassandra_schema",
-            "tableName", "cassandra_table");
+            "tableName", "cassandra_table",
+            "clusteringKeyPredicates", "");
+
+    private static final Map<String, Object> TABLE2_HANDLE_AS_MAP = ImmutableMap.of(
+            "schemaName", "cassandra_schema",
+            "tableName", "cassandra_table",
+            "partitions", List.of(
+                    ImmutableMap.of(
+                            "key", "a2V5",
+                            "partitionId", "partitionKey1 = 11 AND partitionKey2 = 22",
+                            "tupleDomain", ImmutableMap.of("columnDomains", Collections.emptyList()),
+                            "indexedColumnPredicatePushdown", true)),
+            "clusteringKeyPredicates", "clusteringKey1 = 33");
 
     private static final Map<String, Object> COLUMN_HANDLE_AS_MAP = ImmutableMap.<String, Object>builder()
             .put("name", "column")
@@ -53,6 +70,13 @@ public class TestJsonCassandraHandles
             .put("hidden", false)
             .build();
 
+    private static final Optional<List<CassandraPartition>> PARTITIONS = Optional.of(List.of(
+            new CassandraPartition(
+                    "key".getBytes(UTF_8),
+                    "partitionKey1 = 11 AND partitionKey2 = 22",
+                    TupleDomain.all(),
+                    true)));
+
     private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
 
     @Test
@@ -67,6 +91,16 @@ public class TestJsonCassandraHandles
     }
 
     @Test
+    public void testTable2HandleSerialize()
+            throws Exception
+    {
+        CassandraTableHandle tableHandle = new CassandraTableHandle("cassandra_schema", "cassandra_table", PARTITIONS, "clusteringKey1 = 33");
+        assertTrue(objectMapper.canSerialize(CassandraTableHandle.class));
+        String json = objectMapper.writeValueAsString(tableHandle);
+        testJsonEquals(json, TABLE2_HANDLE_AS_MAP);
+    }
+
+    @Test
     public void testTableHandleDeserialize()
             throws Exception
     {
@@ -77,6 +111,22 @@ public class TestJsonCassandraHandles
         assertEquals(tableHandle.getSchemaName(), "cassandra_schema");
         assertEquals(tableHandle.getTableName(), "cassandra_table");
         assertEquals(tableHandle.getSchemaTableName(), new SchemaTableName("cassandra_schema", "cassandra_table"));
+        assertEquals(tableHandle.getClusteringKeyPredicates(), "");
+    }
+
+    @Test
+    public void testTable2HandleDeserialize()
+            throws Exception
+    {
+        String json = objectMapper.writeValueAsString(TABLE2_HANDLE_AS_MAP);
+
+        CassandraTableHandle tableHandle = objectMapper.readValue(json, CassandraTableHandle.class);
+
+        assertEquals(tableHandle.getSchemaName(), "cassandra_schema");
+        assertEquals(tableHandle.getTableName(), "cassandra_table");
+        assertEquals(tableHandle.getSchemaTableName(), new SchemaTableName("cassandra_schema", "cassandra_table"));
+        assertEquals(tableHandle.getPartitions(), PARTITIONS);
+        assertEquals(tableHandle.getClusteringKeyPredicates(), "clusteringKey1 = 33");
     }
 
     @Test

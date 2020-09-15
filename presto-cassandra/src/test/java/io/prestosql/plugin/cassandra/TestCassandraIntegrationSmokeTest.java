@@ -43,6 +43,7 @@ import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPE
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS_INEQUALITY;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS_LARGE;
+import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_DELETE_DATA;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_MULTI_PARTITION_CLUSTERING_KEYS;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.createTestTables;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -68,6 +69,7 @@ import static java.util.Comparator.comparing;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestCassandraIntegrationSmokeTest
@@ -651,6 +653,46 @@ public class TestCassandraIntegrationSmokeTest
         assertEquals(rowCount, 1);
         assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
                 "key3", null, 999, null, null, null, "ansi", false, null, null, null, null, null, null, null, null, null, null));
+    }
+
+    @Test
+    public void testDelete()
+    {
+        String keyspaceAndTable = format("%s.%s", KEYSPACE, TABLE_DELETE_DATA);
+        assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 15);
+
+        // error
+        assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable))
+                .isInstanceOf(RuntimeException.class);
+        assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 15);
+
+        String whereClusteringKeyOnly = " WHERE clust_one='clust_one_2'";
+        assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable + whereClusteringKeyOnly))
+                .isInstanceOf(RuntimeException.class);
+        assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 15);
+
+        String whereMultiplePartitionKeyWithClusteringKey = " WHERE " +
+                " (partition_one=1 AND partition_two=1 AND clust_one='clust_one_1') OR " +
+                " (partition_one=1 AND partition_two=2 AND clust_one='clust_one_2') ";
+        assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable + whereMultiplePartitionKeyWithClusteringKey))
+                .isInstanceOf(RuntimeException.class);
+        assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 15);
+
+        // success
+        String wherePrimaryKey = " WHERE partition_one=3 AND partition_two=3 AND clust_one='clust_one_3'";
+        execute("DELETE FROM " + keyspaceAndTable + wherePrimaryKey);
+        assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 14);
+        assertEquals(execute("SELECT * FROM " + keyspaceAndTable + wherePrimaryKey).getRowCount(), 0);
+
+        String wherePartitionKey = " WHERE partition_one=2 AND partition_two=2";
+        execute("DELETE FROM " + keyspaceAndTable + wherePartitionKey);
+        assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 12);
+        assertEquals(execute("SELECT * FROM " + keyspaceAndTable + wherePartitionKey).getRowCount(), 0);
+
+        String whereMultiplePartitionKey = " WHERE (partition_one=1 AND partition_two=1) OR (partition_one=1 AND partition_two=2)";
+        execute("DELETE FROM " + keyspaceAndTable + whereMultiplePartitionKey);
+        assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 6);
+        assertEquals(execute("SELECT * FROM " + keyspaceAndTable + whereMultiplePartitionKey).getRowCount(), 0);
     }
 
     private void assertSelect(String tableName, boolean createdByPresto)

@@ -17,13 +17,17 @@ import com.datastax.driver.core.querybuilder.QueryBuilder;
 import com.datastax.driver.core.querybuilder.Select;
 import com.datastax.driver.core.querybuilder.Select.Selection;
 import com.fasterxml.jackson.core.io.JsonStringEncoder;
+import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.cassandra.CassandraColumnHandle;
+import io.prestosql.plugin.cassandra.CassandraPartition;
 import io.prestosql.plugin.cassandra.CassandraTableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.datastax.driver.core.Metadata.quote;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class CassandraCqlUtils
@@ -120,5 +124,30 @@ public final class CassandraCqlUtils
     public static Select selectDistinctFrom(CassandraTableHandle tableHandle, List<CassandraColumnHandle> columns)
     {
         return from(select(columns).distinct(), tableHandle);
+    }
+
+    private static String getWhereCondition(String partition, String clusteringKeyPredicates)
+    {
+        List<String> conditions = new ArrayList<>();
+        conditions.add(partition);
+        if (!clusteringKeyPredicates.isEmpty()) {
+            conditions.add(clusteringKeyPredicates);
+        }
+        return String.join(" AND ", conditions);
+    }
+
+    private static String deleteFrom(String schemaName, String tableName, CassandraPartition partition, String clusteringKeyPredicates)
+    {
+        return format("DELETE FROM \"%s\".\"%s\" WHERE %s",
+                schemaName, tableName, getWhereCondition(partition.getPartitionId(), clusteringKeyPredicates));
+    }
+
+    public static List<String> getDeleteQueries(CassandraTableHandle handle)
+    {
+        ImmutableList.Builder<String> queries = ImmutableList.builder();
+        for (CassandraPartition partition : handle.getPartitions().orElse(ImmutableList.of())) {
+            queries.add(deleteFrom(handle.getSchemaName(), handle.getTableName(), partition, handle.getClusteringKeyPredicates()));
+        }
+        return queries.build();
     }
 }
