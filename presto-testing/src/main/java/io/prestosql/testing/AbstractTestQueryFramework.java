@@ -461,7 +461,7 @@ public abstract class AbstractTestQueryFramework
                 .stream()
                 .filter(summary -> nodeId.equals(summary.getPlanNodeId()) && summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
                 .collect(MoreCollectors.onlyElement());
-        assertEventually(new Duration(5, SECONDS), () -> assertThat(operatorStatsSupplier.get()).isNotNull());
+        assertEventually(new Duration(5, SECONDS), operatorStatsSupplier::get);
         return operatorStatsSupplier.get();
     }
 }
