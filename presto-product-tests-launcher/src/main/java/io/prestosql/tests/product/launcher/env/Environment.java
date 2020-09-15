@@ -52,6 +52,7 @@ import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.tests.product.launcher.env.DockerContainer.ensurePathExists;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.prestosql.tests.product.launcher.env.Environments.pruneContainers;
 import static io.prestosql.tests.product.launcher.env.Environments.pruneEnvironment;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -95,7 +96,8 @@ public final class Environment
     private Environment tryStart()
     {
         try {
-            pruneEnvironment();
+            // We need to prune containers only as we are reusing existing network
+            pruneContainers();
             Startables.deepStart(ImmutableList.copyOf(containers.values())).get();
             this.listener.ifPresent(listener -> listener.environmentStarted(this));
             return this;
