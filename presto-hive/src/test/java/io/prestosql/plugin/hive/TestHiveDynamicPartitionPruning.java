@@ -50,6 +50,8 @@ import static io.prestosql.tpch.TpchTable.getTables;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
+// TODO: enable once https://github.com/prestosql/presto/issues/5120 is resolved
+@Test(enabled = false)
 public class TestHiveDynamicPartitionPruning
         extends AbstractTestQueryFramework
 {
