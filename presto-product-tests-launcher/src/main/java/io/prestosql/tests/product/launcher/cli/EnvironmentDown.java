@@ -13,10 +13,12 @@
  */
 package io.prestosql.tests.product.launcher.cli;
 
-import io.airlift.log.Logger;
-import io.prestosql.tests.product.launcher.env.Environments;
+import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Option;
 
+import java.util.concurrent.Callable;
+
+import static io.prestosql.tests.product.launcher.env.Environments.pruneEnvironment;
 import static picocli.CommandLine.Command;
 
 @Command(
@@ -24,17 +26,15 @@ import static picocli.CommandLine.Command;
         description = "Shutdown environment created by launcher",
         usageHelpAutoWidth = true)
 public final class EnvironmentDown
-        implements Runnable
+        implements Callable<Integer>
 {
-    private static final Logger log = Logger.get(EnvironmentDown.class);
-
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
     public boolean usageHelpRequested;
 
     @Override
-    public void run()
+    public Integer call()
     {
-        log.info("Pruning old environment(s)");
-        Environments.pruneEnvironment();
+        pruneEnvironment();
+        return ExitCode.OK;
     }
 }
