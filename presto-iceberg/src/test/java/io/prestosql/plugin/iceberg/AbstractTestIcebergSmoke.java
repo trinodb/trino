@@ -609,6 +609,10 @@ public abstract class AbstractTestIcebergSmoke
         assertUpdate("CREATE TABLE test_hour_transform (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['hour(d)'])");
 
         @Language("SQL") String values = "VALUES " +
+                "(TIMESTAMP '1969-12-31 22:22:22.222222', 8)," +
+                "(TIMESTAMP '1969-12-31 23:33:11.456789', 9)," +
+                "(TIMESTAMP '1969-12-31 23:44:55.567890', 10)," +
+                "(TIMESTAMP '1970-01-01 00:55:44.765432', 11)," +
                 "(TIMESTAMP '2015-01-01 10:01:23.123456', 1)," +
                 "(TIMESTAMP '2015-01-01 10:10:02.987654', 2)," +
                 "(TIMESTAMP '2015-01-01 10:55:00.456789', 3)," +
@@ -616,21 +620,27 @@ public abstract class AbstractTestIcebergSmoke
                 "(TIMESTAMP '2015-05-15 12:21:02.345678', 5)," +
                 "(TIMESTAMP '2020-02-21 13:11:11.876543', 6)," +
                 "(TIMESTAMP '2020-02-21 13:12:12.654321', 7)";
-        assertUpdate("INSERT INTO test_hour_transform " + values, 7);
+        assertUpdate("INSERT INTO test_hour_transform " + values, 11);
         assertQuery("SELECT * FROM test_hour_transform", values);
 
         @Language("SQL") String expected = "VALUES " +
+                "(-1, 1, TIMESTAMP '1969-12-31 22:22:22.222222', TIMESTAMP '1969-12-31 22:22:22.222222', 8, 8), " +
+                "(0, 3, TIMESTAMP '1969-12-31 23:33:11.456789', TIMESTAMP '1970-01-01 00:55:44.765432', 9, 11), " +
                 "(394474, 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 10:55:00.456789', 1, 3), " +
                 "(397692, 2, TIMESTAMP '2015-05-15 12:05:01.234567', TIMESTAMP '2015-05-15 12:21:02.345678', 4, 5), " +
                 "(439525, 2, TIMESTAMP '2020-02-21 13:11:11.876543', TIMESTAMP '2020-02-21 13:12:12.654321', 6, 7)";
         if (format == ORC) {
             expected = "VALUES " +
+                    "(-1, 1, NULL, NULL, 8, 8), " +
+                    "(0, 3, NULL, NULL, 9, 11), " +
                     "(394474, 3, NULL, NULL, 1, 3), " +
                     "(397692, 2, NULL, NULL, 4, 5), " +
                     "(439525, 2, NULL, NULL, 6, 7)";
         }
 
         assertQuery("SELECT d_hour, row_count, d.min, d.max, b.min, b.max FROM \"test_hour_transform$partitions\"", expected);
+
+        System.out.println(computeActual("SELECT * FROM \"test_hour_transform$files\""));
 
         dropTable("test_hour_transform");
     }
@@ -641,6 +651,8 @@ public abstract class AbstractTestIcebergSmoke
         assertUpdate("CREATE TABLE test_day_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
 
         @Language("SQL") String values = "VALUES " +
+                "(DATE '1969-01-01', 10), " +
+                "(DATE '1969-12-31', 11), " +
                 "(DATE '1970-01-01', 1), " +
                 "(DATE '1970-03-04', 2), " +
                 "(DATE '2015-01-01', 3), " +
@@ -650,12 +662,14 @@ public abstract class AbstractTestIcebergSmoke
                 "(DATE '2015-05-15', 7), " +
                 "(DATE '2020-02-21', 8), " +
                 "(DATE '2020-02-21', 9)";
-        assertUpdate("INSERT INTO test_day_transform_date " + values, 9);
+        assertUpdate("INSERT INTO test_day_transform_date " + values, 11);
         assertQuery("SELECT * FROM test_day_transform_date", values);
 
         assertQuery(
                 "SELECT d_day, row_count, d.min, d.max, b.min, b.max FROM \"test_day_transform_date$partitions\"",
                 "VALUES " +
+                        "(DATE '1969-01-01', 1, DATE '1969-01-01', DATE '1969-01-01', 10, 10), " +
+                        "(DATE '1969-12-31', 1, DATE '1969-12-31', DATE '1969-12-31', 11, 11), " +
                         "(DATE '1970-01-01', 1, DATE '1970-01-01', DATE '1970-01-01', 1, 1), " +
                         "(DATE '1970-03-04', 1, DATE '1970-03-04', DATE '1970-03-04', 2, 2), " +
                         "(DATE '2015-01-01', 1, DATE '2015-01-01', DATE '2015-01-01', 3, 3), " +
@@ -672,6 +686,11 @@ public abstract class AbstractTestIcebergSmoke
         assertUpdate("CREATE TABLE test_day_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
 
         @Language("SQL") String values = "VALUES " +
+                "(TIMESTAMP '1969-12-25 15:13:12.876543', 8)," +
+                "(TIMESTAMP '1969-12-30 18:47:33.345678', 9)," +
+                "(TIMESTAMP '1969-12-31 00:00:00.000000', 10)," +
+                "(TIMESTAMP '1969-12-31 05:06:07.234567', 11)," +
+                "(TIMESTAMP '1970-01-01 12:03:08.456789', 12)," +
                 "(TIMESTAMP '2015-01-01 10:01:23.123456', 1)," +
                 "(TIMESTAMP '2015-01-01 11:10:02.987654', 2)," +
                 "(TIMESTAMP '2015-01-01 12:55:00.456789', 3)," +
@@ -679,15 +698,21 @@ public abstract class AbstractTestIcebergSmoke
                 "(TIMESTAMP '2015-05-15 14:21:02.345678', 5)," +
                 "(TIMESTAMP '2020-02-21 15:11:11.876543', 6)," +
                 "(TIMESTAMP '2020-02-21 16:12:12.654321', 7)";
-        assertUpdate("INSERT INTO test_day_transform_timestamp " + values, 7);
+        assertUpdate("INSERT INTO test_day_transform_timestamp " + values, 12);
         assertQuery("SELECT * FROM test_day_transform_timestamp", values);
 
         @Language("SQL") String expected = "VALUES " +
+                "(DATE '1969-12-26', 1, TIMESTAMP '1969-12-25 15:13:12.876543', TIMESTAMP '1969-12-25 15:13:12.876543', 8, 8), " +
+                "(DATE '1969-12-31', 2, TIMESTAMP '1969-12-30 18:47:33.345678', TIMESTAMP '1969-12-31 00:00:00.000000', 9, 10), " +
+                "(DATE '1970-01-01', 2, TIMESTAMP '1969-12-31 05:06:07.234567', TIMESTAMP '1970-01-01 12:03:08.456789', 11, 12), " +
                 "(DATE '2015-01-01', 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 12:55:00.456789', 1, 3), " +
                 "(DATE '2015-05-15', 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-05-15 14:21:02.345678', 4, 5), " +
                 "(DATE '2020-02-21', 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-02-21 16:12:12.654321', 6, 7)";
         if (format == ORC) {
             expected = "VALUES " +
+                    "(DATE '1969-12-26', 1, NULL, NULL, 8, 8), " +
+                    "(DATE '1969-12-31', 2, NULL, NULL, 9, 10), " +
+                    "(DATE '1970-01-01', 2, NULL, NULL, 11, 12), " +
                     "(DATE '2015-01-01', 3, NULL, NULL, 1, 3), " +
                     "(DATE '2015-05-15', 2, NULL, NULL, 4, 5), " +
                     "(DATE '2020-02-21', 2, NULL, NULL, 6, 7)";
@@ -704,29 +729,34 @@ public abstract class AbstractTestIcebergSmoke
         assertUpdate("CREATE TABLE test_month_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
 
         @Language("SQL") String values = "VALUES " +
-                "(DATE '1970-01-01', 1), " +
-                "(DATE '1970-05-13', 2), " +
-                "(DATE '1970-12-31', 3), " +
-                "(DATE '2020-01-01', 4), " +
-                "(DATE '2020-06-16', 5), " +
-                "(DATE '2020-06-28', 6), " +
-                "(DATE '2020-06-06', 7), " +
-                "(DATE '2020-07-18', 8), " +
-                "(DATE '2020-07-28', 9), " +
-                "(DATE '2020-12-31', 10)";
-        assertUpdate("INSERT INTO test_month_transform_date " + values, 10);
+                "(DATE '1969-11-13', 1)," +
+                "(DATE '1969-12-01', 2)," +
+                "(DATE '1969-12-02', 3)," +
+                "(DATE '1969-12-31', 4)," +
+                "(DATE '1970-01-01', 5), " +
+                "(DATE '1970-05-13', 6), " +
+                "(DATE '1970-12-31', 7), " +
+                "(DATE '2020-01-01', 8), " +
+                "(DATE '2020-06-16', 9), " +
+                "(DATE '2020-06-28', 10), " +
+                "(DATE '2020-06-06', 11), " +
+                "(DATE '2020-07-18', 12), " +
+                "(DATE '2020-07-28', 13), " +
+                "(DATE '2020-12-31', 14)";
+        assertUpdate("INSERT INTO test_month_transform_date " + values, 14);
         assertQuery("SELECT * FROM test_month_transform_date", values);
 
         assertQuery(
                 "SELECT d_month, row_count, d.min, d.max, b.min, b.max FROM \"test_month_transform_date$partitions\"",
                 "VALUES " +
-                        "(0, 1, DATE '1970-01-01', DATE '1970-01-01', 1, 1), " +
-                        "(4, 1, DATE '1970-05-13', DATE '1970-05-13', 2, 2), " +
-                        "(11, 1, DATE '1970-12-31', DATE '1970-12-31', 3, 3), " +
-                        "(600, 1, DATE '2020-01-01', DATE '2020-01-01', 4, 4), " +
-                        "(605, 3, DATE '2020-06-06', DATE '2020-06-28', 5, 7), " +
-                        "(606, 2, DATE '2020-07-18', DATE '2020-07-28', 8, 9), " +
-                        "(611, 1, DATE '2020-12-31', DATE '2020-12-31', 10, 10)");
+                        "(-1, 2, DATE '1969-11-13', DATE '1969-12-01', 1, 2), " +
+                        "(0, 3, DATE '1969-12-02', DATE '1970-01-01', 3, 5), " +
+                        "(4, 1, DATE '1970-05-13', DATE '1970-05-13', 6, 6), " +
+                        "(11, 1, DATE '1970-12-31', DATE '1970-12-31', 7, 7), " +
+                        "(600, 1, DATE '2020-01-01', DATE '2020-01-01', 8, 8), " +
+                        "(605, 3, DATE '2020-06-06', DATE '2020-06-28', 9, 11), " +
+                        "(606, 2, DATE '2020-07-18', DATE '2020-07-28', 12, 13), " +
+                        "(611, 1, DATE '2020-12-31', DATE '2020-12-31', 14, 14)");
 
         dropTable("test_month_transform_date");
     }
@@ -737,6 +767,11 @@ public abstract class AbstractTestIcebergSmoke
         assertUpdate("CREATE TABLE test_month_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
 
         @Language("SQL") String values = "VALUES " +
+                "(TIMESTAMP '1969-11-15 15:13:12.876543', 8)," +
+                "(TIMESTAMP '1969-11-19 18:47:33.345678', 9)," +
+                "(TIMESTAMP '1969-12-01 00:00:00.000000', 10)," +
+                "(TIMESTAMP '1969-12-01 05:06:07.234567', 11)," +
+                "(TIMESTAMP '1970-01-01 12:03:08.456789', 12)," +
                 "(TIMESTAMP '2015-01-01 10:01:23.123456', 1)," +
                 "(TIMESTAMP '2015-01-01 11:10:02.987654', 2)," +
                 "(TIMESTAMP '2015-01-01 12:55:00.456789', 3)," +
@@ -744,15 +779,19 @@ public abstract class AbstractTestIcebergSmoke
                 "(TIMESTAMP '2015-05-15 14:21:02.345678', 5)," +
                 "(TIMESTAMP '2020-02-21 15:11:11.876543', 6)," +
                 "(TIMESTAMP '2020-02-21 16:12:12.654321', 7)";
-        assertUpdate("INSERT INTO test_month_transform_timestamp " + values, 7);
+        assertUpdate("INSERT INTO test_month_transform_timestamp " + values, 12);
         assertQuery("SELECT * FROM test_month_transform_timestamp", values);
 
         @Language("SQL") String expected = "VALUES " +
+                "(-1, 3, TIMESTAMP '1969-11-15 15:13:12.876543', TIMESTAMP '1969-12-01 00:00:00.000000', 8, 10), " +
+                "(0, 2, TIMESTAMP '1969-12-01 05:06:07.234567', TIMESTAMP '1970-01-01 12:03:08.456789', 11, 12), " +
                 "(540, 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 12:55:00.456789', 1, 3), " +
                 "(544, 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-05-15 14:21:02.345678', 4, 5), " +
                 "(601, 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-02-21 16:12:12.654321', 6, 7)";
         if (format == ORC) {
             expected = "VALUES " +
+                    "(-1, 3, NULL, NULL, 8, 10), " +
+                    "(0, 2, NULL, NULL, 11, 12), " +
                     "(540, 3, NULL, NULL, 1, 3), " +
                     "(544, 2, NULL, NULL, 4, 5), " +
                     "(601, 2, NULL, NULL, 6, 7)";
@@ -769,25 +808,29 @@ public abstract class AbstractTestIcebergSmoke
         assertUpdate("CREATE TABLE test_year_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
 
         @Language("SQL") String values = "VALUES " +
-                "(DATE '1970-01-01', 11), " +
-                "(DATE '1970-03-05', 12), " +
-                "(DATE '2015-01-01', 1), " +
-                "(DATE '2015-06-16', 2), " +
-                "(DATE '2015-07-28', 3), " +
-                "(DATE '2016-05-15', 4), " +
-                "(DATE '2016-06-06', 5), " +
-                "(DATE '2020-02-21', 6), " +
-                "(DATE '2020-11-10', 7)";
-        assertUpdate("INSERT INTO test_year_transform_date " + values, 9);
+                "(DATE '1968-10-13', 1), " +
+                "(DATE '1969-01-01', 2), " +
+                "(DATE '1969-03-15', 3), " +
+                "(DATE '1970-01-01', 4), " +
+                "(DATE '1970-03-05', 5), " +
+                "(DATE '2015-01-01', 6), " +
+                "(DATE '2015-06-16', 7), " +
+                "(DATE '2015-07-28', 8), " +
+                "(DATE '2016-05-15', 9), " +
+                "(DATE '2016-06-06', 10), " +
+                "(DATE '2020-02-21', 11), " +
+                "(DATE '2020-11-10', 12)";
+        assertUpdate("INSERT INTO test_year_transform_date " + values, 12);
         assertQuery("SELECT * FROM test_year_transform_date", values);
 
         assertQuery(
                 "SELECT d_year, row_count, d.min, d.max, b.min, b.max FROM \"test_year_transform_date$partitions\"",
                 "VALUES " +
-                        "(0, 2, DATE '1970-01-01', DATE '1970-03-05', 11, 12), " +
-                        "(45, 3, DATE '2015-01-01', DATE '2015-07-28', 1, 3), " +
-                        "(46, 2, DATE '2016-05-15', DATE '2016-06-06', 4, 5), " +
-                        "(50, 2, DATE '2020-02-21', DATE '2020-11-10', 6, 7)");
+                        "(-1, 2, DATE '1968-10-13', DATE '1969-01-01', 1, 2), " +
+                        "(0, 3, DATE '1969-03-15', DATE '1970-03-05', 3, 5), " +
+                        "(45, 3, DATE '2015-01-01', DATE '2015-07-28', 6, 8), " +
+                        "(46, 2, DATE '2016-05-15', DATE '2016-06-06', 9, 10), " +
+                        "(50, 2, DATE '2020-02-21', DATE '2020-11-10', 11, 12)");
 
         dropTable("test_year_transform_date");
     }
@@ -798,25 +841,32 @@ public abstract class AbstractTestIcebergSmoke
         assertUpdate("CREATE TABLE test_year_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
 
         @Language("SQL") String values = "VALUES " +
-                "(TIMESTAMP '1970-01-01 10:01:23.123456', 1)," +
-                "(TIMESTAMP '1970-01-01 11:10:02.987654', 2)," +
-                "(TIMESTAMP '1970-01-01 12:55:00.456789', 3)," +
-                "(TIMESTAMP '2015-05-15 13:05:01.234567', 4)," +
-                "(TIMESTAMP '2015-05-15 14:21:02.345678', 5)," +
-                "(TIMESTAMP '2020-02-21 15:11:11.876543', 6)," +
-                "(TIMESTAMP '2020-02-21 16:12:12.654321', 7)";
-        assertUpdate("INSERT INTO test_year_transform_timestamp " + values, 7);
+                "(TIMESTAMP '1968-03-15 15:13:12.876543', 1)," +
+                "(TIMESTAMP '1968-11-19 18:47:33.345678', 2)," +
+                "(TIMESTAMP '1969-01-01 00:00:00.000000', 3)," +
+                "(TIMESTAMP '1969-01-01 05:06:07.234567', 4)," +
+                "(TIMESTAMP '1970-01-18 12:03:08.456789', 5)," +
+                "(TIMESTAMP '1970-03-14 10:01:23.123456', 6)," +
+                "(TIMESTAMP '1970-08-19 11:10:02.987654', 7)," +
+                "(TIMESTAMP '1970-12-31 12:55:00.456789', 8)," +
+                "(TIMESTAMP '2015-05-15 13:05:01.234567', 9)," +
+                "(TIMESTAMP '2015-09-15 14:21:02.345678', 10)," +
+                "(TIMESTAMP '2020-02-21 15:11:11.876543', 11)," +
+                "(TIMESTAMP '2020-08-21 16:12:12.654321', 12)";
+        assertUpdate("INSERT INTO test_year_transform_timestamp " + values, 12);
         assertQuery("SELECT * FROM test_year_transform_timestamp", values);
 
         @Language("SQL") String expected = "VALUES " +
-                "(0, 3, TIMESTAMP '1970-01-01 10:01:23.123456', TIMESTAMP '1970-01-01 12:55:00.456789', 1, 3), " +
-                "(45, 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-05-15 14:21:02.345678', 4, 5), " +
-                "(50, 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-02-21 16:12:12.654321', 6, 7)";
+                "(-1, 3, TIMESTAMP '1968-03-15 15:13:12.876543', TIMESTAMP '1969-01-01 00:00:00.000000', 1, 3), " +
+                "(0, 5, TIMESTAMP '1969-01-01 05:06:07.234567', TIMESTAMP '1970-12-31 12:55:00.456789', 4, 8), " +
+                "(45, 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-09-15 14:21:02.345678', 9, 10), " +
+                "(50, 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-08-21 16:12:12.654321', 11, 12)";
         if (format == ORC) {
             expected = "VALUES " +
-                    "(0, 3, NULL, NULL, 1, 3), " +
-                    "(45, 2, NULL, NULL, 4, 5), " +
-                    "(50, 2, NULL, NULL, 6, 7)";
+                    "(-1, 3, NULL, NULL, 1, 3), " +
+                    "(0, 5, NULL, NULL, 4, 8), " +
+                    "(45, 2, NULL, NULL, 9, 10), " +
+                    "(50, 2, NULL, NULL, 11, 12)";
         }
 
         assertQuery("SELECT d_year, row_count, d.min, d.max, b.min, b.max FROM \"test_year_transform_timestamp$partitions\"", expected);
