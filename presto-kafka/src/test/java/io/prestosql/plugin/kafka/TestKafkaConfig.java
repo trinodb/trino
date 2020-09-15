@@ -35,7 +35,14 @@ public class TestKafkaConfig
                 .setTableNames("")
                 .setTableDescriptionDir(new File("etc/kafka/"))
                 .setHideInternalColumns(true)
-                .setMessagesPerSplit(100_000));
+                .setMessagesPerSplit(100_000)
+                .setSecurityProtocol(null)
+                .setSslEndpointIdentificationAlgorithm(null)
+                .setSslTruststoreLocation(null)
+                .setSslTruststorePassword(null)
+                .setSslKeystoreLocation(null)
+                .setSslKeystorePassword(null)
+                .setSslKeyPassword(null));
     }
 
     @Test
@@ -49,6 +56,13 @@ public class TestKafkaConfig
                 .put("kafka.buffer-size", "1MB")
                 .put("kafka.hide-internal-columns", "false")
                 .put("kafka.messages-per-split", "1")
+                .put("kafka.security.protocol", "SSL")
+                .put("kafka.ssl.endpoint.identification.algorithm", "https")
+                .put("kafka.ssl.truststore.location", "/some/path")
+                .put("kafka.ssl.truststore.password", "password")
+                .put("kafka.ssl.keystore.location", "/another/path")
+                .put("kafka.ssl.keystore.password", "anotherPassword")
+                .put("kafka.ssl.key.password", "keyPassword")
                 .build();
 
         KafkaConfig expected = new KafkaConfig()
@@ -58,7 +72,14 @@ public class TestKafkaConfig
                 .setNodes("localhost:12345, localhost:23456")
                 .setKafkaBufferSize("1MB")
                 .setHideInternalColumns(false)
-                .setMessagesPerSplit(1);
+                .setMessagesPerSplit(1)
+                .setSecurityProtocol("SSL")
+                .setSslEndpointIdentificationAlgorithm("https")
+                .setSslTruststoreLocation("/some/path")
+                .setSslTruststorePassword("password")
+                .setSslKeystoreLocation("/another/path")
+                .setSslKeystorePassword("anotherPassword")
+                .setSslKeyPassword("keyPassword");
 
         assertFullMapping(properties, expected);
     }

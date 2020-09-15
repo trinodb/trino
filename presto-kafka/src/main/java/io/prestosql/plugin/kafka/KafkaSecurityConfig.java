@@ -110,7 +110,7 @@ public class KafkaSecurityConfig
     {
         props = new Properties();
 
-        if (!securityProtocol.equals(SecurityProtocol.PLAINTEXT)) {
+        if (isNotNullOrPlaintext(securityProtocol)) {
             addNotNull("security.protocol", securityProtocol.name);
             addNotNull(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, sslTruststoreLocation);
             addNotNull(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, sslTruststorePassword);
@@ -123,32 +123,51 @@ public class KafkaSecurityConfig
         return props;
     }
 
+    private boolean isNotNullOrPlaintext(SecurityProtocol inp)
+    {
+        if (inp == null) {
+            return false;
+        }
+        if (inp.equals(SecurityProtocol.PLAINTEXT)) {
+            return false;
+        }
+        return true;
+    }
+
     private void checkUnusedConfigsWhenPlaintext()
     {
         // Additional configs only apply when security protocol is not PLAINTEXT
         if (securityProtocol == null || securityProtocol.equals(SecurityProtocol.PLAINTEXT)) {
-            if (sslTruststoreLocation != null) {
+            if (isSet(sslTruststoreLocation)) {
                 logger.warn("Config 'kafka.ssl.truststore.location' won't be used with security.protocol=PLAINTEXT (default)!");
             }
-            if (sslTruststorePassword != null) {
+            if (isSet(sslTruststorePassword)) {
                 logger.warn("Config 'kafka.ssl.truststore.password' won't be used with security.protocol=PLAINTEXT (default)!");
             }
-            if (sslKeystoreLocation != null) {
+            if (isSet(sslKeystoreLocation)) {
                 logger.warn("Config 'kafka.ssl.keystore.location' won't be used with security.protocol=PLAINTEXT (default)!");
             }
-            if (sslKeystorePassword != null) {
+            if (isSet(sslKeystorePassword)) {
                 logger.warn("Config 'kafka.ssl.keystore.password' won't be used with security.protocol=PLAINTEXT (default)!");
             }
-            if (sslEndpointIdentificationAlgorithm != null) {
+            if (isSet(sslEndpointIdentificationAlgorithm)) {
                 logger.warn("Config 'ssl.endpoint.identification.algorithm' won't be used with security.protocol=PLAINTEXT (default)!");
             }
-            if (sslEndpointIdentificationAlgorithm != null) {
+            if (isSet(sslEndpointIdentificationAlgorithm)) {
                 logger.warn("Config 'ssl.endpoint.identification.algorithm' won't be used with security.protocol=PLAINTEXT (default)!");
             }
-            if (sslKeyPassword != null) {
+            if (isSet(sslKeyPassword)) {
                 logger.warn("Config 'ssl.key.password' won't be used with security.protocol=PLAINTEXT (default)!");
             }
         }
+    }
+
+    private boolean isSet(Object property)
+    {
+        if (property == null) {
+            return false;
+        }
+        return true;
     }
 
     private void addNotNull(Object key, Object value)
