@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: none
 
-    [ WITH with_query [, ...] ]
+    [ WITH [ RECURSIVE ] with_query [, ...] ]
     SELECT [ ALL | DISTINCT ] select_expression [, ...]
     [ FROM from_item [, ...] ]
     [ WHERE condition ]
@@ -91,6 +91,77 @@ Additionally, the relations within a ``WITH`` clause can chain::
     Currently, the SQL for the ``WITH`` clause will be inlined anywhere the named
     relation is used. This means that if the relation is used more than once and the query
     is non-deterministic, the results may be different each time.
+
+WITH RECURSIVE Clause
+---------------------
+
+The ``WITH RECURSIVE`` clause is a variant of the ``WITH`` clause. It defines
+a list of queries to process, including recursive processing of suitable
+queries.
+
+.. warning::
+
+    This feature is experimental only. Proceed to use it only if you understand
+    potential query failures and the impact of the recursion processing on your
+    workload.
+
+A recursive ``WITH``-query must be shaped as a ``UNION`` of two relations. The
+first relation is called the *recursion base*, and the second relation is called
+the *recursion step*. Presto supports recursive ``WITH``-queries with a single
+recursive reference to a ``WITH``-query from within the query. The name ``T`` of
+the query ``T`` can be mentioned once in the ``FROM`` clause of the recursion
+step relation.
+
+The following listing shows a simple example, that displays a commonly used
+form of a single query in the list:
+
+.. code-block:: none
+
+    WITH RECURSIVE t(n) AS (
+        VALUES (1)
+        UNION ALL
+        SELECT n + 1 FROM t WHERE n < 4
+    )
+    SELECT sum(n) FROM t;
+
+In the preceding query the simple assignment ``VALUES (1)`` defines the
+recursion base relation. ``SELECT n + 1 FROM t WHERE n < 4`` defines the
+recursion step relation. The recursion processing performs these steps:
+
+- recursive base yields ``1``
+- first recursion yields ``1 + 1 = 2``
+- second recursion uses the result from the first and adds one: ``2 + 1 = 3``
+- third recursion uses the result from the second and adds one again:
+  ``3 + 1 = 4``
+- fourth recursion aborts since ``n = 4``
+- this results in ``t`` having values ``1``, ``2``, ``3`` and ``4``
+- the final statement performs the sum operation of these elements with the
+  final result value ``10``
+
+The types of the returned columns are those of the base relation. Therefore it
+is required that types in the step relation can be coerced to base relation
+types.
+
+The ``RECURSIVE`` clause applies to all queries in the ``WITH`` list, but not
+all of them must be recursive. If a ``WITH``-query is not shaped according to
+the rules mentioned above or it does not contain a recursive reference, it is
+processed like a regular ``WITH``-query. Column aliases are mandatory for all
+the queries in the recursive ``WITH`` list.
+
+The following limitations apply as a result of following the SQL standard and
+due to implementation choices, in addition to ``WITH`` clause limitations:
+
+- only single-element recursive cycles are supported. Like in regular
+  ``WITH``-queries, references to previous queries in the ``WITH`` list are
+  allowed. References to following queries are forbidden.
+- usage of outer joins, set operations, limit clause, and others is not always
+  allowed in the step relation
+- recursion depth is fixed, defaults to ``10``, and doesn't depend on the actual
+  query results
+
+You can adjust the recursion depth with the :doc:`session property
+</sql/set-session>` ``max_recursion_depth``. When changing the value consider
+that the size of the query plan growth is quadratic with the recursion depth.
 
 SELECT Clause
 -------------
