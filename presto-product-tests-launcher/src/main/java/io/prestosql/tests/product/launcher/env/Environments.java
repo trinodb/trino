@@ -41,11 +41,27 @@ public final class Environments
 
     public static void pruneEnvironment()
     {
+        pruneContainers();
+        pruneNetworks();
+    }
+
+    public static void pruneContainers()
+    {
         log.info("Shutting down previous containers");
         try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
             killContainers(
                     dockerClient,
                     listContainersCmd -> listContainersCmd.withLabelFilter(ImmutableMap.of(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public static void pruneNetworks()
+    {
+        log.info("Removing previous networks");
+        try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
             removeNetworks(
                     dockerClient,
                     listNetworksCmd -> listNetworksCmd.withNameFilter(PRODUCT_TEST_LAUNCHER_NETWORK));
