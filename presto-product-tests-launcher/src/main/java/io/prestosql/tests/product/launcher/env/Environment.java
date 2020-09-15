@@ -18,6 +18,7 @@ import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Ulimit;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
@@ -26,7 +27,6 @@ import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.ContainerState;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.lifecycle.Startables;
@@ -53,6 +53,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.tests.product.launcher.env.DockerContainer.ensurePathExists;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.prestosql.tests.product.launcher.env.Environments.pruneEnvironment;
@@ -319,10 +320,27 @@ public final class Environment
 
         public Builder removeContainer(String logicalName)
         {
+            log.info("Removing container %s", logicalName);
+
             requireNonNull(logicalName, "logicalName is null");
-            GenericContainer<?> container = containers.remove(logicalName);
+            DockerContainer container = containers.remove(logicalName);
             if (container != null) {
                 container.close();
+            }
+            return this;
+        }
+
+        public Builder removeContainers(Predicate<DockerContainer> predicate)
+        {
+            requireNonNull(predicate, "predicate is null");
+
+            List<String> containersNames = containers.values().stream()
+                    .filter(predicate)
+                    .map(DockerContainer::getLogicalName)
+                    .collect(toImmutableList());
+
+            for (String containerName : containersNames) {
+                removeContainer(containerName);
             }
             return this;
         }
