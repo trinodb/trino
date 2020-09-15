@@ -78,6 +78,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneEnforceSingleRowColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneExceptSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneExchangeColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneExchangeSourceColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneExplainAnalyzeSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneFilterColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneGroupIdColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneGroupIdSourceColumns;
@@ -297,6 +298,7 @@ public class PlanOptimizers
                 new PruneExceptSourceColumns(),
                 new PruneExchangeColumns(),
                 new PruneExchangeSourceColumns(),
+                new PruneExplainAnalyzeSourceColumns(),
                 new PruneFilterColumns(),
                 new PruneGroupIdColumns(),
                 new PruneGroupIdSourceColumns(),

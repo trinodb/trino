@@ -55,6 +55,7 @@ import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExceptNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
+import io.prestosql.sql.planner.plan.ExplainAnalyzeNode;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.GroupIdNode;
 import io.prestosql.sql.planner.plan.IndexJoinNode;
@@ -137,6 +138,16 @@ public class PlanBuilder
                 source,
                 columnNames,
                 outputs);
+    }
+
+    public ExplainAnalyzeNode explainAnalyzeNode(Symbol output, List<Symbol> actualOutputs, PlanNode source)
+    {
+        return new ExplainAnalyzeNode(
+                idAllocator.getNextId(),
+                source,
+                output,
+                actualOutputs,
+                false);
     }
 
     public OutputNode output(Consumer<OutputBuilder> outputBuilderConsumer)
