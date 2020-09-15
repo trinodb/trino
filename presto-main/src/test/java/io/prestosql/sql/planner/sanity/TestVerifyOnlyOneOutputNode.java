@@ -59,6 +59,7 @@ public class TestVerifyOnlyOneOutputNode
                                                 Assignments.of()
                                         ), ImmutableList.of(), ImmutableList.of()
                                 ), new Symbol("a"),
+                                ImmutableList.of(),
                                 false),
                         ImmutableList.of(), ImmutableList.of());
         new VerifyOnlyOneOutputNode().validate(root, null, null, typeOperators, null, null, WarningCollector.NOOP);

@@ -272,7 +272,15 @@ public class LogicalPlanner
         PlanNode root = underlyingPlan.getRoot();
         Scope scope = analysis.getScope(statement);
         Symbol outputSymbol = symbolAllocator.newSymbol(scope.getRelationType().getFieldByIndex(0));
-        root = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputSymbol, statement.isVerbose());
+
+        ImmutableList.Builder<Symbol> actualOutputs = ImmutableList.builder();
+        RelationType outputDescriptor = analysis.getOutputDescriptor(statement.getStatement());
+        for (Field field : outputDescriptor.getVisibleFields()) {
+            int fieldIndex = outputDescriptor.indexOf(field);
+            Symbol symbol = underlyingPlan.getSymbol(fieldIndex);
+            actualOutputs.add(symbol);
+        }
+        root = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputSymbol, actualOutputs.build(), statement.isVerbose());
         return new RelationPlan(root, scope, ImmutableList.of(outputSymbol), Optional.empty());
     }
 
