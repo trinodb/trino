@@ -21,7 +21,9 @@ import io.airlift.log.Logger;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.function.Consumer;
 
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static java.util.Objects.requireNonNull;
 
 public interface EnvironmentListener
@@ -61,6 +63,18 @@ public interface EnvironmentListener
     {
     }
 
+    static void tryInvokeListener(Consumer<EnvironmentListener> call, EnvironmentListener... listeners)
+    {
+        Arrays.stream(listeners).forEach(listener -> {
+            try {
+                call.accept(listener);
+            }
+            catch (Exception e) {
+                log.error("Could not invoke listener %s due to %s", listener.getClass().getSimpleName(), getStackTraceAsString(e));
+            }
+        });
+    }
+
     static EnvironmentListener compose(EnvironmentListener... listeners)
     {
         return new EnvironmentListener()
@@ -68,49 +82,49 @@ public interface EnvironmentListener
             @Override
             public void environmentStarting(Environment environment)
             {
-                Arrays.stream(listeners).forEach(listener -> listener.environmentStarting(environment));
+                tryInvokeListener(listener -> listener.environmentStarting(environment), listeners);
             }
 
             @Override
             public void environmentStarted(Environment environment)
             {
-                Arrays.stream(listeners).forEach(listener -> listener.environmentStarted(environment));
+                tryInvokeListener(listener -> listener.environmentStarted(environment), listeners);
             }
 
             @Override
             public void environmentStopping(Environment environment)
             {
-                Arrays.stream(listeners).forEach(listener -> listener.environmentStopping(environment));
+                tryInvokeListener(listener -> listener.environmentStopping(environment), listeners);
             }
 
             @Override
             public void environmentStopped(Environment environment)
             {
-                Arrays.stream(listeners).forEach(listener -> listener.environmentStopped(environment));
+                tryInvokeListener(listener -> listener.environmentStopped(environment), listeners);
             }
 
             @Override
             public void containerStarting(DockerContainer container, InspectContainerResponse response)
             {
-                Arrays.stream(listeners).forEach(listener -> listener.containerStarting(container, response));
+                tryInvokeListener(listener -> listener.containerStarting(container, response), listeners);
             }
 
             @Override
             public void containerStarted(DockerContainer container, InspectContainerResponse response)
             {
-                Arrays.stream(listeners).forEach(listener -> listener.containerStarted(container, response));
+                tryInvokeListener(listener -> listener.containerStarted(container, response), listeners);
             }
 
             @Override
             public void containerStopping(DockerContainer container, InspectContainerResponse response)
             {
-                Arrays.stream(listeners).forEach(listener -> listener.containerStopping(container, response));
+                tryInvokeListener(listener -> listener.containerStopping(container, response), listeners);
             }
 
             @Override
             public void containerStopped(DockerContainer container, InspectContainerResponse response)
             {
-                Arrays.stream(listeners).forEach(listener -> listener.containerStopped(container, response));
+                tryInvokeListener(listener -> listener.containerStopped(container, response), listeners);
             }
         };
     }

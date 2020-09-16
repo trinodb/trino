@@ -42,7 +42,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.io.MoreFiles.deleteRecursively;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -192,7 +191,13 @@ public class DockerContainer
 
         log.info("Copying file %s to %s", filename, targetPath);
         ensurePathExists(targetPath.getParent());
-        copyFileFromContainer(filename, targetPath.toString());
+
+        try {
+            copyFileFromContainer(filename, targetPath.toString());
+        }
+        catch (Exception e) {
+            log.warn("Could not copy file from %s to %s", filename, targetPath);
+        }
     }
 
     private Stream<String> listFilesInContainer(String path)
@@ -206,7 +211,7 @@ public class DockerContainer
                         .splitToStream(result.getStdout());
             }
 
-            throw new RuntimeException(format("Could not list files in %s: %s", path, result.getStderr()));
+            log.warn("Could not list files in %s: %s", path, result.getStderr());
         }
         catch (Exception e) {
             log.warn("Could not list files in container '%s': %s", logicalName, e);
