@@ -1372,7 +1372,7 @@ public class TestPostgreSqlTypeMapping
                 ImmutableList.of(
                         "1, NULL",
                         "2, " + databaseValue))) {
-            Session convertToVarchar = Session.builder(getSession())
+            Session convertToVarchar = Session.builder(session)
                     .setCatalogSessionProperty("postgresql", UNSUPPORTED_TYPE_HANDLING, CONVERT_TO_VARCHAR.name())
                     .build();
             assertQuery(
