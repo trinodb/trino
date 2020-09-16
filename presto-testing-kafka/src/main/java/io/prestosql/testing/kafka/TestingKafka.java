@@ -72,6 +72,32 @@ public class TestingKafka
         }
     }
 
+    public void createTopicWithConfig(int partitions, int replication, String topic, boolean enableLogAppendTime)
+    {
+        try {
+            List<String> command = new ArrayList<>();
+            command.add("kafka-topics");
+            command.add("--create");
+            command.add("--topic");
+            command.add(topic);
+            command.add("--partitions");
+            command.add(Integer.toString(partitions));
+            command.add("--replication-factor");
+            command.add(Integer.toString(replication));
+            command.add("--zookeeper");
+            command.add("localhost:2181");
+            if (enableLogAppendTime) {
+                command.add("--config");
+                command.add("message.timestamp.type=LogAppendTime");
+            }
+
+            container.execInContainer(command.toArray(new String[0]));
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public String getConnectString()
     {
         return container.getContainerIpAddress() + ":" + container.getMappedPort(KAFKA_PORT);
