@@ -22,7 +22,6 @@ import io.airlift.stats.TimeStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
-import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskInfo;
 import io.prestosql.execution.TaskManager;
@@ -215,20 +214,6 @@ public class TaskResource
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse, futureTaskStatus, responseExecutor)
                 .withTimeout(timeout);
-    }
-
-    @ResourceSecurity(INTERNAL_ONLY)
-    @GET
-    @Path("{taskId}/dynamicfilters")
-    @Produces(MediaType.APPLICATION_JSON)
-    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(
-            @PathParam("taskId") TaskId taskId,
-            @HeaderParam(PRESTO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
-            @Context UriInfo uriInfo)
-    {
-        requireNonNull(taskId, "taskId is null");
-        requireNonNull(currentDynamicFiltersVersion, "currentDynamicFiltersVersion is null");
-        return taskManager.acknowledgeAndGetNewDynamicFilterDomains(taskId, currentDynamicFiltersVersion);
     }
 
     @ResourceSecurity(INTERNAL_ONLY)

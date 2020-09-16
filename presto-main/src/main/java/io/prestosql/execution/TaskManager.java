@@ -16,7 +16,6 @@ package io.prestosql.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.prestosql.Session;
-import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.OutputBuffers;
@@ -77,8 +76,6 @@ public interface TaskManager
      * queried.
      */
     ListenableFuture<TaskStatus> getTaskStatus(TaskId taskId, long currentVersion);
-
-    VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(TaskId taskId, long currentDynamicFiltersVersion);
 
     void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments);
 

@@ -261,7 +261,7 @@ public class TestSqlTaskManager
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, OutputBuffers outputBuffers)
     {
         sqlTaskManager.getQueryContext(taskId.getQueryId())
-                .addTaskContext(new TaskStateMachine(taskId, directExecutor()), testSessionBuilder().build(), () -> {}, false, false, OptionalInt.empty());
+                .addTaskContext(new TaskStateMachine(taskId, directExecutor()), testSessionBuilder().build(), false, false, OptionalInt.empty());
         return sqlTaskManager.updateTask(TEST_SESSION,
                 taskId,
                 Optional.of(PLAN_FRAGMENT),

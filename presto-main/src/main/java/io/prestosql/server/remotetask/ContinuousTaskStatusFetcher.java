@@ -59,7 +59,6 @@ class ContinuousTaskStatusFetcher
     private final Consumer<Throwable> onFail;
     private final StateMachine<TaskStatus> taskStatus;
     private final JsonCodec<TaskStatus> taskStatusCodec;
-    private final DynamicFiltersFetcher dynamicFiltersFetcher;
 
     private final Duration refreshMaxWait;
     private final Executor executor;
@@ -80,7 +79,6 @@ class ContinuousTaskStatusFetcher
             TaskStatus initialTaskStatus,
             Duration refreshMaxWait,
             JsonCodec<TaskStatus> taskStatusCodec,
-            DynamicFiltersFetcher dynamicFiltersFetcher,
             Executor executor,
             HttpClient httpClient,
             Duration maxErrorDuration,
@@ -95,7 +93,6 @@ class ContinuousTaskStatusFetcher
 
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
         this.taskStatusCodec = requireNonNull(taskStatusCodec, "taskStatusCodec is null");
-        this.dynamicFiltersFetcher = requireNonNull(dynamicFiltersFetcher, "dynamicFiltersFetcher is null");
 
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -240,8 +237,6 @@ class ContinuousTaskStatusFetcher
             // While sending the DELETE is not required, it is preferred because a task was created by the previous request.
             onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().getSelf()))));
         }
-
-        dynamicFiltersFetcher.updateDynamicFiltersVersion(newValue.getDynamicFiltersVersion());
     }
 
     /**
