@@ -482,9 +482,9 @@ public class TestMySqlTypeMapping
     @Test
     public void testDouble()
     {
-        doublePrecisionFloatinPointTests(doubleDataType())
+        doublePrecisionFloatingPointTests(doubleDataType())
                 .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_double"));
-        doublePrecisionFloatinPointTests(mysqlDoubleDataType())
+        doublePrecisionFloatingPointTests(mysqlDoubleDataType())
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_double"));
     }
 
@@ -515,7 +515,7 @@ public class TestMySqlTypeMapping
                 .addRoundTrip(floatType, null);
     }
 
-    private static DataTypeTest doublePrecisionFloatinPointTests(DataType<Double> doubleType)
+    private static DataTypeTest doublePrecisionFloatingPointTests(DataType<Double> doubleType)
     {
         // we are not testing Nan/-Infinity/+Infinity as those are not supported by MySQL
         return DataTypeTest.create()
