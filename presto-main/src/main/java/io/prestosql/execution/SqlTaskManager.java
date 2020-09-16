@@ -28,7 +28,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.event.SplitMonitor;
-import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.OutputBuffers;
@@ -350,16 +349,6 @@ public class SqlTaskManager
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
         return sqlTask.getTaskStatus(currentVersion);
-    }
-
-    @Override
-    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(TaskId taskId, long currentDynamicFiltersVersion)
-    {
-        requireNonNull(taskId, "taskId is null");
-
-        SqlTask sqlTask = tasks.getUnchecked(taskId);
-        sqlTask.recordHeartbeat();
-        return sqlTask.acknowledgeAndGetNewDynamicFilterDomains(currentDynamicFiltersVersion);
     }
 
     @Override

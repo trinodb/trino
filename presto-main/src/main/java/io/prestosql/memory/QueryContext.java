@@ -257,13 +257,7 @@ public class QueryContext
         return memoryPool;
     }
 
-    public TaskContext addTaskContext(
-            TaskStateMachine taskStateMachine,
-            Session session,
-            Runnable notifyStatusChanged,
-            boolean perOperatorCpuTimerEnabled,
-            boolean cpuTimerEnabled,
-            OptionalInt totalPartitions)
+    public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean perOperatorCpuTimerEnabled, boolean cpuTimerEnabled, OptionalInt totalPartitions)
     {
         TaskContext taskContext = TaskContext.createTaskContext(
                 this,
@@ -273,7 +267,6 @@ public class QueryContext
                 yieldExecutor,
                 session,
                 queryMemoryContext.newMemoryTrackingContext(),
-                notifyStatusChanged,
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
                 totalPartitions);

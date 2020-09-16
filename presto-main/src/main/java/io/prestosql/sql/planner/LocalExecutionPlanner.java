@@ -611,7 +611,7 @@ public class LocalExecutionPlanner
 
         private void addDynamicFilter(Map<DynamicFilterId, Domain> dynamicTupleDomain)
         {
-            taskContext.updateDomains(dynamicTupleDomain);
+            taskContext.collectDynamicFilterDomains(dynamicTupleDomain);
             dynamicFiltersCollector.collectDynamicFilterDomains(dynamicTupleDomain);
         }
 

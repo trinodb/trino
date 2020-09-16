@@ -15,6 +15,7 @@ package io.prestosql.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -23,8 +24,6 @@ import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
-import io.prestosql.execution.DynamicFiltersCollector;
-import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskState;
@@ -41,6 +40,7 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
@@ -105,7 +105,9 @@ public class TaskContext
     private long lastTaskStatCallNanos;
 
     private final MemoryTrackingContext taskMemoryContext;
-    private final DynamicFiltersCollector dynamicFiltersCollector;
+
+    @GuardedBy("this")
+    private final Map<DynamicFilterId, Domain> dynamicTupleDomains = new HashMap<>();
 
     public static TaskContext createTaskContext(
             QueryContext queryContext,
@@ -115,23 +117,11 @@ public class TaskContext
             ScheduledExecutorService yieldExecutor,
             Session session,
             MemoryTrackingContext taskMemoryContext,
-            Runnable notifyStatusChanged,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
             OptionalInt totalPartitions)
     {
-        TaskContext taskContext = new TaskContext(
-                queryContext,
-                taskStateMachine,
-                gcMonitor,
-                notificationExecutor,
-                yieldExecutor,
-                session,
-                taskMemoryContext,
-                notifyStatusChanged,
-                perOperatorCpuTimerEnabled,
-                cpuTimerEnabled,
-                totalPartitions);
+        TaskContext taskContext = new TaskContext(queryContext, taskStateMachine, gcMonitor, notificationExecutor, yieldExecutor, session, taskMemoryContext, perOperatorCpuTimerEnabled, cpuTimerEnabled, totalPartitions);
         taskContext.initialize();
         return taskContext;
     }
@@ -144,7 +134,6 @@ public class TaskContext
             ScheduledExecutorService yieldExecutor,
             Session session,
             MemoryTrackingContext taskMemoryContext,
-            Runnable notifyStatusChanged,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
             OptionalInt totalPartitions)
@@ -158,7 +147,6 @@ public class TaskContext
         this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
         // Initialize the local memory contexts with the LazyOutputBuffer tag as LazyOutputBuffer will do the local memory allocations
         taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
-        this.dynamicFiltersCollector = new DynamicFiltersCollector(notifyStatusChanged);
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         this.cpuTimerEnabled = cpuTimerEnabled;
         this.totalPartitions = requireNonNull(totalPartitions, "totalPartitions is null");
@@ -394,19 +382,16 @@ public class TaskContext
         return toIntExact(max(0, endFullGcCount - startFullGcCount));
     }
 
-    public void updateDomains(Map<DynamicFilterId, Domain> dynamicFilterDomains)
+    public synchronized void collectDynamicFilterDomains(Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
-        dynamicFiltersCollector.updateDomains(dynamicFilterDomains);
+        for (Map.Entry<DynamicFilterId, Domain> entry : dynamicFilterDomains.entrySet()) {
+            dynamicTupleDomains.merge(entry.getKey(), entry.getValue(), Domain::intersect);
+        }
     }
 
-    public long getDynamicFiltersVersion()
+    public synchronized Map<DynamicFilterId, Domain> getDynamicTupleDomains()
     {
-        return dynamicFiltersCollector.getDynamicFiltersVersion();
-    }
-
-    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersCurrentVersion)
-    {
-        return dynamicFiltersCollector.acknowledgeAndGetNewDomains(callersCurrentVersion);
+        return ImmutableMap.copyOf(dynamicTupleDomains);
     }
 
     public TaskStats getTaskStats()
