@@ -62,4 +62,28 @@ public class TestSession
         assertThat(session.getConnectorProperties(new CatalogName("some_catalog")))
                 .isEqualTo(Map.of());
     }
+
+    @Test
+    public void testAddSecondCatalogProperty()
+    {
+        Session session = Session.builder(testSessionBuilder().build())
+                .setCatalogSessionProperty("some_catalog", "first_property", "some_value")
+                .build();
+        session = Session.builder(session)
+                .setCatalogSessionProperty("some_catalog", "second_property", "another_value")
+                .build();
+
+        assertThat(session.getUnprocessedCatalogProperties())
+                .isEqualTo(Map.of("some_catalog", Map.of(
+                        "first_property", "some_value",
+                        "second_property", "another_value")));
+
+        // empty, will be populated at transaction start
+        assertThat(session.getConnectorProperties())
+                .isEqualTo(Map.of());
+
+        // empty, will be populated at transaction start
+        assertThat(session.getConnectorProperties(new CatalogName("some_catalog")))
+                .isEqualTo(Map.of());
+    }
 }
