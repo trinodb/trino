@@ -31,12 +31,12 @@ public class TestingPostgreSqlServer
     private static final String PASSWORD = "test";
     private static final String DATABASE = "tpch";
 
-    private final PostgreSQLContainer dockerContainer;
+    private final PostgreSQLContainer<?> dockerContainer;
 
     public TestingPostgreSqlServer()
     {
         // Use the oldest supported PostgreSQL version
-        dockerContainer = new PostgreSQLContainer("postgres:9.5")
+        dockerContainer = new PostgreSQLContainer<>("postgres:9.5")
                 .withDatabaseName(DATABASE)
                 .withUsername(USER)
                 .withPassword(PASSWORD);
