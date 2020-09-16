@@ -106,7 +106,7 @@ public class KuduTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName, constraint, desiredColumns, isDeleteHandle);
+        return Objects.hash(schemaTableName, constraint, desiredColumns, isDeleteHandle, bucketCount);
     }
 
     @Override
@@ -123,7 +123,8 @@ public class KuduTableHandle
         return Objects.equals(this.schemaTableName, other.schemaTableName) &&
                 Objects.equals(this.constraint, other.constraint) &&
                 Objects.equals(this.desiredColumns, other.desiredColumns) &&
-                Objects.equals(this.isDeleteHandle, other.isDeleteHandle);
+                Objects.equals(this.isDeleteHandle, other.isDeleteHandle) &&
+                Objects.equals(this.bucketCount, other.bucketCount);
     }
 
     @Override
