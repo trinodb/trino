@@ -16,7 +16,7 @@ package io.prestosql.tests.product.launcher.env;
 public final class EnvironmentContainers
 {
     public static final String PRESTO = "presto";
-    public static final String COORDINATOR = PRESTO + "-master";
+    public static final String COORDINATOR = PRESTO + "-coordinator";
     public static final String WORKER = PRESTO + "-worker";
     public static final String WORKER_NTH = WORKER + "-";
     public static final String HADOOP = "hadoop-master";

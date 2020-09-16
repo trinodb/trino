@@ -34,7 +34,7 @@ broken.
 * Install [Docker for Mac](https://docs.docker.com/docker-for-mac/)
 
 * Add entries in `/etc/hosts` for all services running in docker containers:
-`hadoop-master`, `postgres`, `cassandra`, `presto-master`.
+`hadoop-master`, `postgres`, `cassandra`, `presto-coordinator`.
 They should point to your external IP address (shown by `ifconfig` on your Mac, not inside Docker).
 
 * The default memory setting of 2GB might not be sufficient for some profiles like `singlenode-ldap`.
