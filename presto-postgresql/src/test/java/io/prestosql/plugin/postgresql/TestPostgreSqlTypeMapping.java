@@ -1308,10 +1308,10 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testDouble()
     {
-        doublePrecisionFloatinPointTests(doubleDataType())
+        doublePrecisionFloatingPointTests(doubleDataType())
                 .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_double"));
 
-        doublePrecisionFloatinPointTests(postgreSqlDoubleDataType())
+        doublePrecisionFloatingPointTests(postgreSqlDoubleDataType())
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_double"));
     }
 
@@ -1326,7 +1326,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(floatType, null);
     }
 
-    private static DataTypeTest doublePrecisionFloatinPointTests(DataType<Double> doubleType)
+    private static DataTypeTest doublePrecisionFloatingPointTests(DataType<Double> doubleType)
     {
         return DataTypeTest.create(true)
                 .addRoundTrip(doubleType, 1.0e100d)
