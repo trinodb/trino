@@ -42,6 +42,7 @@ public class HdfsEnvironment
     private final HdfsConfiguration hdfsConfiguration;
     private final HdfsAuthentication hdfsAuthentication;
     private final FsPermission newDirectoryPermissions;
+    private final boolean newFileInheritOwnership;
     private final boolean verifyChecksum;
 
     @Inject
@@ -53,6 +54,7 @@ public class HdfsEnvironment
         this.hdfsConfiguration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
         requireNonNull(config, "config is null");
         this.newDirectoryPermissions = FsPermission.createImmutable(Shorts.checkedCast(parseUnsignedInt(config.getNewDirectoryPermissions(), 8)));
+        this.newFileInheritOwnership = config.isNewFileInheritOwnership();
         this.verifyChecksum = config.isVerifyChecksum();
         this.hdfsAuthentication = requireNonNull(hdfsAuthentication, "hdfsAuthentication is null");
     }
@@ -81,6 +83,11 @@ public class HdfsEnvironment
     public FsPermission getNewDirectoryPermissions()
     {
         return newDirectoryPermissions;
+    }
+
+    public boolean isNewFileInheritOwnership()
+    {
+        return newFileInheritOwnership;
     }
 
     public <R, E extends Exception> R doAs(String user, GenericExceptionAction<R, E> action)
