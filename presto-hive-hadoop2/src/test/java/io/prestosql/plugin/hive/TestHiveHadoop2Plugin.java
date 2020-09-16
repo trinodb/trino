@@ -134,7 +134,10 @@ public class TestHiveHadoop2Plugin
                         .build(),
                 new TestingConnectorContext());
 
-        assertThat(getDefaultValueInsertExistingPartitionsBehavior(connector)).isEqualTo(ERROR);
+        Object insertExistingPartitionsBehavior = getDefaultValueInsertExistingPartitionsBehavior(connector);
+        connector.shutdown();
+
+        assertThat(insertExistingPartitionsBehavior).isEqualTo(ERROR);
     }
 
     @Test
@@ -150,7 +153,10 @@ public class TestHiveHadoop2Plugin
                         .build(),
                 new TestingConnectorContext());
 
-        assertThat(getDefaultValueInsertExistingPartitionsBehavior(connector)).isEqualTo(APPEND);
+        Object insertExistingPartitionsBehavior = getDefaultValueInsertExistingPartitionsBehavior(connector);
+        connector.shutdown();
+
+        assertThat(insertExistingPartitionsBehavior).isEqualTo(APPEND);
     }
 
     private Object getDefaultValueInsertExistingPartitionsBehavior(Connector connector)
