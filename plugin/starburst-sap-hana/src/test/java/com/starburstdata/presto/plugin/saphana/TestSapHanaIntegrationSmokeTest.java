@@ -13,8 +13,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
-import org.assertj.core.api.Assertions;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -49,15 +47,5 @@ public class TestSapHanaIntegrationSmokeTest
     public final void destroy()
     {
         server.close();
-    }
-
-    @Override
-    public void testSelectInformationSchemaColumns()
-    {
-        Assertions.assertThatThrownBy(super::testSelectInformationSchemaColumns)
-                .hasMessage("Expected query to succeed: SELECT * FROM information_schema.columns")
-                .hasStackTraceContaining("IllegalStateException: decimal digits not present");
-
-        throw new SkipException("TODO"); // TODO https://starburstdata.atlassian.net/browse/PRESTO-4076
     }
 }
