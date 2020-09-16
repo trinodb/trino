@@ -61,7 +61,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -72,11 +71,9 @@ import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.SqlFormatter.formatSql;
-import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -453,7 +450,7 @@ public abstract class AbstractTestQueryFramework
                 .findOnlyElement()
                 .getId();
 
-        Supplier<OperatorStats> operatorStatsSupplier = () -> runner.getCoordinator()
+        return runner.getCoordinator()
                 .getQueryManager()
                 .getFullQueryInfo(queryId)
                 .getQueryStats()
@@ -461,7 +458,5 @@ public abstract class AbstractTestQueryFramework
                 .stream()
                 .filter(summary -> nodeId.equals(summary.getPlanNodeId()) && summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
                 .collect(MoreCollectors.onlyElement());
-        assertEventually(new Duration(5, SECONDS), operatorStatsSupplier::get);
-        return operatorStatsSupplier.get();
     }
 }
