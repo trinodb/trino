@@ -139,7 +139,6 @@ public class TestSqlTask
 
         taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
-        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION + 1);
     }
 
     @Test(timeOut = 30_000)
@@ -179,10 +178,9 @@ public class TestSqlTask
 
         taskInfo = sqlTask.getTaskInfo(info.getTaskStatus().getVersion()).get();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
-        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION + 2);
 
         // completed future should be returned immediately when task is finished
-        assertTrue(sqlTask.getTaskInfo(STARTING_VERSION + 2).isDone());
+        assertTrue(sqlTask.getTaskInfo(STARTING_VERSION + 100).isDone());
 
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
@@ -238,7 +236,6 @@ public class TestSqlTask
 
         taskInfo = sqlTask.getTaskInfo(taskInfo.getTaskStatus().getVersion()).get();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
-        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION + 2);
 
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
