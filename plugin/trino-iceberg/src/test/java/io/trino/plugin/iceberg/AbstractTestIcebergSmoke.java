@@ -1586,4 +1586,34 @@ public abstract class AbstractTestIcebergSmoke
         assertUpdate(session, "DROP TABLE " + table);
         assertFalse(getQueryRunner().tableExists(session, table));
     }
+
+    @Test
+    public void testOptimizedMetadataQueries()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty("optimize_metadata_queries", "true")
+                .build();
+
+        @Language("SQL") String createQuery = "" +
+                "CREATE TABLE test_metadata_optimization (a BIGINT, b BIGINT, c BIGINT) WITH (PARTITIONING = ARRAY['b', 'c'])";
+        assertUpdate(createQuery);
+
+        @Language("SQL") String insertQuery = "" +
+                "INSERT INTO test_metadata_optimization VALUES (5, 6, 7), (8, 9, 10)";
+        assertUpdate(insertQuery, 2);
+
+        assertQuery(session, "SELECT DISTINCT b FROM test_metadata_optimization", "VALUES (6), (9)");
+        assertQuery(session, "SELECT DISTINCT b, c FROM test_metadata_optimization", "VALUES (6, 7), (9, 10)");
+        assertQuery(session, "SELECT DISTINCT b FROM test_metadata_optimization WHERE b < 7", "VALUES (6)");
+        assertQuery(session, "SELECT DISTINCT b FROM test_metadata_optimization WHERE c > 8", "VALUES (9)");
+
+        // Assert behavior after metadata delete
+        assertUpdate("DELETE FROM test_metadata_optimization WHERE b = 6");
+        assertQuery(session, "SELECT DISTINCT b FROM test_metadata_optimization", "VALUES (9)");
+
+        // TODO: assert behavior after deleting the last row of a partition, once row-level deletes are supported.
+        // i.e. a query like 'DELETE FROM test_metadata_optimization WHERE b = 6 AND a = 5'
+
+        dropTable("test_metadata_optimization");
+    }
 }
