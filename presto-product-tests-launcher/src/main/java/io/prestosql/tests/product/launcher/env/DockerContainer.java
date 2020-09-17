@@ -276,6 +276,16 @@ public class DockerContainer
         }
     }
 
+    public void tryStop()
+    {
+        try {
+            stop();
+        }
+        catch (Exception e) {
+            log.warn("Could not stop container correctly: %s", getStackTraceAsString(e));
+        }
+    }
+
     public enum OutputMode
     {
         PRINT,
