@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.snowflake.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import com.starburstdata.presto.plugin.toolkit.UtcTimeZoneCalendar;
@@ -18,6 +19,7 @@ import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcSplit;
@@ -28,7 +30,15 @@ import io.prestosql.plugin.jdbc.PredicatePushdownController.DomainPushdownResult
 import io.prestosql.plugin.jdbc.SliceReadFunction;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
+import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
+import io.prestosql.plugin.jdbc.expression.ImplementAvgDecimal;
+import io.prestosql.plugin.jdbc.expression.ImplementAvgFloatingPoint;
+import io.prestosql.plugin.jdbc.expression.ImplementCount;
+import io.prestosql.plugin.jdbc.expression.ImplementCountAll;
+import io.prestosql.plugin.jdbc.expression.ImplementMinMax;
+import io.prestosql.plugin.jdbc.expression.ImplementSum;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -39,6 +49,7 @@ import io.prestosql.spi.statistics.Estimate;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.Chars;
+import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
@@ -119,6 +130,7 @@ public class SnowflakeClient
             .build();
     private static final UtcTimeZoneCalendar UTC_TZ_PASSING_CALENDAR = UtcTimeZoneCalendar.getUtcTimeZoneCalendarInstance();
 
+    private final AggregateFunctionRewriter aggregateFunctionRewriter;
     private final TableStatisticsClient tableStatisticsClient;
     private final boolean distributedConnector;
 
@@ -127,6 +139,34 @@ public class SnowflakeClient
         super(config, IDENTIFIER_QUOTE, connectionFactory);
         this.tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
         this.distributedConnector = distributedConnector;
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, Optional.empty(), Optional.empty(), Optional.empty());
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
+                this::quoted,
+                ImmutableSet.of(
+                        new ImplementCountAll(bigintTypeHandle),
+                        new ImplementCount(bigintTypeHandle),
+                        new ImplementMinMax(),
+                        new ImplementSum(SnowflakeClient::decimalTypeHandle),
+                        new ImplementAvgFloatingPoint(),
+                        new ImplementAvgDecimal()));
+    }
+
+    private static Optional<JdbcTypeHandle> decimalTypeHandle(DecimalType decimalType)
+    {
+        return Optional.of(
+                new JdbcTypeHandle(
+                        Types.NUMERIC,
+                        Optional.of("NUMBER"),
+                        decimalType.getPrecision(),
+                        Optional.of(decimalType.getScale()),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Override
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 
     @Override

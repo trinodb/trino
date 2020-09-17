@@ -12,6 +12,8 @@ package com.starburstdata.presto.plugin.snowflake;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.TestingSession;
@@ -293,6 +295,67 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
             assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE varchar_column = 'ala'")).isCorrectlyPushedDown();
 
             assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE bigint_column > 100 and varchar_column > 'ala'")).isCorrectlyPushedDown();
+        }
+    }
+
+    @Test
+    public void testAggregationPushdown()
+    {
+        // TODO support aggregation pushdown with GROUPING SETS
+
+        assertThat(query("SELECT count(*) FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT count(nationkey) FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+
+        try (TestTable testTable = new TestTable(snowflakeExecutor::execute, getSession().getSchema().orElseThrow() + ".test_aggregation_pushdown",
+                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), varchar_column varchar(10))")) {
+            snowflakeExecutor.execute("INSERT INTO " + testTable.getName() + " VALUES (100.000, 100000000.000000000, 'ala')");
+            snowflakeExecutor.execute("INSERT INTO " + testTable.getName() + " VALUES (123.321, 123456789.987654321, 'kot')");
+
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM " + testTable.getName())).isCorrectlyPushedDown();
+
+            // smoke testing of more complex cases
+
+            // WHERE on aggregation column
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110 AND long_decimal < 124")).isCorrectlyPushedDown();
+            // WHERE on non-aggregation column
+            assertThat(query("SELECT min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110")).isCorrectlyPushedDown();
+            // GROUP BY
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " GROUP BY short_decimal")).isCorrectlyPushedDown();
+            // GROUP BY with WHERE on both grouping and aggregation column
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110 AND long_decimal < 124" + " GROUP BY short_decimal")).isCorrectlyPushedDown();
+            // GROUP BY with WHERE on grouping column
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110 GROUP BY short_decimal")).isCorrectlyPushedDown();
+            // GROUP BY with WHERE on aggregation column
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE long_decimal < 124 GROUP BY short_decimal")).isCorrectlyPushedDown();
+            // GROUP BY with WHERE on neither grouping nor aggregation column
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE varchar_column = 'ala' GROUP BY short_decimal")).isCorrectlyPushedDown();
+            // aggregation on varchar column
+            assertThat(query("SELECT min(varchar_column) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            // aggregation on varchar column with GROUPING
+            assertThat(query("SELECT short_decimal, min(varchar_column) FROM " + testTable.getName() + " GROUP BY short_decimal")).isCorrectlyPushedDown();
+            // aggregation on varchar column with WHERE
+            assertThat(query("SELECT min(varchar_column) FROM " + testTable.getName() + " WHERE varchar_column ='ala'")).isCorrectlyPushedDown();
+
+            // agg(DISTINCT symbol) not supported yet
+            assertThat(query("SELECT min(DISTINCT short_decimal) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
+            // TODO: Improve assertion framework. Here min(long_decimal) is pushed down. There remains ProjectNode above it which relates to DISTINCT in the query.
+            assertThat(query("SELECT DISTINCT short_decimal, min(long_decimal) FROM " + testTable.getName() + " GROUP BY short_decimal")).isNotFullyPushedDown(ProjectNode.class);
+        }
+
+        try (TestTable testTable = new TestTable(snowflakeExecutor::execute, getSession().getSchema().orElseThrow() + ".test_aggregation_pushdown_timestamp_tz",
+                "(timestamp_tz_column timestamp with time zone)")) {
+            snowflakeExecutor.execute("INSERT INTO " + testTable.getName() + " VALUES (TIMESTAMP '1901-02-03 04:05:06.789')");
+            snowflakeExecutor.execute("INSERT INTO " + testTable.getName() + " VALUES (TIMESTAMP '1911-02-03 04:05:06.789')");
+
+            // Adding specific testcase for TIMESTAMP WITH TIME ZONE as it requires special rewrite handling when sending query to SF.
+            assertThat(query("SELECT min(timestamp_tz_column) FROM " + testTable.getName())).isCorrectlyPushedDown();
         }
     }
 }

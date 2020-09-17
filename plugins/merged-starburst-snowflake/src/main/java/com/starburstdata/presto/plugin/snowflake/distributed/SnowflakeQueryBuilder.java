@@ -12,10 +12,10 @@ package com.starburstdata.presto.plugin.snowflake.distributed;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.QueryBuilder;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 
 import java.util.List;
 
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -54,20 +54,28 @@ public class SnowflakeQueryBuilder
         if (columns.isEmpty()) {
             return "null";
         }
+
         return columns.stream()
                 .map(columnHandle ->
+                {
+                    String expression;
+                    if (columnHandle.getColumnType() instanceof TimestampWithTimeZoneType) {
                         // milliseconds shifted left by 12 ORed with 2048 +
                         // offset hours * 60 + offset minutes
-                        TIMESTAMP_WITH_TIME_ZONE.equals(columnHandle.getColumnType()) ?
-                                format(
-                                        "BITOR(" +
-                                                // using TO_DECIMAL to prevent Snowflake from losing precision on the shift result
-                                                "TO_DECIMAL(BITSHIFTLEFT(EXTRACT('EPOCH_MILLISECOND', %1$s), %2$s), 38, 0), " +
-                                                "%3$s + EXTRACT('TZH', %1$s) * 60 + EXTRACT('TZM', %1$s)) %1$s",
-                                        columnHandle.getColumnName(),
-                                        TIMESTAMP_WITH_TIME_ZONE_MILLIS_SHIFT,
-                                        ZONE_OFFSET_MINUTES_BIAS) :
-                                jdbcClient.quoted(columnHandle.getColumnName()))
+                        expression = format("BITOR(" +
+                                // using TO_DECIMAL to prevent Snowflake from losing precision on the shift result
+                                "TO_DECIMAL(BITSHIFTLEFT(EXTRACT('EPOCH_MILLISECOND', %1$s), %2$s), 38, 0), " +
+                                "%3$s + EXTRACT('TZH', %1$s) * 60 + EXTRACT('TZM', %1$s))",
+                                columnHandle.toSqlExpression(jdbcClient::quoted),
+                                TIMESTAMP_WITH_TIME_ZONE_MILLIS_SHIFT,
+                                ZONE_OFFSET_MINUTES_BIAS);
+                    }
+                    else {
+                        expression = columnHandle.toSqlExpression(jdbcClient::quoted);
+                    }
+
+                    return format("%s AS %s", expression, jdbcClient.quoted(columnHandle.getColumnName()));
+                })
                 .collect(joining(", "));
     }
 }
