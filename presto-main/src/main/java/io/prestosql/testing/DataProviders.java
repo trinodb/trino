@@ -15,8 +15,11 @@ package io.prestosql.testing;
 
 import org.testng.annotations.DataProvider;
 
-import java.util.ArrayList;
 import java.util.stream.Collector;
+
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toList;
 
 public final class DataProviders
 {
@@ -24,14 +27,11 @@ public final class DataProviders
 
     public static <T> Collector<T, ?, Object[][]> toDataProvider()
     {
-        return Collector.of(
-                ArrayList::new,
-                (builder, entry) -> builder.add(new Object[] {entry}),
-                (left, right) -> {
-                    left.addAll(right);
-                    return left;
-                },
-                builder -> builder.toArray(new Object[][] {}));
+        return collectingAndThen(
+                mapping(
+                        value -> new Object[] {value},
+                        toList()),
+                list -> list.toArray(new Object[][] {}));
     }
 
     @DataProvider
