@@ -24,6 +24,7 @@ import java.util.Properties;
  */
 public class KafkaSecurityConfig
 {
+    protected static final String MESSAGE_TEMPLATE_CONFIG_NOT_USED = "Config '%s' won't be used when 'security.protocol' is set to PLAINTEXT (default value)!";
     Logger logger = Logger.get(KafkaSecurityConfig.class);
 
     private Properties props;
@@ -139,25 +140,22 @@ public class KafkaSecurityConfig
         // Additional configs only apply when security protocol is not PLAINTEXT
         if (securityProtocol == null || securityProtocol.equals(SecurityProtocol.PLAINTEXT)) {
             if (isSet(sslTruststoreLocation)) {
-                logger.warn("Config 'kafka.ssl.truststore.location' won't be used with security.protocol=PLAINTEXT (default)!");
+                logger.warn(String.format(MESSAGE_TEMPLATE_CONFIG_NOT_USED, "kafka.ssl.truststore.location"));
             }
             if (isSet(sslTruststorePassword)) {
-                logger.warn("Config 'kafka.ssl.truststore.password' won't be used with security.protocol=PLAINTEXT (default)!");
+                logger.warn(String.format(MESSAGE_TEMPLATE_CONFIG_NOT_USED, "kafka.ssl.truststore.password"));
             }
             if (isSet(sslKeystoreLocation)) {
-                logger.warn("Config 'kafka.ssl.keystore.location' won't be used with security.protocol=PLAINTEXT (default)!");
+                logger.warn(String.format(MESSAGE_TEMPLATE_CONFIG_NOT_USED, "kafka.ssl.keystore.location"));
             }
             if (isSet(sslKeystorePassword)) {
-                logger.warn("Config 'kafka.ssl.keystore.password' won't be used with security.protocol=PLAINTEXT (default)!");
+                logger.warn(String.format(MESSAGE_TEMPLATE_CONFIG_NOT_USED, "kafka.ssl.keystore.password"));
             }
             if (isSet(sslEndpointIdentificationAlgorithm)) {
-                logger.warn("Config 'ssl.endpoint.identification.algorithm' won't be used with security.protocol=PLAINTEXT (default)!");
-            }
-            if (isSet(sslEndpointIdentificationAlgorithm)) {
-                logger.warn("Config 'ssl.endpoint.identification.algorithm' won't be used with security.protocol=PLAINTEXT (default)!");
+                logger.warn(String.format(MESSAGE_TEMPLATE_CONFIG_NOT_USED, "ssl.endpoint.identification.algorithm"));
             }
             if (isSet(sslKeyPassword)) {
-                logger.warn("Config 'ssl.key.password' won't be used with security.protocol=PLAINTEXT (default)!");
+                logger.warn(String.format(MESSAGE_TEMPLATE_CONFIG_NOT_USED, "ssl.key.password"));
             }
         }
     }
