@@ -29,16 +29,21 @@ import org.ietf.jgss.GSSManager;
 import org.ietf.jgss.Oid;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.security.auth.RefreshFailedException;
 import javax.security.auth.Subject;
+import javax.security.auth.SubjectDomainCombiner;
+import javax.security.auth.kerberos.KerberosTicket;
 import javax.security.auth.login.AppConfigurationEntry;
 import javax.security.auth.login.Configuration;
 import javax.security.auth.login.LoginContext;
-import javax.security.auth.login.LoginException;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.security.AccessControlContext;
+import java.security.AccessController;
+import java.security.GeneralSecurityException;
 import java.security.Principal;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
@@ -46,6 +51,7 @@ import java.util.Base64;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.CharMatcher.whitespace;
 import static com.google.common.base.Preconditions.checkState;
@@ -83,7 +89,6 @@ public class SpnegoHandler
     private final Optional<File> keytab;
     private final Optional<File> credentialCache;
 
-    @GuardedBy("this")
     private Session clientSession;
 
     public SpnegoHandler(
@@ -112,6 +117,14 @@ public class SpnegoHandler
                     currentValue);
             System.setProperty("java.security.krb5.conf", newValue);
         });
+
+        AccessControlContext controlContext = AccessController.getContext();
+        if (controlContext.getDomainCombiner() instanceof SubjectDomainCombiner && !(keytab.isPresent() || credentialCache.isPresent())) {
+            clientSession = new ClientContextSession(((SubjectDomainCombiner) controlContext.getDomainCombiner()).getSubject());
+        }
+        else {
+            clientSession = new LoginContextSession();
+        }
     }
 
     @Override
@@ -160,12 +173,13 @@ public class SpnegoHandler
     {
         GSSContext context = null;
         try {
-            Session session = getSession();
-            context = doAs(session.getLoginContext().getSubject(), () -> {
+            GSSCredential clientCredential = this.clientSession.getClientCredential();
+            Subject subject = this.clientSession.getSubject();
+            context = doAs(subject, () -> {
                 GSSContext result = GSS_MANAGER.createContext(
                         GSS_MANAGER.createName(servicePrincipal, NT_HOSTBASED_SERVICE),
                         SPNEGO_OID,
-                        session.getClientCredential(),
+                        clientCredential,
                         INDEFINITE_LIFETIME);
 
                 result.requestMutualAuth(true);
@@ -177,11 +191,11 @@ public class SpnegoHandler
 
             byte[] token = context.initSecContext(new byte[0], 0, 0);
             if (token == null) {
-                throw new LoginException("No token generated from GSS context");
+                throw new GeneralSecurityException("No token generated from GSS context");
             }
             return token;
         }
-        catch (GSSException | LoginException e) {
+        catch (GSSException | GeneralSecurityException e) {
             throw new ClientException(format("Kerberos error for [%s]: %s", servicePrincipal, e.getMessage()), e);
         }
         finally {
@@ -193,62 +207,6 @@ public class SpnegoHandler
             catch (GSSException ignored) {
             }
         }
-    }
-
-    private synchronized Session getSession()
-            throws LoginException, GSSException
-    {
-        if ((clientSession == null) || clientSession.needsRefresh()) {
-            clientSession = createSession();
-        }
-        return clientSession;
-    }
-
-    private Session createSession()
-            throws LoginException, GSSException
-    {
-        // TODO: do we need to call logout() on the LoginContext?
-
-        LoginContext loginContext = new LoginContext("", null, null, new Configuration()
-        {
-            @Override
-            public AppConfigurationEntry[] getAppConfigurationEntry(String name)
-            {
-                ImmutableMap.Builder<String, String> options = ImmutableMap.builder();
-                options.put("refreshKrb5Config", "true");
-                options.put("doNotPrompt", "true");
-                options.put("useKeyTab", "true");
-
-                if (getBoolean("presto.client.debugKerberos")) {
-                    options.put("debug", "true");
-                }
-
-                keytab.ifPresent(file -> options.put("keyTab", file.getAbsolutePath()));
-
-                credentialCache.ifPresent(file -> {
-                    options.put("ticketCache", file.getAbsolutePath());
-                    options.put("useTicketCache", "true");
-                    options.put("renewTGT", "true");
-                });
-
-                principal.ifPresent(value -> options.put("principal", value));
-
-                return new AppConfigurationEntry[] {
-                        new AppConfigurationEntry(Krb5LoginModule.class.getName(), REQUIRED, options.build())
-                };
-            }
-        });
-
-        loginContext.login();
-        Subject subject = loginContext.getSubject();
-        Principal clientPrincipal = subject.getPrincipals().iterator().next();
-        GSSCredential clientCredential = doAs(subject, () -> GSS_MANAGER.createCredential(
-                GSS_MANAGER.createName(clientPrincipal.getName(), NT_USER_NAME),
-                DEFAULT_LIFETIME,
-                KERBEROS_OID,
-                INITIATE_ONLY));
-
-        return new Session(loginContext, clientCredential);
     }
 
     private static String makeServicePrincipal(String servicePrincipalPattern, String serviceName, String hostName, boolean useCanonicalHostname)
@@ -311,34 +269,139 @@ public class SpnegoHandler
         }
     }
 
-    private static class Session
+    private interface Session
     {
-        private final LoginContext loginContext;
-        private final GSSCredential clientCredential;
+        Subject getSubject() throws GeneralSecurityException;
 
-        public Session(LoginContext loginContext, GSSCredential clientCredential)
+        GSSCredential getClientCredential() throws GSSException, GeneralSecurityException;
+    }
+
+    private abstract static class AbstractSession
+            implements Session
+    {
+        @GuardedBy("this")
+        private GSSCredential clientCredential;
+
+        /**
+         * This method renews the ticket if the ticket is renewable (renewTGT is set to true)
+         * This helps avoid recreating the LoginContext (based on the implementation)
+         * till the time ticket can be renewed.
+         */
+        protected abstract void refreshToken() throws GeneralSecurityException;
+
+        @Override
+        public synchronized GSSCredential getClientCredential() throws GSSException, GeneralSecurityException
         {
-            requireNonNull(loginContext, "loginContext is null");
-            requireNonNull(clientCredential, "gssCredential is null");
-
-            this.loginContext = loginContext;
-            this.clientCredential = clientCredential;
-        }
-
-        public LoginContext getLoginContext()
-        {
-            return loginContext;
-        }
-
-        public GSSCredential getClientCredential()
-        {
+            if (this.clientCredential == null) {
+                clientCredential = createClientCredential(false);
+            }
+            // Credential lifetime can be made customizable by setting it as a connection property. Please suggest.
+            else if (clientCredential.getRemainingLifetime() < MIN_CREDENTIAL_LIFETIME.getValue(SECONDS)) {
+                clientCredential = createClientCredential(true);
+            }
             return clientCredential;
         }
 
-        public boolean needsRefresh()
-                throws GSSException
+        private GSSCredential createClientCredential(boolean forceRefresh) throws GSSException, GeneralSecurityException
         {
-            return clientCredential.getRemainingLifetime() < MIN_CREDENTIAL_LIFETIME.getValue(SECONDS);
+            Subject subject = this.getSubject();
+            if (subject == null || forceRefresh) {
+                refreshToken();
+                subject = this.getSubject();
+            }
+            Principal clientPrincipal = subject.getPrincipals().iterator().next();
+            return doAs(subject, () -> GSS_MANAGER.createCredential(
+                    GSS_MANAGER.createName(clientPrincipal.getName(), NT_USER_NAME),
+                    DEFAULT_LIFETIME,
+                    KERBEROS_OID,
+                    INITIATE_ONLY));
+        }
+    }
+
+    /**
+     * This class handles user subject when an existing KerberosContext of a client is provided and no
+     * keytab or credential cache is provided.
+     */
+    private static class ClientContextSession
+            extends AbstractSession
+    {
+        Subject subject;
+
+        public ClientContextSession(Subject subject)
+        {
+            requireNonNull(subject, "subject");
+            this.subject = subject;
+        }
+
+        @Override
+        public Subject getSubject()
+        {
+            return subject;
+        }
+
+        @Override
+        protected void refreshToken()
+        {
+            Set credentials = subject.getPrivateCredentials(KerberosTicket.class);
+
+            if (credentials.size() > 1) {
+                throw new ClientException("Invalid Credentials. Multiple Kerberos Credentials found.");
+            }
+            KerberosTicket krbTkt = (KerberosTicket) credentials.iterator().next();
+            if (krbTkt.isRenewable()) {
+                try {
+                    krbTkt.refresh();
+                }
+                catch (RefreshFailedException ignored) {
+                    // do nothing
+                }
+            }
+        }
+    }
+
+    private class LoginContextSession
+            extends AbstractSession
+    {
+        private LoginContext loginContext;
+
+        @Override
+        public Subject getSubject()
+        {
+            return loginContext == null ? null : this.loginContext.getSubject();
+        }
+
+        @Override
+        protected void refreshToken() throws GeneralSecurityException
+        {
+            this.loginContext = new LoginContext("", null, null, new Configuration() {
+                @Override
+                public AppConfigurationEntry[] getAppConfigurationEntry(String name)
+                {
+                    ImmutableMap.Builder<String, String> options = ImmutableMap.builder();
+                    options.put("refreshKrb5Config", "true");
+                    options.put("doNotPrompt", "true");
+                    options.put("useKeyTab", "true");
+
+                    if (getBoolean("presto.client.debugKerberos")) {
+                        options.put("debug", "true");
+                    }
+
+                    keytab.ifPresent(file -> options.put("keyTab", file.getAbsolutePath()));
+
+                    credentialCache.ifPresent(file -> {
+                        options.put("ticketCache", file.getAbsolutePath());
+                        options.put("useTicketCache", "true");
+                        options.put("renewTGT", "true");
+                    });
+
+                    principal.ifPresent(value -> options.put("principal", value));
+
+                    return new AppConfigurationEntry[]{
+                            new AppConfigurationEntry(Krb5LoginModule.class.getName(), REQUIRED, options.build())
+                    };
+                }
+            });
+            loginContext.login();
         }
     }
 }
