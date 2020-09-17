@@ -20,31 +20,20 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
-import org.apache.iceberg.PartitionField;
-import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.StructLike;
 import org.apache.iceberg.io.CloseableIterable;
-import org.apache.iceberg.types.Type;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.collect.Iterators.limit;
-import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.iceberg.types.Type.TypeID.BINARY;
-import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
 public class IcebergSplitSource
         implements ConnectorSplitSource
@@ -107,37 +96,5 @@ public class IcebergSplitSource
                 task.file().format(),
                 ImmutableList.of(),
                 getPartitionKeys(task));
-    }
-
-    private static Map<Integer, String> getPartitionKeys(FileScanTask scanTask)
-    {
-        StructLike partition = scanTask.file().partition();
-        PartitionSpec spec = scanTask.spec();
-        Map<PartitionField, Integer> fieldToIndex = getIdentityPartitions(spec);
-        Map<Integer, String> partitionKeys = new HashMap<>();
-
-        fieldToIndex.forEach((field, index) -> {
-            int id = field.sourceId();
-            Type type = spec.schema().findType(id);
-            Class<?> javaClass = type.typeId().javaClass();
-            Object value = partition.get(index, javaClass);
-
-            if (value == null) {
-                partitionKeys.put(id, null);
-            }
-            else {
-                String partitionValue;
-                if (type.typeId() == FIXED || type.typeId() == BINARY) {
-                    // this is safe because Iceberg PartitionData directly wraps the byte array
-                    partitionValue = new String(((ByteBuffer) value).array(), UTF_8);
-                }
-                else {
-                    partitionValue = value.toString();
-                }
-                partitionKeys.put(id, partitionValue);
-            }
-        });
-
-        return Collections.unmodifiableMap(partitionKeys);
     }
 }
