@@ -455,7 +455,7 @@ public class TestHttpRemoteTask
         @GET
         @Path("{taskId}/dynamicfilters")
         @Produces(MediaType.APPLICATION_JSON)
-        public synchronized VersionedDynamicFilterDomains getDynamicFiltersDomains(
+        public synchronized VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(
                 @PathParam("taskId") TaskId taskId,
                 @HeaderParam(PRESTO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
                 @Context UriInfo uriInfo)
