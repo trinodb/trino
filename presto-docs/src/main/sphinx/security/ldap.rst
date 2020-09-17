@@ -18,9 +18,6 @@ Presto nodes with SSL/TLS configure :doc:`/security/internal-communication`.
 Presto Server Configuration
 ---------------------------
 
-Environment Configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
 Presto Coordinator Node Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
