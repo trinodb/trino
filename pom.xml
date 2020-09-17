@@ -136,6 +136,7 @@
         <module>presto-server-main</module>
         <module>presto-server-rpm</module>
         <module>presto-session-property-managers</module>
+        <module>presto-snowflake</module>
         <module>presto-spi</module>
         <module>presto-sqlserver</module>
         <module>presto-teradata-functions</module>
