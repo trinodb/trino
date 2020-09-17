@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.base.type;
 
-import static java.lang.String.format;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class DecodedTimestamp
@@ -25,9 +25,7 @@ public class DecodedTimestamp
 
     public DecodedTimestamp(long epochSeconds, int nanosOfSecond)
     {
-        if (nanosOfSecond < 0 || nanosOfSecond >= NANOS_PER_SECOND) {
-            throw new IllegalArgumentException(format("Invalid value for nanosOfSecond: %s; must be positive and < %s", nanosOfSecond, NANOS_PER_SECOND));
-        }
+        checkArgument(nanosOfSecond >= 0 && nanosOfSecond < NANOS_PER_SECOND, "Invalid value for nanosOfSecond: " + nanosOfSecond);
         this.epochSeconds = epochSeconds;
         this.nanosOfSecond = nanosOfSecond;
     }

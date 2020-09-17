@@ -16,17 +16,15 @@ package io.prestosql.parquet;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
-import io.prestosql.parquet.predicate.ParquetRangeStatistics;
-import io.prestosql.parquet.predicate.TupleDomainParquetPredicate;
 import io.prestosql.plugin.base.type.DecodedTimestamp;
-import io.prestosql.plugin.base.type.PrestoTimestampEncoder;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.predicate.Domain;
 import org.apache.parquet.io.api.Binary;
 
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_DAY;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.SECONDS_PER_DAY;
 
 /**
  * Utility class for decoding INT96 encoded parquet timestamp to timestamp millis in GMT.
@@ -36,8 +34,6 @@ public final class ParquetTimestampUtils
 {
     @VisibleForTesting
     static final int JULIAN_EPOCH_OFFSET_DAYS = 2_440_588;
-
-    private static final long NANOS_PER_SECOND = SECONDS.toNanos(1);
 
     private ParquetTimestampUtils() {}
 
@@ -55,31 +51,10 @@ public final class ParquetTimestampUtils
 
         // little endian encoding - need to invert byte order
         long timeOfDayNanos = Longs.fromBytes(bytes[7], bytes[6], bytes[5], bytes[4], bytes[3], bytes[2], bytes[1], bytes[0]);
+        verify(timeOfDayNanos >= 0 && timeOfDayNanos < NANOSECONDS_PER_DAY);
         int julianDay = Ints.fromBytes(bytes[11], bytes[10], bytes[9], bytes[8]);
 
-        long epochSeconds = (julianDay - JULIAN_EPOCH_OFFSET_DAYS) * SECONDS_PER_DAY + timeOfDayNanos / NANOS_PER_SECOND;
-        return new DecodedTimestamp(epochSeconds, (int) (timeOfDayNanos % NANOS_PER_SECOND));
-    }
-
-    public static <T extends Comparable<T>> Domain createDomain(PrestoTimestampEncoder<T> prestoTimestampEncoder, Binary singleValue, boolean hasNullValue)
-    {
-        T value = prestoTimestampEncoder.getTimestamp(decode(singleValue));
-        return TupleDomainParquetPredicate.createDomain(
-                prestoTimestampEncoder.getType(),
-                hasNullValue,
-                new ParquetRangeStatistics<T>()
-                {
-                    @Override
-                    public T getMin()
-                    {
-                        return value;
-                    }
-
-                    @Override
-                    public T getMax()
-                    {
-                        return value;
-                    }
-                });
+        long epochSeconds = (julianDay - JULIAN_EPOCH_OFFSET_DAYS) * SECONDS_PER_DAY + timeOfDayNanos / NANOSECONDS_PER_SECOND;
+        return new DecodedTimestamp(epochSeconds, (int) (timeOfDayNanos % NANOSECONDS_PER_SECOND));
     }
 }

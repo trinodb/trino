@@ -13,9 +13,10 @@
  */
 package io.prestosql.plugin.base.type;
 
-import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.TimestampType;
 import org.joda.time.DateTimeZone;
+
+import static java.util.Objects.requireNonNull;
 
 abstract class AbstractPrestoTimestampEncoder<T extends Comparable<T>>
         implements PrestoTimestampEncoder<T>
@@ -25,16 +26,8 @@ abstract class AbstractPrestoTimestampEncoder<T extends Comparable<T>>
 
     AbstractPrestoTimestampEncoder(TimestampType type, DateTimeZone timeZone)
     {
-        this.type = type;
-        this.timeZone = timeZone;
-    }
-
-    @Override
-    public T write(DecodedTimestamp decodedTimestamp, BlockBuilder blockBuilder)
-    {
-        T timestamp = getTimestamp(decodedTimestamp);
-        write(timestamp, blockBuilder);
-        return timestamp;
+        this.type = requireNonNull(type, "type is null");
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
     @Override
@@ -42,6 +35,4 @@ abstract class AbstractPrestoTimestampEncoder<T extends Comparable<T>>
     {
         return type;
     }
-
-    protected abstract T write(T timestamp, BlockBuilder blockBuilder);
 }

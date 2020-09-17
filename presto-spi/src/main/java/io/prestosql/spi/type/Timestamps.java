@@ -65,6 +65,8 @@ public class Timestamps
     public static final long PICOSECONDS_PER_DAY = PICOSECONDS_PER_HOUR * 24;
     public static final long SECONDS_PER_MINUTE = 60;
     public static final long MINUTES_PER_HOUR = 60;
+    public static final long HOURS_PER_DAY = 24;
+    public static final long SECONDS_PER_DAY = SECONDS_PER_MINUTE * MINUTES_PER_HOUR * HOURS_PER_DAY;
 
     private Timestamps() {}
 

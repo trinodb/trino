@@ -22,6 +22,7 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
@@ -41,19 +42,17 @@ import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.prestosql.parquet.ParquetTimestampUtils.JULIAN_EPOCH_OFFSET_DAYS;
 import static io.prestosql.parquet.predicate.TupleDomainParquetPredicate.getDomain;
-import static io.prestosql.plugin.base.type.PrestoTimestampEncoderFactory.longTimestamp;
 import static io.prestosql.spi.predicate.Domain.all;
 import static io.prestosql.spi.predicate.Domain.create;
 import static io.prestosql.spi.predicate.Domain.notNull;
@@ -69,10 +68,13 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.prestosql.spi.type.Timestamps.round;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -80,6 +82,7 @@ import static java.lang.Float.NaN;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.temporal.ChronoField.MICRO_OF_SECOND;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -359,18 +362,17 @@ public class TestTupleDomainParquetPredicate
     @DataProvider
     public Object[][] timestampPrecision()
     {
-        int nanoOfSecond = 123456789;
-        Instant baseTime = Instant.from(LocalDateTime.of(1970, 1, 19, 10, 28, 52, nanoOfSecond).atZone(ZoneOffset.UTC));
+        LocalDateTime baseTime = LocalDateTime.of(1970, 1, 19, 10, 28, 52, 123456789);
         return new Object[][] {
-                {3, baseTime, baseTime.toEpochMilli() * MICROSECONDS_PER_MILLISECOND},
+                {3, baseTime, baseTime.atZone(ZoneOffset.UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND},
                 // note the rounding of micros
-                {6, baseTime, baseTime.getEpochSecond() * MICROSECONDS_PER_SECOND + 123457},
+                {6, baseTime, baseTime.atZone(ZoneOffset.UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + 123457},
                 {9, baseTime, longTimestamp(9, baseTime)}
         };
     }
 
     @Test(dataProvider = "timestampPrecision")
-    public void testTimestamp(int precision, Instant baseTime, Object baseDomainValue)
+    public void testTimestamp(int precision, LocalDateTime baseTime, Object baseDomainValue)
             throws ParquetCorruptionException
     {
         String column = "timestampColumn";
@@ -383,21 +385,21 @@ public class TestTupleDomainParquetPredicate
                 create(ValueSet.all(timestampType), false));
     }
 
-    private static BinaryStatistics timestampColumnStats(Instant minimum, Instant maximum)
+    private static BinaryStatistics timestampColumnStats(LocalDateTime minimum, LocalDateTime maximum)
     {
         BinaryStatistics statistics = new BinaryStatistics();
         statistics.setMinMax(Binary.fromConstantByteArray(toParquetEncoding(minimum)), Binary.fromConstantByteArray(toParquetEncoding(maximum)));
         return statistics;
     }
 
-    private static byte[] toParquetEncoding(Instant timestamp)
+    private static byte[] toParquetEncoding(LocalDateTime timestamp)
     {
-        long startOfDay = LocalDate.ofInstant(timestamp, ZoneOffset.UTC).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli();
-        long timeOfDayNanos = (long) ((timestamp.toEpochMilli() - startOfDay) * Math.pow(10, 6)) + timestamp.getNano() % NANOSECONDS_PER_MILLISECOND;
+        long startOfDay = timestamp.toLocalDate().atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli();
+        long timeOfDayNanos = (long) ((timestamp.atZone(ZoneOffset.UTC).toInstant().toEpochMilli() - startOfDay) * Math.pow(10, 6)) + timestamp.getNano() % NANOSECONDS_PER_MILLISECOND;
 
         Slice slice = Slices.allocate(12);
         slice.setLong(0, timeOfDayNanos);
-        slice.setInt(8, millisToJulianDay(timestamp.toEpochMilli()));
+        slice.setInt(8, millisToJulianDay(timestamp.atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
         return slice.byteArray();
     }
 
@@ -561,5 +563,13 @@ public class TestTupleDomainParquetPredicate
         return new DictionaryDescriptor(
                 new ColumnDescriptor(new String[] {"dummy"}, new PrimitiveType(OPTIONAL, PrimitiveType.PrimitiveTypeName.DOUBLE, 0, ""), 1, 1),
                 Optional.of(new DictionaryPage(Slices.wrappedBuffer(buf.toByteArray()), values.length, PLAIN_DICTIONARY)));
+    }
+
+    private static LongTimestamp longTimestamp(long precision, LocalDateTime start)
+    {
+        checkArgument(precision > MAX_SHORT_PRECISION && precision <= TimestampType.MAX_PRECISION, "Precision is out of range");
+        return new LongTimestamp(
+                start.atZone(ZoneOffset.UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + start.getLong(MICRO_OF_SECOND),
+                (int) round((start.getNano() % PICOSECONDS_PER_NANOSECOND) * PICOSECONDS_PER_NANOSECOND, (int) (TimestampType.MAX_PRECISION - precision)));
     }
 }

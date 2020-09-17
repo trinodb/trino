@@ -19,10 +19,11 @@ import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.parquet.io.api.Binary;
 import org.testng.annotations.Test;
 
+import java.time.LocalDateTime;
+
 import static io.prestosql.parquet.ParquetTimestampUtils.decode;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
-import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static java.time.ZoneOffset.UTC;
 import static org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils.getNanoTime;
 import static org.testng.Assert.assertEquals;
 
@@ -31,9 +32,9 @@ public class TestParquetTimestampUtils
     @Test
     public void testGetTimestampMillis()
     {
-        assertTimestampCorrect("2011-01-01 00:00:00.000000000");
-        assertTimestampCorrect("2001-01-01 01:01:01.000000001");
-        assertTimestampCorrect("2015-12-31 23:59:59.999999999");
+        assertTimestampCorrect(LocalDateTime.parse("2011-01-01T00:00:00.000000000"));
+        assertTimestampCorrect(LocalDateTime.parse("2001-01-01T01:01:01.000000001"));
+        assertTimestampCorrect(LocalDateTime.parse("2015-12-31T23:59:59.999999999"));
     }
 
     @Test
@@ -49,12 +50,12 @@ public class TestParquetTimestampUtils
         }
     }
 
-    private static void assertTimestampCorrect(String timestampString)
+    private static void assertTimestampCorrect(LocalDateTime dateTime)
     {
-        Timestamp timestamp = Timestamp.valueOf(timestampString);
+        Timestamp timestamp = Timestamp.ofEpochSecond(dateTime.toEpochSecond(UTC), dateTime.getNano());
         Binary timestampBytes = getNanoTime(timestamp, false).toBinary();
         DecodedTimestamp decodedTimestamp = decode(timestampBytes);
-        assertEquals(decodedTimestamp.getEpochSeconds() * MILLISECONDS_PER_SECOND + decodedTimestamp.getNanosOfSecond() / NANOSECONDS_PER_MILLISECOND, timestamp.toEpochMilli());
-        assertEquals(decodedTimestamp.getNanosOfSecond(), timestamp.getNanos());
+        assertEquals(decodedTimestamp.getEpochSeconds(), dateTime.toEpochSecond(UTC));
+        assertEquals(decodedTimestamp.getNanosOfSecond(), dateTime.getNano());
     }
 }

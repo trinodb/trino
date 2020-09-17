@@ -47,7 +47,6 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
@@ -913,23 +912,12 @@ public final class HiveUtil
             // ignore unsupported types rather than failing
             HiveType hiveType = field.getType();
             if (hiveType.isSupportedType(table.getStorage().getStorageFormat())) {
-                columns.add(createBaseColumn(field.getName(), hiveColumnIndex, hiveType, getType(hiveType, typeManager, timestampPrecision), REGULAR, field.getComment()));
+                columns.add(createBaseColumn(field.getName(), hiveColumnIndex, hiveType, hiveType.getType(typeManager, timestampPrecision), REGULAR, field.getComment()));
             }
             hiveColumnIndex++;
         }
 
         return columns.build();
-    }
-
-    public static Type getType(HiveType hiveType, TypeManager typeManager, int precision)
-    {
-        Type tentativeType = hiveType.getType(typeManager);
-        if (tentativeType instanceof TimestampType) {
-            if (((TimestampType) tentativeType).getPrecision() != precision) {
-                return TimestampType.createTimestampType(precision);
-            }
-        }
-        return tentativeType;
     }
 
     public static List<HiveColumnHandle> getPartitionKeyColumnHandles(Table table, TypeManager typeManager)

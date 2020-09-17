@@ -11,16 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.base.type;
+package io.prestosql.plugin.hive;
 
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.TimestampType;
-
-public interface PrestoTimestampEncoder<T>
+public enum HiveTimestampPrecision
 {
-    void write(DecodedTimestamp decodedTimestamp, BlockBuilder blockBuilder);
+    MILLIS(3), MICROS(6), NANOS(9);
 
-    T getTimestamp(DecodedTimestamp decodedTimestamp);
+    private final int precision;
 
-    TimestampType getType();
+    HiveTimestampPrecision(int precision)
+    {
+        this.precision = precision;
+    }
+
+    public int getPrecision()
+    {
+        return precision;
+    }
 }

@@ -85,6 +85,9 @@ import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.createGenericHiveRecordCursorProvider;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveTestUtils.getTypes;
+import static io.prestosql.plugin.hive.HiveTimestampPrecision.MICROS;
+import static io.prestosql.plugin.hive.HiveTimestampPrecision.MILLIS;
+import static io.prestosql.plugin.hive.HiveTimestampPrecision.NANOS;
 import static io.prestosql.testing.StructuralTestUtil.rowBlockOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -477,11 +480,13 @@ public class TestHiveFileFormats
 
         // test name-based access
         readColumns = Lists.reverse(writeColumns);
-        assertThatFileFormat(PARQUET)
-                .withWriteColumns(writeColumns)
-                .withReadColumns(readColumns)
-                .withSession(PARQUET_SESSION_USE_NAME)
-                .isReadableByPageSource(new ParquetPageSourceFactory(HDFS_ENVIRONMENT, STATS, new ParquetReaderConfig(), new HiveConfig().setTimestampPrecision(9)));
+        for (HiveTimestampPrecision timestampPrecision : List.of(MILLIS, MICROS, NANOS)) {
+            assertThatFileFormat(PARQUET)
+                    .withWriteColumns(writeColumns)
+                    .withReadColumns(readColumns)
+                    .withSession(PARQUET_SESSION_USE_NAME)
+                    .isReadableByPageSource(new ParquetPageSourceFactory(HDFS_ENVIRONMENT, STATS, new ParquetReaderConfig(), new HiveConfig().setTimestampPrecision(timestampPrecision)));
+        }
     }
 
     private static List<TestColumn> getTestColumnsSupportedByParquet()

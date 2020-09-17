@@ -2975,21 +2975,21 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test(dataProvider = "timestampPrecision")
-    public void testTemporalArrays(int precision)
+    public void testTemporalArrays(String timestampPrecision)
     {
-        Session session = timestampPrecisionSession(precision);
+        Session session = withTimestampPrecision(getSession(), timestampPrecision);
         assertUpdate("DROP TABLE IF EXISTS tmp_array11");
         assertUpdate("CREATE TABLE tmp_array11 AS SELECT ARRAY[DATE '2014-09-30'] AS col", 1);
         assertOneNotNullResult("SELECT col[1] FROM tmp_array11");
         assertUpdate("DROP TABLE IF EXISTS tmp_array12");
         assertUpdate("CREATE TABLE tmp_array12 AS SELECT ARRAY[TIMESTAMP '2001-08-22 03:04:05.321'] AS col", 1);
-        assertOneNotNullResult("SELECT col[1] FROM tmp_array12", session);
+        assertOneNotNullResult(session, "SELECT col[1] FROM tmp_array12");
     }
 
     @Test(dataProvider = "timestampPrecision")
-    public void testMaps(int precision)
+    public void testMaps(String timestampPrecision)
     {
-        Session session = timestampPrecisionSession(precision);
+        Session session = withTimestampPrecision(getSession(), timestampPrecision);
         assertUpdate("DROP TABLE IF EXISTS tmp_map1");
         assertUpdate("CREATE TABLE tmp_map1 AS SELECT MAP(ARRAY[0,1], ARRAY[2,NULL]) AS col", 1);
         assertQuery("SELECT col[0] FROM tmp_map1", "SELECT 2");
@@ -3025,7 +3025,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate("DROP TABLE IF EXISTS tmp_map9");
         assertUpdate("CREATE TABLE tmp_map9 AS SELECT MAP(ARRAY[TIMESTAMP '2001-08-22 03:04:05.321'], ARRAY[TIMESTAMP '2001-08-22 03:04:05.321']) AS col", 1);
-        assertOneNotNullResult("SELECT col[TIMESTAMP '2001-08-22 03:04:05.321'] FROM tmp_map9", session);
+        assertOneNotNullResult(session, "SELECT col[TIMESTAMP '2001-08-22 03:04:05.321'] FROM tmp_map9");
 
         assertUpdate("DROP TABLE IF EXISTS tmp_map10");
         assertUpdate("CREATE TABLE tmp_map10 AS SELECT MAP(ARRAY[DECIMAL '3.14', DECIMAL '12345678901234567890.0123456789'], " +
@@ -4140,14 +4140,16 @@ public class TestHiveIntegrationSmokeTest
     @DataProvider
     public Object[][] timestampPrecisionAndValues()
     {
-        // TODO: revisit values once we handle write path
-        return new Object[][] {{3, "2012-10-31 01:00:08.123"}, {6, "2012-10-31 01:00:08.123000"}, {9, "2012-10-31 01:00:08.123000000"}};
+        // TODO: revisit values once we handle write path and are able to write with higher precision,
+        //  make sure push-down happens correctly in the presence of rounding;
+        // consider using LocalDateTime instead of String
+        return new Object[][] {{"MILLIS", "2012-10-31 01:00:08.123"}, {"MICROS", "2012-10-31 01:00:08.123000"}, {"NANOS", "2012-10-31 01:00:08.123000000"}};
     }
 
     @Test(dataProvider = "timestampPrecisionAndValues")
-    public void testParquetTimestampPredicatePushdown(int precision, String value)
+    public void testParquetTimestampPredicatePushdown(String timestampPrecision, String value)
     {
-        Session session = timestampPrecisionSession(precision);
+        Session session = withTimestampPrecision(getSession(), timestampPrecision);
         assertUpdate("DROP TABLE IF EXISTS test_parquet_timestamp_predicate_pushdown");
         assertUpdate("CREATE TABLE test_parquet_timestamp_predicate_pushdown (t TIMESTAMP) WITH (format = 'PARQUET')");
         assertUpdate(format("INSERT INTO test_parquet_timestamp_predicate_pushdown VALUES (TIMESTAMP '%s')", value), 1);
@@ -7031,10 +7033,10 @@ public class TestHiveIntegrationSmokeTest
 
     private void assertOneNotNullResult(@Language("SQL") String query)
     {
-        assertOneNotNullResult(query, getSession());
+        assertOneNotNullResult(getSession(), query);
     }
 
-    private void assertOneNotNullResult(@Language("SQL") String query, Session session)
+    private void assertOneNotNullResult(Session session, @Language("SQL") String query)
     {
         MaterializedResult results = getQueryRunner().execute(session, query).toTestTypes();
         assertEquals(results.getRowCount(), 1);
@@ -7201,13 +7203,13 @@ public class TestHiveIntegrationSmokeTest
     @DataProvider
     public Object[][] timestampPrecision()
     {
-        return new Object[][] {{3}, {6}, {9}};
+        return new Object[][] {{"MILLIS"}, {"MICROS"}, {"NANOS"}};
     }
 
-    private Session timestampPrecisionSession(int precision)
+    private Session withTimestampPrecision(Session session, String precision)
     {
-        return Session.builder(getSession())
-                .setCatalogSessionProperty(catalog, "timestamp_precision", String.valueOf(precision))
+        return Session.builder(session)
+                .setCatalogSessionProperty(catalog, "timestamp_precision", precision)
                 .build();
     }
 }

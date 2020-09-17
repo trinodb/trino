@@ -372,7 +372,7 @@ public class HiveMetadata
                 tableName.getTableName(),
                 table.get().getParameters(),
                 getPartitionKeyColumnHandles(table.get(), typeManager),
-                getHiveBucketHandle(table.get(), typeManager, getTimestampPrecision(session)));
+                getHiveBucketHandle(table.get(), typeManager));
     }
 
     @Override
@@ -547,7 +547,7 @@ public class HiveMetadata
 
         Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table);
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(table, typeManager, getTimestampPrecision(session))) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(table, typeManager, getTimestampPrecision(session).getPrecision())) {
             columns.add(metadataGetter.apply(columnHandle));
         }
 
@@ -691,7 +691,7 @@ public class HiveMetadata
         SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
         Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
-        return hiveColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
+        return hiveColumnHandles(table, typeManager, getTimestampPrecision(session).getPrecision()).stream()
                 .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
     }
 
@@ -1530,7 +1530,7 @@ public class HiveMetadata
             }
         }
 
-        List<HiveColumnHandle> handles = hiveColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
+        List<HiveColumnHandle> handles = hiveColumnHandles(table, typeManager, getTimestampPrecision(session).getPrecision()).stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toList());
 
@@ -2285,7 +2285,7 @@ public class HiveMetadata
             }
         }
 
-        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table, typeManager, getTimestampPrecision(session));
+        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table, typeManager);
         if (hiveBucketHandle.isEmpty()) {
             // return preferred layout which is partitioned by partition columns
             List<Column> partitionColumns = table.getPartitionColumns();

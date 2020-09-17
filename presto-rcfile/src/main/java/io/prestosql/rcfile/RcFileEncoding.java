@@ -61,7 +61,7 @@ public interface RcFileEncoding
 
     ColumnEncoding dateEncoding(Type type);
 
-    ColumnEncoding timestampEncoding(Type type);
+    ColumnEncoding timestampEncoding(TimestampType type);
 
     ColumnEncoding listEncoding(Type type, ColumnEncoding elementEncoding);
 
@@ -105,7 +105,7 @@ public interface RcFileEncoding
             return dateEncoding(type);
         }
         if (type instanceof TimestampType) {
-            return timestampEncoding(type);
+            return timestampEncoding((TimestampType) type);
         }
         if (type instanceof ArrayType) {
             ColumnEncoding elementType = getEncoding(type.getTypeParameters().get(0));

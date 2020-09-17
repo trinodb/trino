@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.hadoop.TextLineLengthLimitExceededException;
@@ -87,6 +86,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class GenericHiveRecordCursor<K, V extends Writable>
         implements RecordCursor
@@ -112,10 +112,9 @@ public class GenericHiveRecordCursor<K, V extends Writable>
     private final Slice[] slices;
     private final Object[] objects;
     private final boolean[] nulls;
+    private final PrestoTimestampEncoder<?>[] timestampEncoders;
 
     private final long totalBytes;
-
-    private final Map<Type, PrestoTimestampEncoder<?>> timestampEncoders;
 
     private long completedBytes;
     private Object rowData;
@@ -159,6 +158,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         this.slices = new Slice[size];
         this.objects = new Object[size];
         this.nulls = new boolean[size];
+        this.timestampEncoders = new PrestoTimestampEncoder[size];
 
         Map<Type, PrestoTimestampEncoder<?>> timestampEncodersBuilder = new HashMap<>();
         // initialize data columns
@@ -169,7 +169,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             Type columnType = column.getType();
             types[i] = columnType;
             if (columnType instanceof TimestampType) {
-                timestampEncodersBuilder.put(columnType, createTimestampEncoder((TimestampType) columnType));
+                timestampEncoders[i] = createTimestampEncoder((TimestampType) columnType, UTC);
             }
             hiveTypes[i] = column.getHiveType();
 
@@ -177,7 +177,6 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             structFields[i] = field;
             fieldInspectors[i] = field.getFieldObjectInspector();
         }
-        timestampEncoders = ImmutableMap.copyOf(timestampEncodersBuilder);
     }
 
     @Override
@@ -291,18 +290,18 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         else {
             Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
-            longs[column] = getLongExpressedValue(fieldValue, types[column]);
+            longs[column] = getLongExpressedValue(fieldValue, column);
             nulls[column] = false;
         }
     }
 
-    private long getLongExpressedValue(Object value, Type type)
+    private long getLongExpressedValue(Object value, int column)
     {
         if (value instanceof Date) {
             return ((Date) value).toEpochDay();
         }
         if (value instanceof Timestamp) {
-            return shortTimestamp((Timestamp) value, type);
+            return shortTimestamp((Timestamp) value, column);
         }
         if (value instanceof Float) {
             return floatToRawIntBits(((Float) value));
@@ -491,7 +490,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             }
             else if (type instanceof TimestampType) {
                 Timestamp timestamp = (Timestamp) ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
-                objects[column] = longTimestamp(timestamp, type);
+                objects[column] = longTimestamp(timestamp, column);
             }
             else {
                 throw new IllegalStateException("Unsupported type: " + type);
@@ -590,17 +589,17 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         }
     }
 
-    private long shortTimestamp(Timestamp value, Type type)
+    private long shortTimestamp(Timestamp value, int column)
     {
         @SuppressWarnings("unchecked")
-        PrestoTimestampEncoder<Long> encoder = (PrestoTimestampEncoder<Long>) timestampEncoders.get(type);
+        PrestoTimestampEncoder<Long> encoder = (PrestoTimestampEncoder<Long>) timestampEncoders[column];
         return encoder.getTimestamp(new DecodedTimestamp(value.toEpochSecond(), value.getNanos()));
     }
 
-    private LongTimestamp longTimestamp(Timestamp value, Type type)
+    private LongTimestamp longTimestamp(Timestamp value, int column)
     {
         @SuppressWarnings("unchecked")
-        PrestoTimestampEncoder<LongTimestamp> encoder = (PrestoTimestampEncoder<LongTimestamp>) timestampEncoders.get(type);
+        PrestoTimestampEncoder<LongTimestamp> encoder = (PrestoTimestampEncoder<LongTimestamp>) timestampEncoders[column];
         return encoder.getTimestamp(new DecodedTimestamp(value.toEpochSecond(), value.getNanos()));
     }
 }

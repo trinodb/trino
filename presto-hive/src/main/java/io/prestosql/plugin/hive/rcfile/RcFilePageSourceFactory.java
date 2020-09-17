@@ -71,7 +71,6 @@ import static io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWit
 import static io.prestosql.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
-import static io.prestosql.plugin.hive.util.HiveUtil.getType;
 import static io.prestosql.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
 import static io.prestosql.rcfile.text.TextRcFileEncoding.DEFAULT_SEPARATORS;
 import static java.lang.Math.min;
@@ -181,9 +180,9 @@ public class RcFilePageSourceFactory
 
         try {
             ImmutableMap.Builder<Integer, Type> readColumns = ImmutableMap.builder();
-            int timestampPrecision = getTimestampPrecision(session);
+            int timestampPrecision = getTimestampPrecision(session).getPrecision();
             for (HiveColumnHandle column : projectedReaderColumns) {
-                readColumns.put(column.getBaseHiveColumnIndex(), getType(column.getHiveType(), typeManager, timestampPrecision));
+                readColumns.put(column.getBaseHiveColumnIndex(), column.getHiveType().getType(typeManager, timestampPrecision));
             }
 
             RcFileReader rcFileReader = new RcFileReader(

@@ -32,10 +32,10 @@ class LongTimestampEncoder
     }
 
     @Override
-    public LongTimestamp write(LongTimestamp timestamp, BlockBuilder blockBuilder)
+    public void write(DecodedTimestamp decodedTimestamp, BlockBuilder blockBuilder)
     {
+        LongTimestamp timestamp = getTimestamp(decodedTimestamp);
         type.writeObject(blockBuilder, timestamp);
-        return timestamp;
     }
 
     @Override

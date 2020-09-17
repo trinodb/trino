@@ -17,7 +17,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.TimestampType;
 import org.joda.time.DateTimeZone;
 
-import static io.prestosql.plugin.base.type.PrestoTimestampEncoderFactory.scaleEpochMillisToMicros;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
@@ -32,10 +32,10 @@ class ShortTimestampEncoder
     }
 
     @Override
-    public Long write(Long micros, BlockBuilder blockBuilder)
+    public void write(DecodedTimestamp decodedTimestamp, BlockBuilder blockBuilder)
     {
+        Long micros = getTimestamp(decodedTimestamp);
         type.writeLong(blockBuilder, micros);
-        return micros;
     }
 
     @Override
@@ -43,7 +43,7 @@ class ShortTimestampEncoder
     {
         long micros;
         if (timeZone != DateTimeZone.UTC) {
-            micros = scaleEpochMillisToMicros(timeZone.convertUTCToLocal(decodedTimestamp.getEpochSeconds() * MILLISECONDS_PER_SECOND));
+            micros = timeZone.convertUTCToLocal(decodedTimestamp.getEpochSeconds() * MILLISECONDS_PER_SECOND) * MICROSECONDS_PER_MILLISECOND;
         }
         else {
             micros = decodedTimestamp.getEpochSeconds() * MICROSECONDS_PER_SECOND;

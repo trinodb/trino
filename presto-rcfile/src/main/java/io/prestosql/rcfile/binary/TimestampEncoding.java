@@ -22,10 +22,8 @@ import io.prestosql.rcfile.EncodeOutput;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
-import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.prestosql.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
 import static io.prestosql.rcfile.RcFileDecoderUtils.decodeVIntSize;
@@ -45,11 +43,10 @@ public class TimestampEncoding
     private final DateTimeZone timeZone;
     private final PrestoTimestampEncoder<?> prestoTimestampEncoder;
 
-    public TimestampEncoding(Type type, DateTimeZone timeZone)
+    public TimestampEncoding(TimestampType type, DateTimeZone timeZone)
     {
         requireNonNull(type, "type is null");
-        verify(type instanceof TimestampType, "type is not a TimestampType");
-        this.type = (TimestampType) type;
+        this.type = requireNonNull(type, "type is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         prestoTimestampEncoder = createTimestampEncoder(this.type, timeZone);
     }

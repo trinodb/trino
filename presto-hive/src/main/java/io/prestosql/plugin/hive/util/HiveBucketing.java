@@ -174,14 +174,16 @@ public final class HiveBucketing
         return (hashCode & Integer.MAX_VALUE) % bucketCount;
     }
 
-    public static Optional<HiveBucketHandle> getHiveBucketHandle(Table table, TypeManager typeManager, int precision)
+    public static Optional<HiveBucketHandle> getHiveBucketHandle(Table table, TypeManager typeManager)
     {
         Optional<HiveBucketProperty> hiveBucketProperty = table.getStorage().getBucketProperty();
         if (hiveBucketProperty.isEmpty()) {
             return Optional.empty();
         }
 
-        Map<String, HiveColumnHandle> map = getRegularColumnHandles(table, typeManager, precision).stream()
+        // Bucketing on timestamp is not allowed, so we do not have to know session's selected timestamp precision
+        int dummyTimestampPrecision = -42;
+        Map<String, HiveColumnHandle> map = getRegularColumnHandles(table, typeManager, dummyTimestampPrecision).stream()
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
 
         ImmutableList.Builder<HiveColumnHandle> bucketColumns = ImmutableList.builder();

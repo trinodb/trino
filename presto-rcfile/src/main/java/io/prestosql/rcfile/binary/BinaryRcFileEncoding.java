@@ -15,6 +15,7 @@ package io.prestosql.rcfile.binary;
 
 import io.prestosql.rcfile.ColumnEncoding;
 import io.prestosql.rcfile.RcFileEncoding;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
@@ -100,7 +101,7 @@ public class BinaryRcFileEncoding
     }
 
     @Override
-    public ColumnEncoding timestampEncoding(Type type)
+    public ColumnEncoding timestampEncoding(TimestampType type)
     {
         return new TimestampEncoding(type, timeZone);
     }

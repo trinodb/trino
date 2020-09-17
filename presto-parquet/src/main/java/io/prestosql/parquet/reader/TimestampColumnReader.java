@@ -17,7 +17,6 @@ import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.plugin.base.type.DecodedTimestamp;
 import io.prestosql.plugin.base.type.PrestoTimestampEncoder;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -29,7 +28,6 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.util.Objects.requireNonNull;
 
 public class TimestampColumnReader
@@ -43,22 +41,15 @@ public class TimestampColumnReader
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
+    // TODO: refactor to provide type at construction time (https://github.com/prestosql/presto/issues/5198)
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             if (type instanceof TimestampWithTimeZoneType) {
-                int precision = ((TimestampWithTimeZoneType) type).getPrecision();
                 DecodedTimestamp decodedTimestamp = decode(valuesReader.readBytes());
-                if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
-                    long utcMillis = decodedTimestamp.getEpochSeconds() * MILLISECONDS_PER_SECOND + decodedTimestamp.getNanosOfSecond() / NANOSECONDS_PER_MILLISECOND;
-                    type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
-                }
-                else {
-                    type.writeObject(blockBuilder, LongTimestampWithTimeZone.fromEpochMillisAndFraction(
-                                    decodedTimestamp.getEpochSeconds() * MILLISECONDS_PER_SECOND + decodedTimestamp.getNanosOfSecond() / NANOSECONDS_PER_MILLISECOND,
-                                    decodedTimestamp.getNanosOfSecond() % NANOSECONDS_PER_MILLISECOND * PICOSECONDS_PER_NANOSECOND, UTC_KEY));
-                }
+                long utcMillis = decodedTimestamp.getEpochSeconds() * MILLISECONDS_PER_SECOND + decodedTimestamp.getNanosOfSecond() / NANOSECONDS_PER_MILLISECOND;
+                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
             }
             else {
                 PrestoTimestampEncoder<?> prestoTimestampEncoder = createTimestampEncoder((TimestampType) type, timeZone);

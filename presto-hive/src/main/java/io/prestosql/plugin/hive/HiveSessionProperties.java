@@ -369,9 +369,10 @@ public final class HiveSessionProperties
                         "Projection push down enabled for hive",
                         hiveConfig.isProjectionPushdownEnabled(),
                         false),
-                integerProperty(
+                enumProperty(
                         TIMESTAMP_PRECISION,
                         "Precision for timestamp columns in Hive tables",
+                        HiveTimestampPrecision.class,
                         hiveConfig.getTimestampPrecision(),
                         false),
                 booleanProperty(
@@ -645,9 +646,9 @@ public final class HiveSessionProperties
         return session.getProperty(PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
     }
 
-    public static int getTimestampPrecision(ConnectorSession session)
+    public static HiveTimestampPrecision getTimestampPrecision(ConnectorSession session)
     {
-        return session.getProperty(TIMESTAMP_PRECISION, Integer.class);
+        return session.getProperty(TIMESTAMP_PRECISION, HiveTimestampPrecision.class);
     }
 
     public static boolean isParquetOptimizedWriterEnabled(ConnectorSession session)
