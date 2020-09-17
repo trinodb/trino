@@ -1,0 +1,37 @@
+html {
+    scroll-behavior: smooth;
+}
+
+div.highlight {
+    background-color: #f5f5f5;
+}
+
+.sig-name, .sig-paren {
+    font-weight: bold;
+}
+
+.md-typeset code {
+    padding: 0 0.3em;
+}
+
+pre.literal-block {
+    padding: .525rem .6rem;
+}
+
+.md-nav code {
+    font-size: smaller;
+}
+
+.md-typeset .admonition, .md-typeset .admonition-title {
+    font-size: 0.64rem
+}
+
+@media only screen and (min-width: 88.25em) {
+    .md-grid {
+        max-width: 61rem;
+    }
+
+    .md-sidebar--secondary {
+        margin-left: 61rem;
+    }
+}

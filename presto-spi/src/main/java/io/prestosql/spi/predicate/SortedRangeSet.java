@@ -32,6 +32,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -181,6 +182,9 @@ public final class SortedRangeSet
     @Override
     public boolean containsValue(Object value)
     {
+        if (isFloatingPointNaN(type, value)) {
+            return isAll();
+        }
         return includesMarker(Marker.exactly(type, value));
     }
 
@@ -406,7 +410,7 @@ public final class SortedRangeSet
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final SortedRangeSet other = (SortedRangeSet) obj;
+        SortedRangeSet other = (SortedRangeSet) obj;
         return Objects.equals(this.lowIndexedRanges, other.lowIndexedRanges);
     }
 
@@ -459,7 +463,7 @@ public final class SortedRangeSet
 
         SortedRangeSet build()
         {
-            Collections.sort(ranges, Comparator.comparing(Range::getLow));
+            ranges.sort(Comparator.comparing(Range::getLow));
 
             NavigableMap<Marker, Range> result = new TreeMap<>();
 

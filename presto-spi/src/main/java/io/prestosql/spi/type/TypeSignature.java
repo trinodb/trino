@@ -22,12 +22,16 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import static io.prestosql.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TypeSignatureParameter.typeParameter;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
 public class TypeSignature
 {
+    private static final String TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone";
+    private static final String TIMESTAMP_WITHOUT_TIME_ZONE = "timestamp without time zone";
+
     private final String base;
     private final List<TypeSignatureParameter> parameters;
     private final boolean calculated;
@@ -100,6 +104,20 @@ public class TypeSignature
                 parameters.get(0).isLongLiteral() &&
                 parameters.get(0).getLongLiteral() == VarcharType.UNBOUNDED_LENGTH) {
             return base;
+        }
+
+        // TODO: this is somewhat of a hack. We need to evolve TypeSignature to be more "structural" for the special types, similar to DataType from the AST.
+        //   In fact. TypeSignature should become the IR counterpart to DataType from the AST.
+        if (base.equalsIgnoreCase(TIMESTAMP_WITH_TIME_ZONE)) {
+            return format("timestamp(%s) with time zone", parameters.get(0));
+        }
+
+        if (base.equalsIgnoreCase(TIMESTAMP_WITHOUT_TIME_ZONE)) {
+            return format("timestamp(%s) without time zone", parameters.get(0));
+        }
+
+        if (base.equalsIgnoreCase(TIME_WITH_TIME_ZONE)) {
+            return format("time(%s) with time zone", parameters.get(0));
         }
 
         StringBuilder typeName = new StringBuilder(base);

@@ -100,6 +100,7 @@ public class AccessControlManager
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.configFiles = ImmutableList.copyOf(config.getAccessControlFiles());
+        addSystemAccessControlFactory(new DefaultSystemAccessControl.Factory());
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
         addSystemAccessControlFactory(new ReadOnlySystemAccessControl.Factory());
         addSystemAccessControlFactory(new FileBasedSystemAccessControl.Factory());
@@ -132,8 +133,8 @@ public class AccessControlManager
         List<File> configFiles = this.configFiles;
         if (configFiles.isEmpty()) {
             if (!CONFIG_FILE.exists()) {
-                setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
-                log.info("Using system access control %s", AllowAllSystemAccessControl.NAME);
+                setSystemAccessControl(DefaultSystemAccessControl.NAME, ImmutableMap.of());
+                log.info("Using system access control %s", DefaultSystemAccessControl.NAME);
                 return;
             }
             configFiles = ImmutableList.of(CONFIG_FILE);
@@ -191,6 +192,16 @@ public class AccessControlManager
         this.systemAccessControls.set(ImmutableList.of(systemAccessControl));
     }
 
+    @VisibleForTesting
+    public void addSystemAccessControl(SystemAccessControl systemAccessControl)
+    {
+        systemAccessControls.updateAndGet(currentControls ->
+                ImmutableList.<SystemAccessControl>builder()
+                        .addAll(currentControls)
+                        .add(systemAccessControl)
+                        .build());
+    }
+
     @Override
     public void checkCanImpersonateUser(Identity identity, String userName)
     {
@@ -208,6 +219,22 @@ public class AccessControlManager
         requireNonNull(userName, "userName is null");
 
         systemAuthorizationCheck(control -> control.checkCanSetUser(principal, userName));
+    }
+
+    @Override
+    public void checkCanReadSystemInformation(Identity identity)
+    {
+        requireNonNull(identity, "identity is null");
+
+        systemAuthorizationCheck(control -> control.checkCanReadSystemInformation(new SystemSecurityContext(identity, Optional.empty())));
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(Identity identity)
+    {
+        requireNonNull(identity, "identity is null");
+
+        systemAuthorizationCheck(control -> control.checkCanWriteSystemInformation(new SystemSecurityContext(identity, Optional.empty())));
     }
 
     @Override
@@ -420,6 +447,19 @@ public class AccessControlManager
         systemAuthorizationCheck(control -> control.checkCanSetTableComment(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
 
         catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanSetTableComment(context, tableName.asSchemaTableName()));
+    }
+
+    @Override
+    public void checkCanSetColumnComment(SecurityContext securityContext, QualifiedObjectName tableName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+
+        checkCanAccessCatalog(securityContext, tableName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanSetColumnComment(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
+
+        catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanSetColumnComment(context, tableName.asSchemaTableName()));
     }
 
     @Override

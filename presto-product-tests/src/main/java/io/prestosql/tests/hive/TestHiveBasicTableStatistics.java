@@ -25,8 +25,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.tests.TestGroups.SKIP_ON_CDH;
+import static io.prestosql.tests.hive.util.TableLocationUtils.getTableLocation;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
@@ -63,7 +63,7 @@ public class TestHiveBasicTableStatistics
         onPresto().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
 
         try {
-            String location = getTableLocation("nation", false);
+            String location = getTableLocation("nation");
             onPresto().executeQuery(format("" +
                             "CREATE TABLE %s (" +
                             "   n_nationkey bigint, " +
@@ -307,19 +307,19 @@ public class TestHiveBasicTableStatistics
             BasicStatistics statisticsAfterCreate = getBasicStatisticsForTable(onHive(), tableName);
             assertThatStatisticsAreNonZero(statisticsAfterCreate);
             assertThat(statisticsAfterCreate.getNumRows().getAsLong()).isEqualTo(25);
-            assertThat(statisticsAfterCreate.getNumFiles().getAsLong()).isEqualTo(50);
+            assertThat(statisticsAfterCreate.getNumFiles().getAsLong()).isEqualTo(25); // no files for empty buckets
 
             insertNationData(onPresto(), tableName);
 
             BasicStatistics statisticsAfterInsert = getBasicStatisticsForTable(onHive(), tableName);
             assertThat(statisticsAfterInsert.getNumRows().getAsLong()).isEqualTo(50);
-            assertThat(statisticsAfterInsert.getNumFiles().getAsLong()).isEqualTo(100);
+            assertThat(statisticsAfterInsert.getNumFiles().getAsLong()).isEqualTo(50); // no files for empty buckets
 
             insertNationData(onPresto(), tableName);
 
             BasicStatistics statisticsAfterInsert2 = getBasicStatisticsForTable(onHive(), tableName);
             assertThat(statisticsAfterInsert2.getNumRows().getAsLong()).isEqualTo(75);
-            assertThat(statisticsAfterInsert2.getNumFiles().getAsLong()).isEqualTo(150);
+            assertThat(statisticsAfterInsert2.getNumFiles().getAsLong()).isEqualTo(75); // no files for empty buckets
         }
         finally {
             onPresto().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
@@ -353,7 +353,7 @@ public class TestHiveBasicTableStatistics
             BasicStatistics firstPartitionStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
             assertThatStatisticsAreNonZero(firstPartitionStatistics);
             assertThat(firstPartitionStatistics.getNumRows().getAsLong()).isEqualTo(5);
-            assertThat(firstPartitionStatistics.getNumFiles().getAsLong()).isEqualTo(10);
+            assertThat(firstPartitionStatistics.getNumFiles().getAsLong()).isEqualTo(5); // no files for empty buckets
 
             String insert = format("INSERT INTO %s (n_nationkey, n_regionkey, n_name, n_comment) " +
                     "SELECT n_nationkey, n_regionkey, n_name, n_comment " +
@@ -364,13 +364,13 @@ public class TestHiveBasicTableStatistics
 
             BasicStatistics secondPartitionStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=2");
             assertThat(secondPartitionStatistics.getNumRows().getAsLong()).isEqualTo(5);
-            assertThat(secondPartitionStatistics.getNumFiles().getAsLong()).isEqualTo(10);
+            assertThat(secondPartitionStatistics.getNumFiles().getAsLong()).isEqualTo(4); // no files for empty buckets
 
             onPresto().executeQuery(insert);
 
             BasicStatistics secondPartitionUpdatedStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=2");
             assertThat(secondPartitionUpdatedStatistics.getNumRows().getAsLong()).isEqualTo(10);
-            assertThat(secondPartitionUpdatedStatistics.getNumFiles().getAsLong()).isEqualTo(20);
+            assertThat(secondPartitionUpdatedStatistics.getNumFiles().getAsLong()).isEqualTo(8); // no files for empty buckets
         }
         finally {
             onPresto().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
@@ -445,15 +445,6 @@ public class TestHiveBasicTableStatistics
         OptionalLong rawDataSize = getTableParameterValue(result, "rawDataSize");
         OptionalLong totalSize = getTableParameterValue(result, "totalSize");
         return new BasicStatistics(numFiles, numRows, rawDataSize, totalSize);
-    }
-
-    private static String getTableLocation(String tableName, boolean partitioned)
-    {
-        String regex = "/[^/]*$";
-        if (partitioned) {
-            regex = "/[^/]*" + regex;
-        }
-        return getOnlyElement(onPresto().executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '%s', '') FROM %s", regex, tableName)).column(1));
     }
 
     private static OptionalLong getTableParameterValue(QueryResult describeResult, String key)

@@ -13,17 +13,21 @@
  */
 package io.prestosql.plugin.base.security;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.PrincipalType;
+import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemSecurityContext;
+import io.prestosql.spi.type.VarcharType;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.testng.annotations.Test;
 
@@ -66,11 +70,27 @@ public class TestFileBasedSystemAccessControl
     private static final SystemSecurityContext ADMIN = new SystemSecurityContext(admin, queryId);
     private static final SystemSecurityContext BOB = new SystemSecurityContext(bob, queryId);
     private static final SystemSecurityContext CHARLIE = new SystemSecurityContext(charlie, queryId);
+    private static final SystemSecurityContext ALICE = new SystemSecurityContext(alice, queryId);
+    private static final SystemSecurityContext JOE = new SystemSecurityContext(joe, queryId);
 
     private static final String DROP_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop schema .*";
     private static final String RENAME_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename schema from .* to .*";
     private static final String AUTH_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set authorization for schema .* to .*";
     private static final String SHOW_CREATE_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot show create schema for .*";
+
+    private static final String SELECT_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot select from table .*";
+    private static final String SHOW_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot show columns of table .*";
+    private static final String ADD_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot add a column to table .*";
+    private static final String DROP_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop a column from table .*";
+    private static final String RENAME_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename a column in table .*";
+    private static final String TABLE_COMMENT_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot comment table to .*";
+    private static final String INSERT_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot insert into table .*";
+    private static final String DELETE_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot delete from table .*";
+    private static final String DROP_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop table .*";
+    private static final String CREATE_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot show create table for .*";
+    private static final String RENAME_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename table .*";
+    private static final String GRANT_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot grant privilege DELETE on table .*";
+    private static final String REVOKE_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot revoke privilege DELETE on table .*";
 
     @Test
     public void testSchemaRulesForCheckCanDropSchema()
@@ -147,6 +167,163 @@ public class TestFileBasedSystemAccessControl
         assertAccessDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "bob")), SHOW_CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "staff")), SHOW_CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "test")), SHOW_CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanSelectFromColumns()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanSelectFromColumns(ALICE, new CatalogSchemaTableName("some-catalog", "test", "test"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of("bobcolumn"));
+        accessControl.checkCanSelectFromColumns(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of("bobcolumn"));
+        accessControl.checkCanSelectFromColumns(JOE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of());
+        assertAccessDenied(() -> accessControl.checkCanSelectFromColumns(ADMIN, new CatalogSchemaTableName("some-catalog", "secret", "secret"), ImmutableSet.of()), SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSelectFromColumns(JOE, new CatalogSchemaTableName("some-catalog", "secret", "secret"), ImmutableSet.of()), SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanShowColumns()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanShowColumns(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
+        accessControl.checkCanShowColumns(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
+    }
+
+    @Test
+    public void testTableRulesForCheckCanShowColumnsWithNoAccess()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-no-access.json");
+        assertAccessDenied(() -> accessControl.checkCanShowColumns(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), SHOW_COLUMNS_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanShowTables(BOB, new CatalogSchemaName("some-catalog", "bobschema"));
+    }
+
+    @Test
+    public void testTableRulesForFilterColumns()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        assertEquals(
+                accessControl.filterColumns(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableList.of(column("a"))),
+                ImmutableList.of(column("a")));
+        assertEquals(
+                accessControl.filterColumns(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableList.of(column("a"))),
+                ImmutableList.of(column("a")));
+    }
+
+    @Test
+    public void testTableRulesForFilterColumnsWithNoAccess()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-no-access.json");
+        assertEquals(
+                accessControl.filterColumns(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableList.of(column("a"))),
+                ImmutableList.of());
+    }
+
+    @Test
+    public void testTableRulesForCheckCanInsertIntoTable()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanInsertIntoTable(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
+        accessControl.checkCanInsertIntoTable(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
+        assertAccessDenied(() -> accessControl.checkCanInsertIntoTable(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), INSERT_TABLE_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanInsertIntoTable(BOB, new CatalogSchemaTableName("some-catalog", "test", "test")), INSERT_TABLE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanDropTable()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanDropTable(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
+        assertAccessDenied(() -> accessControl.checkCanDropTable(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), DROP_TABLE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanDeleteFromTable()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanDeleteFromTable(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
+        assertAccessDenied(() -> accessControl.checkCanDeleteFromTable(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), DELETE_TABLE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanGrantTablePrivilege()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanGrantTablePrivilege(ADMIN, Privilege.DELETE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), null, false);
+        assertAccessDenied(() -> accessControl.checkCanGrantTablePrivilege(BOB, Privilege.DELETE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), null, false), GRANT_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanRevokeTablePrivilege()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanRevokeTablePrivilege(ADMIN, Privilege.DELETE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), null, false);
+        assertAccessDenied(() -> accessControl.checkCanRevokeTablePrivilege(BOB, Privilege.DELETE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), null, false), REVOKE_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanShowCreateTable()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanShowCreateTable(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
+        assertAccessDenied(() -> accessControl.checkCanShowCreateTable(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), CREATE_TABLE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanAddColumn()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanAddColumn(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
+        assertAccessDenied(() -> accessControl.checkCanAddColumn(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), ADD_COLUMNS_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanDropColumn()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanDropColumn(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
+        assertAccessDenied(() -> accessControl.checkCanDropColumn(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), DROP_COLUMNS_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanRenameColumn()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanRenameColumn(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
+        assertAccessDenied(() -> accessControl.checkCanRenameColumn(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), RENAME_COLUMNS_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanSetTableComment()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanSetTableComment(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
+        assertAccessDenied(() -> accessControl.checkCanSetTableComment(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), TABLE_COMMENT_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanRenameTable()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanRenameTable(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), new CatalogSchemaTableName("some-catalog", "aliceschema", "newbobtable"));
+        accessControl.checkCanRenameTable(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "alicetable"), new CatalogSchemaTableName("some-catalog", "aliceschema", "newalicetable"));
+        assertAccessDenied(() -> accessControl.checkCanRenameTable(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), new CatalogSchemaTableName("some-catalog", "bobschema", "newbobtable")), RENAME_TABLE_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanRenameTable(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "alicetable"), new CatalogSchemaTableName("some-catalog", "bobschema", "newalicetable")), RENAME_TABLE_ACCESS_DENIED_MESSAGE);
     }
 
     @Test
@@ -229,7 +406,7 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
-    public void testDocsExample()
+    public void testQueryDocsExample()
     {
         String rulesFile = new File("../presto-docs/src/main/sphinx/security/query-access.json").getAbsolutePath();
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(ImmutableMap.of("security.config-file", rulesFile));
@@ -248,6 +425,49 @@ public class TestFileBasedSystemAccessControl
         assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any"));
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of());
         assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any"));
+    }
+
+    @Test
+    public void testSystemInformation()
+    {
+        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("system-information.json");
+
+        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
+        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
+
+        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(alice, Optional.empty()));
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, Optional.empty())));
+
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
+
+        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(nonAsciiUser, Optional.empty()));
+        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(nonAsciiUser, Optional.empty()));
+    }
+
+    @Test
+    public void testSystemInformationNotSet()
+    {
+        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("catalog.json");
+
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
+    }
+
+    @Test
+    public void testSystemInformationDocsExample()
+    {
+        String rulesFile = new File("../presto-docs/src/main/sphinx/security/system-information-access.json").getAbsolutePath();
+        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(ImmutableMap.of("security.config-file", rulesFile));
+
+        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
+        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
+
+        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(alice, Optional.empty()));
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, Optional.empty())));
+
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
     }
 
     @Test
@@ -363,5 +583,10 @@ public class TestFileBasedSystemAccessControl
         assertThatThrownBy(callable)
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageMatching(expectedMessage);
+    }
+
+    private static ColumnMetadata column(String columnName)
+    {
+        return new ColumnMetadata(columnName, VarcharType.VARCHAR);
     }
 }

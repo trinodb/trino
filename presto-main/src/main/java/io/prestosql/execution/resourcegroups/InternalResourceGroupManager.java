@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.prestosql.execution.ManagedQueryExecution;
-import io.prestosql.execution.resourcegroups.InternalResourceGroup.RootInternalResourceGroup;
 import io.prestosql.server.ResourceGroupInfo;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
@@ -72,7 +71,7 @@ public final class InternalResourceGroupManager<C>
     private static final String NAME_PROPERTY = "resource-groups.configuration-manager";
 
     private final ScheduledExecutorService refreshExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("ResourceGroupManager"));
-    private final List<RootInternalResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
+    private final List<InternalResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<ResourceGroupId, InternalResourceGroup> groups = new ConcurrentHashMap<>();
     private final AtomicReference<ResourceGroupConfigurationManager<C>> configurationManager;
     private final ResourceGroupConfigurationManagerContext configurationManagerContext;
@@ -183,7 +182,7 @@ public final class InternalResourceGroupManager<C>
     public void start()
     {
         if (started.compareAndSet(false, true)) {
-            refreshExecutor.scheduleWithFixedDelay(this::refreshAndStartQueries, 1, 1, TimeUnit.MILLISECONDS);
+            refreshExecutor.scheduleWithFixedDelay(this::refreshAndStartQueries, 1, 100, TimeUnit.MILLISECONDS);
         }
     }
 
@@ -199,7 +198,7 @@ public final class InternalResourceGroupManager<C>
             // nano time has overflowed
             lastCpuQuotaGenerationNanos.set(nanoTime);
         }
-        for (RootInternalResourceGroup group : rootGroups) {
+        for (InternalResourceGroup group : rootGroups) {
             try {
                 if (elapsedSeconds > 0) {
                     group.generateCpuQuota(elapsedSeconds);
@@ -229,7 +228,7 @@ public final class InternalResourceGroupManager<C>
                 group = parent.getOrCreateSubGroup(id.getLastSegment());
             }
             else {
-                RootInternalResourceGroup root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor);
+                InternalResourceGroup root = new InternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor);
                 group = root;
                 rootGroups.add(root);
             }
@@ -257,7 +256,7 @@ public final class InternalResourceGroupManager<C>
     public int getQueriesQueuedOnInternal()
     {
         int queriesQueuedInternal = 0;
-        for (RootInternalResourceGroup rootGroup : rootGroups) {
+        for (InternalResourceGroup rootGroup : rootGroups) {
             synchronized (rootGroup) {
                 queriesQueuedInternal += getQueriesQueuedOnInternal(rootGroup);
             }

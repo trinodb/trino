@@ -16,6 +16,7 @@ package io.prestosql.execution;
 import com.google.common.base.Functions;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
@@ -28,10 +29,13 @@ import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.execution.executor.TaskExecutor;
 import io.prestosql.memory.MemoryPool;
 import io.prestosql.memory.QueryContext;
+import io.prestosql.operator.TaskContext;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spiller.SpillSpaceTracker;
 import io.prestosql.sql.planner.LocalExecutionPlanner;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -46,7 +50,9 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.prestosql.execution.SqlTask.createSqlTask;
+import static io.prestosql.execution.TaskStatus.STARTING_VERSION;
 import static io.prestosql.execution.TaskTestUtils.EMPTY_SOURCES;
 import static io.prestosql.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static io.prestosql.execution.TaskTestUtils.SPLIT;
@@ -56,6 +62,7 @@ import static io.prestosql.execution.TaskTestUtils.createTestingPlanner;
 import static io.prestosql.execution.TaskTestUtils.updateTask;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -103,8 +110,9 @@ public class TestSqlTask
         driverYieldExecutor.shutdown();
     }
 
-    @Test
+    @Test(timeOut = 30_000)
     public void testEmptyQuery()
+            throws Exception
     {
         SqlTask sqlTask = createInitialTask();
 
@@ -115,9 +123,11 @@ public class TestSqlTask
                         .withNoMoreBufferIds(),
                 OptionalInt.empty());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION);
 
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION);
 
         taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
@@ -127,28 +137,33 @@ public class TestSqlTask
                 OptionalInt.empty());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
-        taskInfo = sqlTask.getTaskInfo();
+        taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
     }
 
-    @Test
+    @Test(timeOut = 30_000)
     public void testSimpleQuery()
             throws Exception
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
+        assertEquals(sqlTask.getTaskStatus().getState(), TaskState.RUNNING);
+        assertEquals(sqlTask.getTaskStatus().getVersion(), STARTING_VERSION);
+        sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
                 OptionalInt.empty());
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
-        taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        TaskInfo taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
+        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION + 1);
+
+        // completed future should be returned immediately when old caller's version is used
+        assertTrue(sqlTask.getTaskInfo(STARTING_VERSION).isDone());
 
         BufferResult results = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE)).get();
-        assertEquals(results.isBufferComplete(), false);
+        assertFalse(results.isBufferComplete());
         assertEquals(results.getSerializedPages().size(), 1);
         assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
 
@@ -161,8 +176,11 @@ public class TestSqlTask
         TaskInfo info = sqlTask.abortTaskResults(OUT);
         assertEquals(info.getOutputBuffers().getState(), BufferState.FINISHED);
 
-        taskInfo = sqlTask.getTaskInfo(taskInfo.getTaskStatus().getState()).get(1, SECONDS);
+        taskInfo = sqlTask.getTaskInfo(info.getTaskStatus().getVersion()).get();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
+
+        // completed future should be returned immediately when task is finished
+        assertTrue(sqlTask.getTaskInfo(STARTING_VERSION + 100).isDone());
 
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
@@ -196,25 +214,27 @@ public class TestSqlTask
         assertNotNull(taskInfo.getStats().getEndTime());
     }
 
-    @Test
+    @Test(timeOut = 30_000)
     public void testAbort()
             throws Exception
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
+        assertEquals(sqlTask.getTaskStatus().getState(), TaskState.RUNNING);
+        assertEquals(sqlTask.getTaskStatus().getVersion(), STARTING_VERSION);
+        sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
                 OptionalInt.empty());
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
-        taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        TaskInfo taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
+        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION + 1);
 
         sqlTask.abortTaskResults(OUT);
 
-        taskInfo = sqlTask.getTaskInfo(taskInfo.getTaskStatus().getState()).get(1, SECONDS);
+        taskInfo = sqlTask.getTaskInfo(taskInfo.getTaskStatus().getVersion()).get();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo();
@@ -270,7 +290,7 @@ public class TestSqlTask
         assertTrue(bufferResult.get().isBufferComplete());
     }
 
-    @Test
+    @Test(timeOut = 30_000)
     public void testBufferNotCloseOnFail()
             throws Exception
     {
@@ -281,9 +301,9 @@ public class TestSqlTask
         ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE));
         assertFalse(bufferResult.isDone());
 
-        TaskState taskState = sqlTask.getTaskInfo().getTaskStatus().getState();
+        long taskStatusVersion = sqlTask.getTaskInfo().getTaskStatus().getVersion();
         sqlTask.failed(new Exception("test"));
-        assertEquals(sqlTask.getTaskInfo(taskState).get(1, SECONDS).getTaskStatus().getState(), TaskState.FAILED);
+        assertEquals(sqlTask.getTaskInfo(taskStatusVersion).get().getTaskStatus().getState(), TaskState.FAILED);
 
         // buffer will not be closed by fail event.  event is async so wait a bit for event to fire
         try {
@@ -294,6 +314,33 @@ public class TestSqlTask
             // expected
         }
         assertFalse(sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE)).isDone());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testDynamicFilters()
+            throws Exception
+    {
+        SqlTask sqlTask = createInitialTask();
+        sqlTask.updateTask(TEST_SESSION,
+                Optional.of(PLAN_FRAGMENT),
+                ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), false)),
+                createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withBuffer(OUT, 0)
+                        .withNoMoreBufferIds(),
+                OptionalInt.empty());
+
+        assertEquals(sqlTask.getTaskStatus().getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION);
+
+        TaskContext taskContext = sqlTask.getQueryContext().getTaskContextByTaskId(sqlTask.getTaskId());
+
+        ListenableFuture<?> future = sqlTask.getTaskStatus(STARTING_VERSION);
+        assertFalse(future.isDone());
+
+        // make sure future gets unblocked when dynamic filters version is updated
+        taskContext.updateDomains(ImmutableMap.of(new DynamicFilterId("filter"), Domain.none(BIGINT)));
+        assertEquals(sqlTask.getTaskStatus().getVersion(), STARTING_VERSION + 1);
+        assertEquals(sqlTask.getTaskStatus().getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION + 1);
+        future.get();
     }
 
     private SqlTask createInitialTask()
@@ -311,7 +358,7 @@ public class TestSqlTask
                 DataSize.of(1, MEGABYTE),
                 new SpillSpaceTracker(DataSize.of(1, GIGABYTE)));
 
-        queryContext.addTaskContext(new TaskStateMachine(taskId, taskNotificationExecutor), testSessionBuilder().build(), false, false, OptionalInt.empty());
+        queryContext.addTaskContext(new TaskStateMachine(taskId, taskNotificationExecutor), testSessionBuilder().build(), () -> {}, false, false, OptionalInt.empty());
 
         return createSqlTask(
                 taskId,

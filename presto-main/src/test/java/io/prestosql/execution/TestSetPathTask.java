@@ -101,7 +101,8 @@ public class TestSetPathTask
                 accessControl,
                 executor,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                Optional.empty());
     }
 
     private void executeSetPathTask(PathSpecification pathSpecification, QueryStateMachine stateMachine)

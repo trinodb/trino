@@ -32,6 +32,7 @@ import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.testing.TestingNodeManager;
@@ -196,7 +197,7 @@ public class TestRaptorSplitManager
     private static ConnectorSplitSource getSplits(RaptorSplitManager splitManager, ConnectorTableHandle table)
     {
         ConnectorTransactionHandle transaction = new RaptorTransactionHandle();
-        return splitManager.getSplits(transaction, SESSION, table, UNGROUPED_SCHEDULING);
+        return splitManager.getSplits(transaction, SESSION, table, UNGROUPED_SCHEDULING, DynamicFilter.EMPTY);
     }
 
     private static List<ConnectorSplit> getSplits(ConnectorSplitSource source, int maxSize)

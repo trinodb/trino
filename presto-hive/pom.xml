@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>335-SNAPSHOT</version>
+        <version>342-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive</artifactId>
@@ -19,7 +19,7 @@
     <dependencies>
         <dependency>
             <groupId>io.prestosql</groupId>
-            <artifactId>presto-plugin-toolkit</artifactId>
+            <artifactId>presto-memory-context</artifactId>
         </dependency>
 
         <dependency>
@@ -34,7 +34,7 @@
 
         <dependency>
             <groupId>io.prestosql</groupId>
-            <artifactId>presto-memory-context</artifactId>
+            <artifactId>presto-plugin-toolkit</artifactId>
         </dependency>
 
         <dependency>
@@ -53,18 +53,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.thrift</groupId>
-            <artifactId>libthrift</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>aircompressor</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>stats</artifactId>
         </dependency>
 
         <dependency>
@@ -79,7 +69,7 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>log</artifactId>
+            <artifactId>configuration</artifactId>
         </dependency>
 
         <dependency>
@@ -89,64 +79,32 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>jmx</artifactId>
+        </dependency>          
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>configuration</artifactId>
+            <artifactId>log</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>security</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>stats</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <optional>true</optional>
-        </dependency>
-
-        <dependency>
-            <groupId>it.unimi.dsi</groupId>
-            <artifactId>fastutil</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.xml.bind</groupId>
-            <artifactId>jaxb-api</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.weakref</groupId>
-            <artifactId>jmxutils</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
         </dependency>
 
         <dependency>
@@ -165,13 +123,23 @@
         </dependency>
 
         <dependency>
-            <groupId>org.alluxio</groupId>
-            <artifactId>alluxio-shaded-client</artifactId>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-sts</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.google.cloud.bigdataoss</groupId>
-            <artifactId>util</artifactId>
+            <artifactId>gcs-connector</artifactId>
         </dependency>
 
         <dependency>
@@ -181,23 +149,43 @@
 
         <dependency>
             <groupId>com.google.cloud.bigdataoss</groupId>
-            <artifactId>util-hadoop</artifactId>
+            <artifactId>util</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.google.cloud.bigdataoss</groupId>
-            <artifactId>gcs-connector</artifactId>
+            <artifactId>util-hadoop</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-sts</artifactId>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
-            <groupId>org.xerial.snappy</groupId>
-            <artifactId>snappy-java</artifactId>
-            <scope>runtime</scope>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.qubole.rubix</groupId>
+            <artifactId>rubix-presto-shaded</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>it.unimi.dsi</groupId>
+            <artifactId>fastutil</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -206,19 +194,46 @@
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
+            <groupId>javax.validation</groupId>
+            <artifactId>validation-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>security</artifactId>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.alluxio</groupId>
+            <artifactId>alluxio-shaded-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.thrift</groupId>
+            <artifactId>libthrift</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.weakref</groupId>
+            <artifactId>jmxutils</artifactId>
         </dependency>
 
         <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.xml.bind</groupId>
+            <artifactId>jaxb-api</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.xerial.snappy</groupId>
+            <artifactId>snappy-java</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -242,19 +257,25 @@
         </dependency>
 
         <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
             <scope>provided</scope>
         </dependency>
 
-        <!-- for testing -->
+        <!-- for benchmark -->
         <dependency>
             <groupId>io.prestosql</groupId>
-            <artifactId>presto-spi</artifactId>
-            <type>test-jar</type>
+            <artifactId>presto-benchmark</artifactId>
             <scope>test</scope>
         </dependency>
 
+        <!-- for testing -->
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-client</artifactId>
@@ -282,6 +303,13 @@
 
         <dependency>
             <groupId>io.prestosql</groupId>
+            <artifactId>presto-spi</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-testing</artifactId>
             <scope>test</scope>
         </dependency>
@@ -299,31 +327,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.qubole.rubix</groupId>
-            <artifactId>rubix-presto-shaded</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -333,10 +338,9 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- for benchmark -->
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-benchmark</artifactId>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -349,6 +353,12 @@
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-generator-annprocess</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

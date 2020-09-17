@@ -41,6 +41,16 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanReadSystemInformation(Identity identity)
+    {
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(Identity identity)
+    {
+    }
+
+    @Override
     public void checkCanExecuteQuery(Identity identity)
     {
     }
@@ -125,6 +135,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName)
     {
     }
 

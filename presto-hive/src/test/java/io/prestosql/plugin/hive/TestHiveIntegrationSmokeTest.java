@@ -20,8 +20,10 @@ import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.cost.StatsAndCosts;
+import io.prestosql.execution.QueryInfo;
 import io.prestosql.metadata.InsertTableHandle;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
@@ -51,6 +53,7 @@ import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.ResultWithQueryId;
 import io.prestosql.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
@@ -70,6 +73,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -91,6 +95,7 @@ import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
+import static io.prestosql.plugin.hive.HiveColumnHandle.PARTITION_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.prestosql.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
@@ -100,6 +105,7 @@ import static io.prestosql.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY
 import static io.prestosql.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
+import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.prestosql.spi.predicate.Marker.Bound.ABOVE;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
@@ -125,6 +131,7 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -134,6 +141,8 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -150,13 +159,11 @@ public class TestHiveIntegrationSmokeTest
 {
     private final String catalog;
     private final Session bucketedSession;
-    private final TypeTranslator typeTranslator;
 
     public TestHiveIntegrationSmokeTest()
     {
         this.catalog = HIVE_CATALOG;
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
-        this.typeTranslator = new HiveTypeTranslator();
     }
 
     @Override
@@ -164,7 +171,10 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setHiveProperties(ImmutableMap.of("hive.allow-register-partition-procedure", "true"))
+                .setHiveProperties(ImmutableMap.of(
+                        "hive.allow-register-partition-procedure", "true",
+                        // Reduce writer sort buffer size to ensure SortingFileWriter gets used
+                        "hive.writer-sort-buffer-size", "1MB"))
                 .setInitialTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
                 .build();
     }
@@ -330,6 +340,29 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(session, "select a.id, b.id from partition_test7 a join partition_test8 b on (a.id = b.id) where a.ds = 'a'", "Filter required on tpch\\.partition_test8 for at least one partition column:.*");
         assertUpdate(session, "DROP TABLE partition_test7");
         assertUpdate(session, "DROP TABLE partition_test8");
+    }
+
+    @Test
+    public void testNaNPartition()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_nan_partition");
+        assertUpdate("CREATE TABLE test_nan_partition(a varchar, d double) WITH (partitioned_by = ARRAY['d'])");
+        assertUpdate("INSERT INTO test_nan_partition VALUES ('a', 42e0), ('b', nan())", 2);
+
+        assertQuery(
+                "SELECT a, d, regexp_replace(\"$path\", '.*(/[^/]*/[^/]*/)[^/]*', '...$1...') FROM test_nan_partition",
+                "VALUES " +
+                        "  ('a', 42, '.../test_nan_partition/d=42.0/...'), " +
+                        "  ('b', SQRT(-1), '.../test_nan_partition/d=NaN/...')"); // SQRT(-1) is H2's recommended way to obtain NaN
+
+        assertQueryReturnsEmptyResult("SELECT a FROM test_nan_partition JOIN (VALUES 33e0) u(x) ON d = x");
+        assertQueryReturnsEmptyResult("SELECT a FROM test_nan_partition JOIN (VALUES 33e0) u(x) ON d = x OR rand() = 42");
+
+        assertQuery(
+                "SELECT * FROM test_nan_partition t1 JOIN test_nan_partition t2 ON t1.d = t2.d",
+                "VALUES ('a', 42, 'a', 42)");
+
+        assertUpdate("DROP TABLE test_nan_partition");
     }
 
     @Test
@@ -1148,7 +1181,7 @@ public class TestHiveIntegrationSmokeTest
         data.put("1.2345678901234578E14", new TypeAndEstimate(DOUBLE, new EstimatedStatsAndCost(1.0, 17.0, 17.0, 0.0, 0.0)));
         data.put("123456789012345678901234.567", new TypeAndEstimate(createDecimalType(30, 3), new EstimatedStatsAndCost(1.0, 25.0, 25.0, 0.0, 0.0)));
         data.put("2019-01-01", new TypeAndEstimate(DateType.DATE, new EstimatedStatsAndCost(1.0, 13.0, 13.0, 0.0, 0.0)));
-        data.put("2019-01-01 23:22:21.123", new TypeAndEstimate(TimestampType.TIMESTAMP, new EstimatedStatsAndCost(1.0, 17.0, 17.0, 0.0, 0.0)));
+        data.put("2019-01-01 23:22:21.123", new TypeAndEstimate(TimestampType.TIMESTAMP_MILLIS, new EstimatedStatsAndCost(1.0, 17.0, 17.0, 0.0, 0.0)));
         int index = 0;
         for (Map.Entry<Object, TypeAndEstimate> entry : data.entrySet()) {
             index++;
@@ -1564,8 +1597,8 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreateTableWithUnsupportedType()
     {
-        assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type(x time)", "Unsupported Hive type: time");
-        assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type AS SELECT TIME '00:00:00' x", "Unsupported Hive type: time");
+        assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type(x time)", "\\QUnsupported Hive type: time(3)\\E");
+        assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type AS SELECT TIME '00:00:00' x", "\\QUnsupported Hive type: time(0)\\E");
     }
 
     @Test
@@ -3228,7 +3261,8 @@ public class TestHiveIntegrationSmokeTest
                         "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
                         "   orc_bloom_filter_fpp = 7E-1,\n" +
                         "   partitioned_by = ARRAY['c5'],\n" +
-                        "   sorted_by = ARRAY['c1','c 2 DESC']\n" +
+                        "   sorted_by = ARRAY['c1','c 2 DESC'],\n" +
+                        "   transactional = true\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -3251,78 +3285,91 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
     }
 
-    @Test
-    public void testCreateExternalTable()
+    private void testCreateExternalTable(
+            String tableName,
+            String fileContents,
+            String expectedResults,
+            List<String> tableProperties)
             throws Exception
     {
         File tempDir = createTempDir();
         File dataFile = new File(tempDir, "test.txt");
-        Files.write("hello\u0001world\nbye\u0001world", dataFile, UTF_8);
+        Files.asCharSink(dataFile, UTF_8).write(fileContents);
 
-        @Language("SQL") String createTableSql = format("" +
-                        "CREATE TABLE %s.%s.test_create_external (\n" +
-                        "   action varchar,\n" +
-                        "   name varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   external_location = '%s',\n" +
-                        "   format = 'TEXTFILE',\n" +
-                        "   textfile_field_separator = U&'\\0001'\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
-                new Path(tempDir.toURI().toASCIIString()).toString());
-
-        assertUpdate(createTableSql);
-        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_create_external");
-        assertEquals(actual.getOnlyValue(), createTableSql);
-
-        assertQuery("SELECT action, name FROM test_create_external", "VALUES ('hello', 'world'), ('bye', 'world')");
-        assertUpdate("DROP TABLE test_create_external");
-
-        // file should still exist after drop
-        assertFile(dataFile);
-
-        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
-    }
-
-    @Test
-    public void testCreateExternalTableTextFileFieldSeparatorEscape()
-            throws Exception
-    {
-        String tableName = "test_create_external_text_file_with_field_separator_and_escape";
-
-        File tempDir = createTempDir();
-        File dataFile = new File(tempDir, "test.txt");
-        Files.write("HelloEFFWorld\nByeEFFWorld", dataFile, UTF_8);
+        // Table properties
+        StringJoiner propertiesSql = new StringJoiner(",\n   ");
+        propertiesSql.add(
+                format("external_location = '%s'", new Path(tempDir.toURI().toASCIIString())));
+        propertiesSql.add("format = 'TEXTFILE'");
+        tableProperties.forEach(propertiesSql::add);
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
-                        "   action varchar,\n" +
-                        "   name varchar\n" +
+                        "   col1 varchar,\n" +
+                        "   col2 varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   external_location = '%s',\n" +
-                        "   format = 'TEXTFILE',\n" +
-                        "   textfile_field_separator = 'F',\n" +
-                        "   textfile_field_separator_escape = 'E'\n" +
+                        "   %s\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 tableName,
-                new Path(tempDir.toURI().toASCIIString()).toString());
+                propertiesSql);
 
         assertUpdate(createTableSql);
-        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_create_external_text_file_with_field_separator_and_escape");
+        MaterializedResult actual = computeActual(format("SHOW CREATE TABLE %s", tableName));
         assertEquals(actual.getOnlyValue(), createTableSql);
 
-        assertQuery("SELECT action, name FROM test_create_external_text_file_with_field_separator_and_escape", "VALUES ('HelloF', 'World'), ('ByeF', 'World')");
-        assertUpdate("DROP TABLE test_create_external_text_file_with_field_separator_and_escape");
-
-        // file should still exist after drop
-        assertFile(dataFile);
-
+        assertQuery(format("SELECT col1, col2 from %s", tableName), expectedResults);
+        assertUpdate(format("DROP TABLE %s", tableName));
+        assertFile(dataFile); // file should still exist after drop
         deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testCreateExternalTable()
+            throws Exception
+    {
+        testCreateExternalTable(
+                "test_create_external",
+                "hello\u0001world\nbye\u0001world",
+                "VALUES ('hello', 'world'), ('bye', 'world')",
+                ImmutableList.of());
+    }
+
+    @Test
+    public void testCreateExternalTableWithFieldSeparator()
+            throws Exception
+    {
+        testCreateExternalTable(
+                "test_create_external",
+                "helloXworld\nbyeXworld",
+                "VALUES ('hello', 'world'), ('bye', 'world')",
+                ImmutableList.of("textfile_field_separator = 'X'"));
+    }
+
+    @Test
+    public void testCreateExternalTableWithFieldSeparatorEscape()
+            throws Exception
+    {
+        testCreateExternalTable(
+                "test_create_external_text_file_with_field_separator_and_escape",
+                "HelloEFFWorld\nByeEFFWorld",
+                "VALUES ('HelloF', 'World'), ('ByeF', 'World')",
+                ImmutableList.of(
+                        "textfile_field_separator = 'F'",
+                        "textfile_field_separator_escape = 'E'"));
+    }
+
+    @Test
+    public void testCreateExternalTableWithNullFormat()
+            throws Exception
+    {
+        testCreateExternalTable(
+                "test_create_external_textfile_with_null_format",
+                "hello\u0001NULL_VALUE\nNULL_VALUE\u0001123\n\\N\u0001456",
+                "VALUES ('hello', NULL), (NULL, 123), ('\\N', 456)",
+                ImmutableList.of("null_format = 'NULL_VALUE'"));
     }
 
     @Test
@@ -3337,7 +3384,7 @@ public class TestHiveIntegrationSmokeTest
                         "SELECT * FROM tpch.tiny.nation",
                 tempDir.toURI().toASCIIString());
 
-        assertQueryFails(createTableSql, "Cannot create a non-managed Hive table using CREATE TABLE AS");
+        assertQueryFails(createTableSql, "Writes to non-managed Hive tables is disabled");
         deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
     }
 
@@ -3407,116 +3454,72 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("DROP TABLE test_comment_table");
     }
 
-    @Test
-    public void testCreateTableWithHeaderAndFooterForTextFile()
+    private void testCreateTableWithHeaderAndFooter(String format)
     {
+        String name = format.toLowerCase(ENGLISH);
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+
         @Language("SQL") String createTableSql = format("" +
-                        "CREATE TABLE %s.%s.test_table_skip_header (\n" +
+                        "CREATE TABLE %s.%s.%s_table_skip_header (\n" +
                         "   name varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'TEXTFILE',\n" +
+                        "   format = '%s',\n" +
                         "   skip_header_line_count = 1\n" +
                         ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get());
+                catalog, schema, name, format);
 
         assertUpdate(createTableSql);
 
-        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_table_skip_header");
+        MaterializedResult actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_header", format));
         assertEquals(actual.getOnlyValue(), createTableSql);
-        assertUpdate("DROP TABLE test_table_skip_header");
+        assertUpdate(format("DROP TABLE %s_table_skip_header", format));
 
         createTableSql = format("" +
-                        "CREATE TABLE %s.%s.test_table_skip_footer (\n" +
+                        "CREATE TABLE %s.%s.%s_table_skip_footer (\n" +
                         "   name varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'TEXTFILE',\n" +
+                        "   format = '%s',\n" +
                         "   skip_footer_line_count = 1\n" +
                         ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get());
+                catalog, schema, name, format);
 
         assertUpdate(createTableSql);
 
-        actual = computeActual("SHOW CREATE TABLE test_table_skip_footer");
+        actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_footer", format));
         assertEquals(actual.getOnlyValue(), createTableSql);
-        assertUpdate("DROP TABLE test_table_skip_footer");
+        assertUpdate(format("DROP TABLE %s_table_skip_footer", format));
 
         createTableSql = format("" +
-                        "CREATE TABLE %s.%s.test_table_skip_header_footer (\n" +
+                        "CREATE TABLE %s.%s.%s_table_skip_header_footer (\n" +
                         "   name varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'TEXTFILE',\n" +
+                        "   format = '%s',\n" +
                         "   skip_footer_line_count = 1,\n" +
                         "   skip_header_line_count = 1\n" +
                         ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get());
+                catalog, schema, name, format);
 
         assertUpdate(createTableSql);
 
-        actual = computeActual("SHOW CREATE TABLE test_table_skip_header_footer");
+        actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_header_footer", format));
         assertEquals(actual.getOnlyValue(), createTableSql);
-        assertUpdate("DROP TABLE test_table_skip_header_footer");
+        assertUpdate(format("DROP TABLE %s_table_skip_header_footer", format));
+    }
+
+    @Test
+    public void testCreateTableWithHeaderAndFooterForTextFile()
+    {
+        testCreateTableWithHeaderAndFooter("TEXTFILE");
     }
 
     @Test
     public void testCreateTableWithHeaderAndFooterForCsv()
     {
-        @Language("SQL") String createTableSql = format("" +
-                        "CREATE TABLE %s.%s.csv_table_skip_header (\n" +
-                        "   name varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'CSV',\n" +
-                        "   skip_header_line_count = 1\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get());
-
-        assertUpdate(createTableSql);
-
-        MaterializedResult actual = computeActual("SHOW CREATE TABLE csv_table_skip_header");
-        assertEquals(actual.getOnlyValue(), createTableSql);
-        assertUpdate("DROP TABLE csv_table_skip_header");
-
-        createTableSql = format("" +
-                        "CREATE TABLE %s.%s.csv_table_skip_footer (\n" +
-                        "   name varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'CSV',\n" +
-                        "   skip_footer_line_count = 1\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get());
-
-        assertUpdate(createTableSql);
-
-        actual = computeActual("SHOW CREATE TABLE csv_table_skip_footer");
-        assertEquals(actual.getOnlyValue(), createTableSql);
-        assertUpdate("DROP TABLE csv_table_skip_footer");
-
-        createTableSql = format("" +
-                        "CREATE TABLE %s.%s.csv_table_skip_header_footer (\n" +
-                        "   name varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'CSV',\n" +
-                        "   skip_footer_line_count = 1,\n" +
-                        "   skip_header_line_count = 1\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get());
-
-        assertUpdate(createTableSql);
-
-        actual = computeActual("SHOW CREATE TABLE csv_table_skip_header_footer");
-        assertEquals(actual.getOnlyValue(), createTableSql);
-        assertUpdate("DROP TABLE csv_table_skip_header_footer");
+        testCreateTableWithHeaderAndFooter("CSV");
     }
 
     @Test
@@ -3597,6 +3600,8 @@ public class TestHiveIntegrationSmokeTest
                 .hasMessageMatching("Cannot specify skip_header_line_count table property for storage format: ORC");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_footer (col1 bigint) WITH (format = 'ORC', skip_footer_line_count = 1)"))
                 .hasMessageMatching("Cannot specify skip_footer_line_count table property for storage format: ORC");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_footer (col1 bigint) WITH (format = 'ORC', null_format = 'ERROR')"))
+                .hasMessageMatching("Cannot specify null_format table property for storage format: ORC");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_header (col1 bigint) WITH (format = 'TEXTFILE', skip_header_line_count = -1)"))
                 .hasMessageMatching("Invalid value for skip_header_line_count property: -1");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_footer (col1 bigint) WITH (format = 'TEXTFILE', skip_footer_line_count = -1)"))
@@ -3641,7 +3646,7 @@ public class TestHiveIntegrationSmokeTest
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_path");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
-        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
+        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
         assertEquals(columnMetadatas.size(), columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
@@ -3749,7 +3754,7 @@ public class TestHiveIntegrationSmokeTest
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_file_size");
 
-        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
+        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
         assertEquals(columnMetadatas.size(), columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
@@ -3802,7 +3807,7 @@ public class TestHiveIntegrationSmokeTest
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_file_modified_time");
 
-        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
+        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
         assertEquals(columnMetadatas.size(), columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
@@ -3834,6 +3839,47 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(fileModifiedTimeMap.size(), 3);
 
         assertUpdate("DROP TABLE test_file_modified_time");
+    }
+
+    @Test
+    public void testPartitionHiddenColumn()
+    {
+        @Language("SQL") String createTable = "CREATE TABLE test_partition_hidden_column " +
+                "WITH (" +
+                "partitioned_by = ARRAY['col1', 'col2']" +
+                ") AS " +
+                "SELECT * FROM (VALUES " +
+                "(0, 11, 21), (1, 12, 22), (2, 13, 23), " +
+                "(3, 14, 24), (4, 15, 25), (5, 16, 26), " +
+                "(6, 17, 27), (7, 18, 28), (8, 19, 29)" +
+                " ) t (col0, col1, col2) ";
+        assertUpdate(createTable, 9);
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_partition_hidden_column"));
+
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_partition_hidden_column");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("col1", "col2"));
+
+        List<String> columnNames = ImmutableList.of("col0", "col1", "col2", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
+        List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
+        assertEquals(columnMetadatas.size(), columnNames.size());
+        for (int i = 0; i < columnMetadatas.size(); i++) {
+            ColumnMetadata columnMetadata = columnMetadatas.get(i);
+            assertEquals(columnMetadata.getName(), columnNames.get(i));
+            if (columnMetadata.getName().equals(PARTITION_COLUMN_NAME)) {
+                assertTrue(columnMetadata.isHidden());
+            }
+        }
+        assertEquals(getPartitions("test_partition_hidden_column").size(), 9);
+
+        MaterializedResult results = computeActual(format("SELECT *, \"%s\" FROM test_partition_hidden_column", PARTITION_COLUMN_NAME));
+        for (MaterializedRow row : results.getMaterializedRows()) {
+            String actualPartition = (String) row.getField(3);
+            String expectedPartition = format("col1=%s/col2=%s", row.getField(1), row.getField(2));
+            assertEquals(actualPartition, expectedPartition);
+        }
+        assertEquals(results.getRowCount(), 9);
+
+        assertUpdate("DROP TABLE test_partition_hidden_column");
     }
 
     @Test
@@ -4074,6 +4120,44 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testParquetTimestampPredicatePushdown()
+    {
+        assertUpdate("CREATE TABLE test_parquet_timestamp_predicate_pushdown (t TIMESTAMP) WITH (format = 'PARQUET')");
+        assertUpdate("INSERT INTO test_parquet_timestamp_predicate_pushdown VALUES (TIMESTAMP '2012-10-31 01:00')", 1);
+        assertQuery("SELECT * FROM test_parquet_timestamp_predicate_pushdown", "VALUES (TIMESTAMP '2012-10-31 01:00')");
+
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
+                getSession(),
+                "SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t < TIMESTAMP '2012-10-31 01:00'");
+        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
+
+        queryResult = queryRunner.executeWithQueryId(
+                getSession(),
+                "SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t > TIMESTAMP '2012-10-31 01:00'");
+        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
+
+        // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
+        ExponentialSleeper sleeper = new ExponentialSleeper(
+                new Duration(0, SECONDS),
+                new Duration(5, SECONDS),
+                new Duration(100, MILLISECONDS),
+                2.0);
+        assertEventually(new Duration(30, SECONDS), () -> {
+            ResultWithQueryId<MaterializedResult> result = queryRunner.executeWithQueryId(
+                    getSession(),
+                    "SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t = TIMESTAMP '2012-10-31 01:00'");
+            sleeper.sleep();
+            assertThat(getQueryInfo(queryRunner, result).getQueryStats().getProcessedInputDataSize().toBytes()).isGreaterThan(0);
+        });
+    }
+
+    private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
+    {
+        return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.getQueryId());
+    }
+
+    @Test
     public void testPartitionPruning()
     {
         assertUpdate("CREATE TABLE test_partition_pruning (v bigint, k varchar) WITH (partitioned_by = array['k'])");
@@ -4256,6 +4340,19 @@ public class TestHiveIntegrationSmokeTest
         finally {
             assertUpdate("DROP TABLE IF EXISTS evolve_test");
         }
+
+        // Verify field access when the row evolves without changes to field type
+        try {
+            assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
+            assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'), 1)", 1);
+            assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+            assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar, e int)");
+            assertUpdate("INSERT INTO evolve_test values (2, row(2, 'def', 2), 2)", 1);
+            assertQuery("SELECT a.b FROM evolve_test", "VALUES 1, 2");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS evolve_test");
+        }
     }
 
     @Test
@@ -4292,6 +4389,210 @@ public class TestHiveIntegrationSmokeTest
                 assertUpdate("DROP TABLE IF EXISTS evolve_test");
             }
         }
+    }
+
+    @Test
+    public void testParquetColumnNameMappings()
+    {
+        Session sessionUsingColumnIndex = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "false")
+                .build();
+        Session sessionUsingColumnName = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "true")
+                .build();
+
+        String tableName = "test_parquet_by_column_index";
+
+        assertUpdate(sessionUsingColumnIndex, format(
+                "CREATE TABLE %s(" +
+                        "  a varchar, " +
+                        "  b varchar) " +
+                        "WITH (format='PARQUET')",
+                tableName));
+        assertUpdate(sessionUsingColumnIndex, "INSERT INTO " + tableName + " VALUES ('a', 'b')", 1);
+
+        assertQuery(
+                sessionUsingColumnIndex,
+                "SELECT a, b FROM " + tableName,
+                "VALUES ('a', 'b')");
+        assertQuery(
+                sessionUsingColumnIndex,
+                "SELECT a FROM " + tableName + " WHERE b = 'b'",
+                "VALUES ('a')");
+
+        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName).getOnlyValue();
+
+        // Reverse the table so that the Hive column ordering does not match the Parquet column ordering
+        String reversedTableName = "test_parquet_by_column_index_reversed";
+        assertUpdate(sessionUsingColumnIndex, format(
+                "CREATE TABLE %s(" +
+                        "  b varchar, " +
+                        "  a varchar) " +
+                        "WITH (format='PARQUET', external_location='%s')",
+                reversedTableName,
+                tableLocation));
+
+        assertQuery(
+                sessionUsingColumnIndex,
+                "SELECT a, b FROM " + reversedTableName,
+                "VALUES ('b', 'a')");
+        assertQuery(
+                sessionUsingColumnIndex,
+                "SELECT a FROM " + reversedTableName + " WHERE b = 'a'",
+                "VALUES ('b')");
+
+        assertQuery(
+                sessionUsingColumnName,
+                "SELECT a, b FROM " + reversedTableName,
+                "VALUES ('a', 'b')");
+        assertQuery(
+                sessionUsingColumnName,
+                "SELECT a FROM " + reversedTableName + " WHERE b = 'b'",
+                "VALUES ('a')");
+
+        assertUpdate(sessionUsingColumnIndex, "DROP TABLE " + reversedTableName);
+        assertUpdate(sessionUsingColumnIndex, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testParquetWithMissingColumns()
+    {
+        Session sessionUsingColumnIndex = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "false")
+                .build();
+        Session sessionUsingColumnName = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "true")
+                .build();
+
+        String singleColumnTableName = "test_parquet_with_missing_columns_one";
+
+        assertUpdate(format(
+                "CREATE TABLE %s(" +
+                        "  a varchar) " +
+                        "WITH (format='PARQUET')",
+                singleColumnTableName));
+        assertUpdate(sessionUsingColumnIndex, "INSERT INTO " + singleColumnTableName + " VALUES ('a')", 1);
+
+        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + singleColumnTableName).getOnlyValue();
+        String multiColumnTableName = "test_parquet_missing_columns_two";
+        assertUpdate(sessionUsingColumnIndex, format(
+                "CREATE TABLE %s(" +
+                        "  b varchar, " +
+                        "  a varchar) " +
+                        "WITH (format='PARQUET', external_location='%s')",
+                multiColumnTableName,
+                tableLocation));
+
+        assertQuery(
+                sessionUsingColumnName,
+                "SELECT a FROM " + multiColumnTableName + " WHERE b IS NULL",
+                "VALUES ('a')");
+        assertQuery(
+                sessionUsingColumnName,
+                "SELECT a FROM " + multiColumnTableName + " WHERE a = 'a'",
+                "VALUES ('a')");
+
+        assertQuery(
+                sessionUsingColumnIndex,
+                "SELECT b FROM " + multiColumnTableName + " WHERE b = 'a'",
+                "VALUES ('a')");
+        assertQuery(
+                sessionUsingColumnIndex,
+                "SELECT b FROM " + multiColumnTableName + " WHERE a IS NULL",
+                "VALUES ('a')");
+
+        assertUpdate(sessionUsingColumnIndex, "DROP TABLE " + singleColumnTableName);
+        assertUpdate(sessionUsingColumnIndex, "DROP TABLE " + multiColumnTableName);
+    }
+
+    @Test
+    public void testParquetWithMissingNestedColumns()
+    {
+        Session sessionUsingColumnIndex = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "false")
+                .build();
+
+        Session sessionUsingColumnName = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "true")
+                .build();
+
+        String missingNestedFieldsTableName = "test_parquet_missing_nested_fields";
+
+        assertUpdate(format(
+                "CREATE TABLE %s(" +
+                        "  an_array ARRAY(ROW(a2 int))) " +
+                        "WITH (format='PARQUET')",
+                missingNestedFieldsTableName));
+        assertUpdate(sessionUsingColumnIndex, "INSERT INTO " + missingNestedFieldsTableName + " VALUES (ARRAY[ROW(2)])", 1);
+
+        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + missingNestedFieldsTableName).getOnlyValue();
+        String missingNestedArrayTableName = "test_parquet_missing_nested_array";
+        assertUpdate(sessionUsingColumnIndex, format(
+                "CREATE TABLE %s(" +
+                        "  an_array ARRAY(ROW(nested_array ARRAY(varchar), a2 int))) " +
+                        "WITH (format='PARQUET', external_location='%s')",
+                missingNestedArrayTableName,
+                tableLocation));
+        /*
+         * Expected behavior is to read a null collection when a nested array is not define in the parquet footer.
+         * This query should not fail nor an empty collection.
+         */
+        assertQuery(
+                sessionUsingColumnIndex,
+                "SELECT an_array[1].nested_array FROM " + missingNestedArrayTableName,
+                "VALUES (null)");
+
+        assertQuery(
+                sessionUsingColumnName,
+                "SELECT an_array[1].nested_array FROM " + missingNestedArrayTableName,
+                "VALUES (null)");
+
+        assertUpdate(sessionUsingColumnIndex, "DROP TABLE " + missingNestedFieldsTableName);
+        assertUpdate(sessionUsingColumnIndex, "DROP TABLE " + missingNestedArrayTableName);
+    }
+
+    @Test
+    public void testNestedColumnWithDuplicateName()
+    {
+        String tableName = "test_nested_column_with_duplicate_name";
+
+        assertUpdate(format(
+                "CREATE TABLE %s(" +
+                        "  foo varchar, " +
+                        "  root ROW (foo varchar)) " +
+                        "WITH (format='PARQUET')",
+                tableName));
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('a', ROW('b'))", 1);
+        assertQuery("SELECT root.foo FROM " + tableName + " WHERE foo = 'a'", "VALUES ('b')");
+        assertQuery("SELECT root.foo FROM " + tableName + " WHERE root.foo = 'b'", "VALUES ('b')");
+        assertQuery("SELECT root.foo FROM " + tableName + " WHERE foo = 'a' AND root.foo = 'b'", "VALUES ('b')");
+
+        assertQuery("SELECT foo FROM " + tableName + " WHERE foo = 'a'", "VALUES ('a')");
+        assertQuery("SELECT foo FROM " + tableName + " WHERE root.foo = 'b'", "VALUES ('a')");
+        assertQuery("SELECT foo FROM " + tableName + " WHERE foo = 'a' AND root.foo = 'b'", "VALUES ('a')");
+
+        assertTrue(computeActual("SELECT foo FROM " + tableName + " WHERE foo = 'a' AND root.foo = 'a'").getMaterializedRows().isEmpty());
+        assertTrue(computeActual("SELECT foo FROM " + tableName + " WHERE foo = 'b' AND root.foo = 'b'").getMaterializedRows().isEmpty());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testParquetNaNStatistics()
+    {
+        String tableName = "test_parquet_nan_statistics";
+
+        assertUpdate("CREATE TABLE " + tableName + " (c_double DOUBLE, c_real REAL, c_string VARCHAR) WITH (format = 'PARQUET')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (nan(), cast(nan() as REAL), 'all nan')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (nan(), null, 'null real'), (null, nan(), 'null double')", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (nan(), 4.2, '4.2 real'), (4.2, nan(), '4.2 double')", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (0.1, 0.1, 'both 0.1')", 1);
+
+        // These assertions are intended to make sure we are handling NaN values in Parquet statistics,
+        // however Parquet file stats created in Presto don't include such values; the test is here mainly to prevent
+        // regressions, should a new writer start recording such stats
+        assertQuery("SELECT c_string FROM " + tableName + " WHERE c_double > 4", "VALUES ('4.2 double')");
+        assertQuery("SELECT c_string FROM " + tableName + " WHERE c_real > 4", "VALUES ('4.2 real')");
     }
 
     @Test
@@ -6560,6 +6861,33 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testSortedWritingTempStaging()
+    {
+        String tableName = "test_sorted_writing";
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s " +
+                        "WITH (" +
+                        "   bucket_count = 7," +
+                        "   bucketed_by = ARRAY['shipmode']," +
+                        "   sorted_by = ARRAY['shipmode']" +
+                        ") AS " +
+                        "SELECT * FROM tpch.tiny.lineitem",
+                tableName);
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "sorted_writing_enabled", "true")
+                .setCatalogSessionProperty("hive", "temporary_staging_directory_enabled", "true")
+                .setCatalogSessionProperty("hive", "temporary_staging_directory_path", "/tmp/custom/temporary-${USER}")
+                .build();
+
+        assertUpdate(session, createTableSql, 60175L);
+        MaterializedResult expected = computeActual("SELECT * FROM tpch.tiny.lineitem");
+        MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testSelectWithNoColumns()
     {
         testWithAllStorageFormats(this::testSelectWithNoColumns);
@@ -6684,8 +7012,7 @@ public class TestHiveIntegrationSmokeTest
 
     private Type canonicalizeType(Type type)
     {
-        HiveType hiveType = HiveType.toHiveType(typeTranslator, type);
-        return TYPE_MANAGER.getType(hiveType.getTypeSignature());
+        return TYPE_MANAGER.getType(toHiveType(type).getTypeSignature());
     }
 
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)
@@ -6801,6 +7128,41 @@ public class TestHiveIntegrationSmokeTest
         {
             this.type = requireNonNull(type, "type is null");
             this.estimate = requireNonNull(estimate, "estimate is null");
+        }
+    }
+
+    private static class ExponentialSleeper
+    {
+        private Duration nextSleepTime;
+        private final Duration maxSleepTime;
+        private final Duration minSleepIncrement;
+        private final double sleepIncrementFactor;
+
+        ExponentialSleeper(Duration minSleepTime, Duration maxSleepTime, Duration minSleepIncrement, double sleepIncrementFactor)
+        {
+            this.nextSleepTime = minSleepTime;
+            this.maxSleepTime = maxSleepTime;
+            this.minSleepIncrement = minSleepIncrement;
+            this.sleepIncrementFactor = sleepIncrementFactor;
+        }
+
+        public void sleep()
+        {
+            try {
+                Thread.sleep(nextSleepTime.toMillis());
+                long incrementMillis = (long) (nextSleepTime.toMillis() * sleepIncrementFactor - nextSleepTime.toMillis());
+                if (incrementMillis < minSleepIncrement.toMillis()) {
+                    incrementMillis = minSleepIncrement.toMillis();
+                }
+                nextSleepTime = new Duration(nextSleepTime.toMillis() + incrementMillis, MILLISECONDS);
+                if (nextSleepTime.compareTo(maxSleepTime) > 0) {
+                    nextSleepTime = maxSleepTime;
+                }
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
         }
     }
 }

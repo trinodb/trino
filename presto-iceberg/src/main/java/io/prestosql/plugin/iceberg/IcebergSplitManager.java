@@ -21,6 +21,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
@@ -47,7 +48,12 @@ public class IcebergSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle handle, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
 
@@ -58,7 +64,7 @@ public class IcebergSplitManager
 
         // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
         //      propagate it at split level so the parquet pushdown can leverage it.
-        IcebergSplitSource splitSource = new IcebergSplitSource(tableScan.planTasks(), table.getPredicate());
+        IcebergSplitSource splitSource = new IcebergSplitSource(tableScan.planTasks());
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());
     }

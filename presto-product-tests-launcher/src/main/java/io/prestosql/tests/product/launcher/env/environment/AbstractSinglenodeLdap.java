@@ -16,7 +16,7 @@ package io.prestosql.tests.product.launcher.env.environment;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
@@ -26,12 +26,15 @@ import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import java.time.Duration;
 import java.util.List;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.LDAP;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public abstract class AbstractSinglenodeLdap
         extends AbstractEnvironmentProvider
@@ -42,12 +45,12 @@ public abstract class AbstractSinglenodeLdap
 
     private static final int LDAP_PORT = 636;
 
-    protected AbstractSinglenodeLdap(List<EnvironmentExtender> bases, DockerFiles dockerFiles, PortBinder portBinder, EnvironmentOptions environmentOptions)
+    protected AbstractSinglenodeLdap(List<EnvironmentExtender> bases, DockerFiles dockerFiles, PortBinder portBinder, EnvironmentConfig environmentConfig)
     {
         super(bases);
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        this.imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
+        this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
     }
 
     @Override
@@ -55,37 +58,34 @@ public abstract class AbstractSinglenodeLdap
     {
         String baseImage = format("prestodev/%s:%s", getBaseImage(), imagesVersion);
 
-        builder.configureContainer("presto-master", dockerContainer -> {
+        builder.configureContainer(COORDINATOR, dockerContainer -> {
             dockerContainer.setDockerImageName(baseImage);
 
-            dockerContainer.withFileSystemBind(
-                    dockerFiles.getDockerFilesHostPath(getPasswordAuthenticatorConfigPath()),
-                    CONTAINER_PRESTO_ETC + "/password-authenticator.properties",
-                    READ_ONLY);
+            dockerContainer.withCopyFileToContainer(
+                    forHostPath(dockerFiles.getDockerFilesHostPath(getPasswordAuthenticatorConfigPath())),
+                    CONTAINER_PRESTO_ETC + "/password-authenticator.properties");
 
-            dockerContainer.withFileSystemBind(
-                    dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-ldap/config.properties"),
-                    CONTAINER_PRESTO_CONFIG_PROPERTIES,
-                    READ_ONLY);
+            dockerContainer.withCopyFileToContainer(
+                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-ldap/config.properties")),
+                    CONTAINER_PRESTO_CONFIG_PROPERTIES);
 
             portBinder.exposePort(dockerContainer, 8443);
         });
 
-        builder.configureContainer("tests", dockerContainer -> {
+        builder.configureContainer(TESTS, dockerContainer -> {
             dockerContainer.setDockerImageName(baseImage);
-            dockerContainer.withFileSystemBind(
-                    dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-ldap.yaml"),
-                    CONTAINER_TEMPTO_PROFILE_CONFIG,
-                    READ_ONLY);
+            dockerContainer.withCopyFileToContainer(
+                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-ldap.yaml")),
+                    CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
 
-        DockerContainer container = new DockerContainer(baseImage)
+        DockerContainer container = new DockerContainer(baseImage, LDAP)
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(new SelectedPortWaitStrategy(LDAP_PORT))
                 .withStartupTimeout(Duration.ofMinutes(5));
         portBinder.exposePort(container, LDAP_PORT);
 
-        builder.addContainer("ldapserver", container);
+        builder.addContainer(container);
     }
 
     protected String getBaseImage()

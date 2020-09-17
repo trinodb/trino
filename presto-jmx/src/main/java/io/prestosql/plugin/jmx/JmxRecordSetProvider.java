@@ -25,6 +25,7 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.InMemoryRecordSet;
 import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 
 import javax.inject.Inject;
@@ -33,6 +34,7 @@ import javax.management.JMException;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -42,11 +44,14 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static java.util.Objects.requireNonNull;
 
 public class JmxRecordSetProvider
         implements ConnectorRecordSetProvider
 {
+    private static final TimeZoneKey JVM_TIME_ZONE = TimeZoneKey.getTimeZoneKey(ZoneId.systemDefault().getId());
+
     private final MBeanServer mbeanServer;
     private final String nodeId;
     private final JmxHistoricalData jmxHistoricalData;
@@ -74,7 +79,7 @@ public class JmxRecordSetProvider
                 row.add(objectName);
             }
             else if (jmxColumn.getColumnName().equals(JmxMetadata.TIMESTAMP_COLUMN_NAME)) {
-                row.add(entryTimestamp);
+                row.add(packDateTimeWithZone(entryTimestamp, JVM_TIME_ZONE));
             }
             else {
                 Optional<Object> optionalValue = attributes.get(jmxColumn.getColumnName());

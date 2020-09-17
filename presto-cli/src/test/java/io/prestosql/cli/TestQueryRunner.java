@@ -114,6 +114,7 @@ public class TestQueryRunner
                 "schema",
                 "path",
                 ZoneId.of("America/Los_Angeles"),
+                false,
                 Locale.ENGLISH,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
@@ -147,6 +148,8 @@ public class TestQueryRunner
         return new QueryRunner(
                 clientSession,
                 false,
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

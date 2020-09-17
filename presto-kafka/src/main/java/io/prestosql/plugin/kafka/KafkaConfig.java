@@ -17,10 +17,9 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
 import io.prestosql.spi.HostAddress;
 
 import javax.validation.constraints.Min;
@@ -33,12 +32,12 @@ import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+@DefunctConfig("kafka.connect-timeout")
 public class KafkaConfig
 {
     private static final int KAFKA_DEFAULT_PORT = 9092;
 
     private Set<HostAddress> nodes = ImmutableSet.of();
-    private Duration kafkaConnectTimeout = Duration.valueOf("10s");
     private DataSize kafkaBufferSize = DataSize.of(64, Unit.KILOBYTE);
     private String defaultSchema = "default";
     private Set<String> tableNames = ImmutableSet.of();
@@ -57,20 +56,6 @@ public class KafkaConfig
     public KafkaConfig setNodes(String nodes)
     {
         this.nodes = (nodes == null) ? null : parseNodes(nodes);
-        return this;
-    }
-
-    @MinDuration("1s")
-    public Duration getKafkaConnectTimeout()
-    {
-        return kafkaConnectTimeout;
-    }
-
-    @Config("kafka.connect-timeout")
-    @ConfigDescription("Kafka connection timeout")
-    public KafkaConfig setKafkaConnectTimeout(String kafkaConnectTimeout)
-    {
-        this.kafkaConnectTimeout = Duration.valueOf(kafkaConnectTimeout);
         return this;
     }
 

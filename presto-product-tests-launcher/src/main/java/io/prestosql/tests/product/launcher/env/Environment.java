@@ -13,51 +13,104 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
+import com.github.dockerjava.api.command.CreateContainerCmd;
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.Bind;
+import com.github.dockerjava.api.model.HostConfig;
+import com.github.dockerjava.api.model.Ulimit;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.testcontainers.PrintingLogConsumer;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.FailsafeExecutor;
+import net.jodah.failsafe.RetryPolicy;
+import net.jodah.failsafe.Timeout;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.ContainerState;
 import org.testcontainers.containers.Network;
+import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 
 import java.io.FileDescriptor;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
+import java.io.UncheckedIOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
+import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.getStackTraceAsString;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.tests.product.launcher.env.DockerContainer.ensurePathExists;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.prestosql.tests.product.launcher.env.Environments.pruneEnvironment;
 import static java.lang.String.format;
+import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.shaded.com.google.common.base.Preconditions.checkState;
 
 public final class Environment
+        implements AutoCloseable
 {
     public static final String PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME = Environment.class.getName() + ".ptl-started";
     public static final String PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE = "true";
     public static final String PRODUCT_TEST_LAUNCHER_NETWORK = "ptl-network";
+    public static final String PRODUCT_TEST_LAUNCHER_ENVIRONMENT_LABEL_NAME = "ptl-environment-name";
+
+    private static final Logger log = Logger.get(Environment.class);
 
     private final String name;
+    private final int startupRetries;
     private final Map<String, DockerContainer> containers;
+    private final Optional<EnvironmentListener> listener;
 
-    public Environment(String name, Map<String, DockerContainer> containers)
+    private Environment(String name, int startupRetries, Map<String, DockerContainer> containers, Optional<EnvironmentListener> listener)
     {
         this.name = requireNonNull(name, "name is null");
+        this.startupRetries = startupRetries;
         this.containers = requireNonNull(containers, "containers is null");
+        this.listener = requireNonNull(listener, "listener is null");
     }
 
-    public void start()
+    public Environment start()
     {
-        try {
-            Startables.deepStart(ImmutableList.copyOf(containers.values())).get();
+        RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
+                .withMaxRetries(startupRetries)
+                .onFailedAttempt(event -> log.warn("Could not start environment '%s': %s", this, getStackTraceAsString(event.getLastFailure())))
+                .onRetry(event -> log.info("Trying to start environment '%s', %d failed attempt(s)", this, event.getAttemptCount() + 1))
+                .onSuccess(event -> log.info("Environment '%s' started in %s, %d attempt(s)", this, event.getElapsedTime(), event.getAttemptCount()))
+                .onFailure(event -> log.info("Environment '%s' failed to start in attempt(s): %d: %s", this, event.getAttemptCount(), event.getFailure()));
+
+        return Failsafe
+                .with(retryPolicy)
+                .get(() -> tryStart());
+    }
+
+    private Environment tryStart()
+    {
+        pruneEnvironment();
+
+        // Create new network when environment tries to start
+        try (Network network = createNetwork(name)) {
+            List<DockerContainer> containers = ImmutableList.copyOf(this.containers.values());
+            attachNetwork(containers, network);
+            Startables.deepStart(containers).get();
+            this.listener.ifPresent(listener -> listener.environmentStarted(this));
+            return this;
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -68,7 +121,75 @@ public final class Environment
         }
     }
 
-    public Container<?> getContainer(String name)
+    public void stop()
+    {
+        this.listener.ifPresent(listener -> listener.environmentStopping(this));
+
+        // Allow containers to take up to 5 minutes to stop
+        Timeout<Object> timeout = Timeout.of(ofMinutes(5))
+                .withCancel(true);
+
+        RetryPolicy retry = new RetryPolicy()
+                .withMaxAttempts(3);
+
+        FailsafeExecutor<Object> executor = Failsafe.with(timeout, retry);
+
+        ImmutableList.copyOf(containers.values())
+                .forEach(container -> executor.run(container::tryStop));
+
+        executor.run(this::awaitContainersStopped);
+
+        this.listener.ifPresent(listener -> listener.environmentStopped(this));
+        pruneEnvironment();
+    }
+
+    public void awaitContainersStopped()
+    {
+        List<DockerContainer> containers = ImmutableList.copyOf(this.containers.values());
+
+        try {
+            while (containers.stream().anyMatch(ContainerState::isRunning)) {
+                Thread.sleep(1_000);
+            }
+
+            return;
+        }
+        catch (InterruptedException e) {
+            log.info("Interrupted");
+            // It's OK not to restore interrupt flag here. When we return we're exiting the process.
+        }
+        catch (Exception e) {
+            log.warn("Could not query for containers state: %s", getStackTraceAsString(e));
+        }
+    }
+
+    public long awaitTestsCompletion()
+    {
+        Container<?> container = getContainer(TESTS);
+        log.info("Waiting for test completion");
+
+        try {
+            while (container.isRunning()) {
+                Thread.sleep(1000);
+            }
+
+            InspectContainerResponse containerInfo = container.getCurrentContainerInfo();
+            InspectContainerResponse.ContainerState containerState = containerInfo.getState();
+            Long exitCode = containerState.getExitCodeLong();
+            log.info("Test container %s is %s, with exitCode %s", containerInfo.getId(), containerState.getStatus(), exitCode);
+            checkState(exitCode != null, "No exitCode for tests container %s in state %s", container, containerState);
+
+            return exitCode;
+        }
+        catch (InterruptedException e) {
+            // Gracefully stop environment and trigger listeners
+            stop();
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted", e);
+        }
+    }
+
+    public DockerContainer getContainer(String name)
     {
         return Optional.ofNullable(containers.get(requireNonNull(name, "name is null")))
                 .orElseThrow(() -> new IllegalArgumentException("No container with name " + name));
@@ -90,86 +211,268 @@ public final class Environment
         return new Builder(name);
     }
 
-    public static class Builder
+    @Override
+    public void close()
     {
-        private final String name;
+        stop();
+    }
 
-        @SuppressWarnings("resource")
-        private Network network = Network.builder()
+    private static void attachNetwork(Collection<DockerContainer> values, Network network)
+    {
+        values.forEach(container -> container.withNetwork(network));
+    }
+
+    private static Network createNetwork(String environmentName)
+    {
+        Network network = Network.builder()
                 .createNetworkCmdModifier(createNetworkCmd ->
                         createNetworkCmd
                                 .withName(PRODUCT_TEST_LAUNCHER_NETWORK)
-                                .withLabels(ImmutableMap.of(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)))
+                                .withLabels(ImmutableMap.of(
+                                        PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE,
+                                        PRODUCT_TEST_LAUNCHER_ENVIRONMENT_LABEL_NAME, environmentName)))
                 .build();
+        log.info("Created new network %s for environment %s", network.getId(), environmentName);
+        return network;
+    }
 
+    public static class Builder
+    {
+        private final String name;
+        private DockerContainer.OutputMode outputMode;
+        private int startupRetries = 1;
         private Map<String, DockerContainer> containers = new HashMap<>();
+        private Optional<Path> logsBaseDir = Optional.empty();
 
         public Builder(String name)
         {
             this.name = requireNonNull(name, "name is null");
         }
 
-        public Builder addContainer(String name, DockerContainer container)
+        public Builder addContainers(DockerContainer... containers)
         {
-            requireNonNull(name, "name is null");
-            checkState(!containers.containsKey(name), "Container with name %s is already registered", name);
-            containers.put(name, requireNonNull(container, "container is null"));
+            Arrays.stream(containers)
+                    .forEach(this::addContainer);
 
-            String containerName = "ptl-" + name;
+            return this;
+        }
+
+        public Builder addContainer(DockerContainer container)
+        {
+            String containerName = container.getLogicalName();
+
+            checkState(!containers.containsKey(containerName), "Container with name %s is already registered", containerName);
+            containers.put(containerName, requireNonNull(container, "container is null"));
+
             container
-                    .withNetwork(network)
-                    .withNetworkAliases(name)
+                    .withNetworkAliases(containerName)
                     .withLabel(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)
                     .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd
-                            .withName(containerName)
-                            .withHostName(name));
+                            .withName("ptl-" + containerName)
+                            .withHostName(containerName));
+
+            container.withCreateContainerCmdModifier(Builder::updateContainerHostConfig);
+
+            if (!container.getLogicalName().equals(TESTS)) {
+                // Tests container cannot be auto removed as we need to inspect it's exit code
+                container.withCreateContainerCmdModifier(Builder::setContainerAutoRemove);
+            }
 
             return this;
         }
 
-        public Builder configureContainer(String name, Consumer<DockerContainer> configurer)
+        private static void updateContainerHostConfig(CreateContainerCmd createContainerCmd)
         {
-            requireNonNull(name, "name is null");
-            checkState(containers.containsKey(name), "Container with name %s is not registered", name);
-            requireNonNull(configurer, "configurer is null").accept(containers.get(name));
+            HostConfig hostConfig = requireNonNull(createContainerCmd.getHostConfig(), "hostConfig is null");
+
+            // Disable OOM killer
+            hostConfig.withOomKillDisable(true);
+            // Apply ulimits
+            hostConfig.withUlimits(standardUlimits());
+        }
+
+        private static void setContainerAutoRemove(CreateContainerCmd createContainerCmd)
+        {
+            HostConfig hostConfig = requireNonNull(createContainerCmd.getHostConfig(), "hostConfig is null");
+            // Automatically remove container on exit
+            hostConfig.withAutoRemove(true);
+        }
+
+        private static List<Ulimit> standardUlimits()
+        {
+            return ImmutableList.of(
+                // Number of open file descriptors
+                new Ulimit("nofile", 65535L, 65535L),
+                // Number of processes
+                new Ulimit("nproc", 8096L, 8096L));
+        }
+
+        public Builder containerDependsOnRest(String logicalName)
+        {
+            checkState(containers.containsKey(logicalName), "Container with name %s does not exist", logicalName);
+            DockerContainer container = containers.get(logicalName);
+
+            containers.entrySet()
+                    .stream()
+                    .filter(entry -> !entry.getKey().equals(logicalName))
+                    .map(entry -> entry.getValue())
+                    .forEach(dependant -> container.dependsOn(dependant));
+
             return this;
         }
 
-        public Builder removeContainer(String name)
+        public Builder configureContainer(String logicalName, Consumer<DockerContainer> configurer)
         {
-            requireNonNull(name, "name is null");
-            GenericContainer<?> container = containers.remove(name);
+            requireNonNull(logicalName, "logicalName is null");
+            checkState(containers.containsKey(logicalName), "Container with name %s is not registered", logicalName);
+            requireNonNull(configurer, "configurer is null").accept(containers.get(logicalName));
+            return this;
+        }
+
+        public Builder configureContainers(Consumer<DockerContainer> configurer)
+        {
+            requireNonNull(configurer, "configurer is null");
+            containers.values().forEach(configurer::accept);
+            return this;
+        }
+
+        public Builder removeContainer(String logicalName)
+        {
+            log.info("Removing container %s", logicalName);
+
+            requireNonNull(logicalName, "logicalName is null");
+            DockerContainer container = containers.remove(logicalName);
             if (container != null) {
                 container.close();
             }
             return this;
         }
 
+        public Builder removeContainers(Predicate<DockerContainer> predicate)
+        {
+            requireNonNull(predicate, "predicate is null");
+
+            List<String> containersNames = containers.values().stream()
+                    .filter(predicate)
+                    .map(DockerContainer::getLogicalName)
+                    .collect(toImmutableList());
+
+            for (String containerName : containersNames) {
+                removeContainer(containerName);
+            }
+            return this;
+        }
+
+        public Builder setContainerOutputMode(DockerContainer.OutputMode outputMode)
+        {
+            this.outputMode = outputMode;
+            return this;
+        }
+
+        public Builder setStartupRetries(int retries)
+        {
+            this.startupRetries = retries;
+            return this;
+        }
+
         public Environment build()
         {
-            // write directly to System.out, bypassing logging & io.airlift.log.Logging#rewireStdStreams
-            PrintStream out;
-            try {
-                //noinspection resource
-                out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
-            }
-            catch (UnsupportedEncodingException e) {
-                throw new RuntimeException(e);
+            return build(Optional.empty());
+        }
+
+        public Environment build(EnvironmentListener listener)
+        {
+            return build(Optional.of(listener));
+        }
+
+        private Environment build(Optional<EnvironmentListener> listener)
+        {
+            switch (outputMode) {
+                case DISCARD:
+                    log.warn("Containers logs are not printed to stdout");
+                    setContainerOutputConsumer(this::discardContainerLogs);
+                    break;
+
+                case PRINT:
+                    setContainerOutputConsumer(this::printContainerLogs);
+                    break;
+
+                case PRINT_WRITE:
+                    verify(logsBaseDir.isPresent(), "--logs-dir must be set with --output WRITE");
+
+                    setContainerOutputConsumer(container -> combineConsumers(
+                            writeContainerLogs(container, logsBaseDir.get()),
+                            printContainerLogs(container)));
+                    break;
+
+                case WRITE:
+                    verify(logsBaseDir.isPresent(), "--logs-dir must be set with --output WRITE");
+                    setContainerOutputConsumer(container -> writeContainerLogs(container, logsBaseDir.get()));
             }
 
             containers.forEach((name, container) -> {
                 container
-                        .withLogConsumer(new PrintingLogConsumer(out, format("%-20s| ", name)))
+                        .withEnvironmentListener(listener)
                         .withCreateContainerCmdModifier(createContainerCmd -> {
                             Map<String, Bind> binds = new HashMap<>();
-                            for (Bind bind : firstNonNull(createContainerCmd.getBinds(), new Bind[0])) {
+                            HostConfig hostConfig = createContainerCmd.getHostConfig();
+                            for (Bind bind : firstNonNull(hostConfig.getBinds(), new Bind[0])) {
                                 binds.put(bind.getVolume().getPath(), bind); // last bind wins
                             }
-                            createContainerCmd.withBinds(binds.values().toArray(new Bind[0]));
+                            hostConfig.setBinds(binds.values().toArray(new Bind[0]));
                         });
             });
 
-            return new Environment(name, containers);
+            return new Environment(name, startupRetries, containers, listener);
+        }
+
+        private Consumer<OutputFrame> writeContainerLogs(DockerContainer container, Path path)
+        {
+            Path containerLogFile = path.resolve(container.getLogicalName() + "/container.log");
+            log.info("Writing container %s logs to %s", container, containerLogFile);
+
+            try {
+                ensurePathExists(containerLogFile.getParent());
+                return new PrintingLogConsumer(new PrintStream(containerLogFile.toFile()), "");
+            }
+            catch (FileNotFoundException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        private Consumer<OutputFrame> printContainerLogs(DockerContainer container)
+        {
+            try {
+                // write directly to System.out, bypassing logging & io.airlift.log.Logging#rewireStdStreams
+                //noinspection resource
+                PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
+                return new PrintingLogConsumer(out, format("%-20s| ", container.getLogicalName()));
+            }
+            catch (UnsupportedEncodingException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        private Consumer<OutputFrame> discardContainerLogs(DockerContainer container)
+        {
+            // Discard log frames
+            return outputFrame -> {};
+        }
+
+        private Consumer<OutputFrame> combineConsumers(Consumer<OutputFrame>... consumers)
+        {
+            return outputFrame -> Arrays.stream(consumers).forEach(consumer -> consumer.accept(outputFrame));
+        }
+
+        private void setContainerOutputConsumer(Function<DockerContainer, Consumer<OutputFrame>> consumer)
+        {
+            configureContainers(container -> container.withLogConsumer(consumer.apply(container)));
+        }
+
+        public Builder setLogsBaseDir(Optional<Path> baseDir)
+        {
+            this.logsBaseDir = baseDir;
+            return this;
         }
     }
 }

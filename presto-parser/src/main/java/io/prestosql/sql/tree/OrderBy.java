@@ -89,4 +89,10 @@ public class OrderBy
     {
         return Objects.hash(sortItems);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

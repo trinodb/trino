@@ -304,7 +304,8 @@ public class TestOrcReaderPositions
             createFileWithOnlyUserMetadata(tempFile.getFile(), metadata);
 
             OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
-            OrcReader orcReader = new OrcReader(orcDataSource, READER_OPTIONS);
+            OrcReader orcReader = OrcReader.createOrcReader(orcDataSource, READER_OPTIONS)
+                    .orElseThrow(() -> new RuntimeException("File is empty"));
             Footer footer = orcReader.getFooter();
             Map<String, String> readMetadata = Maps.transformValues(footer.getUserMetadata(), Slice::toStringAscii);
             assertEquals(readMetadata, metadata);
@@ -463,9 +464,7 @@ public class TestOrcReaderPositions
         StructField field = objectInspector.getAllStructFieldRefs().get(0);
 
         StringBuilder builder = new StringBuilder();
-        for (int i = 0; i < initialLength; i++) {
-            builder.append("0");
-        }
+        builder.append("0".repeat(Math.max(0, initialLength)));
         String seedString = builder.toString();
 
         // gradually grow the length of a cell

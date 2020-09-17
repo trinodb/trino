@@ -1,5 +1,4 @@
 
-
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,7 +96,7 @@ public final class Isolation
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final Isolation other = (Isolation) obj;
+        Isolation other = (Isolation) obj;
         return this.level == other.level;
     }
 

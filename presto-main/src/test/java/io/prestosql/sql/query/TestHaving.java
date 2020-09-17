@@ -15,16 +15,17 @@ package io.prestosql.sql.query;
 
 import org.testng.annotations.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 public class TestHaving
 {
     @Test
     public void testImplicitGroupBy()
     {
         try (QueryAssertions queryAssertions = new QueryAssertions()) {
-            queryAssertions
-                    .assertQuery(
-                            "SELECT 'x' FROM (VALUES 1, 1, 2) t(a) HAVING true",
-                            "VALUES 'x'");
+            assertThat(queryAssertions.query(
+                            "SELECT 'x' FROM (VALUES 1, 1, 2) t(a) HAVING true"))
+                    .matches("VALUES 'x'");
         }
     }
 }

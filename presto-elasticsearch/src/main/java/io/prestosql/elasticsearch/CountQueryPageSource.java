@@ -16,7 +16,6 @@ package io.prestosql.elasticsearch;
 import io.prestosql.elasticsearch.client.ElasticsearchClient;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.ConnectorSession;
 
 import static io.prestosql.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
 import static java.lang.Math.toIntExact;
@@ -33,10 +32,9 @@ class CountQueryPageSource
     private final long readTimeNanos;
     private long remaining;
 
-    public CountQueryPageSource(ElasticsearchClient client, ConnectorSession session, ElasticsearchTableHandle table, ElasticsearchSplit split)
+    public CountQueryPageSource(ElasticsearchClient client, ElasticsearchTableHandle table, ElasticsearchSplit split)
     {
         requireNonNull(client, "client is null");
-        requireNonNull(session, "session is null");
         requireNonNull(table, "table is null");
         requireNonNull(split, "split is null");
 
@@ -44,7 +42,7 @@ class CountQueryPageSource
         long count = client.count(
                 split.getIndex(),
                 split.getShard(),
-                buildSearchQuery(session, table.getConstraint().transform(ElasticsearchColumnHandle.class::cast), table.getQuery()));
+                buildSearchQuery(table.getConstraint().transform(ElasticsearchColumnHandle.class::cast), table.getQuery()));
         readTimeNanos = System.nanoTime() - start;
 
         if (table.getLimit().isPresent()) {

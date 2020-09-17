@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>335-SNAPSHOT</version>
+        <version>342-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-parquet</artifactId>
@@ -22,12 +22,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.hadoop</groupId>
-            <artifactId>hadoop-apache</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.prestosql.hive</groupId>
             <artifactId>hive-apache</artifactId>
         </dependency>
@@ -39,7 +33,18 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -53,15 +58,13 @@
         </dependency>
 
         <dependency>
-            <groupId>org.xerial.snappy</groupId>
-            <artifactId>snappy-java</artifactId>
-            <scope>runtime</scope>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <optional>true</optional>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
         </dependency>
 
         <!-- used by tests but also needed transitively -->
@@ -71,15 +74,36 @@
             <scope>runtime</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.xerial.snappy</groupId>
+            <artifactId>snappy-java</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-spi</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>slice</artifactId>
+            <groupId>io.prestosql.hadoop</groupId>
+            <artifactId>hadoop-apache</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- for benchmark -->
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-benchmark</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <!-- for testing -->
@@ -108,26 +132,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -137,10 +143,9 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- for benchmark -->
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-benchmark</artifactId>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -153,6 +158,12 @@
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-generator-annprocess</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

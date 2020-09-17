@@ -42,7 +42,7 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -73,7 +73,7 @@ public class TestJsonDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4, column5);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -98,7 +98,7 @@ public class TestJsonDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -122,7 +122,7 @@ public class TestJsonDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(json, null);
+        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(json);
         assertTrue(decodedRow.isPresent());
 
         assertEquals(decodedRow.get().size(), columns.size());
@@ -146,18 +146,21 @@ public class TestJsonDecoder
         singleColumnDecoder(createUnboundedVarcharType(), null);
         singleColumnDecoder(createVarcharType(100), null);
 
-        for (String dataFormat : ImmutableSet.of("iso8601", "custom-date-time", "rfc2822")) {
+        singleColumnDecoder(TIMESTAMP_MILLIS, "rfc2822");
+        singleColumnDecoder(TIMESTAMP_WITH_TIME_ZONE, "rfc2822");
+
+        for (String dataFormat : ImmutableSet.of("iso8601", "custom-date-time")) {
             singleColumnDecoder(DATE, dataFormat);
             singleColumnDecoder(TIME, dataFormat);
             singleColumnDecoder(TIME_WITH_TIME_ZONE, dataFormat);
-            singleColumnDecoder(TIMESTAMP, dataFormat);
+            singleColumnDecoder(TIMESTAMP_MILLIS, dataFormat);
             singleColumnDecoder(TIMESTAMP_WITH_TIME_ZONE, dataFormat);
         }
 
         for (String dataFormat : ImmutableSet.of("seconds-since-epoch", "milliseconds-since-epoch")) {
             singleColumnDecoder(TIME, dataFormat);
             singleColumnDecoder(TIME_WITH_TIME_ZONE, dataFormat);
-            singleColumnDecoder(TIMESTAMP, dataFormat);
+            singleColumnDecoder(TIMESTAMP_MILLIS, dataFormat);
             singleColumnDecoder(TIMESTAMP_WITH_TIME_ZONE, dataFormat);
         }
 
@@ -170,7 +173,7 @@ public class TestJsonDecoder
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DATE, null));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIME, null));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIME_WITH_TIME_ZONE, null));
-        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIMESTAMP, null));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIMESTAMP_MILLIS, null));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIMESTAMP_WITH_TIME_ZONE, null));
 
         // non temporal types are not supported by temporal field decoders
@@ -201,7 +204,7 @@ public class TestJsonDecoder
     @Test
     public void testDataFormatValidation()
     {
-        for (Type type : asList(TIMESTAMP, DOUBLE)) {
+        for (Type type : asList(TIMESTAMP_MILLIS, DOUBLE)) {
             assertThatThrownBy(() -> singleColumnDecoder(type, "wrong_format"))
                     .isInstanceOf(PrestoException.class)
                     .hasMessage("unknown data format 'wrong_format' used for column 'some_column'");

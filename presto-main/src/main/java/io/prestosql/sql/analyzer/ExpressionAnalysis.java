@@ -34,7 +34,7 @@ public class ExpressionAnalysis
     private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final Map<NodeRef<Expression>, Type> expressionCoercions;
     private final Set<NodeRef<Expression>> typeOnlyCoercions;
-    private final Map<NodeRef<Expression>, FieldId> columnReferences;
+    private final Map<NodeRef<Expression>, ResolvedField> columnReferences;
     private final Set<NodeRef<InPredicate>> subqueryInPredicates;
     private final Set<NodeRef<SubqueryExpression>> scalarSubqueries;
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries;
@@ -47,7 +47,7 @@ public class ExpressionAnalysis
             Set<NodeRef<InPredicate>> subqueryInPredicates,
             Set<NodeRef<SubqueryExpression>> scalarSubqueries,
             Set<NodeRef<ExistsPredicate>> existsSubqueries,
-            Map<NodeRef<Expression>, FieldId> columnReferences,
+            Map<NodeRef<Expression>, ResolvedField> columnReferences,
             Set<NodeRef<Expression>> typeOnlyCoercions,
             Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons,
             Set<NodeRef<FunctionCall>> windowFunctions)

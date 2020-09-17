@@ -13,6 +13,7 @@
  */
 package io.prestosql.testing;
 
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -717,20 +718,20 @@ public abstract class AbstractTestAggregations
         assertQuery("SELECT approx_distinct(orderdate, 0.023) FROM orders", "SELECT 2443");
 
         // test timestamp
-        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP)) FROM orders", "SELECT 2347");
-        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP), 0.023) FROM orders", "SELECT 2347");
+        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP)) FROM orders", "SELECT 2379");
+        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP), 0.023) FROM orders", "SELECT 2379");
 
         // test timestamp with time zone
         assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP WITH TIME ZONE)) FROM orders", "SELECT 2347");
         assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP WITH TIME ZONE), 0.023) FROM orders", "SELECT 2347");
 
         // test time
-        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME)) FROM orders", "SELECT 996");
-        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME), 0.023) FROM orders", "SELECT 996");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME)) FROM orders", "SELECT 969");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME), 0.023) FROM orders", "SELECT 969");
 
         // test time with time zone
-        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE)) FROM orders", "SELECT 996");
-        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE), 0.023) FROM orders", "SELECT 996");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE)) FROM orders", "SELECT 992");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE), 0.023) FROM orders", "SELECT 992");
 
         // test short decimal
         assertQuery("SELECT approx_distinct(CAST(custkey AS DECIMAL(18, 0))) FROM orders", "SELECT 990");
@@ -1314,5 +1315,55 @@ public abstract class AbstractTestAggregations
         assertQuery(
                 "SELECT orderkey, COUNT(DISTINCT k) FROM (SELECT orderkey, 1 k FROM orders) GROUP BY GROUPING SETS ((), orderkey) HAVING orderkey IS NULL",
                 "VALUES (null, 1)");
+    }
+
+    @Test
+    public void testApproxMostFrequentWithLong()
+    {
+        MaterializedResult actual1 = computeActual("SELECT approx_most_frequent(3, cast(x as bigint), 15) FROM (values 1, 2, 1, 3, 1, 2, 3, 4, 5) t(x)");
+        assertEquals(actual1.getRowCount(), 1);
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of(1L, 3L, 2L, 2L, 3L, 2L));
+
+        MaterializedResult actual2 = computeActual("SELECT approx_most_frequent(2, cast(x as bigint), 15) FROM (values 1, 2, 1, 3, 1, 2, 3, 4, 5) t(x)");
+        assertEquals(actual2.getRowCount(), 1);
+        assertEquals(actual2.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of(1L, 3L, 2L, 2L));
+    }
+
+    @Test
+    public void testApproxMostFrequentWithVarchar()
+    {
+        MaterializedResult actual1 = computeActual("SELECT approx_most_frequent(3, x, 15) FROM (values 'A', 'B', 'A', 'C', 'A', 'B', 'C', 'D', 'E') t(x)");
+        assertEquals(actual1.getRowCount(), 1);
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of("A", 3L, "B", 2L, "C", 2L));
+
+        MaterializedResult actual2 = computeActual("SELECT approx_most_frequent(2, x, 15) FROM (values 'A', 'B', 'A', 'C', 'A', 'B', 'C', 'D', 'E') t(x)");
+        assertEquals(actual2.getRowCount(), 1);
+        assertEquals(actual2.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of("A", 3L, "B", 2L));
+    }
+
+    @Test
+    public void testApproxMostFrequentWithLongGroupBy()
+    {
+        MaterializedResult actual1 = computeActual("SELECT k, approx_most_frequent(3, cast(v as bigint), 15) FROM (values ('a', 1), ('b', 2), ('a', 1), ('c', 3), ('a', 1), ('b', 2), ('c', 3), ('a', 4), ('b', 5)) t(k, v) GROUP BY 1 ORDER BY 1");
+        assertEquals(actual1.getRowCount(), 3);
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), "a");
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(1), ImmutableMap.of(1L, 3L, 4L, 1L));
+        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(0), "b");
+        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(1), ImmutableMap.of(2L, 2L, 5L, 1L));
+        assertEquals(actual1.getMaterializedRows().get(2).getFields().get(0), "c");
+        assertEquals(actual1.getMaterializedRows().get(2).getFields().get(1), ImmutableMap.of(3L, 2L));
+    }
+
+    @Test
+    public void testApproxMostFrequentWithStringGroupBy()
+    {
+        MaterializedResult actual1 = computeActual("SELECT k, approx_most_frequent(3, v, 15) FROM (values ('a', 'A'), ('b', 'B'), ('a', 'A'), ('c', 'C'), ('a', 'A'), ('b', 'B'), ('c', 'C'), ('a', 'D'), ('b', 'E')) t(k, v) GROUP BY 1 ORDER BY 1");
+        assertEquals(actual1.getRowCount(), 3);
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), "a");
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(1), ImmutableMap.of("A", 3L, "D", 1L));
+        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(0), "b");
+        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(1), ImmutableMap.of("B", 2L, "E", 1L));
+        assertEquals(actual1.getMaterializedRows().get(2).getFields().get(0), "c");
+        assertEquals(actual1.getMaterializedRows().get(2).getFields().get(1), ImmutableMap.of("C", 2L));
     }
 }

@@ -86,4 +86,15 @@ public class Table
     {
         return name.hashCode();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        Table otherTable = (Table) other;
+        return name.equals(otherTable.name);
+    }
 }

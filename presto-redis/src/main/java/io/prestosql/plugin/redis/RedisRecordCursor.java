@@ -154,9 +154,7 @@ public class RedisRecordCursor
         totalBytes += valueData.length;
         totalValues++;
 
-        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedKey = keyDecoder.decodeRow(
-                keyData,
-                null);
+        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedKey = keyDecoder.decodeRow(keyData);
         Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = valueDecoder.decodeRow(
                 valueData,
                 valueMap);

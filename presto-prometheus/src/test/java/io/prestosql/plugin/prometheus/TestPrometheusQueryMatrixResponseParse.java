@@ -21,10 +21,9 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
-import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.List;
 
+import static java.time.Instant.ofEpochMilli;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -56,7 +55,7 @@ public class TestPrometheusQueryMatrixResponseParse
             throws IOException
     {
         List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promMatrixResponse).getResults();
-        assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getTimestamp(), Timestamp.from(Instant.ofEpochSecond(1565962969, 44 * 1000000)));
+        assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getTimestamp(), ofEpochMilli(1565962969044L));
     }
 
     @Test
@@ -69,7 +68,6 @@ public class TestPrometheusQueryMatrixResponseParse
 
     @Test
     public void verifyOnErrorResponse()
-            throws IOException
     {
         assertThatThrownBy(() -> new PrometheusQueryResponseParse(promErrorResponse))
                 .isInstanceOf(PrestoException.class)
@@ -80,11 +78,11 @@ public class TestPrometheusQueryMatrixResponseParse
     public void setUp()
             throws Exception
     {
-        URL promMatrixResponse = Resources.getResource(TestPrometheusClient.class, "/prometheus-data/up_matrix_response.json");
+        URL promMatrixResponse = Resources.getResource(getClass(), "/prometheus-data/up_matrix_response.json");
         assertNotNull(promMatrixResponse, "metadataUrl is null");
         this.promMatrixResponse = promMatrixResponse.openStream();
 
-        URL promErrorResponse = Resources.getResource(TestPrometheusClient.class, "/prometheus-data/prom_error_response.json");
+        URL promErrorResponse = Resources.getResource(getClass(), "/prometheus-data/prom_error_response.json");
         assertNotNull(promMatrixResponse, "metadataUrl is null");
         this.promErrorResponse = promErrorResponse.openStream();
     }

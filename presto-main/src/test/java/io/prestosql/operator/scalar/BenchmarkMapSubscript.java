@@ -150,7 +150,6 @@ public class BenchmarkMapSubscript
             for (int i = 0; i < mapSize; i++) {
                 projectionsBuilder.add(new CallExpression(
                         resolvedFunction,
-                        mapType.getValueType(),
                         ImmutableList.of(field(0, mapType), constant(utf8Slice(keys.get(i)), createUnboundedVarcharType()))));
             }
 

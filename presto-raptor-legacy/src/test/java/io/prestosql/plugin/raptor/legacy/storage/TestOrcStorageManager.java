@@ -89,8 +89,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
@@ -497,10 +496,10 @@ public class TestOrcStorageManager
     {
         long minDate = sqlDate(2001, 8, 22).getDays();
         long maxDate = sqlDate(2005, 4, 22).getDays();
-        long maxTimestamp = sqlTimestamp(2002, 4, 13, 6, 7, 8).getMillisUtc();
-        long minTimestamp = sqlTimestamp(2001, 3, 15, 9, 10, 11).getMillisUtc();
+        long maxTimestamp = sqlTimestamp(2002, 4, 13, 6, 7, 8).getMillis();
+        long minTimestamp = sqlTimestamp(2001, 3, 15, 9, 10, 11).getMillis();
 
-        List<ColumnStats> stats = columnStats(types(DATE, TIMESTAMP),
+        List<ColumnStats> stats = columnStats(types(DATE, TIMESTAMP_MILLIS),
                 row(minDate, maxTimestamp),
                 row(maxDate, minTimestamp));
         assertColumnStats(stats, 1, minDate, maxDate);
@@ -691,6 +690,6 @@ public class TestOrcStorageManager
 
     private static SqlTimestamp sqlTimestamp(int year, int month, int day, int hour, int minute, int second)
     {
-        return sqlTimestampOf(3, year, month, day, hour, minute, second, 0, UTC, UTC_KEY, SESSION);
+        return sqlTimestampOf(3, year, month, day, hour, minute, second, 0);
     }
 }

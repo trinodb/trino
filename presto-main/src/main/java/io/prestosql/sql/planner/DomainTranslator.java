@@ -46,6 +46,7 @@ import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.InListExpression;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.IsNotNullPredicate;
@@ -77,6 +78,7 @@ import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.setCodePointAt;
 import static io.prestosql.spi.function.OperatorType.SATURATED_FLOOR_CAST;
+import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.combineDisjunctsWithDefault;
@@ -89,8 +91,6 @@ import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_O
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
-import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
@@ -284,7 +284,7 @@ public final class DomainTranslator
             predicate = new InPredicate(reference, new InListExpression(values));
         }
 
-        if (!discreteValues.isWhiteList()) {
+        if (!discreteValues.isInclusive()) {
             predicate = new NotExpression(predicate);
         }
         return ImmutableList.of(predicate);
@@ -621,8 +621,7 @@ public final class DomainTranslator
             }
 
             // Handle comparisons against NaN
-            if ((type instanceof DoubleType && Double.isNaN((double) value)) ||
-                    (type instanceof RealType && Float.isNaN(intBitsToFloat(toIntExact((long) value))))) {
+            if (isFloatingPointNaN(type, value)) {
                 switch (comparisonOperator) {
                     case EQUAL:
                     case GREATER_THAN:
@@ -930,7 +929,58 @@ public final class DomainTranslator
             }
 
             Slice constantPrefix = LikeFunctions.unescapeLiteralLikePattern(pattern.slice(0, patternConstantPrefixBytes), escape);
+            return createRangeDomain(type, constantPrefix).map(domain -> new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)), node));
+        }
 
+        @Override
+        protected ExtractionResult visitFunctionCall(FunctionCall node, Boolean complement)
+        {
+            String name = ResolvedFunction.extractFunctionName(node.getName());
+            if (name.equals("starts_with")) {
+                Optional<ExtractionResult> result = tryVisitStartsWithFunction(node, complement);
+                if (result.isPresent()) {
+                    return result.get();
+                }
+            }
+            return visitExpression(node, complement);
+        }
+
+        private Optional<ExtractionResult> tryVisitStartsWithFunction(FunctionCall node, Boolean complement)
+        {
+            List<Expression> args = node.getArguments();
+            if (args.size() != 2) {
+                return Optional.empty();
+            }
+
+            Expression target = args.get(0);
+            if (!(target instanceof SymbolReference)) {
+                // Target is not a symbol
+                return Optional.empty();
+            }
+
+            Expression prefix = args.get(1);
+            if (!(prefix instanceof StringLiteral)) {
+                // dynamic pattern
+                return Optional.empty();
+            }
+
+            Type type = typeAnalyzer.getType(session, types, target);
+            if (!(type instanceof VarcharType)) {
+                // TODO support CharType
+                return Optional.empty();
+            }
+            if (complement) {
+                return Optional.empty();
+            }
+
+            Symbol symbol = Symbol.from(target);
+            Slice constantPrefix = ((StringLiteral) prefix).getSlice();
+
+            return createRangeDomain(type, constantPrefix).map(domain -> new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)), node));
+        }
+
+        private Optional<Domain> createRangeDomain(Type type, Slice constantPrefix)
+        {
             int lastIncrementable = -1;
             for (int position = 0; position < constantPrefix.length(); position += lengthOfCodePoint(constantPrefix, position)) {
                 // Get last ASCII character to increment, so that character length in bytes does not change.
@@ -950,7 +1000,7 @@ public final class DomainTranslator
             setCodePointAt(getCodePointAt(constantPrefix, lastIncrementable) + 1, upperBound, lastIncrementable);
 
             Domain domain = Domain.create(ValueSet.ofRanges(Range.range(type, lowerBound, true, upperBound, false)), false);
-            return Optional.of(new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)), node));
+            return Optional.of(domain);
         }
 
         @Override

@@ -23,6 +23,8 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.Optional;
+
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -61,7 +63,7 @@ public class RubixConfig
     }
 
     private ReadMode readMode = ReadMode.ASYNC;
-    private String cacheLocation;
+    private Optional<String> cacheLocation = Optional.empty();
     private Duration cacheTtl = new Duration(7, DAYS);
     private int diskUsagePercentage = CacheConfig.DEFAULT_DATA_CACHE_FULLNESS;
     private int bookKeeperServerPort = CacheConfig.DEFAULT_BOOKKEEPER_SERVER_PORT;
@@ -82,7 +84,7 @@ public class RubixConfig
     }
 
     @NotNull
-    public String getCacheLocation()
+    public Optional<String> getCacheLocation()
     {
         return cacheLocation;
     }
@@ -90,7 +92,7 @@ public class RubixConfig
     @Config("hive.cache.location")
     public RubixConfig setCacheLocation(String location)
     {
-        this.cacheLocation = location;
+        this.cacheLocation = Optional.ofNullable(location);
         return this;
     }
 

@@ -64,7 +64,7 @@ public class TestHiveColumnHandle
     public void testProjectedColumn()
     {
         Type baseType = RowType.from(asList(field("a", VARCHAR), field("b", BIGINT)));
-        HiveType baseHiveType = toHiveType(new HiveTypeTranslator(), baseType);
+        HiveType baseHiveType = toHiveType(baseType);
 
         HiveColumnProjectionInfo columnProjectionInfo = new HiveColumnProjectionInfo(
                 ImmutableList.of(1),

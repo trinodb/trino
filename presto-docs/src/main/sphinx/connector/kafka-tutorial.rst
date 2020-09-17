@@ -2,15 +2,10 @@
 Kafka Connector Tutorial
 ========================
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 2
-
 Introduction
 ============
 
-The Kafka Connector for Presto allows access to live topic data from
+The :doc:`kafka` for Presto allows access to live topic data from
 Apache Kafka using Presto. This tutorial shows how to set up topics, and
 how to create the topic description files that back Presto tables.
 

@@ -26,6 +26,7 @@ import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandl
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.testing.Closeables.closeQuietly;
+import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static io.prestosql.failuredetector.HeartbeatFailureDetector.Stats;
 import static org.testng.Assert.assertTrue;
 
@@ -52,7 +53,10 @@ public class TestNodeResource
     public void testGetAllNodes()
     {
         List<Stats> nodes = client.execute(
-                prepareGet().setUri(server.resolve("/v1/node")).build(),
+                prepareGet()
+                        .setUri(server.resolve("/v1/node"))
+                        .setHeader(PRESTO_USER, "unknown")
+                        .build(),
                 createJsonResponseHandler(listJsonCodec(Stats.class)));
 
         // we only have one node and the list never contains the current node
@@ -63,7 +67,10 @@ public class TestNodeResource
     public void testGetFailedNodes()
     {
         List<Stats> nodes = client.execute(
-                prepareGet().setUri(server.resolve("/v1/node/failed")).build(),
+                prepareGet()
+                        .setUri(server.resolve("/v1/node/failed"))
+                        .setHeader(PRESTO_USER, "unknown")
+                        .build(),
                 createJsonResponseHandler(listJsonCodec(Stats.class)));
 
         assertTrue(nodes.isEmpty());

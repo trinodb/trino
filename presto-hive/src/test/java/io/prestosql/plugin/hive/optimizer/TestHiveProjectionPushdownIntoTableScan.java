@@ -32,6 +32,7 @@ import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
+import io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.prestosql.plugin.hive.testing.TestingHiveConnectorFactory;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
@@ -82,10 +83,11 @@ public class TestHiveProjectionPushdownIntoTableScan
     {
         baseDir = Files.createTempDir();
         HdfsConfig config = new HdfsConfig();
+        FileHiveMetastoreConfig metastoreConfig = new FileHiveMetastoreConfig();
         HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
 
-        HiveMetastore metastore = new FileHiveMetastore(environment, baseDir.toURI().toString(), "test");
+        HiveMetastore metastore = new FileHiveMetastore(environment, baseDir.toURI().toString(), "test", metastoreConfig.isAssumeCanonicalPartitionKeys());
         Database database = Database.builder()
                 .setDatabaseName(SCHEMA_NAME)
                 .setOwnerName("public")
@@ -160,7 +162,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 format("SELECT col0.x FROM %s WHERE col0.x = col1 + 3 and col0.y = 2", testTable),
                 anyTree(
                         filter(
-                                "col0_y = bigint '2' AND (col0_x =  cast((col1 + 3) as bigint))",
+                                "col0_y = BIGINT '2' AND (col0_x =  cast((col1 + 3) as BIGINT))",
                                 tableScan(
                                         table -> ((HiveTableHandle) table).getCompactEffectivePredicate().getDomains().get()
                                                 .equals(ImmutableMap.of(columnY, Domain.singleValue(BIGINT, 2L))),
@@ -172,7 +174,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 format("SELECT col0, col0.y expr_y FROM %s WHERE col0.x = 5", testTable),
                 anyTree(
                         filter(
-                                "col0_x = bigint '5'",
+                                "col0_x = BIGINT '5'",
                                 tableScan(
                                         table -> ((HiveTableHandle) table).getCompactEffectivePredicate().getDomains().get()
                                                 .equals(ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 5L))),

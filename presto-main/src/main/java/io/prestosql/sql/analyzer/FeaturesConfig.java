@@ -23,6 +23,8 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
+import io.airlift.units.MaxDuration;
+import io.airlift.units.MinDuration;
 import io.prestosql.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
 import io.prestosql.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
@@ -41,6 +43,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.sql.analyzer.RegexLibrary.JONI;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -55,7 +58,9 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "analyzer.experimental-syntax-enabled",
         "optimizer.processing-optimization",
         "deprecated.legacy-order-by",
-        "deprecated.legacy-join-using"})
+        "deprecated.legacy-join-using",
+        "deprecated.legacy-timestamp",
+})
 public class FeaturesConfig
 {
     @VisibleForTesting
@@ -86,12 +91,13 @@ public class FeaturesConfig
     private boolean pushTableWriteThroughUnion = true;
     private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.ABORT;
     private boolean exchangeCompressionEnabled;
-    private boolean legacyTimestamp = true;
     private boolean optimizeMixedDistinctAggregations;
     private boolean unwrapCasts = true;
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort = true;
+    private boolean omitDateTimeTypePrecision;
+    private int maxRecursionDepth = 10;
 
     private boolean dictionaryAggregation;
 
@@ -108,7 +114,6 @@ public class FeaturesConfig
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
-    private boolean iterativeOptimizerEnabled = true;
     private boolean enableStatsCalculator = true;
     private boolean collectPlanStatisticsForAllQueries;
     private boolean ignoreStatsCalculatorFailures = true;
@@ -126,11 +131,14 @@ public class FeaturesConfig
     private boolean skipRedundantSort = true;
     private boolean predicatePushdownUseTableProperties = true;
     private boolean ignoreDownstreamPreferences;
+    private boolean iterativeRuleBasedColumnPruning = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private boolean enableDynamicFiltering = true;
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = DataSize.of(10, KILOBYTE);
+    private Duration dynamicFilteringRefreshInterval = new Duration(200, MILLISECONDS);
+    private int dynamicFilteringRangeRowLimitPerDriver;
 
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
@@ -216,16 +224,16 @@ public class FeaturesConfig
         return this;
     }
 
-    @Config("deprecated.legacy-timestamp")
-    public FeaturesConfig setLegacyTimestamp(boolean value)
+    public boolean isOmitDateTimeTypePrecision()
     {
-        this.legacyTimestamp = value;
-        return this;
+        return omitDateTimeTypePrecision;
     }
 
-    public boolean isLegacyTimestamp()
+    @Config("deprecated.omit-datetime-type-precision")
+    public FeaturesConfig setOmitDateTimeTypePrecision(boolean value)
     {
-        return legacyTimestamp;
+        this.omitDateTimeTypePrecision = value;
+        return this;
     }
 
     public JoinDistributionType getJoinDistributionType()
@@ -572,19 +580,6 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isIterativeOptimizerEnabled()
-    {
-        return iterativeOptimizerEnabled;
-    }
-
-    @Config("iterative-optimizer-enabled")
-    @LegacyConfig("experimental.iterative-optimizer-enabled")
-    public FeaturesConfig setIterativeOptimizerEnabled(boolean value)
-    {
-        this.iterativeOptimizerEnabled = value;
-        return this;
-    }
-
     public Duration getIterativeOptimizerTimeout()
     {
         return iterativeOptimizerTimeout;
@@ -787,6 +782,34 @@ public class FeaturesConfig
         return this;
     }
 
+    @MinDuration("1ms")
+    @MaxDuration("10s")
+    @NotNull
+    public Duration getDynamicFilteringRefreshInterval()
+    {
+        return dynamicFilteringRefreshInterval;
+    }
+
+    @Config("experimental.dynamic-filtering-refresh-interval")
+    public FeaturesConfig setDynamicFilteringRefreshInterval(Duration dynamicFilteringRefreshInterval)
+    {
+        this.dynamicFilteringRefreshInterval = dynamicFilteringRefreshInterval;
+        return this;
+    }
+
+    public int getDynamicFilteringRangeRowLimitPerDriver()
+    {
+        return dynamicFilteringRangeRowLimitPerDriver;
+    }
+
+    @Config("dynamic-filtering-range-row-limit-per-driver")
+    @ConfigDescription("Maximum number of build-side rows per driver up to which min and max values will be collected for dynamic filtering")
+    public FeaturesConfig setDynamicFilteringRangeRowLimitPerDriver(int dynamicFilteringRangeRowLimitPerDriver)
+    {
+        this.dynamicFilteringRangeRowLimitPerDriver = dynamicFilteringRangeRowLimitPerDriver;
+        return this;
+    }
+
     public boolean isOptimizeMixedDistinctAggregations()
     {
         return optimizeMixedDistinctAggregations;
@@ -984,6 +1007,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public int getMaxRecursionDepth()
+    {
+        return maxRecursionDepth;
+    }
+
+    @Config("max-recursion-depth")
+    public FeaturesConfig setMaxRecursionDepth(int maxRecursionDepth)
+    {
+        this.maxRecursionDepth = maxRecursionDepth;
+        return this;
+    }
+
     public int getMaxGroupingSets()
     {
         return maxGroupingSets;
@@ -1042,6 +1077,18 @@ public class FeaturesConfig
     public FeaturesConfig setIgnoreDownstreamPreferences(boolean ignoreDownstreamPreferences)
     {
         this.ignoreDownstreamPreferences = ignoreDownstreamPreferences;
+        return this;
+    }
+
+    public boolean isIterativeRuleBasedColumnPruning()
+    {
+        return iterativeRuleBasedColumnPruning;
+    }
+
+    @Config("optimizer.iterative-rule-based-column-pruning")
+    public FeaturesConfig setIterativeRuleBasedColumnPruning(boolean iterativeRuleBasedColumnPruning)
+    {
+        this.iterativeRuleBasedColumnPruning = iterativeRuleBasedColumnPruning;
         return this;
     }
 }

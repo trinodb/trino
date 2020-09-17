@@ -28,8 +28,10 @@ import static io.prestosql.orc.metadata.statistics.AbstractStatisticsBuilderTest
 import static io.prestosql.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static io.prestosql.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestStringStatisticsBuilder
         extends AbstractStatisticsBuilderTest<StringStatisticsBuilder, Slice>
@@ -48,7 +50,7 @@ public class TestStringStatisticsBuilder
 
     public TestStringStatisticsBuilder()
     {
-        super(STRING, () -> new StringStatisticsBuilder(Integer.MAX_VALUE), StringStatisticsBuilder::addValue);
+        super(STRING, () -> new StringStatisticsBuilder(Integer.MAX_VALUE, new NoOpBloomFilterBuilder()), StringStatisticsBuilder::addValue);
     }
 
     @Test
@@ -93,7 +95,7 @@ public class TestStringStatisticsBuilder
     @Test
     public void testSum()
     {
-        StringStatisticsBuilder stringStatisticsBuilder = new StringStatisticsBuilder(Integer.MAX_VALUE);
+        StringStatisticsBuilder stringStatisticsBuilder = new StringStatisticsBuilder(Integer.MAX_VALUE, new NoOpBloomFilterBuilder());
         for (Slice value : ImmutableList.of(EMPTY_SLICE, LOW_BOTTOM_VALUE, LOW_TOP_VALUE)) {
             stringStatisticsBuilder.addValue(value);
         }
@@ -105,7 +107,7 @@ public class TestStringStatisticsBuilder
     {
         List<ColumnStatistics> statisticsList = new ArrayList<>();
 
-        StringStatisticsBuilder statisticsBuilder = new StringStatisticsBuilder(Integer.MAX_VALUE);
+        StringStatisticsBuilder statisticsBuilder = new StringStatisticsBuilder(Integer.MAX_VALUE, new NoOpBloomFilterBuilder());
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 0, 0);
 
@@ -162,7 +164,7 @@ public class TestStringStatisticsBuilder
         // max merged to null
         List<ColumnStatistics> statisticsList = new ArrayList<>();
 
-        StringStatisticsBuilder statisticsBuilder = new StringStatisticsBuilder(7);
+        StringStatisticsBuilder statisticsBuilder = new StringStatisticsBuilder(7, new NoOpBloomFilterBuilder());
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 0, 0);
 
@@ -189,7 +191,7 @@ public class TestStringStatisticsBuilder
         // min merged to null
         statisticsList = new ArrayList<>();
 
-        statisticsBuilder = new StringStatisticsBuilder(7);
+        statisticsBuilder = new StringStatisticsBuilder(7, new NoOpBloomFilterBuilder());
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedStringStatistics(statisticsList, 0, 0);
 
@@ -216,7 +218,7 @@ public class TestStringStatisticsBuilder
         // min and max both merged to null
         statisticsList = new ArrayList<>();
 
-        statisticsBuilder = new StringStatisticsBuilder(7);
+        statisticsBuilder = new StringStatisticsBuilder(7, new NoOpBloomFilterBuilder());
         statisticsBuilder.addValue(MEDIUM_BOTTOM_VALUE);
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), MEDIUM_BOTTOM_VALUE, MEDIUM_BOTTOM_VALUE);
@@ -237,7 +239,7 @@ public class TestStringStatisticsBuilder
     @Test
     public void testCopyStatsToSaveMemory()
     {
-        StringStatisticsBuilder statisticsBuilder = new StringStatisticsBuilder(Integer.MAX_VALUE);
+        StringStatisticsBuilder statisticsBuilder = new StringStatisticsBuilder(Integer.MAX_VALUE, new NoOpBloomFilterBuilder());
         Slice shortSlice = Slices.wrappedBuffer(LONG_BOTTOM_VALUE.getBytes(), 0, 1);
         statisticsBuilder.addValue(shortSlice);
         Slice stats = statisticsBuilder.buildColumnStatistics().getStringStatistics().getMax();
@@ -268,7 +270,7 @@ public class TestStringStatisticsBuilder
     private static void assertMinMaxValuesWithLimit(Slice expectedMin, Slice expectedMax, List<Slice> values, int limit)
     {
         checkArgument(values != null && !values.isEmpty());
-        StringStatisticsBuilder builder = new StringStatisticsBuilder(limit);
+        StringStatisticsBuilder builder = new StringStatisticsBuilder(limit, new NoOpBloomFilterBuilder());
         for (Slice value : values) {
             builder.addValue(value);
         }
@@ -299,6 +301,7 @@ public class TestStringStatisticsBuilder
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 
@@ -312,5 +315,20 @@ public class TestStringStatisticsBuilder
             assertNull(columnStatistics.getStringStatistics());
             assertEquals(columnStatistics.getNumberOfValues(), 0);
         }
+    }
+
+    @Test
+    public void testBloomFilter()
+    {
+        StringStatisticsBuilder statisticsBuilder = new StringStatisticsBuilder(Integer.MAX_VALUE, new Utf8BloomFilterBuilder(3, 0.01));
+        statisticsBuilder.addValue(LOW_BOTTOM_VALUE);
+        statisticsBuilder.addValue(MEDIUM_BOTTOM_VALUE);
+        statisticsBuilder.addValue(MEDIUM_BOTTOM_VALUE);
+        BloomFilter bloomFilter = statisticsBuilder.buildColumnStatistics().getBloomFilter();
+        assertNotNull(bloomFilter);
+        assertTrue(bloomFilter.testSlice(LOW_BOTTOM_VALUE));
+        assertTrue(bloomFilter.testSlice(MEDIUM_BOTTOM_VALUE));
+        assertTrue(bloomFilter.testSlice(MEDIUM_BOTTOM_VALUE));
+        assertFalse(bloomFilter.testSlice(LOW_TOP_VALUE));
     }
 }

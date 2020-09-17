@@ -1,0 +1,140 @@
+{
+    "type": "index",
+    "spec": {
+        "dataSchema": {
+            "dataSource": "lineitem",
+            "parser": {
+                "type": "string",
+                "parseSpec": {
+                    "format": "tsv",
+                    "timestampSpec": {
+                        "column": "shipdate_druid_ts",
+                        "format": "auto"
+                    },
+                    "columns": [
+                        "orderkey",
+                        "partkey",
+                        "suppkey",
+                        "linenumber",
+                        "quantity",
+                        "extendedprice",
+                        "discount",
+                        "tax",
+                        "returnflag",
+                        "linestatus",
+                        "shipdate",
+                        "shipdate_druid_ts",
+                        "commitdate",
+                        "receiptdate",
+                        "shipinstruct",
+                        "shipmode",
+                        "comment"
+                    ],
+                    "dimensionsSpec": {
+                        "dimensions": [
+                            {
+                                "name": "orderkey",
+                                "type": "long"
+                            },
+                            {
+                                "name": "partkey",
+                                "type": "long"
+                            },
+                            {
+                                "name": "suppkey",
+                                "type": "long"
+                            },
+                            {
+                                "name": "linenumber",
+                                "type": "long"
+                            },
+                            {
+                                "name": "returnflag",
+                                "type": "string"
+                            },
+                            {
+                                "name": "linestatus",
+                                "type": "string"
+                            },
+                            {
+                                "name": "shipdate",
+                                "type": "string"
+                            },
+                            {
+                                "name": "commitdate",
+                                "type": "string"
+                            },
+                            {
+                                "name": "receiptdate",
+                                "type": "string"
+                            },
+                            {
+                                "name": "shipinstruct",
+                                "type": "string"
+                            },
+                            {
+                                "name": "shipmode",
+                                "type": "string"
+                            },
+                            {
+                                "name": "comment",
+                                "type": "string"
+                            }
+                        ]
+                    }
+                }
+            },
+            "metricsSpec": [
+                {
+                    "type": "count",
+                    "name": "count"
+                },
+                {
+                    "type": "doubleSum",
+                    "fieldName": "quantity",
+                    "name": "quantity"
+                },
+                {
+                    "type": "doubleSum",
+                    "fieldName": "extendedprice",
+                    "name": "extendedprice"
+                },
+                {
+                    "type": "doubleSum",
+                    "fieldName": "discount",
+                    "name": "discount"
+                },
+                {
+                    "type": "doubleSum",
+                    "fieldName": "tax",
+                    "name": "tax"
+                }
+            ],
+            "granularitySpec": {
+                "type": "uniform",
+                "intervals": [
+                    "1992-01-02/1998-12-01"
+                ],
+                "segmentGranularity": "year",
+                "queryGranularity": "day"
+            }
+        },
+        "ioConfig": {
+            "type": "index",
+            "firehose": {
+                "type": "local",
+                "baseDir": "/opt/druid/var/",
+                "filter": "lineitem.tsv"
+            },
+            "appendToExisting": false
+        },
+        "tuningConfig": {
+            "type": "index",
+            "maxRowsPerSegment": 5000000,
+            "maxRowsInMemory": 250000,
+            "segmentWriteOutMediumFactory": {
+                "type": "offHeapMemory"
+            }
+        }
+    }
+}

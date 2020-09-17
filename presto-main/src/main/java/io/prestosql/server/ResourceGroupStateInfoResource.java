@@ -14,6 +14,7 @@
 package io.prestosql.server;
 
 import io.prestosql.execution.resourcegroups.ResourceGroupManager;
+import io.prestosql.server.security.ResourceSecurity;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 
 import javax.inject.Inject;
@@ -31,6 +32,7 @@ import java.util.Arrays;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
@@ -46,6 +48,7 @@ public class ResourceGroupStateInfoResource
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
     }
 
+    @ResourceSecurity(MANAGEMENT_READ)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Encoded

@@ -1,0 +1,38 @@
+{
+    "catalogs": [
+        {
+            "allow": true
+        }
+    ],
+  "tables": [
+    {
+      "schema": "secret",
+      "privileges": []
+    },
+    {
+      "user": "admin",
+      "schema": ".*",
+      "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
+    },
+    {
+      "user": "alice",
+      "schema": "aliceschema",
+      "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
+    },
+    {
+      "user": "bob",
+      "schema": "bobschema",
+      "table": "bob.*",
+      "privileges": ["SELECT", "INSERT", "DELETE", "GRANT_SELECT"]
+    },
+    {
+      "group": "guests",
+      "schema": "bobschema",
+      "table": "bobtable",
+      "privileges": ["SELECT", "INSERT"]
+    },
+    {
+      "privileges": ["SELECT"]
+    }
+  ]
+}

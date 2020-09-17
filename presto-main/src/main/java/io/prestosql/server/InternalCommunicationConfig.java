@@ -14,6 +14,7 @@
 package io.prestosql.server;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.validation.FileExists;
@@ -31,6 +32,7 @@ import java.util.Optional;
 public class InternalCommunicationConfig
 {
     private String sharedSecret;
+    private boolean http2Enabled;
     private boolean httpsRequired;
     private String keyStorePath;
     private String keyStorePassword;
@@ -48,6 +50,19 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setSharedSecret(String sharedSecret)
     {
         this.sharedSecret = sharedSecret;
+        return this;
+    }
+
+    public boolean isHttp2Enabled()
+    {
+        return http2Enabled;
+    }
+
+    @Config("internal-communication.http2.enabled")
+    @ConfigDescription("Enable the HTTP/2 transport")
+    public InternalCommunicationConfig setHttp2Enabled(boolean http2Enabled)
+    {
+        this.http2Enabled = http2Enabled;
         return this;
     }
 

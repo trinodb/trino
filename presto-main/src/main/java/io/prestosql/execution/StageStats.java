@@ -32,6 +32,7 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.execution.StageState.FLUSHING;
 import static io.prestosql.execution.StageState.RUNNING;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -422,7 +423,7 @@ public class StageStats
 
     public BasicStageStats toBasicStageStats(StageState stageState)
     {
-        boolean isScheduled = (stageState == RUNNING) || stageState.isDone();
+        boolean isScheduled = stageState == RUNNING || stageState == FLUSHING || stageState.isDone();
 
         OptionalDouble progressPercentage = OptionalDouble.empty();
         if (isScheduled && totalDrivers != 0) {

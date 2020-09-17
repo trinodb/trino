@@ -32,9 +32,9 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.connector.RecordPageSource;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -61,7 +61,6 @@ import static io.prestosql.operator.PageAssertions.assertPageEquals;
 import static io.prestosql.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.call;
@@ -94,7 +93,7 @@ public class TestScanFilterAndProjectOperator
     @Test
     public void testPageSource()
     {
-        final Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
+        Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
 
         List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
@@ -110,7 +109,7 @@ public class TestScanFilterAndProjectOperator
                 pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                TupleDomain::all,
+                DynamicFilter.EMPTY,
                 ImmutableList.of(VARCHAR),
                 DataSize.ofBytes(0),
                 0);
@@ -138,7 +137,6 @@ public class TestScanFilterAndProjectOperator
 
         RowExpression filter = call(
                 metadata.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                BOOLEAN,
                 field(0, BIGINT),
                 constant(10L, BIGINT));
         List<RowExpression> projections = ImmutableList.of(field(0, BIGINT));
@@ -154,7 +152,7 @@ public class TestScanFilterAndProjectOperator
                 pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                TupleDomain::all,
+                DynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.of(64, KILOBYTE),
                 2);
@@ -199,7 +197,7 @@ public class TestScanFilterAndProjectOperator
                 () -> pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                TupleDomain::all,
+                DynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.ofBytes(0),
                 0);
@@ -218,7 +216,7 @@ public class TestScanFilterAndProjectOperator
     @Test
     public void testRecordCursorSource()
     {
-        final Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
+        Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
 
         List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
@@ -234,7 +232,7 @@ public class TestScanFilterAndProjectOperator
                 pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                TupleDomain::all,
+                DynamicFilter.EMPTY,
                 ImmutableList.of(VARCHAR),
                 DataSize.ofBytes(0),
                 0);
@@ -273,7 +271,7 @@ public class TestScanFilterAndProjectOperator
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
         ImmutableList.Builder<RowExpression> projections = ImmutableList.builder();
         for (int i = 0; i < totalColumns; i++) {
-            projections.add(call(metadata.resolveFunction(QualifiedName.of("generic_long_page_col" + i), fromTypes(BIGINT)), BIGINT, field(0, BIGINT)));
+            projections.add(call(metadata.resolveFunction(QualifiedName.of("generic_long_page_col" + i), fromTypes(BIGINT)), field(0, BIGINT)));
         }
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections.build(), "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections.build(), MAX_BATCH_SIZE);
@@ -287,7 +285,7 @@ public class TestScanFilterAndProjectOperator
                 pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                TupleDomain::all,
+                DynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.ofBytes(0),
                 0);
@@ -339,7 +337,6 @@ public class TestScanFilterAndProjectOperator
 
         List<RowExpression> projections = ImmutableList.of(call(
                 metadata.resolveFunction(QualifiedName.of("generic_long_record_cursor"), fromTypes(BIGINT)),
-                BIGINT,
                 field(0, BIGINT)));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);
@@ -353,7 +350,7 @@ public class TestScanFilterAndProjectOperator
                 pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                TupleDomain::all,
+                DynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.ofBytes(0),
                 0);

@@ -142,6 +142,14 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
+    public void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.checkCanSetColumnComment(context, tableName);
+        }
+    }
+
+    @Override
     public void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

@@ -32,6 +32,7 @@ public class TestGlueHiveMetastoreConfig
                 .setGlueEndpointUrl(null)
                 .setPinGlueClientToCurrentRegion(false)
                 .setMaxGlueConnections(5)
+                .setMaxGlueErrorRetries(10)
                 .setDefaultWarehouseDir(null)
                 .setIamRole(null)
                 .setExternalId(null)
@@ -40,7 +41,8 @@ public class TestGlueHiveMetastoreConfig
                 .setAwsCredentialsProvider(null)
                 .setCatalogId(null)
                 .setPartitionSegments(5)
-                .setGetPartitionThreads(20));
+                .setGetPartitionThreads(20)
+                .setAssumeCanonicalPartitionKeys(false));
     }
 
     @Test
@@ -51,6 +53,7 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.endpoint-url", "http://foo.bar")
                 .put("hive.metastore.glue.pin-client-to-current-region", "true")
                 .put("hive.metastore.glue.max-connections", "10")
+                .put("hive.metastore.glue.max-error-retries", "20")
                 .put("hive.metastore.glue.default-warehouse-dir", "/location")
                 .put("hive.metastore.glue.iam-role", "role")
                 .put("hive.metastore.glue.external-id", "external-id")
@@ -60,6 +63,7 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.catalogid", "0123456789")
                 .put("hive.metastore.glue.partitions-segments", "10")
                 .put("hive.metastore.glue.get-partition-threads", "42")
+                .put("hive.metastore.glue.assume-canonical-partition-keys", "true")
                 .build();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
@@ -67,6 +71,7 @@ public class TestGlueHiveMetastoreConfig
                 .setGlueEndpointUrl("http://foo.bar")
                 .setPinGlueClientToCurrentRegion(true)
                 .setMaxGlueConnections(10)
+                .setMaxGlueErrorRetries(20)
                 .setDefaultWarehouseDir("/location")
                 .setIamRole("role")
                 .setExternalId("external-id")
@@ -75,7 +80,8 @@ public class TestGlueHiveMetastoreConfig
                 .setAwsCredentialsProvider("custom")
                 .setCatalogId("0123456789")
                 .setPartitionSegments(10)
-                .setGetPartitionThreads(42);
+                .setGetPartitionThreads(42)
+                .setAssumeCanonicalPartitionKeys(true);
 
         assertFullMapping(properties, expected);
     }

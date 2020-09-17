@@ -14,8 +14,9 @@
 package io.prestosql.operator.annotations;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.spi.function.CastDependency;
 import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.FunctionDependency;
@@ -45,7 +46,9 @@ import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignatu
 
 public interface ImplementationDependency
 {
-    Object resolve(BoundVariables boundVariables, Metadata metadata);
+    void declareDependencies(FunctionDependencyDeclarationBuilder builder);
+
+    Object resolve(FunctionBinding functionBinding, FunctionDependencies functionDependencies);
 
     static boolean isImplementationDependencyAnnotation(Annotation annotation)
     {

@@ -21,7 +21,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.plugin.hive.metastore.RecordingHiveMetastore;
+import io.prestosql.plugin.hive.metastore.RecordingHiveMetastoreModule;
 import io.prestosql.plugin.hive.metastore.WriteHiveMetastoreRecordingProcedure;
 import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
 import io.prestosql.plugin.hive.metastore.cache.ForCachingHiveMetastore;
@@ -52,12 +52,7 @@ public class ThriftMetastoreModule
                     .annotatedWith(ForRecordingHiveMetastore.class)
                     .to(BridgingHiveMetastore.class)
                     .in(Scopes.SINGLETON);
-            binder.bind(HiveMetastore.class)
-                    .annotatedWith(ForCachingHiveMetastore.class)
-                    .to(RecordingHiveMetastore.class)
-                    .in(Scopes.SINGLETON);
-            binder.bind(RecordingHiveMetastore.class).in(Scopes.SINGLETON);
-            newExporter(binder).export(RecordingHiveMetastore.class).withGeneratedName();
+            binder.install(new RecordingHiveMetastoreModule());
 
             Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
             procedures.addBinding().toProvider(WriteHiveMetastoreRecordingProcedure.class).in(Scopes.SINGLETON);

@@ -16,6 +16,7 @@ package io.prestosql.plugin.bigquery;
 import com.google.auth.oauth2.GoogleCredentials;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.AssertTrue;
@@ -66,6 +67,7 @@ public class BigQueryConfig
 
     @Config("bigquery.credentials-key")
     @ConfigDescription("The base64 encoded credentials key")
+    @ConfigSecuritySensitive
     public BigQueryConfig setCredentialsKey(String credentialsKey)
     {
         this.credentialsKey = Optional.of(credentialsKey);

@@ -36,7 +36,6 @@ import io.prestosql.spi.type.UnscaledDecimal128Arithmetic;
 import java.math.BigInteger;
 import java.util.List;
 
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.longVariableExpression;
 import static io.prestosql.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -84,7 +83,6 @@ public final class DecimalOperators
         TypeSignature decimalResultSignature = new TypeSignature("decimal", typeVariable("r_precision"), typeVariable("r_scale"));
 
         Signature signature = Signature.builder()
-                .kind(SCALAR)
                 .operatorType(ADD)
                 .longVariableConstraints(
                         longVariableExpression("r_precision", "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)"),
@@ -92,7 +90,7 @@ public final class DecimalOperators
                 .argumentTypes(decimalLeftSignature, decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
-        return SqlScalarFunction.builder(DecimalOperators.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalOperators.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -166,7 +164,6 @@ public final class DecimalOperators
         TypeSignature decimalResultSignature = new TypeSignature("decimal", typeVariable("r_precision"), typeVariable("r_scale"));
 
         Signature signature = Signature.builder()
-                .kind(SCALAR)
                 .operatorType(SUBTRACT)
                 .longVariableConstraints(
                         longVariableExpression("r_precision", "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)"),
@@ -174,7 +171,7 @@ public final class DecimalOperators
                 .argumentTypes(decimalLeftSignature, decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
-        return SqlScalarFunction.builder(DecimalOperators.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalOperators.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -244,7 +241,6 @@ public final class DecimalOperators
         TypeSignature decimalResultSignature = new TypeSignature("decimal", typeVariable("r_precision"), typeVariable("r_scale"));
 
         Signature signature = Signature.builder()
-                .kind(SCALAR)
                 .operatorType(MULTIPLY)
                 .longVariableConstraints(
                         longVariableExpression("r_precision", "min(38, a_precision + b_precision)"),
@@ -252,7 +248,7 @@ public final class DecimalOperators
                 .argumentTypes(decimalLeftSignature, decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
-        return SqlScalarFunction.builder(DecimalOperators.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalOperators.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -309,7 +305,6 @@ public final class DecimalOperators
         // if scale of divisor is greater than scale of dividend we extend scale further as we
         // want result scale to be maximum of scales of divisor and dividend.
         Signature signature = Signature.builder()
-                .kind(SCALAR)
                 .operatorType(DIVIDE)
                 .longVariableConstraints(
                         longVariableExpression("r_precision", "min(38, a_precision + b_scale + max(b_scale - a_scale, 0))"),
@@ -317,7 +312,7 @@ public final class DecimalOperators
                 .argumentTypes(decimalLeftSignature, decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
-        return SqlScalarFunction.builder(DecimalOperators.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalOperators.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -458,7 +453,7 @@ public final class DecimalOperators
 
     public static SqlScalarFunction modulusScalarFunction(Signature signature)
     {
-        return SqlScalarFunction.builder(DecimalOperators.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalOperators.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice

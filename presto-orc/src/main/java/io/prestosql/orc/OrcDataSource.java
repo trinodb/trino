@@ -29,7 +29,16 @@ public interface OrcDataSource
 
     long getReadTimeNanos();
 
-    long getSize();
+    long getEstimatedSize();
+
+    /**
+     * Gets the memory size of this data source.  This only includes memory
+     * used for the data source and not memory assigned to a specific OrcDataReader.
+     */
+    long getRetainedSize();
+
+    Slice readTail(int length)
+            throws IOException;
 
     Slice readFully(long position, int length)
             throws IOException;

@@ -32,6 +32,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.FutureStateChange;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.NodeTaskMap.PartitionedSplitCountTracker;
@@ -49,7 +50,9 @@ import io.prestosql.execution.buffer.PageBufferInfo;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.TaskStats;
 import io.prestosql.server.TaskUpdateRequest;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
@@ -114,6 +117,7 @@ public final class HttpRemoteTask
     private final RemoteTaskStats stats;
     private final TaskInfoFetcher taskInfoFetcher;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
+    private final DynamicFiltersFetcher dynamicFiltersFetcher;
 
     @GuardedBy("this")
     private Future<?> currentRequest;
@@ -174,6 +178,7 @@ public final class HttpRemoteTask
             Duration taskInfoUpdateInterval,
             boolean summarizeTaskInfo,
             JsonCodec<TaskStatus> taskStatusCodec,
+            JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
@@ -227,11 +232,24 @@ public final class HttpRemoteTask
 
             TaskInfo initialTask = createInitialTask(taskId, location, nodeId, bufferStates, new TaskStats(DateTime.now(), null));
 
+            this.dynamicFiltersFetcher = new DynamicFiltersFetcher(
+                    this::failTask,
+                    taskId,
+                    location,
+                    taskStatusRefreshMaxWait,
+                    dynamicFilterDomainsCodec,
+                    executor,
+                    httpClient,
+                    maxErrorDuration,
+                    errorScheduledExecutor,
+                    stats);
+
             this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
                     this::failTask,
                     initialTask.getTaskStatus(),
                     taskStatusRefreshMaxWait,
                     taskStatusCodec,
+                    dynamicFiltersFetcher,
                     executor,
                     httpClient,
                     maxErrorDuration,
@@ -292,12 +310,19 @@ public final class HttpRemoteTask
     }
 
     @Override
+    public Map<DynamicFilterId, Domain> getDynamicFilterDomains()
+    {
+        return dynamicFiltersFetcher.getDynamicFilterDomains();
+    }
+
+    @Override
     public void start()
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             // to start we just need to trigger an update
             scheduleUpdate();
 
+            dynamicFiltersFetcher.start();
             taskStatusFetcher.start();
             taskInfoFetcher.start();
         }
@@ -596,6 +621,7 @@ public final class HttpRemoteTask
         }
 
         taskStatusFetcher.stop();
+        dynamicFiltersFetcher.stop();
 
         // The remote task is likely to get a delete from the PageBufferClient first.
         // We send an additional delete anyway to get the final TaskInfo
@@ -645,7 +671,7 @@ public final class HttpRemoteTask
 
     private void doScheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
     {
-        Futures.addCallback(httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec)), new FutureCallback<JsonResponse<TaskInfo>>()
+        Futures.addCallback(httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec)), new FutureCallback<>()
         {
             @Override
             public void onSuccess(JsonResponse<TaskInfo> result)

@@ -94,7 +94,7 @@ public final class Cast
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of(expression);
+        return ImmutableList.of(expression, type);
     }
 
     @Override
@@ -117,5 +117,17 @@ public final class Cast
     public int hashCode()
     {
         return Objects.hash(expression, type, safe, typeOnly);
+    }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        Cast otherCast = (Cast) other;
+        return safe == otherCast.safe &&
+                typeOnly == otherCast.typeOnly;
     }
 }

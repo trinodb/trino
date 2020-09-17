@@ -48,12 +48,13 @@ import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validTableNam
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -157,8 +158,8 @@ public class CassandraPageSink
         else if (DATE.equals(type)) {
             values.add(toCassandraDate.apply(type.getLong(block, position)));
         }
-        else if (TIMESTAMP.equals(type)) {
-            values.add(new Timestamp(type.getLong(block, position)));
+        else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
+            values.add(new Timestamp(unpackMillisUtc(type.getLong(block, position))));
         }
         else if (isVarcharType(type)) {
             values.add(type.getSlice(block, position).toStringUtf8());

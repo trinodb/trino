@@ -55,7 +55,7 @@ public class HiveLocationService
     public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Path> externalLocation)
     {
         HdfsContext context = new HdfsContext(session, schemaName, tableName);
-        Path targetPath = externalLocation.orElse(getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName));
+        Path targetPath = externalLocation.orElseGet(() -> getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName));
 
         // verify the target directory for the table
         if (pathExists(context, hdfsEnvironment, targetPath)) {

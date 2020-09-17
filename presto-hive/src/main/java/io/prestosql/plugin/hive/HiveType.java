@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
+import io.prestosql.plugin.hive.util.HiveTypeTranslator;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RowFieldName;
@@ -53,7 +54,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -209,11 +210,9 @@ public final class HiveType
         return new HiveType(typeInfo);
     }
 
-    public static HiveType toHiveType(TypeTranslator typeTranslator, Type type)
+    public static HiveType toHiveType(Type type)
     {
-        requireNonNull(typeTranslator, "typeTranslator is null");
-        requireNonNull(type, "type is null");
-        return new HiveType(typeTranslator.translate(type));
+        return new HiveType(HiveTypeTranslator.translate(type));
     }
 
     private static TypeSignature getTypeSignature(TypeInfo typeInfo)
@@ -297,7 +296,7 @@ public final class HiveType
             case DATE:
                 return DATE;
             case TIMESTAMP:
-                return TIMESTAMP;
+                return TIMESTAMP_MILLIS;
             case BINARY:
                 return VARBINARY;
             case DECIMAL:

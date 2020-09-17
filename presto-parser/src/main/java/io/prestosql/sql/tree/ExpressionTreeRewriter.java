@@ -799,9 +799,117 @@ public final class ExpressionTreeRewriter<C>
             }
 
             Expression expression = rewrite(node.getExpression(), context.get());
+            DataType type = rewrite(node.getType(), context.get());
 
-            if (node.getExpression() != expression) {
-                return new Cast(expression, node.getType(), node.isSafe(), node.isTypeOnly());
+            if (node.getExpression() != expression || node.getType() != type) {
+                return new Cast(expression, type, node.isSafe(), node.isTypeOnly());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitRowDataType(RowDataType node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteRowDataType(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            ImmutableList.Builder<RowDataType.Field> rewritten = ImmutableList.builder();
+            for (RowDataType.Field field : node.getFields()) {
+                DataType dataType = rewrite(field.getType(), context.get());
+
+                Optional<Identifier> name = field.getName();
+
+                if (field.getName().isPresent()) {
+                    Identifier identifier = field.getName().get();
+                    Identifier rewrittenIdentifier = rewrite(identifier, context.get());
+
+                    if (identifier != rewrittenIdentifier) {
+                        name = Optional.of(rewrittenIdentifier);
+                    }
+                }
+
+                if (dataType != field.getType() || name != field.getName()) {
+                    rewritten.add(new RowDataType.Field(field.getLocation(), name, dataType));
+                }
+                else {
+                    rewritten.add(field);
+                }
+            }
+
+            List<RowDataType.Field> fields = rewritten.build();
+
+            if (!sameElements(fields, node.getFields())) {
+                return new RowDataType(node.getLocation(), fields);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitGenericDataType(GenericDataType node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteGenericDataType(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Identifier name = rewrite(node.getName(), context.get());
+
+            ImmutableList.Builder<DataTypeParameter> arguments = ImmutableList.builder();
+            for (DataTypeParameter argument : node.getArguments()) {
+                if (argument instanceof NumericParameter) {
+                    arguments.add(argument);
+                }
+                else if (argument instanceof TypeParameter) {
+                    TypeParameter parameter = (TypeParameter) argument;
+                    DataType value = (DataType) process(parameter.getValue(), context);
+
+                    if (value != parameter.getValue()) {
+                        arguments.add(new TypeParameter(value));
+                    }
+                    else {
+                        arguments.add(argument);
+                    }
+                }
+            }
+
+            List<DataTypeParameter> rewrittenArguments = arguments.build();
+
+            if (name != node.getName() || !sameElements(rewrittenArguments, node.getArguments())) {
+                return new GenericDataType(node.getLocation(), name, rewrittenArguments);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitIntervalDataType(IntervalDayTimeDataType node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteIntervalDayTimeDataType(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitDateTimeType(DateTimeDataType node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteDateTimeDataType(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
             }
 
             return node;

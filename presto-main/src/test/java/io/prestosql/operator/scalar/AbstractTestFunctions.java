@@ -23,7 +23,9 @@ import io.prestosql.spi.Plugin;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.DecimalParseResult;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.SqlDecimal;
+import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import org.testng.annotations.AfterClass;
@@ -37,6 +39,7 @@ import java.util.Map;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
+import static io.prestosql.operator.scalar.timestamp.VarcharToTimestampCast.castToLongTimestamp;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
@@ -194,9 +197,15 @@ public abstract class AbstractTestFunctions
         return new SqlDecimal(unscaledValue, parseResult.getType().getPrecision(), parseResult.getType().getScale());
     }
 
+    protected static SqlTimestamp timestamp(int precision, String timestampValue)
+    {
+        LongTimestamp longTimestamp = castToLongTimestamp(precision, timestampValue);
+        return SqlTimestamp.newInstance(precision, longTimestamp.getEpochMicros(), longTimestamp.getPicosOfMicro());
+    }
+
     protected static SqlDecimal maxPrecisionDecimal(long value)
     {
-        final String maxPrecisionFormat = "%0" + (Decimals.MAX_PRECISION + (value < 0 ? 1 : 0)) + "d";
+        String maxPrecisionFormat = "%0" + (Decimals.MAX_PRECISION + (value < 0 ? 1 : 0)) + "d";
         return decimal(format(maxPrecisionFormat, value));
     }
 

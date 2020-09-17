@@ -20,21 +20,25 @@ import io.prestosql.spi.block.LongArrayBlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 
-import static java.lang.Long.rotateLeft;
-import static java.lang.Math.multiplyExact;
+import static io.prestosql.spi.type.TimestampTypes.hashShortTimestamp;
+import static java.lang.String.format;
 
 /**
  * Encodes timestamps up to p = 6.
- *
- * For 0 <= p <= 3, the value is encoded as milliseconds from the 1970-01-01 00:00:00 epoch.
- * For 3 < p <= 6, the value is encoded as microseconds from the 1970-01-01 00:00:00 epoch.
+ * <p>
+ * The value is encoded as microseconds from the 1970-01-01 00:00:00 epoch and is to be interpreted as
+ * local date time without regards to any time zone.
  */
-public class ShortTimestampType
+class ShortTimestampType
         extends TimestampType
 {
     public ShortTimestampType(int precision)
     {
         super(precision, long.class);
+
+        if (precision < 0 || precision > MAX_SHORT_PRECISION) {
+            throw new IllegalArgumentException(format("Precision must be in the range [0, %s]", MAX_SHORT_PRECISION));
+        }
     }
 
     @Override
@@ -62,29 +66,29 @@ public class ShortTimestampType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
+            blockBuilder.writeLong(getLong(block, position)).closeEntry();
         }
     }
 
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
+        long leftValue = getLong(leftBlock, leftPosition);
+        long rightValue = getLong(rightBlock, rightPosition);
         return leftValue == rightValue;
     }
 
     @Override
     public long hash(Block block, int position)
     {
-        return hash(block.getLong(position, 0));
+        return hashShortTimestamp(getLong(block, position));
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
+        long leftValue = getLong(leftBlock, leftPosition);
+        long rightValue = getLong(rightBlock, rightPosition);
         return Long.compare(leftValue, rightValue);
     }
 
@@ -122,28 +126,7 @@ public class ShortTimestampType
             return null;
         }
 
-        long value = block.getLong(position, 0);
-
-        if (getPrecision() <= 3) {
-            value = scaleEpochMillisToMicros(value);
-        }
-
-        if (session.isLegacyTimestamp()) {
-            return SqlTimestamp.newLegacyInstance(getPrecision(), value, 0, session.getTimeZoneKey());
-        }
-        else {
-            return SqlTimestamp.newInstance(getPrecision(), value, 0);
-        }
-    }
-
-    public static long hash(long value)
-    {
-        // xxhash64 mix
-        return rotateLeft(value * 0xC2B2AE3D27D4EB4FL, 31) * 0x9E3779B185EBCA87L;
-    }
-
-    private static long scaleEpochMillisToMicros(long epochMillis)
-    {
-        return multiplyExact(epochMillis, 1000);
+        long epochMicros = getLong(block, position);
+        return SqlTimestamp.newInstance(getPrecision(), epochMicros, 0);
     }
 }

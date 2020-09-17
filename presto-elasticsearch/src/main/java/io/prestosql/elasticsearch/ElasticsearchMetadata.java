@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
 import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.elasticsearch.client.ElasticsearchClient;
@@ -53,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -65,7 +67,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -304,7 +306,7 @@ public class ElasticsearchMetadata
         }
         else if (type instanceof DateTimeType) {
             if (((DateTimeType) type).getFormats().isEmpty()) {
-                return TIMESTAMP;
+                return TIMESTAMP_MILLIS;
             }
             // otherwise, skip -- we don't support custom formats, yet
         }
@@ -339,13 +341,16 @@ public class ElasticsearchMetadata
         }
 
         ImmutableList.Builder<SchemaTableName> result = ImmutableList.builder();
+        Set<String> indexes = ImmutableSet.copyOf(client.getIndexes());
 
-        client.getIndexes().stream()
+        indexes.stream()
                 .map(index -> new SchemaTableName(this.schemaName, index))
                 .forEach(result::add);
 
-        client.getAliases().stream()
-                .map(index -> new SchemaTableName(this.schemaName, index))
+        client.getAliases().entrySet().stream()
+                .filter(entry -> indexes.contains(entry.getKey()))
+                .flatMap(entry -> entry.getValue().stream()
+                        .map(alias -> new SchemaTableName(this.schemaName, alias)))
                 .forEach(result::add);
 
         return result.build();

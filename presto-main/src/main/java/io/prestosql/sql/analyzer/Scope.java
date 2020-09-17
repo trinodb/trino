@@ -73,6 +73,22 @@ public class Scope
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
     }
 
+    public Scope withRelationType(RelationType relationType)
+    {
+        return new Scope(parent, queryBoundary, relationId, relationType, namedQueries);
+    }
+
+    public Scope getQueryBoundaryScope()
+    {
+        Scope scope = this;
+        Optional<Scope> parent = scope.getLocalParent();
+        while (parent.isPresent()) {
+            scope = parent.get();
+            parent = scope.getLocalParent();
+        }
+        return scope;
+    }
+
     public Optional<Scope> getOuterQueryParent()
     {
         Scope scope = this;
@@ -86,6 +102,13 @@ public class Scope
         return Optional.empty();
     }
 
+    public boolean hasOuterParent(Scope parent)
+    {
+        return getOuterQueryParent()
+                .map(scope -> scope.isLocalScope(parent) || scope.hasOuterParent(parent))
+                .orElse(false);
+    }
+
     public Optional<Scope> getLocalParent()
     {
         if (!queryBoundary) {
@@ -93,6 +116,15 @@ public class Scope
         }
 
         return Optional.empty();
+    }
+
+    public int getLocalScopeFieldCount()
+    {
+        int parent = getLocalParent()
+                .map(Scope::getLocalScopeFieldCount)
+                .orElse(0);
+
+        return parent + getRelationType().getAllFieldCount();
     }
 
     public RelationId getRelationId()
@@ -207,27 +239,44 @@ public class Scope
 
     public Optional<ResolvedField> tryResolveField(Expression node, QualifiedName name)
     {
-        return resolveField(node, name, 0, true);
+        return resolveField(node, name, true);
     }
 
-    private Optional<ResolvedField> resolveField(Expression node, QualifiedName name, int fieldIndexOffset, boolean local)
+    private Optional<ResolvedField> resolveField(Expression node, QualifiedName name, boolean local)
     {
         List<Field> matches = relation.resolveFields(name);
         if (matches.size() > 1) {
             throw ambiguousAttributeException(node, name);
         }
         else if (matches.size() == 1) {
-            return Optional.of(asResolvedField(getOnlyElement(matches), fieldIndexOffset, local));
+            int parentFieldCount = getLocalParent()
+                    .map(Scope::getLocalScopeFieldCount)
+                    .orElse(0);
+
+            Field field = getOnlyElement(matches);
+            return Optional.of(asResolvedField(field, parentFieldCount, local));
         }
         else {
             if (isColumnReference(name, relation)) {
                 return Optional.empty();
             }
             if (parent.isPresent()) {
-                return parent.get().resolveField(node, name, fieldIndexOffset + relation.getAllFieldCount(), local && !queryBoundary);
+                if (queryBoundary) {
+                    return parent.get().resolveField(node, name, false);
+                }
+                return parent.get().resolveField(node, name, local);
             }
             return Optional.empty();
         }
+    }
+
+    public ResolvedField getField(int index)
+    {
+        int parentFieldCount = getLocalParent()
+                .map(Scope::getLocalScopeFieldCount)
+                .orElse(0);
+
+        return asResolvedField(relation.getFieldByIndex(index), parentFieldCount, true);
     }
 
     private ResolvedField asResolvedField(Field field, int fieldIndexOffset, boolean local)

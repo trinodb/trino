@@ -13,68 +13,29 @@
  */
 package io.prestosql.tests.hive;
 
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import io.prestosql.tempto.ProductTest;
 
-import java.sql.SQLException;
-
-import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
+import javax.inject.Inject;
 
 public class HiveProductTest
         extends ProductTest
 {
     @Inject
-    @Named("databases.hive.major_version")
-    private int hiveVersionMajor;
-    private boolean hiveVersionMajorVerified;
-
-    @Inject
-    @Named("databases.hive.minor_version")
-    private int hiveVersionMinor;
-    private boolean hiveVersionMinorVerified;
+    private HiveVersionProvider hiveVersionProvider;
 
     protected int getHiveVersionMajor()
     {
-        checkState(hiveVersionMajor > 0, "hiveVersionMajor not set");
-        if (!hiveVersionMajorVerified) {
-            int detected = detectHiveVersionMajor();
-            checkState(hiveVersionMajor == detected, "Hive version major expected: %s, but was detected as: %s", hiveVersionMajor, detected);
-            hiveVersionMajorVerified = true;
-        }
-        return hiveVersionMajor;
-    }
-
-    private static int detectHiveVersionMajor()
-    {
-        try {
-            return onHive().getConnection().getMetaData().getDatabaseMajorVersion();
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+        return hiveVersionProvider.getHiveVersion().getMajorVersion();
     }
 
     protected int getHiveVersionMinor()
     {
-        checkState(hiveVersionMinor > 0, "hiveVersionMinor not set");
-        if (!hiveVersionMinorVerified) {
-            int detected = detectHiveVersionMinor();
-            checkState(hiveVersionMinor == detected, "Hive version minor expected: %s, but was detected as: %s", hiveVersionMinor, detected);
-            hiveVersionMinorVerified = true;
-        }
-        return hiveVersionMinor;
+        return hiveVersionProvider.getHiveVersion().getMinorVersion();
     }
 
-    private static int detectHiveVersionMinor()
+    protected int getHiveVersionPatch()
     {
-        try {
-            return onHive().getConnection().getMetaData().getDatabaseMinorVersion();
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+        return hiveVersionProvider.getHiveVersion().getPatchVersion();
     }
 
     protected boolean isHiveVersionBefore12()

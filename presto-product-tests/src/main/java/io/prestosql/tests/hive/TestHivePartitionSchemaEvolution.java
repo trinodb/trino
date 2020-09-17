@@ -13,12 +13,15 @@
  */
 package io.prestosql.tests.hive;
 
+import com.google.inject.name.Named;
 import io.airlift.log.Logger;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.assertions.QueryAssert;
 import io.prestosql.tempto.query.QueryExecutionException;
 import io.prestosql.tests.hive.util.TemporaryHiveTable;
 import org.testng.annotations.Test;
+
+import javax.inject.Inject;
 
 import java.sql.SQLException;
 import java.util.function.Supplier;
@@ -36,6 +39,10 @@ public class TestHivePartitionSchemaEvolution
         extends HiveProductTest
 {
     private static final Logger log = Logger.get(TestHivePartitionSchemaEvolution.class);
+
+    @Inject
+    @Named("databases.hive.enforce_non_transactional_tables")
+    private boolean createTablesAsAcid;
 
     @BeforeTestWithContext
     public void useColumnMappingByName()
@@ -125,7 +132,7 @@ public class TestHivePartitionSchemaEvolution
         }
     }
 
-    private static TemporaryHiveTable createTable(String format)
+    private TemporaryHiveTable createTable(String format)
     {
         String tableName = "schema_evolution_" + randomTableSuffix();
         tryExecuteOnHive(format(
@@ -135,7 +142,8 @@ public class TestHivePartitionSchemaEvolution
                         "  varchar_column varchar(20)" +
                         ") " +
                         "PARTITIONED BY (partition_column bigint) " +
-                        "STORED AS %s",
+                        "STORED AS %s " +
+                        (createTablesAsAcid ? "TBLPROPERTIES ('transactional_properties' = 'none', 'transactional' = 'false')" : ""),
                 tableName,
                 format));
         TemporaryHiveTable temporaryHiveTable = temporaryHiveTable(tableName);

@@ -20,20 +20,20 @@ import io.prestosql.rcfile.EncodeOutput;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
-import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.DateTimePrinter;
 
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static java.lang.Math.floorDiv;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public class TimestampEncoding
         implements TextColumnEncoding
 {
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
-    private final DateTimeFormatter dateTimeFormatter;
 
     static {
         @SuppressWarnings("SpellCheckingInspection")
@@ -54,11 +54,10 @@ public class TimestampEncoding
     private final Slice nullSequence;
     private final StringBuilder buffer = new StringBuilder();
 
-    public TimestampEncoding(Type type, Slice nullSequence, DateTimeZone hiveStorageTimeZone)
+    public TimestampEncoding(Type type, Slice nullSequence)
     {
         this.type = type;
         this.nullSequence = nullSequence;
-        this.dateTimeFormatter = HIVE_TIMESTAMP_PARSER.withZone(hiveStorageTimeZone);
     }
 
     @Override
@@ -69,9 +68,9 @@ public class TimestampEncoding
                 output.writeBytes(nullSequence);
             }
             else {
-                long millis = type.getLong(block, position);
+                long millis = floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
                 buffer.setLength(0);
-                dateTimeFormatter.printTo(buffer, millis);
+                HIVE_TIMESTAMP_PARSER.printTo(buffer, millis);
                 for (int index = 0; index < buffer.length(); index++) {
                     output.writeByte(buffer.charAt(index));
                 }
@@ -83,9 +82,9 @@ public class TimestampEncoding
     @Override
     public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
     {
-        long millis = type.getLong(block, position);
+        long millis = floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
         buffer.setLength(0);
-        dateTimeFormatter.printTo(buffer, millis);
+        HIVE_TIMESTAMP_PARSER.printTo(buffer, millis);
         for (int index = 0; index < buffer.length(); index++) {
             output.writeByte(buffer.charAt(index));
         }
@@ -114,13 +113,11 @@ public class TimestampEncoding
     @Override
     public void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
     {
-        long millis = parseTimestamp(slice, offset, length);
-        type.writeLong(builder, millis);
+        type.writeLong(builder, parseTimestamp(slice, offset, length));
     }
 
-    private long parseTimestamp(Slice slice, int offset, int length)
+    private static long parseTimestamp(Slice slice, int offset, int length)
     {
-        //noinspection deprecation
-        return dateTimeFormatter.parseMillis(new String(slice.getBytes(offset, length), US_ASCII));
+        return HIVE_TIMESTAMP_PARSER.parseMillis(new String(slice.getBytes(offset, length), US_ASCII)) * MICROSECONDS_PER_MILLISECOND;
     }
 }

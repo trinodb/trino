@@ -97,4 +97,15 @@ public class Identifier
     {
         return value.hashCode();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        Identifier that = (Identifier) other;
+        return Objects.equals(value, that.value) && delimited == that.delimited;
+    }
 }

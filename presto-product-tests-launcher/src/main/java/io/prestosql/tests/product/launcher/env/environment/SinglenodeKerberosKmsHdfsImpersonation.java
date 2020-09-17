@@ -25,10 +25,12 @@ import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class SinglenodeKerberosKmsHdfsImpersonation
@@ -47,28 +49,24 @@ public final class SinglenodeKerberosKmsHdfsImpersonation
     @SuppressWarnings("resource")
     protected void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer("hadoop-master", container -> {
+        builder.configureContainer(HADOOP, container -> {
             container
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/kms-acls.xml"),
-                            "/etc/hadoop-kms/conf/kms-acls.xml",
-                            READ_ONLY)
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/hiveserver2-site.xml"),
-                            "/etc/hive/conf/hiveserver2-site.xml",
-                            READ_ONLY);
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/kms-acls.xml")),
+                            "/etc/hadoop-kms/conf/kms-acls.xml")
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/hiveserver2-site.xml")),
+                            "/etc/hive/conf/hiveserver2-site.xml");
         });
 
-        builder.configureContainer("presto-master", container -> {
+        builder.configureContainer(COORDINATOR, container -> {
             container
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/hive.properties"),
-                            CONTAINER_PRESTO_HIVE_PROPERTIES,
-                            READ_ONLY)
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/iceberg.properties"),
-                            CONTAINER_PRESTO_ICEBERG_PROPERTIES,
-                            READ_ONLY);
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/hive.properties")),
+                            CONTAINER_PRESTO_HIVE_PROPERTIES)
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/iceberg.properties")),
+                            CONTAINER_PRESTO_ICEBERG_PROPERTIES);
         });
     }
 }

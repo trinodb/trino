@@ -126,7 +126,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -232,7 +232,7 @@ public final class ThriftMetastoreUtil
 
     public static Stream<RoleGrant> listApplicableRoles(HivePrincipal principal, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
-        return Streams.stream(new AbstractIterator<RoleGrant>()
+        return Streams.stream(new AbstractIterator<>()
         {
             private final Queue<RoleGrant> output = new ArrayDeque<>();
             private final Set<RoleGrant> seenRoles = new HashSet<>();
@@ -444,6 +444,13 @@ public final class ThriftMetastoreUtil
     public static boolean isCsvTable(org.apache.hadoop.hive.metastore.api.Table table)
     {
         return CSV.getSerDe().equals(getSerdeInfo(table).getSerializationLib());
+    }
+
+    public static List<FieldSchema> csvSchemaFields(List<FieldSchema> schemas)
+    {
+        return schemas.stream()
+                .map(schema -> new FieldSchema(schema.getName(), HiveType.HIVE_STRING.toString(), schema.getComment()))
+                .collect(toImmutableList());
     }
 
     private static SerDeInfo getSerdeInfo(org.apache.hadoop.hive.metastore.api.Table table)
@@ -956,7 +963,7 @@ public final class ThriftMetastoreUtil
         if (type.equals(BOOLEAN)) {
             return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_TRUE_VALUES);
         }
-        if (isNumericType(type) || type.equals(DATE) || type.equals(TIMESTAMP)) {
+        if (isNumericType(type) || type.equals(DATE) || type.equals(TIMESTAMP_MILLIS)) {
             // TODO https://github.com/prestosql/presto/issues/37 support non-legacy TIMESTAMP
             return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
         }

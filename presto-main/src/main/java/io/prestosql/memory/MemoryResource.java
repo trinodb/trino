@@ -14,6 +14,7 @@
 package io.prestosql.memory;
 
 import io.prestosql.execution.TaskManager;
+import io.prestosql.server.security.ResourceSecurity;
 import io.prestosql.spi.memory.MemoryPoolInfo;
 
 import javax.inject.Inject;
@@ -28,6 +29,8 @@ import javax.ws.rs.core.Response;
 
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.prestosql.memory.LocalMemoryManager.RESERVED_POOL;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
@@ -47,6 +50,7 @@ public class MemoryResource
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
     @POST
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
@@ -56,6 +60,7 @@ public class MemoryResource
         return memoryManager.getInfo();
     }
 
+    @ResourceSecurity(MANAGEMENT_READ)
     @GET
     @Path("{poolId}")
     public Response getMemoryInfo(@PathParam("poolId") String poolId)

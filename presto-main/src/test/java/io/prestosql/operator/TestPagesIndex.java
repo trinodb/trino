@@ -19,6 +19,7 @@ import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 
 import static io.prestosql.SequencePageBuilder.createSequencePage;
@@ -26,6 +27,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestPagesIndex
@@ -80,6 +82,31 @@ public class TestPagesIndex
 
         lazyCompactPagesIndex.compact();
         assertEquals(lazyCompactPagesIndex.getEstimatedSize(), eagerCompactPagesIndex.getEstimatedSize());
+    }
+
+    @Test
+    public void testCompactWithNoColumns()
+    {
+        PagesIndex index = newPagesIndex(ImmutableList.of(), 50, false);
+        index.addPage(new Page(10));
+        index.addPage(new Page(20));
+
+        index.compact();
+
+        assertEquals(index.getPositionCount(), 30);
+    }
+
+    @Test
+    public void testGetPagesWithNoColumns()
+    {
+        PagesIndex index = newPagesIndex(ImmutableList.of(), 50, false);
+        index.addPage(new Page(10));
+        index.addPage(new Page(20));
+
+        Iterator<Page> pages = index.getPages();
+        assertEquals(pages.next().getPositionCount(), 10);
+        assertEquals(pages.next().getPositionCount(), 20);
+        assertFalse(pages.hasNext());
     }
 
     private static PagesIndex newPagesIndex(List<Type> types, int expectedPositions, boolean eagerCompact)

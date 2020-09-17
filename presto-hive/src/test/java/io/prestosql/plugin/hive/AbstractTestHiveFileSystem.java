@@ -27,6 +27,7 @@ import io.prestosql.plugin.hive.AbstractTestHive.Transaction;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
+import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
@@ -90,6 +91,7 @@ import static io.prestosql.plugin.hive.AbstractTestHive.createTableProperties;
 import static io.prestosql.plugin.hive.AbstractTestHive.filterNonHiddenColumnHandles;
 import static io.prestosql.plugin.hive.AbstractTestHive.filterNonHiddenColumnMetadata;
 import static io.prestosql.plugin.hive.AbstractTestHive.getAllSplits;
+import static io.prestosql.plugin.hive.AbstractTestHive.getSplits;
 import static io.prestosql.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
@@ -98,7 +100,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorP
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.HiveTestUtils.getTypes;
-import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.getRawFileSystem;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.MaterializedResult.materializeSourceDataStream;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -196,9 +198,8 @@ public abstract class AbstractTestHiveFileSystem
                 TYPE_MANAGER,
                 locationService,
                 partitionUpdateCodec,
-                new HiveTypeTranslator(),
                 new NodeVersion("test_version"),
-                (metastore) -> new SqlStandardAccessControlMetadata(metastore));
+                SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),
@@ -207,7 +208,6 @@ public abstract class AbstractTestHiveFileSystem
                 hdfsEnvironment,
                 new CachingDirectoryLister(new HiveConfig()),
                 new BoundedExecutor(executor, config.getMaxSplitIteratorThreads()),
-                new HiveCoercionPolicy(TYPE_MANAGER),
                 new CounterStat(),
                 config.getMaxOutstandingSplits(),
                 config.getMaxOutstandingSplitsSize(),
@@ -234,9 +234,8 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(
                 TYPE_MANAGER,
-                config,
                 hdfsEnvironment,
-                getDefaultHivePageSourceFactories(hdfsEnvironment),
+                getDefaultHivePageSourceFactories(hdfsEnvironment, config),
                 getDefaultHiveRecordCursorProviders(config, hdfsEnvironment),
                 new GenericHiveRecordCursorProvider(hdfsEnvironment, config));
 
@@ -340,7 +339,7 @@ public abstract class AbstractTestHiveFileSystem
         assertFalse(fs.rename(path, newPath));
 
         // rename foo.txt to foo.txt when foo.txt exists
-        assertEquals(fs.rename(path, path), fs instanceof AzureBlobFileSystem);
+        assertEquals(fs.rename(path, path), getRawFileSystem(fs) instanceof AzureBlobFileSystem);
 
         // delete foo.txt
         assertTrue(fs.delete(path, false));
@@ -447,7 +446,7 @@ public abstract class AbstractTestHiveFileSystem
 
             // verify the data
             metadata.beginQuery(session);
-            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING);
+            ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, tableHandle);
             ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
             try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle, columnHandles, TupleDomain.all())) {
@@ -478,7 +477,7 @@ public abstract class AbstractTestHiveFileSystem
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, table).values());
 
             metadata.beginQuery(session);
-            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, table, UNGROUPED_SCHEDULING);
+            ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, table);
 
             List<Type> allTypes = getTypes(columnHandles);
             List<Type> dataTypes = getTypes(columnHandles.stream()
@@ -520,7 +519,7 @@ public abstract class AbstractTestHiveFileSystem
 
         public TestingHiveMetastore(HiveMetastore delegate, Executor executor, Path basePath, HdfsEnvironment hdfsEnvironment)
         {
-            super(delegate, executor, OptionalLong.empty(), OptionalLong.empty(), 0);
+            super(delegate, executor, OptionalLong.empty(), OptionalLong.empty(), 0, StatsRecording.ENABLED);
             this.basePath = basePath;
             this.hdfsEnvironment = hdfsEnvironment;
         }
@@ -597,6 +596,7 @@ public abstract class AbstractTestHiveFileSystem
         {
             ImmutableList.Builder<String> locations = ImmutableList.builder();
             Table table = getTable(identity, schemaName, tableName).get();
+            List<String> partitionColumnNames = table.getPartitionColumns().stream().map(Column::getName).collect(toImmutableList());
             if (table.getStorage().getLocation() != null) {
                 // For partitioned table, there should be nothing directly under this directory.
                 // But including this location in the set makes the directory content assert more
@@ -604,7 +604,7 @@ public abstract class AbstractTestHiveFileSystem
                 locations.add(table.getStorage().getLocation());
             }
 
-            Optional<List<String>> partitionNames = getPartitionNames(identity, schemaName, tableName);
+            Optional<List<String>> partitionNames = getPartitionNamesByFilter(identity, schemaName, tableName, partitionColumnNames, TupleDomain.all());
             if (partitionNames.isPresent()) {
                 getPartitionsByNames(identity, table, partitionNames.get()).values().stream()
                         .map(Optional::get)

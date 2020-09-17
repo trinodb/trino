@@ -51,6 +51,7 @@ import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExceptNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
@@ -258,13 +259,18 @@ public class PlanBuilder
 
     public TopNNode topN(long count, List<Symbol> orderBy, TopNNode.Step step, PlanNode source)
     {
+        return topN(count, orderBy, step, SortOrder.ASC_NULLS_FIRST, source);
+    }
+
+    public TopNNode topN(long count, List<Symbol> orderBy, TopNNode.Step step, SortOrder sortOrder, PlanNode source)
+    {
         return new TopNNode(
                 idAllocator.getNextId(),
                 source,
                 count,
                 new OrderingScheme(
                         orderBy,
-                        Maps.toMap(orderBy, Functions.constant(SortOrder.ASC_NULLS_FIRST))),
+                        Maps.toMap(orderBy, Functions.constant(sortOrder))),
                 step);
     }
 
@@ -290,7 +296,12 @@ public class PlanBuilder
 
     public FilterNode filter(Expression predicate, PlanNode source)
     {
-        return new FilterNode(idAllocator.getNextId(), source, predicate);
+        return filter(idAllocator.getNextId(), predicate, source);
+    }
+
+    public FilterNode filter(PlanNodeId planNodeId, Expression predicate, PlanNode source)
+    {
+        return new FilterNode(planNodeId, source, predicate);
     }
 
     public AggregationNode aggregation(Consumer<AggregationBuilder> aggregationBuilderConsumer)
@@ -556,6 +567,7 @@ public class PlanBuilder
                 semiJoinOutput,
                 sourceHashSymbol,
                 filteringSourceHashSymbol,
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -569,6 +581,29 @@ public class PlanBuilder
             Optional<Symbol> filteringSourceHashSymbol,
             Optional<SemiJoinNode.DistributionType> distributionType)
     {
+        return semiJoin(
+                source,
+                filteringSource,
+                sourceJoinSymbol,
+                filteringSourceJoinSymbol,
+                semiJoinOutput,
+                sourceHashSymbol,
+                filteringSourceHashSymbol,
+                distributionType,
+                Optional.empty());
+    }
+
+    public SemiJoinNode semiJoin(
+            PlanNode source,
+            PlanNode filteringSource,
+            Symbol sourceJoinSymbol,
+            Symbol filteringSourceJoinSymbol,
+            Symbol semiJoinOutput,
+            Optional<Symbol> sourceHashSymbol,
+            Optional<Symbol> filteringSourceHashSymbol,
+            Optional<SemiJoinNode.DistributionType> distributionType,
+            Optional<DynamicFilterId> dynamicFilterId)
+    {
         return new SemiJoinNode(
                 idAllocator.getNextId(),
                 source,
@@ -578,7 +613,8 @@ public class PlanBuilder
                 semiJoinOutput,
                 sourceHashSymbol,
                 filteringSourceHashSymbol,
-                distributionType);
+                distributionType,
+                dynamicFilterId);
     }
 
     public IndexSourceNode indexSource(
@@ -743,7 +779,7 @@ public class PlanBuilder
             Optional<Expression> filter,
             Optional<Symbol> leftHashSymbol,
             Optional<Symbol> rightHashSymbol,
-            Map<String, Symbol> dynamicFilters)
+            Map<DynamicFilterId, Symbol> dynamicFilters)
     {
         return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty(), dynamicFilters);
     }
@@ -759,7 +795,7 @@ public class PlanBuilder
             Optional<Symbol> leftHashSymbol,
             Optional<Symbol> rightHashSymbol,
             Optional<JoinNode.DistributionType> distributionType,
-            Map<String, Symbol> dynamicFilters)
+            Map<DynamicFilterId, Symbol> dynamicFilters)
     {
         return new JoinNode(
                 idAllocator.getNextId(),
@@ -872,6 +908,7 @@ public class PlanBuilder
                 symbol("fragment", VARBINARY),
                 columns,
                 columnNames,
+                ImmutableSet.of(),
                 partitioningScheme,
                 statisticAggregations,
                 statisticAggregationsDescriptor);

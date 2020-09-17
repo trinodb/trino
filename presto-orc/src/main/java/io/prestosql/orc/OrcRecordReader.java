@@ -23,6 +23,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.orc.OrcWriteValidation.StatisticsValidation;
 import io.prestosql.orc.OrcWriteValidation.WriteChecksum;
 import io.prestosql.orc.OrcWriteValidation.WriteChecksumBuilder;
@@ -108,6 +109,7 @@ public class OrcRecordReader
     private final Map<String, Slice> userMetadata;
 
     private final AggregatedMemoryContext systemMemoryUsage;
+    private final LocalMemoryContext orcDataSourceMemoryUsage;
 
     private final OrcBlockFactory blockFactory;
 
@@ -132,7 +134,7 @@ public class OrcRecordReader
             ColumnMetadata<OrcType> orcTypes,
             Optional<OrcDecompressor> decompressor,
             OptionalInt rowsInRowGroup,
-            DateTimeZone hiveStorageTimeZone,
+            DateTimeZone legacyFileTimeZone,
             HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader,
             OrcReaderOptions options,
@@ -155,7 +157,7 @@ public class OrcRecordReader
         requireNonNull(orcDataSource, "orcDataSource is null");
         requireNonNull(orcTypes, "types is null");
         requireNonNull(decompressor, "decompressor is null");
-        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
+        requireNonNull(legacyFileTimeZone, "legacyFileTimeZone is null");
         requireNonNull(userMetadata, "userMetadata is null");
         requireNonNull(systemMemoryUsage, "systemMemoryUsage is null");
         requireNonNull(exceptionTransform, "exceptionTransform is null");
@@ -205,6 +207,8 @@ public class OrcRecordReader
 
         orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, options.getMaxMergeDistance(), options.getTinyStripeThreshold());
         this.orcDataSource = orcDataSource;
+        this.orcDataSourceMemoryUsage = systemMemoryUsage.newLocalMemoryContext(OrcDataSource.class.getSimpleName());
+        this.orcDataSourceMemoryUsage.setBytes(orcDataSource.getRetainedSize());
         this.splitLength = splitLength;
 
         this.fileRowCount = stripeInfos.stream()
@@ -224,7 +228,7 @@ public class OrcRecordReader
 
         stripeReader = new StripeReader(
                 orcDataSource,
-                hiveStorageTimeZone.toTimeZone().toZoneId(),
+                legacyFileTimeZone.toTimeZone().toZoneId(),
                 decompressor,
                 orcTypes,
                 ImmutableSet.copyOf(readColumns),
@@ -261,7 +265,7 @@ public class OrcRecordReader
     @VisibleForTesting
     static OrcDataSource wrapWithCacheIfTinyStripes(OrcDataSource dataSource, List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
     {
-        if (dataSource instanceof CachingOrcDataSource) {
+        if (dataSource instanceof MemoryOrcDataSource || dataSource instanceof CachingOrcDataSource) {
             return dataSource;
         }
         for (StripeInformation stripe : stripes) {
@@ -508,15 +512,15 @@ public class OrcRecordReader
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
             ColumnMetadata<ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
             ZoneId fileTimeZone = stripe.getFileTimeZone();
-            ZoneId storageTimeZone = stripe.getStorageTimeZone();
             for (ColumnReader column : columnReaders) {
                 if (column != null) {
-                    column.startStripe(fileTimeZone, storageTimeZone, dictionaryStreamSources, columnEncodings);
+                    column.startStripe(fileTimeZone, dictionaryStreamSources, columnEncodings);
                 }
             }
 
             rowGroups = stripe.getRowGroups().iterator();
         }
+        orcDataSourceMemoryUsage.setBytes(orcDataSource.getRetainedSize());
     }
 
     private void validateWrite(Predicate<OrcWriteValidation> test, String messageFormat, Object... args)
@@ -543,7 +547,7 @@ public class OrcRecordReader
         }
     }
 
-    private ColumnReader[] createColumnReaders(
+    private static ColumnReader[] createColumnReaders(
             List<OrcColumn> columns,
             List<Type> readTypes,
             List<OrcReader.ProjectedLayout> readLayouts,

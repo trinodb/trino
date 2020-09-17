@@ -14,7 +14,6 @@
 package io.prestosql.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
@@ -22,13 +21,11 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.type.Constraint;
 
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.type.Timestamps.formatTimestamp;
-import static io.prestosql.type.Timestamps.scaleEpochMillisToMicros;
+import static io.prestosql.type.DateTimes.formatTimestamp;
+import static java.time.ZoneOffset.UTC;
 
 @ScalarFunction("to_iso8601")
 public final class ToIso8601
@@ -47,31 +44,16 @@ public final class ToIso8601
     @LiteralParameters({"p", "n"})
     @SqlType("varchar(n)")
     @Constraint(variable = "n", expression = RESULT_LENGTH)
-    public static Slice toIso8601(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
+    public static Slice toIso8601(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") long epochMicros)
     {
-        long epochMicros = timestamp;
-        if (precision <= 3) {
-            epochMicros = scaleEpochMillisToMicros(timestamp);
-        }
-
-        ZoneId zoneId = ZoneOffset.UTC;
-        if (session.isLegacyTimestamp()) {
-            zoneId = session.getTimeZoneKey().getZoneId();
-        }
-
-        return utf8Slice(formatTimestamp((int) precision, epochMicros, 0, zoneId, ISO8601_FORMATTER));
+        return utf8Slice(formatTimestamp((int) precision, epochMicros, 0, UTC, ISO8601_FORMATTER));
     }
 
     @LiteralParameters({"p", "n"})
     @SqlType("varchar(n)")
     @Constraint(variable = "n", expression = RESULT_LENGTH)
-    public static Slice toIso8601(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp)
+    public static Slice toIso8601(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") LongTimestamp timestamp)
     {
-        ZoneId zoneId = ZoneOffset.UTC;
-        if (session.isLegacyTimestamp()) {
-            zoneId = session.getTimeZoneKey().getZoneId();
-        }
-
-        return utf8Slice(formatTimestamp((int) precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), zoneId, ISO8601_FORMATTER));
+        return utf8Slice(formatTimestamp((int) precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), UTC, ISO8601_FORMATTER));
     }
 }

@@ -40,6 +40,10 @@ public class AggregateFunction
             boolean isDistinct,
             Optional<ConnectorExpression> filter)
     {
+        if (isDistinct && inputs.isEmpty()) {
+            throw new IllegalArgumentException("DISTINCT requires inputs");
+        }
+
         this.functionName = requireNonNull(aggregateFunctionName, "name is null");
         this.outputType = requireNonNull(outputType, "outputType is null");
         requireNonNull(inputs, "inputs is null");

@@ -54,9 +54,11 @@ import static io.prestosql.execution.buffer.OutputBuffers.BufferType.PARTITIONED
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestSqlTaskManager
@@ -104,34 +106,33 @@ public class TestSqlTaskManager
         }
     }
 
-    @Test
+    @Test(timeOut = 30_000)
     public void testSimpleQuery()
             throws Exception
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
-            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, ImmutableSet.of(SPLIT), createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            createTask(sqlTaskManager, taskId, ImmutableSet.of(SPLIT), createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
-            taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            TaskInfo taskInfo = sqlTaskManager.getTaskInfo(taskId, TaskStatus.STARTING_VERSION).get();
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
 
             BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, DataSize.of(1, Unit.MEGABYTE)).get();
-            assertEquals(results.isBufferComplete(), false);
+            assertFalse(results.isBufferComplete());
             assertEquals(results.getSerializedPages().size(), 1);
             assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
 
             for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
                 results = sqlTaskManager.getTaskResults(taskId, OUT, results.getToken() + results.getSerializedPages().size(), DataSize.of(1, Unit.MEGABYTE)).get();
             }
-            assertEquals(results.isBufferComplete(), true);
+            assertTrue(results.isBufferComplete());
             assertEquals(results.getSerializedPages().size(), 0);
 
             // complete the task by calling abort on it
             TaskInfo info = sqlTaskManager.abortTaskResults(taskId, OUT);
             assertEquals(info.getOutputBuffers().getState(), BufferState.FINISHED);
 
-            taskInfo = sqlTaskManager.getTaskInfo(taskId, taskInfo.getTaskStatus().getState()).get(1, TimeUnit.SECONDS);
+            taskInfo = sqlTaskManager.getTaskInfo(taskId, taskInfo.getTaskStatus().getVersion()).get();
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
@@ -184,21 +185,20 @@ public class TestSqlTaskManager
         }
     }
 
-    @Test
+    @Test(timeOut = 30_000)
     public void testAbortResults()
             throws Exception
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
-            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, ImmutableSet.of(SPLIT), createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            createTask(sqlTaskManager, taskId, ImmutableSet.of(SPLIT), createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
-            taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            TaskInfo taskInfo = sqlTaskManager.getTaskInfo(taskId, TaskStatus.STARTING_VERSION).get();
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
 
             sqlTaskManager.abortTaskResults(taskId, OUT);
 
-            taskInfo = sqlTaskManager.getTaskInfo(taskId, taskInfo.getTaskStatus().getState()).get(1, TimeUnit.SECONDS);
+            taskInfo = sqlTaskManager.getTaskInfo(taskId, taskInfo.getTaskStatus().getVersion()).get();
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
@@ -261,7 +261,7 @@ public class TestSqlTaskManager
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, OutputBuffers outputBuffers)
     {
         sqlTaskManager.getQueryContext(taskId.getQueryId())
-                .addTaskContext(new TaskStateMachine(taskId, directExecutor()), testSessionBuilder().build(), false, false, OptionalInt.empty());
+                .addTaskContext(new TaskStateMachine(taskId, directExecutor()), testSessionBuilder().build(), () -> {}, false, false, OptionalInt.empty());
         return sqlTaskManager.updateTask(TEST_SESSION,
                 taskId,
                 Optional.of(PLAN_FRAGMENT),

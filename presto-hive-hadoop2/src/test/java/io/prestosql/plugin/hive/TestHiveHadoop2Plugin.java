@@ -15,11 +15,15 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.qubole.rubix.core.CachingFileSystem;
 import io.prestosql.spi.Plugin;
+import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -28,7 +32,10 @@ import java.nio.file.Path;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
+import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static java.nio.file.Files.createTempDirectory;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveHadoop2Plugin
@@ -49,6 +56,14 @@ public class TestHiveHadoop2Plugin
         deleteRecursively(tempDirectory, ALLOW_INSECURE);
     }
 
+    @AfterMethod
+    @BeforeMethod
+    public void deinitializeRubix()
+    {
+        // revert static rubix initialization done by other tests
+        CachingFileSystem.deinitialize();
+    }
+
     @Test
     public void testS3SecurityMappingAndHiveCachingMutuallyExclusive()
             throws IOException
@@ -62,6 +77,8 @@ public class TestHiveHadoop2Plugin
                 ImmutableMap.<String, String>builder()
                         .put("hive.s3.security-mapping.config-file", mappingConfig.toString())
                         .put("hive.cache.enabled", "true")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("hive.cache.location", tempDirectory.toString())
                         .build(),
                 new TestingConnectorContext())
                 .shutdown()).hasMessageContaining("S3 security mapping is not compatible with Hive caching");
@@ -78,10 +95,71 @@ public class TestHiveHadoop2Plugin
                 ImmutableMap.<String, String>builder()
                         .put("hive.gcs.use-access-token", "true")
                         .put("hive.cache.enabled", "true")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("hive.cache.location", tempDirectory.toString())
                         .build(),
                 new TestingConnectorContext())
                 .shutdown())
                 .hasMessageContaining("Use of GCS access token is not compatible with Hive caching");
+    }
+
+    @Test
+    public void testImmutablePartitionsAndInsertOverwriteMutuallyExclusive()
+    {
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory connectorFactory = Iterables.getOnlyElement(plugin.getConnectorFactories());
+
+        assertThatThrownBy(() -> connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.insert-existing-partitions-behavior", "APPEND")
+                        .put("hive.immutable-partitions", "true")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .build(),
+                new TestingConnectorContext()))
+                .hasMessageContaining("insert-existing-partitions-behavior cannot be APPEND when immutable-partitions is true");
+    }
+
+    @Test
+    public void testInsertOverwriteIsSetToErrorWhenImmutablePartitionsIsTrue()
+    {
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory connectorFactory = Iterables.getOnlyElement(plugin.getConnectorFactories());
+
+        Connector connector = connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.immutable-partitions", "true")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .build(),
+                new TestingConnectorContext());
+
+        assertThat(getDefaultValueInsertExistingPartitionsBehavior(connector)).isEqualTo(ERROR);
+    }
+
+    @Test
+    public void testInsertOverwriteIsSetToAppendWhenImmutablePartitionsIsFalseByDefault()
+    {
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory connectorFactory = Iterables.getOnlyElement(plugin.getConnectorFactories());
+
+        Connector connector = connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .build(),
+                new TestingConnectorContext());
+
+        assertThat(getDefaultValueInsertExistingPartitionsBehavior(connector)).isEqualTo(APPEND);
+    }
+
+    private Object getDefaultValueInsertExistingPartitionsBehavior(Connector connector)
+    {
+        return connector.getSessionProperties().stream()
+                .filter(propertyMetadata -> "insert_existing_partitions_behavior".equals(propertyMetadata.getName()))
+                .findAny()
+                .orElseThrow()
+                .getDefaultValue();
     }
 
     @Test
@@ -95,10 +173,12 @@ public class TestHiveHadoop2Plugin
                 ImmutableMap.<String, String>builder()
                         .put("hive.hdfs.impersonation.enabled", "true")
                         .put("hive.cache.enabled", "true")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("hive.cache.location", tempDirectory.toString())
                         .build(),
                 new TestingConnectorContext())
                 .shutdown())
-                .hasMessageContaining("Hdfs impersonation is not compatible with Hive caching");
+                .hasMessageContaining("HDFS impersonation is not compatible with Hive caching");
     }
 
     @Test
@@ -128,11 +208,33 @@ public class TestHiveHadoop2Plugin
                 "test",
                 ImmutableMap.<String, String>builder()
                         .put("hive.cache.enabled", "true")
+                        .put("hive.cache.start-server-on-coordinator", "true")
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("hive.cache.location", "/tmp/non/existing/directory")
                         .build(),
                 new TestingConnectorContext())
                 .shutdown())
                 .hasRootCauseMessage("None of the cache parent directories exists");
+
+        assertThatThrownBy(() -> connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.cache.enabled", "true")
+                        .put("hive.cache.start-server-on-coordinator", "true")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .build(),
+                new TestingConnectorContext())
+                .shutdown())
+                .hasRootCauseMessage("caching directories were not provided");
+
+        // cache directories should not be required when cache is not explicitly started on coordinator
+        connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.cache.enabled", "true")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .build(),
+                new TestingConnectorContext())
+                .shutdown();
     }
 }

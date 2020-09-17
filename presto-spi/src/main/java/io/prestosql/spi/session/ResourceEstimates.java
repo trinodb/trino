@@ -68,7 +68,7 @@ public final class ResourceEstimates
     @Override
     public String toString()
     {
-        final StringBuilder sb = new StringBuilder("ResourceEstimates{");
+        StringBuilder sb = new StringBuilder("ResourceEstimates{");
         sb.append("executionTime=").append(executionTime);
         sb.append(", cpuTime=").append(cpuTime);
         sb.append(", peakMemoryBytes=").append(peakMemoryBytes);

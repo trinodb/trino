@@ -18,60 +18,98 @@ import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.LongTimeWithTimeZone;
 import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoField;
+import java.time.LocalDate;
 
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
-import static io.prestosql.type.TimeWithTimeZoneOperators.REFERENCE_TIMESTAMP_UTC;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.scaleEpochMillisToMicros;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackTimeNanos;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.SECONDS_PER_DAY;
+import static io.prestosql.type.DateTimes.rescale;
+import static io.prestosql.type.DateTimes.round;
+import static java.lang.Math.multiplyExact;
 
 @ScalarOperator(CAST)
 public final class TimeWithTimezoneToTimestampCast
 {
     private TimeWithTimezoneToTimestampCast() {}
 
-    @LiteralParameters("p")
-    @SqlType("timestamp(p)")
-    public static long cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time)
+    @LiteralParameters({"sourcePrecision", "targetPrecision"})
+    @SqlType("timestamp(targetPrecision)")
+    public static long shortToShort(
+            @LiteralParameter("targetPrecision") long targetPrecision,
+            ConnectorSession session,
+            @SqlType("time(sourcePrecision) with time zone") long packedTime)
     {
-        long epochMillis;
-        if (session.isLegacyTimestamp()) {
-            epochMillis = unpackMillisUtc(time);
-        }
-        else {
-            // This is hack that we need to use as the timezone interpretation depends on date (not only on time)
-            // TODO remove REFERENCE_TIMESTAMP_UTC when removing support for political time zones in TIME WITH TIME ZONE
-            long currentMillisOfDay = ChronoField.MILLI_OF_DAY.getFrom(Instant.ofEpochMilli(REFERENCE_TIMESTAMP_UTC).atZone(ZoneOffset.UTC));
-            long timeMillisUtcInCurrentDay = REFERENCE_TIMESTAMP_UTC - currentMillisOfDay + unpackMillisUtc(time);
+        // source precision <= 9
+        // target precision <= 6
+        long picos = rescale(unpackTimeNanos(packedTime), 9, 12);
+        picos = round(picos, (int) (12 - targetPrecision));
 
-            ISOChronology chronology = getChronology(unpackZoneKey(time));
-            epochMillis = unpackMillisUtc(time) + chronology.getZone().getOffset(timeMillisUtcInCurrentDay);
-        }
-
-        if (precision > 3) {
-            return scaleEpochMillisToMicros(epochMillis);
-        }
-
-        if (precision < 3) {
-            return round(epochMillis, (int) (3 - precision));
-        }
-
-        return epochMillis;
+        return calculateEpochMicros(session, picos);
     }
 
-    @LiteralParameters("p")
-    @SqlType("timestamp(p)")
-    public static LongTimestamp cast(ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time)
+    @LiteralParameters({"sourcePrecision", "targetPrecision"})
+    @SqlType("timestamp(targetPrecision)")
+    public static long longToShort(
+            @LiteralParameter("targetPrecision") long targetPrecision,
+            ConnectorSession session,
+            @SqlType("time(sourcePrecision) with time zone") LongTimeWithTimeZone time)
     {
-        return new LongTimestamp(cast(6, session, time), 0);
+        // source precision > 9
+        // target precision <= 6
+        long picos = time.getPicoSeconds();
+        picos = round(picos, (int) (12 - targetPrecision));
+
+        return calculateEpochMicros(session, picos);
+    }
+
+    @LiteralParameters({"sourcePrecision", "targetPrecision"})
+    @SqlType("timestamp(targetPrecision)")
+    public static LongTimestamp shortToLong(
+            @LiteralParameter("targetPrecision") long targetPrecision,
+            ConnectorSession session,
+            @SqlType("time(sourcePrecision) with time zone") long packedTime)
+    {
+        // source precision <= 9
+        // target precision > 6
+        long picos = rescale(unpackTimeNanos(packedTime), 9, 12);
+        picos = round(picos, (int) (12 - targetPrecision));
+
+        long epochMicros = calculateEpochMicros(session, picos);
+
+        return new LongTimestamp(epochMicros, (int) (picos % PICOSECONDS_PER_MICROSECOND));
+    }
+
+    @LiteralParameters({"sourcePrecision", "targetPrecision"})
+    @SqlType("timestamp(targetPrecision)")
+    public static LongTimestamp longToLong(
+            @LiteralParameter("targetPrecision") long targetPrecision,
+            ConnectorSession session,
+            @SqlType("time(sourcePrecision) with time zone") LongTimeWithTimeZone time)
+    {
+        // source precision > 9
+        // target precision > 6
+        long picos = time.getPicoSeconds();
+        picos = round(picos, (int) (12 - targetPrecision));
+
+        long epochMicros = calculateEpochMicros(session, picos);
+
+        return new LongTimestamp(epochMicros, (int) (picos % PICOSECONDS_PER_MICROSECOND));
+    }
+
+    private static long calculateEpochMicros(ConnectorSession session, long picos)
+    {
+        // TODO: consider using something more efficient than LocalDate.ofInstant() to compute epochDay
+        long epochDay = LocalDate.ofInstant(session.getStart(), session.getTimeZoneKey().getZoneId())
+                .toEpochDay();
+
+        long epochSecond = multiplyExact(epochDay, SECONDS_PER_DAY) + picos / PICOSECONDS_PER_SECOND;
+        long picoFraction = picos % PICOSECONDS_PER_SECOND;
+        return multiplyExact(epochSecond, MICROSECONDS_PER_SECOND) + rescale(picoFraction, 12, 6);
     }
 }

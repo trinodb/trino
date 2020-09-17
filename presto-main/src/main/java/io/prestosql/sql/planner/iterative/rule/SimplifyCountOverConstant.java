@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.metadata.Signature;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -103,7 +103,7 @@ public class SimplifyCountOverConstant
 
     private static boolean isCountOverConstant(AggregationNode.Aggregation aggregation, Assignments inputs)
     {
-        Signature signature = aggregation.getResolvedFunction().getSignature();
+        BoundSignature signature = aggregation.getResolvedFunction().getSignature();
         if (!signature.getName().equals("count") || signature.getArgumentTypes().size() != 1) {
             return false;
         }

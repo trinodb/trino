@@ -43,6 +43,7 @@ import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableT
 import static io.prestosql.tempto.fulfillment.table.kafka.KafkaMessageContentsBuilder.contentsBuilder;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.KAFKA;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.lang.String.format;
 
 public class TestKafkaAvroSmokeTest
@@ -116,7 +117,7 @@ public class TestKafkaAvroSmokeTest
         return outputStream.toByteArray();
     }
 
-    @Test(groups = KAFKA)
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     @Requires(AllDataTypesAvroTable.class)
     public void testSelectPrimitiveDataType()
     {
@@ -138,7 +139,7 @@ public class TestKafkaAvroSmokeTest
         }
     }
 
-    @Test(groups = KAFKA)
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     @Requires(NullDataAvroTable.class)
     public void testNullType()
     {
@@ -163,7 +164,7 @@ public class TestKafkaAvroSmokeTest
         }
     }
 
-    @Test(groups = KAFKA)
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     @Requires(StructuralDataTypeTable.class)
     public void testSelectStructuralDataType()
     {

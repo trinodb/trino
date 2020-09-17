@@ -14,6 +14,7 @@
 package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.DecimalType;
@@ -64,11 +65,10 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static java.lang.Math.toIntExact;
+import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.joda.time.DateTimeZone.UTC;
@@ -341,10 +341,7 @@ public class BenchmarkColumnReaders
             orcFile = new File(temporaryDirectory, randomUUID().toString());
             writeOrcColumnPresto(orcFile, NONE, type, createValues(), new OrcWriterStats());
 
-            OrcDataSource dataSource = new FileOrcDataSource(orcFile, new OrcReaderOptions());
-            DiskRange diskRange = new DiskRange(0, toIntExact(dataSource.getSize()));
-            dataSource = new CachingOrcDataSource(dataSource, desiredOffset -> diskRange);
-            this.dataSource = dataSource;
+            dataSource = new MemoryOrcDataSource(new OrcDataSourceId(orcFile.getPath()), Slices.wrappedBuffer(readAllBytes(orcFile.toPath())));
         }
 
         @TearDown
@@ -364,7 +361,8 @@ public class BenchmarkColumnReaders
         OrcRecordReader createRecordReader()
                 throws IOException
         {
-            OrcReader orcReader = new OrcReader(dataSource, new OrcReaderOptions());
+            OrcReader orcReader = OrcReader.createOrcReader(dataSource, new OrcReaderOptions())
+                    .orElseThrow(() -> new RuntimeException("File is empty"));
             return orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     ImmutableList.of(type),
@@ -1027,7 +1025,7 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(TIMESTAMP);
+            setup(TIMESTAMP_MILLIS);
         }
 
         @Override
@@ -1035,7 +1033,7 @@ public class BenchmarkColumnReaders
         {
             List<SqlTimestamp> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                values.add(SqlTimestamp.legacyFromMillis(3, (random.nextLong()), UTC_KEY));
+                values.add(SqlTimestamp.fromMillis(3, (random.nextLong())));
             }
             return values.iterator();
         }
@@ -1049,7 +1047,7 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(TIMESTAMP);
+            setup(TIMESTAMP_MILLIS);
         }
 
         @Override
@@ -1058,7 +1056,7 @@ public class BenchmarkColumnReaders
             List<SqlTimestamp> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 if (random.nextBoolean()) {
-                    values.add(SqlTimestamp.legacyFromMillis(3, random.nextLong(), UTC_KEY));
+                    values.add(SqlTimestamp.fromMillis(3, random.nextLong()));
                 }
                 else {
                     values.add(null);

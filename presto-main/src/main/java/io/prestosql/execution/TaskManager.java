@@ -16,6 +16,7 @@ package io.prestosql.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.prestosql.Session;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.OutputBuffers;
@@ -58,7 +59,7 @@ public interface TaskManager
      * NOTE: this design assumes that only tasks that will eventually exist are
      * queried.
      */
-    ListenableFuture<TaskInfo> getTaskInfo(TaskId taskId, TaskState currentState);
+    ListenableFuture<TaskInfo> getTaskInfo(TaskId taskId, long currentVersion);
 
     /**
      * Gets the unique instance id of a task.  This can be used to detect a task
@@ -75,7 +76,9 @@ public interface TaskManager
      * NOTE: this design assumes that only tasks that will eventually exist are
      * queried.
      */
-    ListenableFuture<TaskStatus> getTaskStatus(TaskId taskId, TaskState currentState);
+    ListenableFuture<TaskStatus> getTaskStatus(TaskId taskId, long currentVersion);
+
+    VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(TaskId taskId, long currentDynamicFiltersVersion);
 
     void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments);
 

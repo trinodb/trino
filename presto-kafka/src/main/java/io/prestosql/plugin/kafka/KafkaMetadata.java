@@ -15,10 +15,13 @@ package io.prestosql.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.prestosql.decoder.dummy.DummyRowDecoder;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
@@ -26,15 +29,18 @@ import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.statistics.ComputedStatistics;
 
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.kafka.KafkaHandleResolver.convertColumnHandle;
 import static io.prestosql.plugin.kafka.KafkaHandleResolver.convertTableHandle;
@@ -42,7 +48,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Manages the Kafka connector specific metadata information. The Connector provides an additional set of columns
- * for each table that are created as hidden columns. See {@link KafkaInternalFieldDescription} for a list
+ * for each table that are created as hidden columns. See {@link KafkaInternalFieldManager} for a list
  * of per-topic additional columns.
  */
 public class KafkaMetadata
@@ -50,15 +56,18 @@ public class KafkaMetadata
 {
     private final boolean hideInternalColumns;
     private final Set<TableDescriptionSupplier> tableDescriptions;
+    private final KafkaInternalFieldManager kafkaInternalFieldManager;
 
     @Inject
     public KafkaMetadata(
             KafkaConfig kafkaConfig,
-            Set<TableDescriptionSupplier> tableDescriptions)
+            Set<TableDescriptionSupplier> tableDescriptions,
+            KafkaInternalFieldManager kafkaInternalFieldManager)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
         this.hideInternalColumns = kafkaConfig.isHideInternalColumns();
         this.tableDescriptions = requireNonNull(tableDescriptions, "tableDescriptions is null");
+        this.kafkaInternalFieldManager = requireNonNull(kafkaInternalFieldManager, "kafkaInternalFieldDescription is null");
     }
 
     @Override
@@ -82,7 +91,10 @@ public class KafkaMetadata
                         getDataFormat(kafkaTopicDescription.getKey()),
                         getDataFormat(kafkaTopicDescription.getMessage()),
                         kafkaTopicDescription.getKey().flatMap(KafkaTopicFieldGroup::getDataSchema),
-                        kafkaTopicDescription.getMessage().flatMap(KafkaTopicFieldGroup::getDataSchema)))
+                        kafkaTopicDescription.getMessage().flatMap(KafkaTopicFieldGroup::getDataSchema),
+                        getColumnHandles(schemaTableName).values().stream()
+                                .map(KafkaColumnHandle.class::cast)
+                                .collect(toImmutableList())))
                 .orElse(null);
     }
 
@@ -107,13 +119,15 @@ public class KafkaMetadata
                 .collect(toImmutableList());
     }
 
-    @SuppressWarnings("ValueOfIncrementOrDecrementUsed")
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         KafkaTableHandle kafkaTableHandle = convertTableHandle(tableHandle);
+        return getColumnHandles(kafkaTableHandle.toSchemaTableName());
+    }
 
-        SchemaTableName schemaTableName = kafkaTableHandle.toSchemaTableName();
+    private Map<String, ColumnHandle> getColumnHandles(SchemaTableName schemaTableName)
+    {
         KafkaTopicDescription kafkaTopicDescription = getRequiredTopicDescription(schemaTableName);
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
@@ -138,8 +152,8 @@ public class KafkaMetadata
             }
         });
 
-        for (KafkaInternalFieldDescription kafkaInternalFieldDescription : KafkaInternalFieldDescription.values()) {
-            columnHandles.put(kafkaInternalFieldDescription.getColumnName(), kafkaInternalFieldDescription.getColumnHandle(index.getAndIncrement(), hideInternalColumns));
+        for (KafkaInternalFieldManager.InternalField kafkaInternalField : kafkaInternalFieldManager.getInternalFields().values()) {
+            columnHandles.put(kafkaInternalField.getColumnName(), kafkaInternalField.getColumnHandle(index.getAndIncrement(), hideInternalColumns));
         }
 
         return columnHandles.build();
@@ -178,7 +192,6 @@ public class KafkaMetadata
         return convertColumnHandle(columnHandle).getColumnMetadata();
     }
 
-    @SuppressWarnings("ValueOfIncrementOrDecrementUsed")
     private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName)
     {
         KafkaTopicDescription table = getRequiredTopicDescription(schemaTableName);
@@ -203,7 +216,7 @@ public class KafkaMetadata
             }
         });
 
-        for (KafkaInternalFieldDescription fieldDescription : KafkaInternalFieldDescription.values()) {
+        for (KafkaInternalFieldManager.InternalField fieldDescription : kafkaInternalFieldManager.getInternalFields().values()) {
             builder.add(fieldDescription.getColumnMetadata(hideInternalColumns));
         }
 
@@ -234,5 +247,34 @@ public class KafkaMetadata
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
+    {
+        // TODO: support transactional inserts https://github.com/prestosql/presto/issues/4303
+        KafkaTableHandle table = (KafkaTableHandle) tableHandle;
+        List<KafkaColumnHandle> actualColumns = table.getColumns().stream()
+                .filter(col -> !col.isInternal())
+                .collect(toImmutableList());
+
+        checkArgument(columns.equals(actualColumns), "Unexpected columns!\nexpected: %s\ngot: %s", actualColumns, columns);
+
+        return new KafkaTableHandle(
+                table.getSchemaName(),
+                table.getTableName(),
+                table.getTopicName(),
+                table.getKeyDataFormat(),
+                table.getMessageDataFormat(),
+                table.getKeyDataSchemaLocation(),
+                table.getMessageDataSchemaLocation(),
+                actualColumns);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        // TODO: support transactional inserts https://github.com/prestosql/presto/issues/4303
+        return Optional.empty();
     }
 }

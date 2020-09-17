@@ -94,7 +94,7 @@ public class SystemTableHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final SystemTableHandle other = (SystemTableHandle) obj;
+        SystemTableHandle other = (SystemTableHandle) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName) &&
                 Objects.equals(this.constraint, other.constraint);

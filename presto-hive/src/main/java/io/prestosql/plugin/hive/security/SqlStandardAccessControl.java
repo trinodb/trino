@@ -55,6 +55,7 @@ import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.list
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableTablePrivileges;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
@@ -199,6 +200,14 @@ public class SqlStandardAccessControl
     {
         if (!isTableOwner(context, tableName)) {
             denyCommentTable(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        if (!isTableOwner(context, tableName)) {
+            denyCommentColumn(tableName.toString());
         }
     }
 

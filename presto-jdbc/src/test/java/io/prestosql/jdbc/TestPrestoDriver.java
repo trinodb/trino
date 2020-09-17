@@ -130,9 +130,10 @@ public class TestPrestoDriver
 
     @AfterClass(alwaysRun = true)
     public void teardown()
+            throws Exception
     {
-        closeQuietly(server);
         executorService.shutdownNow();
+        server.close();
     }
 
     @Test
@@ -266,7 +267,7 @@ public class TestPrestoDriver
                 try (ResultSet rs = statement.executeQuery("SELECT " +
                         "  TIME '3:04:05' as a" +
                         ", TIME '6:07:08 +06:17' as b" +
-                        ", TIME '9:10:11 Europe/Berlin' as c" +
+                        ", TIME '9:10:11 +02:00' as c" +
                         ", TIMESTAMP '2001-02-03 3:04:05' as d" +
                         ", TIMESTAMP '2004-05-06 6:07:08 +06:17' as e" +
                         ", TIMESTAMP '2007-08-09 9:10:11 Europe/Berlin' as f" +
@@ -292,12 +293,12 @@ public class TestPrestoDriver
                     assertEquals(rs.getTime("b", ASIA_ORAL_CALENDAR), new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
                     assertEquals(rs.getObject("b"), new Time(new DateTime(1970, 1, 1, 6, 7, 8, DateTimeZone.forOffsetHoursMinutes(6, 17)).getMillis()));
 
-                    assertEquals(rs.getTime(3), new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
-                    assertEquals(rs.getTime(3, ASIA_ORAL_CALENDAR), new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
-                    assertEquals(rs.getObject(3), new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
-                    assertEquals(rs.getTime("c"), new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
-                    assertEquals(rs.getTime("c", ASIA_ORAL_CALENDAR), new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
-                    assertEquals(rs.getObject("c"), new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forID("Europe/Berlin")).getMillis()));
+                    assertEquals(rs.getTime(3), new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
+                    assertEquals(rs.getTime(3, ASIA_ORAL_CALENDAR), new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
+                    assertEquals(rs.getObject(3), new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
+                    assertEquals(rs.getTime("c"), new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
+                    assertEquals(rs.getTime("c", ASIA_ORAL_CALENDAR), new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
+                    assertEquals(rs.getObject("c"), new Time(new DateTime(1970, 1, 1, 9, 10, 11, DateTimeZone.forOffsetHoursMinutes(2, 0)).getMillis()));
 
                     assertEquals(rs.getTimestamp(4), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5).getMillis()));
                     assertEquals(rs.getTimestamp(4, ASIA_ORAL_CALENDAR), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, ASIA_ORAL_ZONE).getMillis()));
@@ -598,6 +599,26 @@ public class TestPrestoDriver
                     ResultSet rs = statement.executeQuery(sql)) {
                 assertTrue(rs.next());
                 assertEquals(rs.getString("zone"), "UTC");
+                // setting the session timezone has no effect on the interpretation of timestamps in the JDBC driver
+                assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+            }
+        }
+
+        // legacy mode
+        try (Connection connection = DriverManager.getConnection(format("jdbc:presto://%s?useSessionTimeZone=true", server.getAddress()), "test", null)) {
+            try (Statement statement = connection.createStatement();
+                    ResultSet rs = statement.executeQuery(sql)) {
+                assertTrue(rs.next());
+                assertEquals(rs.getString("zone"), defaultZoneKey.getId());
+                assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+            }
+
+            connection.unwrap(PrestoConnection.class).setTimeZoneId("UTC");
+            try (Statement statement = connection.createStatement();
+                    ResultSet rs = statement.executeQuery(sql)) {
+                assertTrue(rs.next());
+                assertEquals(rs.getString("zone"), "UTC");
+                // the session timezone is used
                 assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, DateTimeZone.UTC).getMillis()));
             }
         }
@@ -832,7 +853,6 @@ public class TestPrestoDriver
             throws Exception
     {
         CountDownLatch queryFinished = new CountDownLatch(1);
-        AtomicReference<String> queryId = new AtomicReference<>();
         AtomicReference<Throwable> queryFailure = new AtomicReference<>();
         String queryUuid = "/* " + UUID.randomUUID().toString() + " */";
 
@@ -1007,14 +1027,5 @@ public class TestPrestoDriver
     {
         String url = format("jdbc:presto://%s/%s/%s", server.getAddress(), catalog, schema);
         return DriverManager.getConnection(url, "test", null);
-    }
-
-    static void closeQuietly(AutoCloseable closeable)
-    {
-        try {
-            closeable.close();
-        }
-        catch (Exception ignored) {
-        }
     }
 }

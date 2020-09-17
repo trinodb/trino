@@ -112,4 +112,14 @@ public class ArithmeticBinaryExpression
     {
         return Objects.hash(operator, left, right);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return operator == ((ArithmeticBinaryExpression) other).operator;
+    }
 }

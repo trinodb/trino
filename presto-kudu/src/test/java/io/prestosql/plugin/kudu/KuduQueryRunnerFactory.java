@@ -34,6 +34,23 @@ public final class KuduQueryRunnerFactory
 {
     private KuduQueryRunnerFactory() {}
 
+    public static QueryRunner createKuduQueryRunner(TestingKuduServer kuduServer, Session session)
+            throws Exception
+    {
+        QueryRunner runner = null;
+        try {
+            runner = DistributedQueryRunner.builder(session).setNodeCount(3).build();
+
+            installKuduConnector(kuduServer.getMasterAddress(), runner, session.getSchema().orElse("kudu_smoke_test"), Optional.of(""));
+
+            return runner;
+        }
+        catch (Throwable e) {
+            closeAllSuppress(e, runner);
+            throw e;
+        }
+    }
+
     public static QueryRunner createKuduQueryRunner(TestingKuduServer kuduServer, String kuduSchema)
             throws Exception
     {

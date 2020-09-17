@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>335-SNAPSHOT</version>
+        <version>342-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-benchto-benchmarks</artifactId>
@@ -18,14 +18,20 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-jdbc</artifactId>
+            <groupId>io.prestosql.benchto</groupId>
+            <artifactId>benchto-driver</artifactId>
+            <version>0.11</version>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.benchto</groupId>
-            <artifactId>benchto-driver</artifactId>
-            <version>0.9</version>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-jdbc</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -43,13 +49,19 @@
 
         <dependency>
             <groupId>io.prestosql</groupId>
-            <artifactId>presto-tpch</artifactId>
+            <artifactId>presto-spi</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-tpcds</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-tpch</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -63,11 +75,6 @@
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
             <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
         </dependency>
     </dependencies>
 

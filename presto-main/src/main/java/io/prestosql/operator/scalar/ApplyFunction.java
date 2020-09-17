@@ -16,10 +16,9 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.type.Type;
@@ -27,12 +26,13 @@ import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.lambda.UnaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.util.Reflection.methodHandle;
 
@@ -69,19 +69,19 @@ public final class ApplyFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        Type argumentType = boundVariables.getTypeVariable("T");
-        Type returnType = boundVariables.getTypeVariable("U");
+        Type argumentType = functionBinding.getTypeVariable("T");
+        Type returnType = functionBinding.getTypeVariable("U");
         return new ScalarFunctionImplementation(
-                true,
-                ImmutableList.of(
-                        valueTypeArgumentProperty(USE_BOXED_TYPE),
-                        functionTypeArgumentProperty(UnaryFunctionInterface.class)),
+                NULLABLE_RETURN,
+                ImmutableList.of(BOXED_NULLABLE, FUNCTION),
+                ImmutableList.of(Optional.empty(), Optional.of(UnaryFunctionInterface.class)),
                 METHOD_HANDLE.asType(
                         METHOD_HANDLE.type()
                                 .changeReturnType(Primitives.wrap(returnType.getJavaType()))
-                                .changeParameterType(0, Primitives.wrap(argumentType.getJavaType()))));
+                                .changeParameterType(0, Primitives.wrap(argumentType.getJavaType()))),
+                Optional.empty());
     }
 
     @UsedByGeneratedCode

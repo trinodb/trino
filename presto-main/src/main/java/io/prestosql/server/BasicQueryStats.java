@@ -52,6 +52,7 @@ public class BasicQueryStats
 
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
+    private final DataSize physicalInputDataSize;
 
     private final double cumulativeUserMemory;
     private final DataSize userMemoryReservation;
@@ -79,6 +80,7 @@ public class BasicQueryStats
             @JsonProperty("completedDrivers") int completedDrivers,
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
+            @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
@@ -108,6 +110,7 @@ public class BasicQueryStats
 
         this.rawInputDataSize = requireNonNull(rawInputDataSize);
         this.rawInputPositions = rawInputPositions;
+        this.physicalInputDataSize = physicalInputDataSize;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.userMemoryReservation = userMemoryReservation;
@@ -136,6 +139,7 @@ public class BasicQueryStats
                 queryStats.getCompletedDrivers(),
                 queryStats.getRawInputDataSize(),
                 queryStats.getRawInputPositions(),
+                queryStats.getPhysicalInputDataSize(),
                 queryStats.getCumulativeUserMemory(),
                 queryStats.getUserMemoryReservation(),
                 queryStats.getTotalMemoryReservation(),
@@ -163,6 +167,7 @@ public class BasicQueryStats
                 0,
                 DataSize.ofBytes(0),
                 0,
+                DataSize.ofBytes(0),
                 0,
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
@@ -239,6 +244,12 @@ public class BasicQueryStats
     public long getRawInputPositions()
     {
         return rawInputPositions;
+    }
+
+    @JsonProperty
+    public DataSize getPhysicalInputDataSize()
+    {
+        return physicalInputDataSize;
     }
 
     @JsonProperty

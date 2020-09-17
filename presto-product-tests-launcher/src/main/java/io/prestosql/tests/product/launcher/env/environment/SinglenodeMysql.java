@@ -26,9 +26,10 @@ import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class SinglenodeMysql
@@ -51,19 +52,18 @@ public final class SinglenodeMysql
     @Override
     protected void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer("presto-master", container -> container
-                .withFileSystemBind(
-                        dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-mysql/mysql.properties"),
-                        CONTAINER_PRESTO_ETC + "/catalog/mysql.properties",
-                        READ_ONLY));
+        builder.configureContainer(COORDINATOR, container -> container
+                .withCopyFileToContainer(
+                        forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-mysql/mysql.properties")),
+                        CONTAINER_PRESTO_ETC + "/catalog/mysql.properties"));
 
-        builder.addContainer("mysql", createMySql());
+        builder.addContainer(createMySql());
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createMySql()
     {
-        DockerContainer container = new DockerContainer("mysql:5.7")
+        DockerContainer container = new DockerContainer("mysql:5.7", "mysql")
                 .withEnv("MYSQL_USER", "test")
                 .withEnv("MYSQL_PASSWORD", "test")
                 .withEnv("MYSQL_ROOT_PASSWORD", "test")

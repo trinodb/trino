@@ -93,7 +93,6 @@ public class BenchmarkMapToMapCast
 
             List<RowExpression> projections = ImmutableList.of(new CallExpression(
                     metadata.getCoercion(mapType(DOUBLE, BIGINT), mapType(BIGINT, DOUBLE)),
-                    mapType(BIGINT, DOUBLE),
                     ImmutableList.of(field(0, mapType(DOUBLE, BIGINT)))));
 
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))

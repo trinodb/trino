@@ -36,6 +36,7 @@ import static io.prestosql.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
@@ -63,11 +64,13 @@ public class HiveTableProperties
     public static final String AVRO_SCHEMA_URL = "avro_schema_url";
     public static final String TEXTFILE_FIELD_SEPARATOR = "textfile_field_separator";
     public static final String TEXTFILE_FIELD_SEPARATOR_ESCAPE = "textfile_field_separator_escape";
+    public static final String NULL_FORMAT_PROPERTY = "null_format";
     public static final String SKIP_HEADER_LINE_COUNT = "skip_header_line_count";
     public static final String SKIP_FOOTER_LINE_COUNT = "skip_footer_line_count";
     public static final String CSV_SEPARATOR = "csv_separator";
     public static final String CSV_QUOTE = "csv_quote";
     public static final String CSV_ESCAPE = "csv_escape";
+    public static final String TRANSACTIONAL = "transactional";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -149,9 +152,11 @@ public class HiveTableProperties
                 integerProperty(SKIP_FOOTER_LINE_COUNT, "Number of footer lines", null, false),
                 stringProperty(TEXTFILE_FIELD_SEPARATOR, "TEXTFILE field separator character", null, false),
                 stringProperty(TEXTFILE_FIELD_SEPARATOR_ESCAPE, "TEXTFILE field separator escape character", null, false),
+                stringProperty(NULL_FORMAT_PROPERTY, "Serialization format for NULL value", null, false),
                 stringProperty(CSV_SEPARATOR, "CSV separator character", null, false),
                 stringProperty(CSV_QUOTE, "CSV quote character", null, false),
-                stringProperty(CSV_ESCAPE, "CSV escape character", null, false));
+                stringProperty(CSV_ESCAPE, "CSV escape character", null, false),
+                booleanProperty(TRANSACTIONAL, "Table is transactional", null, false));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -177,6 +182,11 @@ public class HiveTableProperties
     public static Optional<Integer> getFooterSkipCount(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((Integer) tableProperties.get(SKIP_FOOTER_LINE_COUNT));
+    }
+
+    public static Optional<String> getNullFormat(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((String) tableProperties.get(NULL_FORMAT_PROPERTY));
     }
 
     public static HiveStorageFormat getHiveStorageFormat(Map<String, Object> tableProperties)
@@ -283,5 +293,10 @@ public class HiveTableProperties
     private static String sortingColumnToString(SortingColumn column)
     {
         return column.getColumnName() + ((column.getOrder() == DESCENDING) ? " DESC" : "");
+    }
+
+    public static Optional<Boolean> isTransactional(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Boolean) tableProperties.get(TRANSACTIONAL));
     }
 }

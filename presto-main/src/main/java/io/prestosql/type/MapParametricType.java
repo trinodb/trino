@@ -14,7 +14,7 @@
 package io.prestosql.type;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.ParameterKind;
 import io.prestosql.spi.type.ParametricType;
@@ -27,8 +27,12 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.block.MethodHandleUtil.compose;
-import static io.prestosql.spi.block.MethodHandleUtil.nativeValueGetter;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 
 public final class MapParametricType
         implements ParametricType
@@ -53,15 +57,25 @@ public final class MapParametricType
                 parameters);
 
         Type keyType = firstParameter.getType();
-        Type valueType = secondParameter.getType();
-        MethodHandle keyNativeEquals = typeManager.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType));
-        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
-        MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
-        MethodHandle keyNativeHashCode = typeManager.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType));
-        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
+        MethodHandle keyBlockNativeEquals = typeManager.resolveOperator(
+                EQUAL,
+                ImmutableList.of(keyType, keyType),
+                new InvocationConvention(ImmutableList.of(BLOCK_POSITION, NEVER_NULL), NULLABLE_RETURN, false, false));
+        MethodHandle keyBlockEquals = typeManager.resolveOperator(
+                EQUAL,
+                ImmutableList.of(keyType, keyType),
+                new InvocationConvention(ImmutableList.of(BLOCK_POSITION, BLOCK_POSITION), NULLABLE_RETURN, false, false));
+        MethodHandle keyNativeHashCode = typeManager.resolveOperator(
+                HASH_CODE,
+                ImmutableList.of(keyType),
+                new InvocationConvention(ImmutableList.of(NEVER_NULL), FAIL_ON_NULL, false, false));
+        MethodHandle keyBlockHashCode = typeManager.resolveOperator(
+                HASH_CODE,
+                ImmutableList.of(keyType),
+                new InvocationConvention(ImmutableList.of(BLOCK_POSITION), FAIL_ON_NULL, false, false));
         return new MapType(
                 keyType,
-                valueType,
+                secondParameter.getType(),
                 keyBlockNativeEquals,
                 keyBlockEquals,
                 keyNativeHashCode,

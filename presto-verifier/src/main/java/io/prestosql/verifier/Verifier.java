@@ -55,8 +55,8 @@ public class Verifier
     private final VerifierConfig config;
     private final Set<EventClient> eventClients;
     private final int threadCount;
-    private final Set<String> whitelist;
-    private final Set<String> blacklist;
+    private final Set<String> allowedQueries;
+    private final Set<String> bannedQueries;
     private final int precision;
 
     public Verifier(PrintStream out, VerifierConfig config, Set<EventClient> eventClients)
@@ -64,8 +64,8 @@ public class Verifier
         requireNonNull(out, "out is null");
         this.config = requireNonNull(config, "config is null");
         this.eventClients = requireNonNull(eventClients, "eventClients is null");
-        this.whitelist = requireNonNull(config.getWhitelist(), "whitelist is null");
-        this.blacklist = requireNonNull(config.getBlacklist(), "blacklist is null");
+        this.allowedQueries = requireNonNull(config.getAllowedQueries(), "allowedQueries is null");
+        this.bannedQueries = requireNonNull(config.getBannedQueries(), "bannedQueries is null");
         this.threadCount = config.getThreadCount();
         this.precision = config.getDoublePrecision();
     }
@@ -80,19 +80,19 @@ public class Verifier
         int totalQueries = queries.size() * config.getSuiteRepetitions() * config.getQueryRepetitions();
         log.info("Total Queries:     %d", totalQueries);
 
-        log.info("Whitelisted Queries: %s", Joiner.on(',').join(whitelist));
+        log.info("Allowed Queries: %s", Joiner.on(',').join(allowedQueries));
 
         int queriesSubmitted = 0;
         for (int i = 0; i < config.getSuiteRepetitions(); i++) {
             for (QueryPair query : queries) {
                 for (int j = 0; j < config.getQueryRepetitions(); j++) {
-                    // If a whitelist exists, only run the tests on the whitelist
-                    if (!whitelist.isEmpty() && !whitelist.contains(query.getName())) {
-                        log.debug("Query %s is not whitelisted", query.getName());
+                    // If we have allowed queries, only run the tests on those
+                    if (!allowedQueries.isEmpty() && !allowedQueries.contains(query.getName())) {
+                        log.debug("Query %s is not allowed", query.getName());
                         continue;
                     }
-                    if (blacklist.contains(query.getName())) {
-                        log.debug("Query %s is blacklisted", query.getName());
+                    if (bannedQueries.contains(query.getName())) {
+                        log.debug("Query %s is banned", query.getName());
                         continue;
                     }
                     Validator validator = new Validator(

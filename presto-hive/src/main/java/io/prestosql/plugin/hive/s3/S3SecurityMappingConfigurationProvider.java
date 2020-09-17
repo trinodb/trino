@@ -90,6 +90,9 @@ public class S3SecurityMappingConfigurationProvider
 
         S3SecurityMapping mapping = mappings.get().getMapping(context.getIdentity(), uri)
                 .orElseThrow(() -> new AccessDeniedException("No matching S3 security mapping"));
+        if (mapping.isUseClusterDefault()) {
+            return;
+        }
 
         Hasher hasher = Hashing.sha256().newHasher();
 

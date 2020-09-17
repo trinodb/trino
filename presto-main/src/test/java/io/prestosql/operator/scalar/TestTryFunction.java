@@ -27,6 +27,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UnknownType.UNKNOWN;
@@ -58,6 +59,7 @@ public class TestTryFunction
         assertFunction(createTryExpression("'hello'"), createVarcharType(5), "hello");
         assertFunction(createTryExpression("JSON '[true, false, 12, 12.7, \"12\", null]'"), JSON, "[true,false,12,12.7,\"12\",null]");
         assertFunction(createTryExpression("ARRAY [1, 2]"), new ArrayType(INTEGER), asList(1, 2));
+        assertFunction(createTryExpression("TIMESTAMP '2020-05-10 12:34:56.123456789'"), createTimestampType(9), timestamp(9, "2020-05-10 12:34:56.123456789"));
         assertFunction(createTryExpression("NULL"), UNKNOWN, null);
     }
 

@@ -76,4 +76,14 @@ public class DoubleLiteral
         long temp = value != +0.0d ? Double.doubleToLongBits(value) : 0L;
         return (int) (temp ^ (temp >>> 32));
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return value == ((DoubleLiteral) other).value;
+    }
 }

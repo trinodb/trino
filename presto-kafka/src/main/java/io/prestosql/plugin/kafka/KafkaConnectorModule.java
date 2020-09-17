@@ -19,10 +19,13 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.prestosql.decoder.DecoderModule;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorRecordSetProvider;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.plugin.base.classloader.ForClassLoaderSafe;
+import io.prestosql.plugin.kafka.encoder.EncoderModule;
 import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.type.Type;
@@ -48,7 +51,10 @@ public class KafkaConnectorModule
         binder.bind(ConnectorSplitManager.class).to(ClassLoaderSafeConnectorSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForClassLoaderSafe.class).to(KafkaRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorRecordSetProvider.class).to(ClassLoaderSafeConnectorRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSinkProvider.class).annotatedWith(ForClassLoaderSafe.class).to(KafkaPageSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSinkProvider.class).to(ClassLoaderSafeConnectorPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(KafkaConnector.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaInternalFieldManager.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(KafkaConfig.class);
         newSetBinder(binder, TableDescriptionSupplier.class).addBinding().toProvider(KafkaTableDescriptionSupplier.class).in(Scopes.SINGLETON);
@@ -57,6 +63,8 @@ public class KafkaConnectorModule
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
 
         binder.install(new DecoderModule());
+        binder.install(new EncoderModule());
+        binder.install(new KafkaProducerModule());
     }
 
     private static final class TypeDeserializer

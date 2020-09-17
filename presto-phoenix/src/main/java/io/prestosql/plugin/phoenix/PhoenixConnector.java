@@ -17,6 +17,7 @@ import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.prestosql.plugin.jdbc.JdbcTransactionHandle;
 import io.prestosql.plugin.jdbc.SessionPropertiesProvider;
+import io.prestosql.plugin.jdbc.TablePropertiesProvider;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
@@ -40,7 +41,7 @@ public class PhoenixConnector
     private final ConnectorSplitManager splitManager;
     private final ConnectorRecordSetProvider recordSetProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
-    private final PhoenixTableProperties tableProperties;
+    private final List<PropertyMetadata<?>> tableProperties;
     private final PhoenixColumnProperties columnProperties;
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -51,7 +52,7 @@ public class PhoenixConnector
             ConnectorSplitManager splitManager,
             ConnectorRecordSetProvider recordSetProvider,
             ConnectorPageSinkProvider pageSinkProvider,
-            PhoenixTableProperties tableProperties,
+            Set<TablePropertiesProvider> tableProperties,
             PhoenixColumnProperties columnProperties,
             Set<SessionPropertiesProvider> sessionProperties)
     {
@@ -60,7 +61,9 @@ public class PhoenixConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
-        this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+        this.tableProperties = requireNonNull(tableProperties, "tableProperties is null").stream()
+                .flatMap(tablePropertiesProvider -> tablePropertiesProvider.getTableProperties().stream())
+                .collect(toImmutableList());
         this.columnProperties = requireNonNull(columnProperties, "columnProperties is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
@@ -100,7 +103,7 @@ public class PhoenixConnector
     @Override
     public List<PropertyMetadata<?>> getTableProperties()
     {
-        return tableProperties.getTableProperties();
+        return tableProperties;
     }
 
     @Override

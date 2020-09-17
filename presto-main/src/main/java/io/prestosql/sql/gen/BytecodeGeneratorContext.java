@@ -16,8 +16,10 @@ package io.prestosql.sql.gen;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
+import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.sql.relational.RowExpression;
 
 import java.lang.invoke.MethodHandle;
@@ -75,9 +77,10 @@ public class BytecodeGeneratorContext
         return rowExpressionCompiler.compile(expression, scope);
     }
 
-    public Metadata getMetadata()
+    public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction,
+            Optional<InvocationConvention> invocationConvention)
     {
-        return metadata;
+        return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
     }
 
     /**

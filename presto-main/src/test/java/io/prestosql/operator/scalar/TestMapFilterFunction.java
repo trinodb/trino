@@ -25,6 +25,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.type.UnknownType.UNKNOWN;
@@ -83,6 +84,10 @@ public class TestMapFilterFunction
                 "map_filter(map(ARRAY ['a', 'b', 'c'], ARRAY [TRUE, FALSE, NULL]), (k, v) -> v)",
                 mapType(createVarcharType(1), BOOLEAN),
                 ImmutableMap.of("a", true));
+        assertFunction(
+                "map_filter(map(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], ARRAY[1, 2]), (k, v) -> year(k) = 1111)",
+                mapType(createTimestampType(9), INTEGER),
+                ImmutableMap.of(timestamp(9, "1111-05-10 12:34:56.123456789"), 2));
     }
 
     @Test

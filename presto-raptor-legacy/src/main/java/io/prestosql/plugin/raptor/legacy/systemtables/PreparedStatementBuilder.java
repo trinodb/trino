@@ -200,7 +200,7 @@ public final class PreparedStatementBuilder
 
                 discreteValues -> {
                     String values = Joiner.on(",").join(nCopies(discreteValues.getValues().size(), "?"));
-                    String predicate = columnName + (discreteValues.isWhiteList() ? "" : " NOT") + " IN (" + values + ")";
+                    String predicate = columnName + (discreteValues.isInclusive() ? "" : " NOT") + " IN (" + values + ")";
                     for (Object value : discreteValues.getValues()) {
                         bindValues.add(ValueBuffer.create(columnIndex, type, getBindValue(columnIndex, uuidColumnIndexes, value)));
                     }

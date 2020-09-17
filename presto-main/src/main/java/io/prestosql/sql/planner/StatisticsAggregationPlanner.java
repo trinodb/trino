@@ -129,7 +129,7 @@ public class StatisticsAggregationPlanner
     private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType, Type outputType)
     {
         ResolvedFunction resolvedFunction = metadata.resolveFunction(functionName, fromTypes(inputType));
-        Type resolvedType = metadata.getType(getOnlyElement(resolvedFunction.getSignature().getArgumentTypes()));
+        Type resolvedType = getOnlyElement(resolvedFunction.getSignature().getArgumentTypes());
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(

@@ -27,9 +27,10 @@ import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class SinglenodeSqlserver
@@ -51,19 +52,18 @@ public final class SinglenodeSqlserver
     @Override
     protected void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer("presto-master", container -> container
-                .withFileSystemBind(
-                        dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-sqlserver/sqlserver.properties"),
-                        CONTAINER_PRESTO_ETC + "/catalog/sqlserver.properties",
-                        READ_ONLY));
+        builder.configureContainer(COORDINATOR, container -> container
+                .withCopyFileToContainer(
+                        forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-sqlserver/sqlserver.properties")),
+                        CONTAINER_PRESTO_ETC + "/catalog/sqlserver.properties"));
 
-        builder.addContainer("sqlserver", createSqlServer());
+        builder.addContainer(createSqlServer());
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createSqlServer()
     {
-        DockerContainer container = new DockerContainer("microsoft/mssql-server-linux:2017-CU13")
+        DockerContainer container = new DockerContainer("microsoft/mssql-server-linux:2017-CU13", "sqlserver")
                 .withEnv("ACCEPT_EULA", "Y")
                 .withEnv("SA_PASSWORD", "SQLServerPass1")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())

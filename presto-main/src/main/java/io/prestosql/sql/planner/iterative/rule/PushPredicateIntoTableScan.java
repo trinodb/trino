@@ -51,6 +51,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
+import static io.prestosql.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.metadata.TableLayoutResult.computeEnforced;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
@@ -89,6 +90,12 @@ public class PushPredicateIntoTableScan
     public Pattern<FilterNode> getPattern()
     {
         return PATTERN;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isAllowPushdownIntoConnectors(session);
     }
 
     @Override
@@ -311,11 +318,7 @@ public class PushPredicateIntoTableScan
             Object optimized = TryFunction.evaluate(() -> evaluator.optimize(inputs), true);
 
             // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
-            if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {
-                return false;
-            }
-
-            return true;
+            return !(Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral);
         }
     }
 }

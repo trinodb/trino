@@ -13,26 +13,27 @@
  */
 package io.prestosql.plugin.hive.rubix;
 
-import com.qubole.rubix.spi.thrift.BlockLocation;
 import com.qubole.rubix.spi.thrift.BookKeeperService;
 import com.qubole.rubix.spi.thrift.CacheStatusRequest;
+import com.qubole.rubix.spi.thrift.CacheStatusResponse;
 import com.qubole.rubix.spi.thrift.FileInfo;
 import com.qubole.rubix.spi.thrift.HeartbeatStatus;
+import com.qubole.rubix.spi.thrift.ReadResponse;
+import org.apache.thrift.shaded.TException;
 
-import java.util.List;
 import java.util.Map;
 
 public class DummyBookKeeper
         implements BookKeeperService.Iface
 {
     @Override
-    public List<BlockLocation> getCacheStatus(CacheStatusRequest cacheStatusRequest)
+    public CacheStatusResponse getCacheStatus(CacheStatusRequest cacheStatusRequest)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void setAllCached(String remotePath, long fileLength, long lastModified, long startBlock, long endBlock)
+    public void setAllCached(String remotePath, long fileLength, long lastModified, long startBlock, long endBlock, int generationNumber)
     {
         throw new UnsupportedOperationException();
     }
@@ -44,7 +45,14 @@ public class DummyBookKeeper
     }
 
     @Override
-    public boolean readData(String remotePath, long offset, int length, long fileSize, long lastModified, int clusterType)
+    public Map<String, Long> getReadRequestChainStats()
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ReadResponse readData(String remotePath, long offset, int length, long fileSize, long lastModified, int clusterType)
     {
         throw new UnsupportedOperationException();
     }

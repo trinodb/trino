@@ -32,6 +32,8 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.LongTimestamp;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RowFieldName;
@@ -39,16 +41,20 @@ import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestamp;
+import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile.ReaderOptions;
@@ -59,11 +65,11 @@ import org.apache.hadoop.hive.ql.io.orc.OrcUtil;
 import org.apache.hadoop.hive.ql.io.orc.Reader;
 import org.apache.hadoop.hive.ql.io.orc.RecordReader;
 import org.apache.hadoop.hive.serde2.Serializer;
-import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.HiveCharWritable;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
-import org.apache.hadoop.hive.serde2.io.TimestampWritable;
+import org.apache.hadoop.hive.serde2.io.TimestampWritableV2;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
@@ -87,11 +93,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -123,20 +126,33 @@ import static io.prestosql.orc.metadata.CompressionKind.ZSTD;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.rescale;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.prestosql.spi.type.Timestamps.roundDiv;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.truncateToLength;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
@@ -155,6 +171,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaShortObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampTZObjectInspector;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -408,7 +425,7 @@ public class OrcTester
     {
         OrcWriterStats stats = new OrcWriterStats();
         for (CompressionKind compression : compressions) {
-            boolean hiveSupported = (compression != LZ4) && (compression != ZSTD);
+            boolean hiveSupported = (compression != LZ4) && (compression != ZSTD) && !isTimestampTz(writeType) && !isTimestampTz(readType);
 
             for (Format format : formats) {
                 // write Hive, read Presto
@@ -570,7 +587,8 @@ public class OrcTester
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
-        OrcReader orcReader = new OrcReader(orcDataSource, READER_OPTIONS);
+        OrcReader orcReader = OrcReader.createOrcReader(orcDataSource, READER_OPTIONS)
+                .orElseThrow(() -> new RuntimeException("File is empty"));
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup().orElse(0), 10_000);
@@ -604,7 +622,6 @@ public class OrcTester
                 new OrcWriterOptions(),
                 false,
                 ImmutableMap.of(),
-                HIVE_STORAGE_TIME_ZONE,
                 true,
                 BOTH,
                 stats);
@@ -660,9 +677,24 @@ public class OrcTester
                 long days = ((SqlDate) value).getDays();
                 type.writeLong(blockBuilder, days);
             }
-            else if (TIMESTAMP.equals(type)) {
-                long millis = ((SqlTimestamp) value).getMillisUtc();
-                type.writeLong(blockBuilder, millis);
+            else if (TIMESTAMP_MILLIS.equals(type)) {
+                type.writeLong(blockBuilder, ((SqlTimestamp) value).getEpochMicros());
+            }
+            else if (TIMESTAMP_MICROS.equals(type)) {
+                long micros = ((SqlTimestamp) value).getEpochMicros();
+                type.writeLong(blockBuilder, micros);
+            }
+            else if (TIMESTAMP_NANOS.equals(type)) {
+                SqlTimestamp ts = (SqlTimestamp) value;
+                type.writeObject(blockBuilder, new LongTimestamp(ts.getEpochMicros(), ts.getPicosOfMicros()));
+            }
+            else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
+                long millis = ((SqlTimestampWithTimeZone) value).getEpochMillis();
+                type.writeLong(blockBuilder, packDateTimeWithZone(millis, UTC_KEY));
+            }
+            else if (TIMESTAMP_TZ_MICROS.equals(type) || TIMESTAMP_TZ_NANOS.equals(type)) {
+                SqlTimestampWithTimeZone ts = (SqlTimestampWithTimeZone) value;
+                type.writeObject(blockBuilder, LongTimestampWithTimeZone.fromEpochMillisAndFraction(ts.getEpochMillis(), ts.getPicosOfMilli(), UTC_KEY));
             }
             else {
                 if (type instanceof ArrayType) {
@@ -723,7 +755,8 @@ public class OrcTester
 
         Reader reader = OrcFile.createReader(
                 new Path(tempFile.getFile().getAbsolutePath()),
-                new ReaderOptions(configuration));
+                new ReaderOptions(configuration)
+                        .useUTCTimestamp(true));
         RecordReader recordReader = reader.rows();
 
         StructObjectInspector rowInspector = (StructObjectInspector) reader.getObjectInspector();
@@ -753,8 +786,8 @@ public class OrcTester
         else if (actualValue instanceof BytesWritable) {
             actualValue = new SqlVarbinary(((BytesWritable) actualValue).copyBytes());
         }
-        else if (actualValue instanceof DateWritable) {
-            actualValue = new SqlDate(((DateWritable) actualValue).getDays());
+        else if (actualValue instanceof DateWritableV2) {
+            actualValue = new SqlDate(((DateWritableV2) actualValue).getDays());
         }
         else if (actualValue instanceof DoubleWritable) {
             actualValue = ((DoubleWritable) actualValue).get();
@@ -784,9 +817,36 @@ public class OrcTester
         else if (actualValue instanceof Text) {
             actualValue = actualValue.toString();
         }
-        else if (actualValue instanceof TimestampWritable) {
-            TimestampWritable timestamp = (TimestampWritable) actualValue;
-            actualValue = sqlTimestampOf((timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L), SESSION);
+        else if (actualValue instanceof TimestampWritableV2) {
+            Timestamp timestamp = ((TimestampWritableV2) actualValue).getTimestamp();
+            if (type.equals(TIMESTAMP_MILLIS)) {
+                actualValue = sqlTimestampOf(3, timestamp.toEpochMilli());
+            }
+            else if (type.equals(TIMESTAMP_MICROS)) {
+                long micros = timestamp.toEpochSecond() * MICROSECONDS_PER_SECOND;
+                micros += roundDiv(timestamp.getNanos(), NANOSECONDS_PER_MICROSECOND);
+                actualValue = SqlTimestamp.newInstance(6, micros, 0);
+            }
+            else if (type.equals(TIMESTAMP_NANOS)) {
+                long micros = timestamp.toEpochSecond() * MICROSECONDS_PER_SECOND;
+                micros += timestamp.getNanos() / NANOSECONDS_PER_MICROSECOND;
+                int picosOfMicro = (timestamp.getNanos() % NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND;
+                actualValue = SqlTimestamp.newInstance(9, micros, picosOfMicro);
+            }
+            else if (type.equals(TIMESTAMP_TZ_MILLIS)) {
+                actualValue = SqlTimestampWithTimeZone.newInstance(3, timestamp.toEpochMilli(), 0, UTC_KEY);
+            }
+            else if (type.equals(TIMESTAMP_TZ_MICROS)) {
+                int picosOfMilli = toIntExact(roundDiv(timestamp.getNanos(), NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_MICROSECOND);
+                actualValue = SqlTimestampWithTimeZone.newInstance(3, timestamp.toEpochMilli(), picosOfMilli, UTC_KEY);
+            }
+            else if (type.equals(TIMESTAMP_TZ_NANOS)) {
+                int picosOfMilli = (timestamp.getNanos() % NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_NANOSECOND;
+                actualValue = SqlTimestampWithTimeZone.newInstance(3, timestamp.toEpochMilli(), picosOfMilli, UTC_KEY);
+            }
+            else {
+                throw new IllegalArgumentException("Unsupported timestamp type: " + type);
+            }
         }
         else if (actualValue instanceof OrcStruct) {
             List<Object> fields = new ArrayList<>();
@@ -906,8 +966,11 @@ public class OrcTester
         if (type.equals(DATE)) {
             return javaDateObjectInspector;
         }
-        if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MILLIS) || type.equals(TIMESTAMP_MICROS) || type.equals(TIMESTAMP_NANOS)) {
             return javaTimestampObjectInspector;
+        }
+        if (type.equals(TIMESTAMP_TZ_MILLIS) || type.equals(TIMESTAMP_TZ_MICROS) || type.equals(TIMESTAMP_TZ_NANOS)) {
+            return javaTimestampTZObjectInspector;
         }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
@@ -970,19 +1033,16 @@ public class OrcTester
             return ((SqlVarbinary) value).getBytes();
         }
         if (type.equals(DATE)) {
-            int days = ((SqlDate) value).getDays();
-            LocalDate localDate = LocalDate.ofEpochDay(days);
-            ZonedDateTime zonedDateTime = localDate.atStartOfDay(ZoneId.systemDefault());
-
-            long millis = SECONDS.toMillis(zonedDateTime.toEpochSecond());
-            Date date = new Date(0);
-            // millis must be set separately to avoid masking
-            date.setTime(millis);
-            return date;
+            return Date.ofEpochDay(((SqlDate) value).getDays());
         }
-        if (type.equals(TIMESTAMP)) {
-            long millisUtc = ((SqlTimestamp) value).getMillisUtc();
-            return new Timestamp(millisUtc);
+        if (type.equals(TIMESTAMP_MILLIS) || type.equals(TIMESTAMP_MICROS) || type.equals(TIMESTAMP_NANOS)) {
+            LocalDateTime dateTime = ((SqlTimestamp) value).toLocalDateTime();
+            return Timestamp.ofEpochSecond(dateTime.toEpochSecond(ZoneOffset.UTC), dateTime.getNano());
+        }
+        if (type.equals(TIMESTAMP_TZ_MILLIS) || type.equals(TIMESTAMP_TZ_MICROS) || type.equals(TIMESTAMP_TZ_NANOS)) {
+            SqlTimestampWithTimeZone timestamp = (SqlTimestampWithTimeZone) value;
+            int nanosOfMilli = toIntExact(roundDiv(timestamp.getPicosOfMilli(), PICOSECONDS_PER_NANOSECOND));
+            return Timestamp.ofEpochMilli(timestamp.getEpochMillis(), nanosOfMilli);
         }
         if (type instanceof DecimalType) {
             return HiveDecimal.create(((SqlDecimal) value).toBigDecimal());
@@ -1117,5 +1177,24 @@ public class OrcTester
             typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(filedName)), fieldType.getTypeSignature())));
         }
         return METADATA.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
+    }
+
+    private static boolean isTimestampTz(Type type)
+    {
+        if (type instanceof TimestampWithTimeZoneType) {
+            return true;
+        }
+        if (type instanceof ArrayType) {
+            return isTimestampTz(((ArrayType) type).getElementType());
+        }
+        if (type instanceof MapType) {
+            return isTimestampTz(((MapType) type).getKeyType()) || isTimestampTz(((MapType) type).getValueType());
+        }
+        if (type instanceof RowType) {
+            return ((RowType) type).getFields().stream()
+                    .map(RowType.Field::getType)
+                    .anyMatch(OrcTester::isTimestampTz);
+        }
+        return false;
     }
 }

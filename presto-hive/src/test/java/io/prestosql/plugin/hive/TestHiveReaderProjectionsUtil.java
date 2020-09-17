@@ -48,8 +48,6 @@ public class TestHiveReaderProjectionsUtil
 
     public static final TypeManager TYPE_MANAGER = new InternalTypeManager(createTestMetadataManager());
 
-    public static final HiveTypeTranslator HIVE_TYPE_TRANSLATOR = new HiveTypeTranslator();
-
     public static Map<String, HiveColumnHandle> createTestFullColumns(List<String> names, Map<String, Type> types)
     {
         checkArgument(names.size() == types.size());
@@ -58,7 +56,7 @@ public class TestHiveReaderProjectionsUtil
 
         int regularColumnHiveIndex = 0;
         for (String name : names) {
-            HiveType hiveType = toHiveType(HIVE_TYPE_TRANSLATOR, types.get(name));
+            HiveType hiveType = toHiveType(types.get(name));
             hiveColumns.put(name, createBaseColumn(name, regularColumnHiveIndex, hiveType, types.get(name), REGULAR, Optional.empty()));
             regularColumnHiveIndex++;
         }

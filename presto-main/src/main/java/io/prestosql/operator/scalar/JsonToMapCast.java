@@ -18,8 +18,7 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -27,10 +26,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.util.JsonCastException;
 import io.prestosql.util.JsonUtil.BlockBuilderAppender;
 
@@ -39,9 +35,9 @@ import java.lang.invoke.MethodHandle;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.metadata.Signature.castableFromTypeParameter;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.type.JsonType.JSON;
@@ -74,20 +70,18 @@ public class JsonToMapCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        checkArgument(arity == 1, "Expected arity to be 1");
-        Type keyType = boundVariables.getTypeVariable("K");
-        Type valueType = boundVariables.getTypeVariable("V");
-        MapType mapType = (MapType) metadata.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType.getTypeSignature()), TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
+        checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
+        MapType mapType = (MapType) functionBinding.getBoundSignature().getReturnType();
         checkCondition(canCastFromJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", mapType);
 
         BlockBuilderAppender keyAppender = createBlockBuilderAppender(mapType.getKeyType());
         BlockBuilderAppender valueAppender = createBlockBuilderAppender(mapType.getValueType());
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(mapType).bindTo(keyAppender).bindTo(valueAppender);
         return new ScalarFunctionImplementation(
-                true,
-                ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                NULLABLE_RETURN,
+                ImmutableList.of(NEVER_NULL),
                 methodHandle);
     }
 

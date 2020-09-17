@@ -117,4 +117,16 @@ public class CurrentTime
     {
         return Objects.hash(function, precision);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        CurrentTime otherNode = (CurrentTime) other;
+        return (function == otherNode.function) &&
+            Objects.equals(precision, otherNode.precision);
+    }
 }

@@ -45,7 +45,9 @@ public final class JdbcClientStats
     private final JdbcApiStats rollbackCreateTable = new JdbcApiStats();
     private final JdbcApiStats schemaExists = new JdbcApiStats();
     private final JdbcApiStats toPrestoType = new JdbcApiStats();
+    private final JdbcApiStats getColumnMappings = new JdbcApiStats();
     private final JdbcApiStats toWriteMapping = new JdbcApiStats();
+    private final JdbcApiStats implementAggregation = new JdbcApiStats();
 
     @Managed
     @Nested
@@ -238,8 +240,22 @@ public final class JdbcClientStats
 
     @Managed
     @Nested
+    public JdbcApiStats getGetColumnMappings()
+    {
+        return getColumnMappings;
+    }
+
+    @Managed
+    @Nested
     public JdbcApiStats getToWriteMapping()
     {
         return toWriteMapping;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getImplementAggregation()
+    {
+        return implementAggregation;
     }
 }

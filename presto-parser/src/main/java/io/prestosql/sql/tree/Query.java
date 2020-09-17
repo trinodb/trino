@@ -154,4 +154,10 @@ public class Query
     {
         return Objects.hash(with, queryBody, orderBy, offset, limit);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

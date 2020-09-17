@@ -41,11 +41,13 @@ Functions
     Returns the ``qdigest`` which is composed of  all input values of ``x``.
 
 .. function:: qdigest_agg(x, w) -> qdigest<[same as x]>
+    :noindex:
 
     Returns the ``qdigest`` which is composed of  all input values of ``x`` using
     the per-item weight ``w``.
 
 .. function:: qdigest_agg(x, w, accuracy) -> qdigest<[same as x]>
+    :noindex:
 
     Returns the ``qdigest`` which is composed of  all input values of ``x`` using
     the per-item weight ``w`` and maximum error of ``accuracy``. ``accuracy``

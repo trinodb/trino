@@ -91,7 +91,7 @@ public class SheetsClient
         long maxCacheSize = config.getSheetsDataMaxCacheSize();
 
         this.tableSheetMappingCache = newCacheBuilder(expiresAfterWriteMillis, maxCacheSize)
-                .build(new CacheLoader<String, Optional<String>>()
+                .build(new CacheLoader<>()
                 {
                     @Override
                     public Optional<String> load(String tableName)

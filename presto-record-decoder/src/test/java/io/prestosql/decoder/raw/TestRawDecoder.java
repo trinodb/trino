@@ -29,6 +29,7 @@ import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.spi.type.VarcharType;
 import org.assertj.core.api.ThrowableAssert;
 import org.testng.annotations.Test;
 
@@ -45,6 +46,7 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
 public class TestRawDecoder
 {
@@ -58,7 +60,7 @@ public class TestRawDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(emptyRow, null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(emptyRow)
                 .orElseThrow(AssertionError::new);
 
         checkIsNull(decodedRow, column);
@@ -67,7 +69,7 @@ public class TestRawDecoder
     @Test
     public void testSimple()
     {
-        ByteBuffer buf = ByteBuffer.allocate(100);
+        ByteBuffer buf = ByteBuffer.allocate(36);
         buf.putLong(4815162342L); // 0 - 7
         buf.putInt(12345678); // 8 - 11
         buf.putShort((short) 4567); // 12 - 13
@@ -86,7 +88,7 @@ public class TestRawDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -112,7 +114,7 @@ public class TestRawDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -128,7 +130,7 @@ public class TestRawDecoder
     @Test
     public void testFloatStuff()
     {
-        ByteBuffer buf = ByteBuffer.allocate(100);
+        ByteBuffer buf = ByteBuffer.allocate(20);
         buf.putDouble(Math.PI);
         buf.putFloat((float) Math.E);
         buf.putDouble(Math.E);
@@ -142,7 +144,7 @@ public class TestRawDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -154,7 +156,7 @@ public class TestRawDecoder
     @Test
     public void testBooleanStuff()
     {
-        ByteBuffer buf = ByteBuffer.allocate(100);
+        ByteBuffer buf = ByteBuffer.allocate(38);
         buf.put((byte) 127); // offset 0
         buf.putLong(0); // offset 1
         buf.put((byte) 126); // offset 9
@@ -216,7 +218,7 @@ public class TestRawDecoder
                 row34);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -387,6 +389,71 @@ public class TestRawDecoder
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(RealType.REAL, "0", "BYTE"));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DecimalType.createDecimalType(10, 4), "0", "BYTE"));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(VarbinaryType.VARBINARY, "0", "BYTE"));
+    }
+
+    @Test
+    public void testGetValueTwice()
+    {
+        ByteBuffer buf = ByteBuffer.allocate(50);
+        buf.putLong(0, 4815162342L);
+        buf.putInt(8, 2147483647);
+        buf.putShort(12, (short) 32767);
+        buf.put(14, (byte) 128);
+        buf.putLong(15, 1);
+        buf.putInt(23, 1);
+        buf.putShort(27, (short) 1);
+        buf.put(29, (byte) 1);
+        buf.putDouble(30, 12345.6789d);
+        buf.putFloat(38, 123.345f);
+        buf.put("test val".getBytes(StandardCharsets.UTF_8)); // offset 42
+
+        byte[] row = new byte[buf.capacity()];
+        System.arraycopy(buf.array(), 0, row, 0, buf.limit());
+
+        DecoderColumnHandle col1 = new DecoderTestColumnHandle(0, "col1", BigintType.BIGINT, "0", "LONG", null, false, false, false);
+        DecoderColumnHandle col2 = new DecoderTestColumnHandle(1, "col2", BigintType.BIGINT, "8", "INT", null, false, false, false);
+        DecoderColumnHandle col3 = new DecoderTestColumnHandle(2, "col3", BigintType.BIGINT, "12", "SHORT", null, false, false, false);
+        DecoderColumnHandle col4 = new DecoderTestColumnHandle(3, "col4", BigintType.BIGINT, "14", "BYTE", null, false, false, false);
+        DecoderColumnHandle col5 = new DecoderTestColumnHandle(4, "col5", BooleanType.BOOLEAN, "15", "LONG", null, false, false, false);
+        DecoderColumnHandle col6 = new DecoderTestColumnHandle(5, "col6", BooleanType.BOOLEAN, "23", "INT", null, false, false, false);
+        DecoderColumnHandle col7 = new DecoderTestColumnHandle(6, "col7", BooleanType.BOOLEAN, "27", "SHORT", null, false, false, false);
+        DecoderColumnHandle col8 = new DecoderTestColumnHandle(7, "col8", BooleanType.BOOLEAN, "29", "BYTE", null, false, false, false);
+        DecoderColumnHandle col9 = new DecoderTestColumnHandle(8, "col9", DoubleType.DOUBLE, "30", "DOUBLE", null, false, false, false);
+        DecoderColumnHandle col10 = new DecoderTestColumnHandle(9, "col10", DoubleType.DOUBLE, "38", "FLOAT", null, false, false, false);
+        DecoderColumnHandle col11 = new DecoderTestColumnHandle(10, "col11", VarcharType.VARCHAR, "42", "BYTE", null, false, false, false);
+
+        Set<DecoderColumnHandle> columns = ImmutableSet.of(
+                col1, col2, col3, col4, col5, col6, col7, col8, col9, col10, col11);
+
+        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
+
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
+                .orElseThrow(AssertionError::new);
+
+        assertEquals(decodedRow.size(), columns.size());
+
+        for (DecoderColumnHandle handle : columns) {
+            checkTwice(decodedRow, handle);
+        }
+    }
+
+    private void checkTwice(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle)
+    {
+        FieldValueProvider provider = decodedRow.get(handle);
+        assertNotNull(provider);
+        Type type = handle.getType();
+        if (type == BigintType.BIGINT) {
+            assertEquals(provider.getLong(), provider.getLong());
+        }
+        else if (type == BooleanType.BOOLEAN) {
+            assertEquals(provider.getBoolean(), provider.getBoolean());
+        }
+        else if (type == DoubleType.DOUBLE) {
+            assertEquals(provider.getDouble(), provider.getDouble());
+        }
+        else if (type == VarcharType.VARCHAR) {
+            assertEquals(provider.getSlice(), provider.getSlice());
+        }
     }
 
     private void assertUnsupportedColumnTypeException(ThrowableAssert.ThrowingCallable callable)

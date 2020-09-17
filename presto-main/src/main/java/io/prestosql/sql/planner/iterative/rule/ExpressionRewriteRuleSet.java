@@ -18,8 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.metadata.Signature;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
@@ -45,6 +43,7 @@ import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.ResolvedFunction.extractFunctionName;
 import static io.prestosql.sql.planner.plan.Patterns.aggregation;
 import static io.prestosql.sql.planner.plan.Patterns.filter;
 import static io.prestosql.sql.planner.plan.Patterns.join;
@@ -170,12 +169,7 @@ public class ExpressionRewriteRuleSet
                                 aggregation.getArguments()),
                         context);
                 verify(
-                        ResolvedFunction.fromQualifiedName(call.getName())
-                                .map(ResolvedFunction::getSignature)
-                                .map(Signature::getName)
-                                .map(QualifiedName::of)
-                                .orElse(call.getName())
-                                .equals(QualifiedName.of(aggregation.getResolvedFunction().getSignature().getName())),
+                        QualifiedName.of(extractFunctionName(call.getName())).equals(QualifiedName.of(aggregation.getResolvedFunction().getSignature().getName())),
                         "Aggregation function name changed");
                 Aggregation newAggregation = new Aggregation(
                         aggregation.getResolvedFunction(),

@@ -20,41 +20,46 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class FetchFirst
         extends Node
 {
-    private final Optional<String> rowCount;
+    private final Optional<Expression> rowCount;
     private final boolean withTies;
 
-    public FetchFirst(String rowCount)
+    public FetchFirst(Expression rowCount)
     {
         this(Optional.empty(), Optional.of(rowCount), false);
     }
 
-    public FetchFirst(String rowCount, boolean withTies)
+    public FetchFirst(Expression rowCount, boolean withTies)
     {
         this(Optional.empty(), Optional.of(rowCount), withTies);
     }
 
-    public FetchFirst(Optional<String> rowCount)
+    public FetchFirst(Optional<Expression> rowCount)
     {
         this(Optional.empty(), rowCount, false);
     }
 
-    public FetchFirst(Optional<String> rowCount, boolean withTies)
+    public FetchFirst(Optional<Expression> rowCount, boolean withTies)
     {
         this(Optional.empty(), rowCount, withTies);
     }
 
-    public FetchFirst(Optional<NodeLocation> location, Optional<String> rowCount, boolean withTies)
+    public FetchFirst(Optional<NodeLocation> location, Optional<Expression> rowCount, boolean withTies)
     {
         super(location);
+        rowCount.ifPresent(count -> checkArgument(
+                count instanceof LongLiteral || count instanceof Parameter,
+                "unexpected rowCount class: %s",
+                rowCount.getClass().getSimpleName()));
         this.rowCount = rowCount;
         this.withTies = withTies;
     }
 
-    public Optional<String> getRowCount()
+    public Optional<Expression> getRowCount()
     {
         return rowCount;
     }
@@ -73,7 +78,7 @@ public class FetchFirst
     @Override
     public List<? extends Node> getChildren()
     {
-        return ImmutableList.of();
+        return rowCount.map(ImmutableList::of).orElse(ImmutableList.of());
     }
 
     @Override
@@ -104,5 +109,17 @@ public class FetchFirst
                 .add("withTies", withTies)
                 .omitNullValues()
                 .toString();
+    }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        FetchFirst otherNode = (FetchFirst) other;
+
+        return withTies == otherNode.withTies;
     }
 }

@@ -1,11 +1,6 @@
 Accumulo Connector
 ==================
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Overview
 --------
 

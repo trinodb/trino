@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -eux
+
+cd "${BASH_SOURCE%/*}"
+
+test -t 1 && OPTS='-it' || OPTS=''
+
+SPHINX_IMAGE=${SPHINX_IMAGE:-prestodev/sphinx:2}
+
+docker run --rm $OPTS -e PRESTO_VERSION -u $(id -u):$(id -g) -v "$PWD":/docs $SPHINX_IMAGE \
+  sphinx-build -j auto -b html -W -d target/doctrees src/main/sphinx target/html

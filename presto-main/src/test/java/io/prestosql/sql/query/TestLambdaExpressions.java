@@ -17,6 +17,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 public class TestLambdaExpressions
 {
     private QueryAssertions assertions;
@@ -37,43 +39,57 @@ public class TestLambdaExpressions
     @Test
     public void testDuplicateLambdaExpressions()
     {
-        assertions.assertQuery("" +
-                        "SELECT cardinality(filter(a, x -> x > 0)) " +
-                        "FROM (VALUES " +
-                        "   ARRAY[1,2,3], " +
-                        "   ARRAY[0,1,2]," +
-                        "   ARRAY[0,0,0]" +
-                        ") AS t(a) " +
-                        "GROUP BY cardinality(filter(a, x -> x > 0))" +
-                        "ORDER BY cardinality(filter(a, x -> x > 0))",
-                "VALUES BIGINT '0', BIGINT '2', BIGINT '3'");
+        assertThat(assertions.query("" +
+                "SELECT cardinality(filter(a, x -> x > 0)) " +
+                "FROM (VALUES " +
+                "   ARRAY[1,2,3], " +
+                "   ARRAY[0,1,2]," +
+                "   ARRAY[0,0,0]" +
+                ") AS t(a) " +
+                "GROUP BY cardinality(filter(a, x -> x > 0))" +
+                "ORDER BY cardinality(filter(a, x -> x > 0))"))
+                .matches("VALUES BIGINT '0', BIGINT '2', BIGINT '3'");
 
         // same type
-        assertions.assertQuery("" +
-                        "SELECT transform(a, x -> x + 1), transform(b, x -> x + 1) " +
-                        "FROM (VALUES ROW(ARRAY[1, 2, 3], ARRAY[10, 20, 30])) t(a, b)",
-                "VALUES ROW(ARRAY[2, 3, 4], ARRAY[11, 21, 31])");
+        assertThat(assertions.query("" +
+                "SELECT transform(a, x -> x + 1), transform(b, x -> x + 1) " +
+                "FROM (VALUES ROW(ARRAY[1, 2, 3], ARRAY[10, 20, 30])) t(a, b)"))
+                .matches("VALUES ROW(ARRAY[2, 3, 4], ARRAY[11, 21, 31])");
 
         // different type
-        assertions.assertQuery("" +
-                        "SELECT transform(a, x -> x + 1), transform(b, x -> x + 1) " +
-                        "FROM (VALUES ROW(ARRAY[1, 2, 3], ARRAY[10e0, 20e0, 30e0])) t(a, b)",
-                "VALUES ROW(ARRAY[2, 3, 4], ARRAY[11e0, 21e0, 31e0])");
+        assertThat(assertions.query("" +
+                "SELECT transform(a, x -> x + 1), transform(b, x -> x + 1) " +
+                "FROM (VALUES ROW(ARRAY[1, 2, 3], ARRAY[10e0, 20e0, 30e0])) t(a, b)"))
+                .matches("VALUES ROW(ARRAY[2, 3, 4], ARRAY[11e0, 21e0, 31e0])");
+    }
+
+    @Test
+    public void testParameterName()
+    {
+        // lambda may be using parameter which is not valid identifier in Java
+        assertThat(assertions.query("" +
+                "WITH t AS ( " +
+                "    SELECT count(*) AS \"a.b c; d\" FROM (VALUES (42)) " +
+                "    UNION ALL " +
+                "    SELECT * FROM (VALUES (77)) v(\"a.b c; d\") " +
+                ") " +
+                "SELECT transform(ARRAY[1], x -> x + \"a.b c; d\") FROM t"))
+                .matches("VALUES ARRAY[BIGINT '2'], ARRAY[BIGINT '78']");
     }
 
     @Test
     public void testNestedLambda()
     {
         // same argument name
-        assertions.assertQuery("" +
-                        "SELECT transform(a, x -> transform(ARRAY[x], x -> x + 1)) " +
-                        "FROM (VALUES ARRAY[1, 2, 3]) t(a)",
-                "VALUES ARRAY[ARRAY[2], ARRAY[3], ARRAY[4]]");
+        assertThat(assertions.query("" +
+                "SELECT transform(a, x -> transform(ARRAY[x], x -> x + 1)) " +
+                "FROM (VALUES ARRAY[1, 2, 3]) t(a)"))
+                .matches("VALUES ARRAY[ARRAY[2], ARRAY[3], ARRAY[4]]");
 
         // different argument name
-        assertions.assertQuery("" +
-                        "SELECT transform(a, x -> transform(ARRAY[x], y -> y + 1)) " +
-                        "FROM (VALUES ARRAY[1, 2, 3]) t(a)",
-                "VALUES ARRAY[ARRAY[2], ARRAY[3], ARRAY[4]]");
+        assertThat(assertions.query("" +
+                "SELECT transform(a, x -> transform(ARRAY[x], y -> y + 1)) " +
+                "FROM (VALUES ARRAY[1, 2, 3]) t(a)"))
+                .matches("VALUES ARRAY[ARRAY[2], ARRAY[3], ARRAY[4]]");
     }
 }

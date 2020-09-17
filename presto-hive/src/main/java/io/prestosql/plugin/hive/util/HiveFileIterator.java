@@ -94,7 +94,7 @@ public class HiveFileIterator
                             paths.add(status.getPath());
                             continue;
                         case FAIL:
-                            throw new NestedDirectoryNotAllowedException();
+                            throw new NestedDirectoryNotAllowedException(status.getPath());
                     }
                 }
 
@@ -189,9 +189,17 @@ public class HiveFileIterator
     public static class NestedDirectoryNotAllowedException
             extends RuntimeException
     {
-        public NestedDirectoryNotAllowedException()
+        private final Path nestedDirectoryPath;
+
+        public NestedDirectoryNotAllowedException(Path nestedDirectoryPath)
         {
-            super("Nested sub-directories are not allowed");
+            super("Nested sub-directories are not allowed: " + nestedDirectoryPath);
+            this.nestedDirectoryPath = requireNonNull(nestedDirectoryPath, "nestedDirectoryPath is null");
+        }
+
+        public Path getNestedDirectoryPath()
+        {
+            return nestedDirectoryPath;
         }
     }
 }

@@ -18,6 +18,7 @@ import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
@@ -33,6 +34,7 @@ import io.airlift.log.LogJmxModule;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
+import io.prestosql.client.NodeVersion;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.eventlistener.EventListenerModule;
 import io.prestosql.execution.resourcegroups.ResourceGroupManager;
@@ -53,6 +55,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -60,6 +63,7 @@ import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncemen
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static io.prestosql.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static io.prestosql.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
+import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
 public class Server
@@ -106,6 +110,7 @@ public class Server
         try {
             Injector injector = app.strictConfig().initialize();
 
+            log.info("Presto version: %s", injector.getInstance(NodeVersion.class).getVersion());
             logLocation(log, "Working directory", Paths.get("."));
             logLocation(log, "Etc directory", Paths.get("etc"));
 
@@ -130,9 +135,31 @@ public class Server
 
             log.info("======== SERVER STARTED ========");
         }
+        catch (ApplicationConfigurationException e) {
+            StringBuilder message = new StringBuilder();
+            message.append("Configuration is invalid\n");
+            message.append("==========\n");
+            addMessages(message, "Errors", ImmutableList.copyOf(e.getErrors()));
+            addMessages(message, "Warnings", ImmutableList.copyOf(e.getWarnings()));
+            message.append("\n");
+            message.append("==========");
+            log.error(message.toString());
+            System.exit(1);
+        }
         catch (Throwable e) {
             log.error(e);
             System.exit(1);
+        }
+    }
+
+    private static void addMessages(StringBuilder output, String type, List<Object> messages)
+    {
+        if (messages.isEmpty()) {
+            return;
+        }
+        output.append("\n").append(type).append(":\n\n");
+        for (int index = 0; index < messages.size(); index++) {
+            output.append(format("%s) %s\n", index + 1, messages.get(index)));
         }
     }
 

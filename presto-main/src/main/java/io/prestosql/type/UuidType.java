@@ -31,7 +31,12 @@ import java.util.UUID;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.prestosql.spi.block.Int128ArrayBlock.INT128_BYTES;
+import static java.lang.Long.reverseBytes;
 
+/**
+ * UUIDs are encoded in big-endian representation (the bytes are stored in
+ * the same order as they appear when a UUID is printed in hexadecimal).
+ */
 public class UuidType
         extends AbstractType
         implements FixedWidthType
@@ -98,13 +103,11 @@ public class UuidType
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        // compare high order bits
-        int compare = Long.compare(leftBlock.getLong(leftPosition, SIZE_OF_LONG), rightBlock.getLong(rightPosition, SIZE_OF_LONG));
+        int compare = Long.compare(leftBlock.getLong(leftPosition, 0), rightBlock.getLong(rightPosition, 0));
         if (compare != 0) {
             return compare;
         }
-        // compare low order bits
-        return Long.compare(leftBlock.getLong(leftPosition, 0), rightBlock.getLong(rightPosition, 0));
+        return Long.compare(leftBlock.getLong(leftPosition, SIZE_OF_LONG), rightBlock.getLong(rightPosition, SIZE_OF_LONG));
     }
 
     @Override
@@ -119,7 +122,9 @@ public class UuidType
         if (block.isNull(position)) {
             return null;
         }
-        return new UUID(block.getLong(position, 0), block.getLong(position, SIZE_OF_LONG)).toString();
+        long high = reverseBytes(block.getLong(position, 0));
+        long low = reverseBytes(block.getLong(position, SIZE_OF_LONG));
+        return new UUID(high, low).toString();
     }
 
     @Override

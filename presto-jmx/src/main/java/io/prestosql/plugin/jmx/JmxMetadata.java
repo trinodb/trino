@@ -62,7 +62,7 @@ import static io.prestosql.plugin.jmx.JmxErrorCode.JMX_INVALID_TABLE_NAME;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Comparator.comparing;
 import static java.util.Locale.ENGLISH;
@@ -133,7 +133,7 @@ public class JmxMetadata
             return null;
         }
         ImmutableList.Builder<JmxColumnHandle> builder = ImmutableList.builder();
-        builder.add(new JmxColumnHandle(TIMESTAMP_COLUMN_NAME, TIMESTAMP));
+        builder.add(new JmxColumnHandle(TIMESTAMP_COLUMN_NAME, createTimestampWithTimeZoneType(3)));
         builder.addAll(handle.getColumnHandles());
         return new JmxTableHandle(handle.getTableName(), handle.getObjectNames(), builder.build(), false, TupleDomain.all());
     }

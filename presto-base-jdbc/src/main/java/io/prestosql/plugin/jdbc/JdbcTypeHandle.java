@@ -29,6 +29,12 @@ public final class JdbcTypeHandle
     private final int columnSize;
     private final int decimalDigits;
     private final Optional<Integer> arrayDimensions;
+    private final Optional<CaseSensitivity> caseSensitivity;
+
+    public JdbcTypeHandle(int jdbcType, Optional<String> jdbcTypeName, int columnSize, int decimalDigits, Optional<Integer> arrayDimensions)
+    {
+        this(jdbcType, jdbcTypeName, columnSize, decimalDigits, arrayDimensions, Optional.empty());
+    }
 
     @JsonCreator
     public JdbcTypeHandle(
@@ -36,13 +42,15 @@ public final class JdbcTypeHandle
             @JsonProperty("jdbcTypeName") Optional<String> jdbcTypeName,
             @JsonProperty("columnSize") int columnSize,
             @JsonProperty("decimalDigits") int decimalDigits,
-            @JsonProperty("arrayDimensions") Optional<Integer> arrayDimensions)
+            @JsonProperty("arrayDimensions") Optional<Integer> arrayDimensions,
+            @JsonProperty("caseSensitivity") Optional<CaseSensitivity> caseSensitivity)
     {
         this.jdbcType = jdbcType;
         this.jdbcTypeName = requireNonNull(jdbcTypeName, "jdbcTypeName is null");
         this.columnSize = columnSize;
         this.decimalDigits = decimalDigits;
         this.arrayDimensions = requireNonNull(arrayDimensions, "arrayDimensions is null");
+        this.caseSensitivity = requireNonNull(caseSensitivity, "caseSensitivity is null");
     }
 
     @JsonProperty
@@ -73,6 +81,12 @@ public final class JdbcTypeHandle
     public Optional<Integer> getArrayDimensions()
     {
         return arrayDimensions;
+    }
+
+    @JsonProperty
+    public Optional<CaseSensitivity> getCaseSensitivity()
+    {
+        return caseSensitivity;
     }
 
     @Override

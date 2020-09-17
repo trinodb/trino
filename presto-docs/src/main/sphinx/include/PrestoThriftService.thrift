@@ -58,12 +58,12 @@ struct PrestoThriftAllOrNoneValueSet {
 
 /**
  * A set containing values that are uniquely identifiable.
- * Assumes an infinite number of possible values. The values may be collectively included (aka whitelist)
- * or collectively excluded (aka !whitelist).
+ * Assumes an infinite number of possible values. The values may be collectively included
+ * or collectively excluded.
  * This structure is used with comparable, but not orderable types like "json", "map".
  */
 struct PrestoThriftEquatableValueSet {
-  1: bool whiteList;
+  1: bool inclusive;
   2: list<PrestoThriftBlock> values;
 }
 

@@ -30,6 +30,7 @@ public class ShowCreate
         TABLE,
         VIEW,
         SCHEMA,
+        MATERIALIZED_VIEW,
         /**/;
     }
 

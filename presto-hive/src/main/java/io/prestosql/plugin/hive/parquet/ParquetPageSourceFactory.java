@@ -19,15 +19,17 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.parquet.Field;
 import io.prestosql.parquet.ParquetCorruptionException;
 import io.prestosql.parquet.ParquetDataSource;
+import io.prestosql.parquet.ParquetDataSourceId;
 import io.prestosql.parquet.ParquetReaderOptions;
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.parquet.predicate.Predicate;
 import io.prestosql.parquet.reader.MetadataReader;
 import io.prestosql.parquet.reader.ParquetReader;
-import io.prestosql.plugin.hive.DeleteDeltaLocations;
+import io.prestosql.plugin.hive.AcidInfo;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
 import io.prestosql.plugin.hive.ReaderProjections;
 import io.prestosql.spi.PrestoException;
@@ -80,7 +82,6 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.isFailOnCorruptedPa
 import static io.prestosql.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
 import static io.prestosql.plugin.hive.ReaderProjections.projectSufficientColumns;
-import static io.prestosql.plugin.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static io.prestosql.plugin.hive.parquet.ParquetColumnIOConverter.constructField;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static java.lang.String.format;
@@ -98,15 +99,17 @@ public class ParquetPageSourceFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final ParquetReaderOptions options;
+    private final DateTimeZone timeZone;
 
     @Inject
-    public ParquetPageSourceFactory(HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, ParquetReaderConfig config)
+    public ParquetPageSourceFactory(HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, ParquetReaderConfig config, HiveConfig hiveConfig)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         requireNonNull(config, "config is null");
 
         options = config.toParquetReaderOptions();
+        timeZone = requireNonNull(hiveConfig, "hiveConfig is null").getParquetDateTimeZone();
     }
 
     @Override
@@ -116,30 +119,30 @@ public class ParquetPageSourceFactory
             Path path,
             long start,
             long length,
-            long fileSize,
+            long estimatedFileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone,
-            Optional<DeleteDeltaLocations> deleteDeltaLocations)
+            Optional<AcidInfo> acidInfo)
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
             return Optional.empty();
         }
 
-        checkArgument(deleteDeltaLocations.isEmpty(), "Delete delta is not supported");
+        checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
         return Optional.of(createPageSource(
                 path,
                 start,
                 length,
-                fileSize,
+                estimatedFileSize,
                 columns,
                 effectivePredicate,
                 isUseParquetColumnNames(session),
                 hdfsEnvironment,
                 configuration,
                 session.getUser(),
+                timeZone,
                 stats,
                 options.withFailOnCorruptedStatistics(isFailOnCorruptedParquetStatistics(session))
                         .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))));
@@ -152,13 +155,14 @@ public class ParquetPageSourceFactory
             Path path,
             long start,
             long length,
-            long fileSize,
+            long estimatedFileSize,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             boolean useColumnNames,
             HdfsEnvironment hdfsEnvironment,
             Configuration configuration,
             String user,
+            DateTimeZone timeZone,
             FileFormatDataSourceStats stats,
             ParquetReaderOptions options)
     {
@@ -173,10 +177,11 @@ public class ParquetPageSourceFactory
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
             FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.open(path));
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(inputStream, path, fileSize);
+            dataSource = new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), estimatedFileSize, inputStream, stats, options);
+
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             fileSchema = fileMetaData.getSchema();
-            dataSource = buildHdfsParquetDataSource(inputStream, path, fileSize, stats, options);
 
             Optional<MessageType> message = projectSufficientColumns(columns)
                     .map(ReaderProjections::getReaderColumns)
@@ -200,8 +205,9 @@ public class ParquetPageSourceFactory
             }
 
             Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
-            TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
-            Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
+            TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate, fileSchema, useColumnNames);
+
+            Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, timeZone);
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
             for (BlockMetaData block : footerBlocks.build()) {
                 if (predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, options.isFailOnCorruptedStatistics())) {
@@ -213,6 +219,7 @@ public class ParquetPageSourceFactory
                     messageColumn,
                     blocks.build(),
                     dataSource,
+                    timeZone,
                     newSimpleAggregatedMemoryContext(),
                     options);
         }
@@ -309,7 +316,11 @@ public class ParquetPageSourceFactory
         return Optional.of(new GroupType(baseType.getRepetition(), baseType.getName(), ImmutableList.of(type)));
     }
 
-    public static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<HiveColumnHandle> effectivePredicate)
+    public static TupleDomain<ColumnDescriptor> getParquetTupleDomain(
+            Map<List<String>, RichColumnDescriptor> descriptorsByPath,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            MessageType fileSchema,
+            boolean useColumnNames)
     {
         if (effectivePredicate.isNone()) {
             return TupleDomain.none();
@@ -319,11 +330,23 @@ public class ParquetPageSourceFactory
         for (Entry<HiveColumnHandle, Domain> entry : effectivePredicate.getDomains().get().entrySet()) {
             HiveColumnHandle columnHandle = entry.getKey();
             // skip looking up predicates for complex types as Parquet only stores stats for primitives
-            if (columnHandle.getHiveType().getCategory() != PRIMITIVE) {
+            if (columnHandle.getHiveType().getCategory() != PRIMITIVE || columnHandle.getColumnType() != REGULAR) {
                 continue;
             }
 
-            RichColumnDescriptor descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
+            RichColumnDescriptor descriptor;
+            if (useColumnNames) {
+                descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
+            }
+            else {
+                org.apache.parquet.schema.Type parquetField = getParquetType(columnHandle, fileSchema, false);
+                if (parquetField == null || !parquetField.isPrimitive()) {
+                    // Parquet file has fewer column than partition
+                    // Or the field is a complex type
+                    continue;
+                }
+                descriptor = descriptorsByPath.get(ImmutableList.of(parquetField.getName()));
+            }
             if (descriptor != null) {
                 predicate.put(descriptor, entry.getValue());
             }

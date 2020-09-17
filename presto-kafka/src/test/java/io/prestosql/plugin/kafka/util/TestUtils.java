@@ -19,28 +19,19 @@ import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.kafka.KafkaTopicDescription;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.TestingPrestoClient;
+import io.prestosql.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.KafkaProducer;
 
 import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 
 import static java.lang.String.format;
 
 public final class TestUtils
 {
     private TestUtils() {}
-
-    static Properties toProperties(Map<String, String> map)
-    {
-        Properties properties = new Properties();
-        for (Map.Entry<String, String> entry : map.entrySet()) {
-            properties.setProperty(entry.getKey(), entry.getValue());
-        }
-        return properties;
-    }
 
     public static void loadTpchTopic(TestingKafka testingKafka, TestingPrestoClient prestoClient, String topicName, QualifiedObjectName tpchTableName)
     {

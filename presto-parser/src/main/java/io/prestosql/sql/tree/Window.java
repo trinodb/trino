@@ -108,4 +108,10 @@ public class Window
                 .add("frame", frame)
                 .toString();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

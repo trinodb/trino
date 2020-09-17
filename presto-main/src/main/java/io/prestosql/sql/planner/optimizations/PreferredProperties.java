@@ -285,7 +285,7 @@ class PreferredProperties
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-            final Global other = (Global) obj;
+            Global other = (Global) obj;
             return Objects.equals(this.distributed, other.distributed)
                     && Objects.equals(this.partitioningProperties, other.partitioningProperties);
         }
@@ -414,7 +414,7 @@ class PreferredProperties
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-            final PartitioningProperties other = (PartitioningProperties) obj;
+            PartitioningProperties other = (PartitioningProperties) obj;
             return Objects.equals(this.partitioningColumns, other.partitioningColumns)
                     && Objects.equals(this.partitioning, other.partitioning)
                     && this.nullsAndAnyReplicated == other.nullsAndAnyReplicated;

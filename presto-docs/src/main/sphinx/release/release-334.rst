@@ -92,4 +92,4 @@ MongoDB Connector Changes
 SPI Changes
 -----------
 
- * Allow a ``SystemAccessControl`` to provide an ``EventListener``. (:issue:`3629`).
+* Allow a ``SystemAccessControl`` to provide an ``EventListener``. (:issue:`3629`).

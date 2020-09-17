@@ -160,7 +160,7 @@ public final class PropertyMetadata<T>
                 Integer.class,
                 defaultValue,
                 hidden,
-                value -> ((Number) value).intValue(),
+                Integer.class::cast,
                 object -> object);
     }
 
@@ -173,7 +173,7 @@ public final class PropertyMetadata<T>
                 Long.class,
                 defaultValue,
                 hidden,
-                value -> ((Number) value).longValue(),
+                Long.class::cast,
                 object -> object);
     }
 
@@ -186,7 +186,7 @@ public final class PropertyMetadata<T>
                 Double.class,
                 defaultValue,
                 hidden,
-                value -> ((Number) value).doubleValue(),
+                Double.class::cast,
                 object -> object);
     }
 

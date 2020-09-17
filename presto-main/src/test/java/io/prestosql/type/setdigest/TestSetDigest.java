@@ -105,13 +105,13 @@ public class TestSetDigest
         ObjectMapper mapper = new ObjectMapperProvider().get();
 
         Slice slice = hashCounts(digest1.serialize());
-        Map<Long, Short> counts = mapper.readValue(slice.toStringUtf8(), new TypeReference<Map<Long, Short>>() {});
+        Map<Long, Short> counts = mapper.readValue(slice.toStringUtf8(), new TypeReference<>() {});
         Set<Short> expected = ImmutableSet.of((short) 1, (short) 2);
         assertEquals(counts.values(), expected);
 
         digest1.mergeWith(digest2);
         slice = hashCounts(digest1.serialize());
-        counts = mapper.readValue(slice.toStringUtf8(), new TypeReference<Map<Long, Short>>() {});
+        counts = mapper.readValue(slice.toStringUtf8(), new TypeReference<>() {});
         expected = ImmutableSet.of((short) 1, (short) 2, (short) 4);
         assertEquals(ImmutableSet.copyOf(counts.values()), expected);
     }

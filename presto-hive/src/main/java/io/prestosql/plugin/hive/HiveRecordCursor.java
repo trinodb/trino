@@ -45,6 +45,7 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Chars.isCharType;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
 import static io.prestosql.spi.type.Decimals.isShortDecimal;
@@ -52,8 +53,8 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
@@ -75,13 +76,9 @@ public class HiveRecordCursor
     private final Object[] objects;
     private final boolean[] nulls;
 
-    public HiveRecordCursor(
-            List<ColumnMapping> columnMappings,
-            DateTimeZone hiveStorageTimeZone,
-            RecordCursor delegate)
+    public HiveRecordCursor(List<ColumnMapping> columnMappings, RecordCursor delegate)
     {
         requireNonNull(columnMappings, "columns is null");
-        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.columnMappings = columnMappings;
@@ -144,11 +141,12 @@ public class HiveRecordCursor
                 else if (DATE.equals(type)) {
                     longs[columnIndex] = datePartitionKey(columnValue, name);
                 }
-                else if (TIMESTAMP.equals(type)) {
-                    longs[columnIndex] = timestampPartitionKey(columnValue, hiveStorageTimeZone, name, false);
+                else if (TIMESTAMP_MILLIS.equals(type)) {
+                    longs[columnIndex] = timestampPartitionKey(columnValue, name);
                 }
-                else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-                    longs[columnIndex] = timestampPartitionKey(columnValue, hiveStorageTimeZone, name, true);
+                else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
+                    // used for $file_modified_time
+                    longs[columnIndex] = packDateTimeWithZone(timestampPartitionKey(columnValue, name), DateTimeZone.getDefault().getID());
                 }
                 else if (isShortDecimal(type)) {
                     longs[columnIndex] = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);

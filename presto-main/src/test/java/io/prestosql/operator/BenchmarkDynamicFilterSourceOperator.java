@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.TestingTaskContext;
 import io.prestosql.tpch.LineItem;
@@ -49,6 +50,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.SystemSessionProperties.getDynamicFilteringMaxPerDriverRowCount;
 import static io.prestosql.SystemSessionProperties.getDynamicFilteringMaxPerDriverSize;
+import static io.prestosql.SystemSessionProperties.getDynamicFilteringRangeRowLimitPerDriver;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -86,9 +88,10 @@ public class BenchmarkDynamicFilterSourceOperator
                     1,
                     new PlanNodeId("joinNodeId"),
                     (tupleDomain -> {}),
-                    ImmutableList.of(new DynamicFilterSourceOperator.Channel("0", BIGINT, 0)),
+                    ImmutableList.of(new DynamicFilterSourceOperator.Channel(new DynamicFilterId("0"), BIGINT, 0)),
                     getDynamicFilteringMaxPerDriverRowCount(TEST_SESSION),
-                    getDynamicFilteringMaxPerDriverSize(TEST_SESSION));
+                    getDynamicFilteringMaxPerDriverSize(TEST_SESSION),
+                    getDynamicFilteringRangeRowLimitPerDriver(TEST_SESSION));
         }
 
         @TearDown

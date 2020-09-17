@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 
 import java.time.ZonedDateTime;
 
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.time.ZoneOffset.UTC;
 
 public class TestObjectIdFunctions
@@ -38,12 +38,12 @@ public class TestObjectIdFunctions
     {
         assertFunction(
                 "objectid_timestamp(ObjectId('1234567890abcdef12345678'))",
-                TIMESTAMP_WITH_TIME_ZONE,
+                TIMESTAMP_TZ_MILLIS,
                 toTimestampWithTimeZone(ZonedDateTime.of(1979, 9, 5, 22, 51, 36, 0, UTC)));
     }
 
     private SqlTimestampWithTimeZone toTimestampWithTimeZone(ZonedDateTime zonedDateTime)
     {
-        return new SqlTimestampWithTimeZone(zonedDateTime.toInstant().toEpochMilli(), TimeZoneKey.getTimeZoneKey(zonedDateTime.getZone().getId()));
+        return SqlTimestampWithTimeZone.newInstance(3, zonedDateTime.toInstant().toEpochMilli(), 0, TimeZoneKey.getTimeZoneKey(zonedDateTime.getZone().getId()));
     }
 }

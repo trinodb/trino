@@ -36,7 +36,7 @@ class TestingH2JdbcModule
     @ForBaseJdbc
     public JdbcClient provideJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
-        return new BaseJdbcClient(config, "\"", connectionFactory);
+        return new TestingH2JdbcClient(config, connectionFactory);
     }
 
     @Provides

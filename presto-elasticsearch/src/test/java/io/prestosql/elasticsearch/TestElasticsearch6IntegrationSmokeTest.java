@@ -20,7 +20,7 @@ public class TestElasticsearch6IntegrationSmokeTest
 {
     public TestElasticsearch6IntegrationSmokeTest()
     {
-        super("6.0.0");
+        super("docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0");
     }
 
     @Override

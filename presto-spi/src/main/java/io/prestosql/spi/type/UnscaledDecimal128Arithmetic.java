@@ -25,7 +25,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
 import static io.prestosql.spi.type.Decimals.longTenToNth;
 import static java.lang.Integer.toUnsignedLong;
-import static java.lang.String.format;
 import static java.lang.System.arraycopy;
 import static java.util.Arrays.fill;
 
@@ -328,19 +327,22 @@ public final class UnscaledDecimal128Arithmetic
 
     public static void subtract(Slice left, Slice right, Slice result)
     {
-        if (isNegative(left) != isNegative(right)) {
+        boolean leftNegative = isNegative(left);
+        boolean rightNegative = isNegative(right);
+
+        if (leftNegative != rightNegative) {
             // only one is negative
-            if (addUnsignedReturnOverflow(left, right, result, isNegative(left)) != 0) {
+            if (addUnsignedReturnOverflow(left, right, result, leftNegative) != 0) {
                 throwOverflowException();
             }
         }
         else {
             int compare = compareAbsolute(left, right);
             if (compare > 0) {
-                subtractUnsigned(left, right, result, isNegative(left) && isNegative(right));
+                subtractUnsigned(left, right, result, leftNegative);
             }
             else if (compare < 0) {
-                subtractUnsigned(right, left, result, !(isNegative(left) && isNegative(right)));
+                subtractUnsigned(right, left, result, !leftNegative);
             }
             else {
                 setToZero(result);
@@ -353,37 +355,20 @@ public final class UnscaledDecimal128Arithmetic
      */
     private static long addUnsignedReturnOverflow(Slice left, Slice right, Slice result, boolean resultNegative)
     {
-        // TODO: consider two 7 bytes operations
-        int l0 = getInt(left, 0);
-        int l1 = getInt(left, 1);
-        int l2 = getInt(left, 2);
-        int l3 = getInt(left, 3);
+        long l0 = getLong(left, 0);
+        long l1 = getLong(left, 1);
 
-        int r0 = getInt(right, 0);
-        int r1 = getInt(right, 1);
-        int r2 = getInt(right, 2);
-        int r3 = getInt(right, 3);
+        long r0 = getLong(right, 0);
+        long r1 = getLong(right, 1);
 
-        long intermediateResult;
-        intermediateResult = toUnsignedLong(l0) + toUnsignedLong(r0);
+        long z0 = l0 + r0;
+        int overflow = unsignedIsSmaller(z0, l0) ? 1 : 0;
 
-        int z0 = (int) intermediateResult;
+        long intermediateResult = l1 + r1 + overflow;
+        long z1 = intermediateResult & (~SIGN_LONG_MASK);
+        pack(result, z0, z1, resultNegative);
 
-        intermediateResult = toUnsignedLong(l1) + toUnsignedLong(r1) + (intermediateResult >>> 32);
-
-        int z1 = (int) intermediateResult;
-
-        intermediateResult = toUnsignedLong(l2) + toUnsignedLong(r2) + (intermediateResult >>> 32);
-
-        int z2 = (int) intermediateResult;
-
-        intermediateResult = toUnsignedLong(l3) + toUnsignedLong(r3) + (intermediateResult >>> 32);
-
-        int z3 = (int) intermediateResult & (~SIGN_INT_MASK);
-
-        pack(result, z0, z1, z2, z3, resultNegative);
-
-        return intermediateResult >> 31;
+        return intermediateResult >>> 63;
     }
 
     /**
@@ -391,39 +376,17 @@ public final class UnscaledDecimal128Arithmetic
      */
     private static void subtractUnsigned(Slice left, Slice right, Slice result, boolean resultNegative)
     {
-        // TODO: consider two 7 bytes operations
-        int l0 = getInt(left, 0);
-        int l1 = getInt(left, 1);
-        int l2 = getInt(left, 2);
-        int l3 = getInt(left, 3);
+        long l0 = getLong(left, 0);
+        long l1 = getLong(left, 1);
 
-        int r0 = getInt(right, 0);
-        int r1 = getInt(right, 1);
-        int r2 = getInt(right, 2);
-        int r3 = getInt(right, 3);
+        long r0 = getLong(right, 0);
+        long r1 = getLong(right, 1);
 
-        long intermediateResult;
-        intermediateResult = toUnsignedLong(l0) - toUnsignedLong(r0);
+        long z0 = l0 - r0;
+        int underflow = unsignedIsSmaller(l0, z0) ? 1 : 0;
+        long z1 = l1 - r1 - underflow;
 
-        int z0 = (int) intermediateResult;
-
-        intermediateResult = toUnsignedLong(l1) - toUnsignedLong(r1) + (intermediateResult >> 32);
-
-        int z1 = (int) intermediateResult;
-
-        intermediateResult = toUnsignedLong(l2) - toUnsignedLong(r2) + (intermediateResult >> 32);
-
-        int z2 = (int) intermediateResult;
-
-        intermediateResult = toUnsignedLong(l3) - toUnsignedLong(r3) + (intermediateResult >> 32);
-
-        int z3 = (int) intermediateResult;
-
-        pack(result, z0, z1, z2, z3, resultNegative);
-
-        if ((intermediateResult >> 32) != 0) {
-            throw new IllegalStateException(format("Non empty carry over after subtracting [%d]. right > left?", (intermediateResult >> 32)));
-        }
+        pack(result, z0, z1, resultNegative);
     }
 
     public static Slice multiply(Slice left, Slice right)
@@ -440,12 +403,16 @@ public final class UnscaledDecimal128Arithmetic
         long l0 = toUnsignedLong(getInt(left, 0));
         long l1 = toUnsignedLong(getInt(left, 1));
         long l2 = toUnsignedLong(getInt(left, 2));
-        long l3 = toUnsignedLong(getInt(left, 3));
+        int l3raw = getRawInt(left, 3);
+        boolean leftNegative = isNegative(l3raw);
+        long l3 = toUnsignedLong(unpackUnsignedInt(l3raw));
 
         long r0 = toUnsignedLong(getInt(right, 0));
         long r1 = toUnsignedLong(getInt(right, 1));
         long r2 = toUnsignedLong(getInt(right, 2));
-        long r3 = toUnsignedLong(getInt(right, 3));
+        int r3raw = getRawInt(right, 3);
+        boolean rightNegative = isNegative(r3raw);
+        long r3 = toUnsignedLong(unpackUnsignedInt(r3raw));
 
         // the combinations below definitely result in an overflow
         if (((r3 != 0 && (l3 | l2 | l1) != 0) || (r2 != 0 && (l3 | l2) != 0) || (r1 != 0 && l3 != 0))) {
@@ -511,7 +478,7 @@ public final class UnscaledDecimal128Arithmetic
             }
         }
 
-        pack(result, (int) z0, (int) z1, (int) z2, (int) z3, isNegative(left) != isNegative(right));
+        pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);
     }
 
     public static void multiply256(Slice left, Slice right, Slice result)
@@ -720,22 +687,27 @@ public final class UnscaledDecimal128Arithmetic
 
     public static boolean isStrictlyNegative(Slice decimal)
     {
-        return isNegative(decimal) && (getLong(decimal, 0) != 0 || getLong(decimal, 1) != 0);
+        return isStrictlyNegative(getRawLong(decimal, 0), getRawLong(decimal, 1));
     }
 
     public static boolean isStrictlyNegative(long rawLow, long rawHigh)
     {
-        return isNegative(rawLow, rawHigh) && (rawLow != 0 || unpackUnsignedLong(rawHigh) != 0);
+        return isNegative(rawHigh) && (rawLow != 0 || unpackUnsignedLong(rawHigh) != 0);
+    }
+
+    private static boolean isNegative(int lastRawHigh)
+    {
+        return lastRawHigh >>> 31 != 0;
     }
 
     public static boolean isNegative(Slice decimal)
     {
-        return (getRawInt(decimal, SIGN_INT_INDEX) & SIGN_INT_MASK) != 0;
+        return isNegative(getRawInt(decimal, SIGN_INT_INDEX));
     }
 
-    public static boolean isNegative(long rawLow, long rawHigh)
+    public static boolean isNegative(long rawHigh)
     {
-        return (rawHigh & SIGN_LONG_MASK) != 0;
+        return rawHigh >>> 63 != 0;
     }
 
     public static boolean isZero(Slice decimal)
@@ -1206,8 +1178,8 @@ public final class UnscaledDecimal128Arithmetic
             throwOverflowException();
         }
 
-        boolean dividendIsNegative = isNegative(dividendLow, dividendHigh);
-        boolean divisorIsNegative = isNegative(divisorLow, divisorHigh);
+        boolean dividendIsNegative = isNegative(dividendHigh);
+        boolean divisorIsNegative = isNegative(divisorHigh);
         boolean quotientIsNegative = (dividendIsNegative != divisorIsNegative);
 
         // to fit 128b * 128b * 32b unsigned multiplication
@@ -1698,6 +1670,11 @@ public final class UnscaledDecimal128Arithmetic
         }
     }
 
+    private static int unpackUnsignedInt(int value)
+    {
+        return value & ~SIGN_INT_MASK;
+    }
+
     private static long unpackUnsignedLong(long value)
     {
         return value & ~SIGN_LONG_MASK;
@@ -1721,6 +1698,14 @@ public final class UnscaledDecimal128Arithmetic
     private static void setRawLong(Slice decimal, int index, long value)
     {
         decimal.setLong(SIZE_OF_LONG * index, value);
+    }
+
+    /**
+     * Based on Long.compareUnsigned()
+     */
+    private static boolean unsignedIsSmaller(long first, long second)
+    {
+        return first + Long.MIN_VALUE < second + Long.MIN_VALUE;
     }
 
     private static void checkArgument(boolean condition)

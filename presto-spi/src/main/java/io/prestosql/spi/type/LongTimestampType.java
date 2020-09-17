@@ -13,7 +13,6 @@
  */
 package io.prestosql.spi.type;
 
-import io.airlift.slice.XxHash64;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
@@ -22,18 +21,23 @@ import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static java.lang.String.format;
 
 /**
  * The representation is a 96-bit value that contains the microseconds from the epoch
  * in the first long and the fractional increment in the remaining integer, as
  * a number of picoseconds additional to the epoch microsecond.
  */
-public class LongTimestampType
+class LongTimestampType
         extends TimestampType
 {
     public LongTimestampType(int precision)
     {
         super(precision, LongTimestamp.class);
+
+        if (precision < MAX_SHORT_PRECISION + 1 || precision > MAX_PRECISION) {
+            throw new IllegalArgumentException(format("Precision must be in the range [%s, %s]", MAX_SHORT_PRECISION + 1, MAX_PRECISION));
+        }
     }
 
     @Override
@@ -93,7 +97,7 @@ public class LongTimestampType
     @Override
     public long hash(Block block, int position)
     {
-        return hash(getEpochMicros(block, position), getFraction(block, position));
+        return TimestampTypes.hashLongTimestamp(getEpochMicros(block, position), getFraction(block, position));
     }
 
     @Override
@@ -139,22 +143,7 @@ public class LongTimestampType
         long epochMicros = getEpochMicros(block, position);
         int fraction = getFraction(block, position);
 
-        if (session.isLegacyTimestamp()) {
-            return SqlTimestamp.newLegacyInstance(getPrecision(), epochMicros, fraction, session.getTimeZoneKey());
-        }
-        else {
-            return SqlTimestamp.newInstance(getPrecision(), epochMicros, fraction);
-        }
-    }
-
-    public static long hash(LongTimestamp value)
-    {
-        return hash(value.getEpochMicros(), value.getPicosOfMicro());
-    }
-
-    public static long hash(long epochMicros, long fraction)
-    {
-        return XxHash64.hash(epochMicros) ^ XxHash64.hash(fraction);
+        return SqlTimestamp.newInstance(getPrecision(), epochMicros, fraction);
     }
 
     private static long getEpochMicros(Block block, int position)

@@ -37,7 +37,6 @@ import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.TimeType;
-import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
@@ -65,8 +64,13 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.Decimals.readBigDecimal;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.roundDiv;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
@@ -163,14 +167,14 @@ public class MongoPageSink
             return new Date(TimeUnit.DAYS.toMillis(days));
         }
         if (type.equals(TimeType.TIME)) {
-            long millisUtc = type.getLong(block, position);
+            long picos = type.getLong(block, position);
+            return new Date(roundDiv(picos, PICOSECONDS_PER_MILLISECOND));
+        }
+        if (type.equals(TIMESTAMP_MILLIS)) {
+            long millisUtc = floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
             return new Date(millisUtc);
         }
-        if (type.equals(TimestampType.TIMESTAMP)) {
-            long millisUtc = type.getLong(block, position);
-            return new Date(millisUtc);
-        }
-        if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
+        if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS)) {
             long millisUtc = unpackMillisUtc(type.getLong(block, position));
             return new Date(millisUtc);
         }

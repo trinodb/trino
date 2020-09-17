@@ -916,8 +916,7 @@ public class ExpressionInterpreter
                 argumentTypes.add(type);
             }
 
-            ResolvedFunction resolvedFunction = ResolvedFunction.fromQualifiedName(node.getName())
-                    .orElseThrow(() -> new IllegalArgumentException("function call has not been resolved: " + node));
+            ResolvedFunction resolvedFunction = metadata.decodeFunction(node.getName());
             FunctionMetadata functionMetadata = metadata.getFunctionMetadata(resolvedFunction);
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);

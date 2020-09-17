@@ -80,12 +80,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/noop">
-        <artifact id="${project.groupId}:presto-noop:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/blackhole">
         <artifact id="${project.groupId}:presto-blackhole:zip:${project.version}">
             <unpack />
@@ -251,5 +245,11 @@
         <artifact id="${project.groupId}:presto-pinot:zip:${project.version}">
             <unpack />
         </artifact>
-    </artifactSet>	
+    </artifactSet>
+
+    <artifactSet to="plugin/druid">
+        <artifact id="${project.groupId}:presto-druid:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>

@@ -2,11 +2,6 @@
 SELECT
 ======
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Synopsis
 --------
 
@@ -21,7 +16,8 @@ Synopsis
     [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] select ]
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
     [ OFFSET count [ ROW | ROWS ] ]
-    [ LIMIT { count | ALL } | FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } { ONLY | WITH TIES } ]
+    [ LIMIT { count | ALL } ]
+    [ FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } { ONLY | WITH TIES } ]
 
 where ``from_item`` is one of
 
@@ -31,7 +27,8 @@ where ``from_item`` is one of
 
 .. code-block:: none
 
-    from_item join_type from_item [ ON join_condition | USING ( join_column [, ...] ) ]
+    from_item join_type from_item
+      [ ON join_condition | USING ( join_column [, ...] ) ]
 
 and ``join_type`` is one of
 
@@ -112,7 +109,8 @@ rows are included in the result set. In this case, each output column must
 be of a type that allows comparison. If neither argument is specified,
 the behavior defaults to ``ALL``.
 
-**Select expressions**
+Select expressions
+^^^^^^^^^^^^^^^^^^
 
 Each ``select_expression`` must be in one of the following forms:
 
@@ -225,7 +223,8 @@ the ``GROUP BY`` clause.
 
 .. _complex_grouping_operations:
 
-**Complex Grouping Operations**
+Complex Grouping Operations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Presto also supports complex aggregations using the ``GROUPING SETS``, ``CUBE``
 and ``ROLLUP`` syntax. This syntax allows users to perform analysis that requires
@@ -238,7 +237,8 @@ Complex grouping operations are often equivalent to a ``UNION ALL`` of simple
 does not apply, however, when the source of data for the aggregation
 is non-deterministic.
 
-**GROUPING SETS**
+GROUPING SETS
+^^^^^^^^^^^^^
 
 Grouping sets allow users to specify multiple lists of columns to group on.
 The columns not part of a given sublist of grouping columns are set to ``NULL``.
@@ -305,7 +305,8 @@ query with the ``UNION ALL`` reads the underlying data three times. This is why
 queries with a ``UNION ALL`` may produce inconsistent results when the data
 source is not deterministic.
 
-**CUBE**
+CUBE
+^^^^
 
 The ``CUBE`` operator generates all possible grouping sets (i.e. a power set)
 for a given set of columns. For example, the query::
@@ -342,7 +343,8 @@ is equivalent to::
      NULL         | NULL              |  1625
     (12 rows)
 
-**ROLLUP**
+ROLLUP
+^^^^^^
 
 The ``ROLLUP`` operator generates all possible subtotals for a given set of
 columns. For example, the query::
@@ -371,7 +373,8 @@ is equivalent to::
     FROM shipping
     GROUP BY GROUPING SETS ((origin_state, origin_zip), (origin_state), ());
 
-**Combining multiple grouping expressions**
+Combining multiple grouping expressions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Multiple grouping expressions in the same query are interpreted as having
 cross-product semantics. For example, the following query::
@@ -465,7 +468,8 @@ only unique grouping sets are generated::
 
 The default set quantifier is ``ALL``.
 
-**GROUPING Operation**
+GROUPING Operation
+^^^^^^^^^^^^^^^^^^
 
 ``grouping(col1, ..., colN) -> bigint``
 
@@ -539,8 +543,8 @@ with an account balance greater than the specified value::
       1247 | FURNITURE  |         8 |  5701952
     (7 rows)
 
-UNION | INTERSECT | EXCEPT Clause
----------------------------------
+Set Operations
+--------------
 
 ``UNION``  ``INTERSECT`` and ``EXCEPT`` are all set operations.  These clauses are used
 to combine the results of more than one select statement into a single result set:
@@ -570,7 +574,8 @@ specified via parentheses. Additionally, ``INTERSECT`` binds more tightly
 than ``EXCEPT`` and ``UNION``. That means ``A UNION B INTERSECT C EXCEPT D``
 is the same as ``A UNION (B INTERSECT C) EXCEPT D``.
 
-**UNION**
+UNION Clause
+^^^^^^^^^^^^
 
 ``UNION`` combines all the rows that are in the result set from the
 first query with those that are in the result set for the second query.
@@ -621,7 +626,8 @@ selects the values ``42`` and ``13``::
         13
     (2 rows)
 
-**INTERSECT**
+INTERSECT Clause
+^^^^^^^^^^^^^^^^
 
 ``INTERSECT`` returns only the rows that are in the result sets of both the first and
 the second queries. The following is an example of one of the simplest
@@ -640,7 +646,8 @@ is only in the result set of the first query, it is not included in the final re
         13
     (2 rows)
 
-**EXCEPT**
+EXCEPT Clause
+^^^^^^^^^^^^^
 
 ``EXCEPT`` returns the rows that are in the result set of the first query,
 but not the second. The following is an example of one of the simplest

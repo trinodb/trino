@@ -88,7 +88,7 @@ public class StaticMetastoreLocator
             throws TException
     {
         List<Integer> indices = backoffs.stream()
-                .sorted(Comparator.comparingLong(backoff -> backoff.getBackoffDuration()))
+                .sorted(Comparator.comparingLong(Backoff::getBackoffDuration))
                 .map(backoffs::indexOf)
                 .collect(toImmutableList());
 

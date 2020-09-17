@@ -94,7 +94,7 @@ public class RegisterPartitionProcedure
                         new Procedure.Argument("table_name", VARCHAR),
                         new Procedure.Argument("partition_columns", new ArrayType(VARCHAR)),
                         new Procedure.Argument("partition_values", new ArrayType(VARCHAR)),
-                        new Procedure.Argument("location", VARCHAR)),
+                        new Procedure.Argument("location", VARCHAR, false, null)),
                 REGISTER_PARTITION.bindTo(this));
     }
 
@@ -115,8 +115,6 @@ public class RegisterPartitionProcedure
         HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
-        Path partitionLocation = new Path(location);
-
         Table table = metastore.getTable(identity, schemaName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
 
@@ -127,6 +125,15 @@ public class RegisterPartitionProcedure
         if (partition.isPresent()) {
             String partitionName = FileUtils.makePartName(partitionColumn, partitionValues);
             throw new PrestoException(ALREADY_EXISTS, format("Partition [%s] is already registered with location %s", partitionName, partition.get().getStorage().getLocation()));
+        }
+
+        Path partitionLocation;
+
+        if (location == null) {
+            partitionLocation = new Path(table.getStorage().getLocation(), FileUtils.makePartName(partitionColumn, partitionValues));
+        }
+        else {
+            partitionLocation = new Path(location);
         }
 
         if (!HiveWriteUtils.pathExists(hdfsContext, hdfsEnvironment, partitionLocation)) {

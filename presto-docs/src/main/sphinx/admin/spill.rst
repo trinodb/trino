@@ -2,11 +2,6 @@
 Spill to Disk
 =============
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Overview
 --------
 
@@ -18,7 +13,7 @@ or per node limits.
 The mechanism is similar to OS level page swapping. However, it is
 implemented on the application level to address specific needs of Presto.
 
-Properties related to spilling are described in :ref:`tuning-spilling`.
+Properties related to spilling are described in :doc:`properties-spilling`.
 
 Memory Management and Spill
 ---------------------------
@@ -55,7 +50,7 @@ Spilling intermediate results to disk, and retrieving them back, is expensive
 in terms of IO operations. Thus, queries that use spill likely become
 throttled by disk. To increase query performance, it is recommended to
 provide multiple paths on separate local devices for spill (property
-``spiller-spill-path`` in :ref:`tuning-spilling`).
+``spiller-spill-path`` in :doc:`properties-spilling`).
 
 The system drive should not be used for spilling, especially not to the drive where the JVM
 is running and writing logs. Doing so may lead to cluster instability. Additionally,
@@ -69,7 +64,7 @@ Spill Compression
 -----------------
 
 When spill compression is enabled (``spill-compression-enabled`` property in
-:ref:`tuning-spilling`), spilled pages are compressed, before being
+:doc:`properties-spilling`), spilled pages are compressed, before being
 written to disk. Enabling this feature can reduce disk IO at the cost
 of extra CPU load to compress and decompress spilled pages.
 
@@ -77,7 +72,7 @@ Spill Encryption
 ----------------
 
 When spill encryption is enabled (``spill-encryption-enabled`` property in
-:ref:`tuning-spilling`), spill contents are encrypted with a randomly generated
+:doc:`properties-spilling`), spill contents are encrypted with a randomly generated
 (per spill file) secret key. Enabling this increases CPU load and reduces throughput
 of spilling to disk, but can protect spilled data from being recovered from spill files.
 Consider reducing the value of ``memory-revoking-threshold`` when spill
@@ -100,7 +95,7 @@ table. The most memory-intensive part of the join is this build table.
 
 When the task concurrency is greater than one, the build table is partitioned.
 The number of partitions is equal to the value of the ``task.concurrency``
-configuration parameter (see :ref:`task-properties`).
+configuration parameter (see :doc:`properties-task`).
 
 When the build table is partitioned, the spill-to-disk mechanism can decrease
 the peak memory usage needed by the join operation. When a query approaches the

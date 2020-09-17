@@ -24,7 +24,11 @@ import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.Date;
+import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.HiveVarchar;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.io.HiveCharWritable;
@@ -38,17 +42,13 @@ import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordReader;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -70,7 +70,8 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -107,7 +108,6 @@ public class GenericHiveRecordCursor<K, V extends Writable>
     private final boolean[] nulls;
 
     private final long totalBytes;
-    private final DateTimeZone hiveStorageTimeZone;
 
     private long completedBytes;
     private Object rowData;
@@ -119,22 +119,19 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             RecordReader<K, V> recordReader,
             long totalBytes,
             Properties splitSchema,
-            List<HiveColumnHandle> columns,
-            DateTimeZone hiveStorageTimeZone)
+            List<HiveColumnHandle> columns)
     {
         requireNonNull(path, "path is null");
         requireNonNull(recordReader, "recordReader is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
         requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(columns, "columns is null");
-        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
         this.path = path;
         this.recordReader = recordReader;
         this.totalBytes = totalBytes;
         this.key = recordReader.createKey();
         this.value = recordReader.createValue();
-        this.hiveStorageTimeZone = hiveStorageTimeZone;
 
         this.deserializer = getDeserializer(configuration, splitSchema);
         this.rowInspector = getTableObjectInspector(deserializer);
@@ -280,35 +277,18 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         else {
             Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
-            longs[column] = getLongExpressedValue(fieldValue, hiveStorageTimeZone);
+            longs[column] = getLongExpressedValue(fieldValue);
             nulls[column] = false;
         }
     }
 
-    private static long getLongExpressedValue(Object value, DateTimeZone hiveTimeZone)
+    private long getLongExpressedValue(Object value)
     {
         if (value instanceof Date) {
-            long storageTime = ((Date) value).getTime();
-            // convert date from VM current time zone to UTC
-            long utcMillis = storageTime + DateTimeZone.getDefault().getOffset(storageTime);
-            return TimeUnit.MILLISECONDS.toDays(utcMillis);
+            return ((Date) value).toEpochDay();
         }
         if (value instanceof Timestamp) {
-            // The Hive SerDe parses timestamps using the default time zone of
-            // this JVM, but the data might have been written using a different
-            // time zone. We need to convert it to the configured time zone.
-
-            // the timestamp that Hive parsed using the JVM time zone
-            long parsedJvmMillis = ((Timestamp) value).getTime();
-
-            // remove the JVM time zone correction from the timestamp
-            DateTimeZone jvmTimeZone = DateTimeZone.getDefault();
-            long hiveMillis = jvmTimeZone.convertUTCToLocal(parsedJvmMillis);
-
-            // convert to UTC using the real time zone for the underlying data
-            long utcMillis = hiveTimeZone.convertLocalToUTC(hiveMillis, false);
-
-            return utcMillis;
+            return ((Timestamp) value).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
         }
         if (value instanceof Float) {
             return floatToRawIntBits(((Float) value));
@@ -367,39 +347,80 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             nulls[column] = true;
         }
         else {
-            Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveWritableObject(fieldData);
-            checkState(fieldValue != null, "fieldValue should not be null");
-            BinaryComparable hiveValue;
-            if (fieldValue instanceof Text) {
-                hiveValue = (Text) fieldValue;
-            }
-            else if (fieldValue instanceof BytesWritable) {
-                hiveValue = (BytesWritable) fieldValue;
-            }
-            else if (fieldValue instanceof HiveVarcharWritable) {
-                hiveValue = ((HiveVarcharWritable) fieldValue).getTextValue();
-            }
-            else if (fieldValue instanceof HiveCharWritable) {
-                hiveValue = ((HiveCharWritable) fieldValue).getTextValue();
+            PrimitiveObjectInspector inspector = (PrimitiveObjectInspector) fieldInspectors[column];
+            Slice value;
+            if (inspector.preferWritable()) {
+                value = parseStringFromPrimitiveWritableObjectValue(types[column], inspector.getPrimitiveWritableObject(fieldData));
             }
             else {
-                throw new IllegalStateException("unsupported string field type: " + fieldValue.getClass().getName());
+                value = parseStringFromPrimitiveJavaObjectValue(types[column], inspector.getPrimitiveJavaObject(fieldData));
             }
-
-            // create a slice view over the hive value and trim to character limits
-            Slice value = Slices.wrappedBuffer(hiveValue.getBytes(), 0, hiveValue.getLength());
-            Type type = types[column];
-            if (isVarcharType(type)) {
-                value = truncateToLength(value, type);
-            }
-            if (isCharType(type)) {
-                value = truncateToLengthAndTrimSpaces(value, type);
-            }
-
-            // store a copy of the bytes, since the hive reader can reuse the underlying buffer
-            slices[column] = Slices.copyOf(value);
+            slices[column] = value;
             nulls[column] = false;
         }
+    }
+
+    private static Slice trimStringToCharacterLimits(Type type, Slice value)
+    {
+        if (isVarcharType(type)) {
+            return truncateToLength(value, type);
+        }
+        if (isCharType(type)) {
+            return truncateToLengthAndTrimSpaces(value, type);
+        }
+        return value;
+    }
+
+    private static Slice parseStringFromPrimitiveWritableObjectValue(Type type, Object fieldValue)
+    {
+        checkState(fieldValue != null, "fieldValue should not be null");
+        BinaryComparable hiveValue;
+        if (fieldValue instanceof Text) {
+            hiveValue = (Text) fieldValue;
+        }
+        else if (fieldValue instanceof BytesWritable) {
+            hiveValue = (BytesWritable) fieldValue;
+        }
+        else if (fieldValue instanceof HiveVarcharWritable) {
+            hiveValue = ((HiveVarcharWritable) fieldValue).getTextValue();
+        }
+        else if (fieldValue instanceof HiveCharWritable) {
+            hiveValue = ((HiveCharWritable) fieldValue).getTextValue();
+        }
+        else {
+            throw new IllegalStateException("unsupported string field type: " + fieldValue.getClass().getName());
+        }
+        // create a slice view over the hive value and trim to character limits
+        Slice value = trimStringToCharacterLimits(type, Slices.wrappedBuffer(hiveValue.getBytes(), 0, hiveValue.getLength()));
+        // store a copy of the bytes, since the hive reader can reuse the underlying buffer
+        return Slices.copyOf(value);
+    }
+
+    private static Slice parseStringFromPrimitiveJavaObjectValue(Type type, Object fieldValue)
+    {
+        checkState(fieldValue != null, "fieldValue should not be null");
+        Slice value;
+        if (fieldValue instanceof String) {
+            value = Slices.utf8Slice((String) fieldValue);
+        }
+        else if (fieldValue instanceof byte[]) {
+            value = Slices.wrappedBuffer((byte[]) fieldValue);
+        }
+        else if (fieldValue instanceof HiveVarchar) {
+            value = Slices.utf8Slice(((HiveVarchar) fieldValue).getValue());
+        }
+        else if (fieldValue instanceof HiveChar) {
+            value = Slices.utf8Slice(((HiveChar) fieldValue).getValue());
+        }
+        else {
+            throw new IllegalStateException("unsupported string field type: " + fieldValue.getClass().getName());
+        }
+        value = trimStringToCharacterLimits(type, value);
+        // Copy the slice if the value was trimmed and is now smaller than the backing buffer
+        if (!value.isCompact()) {
+            return Slices.copyOf(value);
+        }
+        return value;
     }
 
     private void parseDecimalColumn(int column)
@@ -503,7 +524,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         else if (DATE.equals(type)) {
             parseLongColumn(column);
         }
-        else if (TIMESTAMP.equals(type)) {
+        else if (TIMESTAMP_MILLIS.equals(type)) {
             parseLongColumn(column);
         }
         else if (type instanceof DecimalType) {

@@ -28,6 +28,7 @@ import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.statistics.BinaryStatistics;
@@ -38,6 +39,7 @@ import org.apache.parquet.column.statistics.IntStatistics;
 import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
+import org.joda.time.DateTimeZone;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -46,6 +48,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static io.prestosql.parquet.ParquetTimestampUtils.getTimestampMillis;
 import static io.prestosql.parquet.predicate.PredicateUtils.isStatisticsOverflow;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -55,6 +58,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.floatToRawIntBits;
@@ -66,11 +70,13 @@ public class TupleDomainParquetPredicate
 {
     private final TupleDomain<ColumnDescriptor> effectivePredicate;
     private final List<RichColumnDescriptor> columns;
+    private final DateTimeZone timeZone;
 
-    public TupleDomainParquetPredicate(TupleDomain<ColumnDescriptor> effectivePredicate, List<RichColumnDescriptor> columns)
+    public TupleDomainParquetPredicate(TupleDomain<ColumnDescriptor> effectivePredicate, List<RichColumnDescriptor> columns, DateTimeZone timeZone)
     {
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
     @Override
@@ -98,7 +104,7 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
-            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnStatistics, id, column.toString(), failOnCorruptedParquetStatistics);
+            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnStatistics, id, column.toString(), failOnCorruptedParquetStatistics, timeZone);
             if (!effectivePredicateDomain.overlaps(domain)) {
                 return false;
             }
@@ -127,7 +133,14 @@ public class TupleDomainParquetPredicate
     }
 
     @VisibleForTesting
-    public static Domain getDomain(Type type, long rowCount, Statistics<?> statistics, ParquetDataSourceId id, String column, boolean failOnCorruptedParquetStatistics)
+    public static Domain getDomain(
+            Type type,
+            long rowCount,
+            Statistics<?> statistics,
+            ParquetDataSourceId id,
+            String column,
+            boolean failOnCorruptedParquetStatistics,
+            DateTimeZone timeZone)
             throws ParquetCorruptionException
     {
         if (statistics == null || statistics.isEmpty()) {
@@ -140,7 +153,7 @@ public class TupleDomainParquetPredicate
 
         boolean hasNullValue = statistics.getNumNulls() != 0L;
 
-        if (statistics.genericGetMin() == null || statistics.genericGetMax() == null) {
+        if (!statistics.hasNonNullValue() || statistics.genericGetMin() == null || statistics.genericGetMax() == null) {
             return Domain.create(ValueSet.all(type), hasNullValue);
         }
 
@@ -189,11 +202,13 @@ public class TupleDomainParquetPredicate
                 failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, floatStatistics);
                 return Domain.create(ValueSet.all(type), hasNullValue);
             }
+            if (floatStatistics.genericGetMin().isNaN() || floatStatistics.genericGetMax().isNaN()) {
+                return Domain.create(ValueSet.all(type), hasNullValue);
+            }
 
             ParquetIntegerStatistics parquetStatistics = new ParquetIntegerStatistics(
                     (long) floatToRawIntBits(floatStatistics.getMin()),
                     (long) floatToRawIntBits(floatStatistics.getMax()));
-
             return createDomain(type, hasNullValue, parquetStatistics);
         }
 
@@ -203,6 +218,10 @@ public class TupleDomainParquetPredicate
                 failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, doubleStatistics);
                 return Domain.create(ValueSet.all(type), hasNullValue);
             }
+            if (doubleStatistics.genericGetMin().isNaN() || doubleStatistics.genericGetMax().isNaN()) {
+                return Domain.create(ValueSet.all(type), hasNullValue);
+            }
+
             ParquetDoubleStatistics parquetDoubleStatistics = new ParquetDoubleStatistics(doubleStatistics.genericGetMin(), doubleStatistics.genericGetMax());
             return createDomain(type, hasNullValue, parquetDoubleStatistics);
         }
@@ -227,6 +246,19 @@ public class TupleDomainParquetPredicate
             }
             ParquetIntegerStatistics parquetIntegerStatistics = new ParquetIntegerStatistics((long) intStatistics.getMin(), (long) intStatistics.getMax());
             return createDomain(type, hasNullValue, parquetIntegerStatistics);
+        }
+
+        if (type instanceof TimestampType && statistics instanceof BinaryStatistics) {
+            BinaryStatistics binaryStatistics = (BinaryStatistics) statistics;
+            // Parquet INT96 timestamp values were compared incorrectly for the purposes of producing statistics by older parquet writers, so
+            // PARQUET-1065 deprecated them. The result is that any writer that produced stats was producing unusable incorrect values, except
+            // the special case where min == max and an incorrect ordering would not be material to the result. PARQUET-1026 made binary stats
+            // available and valid in that special case
+            if (binaryStatistics.genericGetMin().equals(binaryStatistics.genericGetMax())) {
+                long timestampValue = getTimestampMillis(binaryStatistics.genericGetMax());
+                timestampValue = timeZone.convertUTCToLocal(timestampValue) * MICROSECONDS_PER_MILLISECOND;
+                return createDomain(type, hasNullValue, new ParquetTimestampStatistics(timestampValue, timestampValue));
+            }
         }
 
         return Domain.create(ValueSet.all(type), hasNullValue);
@@ -302,7 +334,11 @@ public class TupleDomainParquetPredicate
         if (type.equals(DOUBLE) && columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.DOUBLE) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
-                domains.add(Domain.singleValue(type, dictionary.decodeToDouble(i)));
+                double value = dictionary.decodeToDouble(i);
+                if (Double.isNaN(value)) {
+                    return Domain.all(type);
+                }
+                domains.add(Domain.singleValue(type, value));
             }
             domains.add(Domain.onlyNull(type));
             return Domain.union(domains);
@@ -311,7 +347,11 @@ public class TupleDomainParquetPredicate
         if (type.equals(DOUBLE) && columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.FLOAT) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
-                domains.add(Domain.singleValue(type, (double) dictionary.decodeToFloat(i)));
+                float value = dictionary.decodeToFloat(i);
+                if (Float.isNaN(value)) {
+                    return Domain.all(type);
+                }
+                domains.add(Domain.singleValue(type, (double) value));
             }
             domains.add(Domain.onlyNull(type));
             return Domain.union(domains);

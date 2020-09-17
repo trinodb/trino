@@ -17,8 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
@@ -27,8 +25,7 @@ import java.util.StringJoiner;
 
 import static io.prestosql.spi.predicate.Utils.blockToNativeValue;
 import static io.prestosql.spi.predicate.Utils.nativeValueToBlock;
-import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
+import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -73,11 +70,8 @@ public final class Marker
         if (valueBlock.isPresent() && valueBlock.get().getPositionCount() != 1) {
             throw new IllegalArgumentException("value block should only have one position");
         }
-        if (type instanceof RealType && valueBlock.isPresent() && Float.isNaN(intBitsToFloat(toIntExact((long) blockToNativeValue(type, valueBlock.get()))))) {
-            throw new IllegalArgumentException("cannot use Real NaN as range bound");
-        }
-        if (type instanceof DoubleType && valueBlock.isPresent() && Double.isNaN((double) blockToNativeValue(type, valueBlock.get()))) {
-            throw new IllegalArgumentException("cannot use Double NaN as range bound");
+        if (valueBlock.isPresent() && isFloatingPointNaN(type, blockToNativeValue(type, valueBlock.get()))) {
+            throw new IllegalArgumentException("cannot use NaN as range bound");
         }
         this.type = type;
         this.valueBlock = valueBlock;

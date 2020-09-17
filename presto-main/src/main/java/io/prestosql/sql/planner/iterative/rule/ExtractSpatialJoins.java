@@ -34,7 +34,7 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
@@ -80,6 +80,7 @@ import static io.prestosql.SystemSessionProperties.isSpatialJoinEnabled;
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static io.prestosql.spi.connector.DynamicFilter.EMPTY;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
@@ -465,13 +466,13 @@ public class ExtractSpatialJoins
         ColumnHandle kdbTreeColumn = Iterables.getOnlyElement(visibleColumnHandles);
 
         Optional<KdbTree> kdbTree = Optional.empty();
-        try (SplitSource splitSource = splitManager.getSplits(session, tableHandle, UNGROUPED_SCHEDULING, TupleDomain::all)) {
+        try (SplitSource splitSource = splitManager.getSplits(session, tableHandle, UNGROUPED_SCHEDULING, EMPTY)) {
             while (!Thread.currentThread().isInterrupted()) {
                 SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000));
                 List<Split> splits = splitBatch.getSplits();
 
                 for (Split split : splits) {
-                    try (ConnectorPageSource pageSource = pageSourceManager.createPageSource(session, split, tableHandle, ImmutableList.of(kdbTreeColumn), TupleDomain::all)) {
+                    try (ConnectorPageSource pageSource = pageSourceManager.createPageSource(session, split, tableHandle, ImmutableList.of(kdbTreeColumn), DynamicFilter.EMPTY)) {
                         do {
                             getFutureValue(pageSource.isBlocked());
                             Page page = pageSource.getNextPage();

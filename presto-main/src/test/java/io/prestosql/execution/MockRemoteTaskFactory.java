@@ -38,11 +38,13 @@ import io.prestosql.metadata.Split;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskStats;
 import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spiller.SpillSpaceTracker;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -73,6 +75,7 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.prestosql.execution.StateMachine.StateChangeListener;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.BROADCAST;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -167,6 +170,8 @@ public class MockRemoteTaskFactory
 
         private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
+        private boolean isOutputBufferOverUtilized;
+
         public MockRemoteTask(
                 TaskId taskId,
                 PlanFragment fragment,
@@ -190,7 +195,7 @@ public class MockRemoteTaskFactory
                     scheduledExecutor,
                     DataSize.of(1, MEGABYTE),
                     spillSpaceTracker);
-            this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, true, true, totalPartitions);
+            this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, () -> {}, true, true, totalPartitions);
 
             this.location = URI.create("fake://task/" + taskId);
 
@@ -242,14 +247,14 @@ public class MockRemoteTaskFactory
                             failures,
                             0,
                             0,
-                            false,
+                            isOutputBufferOverUtilized,
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
                             0,
                             new Duration(0, MILLISECONDS),
-                            ImmutableMap.of()),
+                            INITIAL_DYNAMIC_FILTERS_VERSION),
                     DateTime.now(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
@@ -271,14 +276,20 @@ public class MockRemoteTaskFactory
                     ImmutableList.of(),
                     stats.getQueuedPartitionedDrivers(),
                     stats.getRunningPartitionedDrivers(),
-                    false,
+                    isOutputBufferOverUtilized,
                     stats.getPhysicalWrittenDataSize(),
                     stats.getUserMemoryReservation(),
                     stats.getSystemMemoryReservation(),
                     stats.getRevocableMemoryReservation(),
                     0,
                     new Duration(0, MILLISECONDS),
-                    ImmutableMap.of());
+                    INITIAL_DYNAMIC_FILTERS_VERSION);
+        }
+
+        @Override
+        public Map<DynamicFilterId, Domain> getDynamicFilterDomains()
+        {
+            return ImmutableMap.of();
         }
 
         private synchronized void updateSplitQueueSpace()
@@ -321,6 +332,11 @@ public class MockRemoteTaskFactory
             runningDrivers = splits.size();
             runningDrivers = Math.min(runningDrivers, maxRunning);
             updateSplitQueueSpace();
+        }
+
+        public synchronized void setOutputBufferOverUtilized(boolean isOutputBufferOverUtilized)
+        {
+            this.isOutputBufferOverUtilized = isOutputBufferOverUtilized;
         }
 
         @Override

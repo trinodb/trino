@@ -19,6 +19,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
 import java.util.List;
@@ -32,9 +33,26 @@ public class SecurityConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
-    private List<String> authenticationTypes = ImmutableList.of();
+    private boolean insecureAuthenticationOverHttpAllowed = true;
+    private List<String> authenticationTypes = ImmutableList.of("insecure");
+    private Optional<String> fixedManagementUser = Optional.empty();
+    private boolean fixedManagementUserForHttps;
+
+    public boolean isInsecureAuthenticationOverHttpAllowed()
+    {
+        return insecureAuthenticationOverHttpAllowed;
+    }
+
+    @Config("http-server.authentication.allow-insecure-over-http")
+    @ConfigDescription("Insecure authentication over HTTP (non-secure) enabled")
+    public SecurityConfig setInsecureAuthenticationOverHttpAllowed(boolean insecureAuthenticationOverHttpAllowed)
+    {
+        this.insecureAuthenticationOverHttpAllowed = insecureAuthenticationOverHttpAllowed;
+        return this;
+    }
 
     @NotNull
+    @NotEmpty(message = "http-server.authentication.type cannot be empty")
     public List<String> getAuthenticationTypes()
     {
         return authenticationTypes;
@@ -51,6 +69,32 @@ public class SecurityConfig
     public SecurityConfig setAuthenticationTypes(String types)
     {
         authenticationTypes = Optional.ofNullable(types).map(SPLITTER::splitToList).orElse(null);
+        return this;
+    }
+
+    public Optional<String> getFixedManagementUser()
+    {
+        return fixedManagementUser;
+    }
+
+    @Config("management.user")
+    @ConfigDescription("Optional fixed user for all requests to management endpoints")
+    public SecurityConfig setFixedManagementUser(String fixedManagementUser)
+    {
+        this.fixedManagementUser = Optional.ofNullable(fixedManagementUser);
+        return this;
+    }
+
+    public boolean isFixedManagementUserForHttps()
+    {
+        return fixedManagementUserForHttps;
+    }
+
+    @Config("management.user.https-enabled")
+    @ConfigDescription("Use fixed management user for secure HTTPS requests")
+    public SecurityConfig setFixedManagementUserForHttps(boolean fixedManagementUserForHttps)
+    {
+        this.fixedManagementUserForHttps = fixedManagementUserForHttps;
         return this;
     }
 }

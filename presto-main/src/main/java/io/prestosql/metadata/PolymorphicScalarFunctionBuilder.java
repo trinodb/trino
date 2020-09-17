@@ -15,12 +15,14 @@ package io.prestosql.metadata;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.PolymorphicScalarFunction.PolymorphicScalarFunctionChoice;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
+import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
+import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -31,9 +33,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -51,7 +53,7 @@ public final class PolymorphicScalarFunctionBuilder
 
     public PolymorphicScalarFunctionBuilder(Class<?> clazz)
     {
-        this.clazz = clazz;
+        this.clazz = requireNonNull(clazz, "clazz is null");
     }
 
     public PolymorphicScalarFunctionBuilder signature(Signature signature)
@@ -152,25 +154,25 @@ public final class PolymorphicScalarFunctionBuilder
 
     public static final class SpecializeContext
     {
-        private final BoundVariables boundVariables;
+        private final FunctionBinding functionBinding;
         private final List<Type> parameterTypes;
         private final Type returnType;
 
-        SpecializeContext(BoundVariables boundVariables, List<Type> parameterTypes, Type returnType)
+        SpecializeContext(FunctionBinding functionBinding, List<Type> parameterTypes, Type returnType)
         {
-            this.boundVariables = requireNonNull(boundVariables, "boundVariables is null");
+            this.functionBinding = requireNonNull(functionBinding, "functionBinding is null");
             this.parameterTypes = requireNonNull(parameterTypes, "parameterTypes is null");
             this.returnType = requireNonNull(returnType, "returnType is null");
         }
 
         public Type getType(String name)
         {
-            return boundVariables.getTypeVariable(name);
+            return functionBinding.getTypeVariable(name);
         }
 
         public Long getLiteral(String name)
         {
-            return boundVariables.getLongVariable(name);
+            return functionBinding.getLongVariable(name);
         }
 
         public List<Type> getParameterTypes()
@@ -188,16 +190,16 @@ public final class PolymorphicScalarFunctionBuilder
     {
         private final Class<?> clazz;
         private final Signature signature;
-        private List<ArgumentProperty> argumentProperties;
+        private final List<InvocationArgumentConvention> argumentConventions;
         private final ImmutableList.Builder<MethodAndNativeContainerTypes> methodAndNativeContainerTypesList = ImmutableList.builder();
 
         private Optional<Function<SpecializeContext, List<Object>>> extraParametersFunction = Optional.empty();
 
-        private MethodsGroupBuilder(Class<?> clazz, Signature signature, List<ArgumentProperty> argumentProperties)
+        private MethodsGroupBuilder(Class<?> clazz, Signature signature, List<InvocationArgumentConvention> argumentConventions)
         {
-            this.clazz = clazz;
-            this.signature = signature;
-            this.argumentProperties = argumentProperties;
+            this.clazz = requireNonNull(clazz, "clazz is null");
+            this.signature = requireNonNull(signature, "signature is null");
+            this.argumentConventions = ImmutableList.copyOf(requireNonNull(argumentConventions, "argumentConventions is null"));
         }
 
         public MethodsGroupBuilder methods(String... methodNames)
@@ -224,7 +226,7 @@ public final class PolymorphicScalarFunctionBuilder
         public MethodsGroupBuilder methodWithExplicitJavaTypes(String methodName, List<Optional<Class<?>>> types)
         {
             requireNonNull(methodName, "methodName is null");
-            List<MethodAndNativeContainerTypes> matchingMethod = asList(clazz.getMethods()).stream()
+            List<MethodAndNativeContainerTypes> matchingMethod = Arrays.stream(clazz.getMethods())
                     .filter(method -> methodName.equals(method.getName()))
                     .map(method -> new MethodAndNativeContainerTypes(method, types))
                     .collect(toImmutableList());
@@ -235,14 +237,14 @@ public final class PolymorphicScalarFunctionBuilder
             int argumentSize = signature.getArgumentTypes().size();
             checkState(types.size() == argumentSize, "not matching number of arguments from signature: %s (should have %s)",
                     types.size(), argumentSize);
-            checkState(types.size() == argumentProperties.size(), "not matching number of arguments from argument properties: %s (should have %s)",
-                    types.size(), argumentProperties.size());
-            Iterator<ArgumentProperty> argumentPropertyIterator = argumentProperties.iterator();
+            checkState(types.size() == argumentConventions.size(), "not matching number of arguments from argument properties: %s (should have %s)",
+                    types.size(), argumentConventions.size());
+            Iterator<InvocationArgumentConvention> argumentConventionIterator = argumentConventions.iterator();
             Iterator<Optional<Class<?>>> typesIterator = types.iterator();
-            while (argumentPropertyIterator.hasNext() && typesIterator.hasNext()) {
+            while (argumentConventionIterator.hasNext() && typesIterator.hasNext()) {
                 Optional<Class<?>> classOptional = typesIterator.next();
-                ArgumentProperty argumentProperty = argumentPropertyIterator.next();
-                checkState((argumentProperty.getNullConvention() == BLOCK_AND_POSITION) == classOptional.isPresent(),
+                InvocationArgumentConvention argumentProperty = argumentConventionIterator.next();
+                checkState((argumentProperty == BLOCK_POSITION) == classOptional.isPresent(),
                         "Explicit type is not set when null convention is BLOCK_AND_POSITION");
             }
             methodAndNativeContainerTypesList.add(methodAndNativeContainerTypes);
@@ -259,8 +261,8 @@ public final class PolymorphicScalarFunctionBuilder
     {
         private final Class<?> clazz;
         private final Signature signature;
-        private boolean nullableResult;
-        private List<ArgumentProperty> argumentProperties;
+        private InvocationReturnConvention returnConvention = FAIL_ON_NULL;
+        private List<InvocationArgumentConvention> argumentConventions;
         private final ImmutableList.Builder<MethodsGroup> methodsGroups = ImmutableList.builder();
 
         private ChoiceBuilder(Class<?> clazz, Signature signature)
@@ -272,33 +274,33 @@ public final class PolymorphicScalarFunctionBuilder
         public ChoiceBuilder implementation(Function<MethodsGroupBuilder, MethodsGroupBuilder> methodsGroupSpecification)
         {
             // if the argumentProperties is not set yet. We assume it is set to the default value.
-            if (argumentProperties == null) {
-                argumentProperties = nCopies(signature.getArgumentTypes().size(), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
+            if (argumentConventions == null) {
+                argumentConventions = nCopies(signature.getArgumentTypes().size(), NEVER_NULL);
             }
-            MethodsGroupBuilder methodsGroupBuilder = new MethodsGroupBuilder(clazz, signature, argumentProperties);
+            MethodsGroupBuilder methodsGroupBuilder = new MethodsGroupBuilder(clazz, signature, argumentConventions);
             methodsGroupSpecification.apply(methodsGroupBuilder);
             methodsGroups.add(methodsGroupBuilder.build());
             return this;
         }
 
-        public ChoiceBuilder nullableResult(boolean nullableResult)
+        public ChoiceBuilder returnConvention(InvocationReturnConvention returnConvention)
         {
-            this.nullableResult = nullableResult;
+            this.returnConvention = requireNonNull(returnConvention, "returnConvention is null");
             return this;
         }
 
-        public ChoiceBuilder argumentProperties(ArgumentProperty... argumentProperties)
+        public ChoiceBuilder argumentProperties(InvocationArgumentConvention... argumentConventions)
         {
-            requireNonNull(argumentProperties, "argumentProperties is null");
-            checkState(this.argumentProperties == null,
-                    "The `argumentProperties` method must be invoked only once, and must be invoked before the `implementation` method");
-            this.argumentProperties = ImmutableList.copyOf(argumentProperties);
+            requireNonNull(argumentConventions, "argumentConventions is null");
+            checkState(this.argumentConventions == null,
+                    "The `argumentConventions` method must be invoked only once, and must be invoked before the `implementation` method");
+            this.argumentConventions = ImmutableList.copyOf(argumentConventions);
             return this;
         }
 
         public PolymorphicScalarFunctionChoice build()
         {
-            return new PolymorphicScalarFunctionChoice(nullableResult, argumentProperties, methodsGroups.build());
+            return new PolymorphicScalarFunctionChoice(returnConvention, argumentConventions, methodsGroups.build());
         }
     }
 
@@ -329,7 +331,7 @@ public final class PolymorphicScalarFunctionBuilder
     static class MethodAndNativeContainerTypes
     {
         private final Method method;
-        private List<Optional<Class<?>>> explicitNativeContainerTypes;
+        private final List<Optional<Class<?>>> explicitNativeContainerTypes;
 
         MethodAndNativeContainerTypes(Method method, List<Optional<Class<?>>> explicitNativeContainerTypes)
         {
@@ -345,11 +347,6 @@ public final class PolymorphicScalarFunctionBuilder
         List<Optional<Class<?>>> getExplicitNativeContainerTypes()
         {
             return explicitNativeContainerTypes;
-        }
-
-        void setExplicitNativeContainerTypes(List<Optional<Class<?>>> explicitNativeContainerTypes)
-        {
-            this.explicitNativeContainerTypes = explicitNativeContainerTypes;
         }
     }
 }

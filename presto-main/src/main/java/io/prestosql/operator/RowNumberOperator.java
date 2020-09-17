@@ -26,7 +26,6 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -283,14 +282,12 @@ public class RowNumberOperator
 
     private Page getRowsWithRowNumber()
     {
-        Block rowNumberBlock = createRowNumberBlock();
-        Block[] sourceBlocks = new Block[inputPage.getChannelCount()];
+        Block[] outputBlocks = new Block[inputPage.getChannelCount() + 1]; // +1 for the row number column
         for (int i = 0; i < outputChannels.length; i++) {
-            sourceBlocks[i] = inputPage.getBlock(outputChannels[i]);
+            outputBlocks[i] = inputPage.getBlock(outputChannels[i]);
         }
 
-        Block[] outputBlocks = Arrays.copyOf(sourceBlocks, sourceBlocks.length + 1); // +1 for the row number column
-        outputBlocks[sourceBlocks.length] = rowNumberBlock;
+        outputBlocks[outputBlocks.length - 1] = createRowNumberBlock();
 
         return new Page(inputPage.getPositionCount(), outputBlocks);
     }
