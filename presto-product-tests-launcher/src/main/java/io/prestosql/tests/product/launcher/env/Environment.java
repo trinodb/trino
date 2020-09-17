@@ -24,7 +24,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.testcontainers.PrintingLogConsumer;
 import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.FailsafeExecutor;
 import net.jodah.failsafe.RetryPolicy;
+import net.jodah.failsafe.Timeout;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.ContainerState;
 import org.testcontainers.containers.Network;
@@ -58,6 +60,7 @@ import static io.prestosql.tests.product.launcher.env.DockerContainer.ensurePath
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.prestosql.tests.product.launcher.env.Environments.pruneEnvironment;
 import static java.lang.String.format;
+import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
 
 public final class Environment
@@ -122,26 +125,41 @@ public final class Environment
     {
         this.listener.ifPresent(listener -> listener.environmentStopping(this));
 
-        ImmutableList.copyOf(containers.values())
-                .forEach(DockerContainer::stop);
+        // Allow containers to take up to 5 minutes to stop
+        Timeout<Object> timeout = Timeout.of(ofMinutes(5))
+                .withCancel(true);
 
-        awaitContainersStopped();
+        RetryPolicy retry = new RetryPolicy()
+                .withMaxAttempts(3);
+
+        FailsafeExecutor<Object> executor = Failsafe.with(timeout, retry);
+
+        ImmutableList.copyOf(containers.values())
+                .forEach(container -> executor.run(container::tryStop));
+
+        executor.run(this::awaitContainersStopped);
+
+        this.listener.ifPresent(listener -> listener.environmentStopped(this));
         pruneEnvironment();
     }
 
     public void awaitContainersStopped()
     {
+        List<DockerContainer> containers = ImmutableList.copyOf(this.containers.values());
+
         try {
-            while (ImmutableList.copyOf(containers.values()).stream().anyMatch(ContainerState::isRunning)) {
+            while (containers.stream().anyMatch(ContainerState::isRunning)) {
                 Thread.sleep(1_000);
             }
 
-            this.listener.ifPresent(listener -> listener.environmentStopped(this));
             return;
         }
         catch (InterruptedException e) {
             log.info("Interrupted");
             // It's OK not to restore interrupt flag here. When we return we're exiting the process.
+        }
+        catch (Exception e) {
+            log.warn("Could not query for containers state: %s", getStackTraceAsString(e));
         }
     }
 
