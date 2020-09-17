@@ -24,6 +24,10 @@ public final class Varchars
 {
     private Varchars() {}
 
+    /**
+     * @deprecated Use {@code type instanceof VarcharType} instead.
+     */
+    @Deprecated
     public static boolean isVarcharType(Type type)
     {
         return type instanceof VarcharType;
