@@ -19,6 +19,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-license</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-base-jdbc</artifactId>
         </dependency>

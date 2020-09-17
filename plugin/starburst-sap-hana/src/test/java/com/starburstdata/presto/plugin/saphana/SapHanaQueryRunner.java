@@ -60,7 +60,7 @@ public final class SapHanaQueryRunner
             server.execute("CREATE USER " + NON_GRANTED_USER);
             server.execute("GRANT ALL PRIVILEGES ON SCHEMA tpch TO " + GRANTED_USER);
 
-            queryRunner.installPlugin(new SapHanaPlugin());
+            queryRunner.installPlugin(new TestingSapHanaPlugin());
             queryRunner.createCatalog("saphana", "sap-hana", connectorProperties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
