@@ -23,9 +23,9 @@ import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ListResourceBundle;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.tests.product.launcher.cli.Launcher.EnvironmentCommand;
 import static io.prestosql.tests.product.launcher.cli.Launcher.SuiteCommand;
@@ -175,7 +175,7 @@ public class Launcher
             return version;
         }
         catch (IOException e) {
-            return firstNonNull(LauncherBundle.class.getPackage().getImplementationVersion(), "unknown");
+            throw new UncheckedIOException(e);
         }
     }
 }
