@@ -192,6 +192,10 @@ public final class TestRun
             try (Environment environment = startEnvironment()) {
                 return toIntExact(environment.awaitTestsCompletion());
             }
+            catch (Exception e) {
+                log.warn("Failed to execute tests: %s", getStackTraceAsString(e));
+                return ExitCode.SOFTWARE;
+            }
         }
 
         private Environment startEnvironment()
