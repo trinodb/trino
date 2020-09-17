@@ -156,10 +156,12 @@ public class TableStatisticsMaker
                         summary.incrementFileCount();
                         summary.incrementRecordCount(dataFile.recordCount());
                         summary.incrementSize(dataFile.fileSizeInBytes());
-                        updateSummaryMin(summary, partitionFields, toMap(idToTypeMapping, dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
-                        updateSummaryMax(summary, partitionFields, toMap(idToTypeMapping, dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
-                        summary.updateNullCount(dataFile.nullValueCounts());
-                        updateColumnSizes(summary, dataFile.columnSizes());
+                        if (summary.hasValidColumnMetrics()) {
+                            updateSummaryMin(summary, partitionFields, toMap(idToTypeMapping, dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
+                            updateSummaryMax(summary, partitionFields, toMap(idToTypeMapping, dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
+                            summary.updateNullCount(dataFile.nullValueCounts());
+                            updateColumnSizes(summary, dataFile.columnSizes());
+                        }
                     }
                 }
             }
@@ -173,25 +175,27 @@ public class TableStatisticsMaker
 
             ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
             double recordCount = summary.getRecordCount();
-            for (IcebergColumnHandle columnHandle : idToColumnHandle.values()) {
-                int fieldId = columnHandle.getId();
-                ColumnStatistics.Builder columnBuilder = new ColumnStatistics.Builder();
-                Long nullCount = summary.getNullCounts().get(fieldId);
-                if (nullCount != null) {
-                    columnBuilder.setNullsFraction(Estimate.of(nullCount / recordCount));
-                }
-                if (summary.getColumnSizes() != null) {
-                    Long columnSize = summary.getColumnSizes().get(fieldId);
-                    if (columnSize != null) {
-                        columnBuilder.setDataSize(Estimate.of(columnSize));
+            if (summary.hasValidColumnMetrics()) {
+                for (IcebergColumnHandle columnHandle : idToColumnHandle.values()) {
+                    int fieldId = columnHandle.getId();
+                    ColumnStatistics.Builder columnBuilder = new ColumnStatistics.Builder();
+                    Long nullCount = summary.getNullCounts().get(fieldId);
+                    if (nullCount != null) {
+                        columnBuilder.setNullsFraction(Estimate.of(nullCount / recordCount));
                     }
+                    if (summary.getColumnSizes() != null) {
+                        Long columnSize = summary.getColumnSizes().get(fieldId);
+                        if (columnSize != null) {
+                            columnBuilder.setDataSize(Estimate.of(columnSize));
+                        }
+                    }
+                    Object min = summary.getMinValues().get(fieldId);
+                    Object max = summary.getMaxValues().get(fieldId);
+                    if (min instanceof Number && max instanceof Number) {
+                        columnBuilder.setRange(Optional.of(new DoubleRange(((Number) min).doubleValue(), ((Number) max).doubleValue())));
+                    }
+                    columnHandleBuilder.put(columnHandle, columnBuilder.build());
                 }
-                Object min = summary.getMinValues().get(fieldId);
-                Object max = summary.getMaxValues().get(fieldId);
-                if (min instanceof Number && max instanceof Number) {
-                    columnBuilder.setRange(Optional.of(new DoubleRange(((Number) min).doubleValue(), ((Number) max).doubleValue())));
-                }
-                columnHandleBuilder.put(columnHandle, columnBuilder.build());
             }
             return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.build());
         }
