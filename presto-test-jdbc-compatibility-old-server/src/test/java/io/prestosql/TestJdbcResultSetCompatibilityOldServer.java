@@ -17,7 +17,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.jdbc.BaseTestJdbcResultSet;
 import io.prestosql.jdbc.PrestoDriver;
-import io.prestosql.testing.TestngUtils;
 import org.testcontainers.containers.PrestoContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -34,6 +33,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
+import static io.prestosql.testing.DataProviders.toDataProvider;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -66,7 +66,7 @@ public class TestJdbcResultSetCompatibilityOldServer
                 // TODO use filtered resource to provide current version instead.
                 return Splitter.on(",").trimResults().splitToList(System.getenv(TESTED_VERSIONS_ENV_KEY)).stream()
                         .map(Optional::of)
-                        .collect(TestngUtils.toDataProvider());
+                        .collect(toDataProvider());
             }
 
             String currentVersionString = requireNonNull(PrestoDriver.class.getPackage().getImplementationVersion());
@@ -82,7 +82,7 @@ public class TestJdbcResultSetCompatibilityOldServer
 
             return testedPrestoVersions.build().stream()
                     .map(Optional::of)
-                    .collect(TestngUtils.toDataProvider());
+                    .collect(toDataProvider());
         }
         catch (Throwable e) {
             // We cannot throw here because TestNG does not handle exceptions coming out from @DataProvider used with @Factory well.

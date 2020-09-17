@@ -18,9 +18,9 @@ import org.testng.annotations.DataProvider;
 import java.util.ArrayList;
 import java.util.stream.Collector;
 
-public final class TestngUtils
+public final class DataProviders
 {
-    private TestngUtils() {}
+    private DataProviders() {}
 
     public static <T> Collector<T, ?, Object[][]> toDataProvider()
     {
