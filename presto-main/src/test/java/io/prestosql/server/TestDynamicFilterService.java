@@ -169,6 +169,10 @@ public class TestDynamicFilterService
         assertFalse(dynamicFilter.isComplete());
         assertTrue(dynamicFilter.isAwaitable());
 
+        // for non-replicated filter domains need to be collected from all tasks
+        assertTrue(dynamicFilterService.isDynamicFilterNeeded(queryId, filterId1));
+        assertTrue(dynamicFilterService.isDynamicFilterNeeded(queryId, filterId1));
+
         // assert initial dynamic filtering stats
         DynamicFiltersStats stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
         assertEquals(stats.getTotalDynamicFilters(), 3);
@@ -373,6 +377,10 @@ public class TestDynamicFilterService
         assertFalse(dynamicFilter.isComplete());
         assertFalse(dynamicFilter.isAwaitable());
         assertTrue(dynamicFilter.isBlocked().isDone());
+
+        // for replicated filter it's enough to request dynamic filter from single task
+        assertTrue(dynamicFilterService.isDynamicFilterNeeded(queryId, filterId1));
+        assertFalse(dynamicFilterService.isDynamicFilterNeeded(queryId, filterId1));
 
         dynamicFilterService.addTaskDynamicFilters(
                 new TaskId(stageId1, 0),

@@ -315,6 +315,17 @@ public class DynamicFilterService
         executor.submit(() -> collectDynamicFilters(stageId, Optional.empty()));
     }
 
+    public boolean isDynamicFilterNeeded(QueryId queryId, DynamicFilterId dynamicFilterId)
+    {
+        DynamicFilterContext context = dynamicFilterContexts.get(queryId);
+        if (context == null) {
+            // query has been removed
+            return false;
+        }
+
+        return context.isDynamicFilterNeeded(dynamicFilterId);
+    }
+
     private void collectDynamicFilters(StageId stageId, Optional<Set<DynamicFilterId>> selectedFilters)
     {
         DynamicFilterContext context = dynamicFilterContexts.get(stageId.getQueryId());
@@ -583,6 +594,7 @@ public class DynamicFilterService
         private final Set<DynamicFilterId> dynamicFilters;
         private final Map<DynamicFilterId, SettableFuture<?>> lazyDynamicFilters;
         private final Set<DynamicFilterId> replicatedDynamicFilters;
+        private final Set<DynamicFilterId> replicatedDynamicFilterRequested = newConcurrentHashSet();
         private final Map<StageId, Set<DynamicFilterId>> stageDynamicFilters = new ConcurrentHashMap<>();
         private final Map<StageId, Integer> stageNumberOfTasks = new ConcurrentHashMap<>();
         // when map value for given filter id is empty it means that dynamic filter has already been collected
@@ -664,6 +676,13 @@ public class DynamicFilterService
         private Set<DynamicFilterId> getReplicatedDynamicFilters()
         {
             return replicatedDynamicFilters;
+        }
+
+        private boolean isDynamicFilterNeeded(DynamicFilterId dynamicFilterId)
+        {
+            // for replicated dynamic filter it's enough to fetch domain from single worker
+            return !dynamicFilterSummaries.containsKey(dynamicFilterId) &&
+                    (!replicatedDynamicFilters.contains(dynamicFilterId) || replicatedDynamicFilterRequested.add(dynamicFilterId));
         }
     }
 

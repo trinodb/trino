@@ -14,6 +14,7 @@
 package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -23,7 +24,7 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
-import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDomain;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.LazyOutputBuffer;
@@ -36,6 +37,7 @@ import io.prestosql.operator.PipelineStatus;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskStats;
 import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 
@@ -43,6 +45,7 @@ import javax.annotation.Nullable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -59,8 +62,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
-import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTER_DOMAINS;
+import static io.prestosql.execution.DynamicFiltersCollector.acknowledgeIgnoredDomains;
 import static io.prestosql.execution.TaskState.ABORTED;
 import static io.prestosql.execution.TaskState.FAILED;
 import static io.prestosql.execution.TaskState.RUNNING;
@@ -228,7 +230,7 @@ public class SqlTask
         }
     }
 
-    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersDynamicFiltersVersion)
+    public Map<DynamicFilterId, VersionedDomain> acknowledgeAndGetNewDynamicFilterDomains(Map<DynamicFilterId, Long> callersDynamicFilterVersions)
     {
         TaskHolder taskHolder = taskHolderReference.get();
         if (taskHolder.getTaskExecution() == null) {
@@ -238,10 +240,12 @@ public class SqlTask
             // means that all potential consumers (that belong to probe side of join)
             // of dynamic filters are either finished or cancelled. Therefore dynamic
             // filters are no longer required.
-            return INITIAL_DYNAMIC_FILTER_DOMAINS;
+            //
+            // Ignored domains need to be acknowledged so that caller knows that dynamic filters were dropped.
+            return acknowledgeIgnoredDomains(callersDynamicFilterVersions);
         }
 
-        return taskHolder.getTaskExecution().getTaskContext().acknowledgeAndGetNewDynamicFilterDomains(callersDynamicFiltersVersion);
+        return taskHolder.getTaskExecution().getTaskContext().acknowledgeAndGetNewDynamicFilterDomains(callersDynamicFilterVersions);
     }
 
     private synchronized void notifyStatusChanged()
@@ -273,7 +277,7 @@ public class SqlTask
         Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
         Duration fullGcTime = new Duration(0, MILLISECONDS);
-        long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
+        Map<DynamicFilterId, Long> dynamicFilterVersions = ImmutableMap.of();
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
             TaskStats taskStats = taskInfo.getStats();
@@ -302,7 +306,7 @@ public class SqlTask
             completedDriverGroups = taskContext.getCompletedDriverGroups();
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
-            dynamicFiltersVersion = taskContext.getDynamicFiltersVersion();
+            dynamicFilterVersions = taskContext.getDynamicFilterVersions();
         }
 
         return new TaskStatus(taskStateMachine.getTaskId(),
@@ -322,7 +326,7 @@ public class SqlTask
                 revocableMemoryReservation,
                 fullGcCount,
                 fullGcTime,
-                dynamicFiltersVersion);
+                dynamicFilterVersions);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)

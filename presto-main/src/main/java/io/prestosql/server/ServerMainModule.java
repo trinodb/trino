@@ -38,7 +38,7 @@ import io.prestosql.connector.ConnectorManager;
 import io.prestosql.connector.system.SystemConnectorModule;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.event.SplitMonitor;
-import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.prestosql.execution.DynamicFiltersCollector;
 import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.ExplainAnalyzeContext;
 import io.prestosql.execution.LocationFactory;
@@ -127,6 +127,7 @@ import io.prestosql.sql.planner.LocalExecutionPlanner;
 import io.prestosql.sql.planner.NodePartitioningManager;
 import io.prestosql.sql.planner.RuleStatsRecorder;
 import io.prestosql.sql.planner.TypeAnalyzer;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.transaction.TransactionManagerConfig;
 import io.prestosql.type.TypeDeserializer;
@@ -302,7 +303,8 @@ public class ServerMainModule
         binder.bind(LookupJoinOperators.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
-        jsonCodecBinder(binder).bindJsonCodec(VersionedDynamicFilterDomains.class);
+        jsonCodecBinder(binder).bindMapJsonCodec(DynamicFilterId.class, Long.class);
+        jsonCodecBinder(binder).bindMapJsonCodec(DynamicFilterId.class, DynamicFiltersCollector.VersionedDomain.class);
         jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(OperatorStats.class);

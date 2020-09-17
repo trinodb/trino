@@ -50,7 +50,7 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
+import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTER_VERSION;
 import static io.prestosql.execution.SqlTask.createSqlTask;
 import static io.prestosql.execution.TaskStatus.STARTING_VERSION;
 import static io.prestosql.execution.TaskTestUtils.EMPTY_SOURCES;
@@ -329,7 +329,7 @@ public class TestSqlTask
                         .withNoMoreBufferIds(),
                 OptionalInt.empty());
 
-        assertEquals(sqlTask.getTaskStatus().getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION);
+        assertTrue(sqlTask.getTaskStatus().getDynamicFilterVersions().isEmpty());
 
         TaskContext taskContext = sqlTask.getQueryContext().getTaskContextByTaskId(sqlTask.getTaskId());
 
@@ -337,9 +337,10 @@ public class TestSqlTask
         assertFalse(future.isDone());
 
         // make sure future gets unblocked when dynamic filters version is updated
-        taskContext.updateDomains(ImmutableMap.of(new DynamicFilterId("filter"), Domain.none(BIGINT)));
+        DynamicFilterId filterId = new DynamicFilterId("filter");
+        taskContext.updateDomains(ImmutableMap.of(filterId, Domain.none(BIGINT)));
         assertEquals(sqlTask.getTaskStatus().getVersion(), STARTING_VERSION + 1);
-        assertEquals(sqlTask.getTaskStatus().getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION + 1);
+        assertEquals(sqlTask.getTaskStatus().getDynamicFilterVersions(), ImmutableMap.of(filterId, INITIAL_DYNAMIC_FILTER_VERSION + 1));
         future.get();
     }
 

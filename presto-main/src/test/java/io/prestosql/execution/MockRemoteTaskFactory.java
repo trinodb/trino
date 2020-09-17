@@ -73,7 +73,6 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.prestosql.execution.StateMachine.StateChangeListener;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.BROADCAST;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -252,7 +251,7 @@ public class MockRemoteTaskFactory
                             DataSize.ofBytes(0),
                             0,
                             new Duration(0, MILLISECONDS),
-                            INITIAL_DYNAMIC_FILTERS_VERSION),
+                            ImmutableMap.of()),
                     DateTime.now(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
@@ -281,7 +280,7 @@ public class MockRemoteTaskFactory
                     stats.getRevocableMemoryReservation(),
                     0,
                     new Duration(0, MILLISECONDS),
-                    INITIAL_DYNAMIC_FILTERS_VERSION);
+                    ImmutableMap.of());
         }
 
         private synchronized void updateSplitQueueSpace()

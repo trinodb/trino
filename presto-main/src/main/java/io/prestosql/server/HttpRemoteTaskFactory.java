@@ -20,7 +20,7 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
-import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDomain;
 import io.prestosql.execution.LocationFactory;
 import io.prestosql.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.prestosql.execution.QueryManagerConfig;
@@ -37,6 +37,7 @@ import io.prestosql.operator.ForScheduler;
 import io.prestosql.server.remotetask.HttpRemoteTask;
 import io.prestosql.server.remotetask.RemoteTaskStats;
 import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -44,6 +45,7 @@ import org.weakref.jmx.Nested;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.util.Map;
 import java.util.OptionalInt;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -61,7 +63,8 @@ public class HttpRemoteTaskFactory
     private final HttpClient httpClient;
     private final LocationFactory locationFactory;
     private final JsonCodec<TaskStatus> taskStatusCodec;
-    private final JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec;
+    private final JsonCodec<Map<DynamicFilterId, Long>> dynamicFilterVersionsCodec;
+    private final JsonCodec<Map<DynamicFilterId, VersionedDomain>> dynamicFilterDomainsCodec;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final Duration maxErrorDuration;
@@ -82,7 +85,8 @@ public class HttpRemoteTaskFactory
             @ForScheduler HttpClient httpClient,
             LocationFactory locationFactory,
             JsonCodec<TaskStatus> taskStatusCodec,
-            JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
+            JsonCodec<Map<DynamicFilterId, Long>> dynamicFilterVersionsCodec,
+            JsonCodec<Map<DynamicFilterId, VersionedDomain>> dynamicFilterDomainsCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
             RemoteTaskStats stats,
@@ -91,6 +95,7 @@ public class HttpRemoteTaskFactory
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
         this.taskStatusCodec = taskStatusCodec;
+        this.dynamicFilterVersionsCodec = dynamicFilterVersionsCodec;
         this.dynamicFilterDomainsCodec = dynamicFilterDomainsCodec;
         this.taskInfoCodec = taskInfoCodec;
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
@@ -151,6 +156,7 @@ public class HttpRemoteTaskFactory
                 taskInfoUpdateInterval,
                 summarizeTaskInfo,
                 taskStatusCodec,
+                dynamicFilterVersionsCodec,
                 dynamicFilterDomainsCodec,
                 taskInfoCodec,
                 taskUpdateRequestCodec,

@@ -28,7 +28,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.event.SplitMonitor;
-import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDomain;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.OutputBuffers;
@@ -46,6 +46,7 @@ import io.prestosql.spiller.LocalSpillManager;
 import io.prestosql.spiller.NodeSpillConfig;
 import io.prestosql.sql.planner.LocalExecutionPlanner;
 import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import org.joda.time.DateTime;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -58,6 +59,7 @@ import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -353,13 +355,13 @@ public class SqlTaskManager
     }
 
     @Override
-    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(TaskId taskId, long currentDynamicFiltersVersion)
+    public Map<DynamicFilterId, VersionedDomain> acknowledgeAndGetNewDynamicFilterDomains(TaskId taskId, Map<DynamicFilterId, Long> currentDynamicFilterVersions)
     {
         requireNonNull(taskId, "taskId is null");
 
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
-        return sqlTask.acknowledgeAndGetNewDynamicFilterDomains(currentDynamicFiltersVersion);
+        return sqlTask.acknowledgeAndGetNewDynamicFilterDomains(currentDynamicFilterVersions);
     }
 
     @Override

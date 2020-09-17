@@ -24,7 +24,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.execution.DynamicFiltersCollector;
-import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDomain;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskState;
@@ -399,14 +399,14 @@ public class TaskContext
         dynamicFiltersCollector.updateDomains(dynamicFilterDomains);
     }
 
-    public long getDynamicFiltersVersion()
+    public Map<DynamicFilterId, Long> getDynamicFilterVersions()
     {
-        return dynamicFiltersCollector.getDynamicFiltersVersion();
+        return dynamicFiltersCollector.getDynamicFilterVersions();
     }
 
-    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersCurrentVersion)
+    public Map<DynamicFilterId, VersionedDomain> acknowledgeAndGetNewDynamicFilterDomains(Map<DynamicFilterId, Long> callersDynamicFilterVersions)
     {
-        return dynamicFiltersCollector.acknowledgeAndGetNewDomains(callersCurrentVersion);
+        return dynamicFiltersCollector.acknowledgeAndGetNewDomains(callersDynamicFilterVersions);
     }
 
     public TaskStats getTaskStats()

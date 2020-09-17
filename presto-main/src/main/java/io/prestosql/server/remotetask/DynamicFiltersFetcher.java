@@ -13,6 +13,7 @@
  */
 package io.prestosql.server.remotetask;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
@@ -20,37 +21,44 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
-import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDomain;
 import io.prestosql.execution.TaskId;
 import io.prestosql.server.DynamicFilterService;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.Request.Builder.preparePost;
+import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_VERSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_MAX_WAIT;
-import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
+import static io.prestosql.execution.DynamicFiltersCollector.IGNORED_DYNAMIC_FILTER_VERSION;
+import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTER_VERSION;
 import static java.util.Objects.requireNonNull;
 
 class DynamicFiltersFetcher
-        implements SimpleHttpResponseCallback<VersionedDynamicFilterDomains>
+        implements SimpleHttpResponseCallback<Map<DynamicFilterId, VersionedDomain>>
 {
     private final TaskId taskId;
     private final URI taskUri;
     private final Consumer<Throwable> onFail;
-    private final JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec;
+    private final JsonCodec<Map<DynamicFilterId, Long>> dynamicFilterVersionsCodec;
+    private final JsonCodec<Map<DynamicFilterId, VersionedDomain>> dynamicFilterDomainsCodec;
     private final Duration refreshMaxWait;
     private final Executor executor;
     private final HttpClient httpClient;
@@ -60,20 +68,21 @@ class DynamicFiltersFetcher
     private final AtomicLong currentRequestStartNanos = new AtomicLong();
 
     @GuardedBy("this")
-    private long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
+    private Map<DynamicFilterId, Long> dynamicFilterVersions = new HashMap<>();
     @GuardedBy("this")
-    private long localDynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
+    private Map<DynamicFilterId, Long> localDynamicFilterVersions = new HashMap<>();
     @GuardedBy("this")
     private boolean running;
     @GuardedBy("this")
-    private ListenableFuture<JsonResponse<VersionedDynamicFilterDomains>> future;
+    private ListenableFuture<JsonResponse<Map<DynamicFilterId, VersionedDomain>>> future;
 
     public DynamicFiltersFetcher(
             Consumer<Throwable> onFail,
             TaskId taskId,
             URI taskUri,
             Duration refreshMaxWait,
-            JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
+            JsonCodec<Map<DynamicFilterId, Long>> dynamicFilterVersionsCodec,
+            JsonCodec<Map<DynamicFilterId, VersionedDomain>> dynamicFilterDomainsCodec,
             Executor executor,
             HttpClient httpClient,
             Duration maxErrorDuration,
@@ -86,6 +95,7 @@ class DynamicFiltersFetcher
         this.onFail = requireNonNull(onFail, "onFail is null");
 
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
+        this.dynamicFilterVersionsCodec = requireNonNull(dynamicFilterVersionsCodec, "dynamicFilterVersionsCodec is null");
         this.dynamicFilterDomainsCodec = requireNonNull(dynamicFilterDomainsCodec, "dynamicFilterDomainsCodec is null");
 
         this.executor = requireNonNull(executor, "executor is null");
@@ -115,13 +125,34 @@ class DynamicFiltersFetcher
         }
     }
 
-    public synchronized void updateDynamicFiltersVersion(long newDynamicFiltersVersion)
+    public synchronized void updateDynamicFilterVersions(Map<DynamicFilterId, Long> newDynamicFilterVersions)
     {
-        if (dynamicFiltersVersion >= newDynamicFiltersVersion) {
+        boolean versionUpdated = false;
+        for (DynamicFilterId filterId : newDynamicFilterVersions.keySet()) {
+            if (dynamicFilterVersions.getOrDefault(filterId, INITIAL_DYNAMIC_FILTER_VERSION) >= newDynamicFilterVersions.get(filterId)) {
+                // newer version of remote filter was already reported
+                continue;
+            }
+
+            dynamicFilterVersions.put(filterId, newDynamicFilterVersions.get(filterId));
+            versionUpdated = true;
+
+            if (!localDynamicFilterVersions.containsKey(filterId)) {
+                // dynamic filter was observed for the first time
+                if (dynamicFilterService.isDynamicFilterNeeded(taskId.getQueryId(), filterId)) {
+                    localDynamicFilterVersions.put(filterId, INITIAL_DYNAMIC_FILTER_VERSION);
+                }
+                else {
+                    localDynamicFilterVersions.put(filterId, IGNORED_DYNAMIC_FILTER_VERSION);
+                }
+            }
+        }
+
+        if (!versionUpdated) {
+            // no new version of remote filter was reported
             return;
         }
 
-        dynamicFiltersVersion = newDynamicFiltersVersion;
         fetchDynamicFiltersIfNecessary();
     }
 
@@ -132,8 +163,13 @@ class DynamicFiltersFetcher
             return;
         }
 
-        // local dynamic filters are up to date
-        if (localDynamicFiltersVersion >= dynamicFiltersVersion) {
+        // Check if local and remote dynamic filters have matching versions.
+        // Filters can have non-matching version when:
+        // 1. remote task has new domains available
+        // 2. dynamic filter is ignored and IGNORED_DYNAMIC_FILTER_VERSION was set locally
+        boolean filtersMatchVersion = localDynamicFilterVersions.entrySet().stream()
+                .allMatch(entry -> dynamicFilterVersions.get(entry.getKey()).equals(entry.getValue()));
+        if (filtersMatchVersion) {
             return;
         }
 
@@ -149,11 +185,13 @@ class DynamicFiltersFetcher
             return;
         }
 
-        Request request = prepareGet()
+        byte[] localDynamicFilterVersionsJson = dynamicFilterVersionsCodec.toJsonBytes(localDynamicFilterVersions);
+
+        Request request = preparePost()
                 .setUri(uriBuilderFrom(taskUri).appendPath("dynamicfilters").build())
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
-                .setHeader(PRESTO_CURRENT_VERSION, Long.toString(localDynamicFiltersVersion))
                 .setHeader(PRESTO_MAX_WAIT, refreshMaxWait.toString())
+                .setBodyGenerator(createStaticBodyGenerator(localDynamicFilterVersionsJson))
                 .build();
 
         errorTracker.startRequest();
@@ -163,7 +201,7 @@ class DynamicFiltersFetcher
     }
 
     @Override
-    public void success(VersionedDynamicFilterDomains newDynamicFilterDomains)
+    public void success(Map<DynamicFilterId, VersionedDomain> newDynamicFilterDomains)
     {
         try (SetThreadName ignored = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
             updateStats(currentRequestStartNanos.get());
@@ -207,19 +245,30 @@ class DynamicFiltersFetcher
         }
     }
 
-    private void updateDynamicFilterDomains(VersionedDynamicFilterDomains newDynamicFilterDomains)
+    private void updateDynamicFilterDomains(Map<DynamicFilterId, VersionedDomain> newVersionedDomains)
     {
+        ImmutableMap.Builder<DynamicFilterId, Domain> newDomainsBuilder = ImmutableMap.builder();
         synchronized (this) {
-            if (localDynamicFiltersVersion >= newDynamicFilterDomains.getVersion()) {
-                // newer dynamic filters were already received
-                return;
+            for (DynamicFilterId filterId : newVersionedDomains.keySet()) {
+                VersionedDomain versionedDomain = newVersionedDomains.get(filterId);
+                if (localDynamicFilterVersions.get(filterId) >= versionedDomain.getVersion()) {
+                    // newer dynamic filter was already received
+                    continue;
+                }
+
+                localDynamicFilterVersions.put(filterId, versionedDomain.getVersion());
+                newDomainsBuilder.put(filterId, versionedDomain.getDomain().get());
             }
 
-            localDynamicFiltersVersion = newDynamicFilterDomains.getVersion();
-            updateDynamicFiltersVersion(localDynamicFiltersVersion);
+            updateDynamicFilterVersions(
+                    newVersionedDomains.entrySet().stream()
+                            .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getVersion())));
         }
 
-        dynamicFilterService.addTaskDynamicFilters(taskId, newDynamicFilterDomains.getDynamicFilterDomains());
+        Map<DynamicFilterId, Domain> newDomains = newDomainsBuilder.build();
+        if (!newDomains.isEmpty()) {
+            dynamicFilterService.addTaskDynamicFilters(taskId, newDomains);
+        }
     }
 
     private void updateStats(long currentRequestStartNanos)

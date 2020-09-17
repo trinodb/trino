@@ -32,7 +32,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
-import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDomain;
 import io.prestosql.execution.FutureStateChange;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.NodeTaskMap.PartitionedSplitCountTracker;
@@ -52,6 +52,7 @@ import io.prestosql.operator.TaskStats;
 import io.prestosql.server.DynamicFilterService;
 import io.prestosql.server.TaskUpdateRequest;
 import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
@@ -177,7 +178,8 @@ public final class HttpRemoteTask
             Duration taskInfoUpdateInterval,
             boolean summarizeTaskInfo,
             JsonCodec<TaskStatus> taskStatusCodec,
-            JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
+            JsonCodec<Map<DynamicFilterId, Long>> dynamicFilterVersionsCodec,
+            JsonCodec<Map<DynamicFilterId, VersionedDomain>> dynamicFilterDomainsCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
@@ -237,6 +239,7 @@ public final class HttpRemoteTask
                     taskId,
                     location,
                     taskStatusRefreshMaxWait,
+                    dynamicFilterVersionsCodec,
                     dynamicFilterDomainsCodec,
                     executor,
                     httpClient,

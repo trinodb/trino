@@ -22,7 +22,7 @@ import io.airlift.stats.TimeStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
-import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDomain;
 import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskInfo;
 import io.prestosql.execution.TaskManager;
@@ -32,6 +32,7 @@ import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.server.security.ResourceSecurity;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -57,6 +58,7 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -218,17 +220,18 @@ public class TaskResource
     }
 
     @ResourceSecurity(INTERNAL_ONLY)
-    @GET
+    @POST
     @Path("{taskId}/dynamicfilters")
+    @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(
+    public Map<DynamicFilterId, VersionedDomain> acknowledgeAndGetNewDynamicFilterDomains(
             @PathParam("taskId") TaskId taskId,
-            @HeaderParam(PRESTO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
+            Map<DynamicFilterId, Long> currentDynamicFilterVersions,
             @Context UriInfo uriInfo)
     {
         requireNonNull(taskId, "taskId is null");
-        requireNonNull(currentDynamicFiltersVersion, "currentDynamicFiltersVersion is null");
-        return taskManager.acknowledgeAndGetNewDynamicFilterDomains(taskId, currentDynamicFiltersVersion);
+        requireNonNull(currentDynamicFilterVersions, "currentDynamicFilterVersions is null");
+        return taskManager.acknowledgeAndGetNewDynamicFilterDomains(taskId, currentDynamicFilterVersions);
     }
 
     @ResourceSecurity(INTERNAL_ONLY)

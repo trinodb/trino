@@ -241,7 +241,7 @@ class ContinuousTaskStatusFetcher
             onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().getSelf()))));
         }
 
-        dynamicFiltersFetcher.updateDynamicFiltersVersion(newValue.getDynamicFiltersVersion());
+        dynamicFiltersFetcher.updateDynamicFilterVersions(newValue.getDynamicFilterVersions());
     }
 
     /**
