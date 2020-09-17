@@ -43,7 +43,7 @@ import static com.google.common.io.Resources.getResource;
 import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
-import static io.prestosql.testing.TestngUtils.toDataProvider;
+import static io.prestosql.testing.DataProviders.toDataProvider;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.isDirectory;
