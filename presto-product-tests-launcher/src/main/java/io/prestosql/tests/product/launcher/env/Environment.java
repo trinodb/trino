@@ -21,6 +21,7 @@ import com.github.dockerjava.api.model.Ulimit;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.testcontainers.PrintingLogConsumer;
 import net.jodah.failsafe.Failsafe;
@@ -70,6 +71,8 @@ public final class Environment
     public static final String PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE = "true";
     public static final String PRODUCT_TEST_LAUNCHER_NETWORK = "ptl-network";
     public static final String PRODUCT_TEST_LAUNCHER_ENVIRONMENT_LABEL_NAME = "ptl-environment-name";
+
+    public static final Integer ENVIRONMENT_FAILED_EXIT_CODE = 99;
 
     private static final Logger log = Logger.get(Environment.class);
 
@@ -165,19 +168,29 @@ public final class Environment
 
     public long awaitTestsCompletion()
     {
-        Container<?> container = getContainer(TESTS);
-        log.info("Waiting for test completion");
+        Container<?> testContainer = getContainer(TESTS);
+        Collection<Container<?>> containers = getContainers()
+                .stream()
+                .filter(container -> !container.equals(testContainer))
+                .collect(toImmutableList());
+
+        log.info("Waiting for test completion...");
 
         try {
-            while (container.isRunning()) {
-                Thread.sleep(1000);
+            while (testContainer.isRunning()) {
+                Thread.sleep(10000); // check every 10 seconds
+
+                if (!allContainersHealthy(containers)) {
+                    log.warn("Environment %s is not healthy, interrupting tests", name);
+                    return ENVIRONMENT_FAILED_EXIT_CODE;
+                }
             }
 
-            InspectContainerResponse containerInfo = container.getCurrentContainerInfo();
+            InspectContainerResponse containerInfo = testContainer.getCurrentContainerInfo();
             InspectContainerResponse.ContainerState containerState = containerInfo.getState();
             Long exitCode = containerState.getExitCodeLong();
             log.info("Test container %s is %s, with exitCode %s", containerInfo.getId(), containerState.getStatus(), exitCode);
-            checkState(exitCode != null, "No exitCode for tests container %s in state %s", container, containerState);
+            checkState(exitCode != null, "No exitCode for tests container %s in state %s", testContainer, containerState);
 
             return exitCode;
         }
@@ -215,6 +228,27 @@ public final class Environment
     public void close()
     {
         stop();
+    }
+
+    private static boolean allContainersHealthy(Iterable<Container<?>> containers)
+    {
+        return Streams.stream(containers)
+                .allMatch(Environment::containerIsHealthy);
+    }
+
+    private static boolean containerIsHealthy(Container container)
+    {
+        if (!container.isHealthy()) {
+            log.warn("Container %s is not healthy", container.getContainerName());
+            return false;
+        }
+
+        if (!container.isRunning()) {
+            log.warn("Container %s is not running", container.getContainerName());
+            return false;
+        }
+
+        return true;
     }
 
     private static void attachNetwork(Collection<DockerContainer> values, Network network)

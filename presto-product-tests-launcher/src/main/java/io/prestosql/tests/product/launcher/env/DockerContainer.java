@@ -237,6 +237,18 @@ public class DockerContainer
     }
 
     @Override
+    public boolean isHealthy()
+    {
+        try {
+            return super.isHealthy();
+        }
+        catch (RuntimeException ignored) {
+            // Container without health checks will throw
+            return true;
+        }
+    }
+
+    @Override
     public String toString()
     {
         return logicalName;
