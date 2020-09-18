@@ -14,8 +14,8 @@
 package io.prestosql.plugin.sqlserver;
 
 import com.google.common.base.Joiner;
-import io.airlift.slice.Slice;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
