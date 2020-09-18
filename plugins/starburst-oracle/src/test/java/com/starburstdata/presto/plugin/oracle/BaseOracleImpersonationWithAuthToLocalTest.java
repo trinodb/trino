@@ -36,7 +36,7 @@ public abstract class BaseOracleImpersonationWithAuthToLocalTest
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .putAll(TestingStarburstOracleServer.connectionProperties())
+                .putAll(TestingOracleServer.connectionProperties())
                 .put("allow-drop-table", "true")
                 .put("oracle.impersonation.enabled", "true")
                 .put("oracle.synonyms.enabled", "true")

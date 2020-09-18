@@ -11,7 +11,7 @@ package com.starburstdata.presto.plugin.oracle;
 
 import java.sql.SQLException;
 
-import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.executeInOracle;
+import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
 import static java.lang.String.format;
 
 public class OracleTestUsers

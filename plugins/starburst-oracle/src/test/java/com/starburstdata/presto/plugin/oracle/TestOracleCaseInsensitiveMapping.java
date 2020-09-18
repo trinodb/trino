@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.executeInOracle;
+import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,7 +34,7 @@ public class TestOracleCaseInsensitiveMapping
     {
         return OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(TestingStarburstOracleServer.connectionProperties())
+                        .putAll(TestingOracleServer.connectionProperties())
                         .put("allow-drop-table", "true")
                         .put("case-insensitive-name-matching", "true")
                         .build())

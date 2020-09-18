@@ -16,7 +16,7 @@ import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.Test;
 
-import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.executeInOracle;
+import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -31,7 +31,7 @@ public class TestOracleSynonymsTest
     {
         return OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(TestingStarburstOracleServer.connectionProperties())
+                        .putAll(TestingOracleServer.connectionProperties())
                         .put("allow-drop-table", "true")
                         .put("oracle.synonyms.enabled", "true")
                         .build())

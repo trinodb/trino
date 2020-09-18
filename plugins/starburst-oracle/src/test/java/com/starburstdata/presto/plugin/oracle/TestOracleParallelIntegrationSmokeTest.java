@@ -16,7 +16,7 @@ import io.prestosql.testing.QueryRunner;
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createSession;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.createStandardUsers;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.createUser;
-import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.executeInOracle;
+import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -24,7 +24,7 @@ import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 
 public class TestOracleParallelIntegrationSmokeTest
-        extends BaseStarburstOracleIntegrationSmokeTest
+        extends BaseOracleIntegrationSmokeTest
 {
     public static final String PARTITIONED_USER = "partitioned_user";
 
@@ -34,7 +34,7 @@ public class TestOracleParallelIntegrationSmokeTest
     {
         return OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(TestingStarburstOracleServer.connectionProperties())
+                        .putAll(TestingOracleServer.connectionProperties())
                         .put("allow-drop-table", "true")
                         .put("oracle.parallelism-type", "PARTITIONS")
                         .put("oracle.concurrent.max-splits-per-scan", "17")

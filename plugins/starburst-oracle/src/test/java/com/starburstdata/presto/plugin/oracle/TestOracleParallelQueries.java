@@ -37,7 +37,7 @@ import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.NO_PA
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.PARTITIONS;
 import static com.starburstdata.presto.plugin.oracle.StarburstOracleSessionProperties.MAX_SPLITS_PER_SCAN;
 import static com.starburstdata.presto.plugin.oracle.StarburstOracleSessionProperties.PARALLELISM_TYPE;
-import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.executeInOracle;
+import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
 import static java.lang.String.format;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
@@ -50,7 +50,7 @@ public class TestOracleParallelQueries
     {
         return OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(TestingStarburstOracleServer.connectionProperties())
+                        .putAll(TestingOracleServer.connectionProperties())
                         .put("allow-drop-table", "true")
                         .put("oracle.number.default-scale", "3")
                         .build())

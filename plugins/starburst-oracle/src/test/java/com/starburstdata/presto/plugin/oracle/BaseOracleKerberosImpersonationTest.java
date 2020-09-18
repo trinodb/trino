@@ -35,7 +35,7 @@ public abstract class BaseOracleKerberosImpersonationTest
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("connection-url", TestingStarburstOracleServer.getJdbcUrl())
+                .put("connection-url", TestingOracleServer.getJdbcUrl())
                 .put("oracle.impersonation.enabled", "true")
                 .put("oracle.synonyms.enabled", "true")
                 .put("oracle.authentication.type", "KERBEROS")

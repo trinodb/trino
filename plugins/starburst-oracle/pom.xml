@@ -171,6 +171,7 @@
             <artifactId>presto-oracle</artifactId>
             <scope>test</scope>
             <type>test-jar</type>
+            <version>${dep.presto.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.oracle.ojdbc</groupId>
