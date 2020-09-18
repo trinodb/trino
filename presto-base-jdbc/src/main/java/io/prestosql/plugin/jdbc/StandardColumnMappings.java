@@ -16,10 +16,12 @@ package io.prestosql.plugin.jdbc;
 import com.google.common.base.CharMatcher;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import io.airlift.slice.Slice;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
@@ -40,6 +42,8 @@ import java.time.LocalTime;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.io.BaseEncoding.base16;
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
@@ -77,6 +81,7 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
@@ -199,12 +204,17 @@ public final class StandardColumnMappings
     public static ColumnMapping charColumnMapping(CharType charType)
     {
         requireNonNull(charType, "charType is null");
-        return ColumnMapping.sliceMapping(charType, charReadFunction(), charWriteFunction());
+        return ColumnMapping.sliceMapping(charType, charReadFunction(charType), charWriteFunction());
     }
 
-    public static SliceReadFunction charReadFunction()
+    public static SliceReadFunction charReadFunction(CharType charType)
     {
-        return (resultSet, columnIndex) -> utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet.getString(columnIndex)));
+        requireNonNull(charType, "charType is null");
+        return (resultSet, columnIndex) -> {
+            Slice slice = utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet.getString(columnIndex)));
+            checkLengthInCodePoints(slice, charType, charType.getLength());
+            return slice;
+        };
     }
 
     public static SliceWriteFunction charWriteFunction()
@@ -216,12 +226,37 @@ public final class StandardColumnMappings
 
     public static ColumnMapping varcharColumnMapping(VarcharType varcharType)
     {
-        return ColumnMapping.sliceMapping(varcharType, varcharReadFunction(), varcharWriteFunction());
+        return ColumnMapping.sliceMapping(varcharType, varcharReadFunction(varcharType), varcharWriteFunction());
     }
 
-    public static SliceReadFunction varcharReadFunction()
+    public static SliceReadFunction varcharReadFunction(VarcharType varcharType)
     {
-        return (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex));
+        requireNonNull(varcharType, "varcharType is null");
+        if (varcharType.isUnbounded()) {
+            return (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex));
+        }
+        return (resultSet, columnIndex) -> {
+            Slice slice = utf8Slice(resultSet.getString(columnIndex));
+            checkLengthInCodePoints(slice, varcharType, varcharType.getBoundedLength());
+            return slice;
+        };
+    }
+
+    private static void checkLengthInCodePoints(Slice value, Type characterDataType, int lengthLimit)
+    {
+        // Quick check in bytes
+        if (value.length() <= lengthLimit) {
+            return;
+        }
+        // Actual check
+        if (countCodePoints(value) <= lengthLimit) {
+            return;
+        }
+        throw new IllegalStateException(format(
+                "Illegal value for type %s: '%s' [%s]",
+                characterDataType,
+                value.toStringUtf8(),
+                base16().encode(value.getBytes())));
     }
 
     public static SliceWriteFunction varcharWriteFunction()

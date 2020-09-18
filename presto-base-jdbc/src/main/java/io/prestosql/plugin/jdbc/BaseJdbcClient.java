@@ -366,9 +366,10 @@ public abstract class BaseJdbcClient
 
     protected static Optional<ColumnMapping> mapToUnboundedVarchar(JdbcTypeHandle typeHandle)
     {
+        VarcharType unboundedVarcharType = createUnboundedVarcharType();
         return Optional.of(ColumnMapping.sliceMapping(
-                createUnboundedVarcharType(),
-                varcharReadFunction(),
+                unboundedVarcharType,
+                varcharReadFunction(unboundedVarcharType),
                 (statement, index, value) -> {
                     throw new PrestoException(
                             NOT_SUPPORTED,
