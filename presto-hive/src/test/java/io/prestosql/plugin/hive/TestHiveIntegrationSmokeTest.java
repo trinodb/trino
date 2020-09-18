@@ -54,6 +54,8 @@ import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
+import io.prestosql.testing.sql.SqlExecutor;
+import io.prestosql.testing.sql.TestTable;
 import io.prestosql.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
@@ -2975,9 +2977,9 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test(dataProvider = "timestampPrecision")
-    public void testTemporalArrays(String timestampPrecision)
+    public void testTemporalArrays(HiveTimestampPrecision timestampPrecision)
     {
-        Session session = withTimestampPrecision(getSession(), timestampPrecision);
+        Session session = withTimestampPrecision(getSession(), timestampPrecision.name());
         assertUpdate("DROP TABLE IF EXISTS tmp_array11");
         assertUpdate("CREATE TABLE tmp_array11 AS SELECT ARRAY[DATE '2014-09-30'] AS col", 1);
         assertOneNotNullResult("SELECT col[1] FROM tmp_array11");
@@ -2987,9 +2989,9 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test(dataProvider = "timestampPrecision")
-    public void testMaps(String timestampPrecision)
+    public void testMaps(HiveTimestampPrecision timestampPrecision)
     {
-        Session session = withTimestampPrecision(getSession(), timestampPrecision);
+        Session session = withTimestampPrecision(getSession(), timestampPrecision.name());
         assertUpdate("DROP TABLE IF EXISTS tmp_map1");
         assertUpdate("CREATE TABLE tmp_map1 AS SELECT MAP(ARRAY[0,1], ARRAY[2,NULL]) AS col", 1);
         assertQuery("SELECT col[0] FROM tmp_map1", "SELECT 2");
@@ -4143,13 +4145,13 @@ public class TestHiveIntegrationSmokeTest
         // TODO: revisit values once we handle write path and are able to write with higher precision,
         //  make sure push-down happens correctly in the presence of rounding;
         // consider using LocalDateTime instead of String
-        return new Object[][] {{"MILLIS", "2012-10-31 01:00:08.123"}, {"MICROS", "2012-10-31 01:00:08.123000"}, {"NANOS", "2012-10-31 01:00:08.123000000"}};
+        return new Object[][] {{HiveTimestampPrecision.MILLIS, "2012-10-31 01:00:08.123"}, {HiveTimestampPrecision.MICROS, "2012-10-31 01:00:08.123000"}, {HiveTimestampPrecision.NANOS, "2012-10-31 01:00:08.123000000"}};
     }
 
     @Test(dataProvider = "timestampPrecisionAndValues")
-    public void testParquetTimestampPredicatePushdown(String timestampPrecision, String value)
+    public void testParquetTimestampPredicatePushdown(HiveTimestampPrecision timestampPrecision, String value)
     {
-        Session session = withTimestampPrecision(getSession(), timestampPrecision);
+        Session session = withTimestampPrecision(getSession(), timestampPrecision.name());
         assertUpdate("DROP TABLE IF EXISTS test_parquet_timestamp_predicate_pushdown");
         assertUpdate("CREATE TABLE test_parquet_timestamp_predicate_pushdown (t TIMESTAMP) WITH (format = 'PARQUET')");
         assertUpdate(format("INSERT INTO test_parquet_timestamp_predicate_pushdown VALUES (TIMESTAMP '%s')", value), 1);
@@ -5733,6 +5735,25 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("ANALYZE " + tableName, 0);
     }
 
+    @DataProvider
+    public Object[][] nonDefaultTimestampPrecisions()
+    {
+        return new Object[][] {
+                new Object[] {HiveTimestampPrecision.MICROS}, new Object[] {HiveTimestampPrecision.NANOS}
+        };
+    }
+
+    @Test(dataProvider = "nonDefaultTimestampPrecisions")
+    public void testWriteNonDefaultPrecisionTimestampColumn(HiveTimestampPrecision timestampPrecision)
+    {
+        SqlExecutor sqlExecutor = sql -> getQueryRunner().execute(sql);
+        try (TestTable table = new TestTable(sqlExecutor, "test_analyze_empty_timestamp", "(c_bigint BIGINT, c_timestamp TIMESTAMP)")) {
+            Session session = withTimestampPrecision(getSession(), timestampPrecision.name());
+            assertQueryFails(session, "ANALYZE " + table.getName(), format("\\QCurrently INSERT and ANALYZE are only supported for timestamp columns with precision 3 (found timestamp(%s))\\E", timestampPrecision.getPrecision()));
+            assertQueryFails(session, format("INSERT INTO %s VALUES (1, TIMESTAMP'2001-02-03 11:22:33.123456789')", table.getName()), format("\\QCurrently INSERT and ANALYZE are only supported for timestamp columns with precision 3 (found timestamp(%s))\\E", timestampPrecision.getPrecision()));
+        }
+    }
+
     @Test
     public void testInvalidAnalyzePartitionedTable()
     {
@@ -7203,7 +7224,7 @@ public class TestHiveIntegrationSmokeTest
     @DataProvider
     public Object[][] timestampPrecision()
     {
-        return new Object[][] {{"MILLIS"}, {"MICROS"}, {"NANOS"}};
+        return new Object[][] {{HiveTimestampPrecision.MILLIS}, {HiveTimestampPrecision.MICROS}, {HiveTimestampPrecision.NANOS}};
     }
 
     private Session withTimestampPrecision(Session session, String precision)

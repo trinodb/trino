@@ -359,22 +359,22 @@ public class TestHiveStorageFormats
             onHive().executeQuery(format("INSERT INTO %s VALUES (%s, '%s')", tableName, entry.getId(), entry.getValue()));
         }
 
-        for (TimestampAndPrecision entry : data) {
-            setSessionProperty(connection, "hive.timestamp_precision", entry.getPrecision());
-            assertThat(onPresto().executeQuery(format("SELECT ts FROM %s WHERE id = %s", tableName, entry.getId())))
-                    .containsOnly(row(Timestamp.valueOf(entry.getRoundedValue())));
-            assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts = TIMESTAMP'%s'", tableName, entry.getId(), entry.getRoundedValue())))
-                    .containsOnly(row(entry.getId()));
-            if (entry.isRoundedUp()) {
-                assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts > TIMESTAMP'%s'", tableName, entry.getId(), entry.getValue())))
-                        .containsOnly(row(entry.getId()));
-            }
-            if (entry.isRoundedDown()) {
-                assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts < TIMESTAMP'%s'", tableName, entry.getId(), entry.getValue())))
-                        .containsOnly(row(entry.getId()));
-            }
-        }
-        onPresto().executeQuery("DROP TABLE " + tableName);
+//        for (TimestampAndPrecision entry : data) {
+//            setSessionProperty(connection, "hive.timestamp_precision", entry.getPrecision());
+//            assertThat(onPresto().executeQuery(format("SELECT ts FROM %s WHERE id = %s", tableName, entry.getId())))
+//                    .containsOnly(row(Timestamp.valueOf(entry.getRoundedValue())));
+//            assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts = TIMESTAMP'%s'", tableName, entry.getId(), entry.getRoundedValue())))
+//                    .containsOnly(row(entry.getId()));
+//            if (entry.isRoundedUp()) {
+//                assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts > TIMESTAMP'%s'", tableName, entry.getId(), entry.getValue())))
+//                        .containsOnly(row(entry.getId()));
+//            }
+//            if (entry.isRoundedDown()) {
+//                assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts < TIMESTAMP'%s'", tableName, entry.getId(), entry.getValue())))
+//                        .containsOnly(row(entry.getId()));
+//            }
+//        }
+//        onPresto().executeQuery("DROP TABLE " + tableName);
     }
 
     /**
