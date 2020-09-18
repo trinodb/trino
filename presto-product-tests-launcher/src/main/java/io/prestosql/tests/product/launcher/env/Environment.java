@@ -29,7 +29,6 @@ import net.jodah.failsafe.FailsafeExecutor;
 import net.jodah.failsafe.RetryPolicy;
 import net.jodah.failsafe.Timeout;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.ContainerState;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.lifecycle.Startables;
@@ -148,12 +147,17 @@ public final class Environment
 
     public void awaitContainersStopped()
     {
-        List<DockerContainer> containers = ImmutableList.copyOf(this.containers.values());
-
         try {
-            while (containers.stream().anyMatch(ContainerState::isRunning)) {
-                Thread.sleep(1_000);
+            // Before checking for health check state, let container become healthy first
+            Thread.sleep(15_000);
+
+            log.info("Started monitoring containers for health");
+
+            while (allContainersHealthy(getContainers())) {
+                Thread.sleep(10_000);
             }
+
+            log.warn("Some of the containers are stopped or unhealthy");
 
             return;
         }
@@ -174,7 +178,7 @@ public final class Environment
                 .filter(container -> !container.equals(testContainer))
                 .collect(toImmutableList());
 
-        log.info("Waiting for test completion...");
+        log.info("Waiting for test completion on container %s...", testContainer.getContainerId());
 
         try {
             while (testContainer.isRunning()) {
@@ -196,8 +200,8 @@ public final class Environment
         }
         catch (InterruptedException e) {
             // Gracefully stop environment and trigger listeners
-            stop();
             Thread.currentThread().interrupt();
+            stop();
             throw new RuntimeException("Interrupted", e);
         }
     }
@@ -227,7 +231,12 @@ public final class Environment
     @Override
     public void close()
     {
-        stop();
+        try {
+            stop();
+        }
+        catch (Exception e) {
+            log.warn("Exception occured while closing environment: %s", getStackTraceAsString(e));
+        }
     }
 
     private static boolean allContainersHealthy(Iterable<Container<?>> containers)
