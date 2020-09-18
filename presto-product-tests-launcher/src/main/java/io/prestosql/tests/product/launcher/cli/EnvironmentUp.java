@@ -154,7 +154,7 @@ public final class EnvironmentUp
             }
 
             environment.awaitContainersStopped();
-            log.info("Exiting, the containers will exit too");
+            environment.stop();
 
             return ExitCode.OK;
         }

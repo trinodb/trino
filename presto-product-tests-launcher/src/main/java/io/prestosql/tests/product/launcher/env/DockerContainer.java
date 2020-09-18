@@ -15,10 +15,12 @@ package io.prestosql.tests.product.launcher.env;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.model.HealthCheck;
 import com.github.dockerjava.api.model.Statistics;
 import com.github.dockerjava.core.InvocationBuilder;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.RecursiveDeleteOption;
 import io.airlift.log.Logger;
 import org.testcontainers.DockerClientFactory;
@@ -44,11 +46,13 @@ import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class DockerContainer
         extends FixedHostPortGenericContainer<DockerContainer>
 {
     private static final Logger log = Logger.get(DockerContainer.class);
+    private static final long NANOSECONDS_PER_SECOND = 1_000 * 1_000 * 1_000L;
 
     private String logicalName;
     private List<String> logPaths = new ArrayList<>();
@@ -120,6 +124,18 @@ public class DockerContainer
         requireNonNull(this.logPaths, "log paths are already exposed");
         this.logPaths.addAll(Arrays.asList(logPaths));
         return this;
+    }
+
+    public DockerContainer withHealthCheck(String healthCheckScript)
+    {
+        HealthCheck cmd = new HealthCheck()
+                .withTest(ImmutableList.of("CMD", "health.sh"))
+                .withInterval(NANOSECONDS_PER_SECOND * 15)
+                .withStartPeriod(NANOSECONDS_PER_SECOND * 5 * 60)
+                .withRetries(3); // try health checking 3 times before marking container as unhealthy
+
+        return withCopyFileToContainer(forHostPath(healthCheckScript), "/usr/local/bin/health.sh")
+                .withCreateContainerCmdModifier(command -> command.withHealthcheck(cmd));
     }
 
     @Override
