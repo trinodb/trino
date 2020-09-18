@@ -34,7 +34,10 @@ public class TestHiveAzureConfig
                 .setAbfsAccessKey(null)
                 .setAdlClientId(null)
                 .setAdlCredential(null)
-                .setAdlRefreshUrl(null));
+                .setAdlRefreshUrl(null)
+                .setAbfsOAuthClientEndpoint(null)
+                .setAbfsOAuthClientId(null)
+                .setAbfsOAuthClientSecret(null));
     }
 
     @Test
