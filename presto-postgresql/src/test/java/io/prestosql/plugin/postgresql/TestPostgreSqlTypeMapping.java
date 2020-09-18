@@ -208,73 +208,60 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
-    public void testPrestoCreatedParameterizedVarchar()
+    public void testPostgreSqlCreatedChar()
     {
-        varcharDataTypeTest()
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_parameterized_varchar"));
+        characterDataTypeTest(DataType::charDataType)
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_char"));
     }
 
     @Test
-    public void testPostgreSqlCreatedParameterizedVarchar()
+    public void testPrestoCreatedChar()
     {
-        varcharDataTypeTest()
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_parameterized_varchar"));
-    }
-
-    private DataTypeTest varcharDataTypeTest()
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(varcharDataType(10), "text_a")
-                .addRoundTrip(varcharDataType(255), "text_b")
-                .addRoundTrip(varcharDataType(65535), "text_d")
-                .addRoundTrip(varcharDataType(10485760), "text_f")
-                .addRoundTrip(varcharDataType(), "unbounded");
+        characterDataTypeTest(DataType::charDataType)
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_char"));
     }
 
     @Test
-    public void testPrestoCreatedParameterizedVarcharUnicode()
+    public void testPostgreSqlCreatedVarchar()
     {
-        unicodeVarcharDateTypeTest()
-                .execute(getQueryRunner(), prestoCreateAsSelect("postgresql_test_parameterized_varchar_unicode"));
+        varcharDataTypeTest(DataType::varcharDataType)
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_varchar"));
+
+        varcharDataTypeTest(length -> varcharDataType())
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_varchar"));
     }
 
     @Test
-    public void testPostgreSqlCreatedParameterizedVarcharUnicode()
+    public void testPrestoCreatedVarchar()
     {
-        unicodeVarcharDateTypeTest()
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_parameterized_varchar_unicode"));
+        varcharDataTypeTest(DataType::varcharDataType)
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_varchar"));
+
+        varcharDataTypeTest(length -> varcharDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_varchar"));
     }
 
-    @Test
-    public void testPrestoCreatedParameterizedCharUnicode()
+    private DataTypeTest varcharDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
     {
-        unicodeDataTypeTest(DataType::charDataType)
-                .execute(getQueryRunner(), prestoCreateAsSelect("postgresql_test_parameterized_char_unicode"));
+        return characterDataTypeTest(dataTypeFactory)
+                .addRoundTrip(dataTypeFactory.apply(10485760), "text_f"); // too long for a char in Presto
     }
 
-    @Test
-    public void testPostgreSqlCreatedParameterizedCharUnicode()
-    {
-        unicodeDataTypeTest(DataType::charDataType)
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_parameterized_char_unicode"));
-    }
-
-    private DataTypeTest unicodeVarcharDateTypeTest()
-    {
-        return unicodeDataTypeTest(DataType::varcharDataType)
-                .addRoundTrip(varcharDataType(), "\u041d\u0443, \u043f\u043e\u0433\u043e\u0434\u0438!");
-    }
-
-    private DataTypeTest unicodeDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
+    private DataTypeTest characterDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
     {
         String sampleUnicodeText = "\u653b\u6bbb\u6a5f\u52d5\u968a";
         String sampleFourByteUnicodeCharacter = "\uD83D\uDE02";
 
         return DataTypeTest.create()
+                .addRoundTrip(dataTypeFactory.apply(10), "text_a")
+                .addRoundTrip(dataTypeFactory.apply(255), "text_b")
+                .addRoundTrip(dataTypeFactory.apply(65535), "text_d")
+
                 .addRoundTrip(dataTypeFactory.apply(sampleUnicodeText.length()), sampleUnicodeText)
                 .addRoundTrip(dataTypeFactory.apply(32), sampleUnicodeText)
                 .addRoundTrip(dataTypeFactory.apply(20000), sampleUnicodeText)
-                .addRoundTrip(dataTypeFactory.apply(1), sampleFourByteUnicodeCharacter);
+                .addRoundTrip(dataTypeFactory.apply(1), sampleFourByteUnicodeCharacter)
+                .addRoundTrip(dataTypeFactory.apply(77), "\u041d\u0443, \u043f\u043e\u0433\u043e\u0434\u0438!");
     }
 
     @Test
