@@ -55,6 +55,7 @@ import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TEST
 import static io.prestosql.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.lang.StrictMath.toIntExact;
+import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
@@ -267,7 +268,8 @@ public final class TestRun
                                 .addAll(reportsDirOptions(reportsDirBase))
                                 .build().toArray(new String[0]))
                         // this message marks that environment has started and tests are running
-                        .waitingFor(new LogMessageWaitStrategy().withRegEx(".*\\[TestNG] Running.*"));
+                        .waitingFor(new LogMessageWaitStrategy().withRegEx(".*\\[TestNG] Running.*")
+                                .withStartupTimeout(ofMinutes(15)));
             });
 
             environmentConfig.extendEnvironment(this.environment).ifPresent(extender -> extender.extendEnvironment(environment));
