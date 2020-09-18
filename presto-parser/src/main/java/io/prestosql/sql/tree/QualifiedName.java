@@ -56,7 +56,19 @@ public class QualifiedName
     private QualifiedName(List<Identifier> originalParts)
     {
         this.originalParts = originalParts;
-        this.parts = originalParts.stream().map(identifier -> identifier.getValue().toLowerCase(ENGLISH)).collect(toImmutableList());
+        if (originalParts.get(0).getValue().toLowerCase(ENGLISH).contains("flex") && originalParts.size() == 3 && originalParts.get(2).getValue().contains("://")) {
+            this.parts = originalParts.stream().map(identifier -> {
+                if (identifier.getValue().contains("://")) {
+                    return identifier.getValue();
+                }
+                else {
+                    return identifier.getValue().toLowerCase(ENGLISH);
+                }
+            }).collect(toImmutableList());
+        }
+        else {
+            this.parts = originalParts.stream().map(identifier -> identifier.getValue().toLowerCase(ENGLISH)).collect(toImmutableList());
+        }
     }
 
     public List<String> getParts()
