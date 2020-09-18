@@ -312,7 +312,7 @@ public class OracleClient
                 CharType charType = createCharType(columnSize);
                 return Optional.of(ColumnMapping.sliceMapping(
                         charType,
-                        charReadFunction(),
+                        charReadFunction(charType),
                         oracleCharWriteFunction(charType),
                         OracleClient::fullPushdownIfSupported));
 

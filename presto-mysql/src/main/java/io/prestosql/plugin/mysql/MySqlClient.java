@@ -237,7 +237,7 @@ public class MySqlClient
                 VarcharType varcharType = (columnSize <= VarcharType.MAX_LENGTH) ? createVarcharType(columnSize) : createUnboundedVarcharType();
                 // Remote database can be case insensitive.
                 PredicatePushdownController predicatePushdownController = PUSHDOWN_AND_KEEP;
-                return Optional.of(ColumnMapping.sliceMapping(varcharType, varcharReadFunction(), varcharWriteFunction(), predicatePushdownController));
+                return Optional.of(ColumnMapping.sliceMapping(varcharType, varcharReadFunction(varcharType), varcharWriteFunction(), predicatePushdownController));
 
             case Types.DECIMAL:
                 int precision = columnSize;
