@@ -79,7 +79,6 @@ import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
-import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -503,9 +502,13 @@ public final class StandardColumnMappings
 
             case Types.CHAR:
             case Types.NCHAR:
-                // TODO this is wrong, we're going to construct malformed Slice representation if source > charLength
-                int charLength = min(columnSize, CharType.MAX_LENGTH);
-                return Optional.of(charColumnMapping(createCharType(charLength)));
+                if (columnSize > CharType.MAX_LENGTH) {
+                    if (columnSize > VarcharType.MAX_LENGTH) {
+                        return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
+                    }
+                    return Optional.of(varcharColumnMapping(createVarcharType(columnSize)));
+                }
+                return Optional.of(charColumnMapping(createCharType(columnSize)));
 
             case Types.VARCHAR:
             case Types.NVARCHAR:
