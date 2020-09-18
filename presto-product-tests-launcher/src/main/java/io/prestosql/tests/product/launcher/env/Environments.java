@@ -109,11 +109,25 @@ public final class Environments
 
     public static String nameForClass(Class<? extends EnvironmentProvider> clazz)
     {
-        return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, clazz.getSimpleName());
+        return canonicalName(clazz);
     }
 
     public static String nameForConfigClass(Class<? extends EnvironmentConfig> clazz)
     {
-        return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, clazz.getSimpleName());
+        return canonicalName(clazz);
+    }
+
+    private static String canonicalName(Class<?> clazz)
+    {
+        return canonicalName(clazz.getSimpleName());
+    }
+
+    /**
+     * Converts camel case name to hyphenated. Returns input if the name is already hyphenated.
+     */
+    public static String canonicalName(String name)
+    {
+        return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, name)
+                .replaceAll("-+", "-");
     }
 }
