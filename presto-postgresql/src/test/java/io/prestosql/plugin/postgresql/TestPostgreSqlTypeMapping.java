@@ -1028,6 +1028,10 @@ public class TestPostgreSqlTypeMapping
         tests.addRoundTrip(timestampDataType(5), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_450_000));
         tests.addRoundTrip(timestampDataType(6), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_000));
 
+        // before epoch with second fraction
+        tests.addRoundTrip(timestampDataType(6), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_000_000));
+        tests.addRoundTrip(timestampDataType(6), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_000));
+
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
