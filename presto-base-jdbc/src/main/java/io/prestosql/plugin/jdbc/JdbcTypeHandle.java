@@ -31,6 +31,7 @@ public final class JdbcTypeHandle
     private final Optional<Integer> arrayDimensions;
     private final Optional<CaseSensitivity> caseSensitivity;
 
+    @Deprecated
     public JdbcTypeHandle(int jdbcType, Optional<String> jdbcTypeName, int columnSize, int decimalDigits, Optional<Integer> arrayDimensions)
     {
         this(jdbcType, jdbcTypeName, columnSize, decimalDigits, arrayDimensions, Optional.empty());

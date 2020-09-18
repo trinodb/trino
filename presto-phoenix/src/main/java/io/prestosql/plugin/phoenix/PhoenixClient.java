@@ -97,6 +97,7 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.realWriteFunction;
@@ -526,12 +527,14 @@ public class PhoenixClient
                 .orElseThrow(() -> new PrestoException(PHOENIX_METADATA_ERROR, "Type name is missing for jdbc type: " + JDBCType.valueOf(arrayTypeHandle.getJdbcType())));
         checkArgument(arrayTypeName.endsWith(" ARRAY"), "array type must end with ' ARRAY'");
         arrayTypeName = arrayTypeName.substring(0, arrayTypeName.length() - " ARRAY".length());
+        verify(arrayTypeHandle.getCaseSensitivity().isEmpty(), "Case sensitivity not supported");
         return new JdbcTypeHandle(
                 PDataType.fromSqlTypeName(arrayTypeName).getSqlType(),
                 Optional.of(arrayTypeName),
                 arrayTypeHandle.getColumnSize(),
                 arrayTypeHandle.getDecimalDigits(),
-                arrayTypeHandle.getArrayDimensions());
+                arrayTypeHandle.getArrayDimensions(),
+                Optional.empty());
     }
 
     public QueryPlan getQueryPlan(PhoenixPreparedStatement inputQuery)
