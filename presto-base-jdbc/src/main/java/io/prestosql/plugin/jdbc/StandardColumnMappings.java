@@ -360,7 +360,7 @@ public final class StandardColumnMappings
         // TODO support higher precision
         checkArgument(timestampType.getPrecision() <= MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
         return ColumnMapping.longMapping(
-                TIMESTAMP_MILLIS,
+                timestampType,
                 (resultSet, columnIndex) -> {
                     Timestamp timestamp = resultSet.getTimestamp(columnIndex);
                     return toPrestoTimestamp(timestampType, timestamp.toLocalDateTime());
