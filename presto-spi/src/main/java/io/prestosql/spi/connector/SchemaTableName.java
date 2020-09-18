@@ -29,8 +29,14 @@ public class SchemaTableName
     @JsonCreator
     public SchemaTableName(@JsonProperty("schema") String schemaName, @JsonProperty("table") String tableName)
     {
-        this.schemaName = checkNotEmpty(schemaName, "schemaName").toLowerCase(ENGLISH);
-        this.tableName = checkNotEmpty(tableName, "tableName").toLowerCase(ENGLISH);
+        if (tableName.contains("://")) {
+            this.schemaName = checkNotEmpty(schemaName, "schemaName");
+            this.tableName = checkNotEmpty(tableName, "tableName");
+        }
+        else {
+            this.schemaName = checkNotEmpty(schemaName, "schemaName").toLowerCase(ENGLISH);
+            this.tableName = checkNotEmpty(tableName, "tableName").toLowerCase(ENGLISH);
+        }
     }
 
     @JsonProperty("schema")
