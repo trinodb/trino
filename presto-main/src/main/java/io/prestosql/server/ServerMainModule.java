@@ -97,6 +97,7 @@ import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spiller.FileSingleStreamSpillerFactory;
@@ -410,6 +411,10 @@ public class ServerMainModule
         // block encodings
         jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
+
+        // range encoding
+        jsonBinder(binder).addSerializerBinding(Range.class).to(RangeJsonSerde.Serializer.class);
+        jsonBinder(binder).addDeserializerBinding(Range.class).to(RangeJsonSerde.Deserializer.class);
 
         // thread visualizer
         jaxrsBinder(binder).bind(ThreadResource.class);
