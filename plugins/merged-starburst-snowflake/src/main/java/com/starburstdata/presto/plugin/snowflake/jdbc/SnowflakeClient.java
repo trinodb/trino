@@ -172,20 +172,20 @@ public class SnowflakeClient
             if (precision > Decimals.MAX_PRECISION) {
                 return Optional.empty();
             }
-            return Optional.of(withSimplifiedPushdownConverter(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY)));
+            return Optional.of(updatePushdownCotroller(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY)));
         }
 
         if (typeName.equals("VARIANT")) {
-            return Optional.of(ColumnMapping.sliceMapping(createUnboundedVarcharType(), variantReadFunction(), varcharWriteFunction(), SnowflakeClient::simplifyUnsupportedPushdown));
+            return Optional.of(ColumnMapping.sliceMapping(createUnboundedVarcharType(), variantReadFunction(), varcharWriteFunction(), SnowflakeClient::pushdown));
         }
 
         if (typeName.equals("OBJECT") || typeName.equals("ARRAY")) {
             // TODO: better support for OBJECT (Presto MAP/ROW) and ARRAY (Presto ARRAY)
-            return Optional.of(withSimplifiedPushdownConverter(varcharColumnMapping(createUnboundedVarcharType())));
+            return Optional.of(updatePushdownCotroller(varcharColumnMapping(createUnboundedVarcharType())));
         }
 
         if (typeHandle.getJdbcType() == Types.TIME) {
-            return Optional.of(withSimplifiedPushdownConverter(timeColumnMapping()));
+            return Optional.of(updatePushdownCotroller(timeColumnMapping()));
         }
 
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
@@ -196,24 +196,24 @@ public class SnowflakeClient
         }
 
         if (typeHandle.getJdbcType() == VARCHAR && distributedConnector) {
-            return Optional.of(withSimplifiedPushdownConverter(varcharColumnMapping(createVarcharType(min(columnSize, HiveVarchar.MAX_VARCHAR_LENGTH)))));
+            return Optional.of(updatePushdownCotroller(varcharColumnMapping(createVarcharType(min(columnSize, HiveVarchar.MAX_VARCHAR_LENGTH)))));
         }
 
         if (typeHandle.getJdbcType() == VARBINARY || typeHandle.getJdbcType() == BINARY || typeHandle.getJdbcType() == LONGVARBINARY) {
             return Optional.of(varbinaryColumnMapping());
         }
 
-        return jdbcTypeToPrestoType(typeHandle).map(this::withSimplifiedPushdownConverter);
+        return jdbcTypeToPrestoType(typeHandle).map(this::updatePushdownCotroller);
     }
 
-    private ColumnMapping withSimplifiedPushdownConverter(ColumnMapping mapping)
+    private ColumnMapping updatePushdownCotroller(ColumnMapping mapping)
     {
         verify(mapping.getPredicatePushdownController() != ColumnMapping.DISABLE_PUSHDOWN);
         return new ColumnMapping(
                 mapping.getType(),
                 mapping.getReadFunction(),
                 mapping.getWriteFunction(),
-                SnowflakeClient::simplifyUnsupportedPushdown);
+                SnowflakeClient::pushdown);
     }
 
     @Override
@@ -298,7 +298,7 @@ public class SnowflakeClient
                             timestamp.getZone().getId());
                 },
                 timestampWithTimezoneWriteFunction(),
-                SnowflakeClient::simplifyUnsupportedPushdown);
+                SnowflakeClient::pushdown);
     }
 
     private static LongWriteFunction timestampWithTimezoneWriteFunction()
@@ -382,13 +382,11 @@ public class SnowflakeClient
         }
     }
 
-    private static DomainPushdownResult simplifyUnsupportedPushdown(Domain domain)
+    private static DomainPushdownResult pushdown(Domain domain)
     {
-        Domain pushedDown = domain;
         if (domain.getValues().getRanges().getRangeCount() > SNOWFLAKE_MAX_LIST_EXPRESSIONS) {
-            pushedDown = domain.simplify();
+            return new DomainPushdownResult(domain.simplify(), domain);
         }
-        // TODO https://starburstdata.atlassian.net/browse/PRESTO-4082
-        return new DomainPushdownResult(pushedDown, domain);
+        return new DomainPushdownResult(domain, Domain.all(domain.getType()));
     }
 }

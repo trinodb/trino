@@ -271,4 +271,28 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
                         "   comment varchar(79)\n" +
                         ")");
     }
+
+    @Test
+    public void testPredicatePushdown()
+    {
+        try (TestTable testTable = new TestTable(snowflakeExecutor::execute, getSession().getSchema().orElseThrow() + ".test_aggregation_pushdown",
+                "(" +
+                        "bigint_column bigint, " +
+                        "short_decimal decimal(9, 3), " +
+                        "long_decimal decimal(30, 10), " +
+                        "varchar_column varchar(10))")) {
+            snowflakeExecutor.execute("INSERT INTO " + testTable.getName() + " VALUES (100, 100.000, 100000000.000000000, 'ala')");
+            snowflakeExecutor.execute("INSERT INTO " + testTable.getName() + " VALUES (123, 123.321, 123456789.987654321, 'kot')");
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE bigint_column = 100")).isCorrectlyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE bigint_column > 100")).isCorrectlyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE short_decimal = 100")).isCorrectlyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE short_decimal > 100")).isCorrectlyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE long_decimal > 100000000")).isCorrectlyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE long_decimal = 100000000")).isCorrectlyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE varchar_column > 'ala'")).isCorrectlyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE varchar_column = 'ala'")).isCorrectlyPushedDown();
+
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE bigint_column > 100 and varchar_column > 'ala'")).isCorrectlyPushedDown();
+        }
+    }
 }
