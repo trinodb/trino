@@ -112,7 +112,7 @@ public class MySqlClient
         super(config, "`", connectionFactory);
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
 
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, 0, Optional.empty(), Optional.empty());
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
                 this::quoted,
                 ImmutableSet.<AggregateFunctionRule>builder()
@@ -135,7 +135,7 @@ public class MySqlClient
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
-        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), decimalType.getPrecision(), decimalType.getScale(), Optional.empty(), Optional.empty()));
+        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), decimalType.getPrecision(), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
     }
 
     @Override
@@ -241,8 +241,9 @@ public class MySqlClient
 
             case Types.DECIMAL:
                 int precision = columnSize;
+                int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
                 if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
-                    int scale = min(typeHandle.getDecimalDigits(), getDecimalDefaultScale(session));
+                    int scale = min(decimalDigits, getDecimalDefaultScale(session));
                     return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                 }
         }

@@ -275,7 +275,7 @@ public abstract class BaseJdbcClient
                         resultSet.getInt("DATA_TYPE"),
                         Optional.ofNullable(resultSet.getString("TYPE_NAME")),
                         resultSet.getInt("COLUMN_SIZE"),
-                        resultSet.getInt("DECIMAL_DIGITS"),
+                        getInteger(resultSet, "DECIMAL_DIGITS"),
                         Optional.empty(),
                         Optional.empty());
                 Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
@@ -313,6 +313,16 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
+    }
+
+    protected static Optional<Integer> getInteger(ResultSet resultSet, String columnLabel)
+            throws SQLException
+    {
+        int value = resultSet.getInt(columnLabel);
+        if (resultSet.wasNull()) {
+            return Optional.empty();
+        }
+        return Optional.of(value);
     }
 
     protected ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)

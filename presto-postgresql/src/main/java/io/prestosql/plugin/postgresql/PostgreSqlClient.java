@@ -185,7 +185,7 @@ public class PostgreSqlClient
         }
         this.tableTypes = tableTypes.toArray(new String[0]);
 
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, 0, Optional.empty(), Optional.empty());
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
                 this::quoted,
                 ImmutableSet.<AggregateFunctionRule>builder()
@@ -263,7 +263,7 @@ public class PostgreSqlClient
                             resultSet.getInt("DATA_TYPE"),
                             Optional.of(resultSet.getString("TYPE_NAME")),
                             resultSet.getInt("COLUMN_SIZE"),
-                            resultSet.getInt("DECIMAL_DIGITS"),
+                            getInteger(resultSet, "DECIMAL_DIGITS"),
                             Optional.ofNullable(arrayColumnDimensions.get(columnName)),
                             Optional.empty());
                     Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
@@ -347,7 +347,8 @@ public class PostgreSqlClient
                 return Optional.of(jsonColumnMapping());
             case "timestamptz":
                 // PostgreSQL's "timestamp with time zone" is reported as Types.TIMESTAMP rather than Types.TIMESTAMP_WITH_TIMEZONE
-                return Optional.of(timestampWithTimeZoneColumnMapping(typeHandle.getDecimalDigits()));
+                int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+                return Optional.of(timestampWithTimeZoneColumnMapping(decimalDigits));
             case "hstore":
                 return Optional.of(hstoreColumnMapping(session));
         }
@@ -361,7 +362,8 @@ public class PostgreSqlClient
             return Optional.of(timeColumnMappingWithTruncation());
         }
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
-            TimestampType timestampType = createTimestampType(typeHandle.getDecimalDigits());
+            int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+            TimestampType timestampType = createTimestampType(decimalDigits);
             return Optional.of(ColumnMapping.longMapping(
                     timestampType,
                     timestampReadFunction(timestampType),
@@ -374,8 +376,9 @@ public class PostgreSqlClient
                 return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, getDecimalDefaultScale(session)), getDecimalRoundingMode(session)));
             }
             int precision = typeHandle.getColumnSize();
+            int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
             if (precision > Decimals.MAX_PRECISION) {
-                int scale = min(typeHandle.getDecimalDigits(), getDecimalDefaultScale(session));
+                int scale = min(decimalDigits, getDecimalDefaultScale(session));
                 return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
             }
         }
@@ -481,7 +484,7 @@ public class PostgreSqlClient
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
-        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), decimalType.getPrecision(), decimalType.getScale(), Optional.empty(), Optional.empty()));
+        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), decimalType.getPrecision(), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
     }
 
     @Override
