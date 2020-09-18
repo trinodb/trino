@@ -139,7 +139,7 @@ public class InternalHiveSplitFactory
             BlockLocation[] blockLocations,
             long start,
             long length,
-            long fileSize,
+            long estimatedFileSize,
             long fileModificationTime,
             OptionalInt bucketNumber,
             boolean splittable,
@@ -161,7 +161,7 @@ public class InternalHiveSplitFactory
         // For empty files, some filesystem (e.g. LocalFileSystem) produce one empty block
         // while others (e.g. hdfs.DistributedFileSystem) produces no block.
         // Synthesize an empty block if one does not already exist.
-        if (fileSize == 0 && blockLocations.length == 0) {
+        if (estimatedFileSize == 0 && blockLocations.length == 0) {
             blockLocations = new BlockLocation[] {new BlockLocation()};
             // Turn off force local scheduling because hosts list doesn't exist.
             forceLocalScheduling = false;
@@ -195,7 +195,7 @@ public class InternalHiveSplitFactory
                 pathString,
                 start,
                 start + length,
-                fileSize,
+                estimatedFileSize,
                 fileModificationTime,
                 schema,
                 partitionKeys,

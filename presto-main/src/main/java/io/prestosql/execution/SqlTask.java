@@ -14,7 +14,6 @@
 package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -24,6 +23,7 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.LazyOutputBuffer;
@@ -35,9 +35,7 @@ import io.prestosql.operator.PipelineContext;
 import io.prestosql.operator.PipelineStatus;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskStats;
-import io.prestosql.spi.predicate.Domain;
 import io.prestosql.sql.planner.PlanFragment;
-import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 
@@ -45,11 +43,11 @@ import javax.annotation.Nullable;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -58,12 +56,14 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
+import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTER_DOMAINS;
 import static io.prestosql.execution.TaskState.ABORTED;
 import static io.prestosql.execution.TaskState.FAILED;
+import static io.prestosql.execution.TaskState.RUNNING;
 import static io.prestosql.util.Failures.toFailures;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -81,9 +81,11 @@ public class SqlTask
     private final QueryContext queryContext;
 
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
+    private final Executor taskNotificationExecutor;
 
     private final AtomicReference<DateTime> lastHeartbeat = new AtomicReference<>(DateTime.now());
-    private final AtomicLong nextTaskStatusVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
+    private final AtomicLong taskStatusVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
+    private final FutureStateChange<?> taskStatusVersionChange = new FutureStateChange<>();
 
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
@@ -119,7 +121,7 @@ public class SqlTask
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.sqlTaskExecutionFactory = requireNonNull(sqlTaskExecutionFactory, "sqlTaskExecutionFactory is null");
-        requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
+        this.taskNotificationExecutor = requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
 
         outputBuffer = new LazyOutputBuffer(
@@ -140,6 +142,10 @@ public class SqlTask
         requireNonNull(failedTasks, "failedTasks is null");
         taskStateMachine.addStateChangeListener(newState -> {
             if (!newState.isDone()) {
+                if (newState != RUNNING) {
+                    // notify that task state changed (apart from initial RUNNING state notification)
+                    notifyStatusChanged();
+                }
                 return;
             }
 
@@ -177,6 +183,9 @@ public class SqlTask
             catch (Exception e) {
                 log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
             }
+
+            // notify that task is finished
+            notifyStatusChanged();
         });
     }
 
@@ -219,11 +228,34 @@ public class SqlTask
         }
     }
 
+    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersDynamicFiltersVersion)
+    {
+        TaskHolder taskHolder = taskHolderReference.get();
+        if (taskHolder.getTaskExecution() == null) {
+            // Dynamic filters are only available during task execution.
+            // Dynamic filters are collected by same tasks that run corresponding
+            // join operators. When task (and implicitly join operator) is done it
+            // means that all potential consumers (that belong to probe side of join)
+            // of dynamic filters are either finished or cancelled. Therefore dynamic
+            // filters are no longer required.
+            return INITIAL_DYNAMIC_FILTER_DOMAINS;
+        }
+
+        return taskHolder.getTaskExecution().getTaskContext().acknowledgeAndGetNewDynamicFilterDomains(callersDynamicFiltersVersion);
+    }
+
+    private synchronized void notifyStatusChanged()
+    {
+        taskStatusVersion.incrementAndGet();
+        taskStatusVersionChange.complete(null, taskNotificationExecutor);
+    }
+
     private TaskStatus createTaskStatus(TaskHolder taskHolder)
     {
-        // Always return a new TaskStatus with a larger version number;
-        // otherwise a client will not accept the update
-        long versionNumber = nextTaskStatusVersion.getAndIncrement();
+        // Obtain task status version before building actual TaskStatus object.
+        // This way any task updates won't be lost since all updates happen
+        // before version number is increased.
+        long versionNumber = taskStatusVersion.get();
 
         TaskState state = taskStateMachine.getState();
         List<ExecutionFailureInfo> failures = ImmutableList.of();
@@ -241,7 +273,7 @@ public class SqlTask
         Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
         Duration fullGcTime = new Duration(0, MILLISECONDS);
-        Map<DynamicFilterId, Domain> dynamicTupleDomains = ImmutableMap.of();
+        long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
             TaskStats taskStats = taskInfo.getStats();
@@ -253,7 +285,6 @@ public class SqlTask
             revocableMemoryReservation = taskStats.getRevocableMemoryReservation();
             fullGcCount = taskStats.getFullGcCount();
             fullGcTime = taskStats.getFullGcTime();
-            dynamicTupleDomains = taskInfo.getTaskStatus().getDynamicFilterDomains();
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -271,11 +302,8 @@ public class SqlTask
             completedDriverGroups = taskContext.getCompletedDriverGroups();
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
-            dynamicTupleDomains = taskContext.getDynamicTupleDomains();
+            dynamicFiltersVersion = taskContext.getDynamicFiltersVersion();
         }
-        // Compact TupleDomain before reporting dynamic filters to coordinator to avoid bloating QueryInfo
-        Map<DynamicFilterId, Domain> compactDynamicTupleDomains = dynamicTupleDomains.entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().simplify()));
 
         return new TaskStatus(taskStateMachine.getTaskId(),
                 taskInstanceId,
@@ -294,7 +322,7 @@ public class SqlTask
                 revocableMemoryReservation,
                 fullGcCount,
                 fullGcTime,
-                compactDynamicTupleDomains);
+                dynamicFiltersVersion);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)
@@ -340,32 +368,28 @@ public class SqlTask
                 needsPlan.get());
     }
 
-    public ListenableFuture<TaskStatus> getTaskStatus(TaskState callersCurrentState)
+    public synchronized ListenableFuture<TaskStatus> getTaskStatus(long callersCurrentVersion)
     {
-        requireNonNull(callersCurrentState, "callersCurrentState is null");
-
-        if (callersCurrentState.isDone()) {
+        if (callersCurrentVersion < taskStatusVersion.get() || taskHolderReference.get().isFinished()) {
+            // return immediately if caller has older task status version or final task info is available
             return immediateFuture(getTaskStatus());
         }
 
-        ListenableFuture<TaskState> futureTaskState = taskStateMachine.getStateChange(callersCurrentState);
-        return Futures.transform(futureTaskState, input -> getTaskStatus(), directExecutor());
+        // At this point taskHolderReference.get().isFinished() might become true. However notifyStatusChanged()
+        // is synchronized therefore notification for new listener won't be lost.
+        return Futures.transform(taskStatusVersionChange.createNewListener(), input -> getTaskStatus(), directExecutor());
     }
 
-    public ListenableFuture<TaskInfo> getTaskInfo(TaskState callersCurrentState)
+    public synchronized ListenableFuture<TaskInfo> getTaskInfo(long callersCurrentVersion)
     {
-        requireNonNull(callersCurrentState, "callersCurrentState is null");
-
-        // If the caller's current state is already done, just return the current
-        // state of this task as it will either be done or possibly still running
-        // (due to a bug in the caller), since we cannot transition from a done
-        // state.
-        if (callersCurrentState.isDone()) {
+        if (callersCurrentVersion < taskStatusVersion.get() || taskHolderReference.get().isFinished()) {
+            // return immediately if caller has older task status version or final task info is available
             return immediateFuture(getTaskInfo());
         }
 
-        ListenableFuture<TaskState> futureTaskState = taskStateMachine.getStateChange(callersCurrentState);
-        return Futures.transform(futureTaskState, input -> getTaskInfo(), directExecutor());
+        // At this point taskHolderReference.get().isFinished() might become true. However notifyStatusChanged()
+        // is synchronized therefore notification for new listener won't be lost.
+        return Futures.transform(taskStatusVersionChange.createNewListener(), input -> getTaskInfo(), directExecutor());
     }
 
     public TaskInfo updateTask(Session session, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, OptionalInt totalPartitions)
@@ -387,7 +411,15 @@ public class SqlTask
                 taskExecution = taskHolder.getTaskExecution();
                 if (taskExecution == null) {
                     checkState(fragment.isPresent(), "fragment must be present");
-                    taskExecution = sqlTaskExecutionFactory.create(session, queryContext, taskStateMachine, outputBuffer, fragment.get(), sources, totalPartitions);
+                    taskExecution = sqlTaskExecutionFactory.create(
+                            session,
+                            queryContext,
+                            taskStateMachine,
+                            outputBuffer,
+                            fragment.get(),
+                            sources,
+                            this::notifyStatusChanged,
+                            totalPartitions);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
                 }

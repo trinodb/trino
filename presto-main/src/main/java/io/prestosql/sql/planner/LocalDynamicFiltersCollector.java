@@ -67,7 +67,6 @@ class LocalDynamicFiltersCollector
     {
         dynamicFilterDomains
                 .entrySet()
-                .stream()
                 .forEach(entry -> {
                     SettableFuture<Domain> future = futures.get(entry.getKey());
                     // Skip dynamic filters that are not applied locally.
@@ -153,6 +152,12 @@ class LocalDynamicFiltersCollector
         public synchronized boolean isComplete()
         {
             return futuresLeft == 0;
+        }
+
+        @Override
+        public synchronized boolean isAwaitable()
+        {
+            return futuresLeft > 0;
         }
 
         @Override

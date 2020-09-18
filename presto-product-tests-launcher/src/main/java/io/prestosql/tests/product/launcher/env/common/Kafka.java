@@ -40,14 +40,13 @@ public class Kafka
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addContainer("zookeeper", createZookeeper());
-        builder.addContainer("kafka", createKafka());
+        builder.addContainers(createZookeeper(), createKafka());
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createZookeeper()
     {
-        DockerContainer container = new DockerContainer("confluentinc/cp-zookeeper:" + CONFLUENT_VERSION)
+        DockerContainer container = new DockerContainer("confluentinc/cp-zookeeper:" + CONFLUENT_VERSION, "zookeeper")
                 .withEnv("ZOOKEEPER_CLIENT_PORT", "2181")
                 .withEnv("ZOOKEEPER_TICK_TIME", "2000")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
@@ -61,7 +60,7 @@ public class Kafka
     @SuppressWarnings("resource")
     private DockerContainer createKafka()
     {
-        DockerContainer container = new DockerContainer("confluentinc/cp-kafka:" + CONFLUENT_VERSION)
+        DockerContainer container = new DockerContainer("confluentinc/cp-kafka:" + CONFLUENT_VERSION, "kafka")
                 .withEnv("KAFKA_BROKER_ID", "1")
                 .withEnv("KAFKA_ZOOKEEPER_CONNECT", "zookeeper:2181")
                 .withEnv("KAFKA_ADVERTISED_LISTENERS", "PLAINTEXT://kafka:9092")

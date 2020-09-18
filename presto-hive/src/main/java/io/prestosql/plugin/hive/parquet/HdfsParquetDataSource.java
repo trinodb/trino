@@ -24,9 +24,9 @@ import io.prestosql.parquet.ParquetDataSource;
 import io.prestosql.parquet.ParquetDataSourceId;
 import io.prestosql.parquet.ParquetReaderOptions;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
+import io.prestosql.plugin.hive.util.FSDataInputStreamTail;
 import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -46,7 +46,7 @@ public class HdfsParquetDataSource
         implements ParquetDataSource
 {
     private final ParquetDataSourceId id;
-    private final long size;
+    private final long estimatedSize;
     private final FSDataInputStream inputStream;
     private long readTimeNanos;
     private long readBytes;
@@ -55,13 +55,13 @@ public class HdfsParquetDataSource
 
     public HdfsParquetDataSource(
             ParquetDataSourceId id,
-            long size,
+            long estimatedSize,
             FSDataInputStream inputStream,
             FileFormatDataSourceStats stats,
             ParquetReaderOptions options)
     {
         this.id = requireNonNull(id, "id is null");
-        this.size = size;
+        this.estimatedSize = estimatedSize;
         this.inputStream = inputStream;
         this.stats = stats;
         this.options = requireNonNull(options, "options is null");
@@ -86,9 +86,9 @@ public class HdfsParquetDataSource
     }
 
     @Override
-    public final long getSize()
+    public final long getEstimatedSize()
     {
-        return size;
+        return estimatedSize;
     }
 
     @Override
@@ -99,13 +99,34 @@ public class HdfsParquetDataSource
     }
 
     @Override
-    public final void readFully(long position, byte[] buffer)
+    public Slice readTail(int length)
     {
-        readFully(position, buffer, 0, buffer.length);
+        long start = System.nanoTime();
+        Slice tailSlice;
+        try {
+            //  Handle potentially imprecise file lengths by reading the footer
+            FSDataInputStreamTail fileTail = FSDataInputStreamTail.readTail(getId().toString(), getEstimatedSize(), inputStream, length);
+            tailSlice = fileTail.getTailSlice();
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error reading tail from %s with length %s", id, length), e);
+        }
+        long currentReadTimeNanos = System.nanoTime() - start;
+
+        readTimeNanos += currentReadTimeNanos;
+        readBytes += tailSlice.length();
+        return tailSlice;
     }
 
     @Override
-    public final void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
+    public final Slice readFully(long position, int length)
+    {
+        byte[] buffer = new byte[length];
+        readFully(position, buffer, 0, length);
+        return Slices.wrappedBuffer(buffer);
+    }
+
+    private void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
     {
         readBytes += bufferLength;
 
@@ -217,17 +238,7 @@ public class HdfsParquetDataSource
         return slices.build();
     }
 
-    public static HdfsParquetDataSource buildHdfsParquetDataSource(
-            FSDataInputStream inputStream,
-            Path path,
-            long fileSize,
-            FileFormatDataSourceStats stats,
-            ParquetReaderOptions options)
-    {
-        return new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), fileSize, inputStream, stats, options);
-    }
-
-    public static List<DiskRange> mergeAdjacentDiskRanges(Collection<DiskRange> diskRanges, DataSize maxMergeDistance, DataSize maxReadSize)
+    private static List<DiskRange> mergeAdjacentDiskRanges(Collection<DiskRange> diskRanges, DataSize maxMergeDistance, DataSize maxReadSize)
     {
         // sort ranges by start offset
         List<DiskRange> ranges = new ArrayList<>(diskRanges);

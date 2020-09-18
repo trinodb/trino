@@ -199,7 +199,8 @@ public class TestCachingOrcDataSource
                 .withMaxMergeDistance(maxMergeDistance)
                 .withTinyStripeThreshold(tinyStripeThreshold)
                 .withMaxReadBlockSize(DataSize.of(1, Unit.MEGABYTE));
-        OrcReader orcReader = new OrcReader(orcDataSource, options);
+        OrcReader orcReader = OrcReader.createOrcReader(orcDataSource, options)
+                .orElseThrow(() -> new RuntimeException("File is empty"));
         // 1 for reading file footer
         assertEquals(orcDataSource.getReadCount(), 1);
         List<StripeInformation> stripes = orcReader.getFooter().getStripes();
@@ -283,7 +284,19 @@ public class TestCachingOrcDataSource
         }
 
         @Override
-        public long getSize()
+        public long getEstimatedSize()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Slice readTail(int length)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getRetainedSize()
         {
             throw new UnsupportedOperationException();
         }

@@ -39,6 +39,10 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.WORKER;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.WORKER_NTH;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -79,15 +83,14 @@ public final class Standard
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addContainer("presto-master", createPrestoMaster());
-        builder.addContainer("tests", createTestsContainer());
+        builder.addContainers(createPrestoMaster(), createTestsContainer());
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createPrestoMaster()
     {
         DockerContainer container =
-                createPrestoContainer(dockerFiles, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
+                createPrestoContainer(dockerFiles, serverPackage, "prestodev/centos7-oj11:" + imagesVersion, COORDINATOR)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/access-control.properties")), CONTAINER_PRESTO_ACCESS_CONTROL_PROPERTIES)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
 
@@ -98,7 +101,7 @@ public final class Standard
     @SuppressWarnings("resource")
     private DockerContainer createTestsContainer()
     {
-        DockerContainer container = new DockerContainer("prestodev/centos6-oj8:" + imagesVersion)
+        DockerContainer container = new DockerContainer("prestodev/centos6-oj8:" + imagesVersion, TESTS)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withCommand("bash", "-xeuc", "echo 'No command provided' >&2; exit 69")
                 .waitingFor(new WaitAllStrategy()) // don't wait
@@ -108,9 +111,10 @@ public final class Standard
     }
 
     @SuppressWarnings("resource")
-    public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, File serverPackage, String dockerImageName)
+    public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, File serverPackage, String dockerImageName, String logicalName)
     {
-        return new DockerContainer(dockerImageName)
+        return new DockerContainer(dockerImageName, logicalName)
+                .withNetworkAliases(logicalName + ".docker.cluster")
                 .withExposedLogPaths("/var/presto/var/log")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
@@ -122,19 +126,21 @@ public final class Standard
                 .withStartupTimeout(Duration.ofMinutes(5));
     }
 
-    public static void enablePrestoJavaDebugger(String containerName, DockerContainer dockerContainer)
+    public static void enablePrestoJavaDebugger(DockerContainer dockerContainer)
     {
-        if (containerName.equals("presto-master")) {
-            enablePrestoJavaDebugger(dockerContainer, containerName, 5005);
+        String logicalName = dockerContainer.getLogicalName();
+
+        if (logicalName.equals(COORDINATOR)) {
+            enablePrestoJavaDebugger(dockerContainer, logicalName, 5005);
         }
 
-        if (containerName.equals("presto-worker")) {
-            enablePrestoJavaDebugger(dockerContainer, containerName, 5009);
+        if (logicalName.equals(WORKER)) {
+            enablePrestoJavaDebugger(dockerContainer, logicalName, 5009);
         }
 
-        if (containerName.startsWith("presto-worker-")) {
-            int workerNumber = Integer.valueOf(containerName.substring(14));
-            enablePrestoJavaDebugger(dockerContainer, containerName, 5008 + workerNumber);
+        if (logicalName.startsWith(WORKER_NTH)) {
+            int workerNumber = Integer.valueOf(logicalName.substring(WORKER_NTH.length()));
+            enablePrestoJavaDebugger(dockerContainer, logicalName, 5008 + workerNumber);
         }
     }
 

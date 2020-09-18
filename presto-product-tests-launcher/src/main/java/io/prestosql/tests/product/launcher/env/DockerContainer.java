@@ -13,9 +13,15 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.model.Statistics;
+import com.github.dockerjava.core.InvocationBuilder;
+import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
 import com.google.common.io.RecursiveDeleteOption;
 import io.airlift.log.Logger;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.SelinuxContext;
@@ -31,24 +37,41 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Stream;
 
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.testcontainers.containers.BindMode.READ_WRITE;
 
 public class DockerContainer
         extends FixedHostPortGenericContainer<DockerContainer>
 {
     private static final Logger log = Logger.get(DockerContainer.class);
-    private List<String> logPaths = new ArrayList<>();
 
-    public DockerContainer(String dockerImageName)
+    private String logicalName;
+    private List<String> logPaths = new ArrayList<>();
+    private Optional<EnvironmentListener> listener = Optional.empty();
+
+    public DockerContainer(String dockerImageName, String logicalName)
     {
         super(dockerImageName);
+        this.logicalName = requireNonNull(logicalName, "logicalName is null");
 
         // workaround for https://github.com/testcontainers/testcontainers-java/pull/2861
         setCopyToFileContainerPathMap(new LinkedHashMap<>());
+    }
+
+    public String getLogicalName()
+    {
+        return logicalName;
+    }
+
+    public DockerContainer withEnvironmentListener(Optional<EnvironmentListener> listener)
+    {
+        this.listener = requireNonNull(listener, "listener is null");
+        return this;
     }
 
     @Override
@@ -99,22 +122,124 @@ public class DockerContainer
         return this;
     }
 
-    public void exposeLogsInHostPath(Path hostBasePath)
+    @Override
+    protected void containerIsStarting(InspectContainerResponse containerInfo)
     {
-        for (String containerLogPath : logPaths) {
-            Path hostLogPath = Paths.get(hostBasePath.toString(), containerLogPath);
-            cleanOrCreateHostPath(hostLogPath);
-            withFileSystemBind(hostLogPath.toString(), containerLogPath, READ_WRITE);
-        }
+        super.containerIsStarting(containerInfo);
+        this.listener.ifPresent(listener -> listener.containerStarting(this, containerInfo));
+    }
 
-        logPaths = null;
+    @Override
+    protected void containerIsStarted(InspectContainerResponse containerInfo)
+    {
+        super.containerIsStarted(containerInfo);
+        this.listener.ifPresent(listener -> listener.containerStarted(this, containerInfo));
+    }
+
+    @Override
+    protected void containerIsStopping(InspectContainerResponse containerInfo)
+    {
+        super.containerIsStopping(containerInfo);
+        this.listener.ifPresent(listener -> listener.containerStopping(this, containerInfo));
+    }
+
+    @Override
+    protected void containerIsStopped(InspectContainerResponse containerInfo)
+    {
+        super.containerIsStopped(containerInfo);
+        this.listener.ifPresent(listener -> listener.containerStopped(this, containerInfo));
     }
 
     private void copyFileToContainer(String containerPath, Runnable copy)
     {
         Stopwatch stopwatch = Stopwatch.createStarted();
         copy.run();
-        log.info("Copied files into %s in %.1f s", containerPath, stopwatch.elapsed(MILLISECONDS) / 1000.);
+        log.info("Copied files into %s %s in %.1f s", this, containerPath, stopwatch.elapsed(MILLISECONDS) / 1000.);
+    }
+
+    public void clearDependencies()
+    {
+        dependencies.clear();
+    }
+
+    public void copyLogsToHostPath(Path hostPath)
+    {
+        if (!isRunning()) {
+            log.warn("Could not copy files from stopped container %s", logicalName);
+            return;
+        }
+
+        log.info("Copying container %s logs to '%s'", logicalName, hostPath);
+
+        Path hostLogPath = Paths.get(hostPath.toString(), logicalName);
+        ensurePathExists(hostLogPath);
+
+        for (String containerLogPath : logPaths) {
+            try {
+                listFilesInContainer(containerLogPath).forEach(filename ->
+                        copyFileFromContainer(filename, hostLogPath));
+            }
+            catch (Exception e) {
+                log.warn("Could not copy logs from %s to '%s': %s", logicalName, hostPath, e);
+            }
+        }
+    }
+
+    private void copyFileFromContainer(String filename, Path rootHostPath)
+    {
+        Path targetPath = rootHostPath.resolve(filename.replaceFirst("^\\/", ""));
+
+        log.info("Copying file %s to %s", filename, targetPath);
+        ensurePathExists(targetPath.getParent());
+
+        try {
+            copyFileFromContainer(filename, targetPath.toString());
+        }
+        catch (Exception e) {
+            log.warn("Could not copy file from %s to %s", filename, targetPath);
+        }
+    }
+
+    private Stream<String> listFilesInContainer(String path)
+    {
+        try {
+            ExecResult result = execInContainer("/usr/bin/find", path, "-type", "f", "-print");
+
+            if (result.getExitCode() == 0L) {
+                return Splitter.on("\n")
+                        .omitEmptyStrings()
+                        .splitToStream(result.getStdout());
+            }
+
+            log.warn("Could not list files in %s: %s", path, result.getStderr());
+        }
+        catch (Exception e) {
+            log.warn("Could not list files in container '%s': %s", logicalName, e);
+        }
+
+        return Stream.empty();
+    }
+
+    public Optional<Statistics> getStats()
+    {
+        try (DockerClient client = DockerClientFactory.lazyClient()) {
+            InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>();
+            client.statsCmd(getContainerId()).exec(callback);
+            return Optional.ofNullable(callback.awaitResult());
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        catch (Exception e) {
+            log.error("Could not fetch container %s statistics: %s", logicalName, getStackTraceAsString(e));
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public String toString()
+    {
+        return logicalName;
     }
 
     // Mounting a non-existing file results in docker creating a directory. This is often not the desired effect. Fail fast instead.
@@ -123,11 +248,6 @@ public class DockerContainer
         if (!Files.exists(Paths.get(hostPath))) {
             throw new IllegalArgumentException("Host path does not exist: " + hostPath);
         }
-    }
-
-    public void clearDependencies()
-    {
-        dependencies.clear();
     }
 
     public static void cleanOrCreateHostPath(Path path)
@@ -154,5 +274,24 @@ public class DockerContainer
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    public void tryStop()
+    {
+        try {
+            stop();
+        }
+        catch (Exception e) {
+            log.warn("Could not stop container correctly: %s", getStackTraceAsString(e));
+        }
+    }
+
+    public enum OutputMode
+    {
+        PRINT,
+        DISCARD,
+        WRITE,
+        PRINT_WRITE,
+        /**/;
     }
 }

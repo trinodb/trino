@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Properties;
 
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
@@ -51,10 +50,6 @@ public class TestingOracleServer
         withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/docker-entrypoint-initdb.d/init.sql");
 
         start();
-
-        Properties properties = new Properties();
-        properties.put("user", getUsername());
-        properties.put("password", getPassword());
 
         try (Connection connection = getConnectionFactory().openConnection(IDENTITY);
                 Statement statement = connection.createStatement()) {

@@ -107,7 +107,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
@@ -217,7 +217,7 @@ public class HivePageSource
                 else if (type.equals(TIMESTAMP_MILLIS)) {
                     prefilledValue = timestampPartitionKey(columnValue, name);
                 }
-                else if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                else if (type.equals(TIMESTAMP_TZ_MILLIS)) {
                     // used for $file_modified_time
                     prefilledValue = packDateTimeWithZone(timestampPartitionKey(columnValue, name), DateTimeZone.getDefault().getID());
                 }

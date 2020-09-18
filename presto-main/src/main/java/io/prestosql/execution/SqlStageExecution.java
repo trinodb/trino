@@ -294,7 +294,7 @@ public final class SqlStageExecution
                 stateMachine.getState(),
                 tasks.size(),
                 tasks.stream()
-                        .map(task -> task.getTaskStatus().getDynamicFilterDomains())
+                        .map(RemoteTask::getDynamicFilterDomains)
                         .collect(toImmutableList()));
     }
 

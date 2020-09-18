@@ -63,9 +63,18 @@ public class CachingOrcDataSource
     }
 
     @Override
-    public long getSize()
+    public long getEstimatedSize()
     {
-        return dataSource.getSize();
+        return dataSource.getEstimatedSize();
+    }
+
+    @Override
+    public long getRetainedSize()
+    {
+        // Only return retained memory from delegate data source. The cache in this class
+        // is normally reported by an OrcDataReader, and we favor missing memory reporting
+        // to double reporting.
+        return dataSource.getRetainedSize();
     }
 
     @VisibleForTesting
@@ -76,6 +85,13 @@ public class CachingOrcDataSource
         cachePosition = newCacheRange.getOffset();
         cacheLength = newCacheRange.getLength();
         cache = dataSource.readFully(newCacheRange.getOffset(), cacheLength);
+    }
+
+    @Override
+    public Slice readTail(int length)
+    {
+        // caching data source is not used for tail reads, and would be complex to implement
+        throw new UnsupportedOperationException();
     }
 
     @Override

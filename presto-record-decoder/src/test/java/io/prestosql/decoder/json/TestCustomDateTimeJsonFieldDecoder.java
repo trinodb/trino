@@ -36,6 +36,7 @@ public class TestCustomDateTimeJsonFieldDecoder
     private final JsonFieldDecoderTester timestampTester = new JsonFieldDecoderTester("custom-date-time", "MM/yyyy/dd H:m:s");
     private final JsonFieldDecoderTester timestampWithTimeZoneTester = new JsonFieldDecoderTester("custom-date-time", "MM/yyyy/dd H:m:s Z");
     private final JsonFieldDecoderTester timeTester = new JsonFieldDecoderTester("custom-date-time", "mm:HH:ss");
+    private final JsonFieldDecoderTester timeWTZTester = new JsonFieldDecoderTester("custom-date-time", "HH:mm:ss.SSSZ");
     private final JsonFieldDecoderTester dateTester = new JsonFieldDecoderTester("custom-date-time", "MM/yyyy/dd");
     private final JsonFieldDecoderTester timeJustHourTester = new JsonFieldDecoderTester("custom-date-time", "HH");
 
@@ -50,6 +51,8 @@ public class TestCustomDateTimeJsonFieldDecoder
         timeJustHourTester.assertDecodedAs("\"15\"", TIME, 54_000_000_000_000_000L);
         timeJustHourTester.assertDecodedAs("15", TIME, 54_000_000_000_000_000L);
         timeTester.assertDecodedAs("\"15:13:18\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(47_718_000_000_000L, 0));
+        timeWTZTester.assertDecodedAs("\"15:13:18.123-04:00\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(54_798_123_000_000L, -4 * 60));
+        timeWTZTester.assertDecodedAs("\"15:13:18.123+08:00\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(54_798_123_000_000L, 8 * 60));
         dateTester.assertDecodedAs("\"02/2018/11\"", DATE, 17573);
     }
 

@@ -107,7 +107,7 @@ public class HivePageSourceProvider
                 hiveSplit.getBucketNumber(),
                 hiveSplit.getStart(),
                 hiveSplit.getLength(),
-                hiveSplit.getFileSize(),
+                hiveSplit.getEstimatedFileSize(),
                 hiveSplit.getFileModifiedTime(),
                 hiveSplit.getSchema(),
                 hiveTable.getCompactEffectivePredicate().intersect(dynamicFilter.transform(HiveColumnHandle.class::cast).simplify()),
@@ -134,7 +134,7 @@ public class HivePageSourceProvider
             OptionalInt bucketNumber,
             long start,
             long length,
-            long fileSize,
+            long estimatedFileSize,
             long fileModifiedTime,
             Properties schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -159,7 +159,7 @@ public class HivePageSourceProvider
                 tableToPartitionMapping,
                 path,
                 bucketNumber,
-                fileSize,
+                estimatedFileSize,
                 fileModifiedTime);
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 
@@ -174,7 +174,7 @@ public class HivePageSourceProvider
                     path,
                     start,
                     length,
-                    fileSize,
+                    estimatedFileSize,
                     schema,
                     desiredColumns,
                     effectivePredicate,
@@ -209,7 +209,7 @@ public class HivePageSourceProvider
                     path,
                     start,
                     length,
-                    fileSize,
+                    estimatedFileSize,
                     schema,
                     desiredColumns,
                     effectivePredicate,
@@ -341,7 +341,7 @@ public class HivePageSourceProvider
                 TableToPartitionMapping tableToPartitionMapping,
                 Path path,
                 OptionalInt bucketNumber,
-                long fileSize,
+                long estimatedFileSize,
                 long fileModifiedTime)
         {
             Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
@@ -362,7 +362,7 @@ public class HivePageSourceProvider
                     }
 
                     checkArgument(
-                            projectionsForColumn.computeIfAbsent(column.getBaseHiveColumnIndex(), HashSet::new).add(column.getHiveColumnProjectionInfo()),
+                            projectionsForColumn.computeIfAbsent(column.getBaseHiveColumnIndex(), columnIndex -> new HashSet<>()).add(column.getHiveColumnProjectionInfo()),
                             "duplicate column in columns list");
 
                     // Add regular mapping if projection is valid for partition schema, otherwise add an empty mapping
@@ -378,7 +378,7 @@ public class HivePageSourceProvider
                 else {
                     columnMappings.add(prefilled(
                             column,
-                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, fileSize, fileModifiedTime, partitionName),
+                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, estimatedFileSize, fileModifiedTime, partitionName),
                             baseTypeCoercionFrom));
                 }
             }

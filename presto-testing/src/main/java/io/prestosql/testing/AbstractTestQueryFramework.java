@@ -441,11 +441,15 @@ public abstract class AbstractTestQueryFramework
                         return false;
                     }
                     FilterNode filterNode = (FilterNode) projectNode.getSource();
+                    if (!(filterNode.getSource() instanceof TableScanNode)) {
+                        return false;
+                    }
                     TableScanNode tableScanNode = (TableScanNode) filterNode.getSource();
                     return tableName.equals(tableScanNode.getTable().getConnectorHandle().toString());
                 })
                 .findOnlyElement()
                 .getId();
+
         return runner.getCoordinator()
                 .getQueryManager()
                 .getFullQueryInfo(queryId)

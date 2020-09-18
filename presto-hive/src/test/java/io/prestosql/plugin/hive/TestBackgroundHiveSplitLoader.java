@@ -351,7 +351,8 @@ public class TestBackgroundHiveSplitLoader
             throws Exception
     {
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
-                new DynamicFilter() {
+                new DynamicFilter()
+                {
                     @Override
                     public CompletableFuture<?> isBlocked()
                     {
@@ -369,6 +370,12 @@ public class TestBackgroundHiveSplitLoader
                     public boolean isComplete()
                     {
                         return false;
+                    }
+
+                    @Override
+                    public boolean isAwaitable()
+                    {
+                        return true;
                     }
 
                     @Override

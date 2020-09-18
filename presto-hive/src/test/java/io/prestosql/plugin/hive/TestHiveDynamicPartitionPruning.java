@@ -16,7 +16,6 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.prestosql.Session;
-import io.prestosql.operator.OperatorStats;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.ValueSet;
@@ -35,6 +34,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.SystemSessionProperties.DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.server.DynamicFilterService.DynamicFilterDomainStats;
@@ -74,7 +74,7 @@ public class TestHiveDynamicPartitionPruning
         super.init();
         // setup partitioned fact table for dynamic partition pruning
         @Language("SQL") String sql = format("CREATE TABLE %s WITH (format = 'TEXTFILE', partitioned_by=array['suppkey']) AS " +
-                "SELECT orderkey, partkey, linenumber, suppkey FROM %s", PARTITIONED_LINEITEM, "tpch.tiny.lineitem");
+                "SELECT orderkey, partkey, suppkey FROM %s", PARTITIONED_LINEITEM, "tpch.tiny.lineitem");
         long start = System.nanoTime();
         long rows = (Long) getQueryRunner().execute(sql).getMaterializedRows().get(0).getField(0);
         log.info("Imported %s rows for %s in %s", rows, PARTITIONED_LINEITEM, nanosSince(start).convertToMostSuccinctTimeUnit());
@@ -86,6 +86,7 @@ public class TestHiveDynamicPartitionPruning
         return Session.builder(super.getSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name()) // Avoid node local DF
+                .setSystemProperty(DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER, "100000")
                 .build();
     }
 
@@ -98,9 +99,8 @@ public class TestHiveDynamicPartitionPruning
                 "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'");
         assertEquals(result.getResult().getRowCount(), 0);
 
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch:" + PARTITIONED_LINEITEM);
-        assertEquals(probeStats.getInputPositions(), 0L);
-        assertEquals(probeStats.getDynamicFilterSplitsProcessed(), 0L);
+        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
+        // after https://github.com/prestosql/presto/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -124,10 +124,8 @@ public class TestHiveDynamicPartitionPruning
                         "AND supplier.name = 'Supplier#000000001'");
         assertGreaterThan(result.getResult().getRowCount(), 0);
 
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch:" + PARTITIONED_LINEITEM);
-        // Probe-side is partially scanned
-        assertEquals(probeStats.getInputPositions(), 615);
-        assertEquals(probeStats.getDynamicFilterSplitsProcessed(), 0L);
+        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
+        // after https://github.com/prestosql/presto/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -150,10 +148,8 @@ public class TestHiveDynamicPartitionPruning
                 "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey");
         assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
 
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch:" + PARTITIONED_LINEITEM);
-        // Probe-side is fully scanned
-        assertEquals(probeStats.getInputPositions(), LINEITEM_COUNT);
-        assertEquals(probeStats.getDynamicFilterSplitsProcessed(), 0L);
+        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
+        // after https://github.com/prestosql/presto/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -178,10 +174,8 @@ public class TestHiveDynamicPartitionPruning
                 "SELECT * FROM partitioned_lineitem JOIN orders ON partitioned_lineitem.orderkey = orders.orderkey");
         assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
 
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch:" + PARTITIONED_LINEITEM);
-        // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
-        assertEquals(probeStats.getInputPositions(), LINEITEM_COUNT);
-        assertEquals(probeStats.getDynamicFilterSplitsProcessed(), 0L);
+        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
+        // after https://github.com/prestosql/presto/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -190,7 +184,11 @@ public class TestHiveDynamicPartitionPruning
         assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), Domain.all(INTEGER).toString(getSession().toConnectorSession()));
+        assertEquals(
+                domainStats.getSimplifiedDomain(),
+                Domain.create(
+                        ValueSet.ofRanges(range(INTEGER, 1L, true, 60000L, true)), false)
+                        .toString(getSession().toConnectorSession()));
         assertEquals(domainStats.getDiscreteValuesCount(), 0);
         assertEquals(domainStats.getRangeCount(), 1);
     }
@@ -208,10 +206,8 @@ public class TestHiveDynamicPartitionPruning
                         ") t JOIN supplier ON t.suppkey = supplier.suppkey AND supplier.suppkey IN (2, 3)");
         assertGreaterThan(result.getResult().getRowCount(), 0);
 
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch:" + PARTITIONED_LINEITEM);
-        // Probe-side is partially scanned
-        assertEquals(probeStats.getInputPositions(), 558L);
-        assertEquals(probeStats.getDynamicFilterSplitsProcessed(), 0L);
+        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
+        // after https://github.com/prestosql/presto/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 2L);
@@ -225,6 +221,108 @@ public class TestHiveDynamicPartitionPruning
             assertGreaterThanOrEqual(stats.getRangeCount(), 1);
             assertEquals(stats.getDiscreteValuesCount(), 0);
         });
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSemiJoinWithEmptyBuildSide()
+    {
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                getSession(),
+                "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'abc')");
+        assertEquals(result.getResult().getRowCount(), 0);
+
+        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
+        // after https://github.com/prestosql/presto/issues/5120 is fixed
+
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
+        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+
+        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
+        assertEquals(domainStats.getSimplifiedDomain(), none(INTEGER).toString(getSession().toConnectorSession()));
+        assertEquals(domainStats.getDiscreteValuesCount(), 0);
+        assertEquals(domainStats.getRangeCount(), 0);
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSemiJoinWithSelectiveBuildSide()
+    {
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                getSession(),
+                "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'Supplier#000000001')");
+        assertGreaterThan(result.getResult().getRowCount(), 0);
+
+        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
+        // after https://github.com/prestosql/presto/issues/5120 is fixed
+
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
+        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+
+        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
+        assertEquals(domainStats.getSimplifiedDomain(), singleValue(INTEGER, 1L).toString(getSession().toConnectorSession()));
+        assertEquals(domainStats.getDiscreteValuesCount(), 0);
+        assertEquals(domainStats.getRangeCount(), 1);
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSemiJoinWithNonSelectiveBuildSide()
+    {
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                getSession(),
+                "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier)");
+        assertGreaterThan(result.getResult().getRowCount(), 0);
+
+        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
+        // after https://github.com/prestosql/presto/issues/5120 is fixed
+
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
+        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+
+        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
+        assertEquals(domainStats.getSimplifiedDomain(), Domain.create(ValueSet.ofRanges(
+                range(INTEGER, 1L, true, 100L, true)), false)
+                .toString(getSession().toConnectorSession()));
+        assertEquals(domainStats.getDiscreteValuesCount(), 0);
+        assertEquals(domainStats.getRangeCount(), 1);
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSemiJoinLargeBuildSideNoDynamicFiltering()
+    {
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                getSession(),
+                "SELECT * FROM partitioned_lineitem WHERE orderkey IN (SELECT orderkey FROM orders)");
+        assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
+
+        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
+        // after https://github.com/prestosql/presto/issues/5120 is fixed
+
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
+        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+
+        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
+        assertEquals(
+                domainStats.getSimplifiedDomain(),
+                Domain.create(
+                        ValueSet.ofRanges(range(INTEGER, 1L, true, 60000L, true)), false)
+                        .toString(getSession().toConnectorSession()));
+        assertEquals(domainStats.getDiscreteValuesCount(), 0);
+        assertEquals(domainStats.getRangeCount(), 1);
     }
 
     private DynamicFiltersStats getDynamicFilteringStats(QueryId queryId)

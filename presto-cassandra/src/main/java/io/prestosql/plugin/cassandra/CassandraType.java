@@ -73,7 +73,7 @@ public enum CassandraType
     DECIMAL(DoubleType.DOUBLE),
 
     DATE(DateType.DATE),
-    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE),
+    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS),
 
     ASCII(createUnboundedVarcharType()),
     TEXT(createUnboundedVarcharType()),
@@ -501,7 +501,7 @@ public enum CassandraType
         if (type.equals(VarbinaryType.VARBINARY)) {
             return BLOB;
         }
-        if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
+        if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS)) {
             return TIMESTAMP;
         }
         throw new IllegalArgumentException("unsupported type: " + type);

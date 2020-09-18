@@ -84,6 +84,7 @@ public class MemoryLocalQueryRunner
         TaskContext taskContext = queryContext
                 .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), localQueryRunner.getExecutor()),
                         localQueryRunner.getDefaultSession(),
+                        () -> {},
                         false,
                         false,
                         OptionalInt.empty());

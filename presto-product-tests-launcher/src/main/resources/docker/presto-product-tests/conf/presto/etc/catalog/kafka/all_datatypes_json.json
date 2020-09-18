@@ -78,12 +78,6 @@
         "dataFormat": "iso8601"
       },
       {
-        "name": "c_date_rfc2822",
-        "type": "DATE",
-        "mapping": "j_date_rfc2822",
-        "dataFormat": "rfc2822"
-      },
-      {
         "name": "c_date_custom",
         "type": "DATE",
         "mapping": "j_date_custom",
@@ -107,12 +101,6 @@
         "type": "TIME",
         "mapping": "j_time_iso8601",
         "dataFormat": "iso8601"
-      },
-      {
-        "name": "c_time_rfc2822",
-        "type": "TIME",
-        "mapping": "j_time_rfc2822",
-        "dataFormat": "rfc2822"
       },
       {
         "name": "c_time_custom",
@@ -169,12 +157,6 @@
         "type": "TIME WITH TIME ZONE",
         "mapping": "j_timetz_iso8601",
         "dataFormat": "iso8601"
-      },
-      {
-        "name": "c_timetz_rfc2822",
-        "type": "TIME WITH TIME ZONE",
-        "mapping": "j_timetz_rfc2822",
-        "dataFormat": "rfc2822"
       },
       {
         "name": "c_timetz_custom",

@@ -27,6 +27,7 @@ import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -52,19 +53,19 @@ public final class SinglenodePostgresql
     @Override
     protected void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer("presto-master", container -> container
+        builder.configureContainer(COORDINATOR, container -> container
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-postgresql/postgresql.properties")),
                         CONTAINER_PRESTO_ETC + "/catalog/postgresql.properties"));
 
-        builder.addContainer("postgresql", createPostgreSql());
+        builder.addContainer(createPostgreSql());
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createPostgreSql()
     {
         // Use the oldest supported PostgreSQL version
-        DockerContainer container = new DockerContainer("postgres:9.5")
+        DockerContainer container = new DockerContainer("postgres:9.5", "postgresql")
                 .withEnv("POSTGRES_PASSWORD", "test")
                 .withEnv("POSTGRES_USER", "test")
                 .withEnv("POSTGRES_DB", "test")

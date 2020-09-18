@@ -28,6 +28,8 @@ import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -54,28 +56,28 @@ public class SinglenodeSparkIceberg
     @Override
     protected void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer("hadoop-master", dockerContainer -> {
+        builder.configureContainer(HADOOP, dockerContainer -> {
             dockerContainer.setDockerImageName("prestodev/hdp3.1-hive:" + hadoopImagesVersion);
             dockerContainer.withCreateContainerCmdModifier(createContainerCmd ->
                     createContainerCmd.withEntrypoint(ImmutableList.of(("/docker/presto-product-tests/conf/environment/singlenode-hdp3/hadoop-entrypoint.sh"))));
         });
 
-        builder.configureContainer("presto-master", container -> container
+        builder.configureContainer(COORDINATOR, container -> container
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg/iceberg.properties")),
                         CONTAINER_PRESTO_ETC + "/catalog/iceberg.properties"));
 
         DockerContainer spark = createSpark();
         // Spark needs the HMS to be up before it starts
-        builder.configureContainer("hadoop-master", spark::dependsOn);
+        builder.configureContainer(HADOOP, spark::dependsOn);
 
-        builder.addContainer("spark", spark);
+        builder.addContainer(spark);
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createSpark()
     {
-        DockerContainer container = new DockerContainer("prestodev/spark3.0-iceberg:" + hadoopImagesVersion)
+        DockerContainer container = new DockerContainer("prestodev/spark3.0-iceberg:" + hadoopImagesVersion, "spark")
                 .withEnv("HADOOP_USER_NAME", "hive")
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg/spark-defaults.conf")),

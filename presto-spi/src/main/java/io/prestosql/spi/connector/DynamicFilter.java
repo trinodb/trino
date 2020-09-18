@@ -36,6 +36,12 @@ public interface DynamicFilter
         }
 
         @Override
+        public boolean isAwaitable()
+        {
+            return false;
+        }
+
+        @Override
         public TupleDomain<ColumnHandle> getCurrentPredicate()
         {
             return TupleDomain.all();  // no filtering
@@ -43,7 +49,9 @@ public interface DynamicFilter
     };
 
     /**
-     * Block until dynamic filter is narrowed down.
+     * Returned a future, which blocks until dynamic filter is narrowed down. Future
+     * completes immediately if filter cannot be narrowed down more or filter
+     * cannot be waited for (consult result of {@link DynamicFilter#isAwaitable()} method).
      * Dynamic filter might be narrowed down multiple times during query runtime.
      */
     CompletableFuture<?> isBlocked();
@@ -52,6 +60,13 @@ public interface DynamicFilter
      * Returns true it dynamic filter cannot be narrowed more.
      */
     boolean isComplete();
+
+    /**
+     * Returns true if dynamic filter can be narrowed down more and
+     * {@link DynamicFilter#isBlocked()} method can be used to wait for
+     * narrowed filter.
+     */
+    boolean isAwaitable();
 
     TupleDomain<ColumnHandle> getCurrentPredicate();
 }

@@ -23,12 +23,15 @@ import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Kerberos;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
+import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
 import java.time.Duration;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -64,7 +67,7 @@ public final class TwoMixedHives
     @Override
     protected void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer("presto-master", container -> {
+        builder.configureContainer(COORDINATOR, container -> {
             container.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hive1.properties")),
                     CONTAINER_PRESTO_ETC + "/catalog/hive1.properties");
@@ -79,13 +82,15 @@ public final class TwoMixedHives
                     CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties");
         });
 
-        builder.addContainer("hadoop-master-2", createHadoopMaster2());
+        builder.addContainer(createHadoopMaster2());
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createHadoopMaster2()
     {
-        DockerContainer container = new DockerContainer(hadoopBaseImage + ":" + hadoopImagesVersion)
+        DockerContainer container = new DockerContainer(hadoopBaseImage + ":" + hadoopImagesVersion, HADOOP + "-2")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
+                .withExposedLogPaths("/var/log/hadoop-yarn", "/var/log/hadoop-hdfs", "/var/log/hive")
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hadoop-master-2/core-site.xml")),
                         "/etc/hadoop/conf/core-site.xml")
@@ -96,7 +101,7 @@ public final class TwoMixedHives
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hadoop-master-2/yarn-site.xml")),
                         "/etc/hadoop/conf/yarn-site.xml")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                // TODO .waitingFor(...)
+                .waitingFor(new SelectedPortWaitStrategy(10000)) // HiveServer2
                 .withStartupTimeout(Duration.ofMinutes(5));
 
         return container;

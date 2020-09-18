@@ -60,11 +60,20 @@ public class SqlTaskExecutionFactory
         this.cpuTimerEnabled = config.isTaskCpuTimerEnabled();
     }
 
-    public SqlTaskExecution create(Session session, QueryContext queryContext, TaskStateMachine taskStateMachine, OutputBuffer outputBuffer, PlanFragment fragment, List<TaskSource> sources, OptionalInt totalPartitions)
+    public SqlTaskExecution create(
+            Session session,
+            QueryContext queryContext,
+            TaskStateMachine taskStateMachine,
+            OutputBuffer outputBuffer,
+            PlanFragment fragment,
+            List<TaskSource> sources,
+            Runnable notifyStatusChanged,
+            OptionalInt totalPartitions)
     {
         TaskContext taskContext = queryContext.addTaskContext(
                 taskStateMachine,
                 session,
+                notifyStatusChanged,
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
                 totalPartitions);

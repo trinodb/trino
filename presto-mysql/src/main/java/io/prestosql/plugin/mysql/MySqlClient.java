@@ -90,7 +90,7 @@ import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -257,7 +257,7 @@ public class MySqlClient
         if (REAL.equals(type)) {
             return WriteMapping.longMapping("float", realWriteFunction());
         }
-        if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+        if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_TZ_MILLIS.equals(type)) {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
         }
         if (TIMESTAMP_MILLIS.equals(type)) {
@@ -333,8 +333,12 @@ public class MySqlClient
     @Override
     protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
+        String tableCopyFormat = "CREATE TABLE %s AS SELECT * FROM %s WHERE 0 = 1";
+        if (isGtidMode(connection)) {
+            tableCopyFormat = "CREATE TABLE %s LIKE %s";
+        }
         String sql = format(
-                "CREATE TABLE %s LIKE %s",
+                tableCopyFormat,
                 quoted(catalogName, schemaName, newTableName),
                 quoted(catalogName, schemaName, tableName));
         execute(connection, sql);
@@ -368,6 +372,21 @@ public class MySqlClient
                 (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
                 varcharWriteFunction(),
                 DISABLE_PUSHDOWN);
+    }
+
+    private static boolean isGtidMode(Connection connection)
+    {
+        try (java.sql.Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery("SHOW VARIABLES LIKE 'gtid_mode'")) {
+            if (resultSet.next()) {
+                return !resultSet.getString("Value").equalsIgnoreCase("OFF");
+            }
+
+            return false;
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
     }
 
     private static Optional<ColumnMapping> getUnsignedMapping(JdbcTypeHandle typeHandle)

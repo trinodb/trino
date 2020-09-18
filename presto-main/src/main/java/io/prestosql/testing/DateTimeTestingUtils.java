@@ -13,22 +13,60 @@
  */
 package io.prestosql.testing;
 
+import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlTime;
+import io.prestosql.spi.type.SqlTimeWithTimeZone;
 import io.prestosql.spi.type.SqlTimestamp;
+import io.prestosql.spi.type.SqlTimestampWithTimeZone;
+import io.prestosql.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZonedDateTime;
 
+import static io.prestosql.type.DateTimes.MILLISECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.NANOSECONDS_PER_MILLISECOND;
 import static io.prestosql.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static java.lang.Math.toIntExact;
+import static java.time.temporal.ChronoField.EPOCH_DAY;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public final class DateTimeTestingUtils
 {
+    private static final int NANOSECONDS_PER_SECOND = 1_000_000_000;
+
     private DateTimeTestingUtils() {}
+
+    public static SqlDate sqlDateOf(int year, int monthOfYear, int dayOfMonth)
+    {
+        return sqlDateOf(LocalDate.of(year, monthOfYear, dayOfMonth));
+    }
+
+    public static SqlDate sqlDateOf(LocalDate date)
+    {
+        return new SqlDate((int) date.getLong(EPOCH_DAY));
+    }
+
+    public static SqlTimeWithTimeZone sqlTimeWithTimeZoneOf(int precision, int hour, int minuteOfHour, int secondOfMinute, int nanoOfSecond, int offsetHours, int offsetMinutes)
+    {
+        long picos = (hour * 3600 + minuteOfHour * 60 + secondOfMinute) * PICOSECONDS_PER_SECOND + scaleNanosToPicos(nanoOfSecond);
+        return SqlTimeWithTimeZone.newInstance(precision, picos, offsetHours * 60 + offsetMinutes);
+    }
+
+    public static SqlTimestampWithTimeZone sqlTimestampWithTimeZoneOf(int precision, int year, int month, int day, int hour, int minute, int second, int nanoOfSecond, TimeZoneKey timeZoneKey)
+    {
+        ZonedDateTime base = ZonedDateTime.of(year, month, day, hour, minute, second, 0, timeZoneKey.getZoneId());
+
+        long epochMillis = base.toEpochSecond() * MILLISECONDS_PER_SECOND + nanoOfSecond / NANOSECONDS_PER_MILLISECOND;
+        int picosOfMilli = (int) scaleNanosToPicos(nanoOfSecond);
+
+        return SqlTimestampWithTimeZone.newInstance(precision, epochMillis, picosOfMilli, timeZoneKey);
+    }
 
     public static SqlTimestamp sqlTimestampOf(
             int precision,
@@ -80,6 +118,20 @@ public final class DateTimeTestingUtils
     }
 
     public static SqlTime sqlTimeOf(
+            int precision,
+            int hour,
+            int minuteOfHour,
+            int secondOfMinute,
+            int nanoOfSecond)
+    {
+        return sqlTimeOf(precision, LocalTime.of(hour, minuteOfHour, secondOfMinute, nanoOfSecond));
+    }
+
+    /**
+     * @deprecated Use {@link #sqlTimeOf(int precision, int hour, int minuteOfHour, int secondOfMinute, int nanoOfSecond)}
+     */
+    @Deprecated
+    public static SqlTime sqlTimeOf(
             int hourOfDay,
             int minuteOfHour,
             int secondOfMinute,
@@ -89,9 +141,23 @@ public final class DateTimeTestingUtils
         return sqlTimeOf(time);
     }
 
+    /**
+     * @deprecated Use {@link #sqlTimeOf(int precision, LocalTime time)}
+     */
+    @Deprecated
     public static SqlTime sqlTimeOf(LocalTime time)
     {
-        return SqlTime.newInstance(3, time.toNanoOfDay() * PICOSECONDS_PER_NANOSECOND);
+        return sqlTimeOf(3, time);
+    }
+
+    public static SqlTime sqlTimeOf(int precision, LocalTime time)
+    {
+        return SqlTime.newInstance(precision, time.toNanoOfDay() * PICOSECONDS_PER_NANOSECOND);
+    }
+
+    public static long scaleNanosToPicos(long nanos)
+    {
+        return Math.multiplyExact(nanos, PICOSECONDS_PER_NANOSECOND);
     }
 
     private static int millisToNanos(int millisOfSecond)

@@ -24,9 +24,9 @@ import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.DataProviders;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingSession;
-import io.prestosql.testing.TestngUtils;
 import io.prestosql.testing.datatype.CreateAndInsertDataSetup;
 import io.prestosql.testing.datatype.CreateAndPrestoInsertDataSetup;
 import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
@@ -1109,7 +1109,7 @@ public class TestPostgreSqlTypeMapping
         };
     }
 
-    @Test(dataProvider = "trueFalse", dataProviderClass = TestngUtils.class)
+    @Test(dataProvider = "trueFalse", dataProviderClass = DataProviders.class)
     public void testTimestampWithTimeZone(boolean insertWithPresto)
     {
         DataTypeTest tests = DataTypeTest.create(true);
@@ -1172,7 +1172,7 @@ public class TestPostgreSqlTypeMapping
                 "Unsupported column type: timestamp\\(7\\) with time zone");
     }
 
-    @Test(dataProvider = "trueFalse", dataProviderClass = TestngUtils.class)
+    @Test(dataProvider = "trueFalse", dataProviderClass = DataProviders.class)
     public void testArrayTimestampWithTimeZone(boolean insertWithPresto)
     {
         DataTypeTest tests = DataTypeTest.create();
@@ -1308,10 +1308,10 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testDouble()
     {
-        doublePrecisionFloatinPointTests(doubleDataType())
+        doublePrecisionFloatingPointTests(doubleDataType())
                 .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_double"));
 
-        doublePrecisionFloatinPointTests(postgreSqlDoubleDataType())
+        doublePrecisionFloatingPointTests(postgreSqlDoubleDataType())
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_double"));
     }
 
@@ -1326,7 +1326,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(floatType, null);
     }
 
-    private static DataTypeTest doublePrecisionFloatinPointTests(DataType<Double> doubleType)
+    private static DataTypeTest doublePrecisionFloatingPointTests(DataType<Double> doubleType)
     {
         return DataTypeTest.create(true)
                 .addRoundTrip(doubleType, 1.0e100d)
@@ -1372,7 +1372,7 @@ public class TestPostgreSqlTypeMapping
                 ImmutableList.of(
                         "1, NULL",
                         "2, " + databaseValue))) {
-            Session convertToVarchar = Session.builder(getSession())
+            Session convertToVarchar = Session.builder(session)
                     .setCatalogSessionProperty("postgresql", UNSUPPORTED_TYPE_HANDLING, CONVERT_TO_VARCHAR.name())
                     .build();
             assertQuery(

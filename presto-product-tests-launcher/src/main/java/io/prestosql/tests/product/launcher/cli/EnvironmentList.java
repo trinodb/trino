@@ -21,6 +21,7 @@ import io.prestosql.tests.product.launcher.env.EnvironmentConfigFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Option;
 
 import javax.inject.Inject;
@@ -30,6 +31,7 @@ import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
+import java.util.concurrent.Callable;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static java.util.Objects.requireNonNull;
@@ -40,7 +42,7 @@ import static picocli.CommandLine.Command;
         description = "List environments",
         usageHelpAutoWidth = true)
 public final class EnvironmentList
-        implements Runnable
+        implements Callable<Integer>
 {
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
     public boolean usageHelpRequested;
@@ -53,9 +55,9 @@ public final class EnvironmentList
     }
 
     @Override
-    public void run()
+    public Integer call()
     {
-        runCommand(
+        return runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
                         .add(new EnvironmentModule(EnvironmentOptions.empty(), additionalEnvironments))
@@ -64,7 +66,7 @@ public final class EnvironmentList
     }
 
     public static class Execution
-            implements Runnable
+            implements Callable<Integer>
     {
         private final PrintStream out;
         private final EnvironmentFactory factory;
@@ -85,13 +87,15 @@ public final class EnvironmentList
         }
 
         @Override
-        public void run()
+        public Integer call()
         {
             out.println("Available environments: ");
             this.factory.list().forEach(out::println);
 
             out.println("\nAvailable environment configs: ");
             this.configFactory.listConfigs().forEach(out::println);
+
+            return ExitCode.OK;
         }
     }
 }

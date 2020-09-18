@@ -30,7 +30,7 @@ import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -60,7 +60,7 @@ public class HiveColumnHandle
     public static final int FILE_MODIFIED_TIME_COLUMN_INDEX = -14;
     public static final String FILE_MODIFIED_TIME_COLUMN_NAME = "$file_modified_time";
     public static final HiveType FILE_MODIFIED_TIME_TYPE = HiveType.HIVE_TIMESTAMP;
-    public static final Type FILE_MODIFIED_TIME_TYPE_SIGNATURE = TIMESTAMP_WITH_TIME_ZONE;
+    public static final Type FILE_MODIFIED_TIME_TYPE_SIGNATURE = TIMESTAMP_TZ_MILLIS;
 
     public static final int PARTITION_COLUMN_INDEX = -15;
     public static final String PARTITION_COLUMN_NAME = "$partition";
