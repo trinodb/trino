@@ -189,11 +189,11 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testVarbinary()
     {
-        varbinaryTestCases(varbinaryDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
-
         varbinaryTestCases(byteaDataType())
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases(varbinaryDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
     }
 
     private DataTypeTest varbinaryTestCases(DataType<byte[]> varbinaryDataType)
@@ -1220,9 +1220,10 @@ public class TestPostgreSqlTypeMapping
     public void testJson()
     {
         jsonTestCases(jsonDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json"));
-        jsonTestCases(jsonDataType())
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_json"));
+
+        jsonTestCases(jsonDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json"));
     }
 
     @Test
@@ -1272,10 +1273,10 @@ public class TestPostgreSqlTypeMapping
     public void testUuid()
     {
         uuidTestCases(uuidDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_uuid"));
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_uuid"));
 
         uuidTestCases(uuidDataType())
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_uuid"));
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_uuid"));
     }
 
     private DataTypeTest uuidTestCases(DataType<java.util.UUID> uuidDataType)
@@ -1299,21 +1300,21 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testReal()
     {
-        singlePrecisionFloatingPointTests(realDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_real"));
-
         singlePrecisionFloatingPointTests(postgreSqlRealDataType())
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_real"));
+
+        singlePrecisionFloatingPointTests(realDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_real"));
     }
 
     @Test
     public void testDouble()
     {
-        doublePrecisionFloatingPointTests(doubleDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_double"));
-
         doublePrecisionFloatingPointTests(postgreSqlDoubleDataType())
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_double"));
+
+        doublePrecisionFloatingPointTests(doubleDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_double"));
     }
 
     private static DataTypeTest singlePrecisionFloatingPointTests(DataType<Float> floatType)
