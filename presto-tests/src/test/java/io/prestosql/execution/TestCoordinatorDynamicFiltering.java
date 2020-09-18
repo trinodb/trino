@@ -279,7 +279,7 @@ public class TestCoordinatorDynamicFiltering
     private void assertQueryDynamicFilters(Session session, @Language("SQL") String query, TupleDomain<ColumnHandle> expectedTupleDomain)
     {
         expectedDynamicFilter = expectedTupleDomain;
-        computeActual(query);
+        computeActual(session, query);
     }
 
     private class TestPlugin
