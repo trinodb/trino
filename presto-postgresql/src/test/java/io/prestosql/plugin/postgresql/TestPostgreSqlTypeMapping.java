@@ -20,6 +20,7 @@ import io.airlift.json.JsonCodec;
 import io.prestosql.Session;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.TimeZoneKey;
@@ -63,6 +64,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
 import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_DEFAULT_SCALE;
@@ -75,12 +77,14 @@ import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_AR
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.DISABLED;
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
+import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.datatype.DataType.bigintDataType;
 import static io.prestosql.testing.datatype.DataType.booleanDataType;
 import static io.prestosql.testing.datatype.DataType.dataType;
@@ -211,6 +215,20 @@ public class TestPostgreSqlTypeMapping
     public void testPostgreSqlCreatedChar()
     {
         characterDataTypeTest(DataType::charDataType)
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_char"));
+
+        // too long for a char in Presto
+        int length = CharType.MAX_LENGTH + 1;
+        DataType<String> longChar = dataType(
+                format("char(%s)", length),
+                createVarcharType(length),
+                DataType::formatStringLiteral,
+                input -> padSpaces(utf8Slice(input), length).toStringUtf8());
+        String sampleFourByteUnicodeCharacter = "\uD83D\uDE02";
+        DataTypeTest.create()
+                .addRoundTrip(longChar, "text_f")
+                .addRoundTrip(longChar, "a".repeat(length))
+                .addRoundTrip(longChar, sampleFourByteUnicodeCharacter.repeat(length))
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_char"));
     }
 
