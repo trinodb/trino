@@ -78,7 +78,9 @@ public final class MetadataUtil
     {
         checkLowerCase(catalogName, "catalogName");
         checkLowerCase(schemaName, "schemaName");
-        checkLowerCase(objectName, "objectName");
+        if (!objectName.contains("://")) {
+            checkLowerCase(objectName, "objectName");
+        }
     }
 
     public static String checkLowerCase(String value, String name)
