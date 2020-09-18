@@ -710,12 +710,14 @@ public class PostgreSqlClient
         try {
             TypeInfo typeInfo = connection.unwrap(PgConnection.class).getTypeInfo();
             int pgElementOid = typeInfo.getPGArrayElement(typeInfo.getPGType(jdbcTypeName));
+            verify(arrayTypeHandle.getCaseSensitivity().isEmpty(), "Case sensitivity not supported");
             return new JdbcTypeHandle(
                     typeInfo.getSQLType(pgElementOid),
                     Optional.of(typeInfo.getPGType(pgElementOid)),
                     arrayTypeHandle.getColumnSize(),
                     arrayTypeHandle.getDecimalDigits(),
-                    arrayTypeHandle.getArrayDimensions());
+                    arrayTypeHandle.getArrayDimensions(),
+                    Optional.empty());
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
