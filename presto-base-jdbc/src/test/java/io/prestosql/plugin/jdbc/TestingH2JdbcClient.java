@@ -27,7 +27,7 @@ import java.util.Optional;
 class TestingH2JdbcClient
         extends BaseJdbcClient
 {
-    private static final JdbcTypeHandle BIGINT_TYPE_HANDLE = new JdbcTypeHandle(Types.BIGINT, Optional.empty(), -1, -1, Optional.empty(), Optional.empty());
+    private static final JdbcTypeHandle BIGINT_TYPE_HANDLE = new JdbcTypeHandle(Types.BIGINT, Optional.empty(), -1, Optional.empty(), Optional.empty(), Optional.empty());
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {

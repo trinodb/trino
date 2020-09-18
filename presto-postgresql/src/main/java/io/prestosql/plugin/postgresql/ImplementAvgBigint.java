@@ -61,6 +61,6 @@ public class ImplementAvgBigint
 
         return Optional.of(new JdbcExpression(
                 format("avg(CAST(%s AS double precision))", columnHandle.toSqlExpression(context.getIdentifierQuote())),
-                new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), 0, 0, Optional.empty(), Optional.empty())));
+                new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), 0, Optional.empty(), Optional.empty(), Optional.empty())));
     }
 }

@@ -49,14 +49,14 @@ public class TestMySqlClient
             JdbcColumnHandle.builder()
                     .setColumnName("c_bigint")
                     .setColumnType(BIGINT)
-                    .setJdbcTypeHandle(new JdbcTypeHandle(Types.BIGINT, Optional.of("int8"), 0, 0, Optional.empty(), Optional.empty()))
+                    .setJdbcTypeHandle(new JdbcTypeHandle(Types.BIGINT, Optional.of("int8"), 0, Optional.empty(), Optional.empty(), Optional.empty()))
                     .build();
 
     private static final JdbcColumnHandle DOUBLE_COLUMN =
             JdbcColumnHandle.builder()
                     .setColumnName("c_double")
                     .setColumnType(DOUBLE)
-                    .setJdbcTypeHandle(new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), 0, 0, Optional.empty(), Optional.empty()))
+                    .setJdbcTypeHandle(new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), 0, Optional.empty(), Optional.empty(), Optional.empty()))
                     .build();
 
     private static final JdbcClient JDBC_CLIENT = new MySqlClient(
