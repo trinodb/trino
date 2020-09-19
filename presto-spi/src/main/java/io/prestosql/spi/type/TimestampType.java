@@ -45,7 +45,7 @@ public abstract class TimestampType
     public static final TimestampType TIMESTAMP_PICOS = createTimestampType(12);
 
     /**
-     * @deprecated use {@link #TIMESTAMP_MILLIS} instead
+     * @deprecated Use {@link #TIMESTAMP_MILLIS} instead
      */
     @Deprecated
     public static final TimestampType TIMESTAMP = TIMESTAMP_MILLIS;

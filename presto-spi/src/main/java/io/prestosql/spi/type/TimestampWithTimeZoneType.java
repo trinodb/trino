@@ -42,7 +42,7 @@ public abstract class TimestampWithTimeZoneType
     public static final TimestampWithTimeZoneType TIMESTAMP_TZ_PICOS = createTimestampWithTimeZoneType(12);
 
     /**
-     * @deprecated use {@link #TIMESTAMP_TZ_MILLIS} instead
+     * @deprecated Use {@link #TIMESTAMP_TZ_MILLIS} instead
      */
     @Deprecated
     public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = TIMESTAMP_TZ_MILLIS;
