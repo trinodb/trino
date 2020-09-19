@@ -232,7 +232,7 @@ public class TestHistogram
     @Test
     public void testEmptyHistogramOutputsNull()
     {
-        InternalAggregationFunction function = getInternalDefaultVarCharAggregationn();
+        InternalAggregationFunction function = getInternalDefaultVarCharAggregation();
         GroupedAccumulator groupedAccumulator = function.bind(Ints.asList(new int[] {}), Optional.empty())
                 .createGroupedAccumulator();
         BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
@@ -244,8 +244,8 @@ public class TestHistogram
     @Test
     public void testSharedGroupByWithOverlappingValuesRunner()
     {
-        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
-        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
+        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregation();
+        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregation();
 
         testSharedGroupByWithOverlappingValuesRunner(classicFunction);
         testSharedGroupByWithOverlappingValuesRunner(singleInstanceFunction);
@@ -255,8 +255,8 @@ public class TestHistogram
     public void testSharedGroupByWithDistinctValuesPerGroup()
     {
         // test that two groups don't affect one another
-        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
-        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
+        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregation();
+        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregation();
         testSharedGroupByWithDistinctValuesPerGroupRunner(classicFunction);
         testSharedGroupByWithDistinctValuesPerGroupRunner(singleInstanceFunction);
     }
@@ -265,8 +265,8 @@ public class TestHistogram
     public void testSharedGroupByWithOverlappingValuesPerGroup()
     {
         // test that two groups don't affect one another
-        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
-        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
+        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregation();
+        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregation();
         testSharedGroupByWithOverlappingValuesPerGroupRunner(classicFunction);
         testSharedGroupByWithOverlappingValuesPerGroupRunner(singleInstanceFunction);
     }
@@ -275,12 +275,21 @@ public class TestHistogram
     public void testSharedGroupByWithManyGroups()
     {
         // uses a large enough data set to induce rehashing and test correctness
-        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
-        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
+        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregation();
+        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregation();
 
         // this is to validate the test as there have been test-bugs that looked like code bugs--if both fail, likely a test bug
         testManyValuesInducingRehash(classicFunction);
         testManyValuesInducingRehash(singleInstanceFunction);
+    }
+
+    @Test
+    public void testCollisionResolution()
+    {
+        // uses a large enough data set with a high fill ratio allowed
+        InternalAggregationFunction function = getInternalDefaultVarCharAggregation();
+        // using a distinct % 100 induces many more distinct values
+        testManyValuesInducingRehash(function, 100.0f, 50000, 30);
     }
 
     private void testManyValuesInducingRehash(InternalAggregationFunction aggregationFunction)
@@ -288,6 +297,12 @@ public class TestHistogram
         double distinctFraction = 0.1f;
         int numGroups = 50000;
         int itemCount = 30;
+
+        testManyValuesInducingRehash(aggregationFunction, distinctFraction, numGroups, itemCount);
+    }
+
+    private void testManyValuesInducingRehash(InternalAggregationFunction aggregationFunction, double distinctFraction, int numGroups, int itemCount)
+    {
         Random random = new Random();
         GroupedAccumulator groupedAccumulator = createGroupedAccumulator(aggregationFunction);
 
@@ -299,14 +314,12 @@ public class TestHistogram
                 String str = String.valueOf(i % 10);
                 String item = IntStream.range(0, itemCount).mapToObj(x -> str).collect(Collectors.joining());
                 boolean distinctValue = random.nextDouble() < distinctFraction;
+
                 if (distinctValue) {
                     // produce a unique value for the histogram
                     item = j + "-" + item;
-                    valueList.add(item);
                 }
-                else {
-                    valueList.add(item);
-                }
+                valueList.add(item);
                 expectedValues.compute(item, (k, v) -> v == null ? 1L : ++v);
             }
 
@@ -393,7 +406,7 @@ public class TestHistogram
         test1.runPagesOnAccumulatorWithAssertion(0L, test1.createGroupedAccumulator(), aggregationTestOutput1);
     }
 
-    private static InternalAggregationFunction getInternalDefaultVarCharAggregationn()
+    private static InternalAggregationFunction getInternalDefaultVarCharAggregation()
     {
         Metadata metadata = getMetadata();
         ResolvedFunction function = metadata.resolveFunction(QualifiedName.of(NAME), fromTypes(VARCHAR));

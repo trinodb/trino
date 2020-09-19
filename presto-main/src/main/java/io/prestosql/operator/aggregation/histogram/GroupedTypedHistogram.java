@@ -63,7 +63,6 @@ public class GroupedTypedHistogram
 
     private final Type type;
     private final BlockBuilder values;
-    private final BucketNodeFactory bucketNodeFactory;
     //** these parallel arrays represent a node in the hash table; index -> int, value -> long
     private final LongBigArray counts;
     // need to store the groupId for a node for when we are doing value comparisons in hash lookups
@@ -71,7 +70,7 @@ public class GroupedTypedHistogram
     // array of nodePointers (index in counts, valuePositions)
     private final IntBigArray nextPointers;
     // since we store histogram values in a hash, two histograms may have the same position (each unique value should have only one position in the internal
-    // BlockBuilder of values; not that we extract a subset of this when constructing per-group-id histograms)
+    // BlockBuilder of values; note that we extract a subset of this when constructing per-group-id histograms)
     private final IntBigArray valuePositions;
     // bucketId -> valueHash (no group, no mask)
     private final LongBigArray valueAndGroupHashes;
@@ -116,7 +115,6 @@ public class GroupedTypedHistogram
         headPointers = new LongBigArray(NULL);
         // index into counts/valuePositions
         nextNodePointer = 0;
-        bucketNodeFactory = this.new BucketNodeFactory();
         valueStore = new ValueStore(expectedCount, values);
     }
 
@@ -170,8 +168,8 @@ public class GroupedTypedHistogram
 
             iterateGroupNodes(currentGroupId, nodePointer -> {
                 checkArgument(nodePointer != NULL, "should never see null here as we exclude in iterateGroupNodesCall");
-                ValueNode valueNode = bucketNodeFactory.createValueNode(nodePointer);
-                valueNode.writeNodeAsBlock(values, blockBuilder);
+                type.appendTo(values, valuePositions.get(nodePointer), blockBuilder);
+                BIGINT.writeLong(blockBuilder, counts.get(nodePointer));
             });
 
             out.closeEntry();
@@ -189,8 +187,7 @@ public class GroupedTypedHistogram
     {
         iterateGroupNodes(currentGroupId, nodePointer -> {
             checkArgument(nodePointer != NULL, "should never see null here as we exclude in iterateGroupNodesCall");
-            ValueNode valueNode = bucketNodeFactory.createValueNode(nodePointer);
-            reader.read(values, valueNode.getValuePosition(), valueNode.getCount());
+            reader.read(values, valuePositions.get(nodePointer), counts.get(nodePointer));
         });
     }
 
@@ -248,10 +245,34 @@ public class GroupedTypedHistogram
     {
         resizeTableIfNecessary();
 
-        BucketDataNode bucketDataNode = bucketNodeFactory.createBucketDataNode(groupId, block, position);
+        long valueHash = murmurHash3(TypeUtils.hashPosition(type, block, position));
+        long groupIdHash = murmurHash3(groupId);
+        long valueAndGroupHash = combineGroupAndValueHash(groupIdHash, valueHash);
+        int bucketId = (int) (valueAndGroupHash & mask);
+        int nodePointer;
+        int probeCount = 1;
+        int originalBucketId = bucketId;
 
-        if (bucketDataNode.processEntry(groupId, block, position, count)) {
-            nextNodePointer++;
+        // look for an empty slot or a slot containing this group x key
+        boolean found = false;
+        while (!found) {
+            nodePointer = buckets.get(bucketId);
+
+            if (nodePointer == EMPTY_BUCKET) {
+                addNewNode(bucketId, nextNodePointer, valueHash, valueAndGroupHash, groupId, block, position, count);
+                nextNodePointer++;
+                found = true;
+            }
+            else if (groupAndValueMatches(groupId, block, position, nodePointer, valuePositions.get(nodePointer))) {
+                counts.add(nodePointer, count);
+                found = true;
+            }
+            else {
+                // keep looking
+                int probe = nextProbe(probeCount);
+                bucketId = nextBucketId(originalBucketId, mask, probe);
+                probeCount++;
+            }
         }
     }
 
@@ -285,7 +306,6 @@ public class GroupedTypedHistogram
         if (newBucketCountLong > Integer.MAX_VALUE) {
             throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed " + Integer.MAX_VALUE + " entries (" + newBucketCountLong + ")");
         }
-
         int newBucketCount = computeBucketCount((int) newBucketCountLong, MAX_FILL_RATIO);
         int newMask = newBucketCount - 1;
         IntBigArray newBuckets = new IntBigArray(-1);
@@ -344,169 +364,32 @@ public class GroupedTypedHistogram
         return bucketId;
     }
 
-    //short-lived abstraction that is basically a position into parallel arrays that we can treat as one data structure
-    private class ValueNode
+    private void addNewNode(int bucketId, int valueNodePointer, long valueHash, long valueAndGroupHash, long groupId, Block block, int position, long count)
     {
-        // index into parallel arrays that are fields of a "node" in our hash table (eg counts, valuePositions)
-        private final int nodePointer;
-
-        /**
-         * @param nodePointer - index/pointer into parallel arrays of data structs
-         */
-        ValueNode(int nodePointer)
-        {
-            checkState(nodePointer > -1, "ValueNode must point to a non-empty node");
-            this.nodePointer = nodePointer;
-        }
-
-        long getCount()
-        {
-            return counts.get(nodePointer);
-        }
-
-        int getValuePosition()
-        {
-            return valuePositions.get(nodePointer);
-        }
-
-        void add(long count)
-        {
-            counts.add(nodePointer, count);
-        }
-
-        /**
-         * given an output outputBlockBuilder, writes one row (key -> count) of our histogram
-         *
-         * @param valuesBlock - values.build() is called externally
-         */
-        void writeNodeAsBlock(Block valuesBlock, BlockBuilder outputBlockBuilder)
-        {
-            type.appendTo(valuesBlock, getValuePosition(), outputBlockBuilder);
-            BIGINT.writeLong(outputBlockBuilder, getCount());
-        }
+        // we've already computed the value hash for only the value only; ValueStore will save it for future use
+        int nextValuePosition = valueStore.addAndGetPosition(type, block, position, valueHash);
+        // set value pointer to hash map of values
+        valuePositions.set(valueNodePointer, nextValuePosition);
+        // save hashes for future rehashing
+        valueAndGroupHashes.set(valueNodePointer, valueAndGroupHash);
+        // set pointer to node for this bucket
+        buckets.set(bucketId, valueNodePointer);
+        // save data for this node
+        counts.set(valueNodePointer, count);
+        // used for doing value comparisons on hash collisions
+        groupIds.set(valueNodePointer, groupId);
+        // we only ever store ints as values; we need long as an index
+        int currentHead = (int) headPointers.get(groupId);
+        // maintain linked list of nodes in this group (insert at head)
+        headPointers.set(groupId, valueNodePointer);
+        nextPointers.set(valueNodePointer, currentHead);
     }
 
-    // short-lived class that wraps a position in int buckets[] to help handle treating
-    // it as a hash table with Nodes that have values
-    private class BucketDataNode
+    private boolean groupAndValueMatches(long groupId, Block block, int position, int nodePointer, int valuePosition)
     {
-        // index into parallel arrays that are fields of a "node" in our hash table (eg counts, valuePositions)
-        private final int bucketId;
-        private final ValueNode valueNode;
-        private final long valueHash;
-        private final long valueAndGroupHash;
-        private final int nodePointerToUse;
-        private final boolean isEmpty;
+        long existingGroupId = groupIds.get(nodePointer);
 
-        /**
-         * @param bucketId - index into the bucket array. Depending on createBucketNode(), this is either empty node that requires setup handled in
-         * processEntry->addNewGroup()
-         * *
-         * or one with an existing count and simply needs the count updated
-         * <p>
-         * processEntry handles these cases
-         * @param valueAndGroupHash
-         */
-        private BucketDataNode(int bucketId, ValueNode valueNode, long valueHash, long valueAndGroupHash, int nodePointerToUse, boolean isEmpty)
-        {
-            this.bucketId = bucketId;
-            this.valueNode = valueNode;
-            this.valueHash = valueHash;
-            this.valueAndGroupHash = valueAndGroupHash;
-            this.nodePointerToUse = nodePointerToUse;
-            this.isEmpty = isEmpty;
-        }
-
-        private boolean isEmpty()
-        {
-            return isEmpty;
-        }
-
-        /**
-         * true iff needs to update nextNodePointer
-         */
-        private boolean processEntry(long groupId, Block block, int position, long count)
-        {
-            if (isEmpty()) {
-                addNewGroup(groupId, block, position, count);
-                return true;
-            }
-            else {
-                valueNode.add(count);
-                return false;
-            }
-        }
-
-        private void addNewGroup(long groupId, Block block, int position, long count)
-        {
-            checkState(isEmpty(), "bucket %s not empty, points to %s", bucketId, buckets.get(bucketId));
-
-            // we've already computed the value hash for only the value only; ValueStore will save it for future use
-            int nextValuePosition = valueStore.addAndGetPosition(type, block, position, valueHash);
-            // set value pointer to hash map of values
-            valuePositions.set(nodePointerToUse, nextValuePosition);
-            // save hashes for future rehashing
-            valueAndGroupHashes.set(nodePointerToUse, valueAndGroupHash);
-            // set pointer to node for this bucket
-            buckets.set(bucketId, nodePointerToUse);
-            // save data for this node
-            counts.set(nodePointerToUse, count);
-            // used for doing value comparisons on hash collisions
-            groupIds.set(nodePointerToUse, groupId);
-            // we only ever store ints as values; we need long as an index
-            int currentHead = (int) headPointers.get(groupId);
-            // maintain linked list of nodes in this group (insert at head)
-            headPointers.set(groupId, nodePointerToUse);
-            nextPointers.set(nodePointerToUse, currentHead);
-        }
-    }
-
-    private class BucketNodeFactory
-    {
-        /**
-         * invariant: "points" to a virtual node of [key, count] for the histogram and includes any indirection calcs. Makes not guarantees if the node is empty or not
-         * (use isEmpty())
-         */
-        private BucketDataNode createBucketDataNode(long groupId, Block block, int position)
-        {
-            long valueHash = murmurHash3(TypeUtils.hashPosition(type, block, position));
-            long groupIdHash = murmurHash3(groupId);
-            long valueAndGroupHash = combineGroupAndValueHash(groupIdHash, valueHash);
-            int bucketId = (int) (valueAndGroupHash & mask);
-            int nodePointer;
-            int probeCount = 1;
-            int originalBucketId = bucketId;
-            // look for an empty slot or a slot containing this group x key
-            while (true) {
-                nodePointer = buckets.get(bucketId);
-
-                if (nodePointer == EMPTY_BUCKET) {
-                    return new BucketDataNode(bucketId, new ValueNode(nextNodePointer), valueHash, valueAndGroupHash, nextNodePointer, true);
-                }
-                else if (groupAndValueMatches(groupId, block, position, nodePointer, valuePositions.get(nodePointer))) {
-                    // value match
-                    return new BucketDataNode(bucketId, new ValueNode(nodePointer), valueHash, valueAndGroupHash, nodePointer, false);
-                }
-                else {
-                    // keep looking
-                    int probe = nextProbe(probeCount);
-                    bucketId = nextBucketId(originalBucketId, mask, probe);
-                    probeCount++;
-                }
-            }
-        }
-
-        private boolean groupAndValueMatches(long groupId, Block block, int position, int nodePointer, int valuePosition)
-        {
-            long existingGroupId = groupIds.get(nodePointer);
-
-            return existingGroupId == groupId && type.equalTo(block, position, values, valuePosition);
-        }
-
-        private ValueNode createValueNode(int nodePointer)
-        {
-            return new ValueNode(nodePointer);
-        }
+        return existingGroupId == groupId && type.equalTo(block, position, values, valuePosition);
     }
 
     private interface NodeReader
