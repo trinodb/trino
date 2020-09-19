@@ -27,6 +27,9 @@ public abstract class TimeWithTimeZoneType
 
     public static final int DEFAULT_PRECISION = 3; // TODO: should be 6 per SQL spec
 
+    /**
+     * @deprecated Use {@link #createTimeWithTimeZoneType} instead.
+     */
     @Deprecated
     public static final TimeWithTimeZoneType TIME_WITH_TIME_ZONE = new ShortTimeWithTimeZoneType(DEFAULT_PRECISION);
 
