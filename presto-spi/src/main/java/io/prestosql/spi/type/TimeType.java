@@ -44,8 +44,9 @@ public final class TimeType
     public static final TimeType TIME_PICOS = createTimeType(12);
 
     /**
-     * @deprecated use {@link #TIME_MILLIS} instead
+     * @deprecated Use {@link #TIME_MILLIS} instead
      */
+    @Deprecated
     public static final TimeType TIME = new TimeType(DEFAULT_PRECISION);
 
     private final int precision;
