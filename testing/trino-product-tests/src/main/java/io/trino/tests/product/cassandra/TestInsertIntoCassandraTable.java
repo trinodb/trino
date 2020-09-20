@@ -74,7 +74,7 @@ public class TestInsertIntoCassandraTable
         assertThat(queryResult).hasNoRows();
 
         // TODO Following types are not supported now. We need to change null into the value after fixing it
-        // blob, frozen<set<type>>, inet, list<type>, map<type,type>, set<type>, timeuuid, decimal, uuid, varint
+        // blob, frozen<set<type>>, inet, list<type>, map<type,type>, set<type>, decimal, varint
         query("INSERT INTO " + tableNameInDatabase +
                 "(a, b, bl, bo, d, do, dt, f, fr, i, ti, si, integer, l, m, s, t, ts, tu, u, v, vari) VALUES (" +
                 "'ascii value', " +
@@ -95,8 +95,8 @@ public class TestInsertIntoCassandraTable
                 "null, " +
                 "'text value', " +
                 "timestamp '9999-12-31 23:59:59Z'," +
-                "null, " +
-                "null, " +
+                "uuid '50554d6e-29bb-11e5-b345-feff819cdc9f', " +
+                "uuid '12151fd2-7586-11e9-8f9e-2a86e4085a59', " +
                 "'varchar value'," +
                 "null)");
 
@@ -120,8 +120,8 @@ public class TestInsertIntoCassandraTable
                         "text value",
                         -128,
                         Timestamp.from(OffsetDateTime.of(9999, 12, 31, 23, 59, 59, 0, ZoneOffset.UTC).toInstant()),
-                        null,
-                        null,
+                        "50554d6e-29bb-11e5-b345-feff819cdc9f",
+                        "12151fd2-7586-11e9-8f9e-2a86e4085a59",
                         "varchar value",
                         null));
 
