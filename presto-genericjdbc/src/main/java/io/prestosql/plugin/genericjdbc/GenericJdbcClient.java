@@ -63,6 +63,7 @@ public class GenericJdbcClient
     @Override
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
+        // TODO this if should only apply to Impala
         if (typeHandle.toString().contains("jdbcTypeName=ARRAY") || typeHandle.toString().contains("jdbcTypeName=MAP") || typeHandle.toString().contains("jdbcTypeName=STRUCT")) {
             return Optional.empty();
         }
