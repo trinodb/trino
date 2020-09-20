@@ -53,7 +53,6 @@ import static io.prestosql.spi.type.TimeType.TIME_MICROS;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
@@ -221,7 +220,7 @@ public class IcebergPageSource
             if (type.equals(TIMESTAMP_TZ_MICROS)) {
                 return timestampTzFromMicros(parseLong(valueString), timeZoneKey);
             }
-            if (isVarcharType(type)) {
+            if (type instanceof VarcharType) {
                 Slice value = utf8Slice(valueString);
                 VarcharType varcharType = (VarcharType) type;
                 if (!varcharType.isUnbounded() && SliceUtf8.countCodePoints(value) > varcharType.getBoundedLength()) {

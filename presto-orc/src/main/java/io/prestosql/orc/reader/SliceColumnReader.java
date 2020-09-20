@@ -40,10 +40,8 @@ import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static io.prestosql.orc.reader.ReaderUtils.verifyStreamType;
 import static io.prestosql.spi.type.Chars.byteCountWithoutTrailingSpace;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.VarbinaryType.isVarbinaryType;
 import static io.prestosql.spi.type.Varchars.byteCount;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class SliceColumnReader
@@ -65,7 +63,7 @@ public class SliceColumnReader
         this.column = requireNonNull(column, "column is null");
 
         int maxCodePointCount = getMaxCodePointCount(type);
-        boolean charType = isCharType(type);
+        boolean charType = type instanceof CharType;
         directReader = new SliceDirectColumnReader(column, maxCodePointCount, charType);
         dictionaryReader = new SliceDictionaryColumnReader(column, systemMemoryContext.newLocalMemoryContext(SliceColumnReader.class.getSimpleName()), maxCodePointCount, charType);
     }
@@ -118,11 +116,11 @@ public class SliceColumnReader
 
     private static int getMaxCodePointCount(Type type)
     {
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;
             return varcharType.isUnbounded() ? -1 : varcharType.getBoundedLength();
         }
-        if (isCharType(type)) {
+        if (type instanceof CharType) {
             return ((CharType) type).getLength();
         }
         if (isVarbinaryType(type)) {

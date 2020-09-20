@@ -43,9 +43,11 @@ import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.DoubleRange;
 import io.prestosql.spi.statistics.Estimate;
 import io.prestosql.spi.statistics.TableStatistics;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -74,7 +76,6 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.getPartitionStatist
 import static io.prestosql.plugin.hive.HiveSessionProperties.isIgnoreCorruptedStatistics;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isStatisticsEnabled;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
 import static io.prestosql.spi.type.Decimals.isShortDecimal;
@@ -83,7 +84,6 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Double.parseDouble;
@@ -521,7 +521,7 @@ public class MetastoreHiveStatisticsProvider
 
     private static boolean hasDataSize(Type type)
     {
-        return isVarcharType(type) || isCharType(type);
+        return type instanceof VarcharType || type instanceof CharType;
     }
 
     private static int getSize(NullableValue nullableValue)

@@ -42,7 +42,6 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.isVarbinaryType;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -97,7 +96,7 @@ public abstract class AbstractRowEncoder
         else if (type == REAL) {
             appendFloat(intBitsToFloat(toIntExact(type.getLong(block, position))));
         }
-        else if (isVarcharType(type)) {
+        else if (type instanceof VarcharType) {
             appendString(type.getSlice(block, position).toStringUtf8());
         }
         else if (isVarbinaryType(type)) {

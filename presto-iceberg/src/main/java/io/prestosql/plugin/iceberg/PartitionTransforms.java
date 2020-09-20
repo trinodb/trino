@@ -21,6 +21,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import org.apache.iceberg.PartitionField;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
@@ -53,7 +54,6 @@ import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_HOUR;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Integer.parseInt;
 import static java.lang.Math.floorDiv;
 import static java.util.Objects.requireNonNull;
@@ -148,7 +148,7 @@ public final class PartitionTransforms
             if (type.equals(TIMESTAMP_TZ_MICROS)) {
                 return new ColumnTransform(INTEGER, block -> bucketTimestampWithTimeZone(block, count));
             }
-            if (isVarcharType(type)) {
+            if (type instanceof VarcharType) {
                 return new ColumnTransform(INTEGER, block -> bucketVarchar(block, count));
             }
             if (type.equals(VARBINARY)) {
@@ -174,7 +174,7 @@ public final class PartitionTransforms
                 DecimalType decimal = (DecimalType) type;
                 return new ColumnTransform(type, block -> truncateLongDecimal(decimal, block, width));
             }
-            if (isVarcharType(type)) {
+            if (type instanceof VarcharType) {
                 return new ColumnTransform(VARCHAR, block -> truncateVarchar(block, width));
             }
             if (type.equals(VARBINARY)) {

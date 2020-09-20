@@ -25,6 +25,7 @@ import io.prestosql.orc.metadata.statistics.RangeStatistics;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.ValueSet;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.LongTimestamp;
@@ -44,7 +45,6 @@ import java.util.function.Function;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -66,7 +66,6 @@ import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLI
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
@@ -244,10 +243,10 @@ public class TupleDomainOrcPredicate
         else if (isLongDecimal(type) && columnStatistics.getDecimalStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> encodeUnscaledValue(rescale(value, (DecimalType) type).unscaledValue()));
         }
-        else if (isCharType(type) && columnStatistics.getStringStatistics() != null) {
+        else if (type instanceof CharType && columnStatistics.getStringStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getStringStatistics(), value -> truncateToLengthAndTrimSpaces(value, type));
         }
-        else if (isVarcharType(type) && columnStatistics.getStringStatistics() != null) {
+        else if (type instanceof VarcharType && columnStatistics.getStringStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getStringStatistics());
         }
         else if (type instanceof DateType && columnStatistics.getDateStatistics() != null) {

@@ -55,7 +55,6 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFuncti
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
@@ -150,7 +149,7 @@ public class SqlServerClient
             return WriteMapping.booleanMapping("bit", booleanWriteFunction());
         }
 
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;
             String dataType;
             if (varcharType.isUnbounded() || varcharType.getBoundedLength() > 4000) {
