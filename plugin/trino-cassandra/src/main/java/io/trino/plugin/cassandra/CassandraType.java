@@ -43,6 +43,7 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
@@ -69,6 +70,7 @@ import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLitera
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
+import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -263,7 +265,7 @@ public class CassandraType
                 return NullableValue.of(trinoType, row.getDecimal(position).doubleValue());
             case UUID:
             case TIMEUUID:
-                return NullableValue.of(trinoType, utf8Slice(row.getUUID(position).toString()));
+                return NullableValue.of(trinoType, javaUuidToTrinoUuid(row.getUUID(position)));
             case TIMESTAMP:
                 return NullableValue.of(trinoType, packDateTimeWithZone(row.getTimestamp(position).getTime(), TimeZoneKey.UTC_KEY));
             case DATE:
@@ -601,6 +603,9 @@ public class CassandraType
         }
         if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS)) {
             return CassandraTypes.TIMESTAMP;
+        }
+        if (type.equals(UuidType.UUID)) {
+            return CassandraTypes.UUID;
         }
         throw new IllegalArgumentException("unsupported type: " + type);
     }
