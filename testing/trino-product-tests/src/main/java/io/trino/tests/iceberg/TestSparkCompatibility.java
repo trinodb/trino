@@ -222,6 +222,8 @@ public class TestSparkCompatibility
         QueryResult prestoResult = onPresto().executeQuery(prestoSelect);
         Row row = row("Doc213", 28, "Cat", "Claus");
         assertThat(prestoResult).containsOnly(row);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
@@ -246,6 +248,8 @@ public class TestSparkCompatibility
         QueryResult sparkResult = onSpark().executeQuery(sparkSelect);
         Row row = row("Doc213", 28, "Cat", "Claus");
         assertThat(sparkResult).containsOnly(row);
+
+        onPresto().executeQuery("DROP TABLE " + prestoTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
@@ -302,6 +306,8 @@ public class TestSparkCompatibility
 
         QueryResult prestoResult = onPresto().executeQuery(prestoSelect + prestoTableName);
         assertThat(prestoResult).containsOnly(row);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
@@ -357,6 +363,8 @@ public class TestSparkCompatibility
 
         QueryResult sparkResult = onSpark().executeQuery(sparkSelect + sparkTableName);
         assertThat(sparkResult).containsOnly(row);
+
+        onPresto().executeQuery("DROP TABLE " + prestoTableName);
     }
 
     private static String sparkTableName(String tableName)
