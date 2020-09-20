@@ -268,9 +268,18 @@ MongoDB collection has the special field ``_id``. The connector tries to follow 
      55 b1 51 63 38 64 d6 43 8c 61 a9 ce |        1 | bad         |       50.0 | 2015-07-23
     (1 row)
 
-.. note::
+You can render the ``_id`` field to readable values with a cast to ``VARCHAR``:
 
-    Unfortunately, there is no way to represent ``_id`` fields more fancy like ``55b151633864d6438c61a9ce``.
+.. code-block:: sql
+
+    SELECT CAST(_id AS VARCHAR), * FROM orders WHERE _id = ObjectId('55b151633864d6438c61a9ce');
+
+.. code-block:: none
+
+               _id             | orderkey | orderstatus | totalprice | orderdate
+    ---------------------------+----------+-------------+------------+------------
+     55b151633864d6438c61a9ce  |        1 | bad         |       50.0 | 2015-07-23
+    (1 row)
 
 Limitations
 -----------
