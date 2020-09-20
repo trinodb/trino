@@ -19,6 +19,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.BucketFunction;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
 import java.util.List;
 
@@ -26,7 +27,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 
 public class RaptorBucketFunction
         implements BucketFunction
@@ -70,7 +70,7 @@ public class RaptorBucketFunction
         if (type.equals(INTEGER)) {
             return intHashFunction();
         }
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return varcharHashFunction();
         }
         throw new PrestoException(NOT_SUPPORTED, "Bucketing is supported for bigint, integer and varchar, not " + type.getDisplayName());

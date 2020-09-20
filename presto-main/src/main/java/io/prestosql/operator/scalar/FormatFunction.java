@@ -34,6 +34,7 @@ import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.tree.QualifiedName;
 
 import java.lang.invoke.MethodHandle;
@@ -55,7 +56,6 @@ import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentC
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.decodeUnscaledValue;
@@ -68,7 +68,6 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.Timestamps.roundDiv;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
 import static io.prestosql.type.DateTimes.toLocalDateTime;
 import static io.prestosql.type.DateTimes.toZonedDateTime;
@@ -130,8 +129,8 @@ public final class FormatFunction
                 type instanceof TimeType ||
                 isShortDecimal(type) ||
                 isLongDecimal(type) ||
-                isVarcharType(type) ||
-                isCharType(type)) {
+                type instanceof VarcharType ||
+                type instanceof CharType) {
             return;
         }
 
@@ -228,10 +227,10 @@ public final class FormatFunction
             int scale = ((DecimalType) type).getScale();
             return (session, block) -> new BigDecimal(decodeUnscaledValue(type.getSlice(block, position)), scale);
         }
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return (session, block) -> type.getSlice(block, position).toStringUtf8();
         }
-        if (isCharType(type)) {
+        if (type instanceof CharType) {
             CharType charType = (CharType) type;
             return (session, block) -> padSpaces(type.getSlice(block, position), charType).toStringUtf8();
         }

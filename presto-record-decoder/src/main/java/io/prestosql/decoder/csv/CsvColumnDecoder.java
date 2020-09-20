@@ -19,6 +19,7 @@ import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -31,7 +32,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.spi.type.Varchars.truncateToLength;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -70,7 +70,7 @@ public class CsvColumnDecoder
 
     private static boolean isSupportedType(Type type)
     {
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return true;
         }
         if (ImmutableList.of(BIGINT, INTEGER, SMALLINT, TINYINT, BOOLEAN, DOUBLE).contains(type)) {

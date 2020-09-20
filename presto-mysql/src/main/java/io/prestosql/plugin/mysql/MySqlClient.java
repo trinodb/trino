@@ -94,7 +94,6 @@ import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLI
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -268,7 +267,7 @@ public class MySqlClient
         if (VARBINARY.equals(type)) {
             return WriteMapping.sliceMapping("mediumblob", varbinaryWriteFunction());
         }
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;
             String dataType;
             if (varcharType.isUnbounded()) {

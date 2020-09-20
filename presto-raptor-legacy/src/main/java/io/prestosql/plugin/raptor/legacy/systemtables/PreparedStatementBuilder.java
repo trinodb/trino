@@ -21,6 +21,7 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -41,7 +42,6 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
@@ -266,7 +266,7 @@ public final class PreparedStatementBuilder
         if (type.equals(BOOLEAN)) {
             return Types.BOOLEAN;
         }
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return Types.VARCHAR;
         }
         if (type.equals(VARBINARY)) {

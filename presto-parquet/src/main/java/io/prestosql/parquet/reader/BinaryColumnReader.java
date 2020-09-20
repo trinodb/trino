@@ -16,14 +16,14 @@ package io.prestosql.parquet.reader;
 import io.airlift.slice.Slice;
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import org.apache.parquet.io.api.Binary;
 
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.spi.type.Varchars.truncateToLength;
 
 public class BinaryColumnReader
@@ -46,10 +46,10 @@ public class BinaryColumnReader
             else {
                 value = wrappedBuffer(binary.getBytes());
             }
-            if (isVarcharType(type)) {
+            if (type instanceof VarcharType) {
                 value = truncateToLength(value, type);
             }
-            if (isCharType(type)) {
+            if (type instanceof CharType) {
                 value = truncateToLengthAndTrimSpaces(value, type);
             }
             type.writeSlice(blockBuilder, value);

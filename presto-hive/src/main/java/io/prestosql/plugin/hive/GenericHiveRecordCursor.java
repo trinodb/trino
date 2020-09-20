@@ -21,11 +21,13 @@ import io.prestosql.plugin.base.type.PrestoTimestampEncoder;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.Date;
@@ -69,7 +71,6 @@ import static io.prestosql.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.prestosql.plugin.hive.util.SerDeUtils.getBlockObject;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.rescale;
@@ -79,7 +80,6 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
@@ -375,10 +375,10 @@ public class GenericHiveRecordCursor<K, V extends Writable>
 
     private static Slice trimStringToCharacterLimits(Type type, Slice value)
     {
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return truncateToLength(value, type);
         }
-        if (isCharType(type)) {
+        if (type instanceof CharType) {
             return truncateToLengthAndTrimSpaces(value, type);
         }
         return value;
@@ -534,10 +534,10 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         else if (DOUBLE.equals(type)) {
             parseDoubleColumn(column);
         }
-        else if (isVarcharType(type) || VARBINARY.equals(type)) {
+        else if (type instanceof VarcharType || VARBINARY.equals(type)) {
             parseStringColumn(column);
         }
-        else if (isCharType(type)) {
+        else if (type instanceof CharType) {
             parseStringColumn(column);
         }
         else if (isStructuralType(hiveTypes[column])) {
