@@ -25,6 +25,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduSession;
 import org.apache.kudu.client.KuduTable;
@@ -53,7 +54,6 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.Timestamps.truncateEpochMicrosToMillis;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -165,7 +165,7 @@ public class KuduPageSink
         else if (DOUBLE.equals(type)) {
             row.addDouble(destChannel, type.getDouble(block, position));
         }
-        else if (isVarcharType(type)) {
+        else if (type instanceof VarcharType) {
             Type originalType = originalColumnTypes.get(destChannel);
             if (DATE.equals(originalType)) {
                 SqlDate date = (SqlDate) originalType.getObjectValue(connectorSession, block, position);

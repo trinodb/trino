@@ -157,7 +157,6 @@ import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWit
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.prestosql.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractLocation;
@@ -1093,7 +1092,7 @@ public class ExpressionAnalyzer
                     .map(expression -> process(expression, context))
                     .collect(toImmutableList());
 
-            if (!isVarcharType(arguments.get(0))) {
+            if (!(arguments.get(0) instanceof VarcharType)) {
                 throw semanticException(TYPE_MISMATCH, node.getArguments().get(0), "Type of first argument to format() must be VARCHAR (actual: %s)", arguments.get(0));
             }
 

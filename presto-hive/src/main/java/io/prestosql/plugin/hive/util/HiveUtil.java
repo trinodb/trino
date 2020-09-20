@@ -143,7 +143,6 @@ import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.trimTrailingSpaces;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
@@ -154,7 +153,6 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Byte.parseByte;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
@@ -519,8 +517,8 @@ public final class HiveUtil
                 DOUBLE.equals(type) ||
                 DATE.equals(type) ||
                 TIMESTAMP_MILLIS.equals(type) ||
-                isVarcharType(type) ||
-                isCharType(type);
+                type instanceof VarcharType ||
+                type instanceof CharType;
     }
 
     public static NullableValue parsePartitionValue(String partitionName, String value, Type type)
@@ -632,14 +630,14 @@ public final class HiveUtil
             return NullableValue.of(DOUBLE, doublePartitionKey(value, partitionName));
         }
 
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             if (isNull) {
                 return NullableValue.asNull(type);
             }
             return NullableValue.of(type, varcharPartitionKey(value, partitionName, type));
         }
 
-        if (isCharType(type)) {
+        if (type instanceof CharType) {
             if (isNull) {
                 return NullableValue.asNull(type);
             }

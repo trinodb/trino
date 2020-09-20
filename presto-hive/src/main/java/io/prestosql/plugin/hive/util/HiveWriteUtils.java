@@ -112,7 +112,6 @@ import static io.prestosql.plugin.hive.util.HiveUtil.isArrayType;
 import static io.prestosql.plugin.hive.util.HiveUtil.isMapType;
 import static io.prestosql.plugin.hive.util.HiveUtil.isRowType;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
@@ -689,7 +688,7 @@ public final class HiveWriteUtils
             }
         }
 
-        if (isCharType(type)) {
+        if (type instanceof CharType) {
             CharType charType = (CharType) type;
             int charLength = charType.getLength();
             return getPrimitiveWritableObjectInspector(getCharTypeInfo(charLength));

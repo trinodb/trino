@@ -103,6 +103,7 @@ import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RowFieldName;
@@ -112,6 +113,7 @@ import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
@@ -249,7 +251,6 @@ import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -264,7 +265,6 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.MaterializedResult.materializeSourceDataStream;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -1350,7 +1350,7 @@ public abstract class AbstractTestHive
                         columnStatistics.getDistinctValuesCount().isUnknown(),
                         "unknown distinct values count for " + columnName);
 
-                if (isVarcharType(columnType)) {
+                if (columnType instanceof VarcharType) {
                     assertFalse(
                             columnStatistics.getDataSize().isUnknown(),
                             "unknown data size for " + columnName);
@@ -4538,10 +4538,10 @@ public abstract class AbstractTestHive
                 else if (REAL.equals(column.getType())) {
                     assertInstanceOf(value, Float.class);
                 }
-                else if (isVarcharType(column.getType())) {
+                else if (column.getType() instanceof VarcharType) {
                     assertInstanceOf(value, String.class);
                 }
-                else if (isCharType(column.getType())) {
+                else if (column.getType() instanceof CharType) {
                     assertInstanceOf(value, String.class);
                 }
                 else if (VARBINARY.equals(column.getType())) {

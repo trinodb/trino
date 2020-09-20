@@ -20,6 +20,7 @@ import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
@@ -29,7 +30,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.spi.type.Varchars.truncateToLength;
 import static java.lang.Double.parseDouble;
 import static java.lang.Long.parseLong;
@@ -78,7 +78,7 @@ public class DefaultJsonFieldDecoder
 
     private boolean isSupportedType(Type type)
     {
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return true;
         }
         if (ImmutableList.of(
@@ -183,7 +183,7 @@ public class DefaultJsonFieldDecoder
         {
             String textValue = value.isValueNode() ? value.asText() : value.toString();
             Slice slice = utf8Slice(textValue);
-            if (isVarcharType(columnHandle.getType())) {
+            if (columnHandle.getType() instanceof VarcharType) {
                 slice = truncateToLength(slice, columnHandle.getType());
             }
             return slice;

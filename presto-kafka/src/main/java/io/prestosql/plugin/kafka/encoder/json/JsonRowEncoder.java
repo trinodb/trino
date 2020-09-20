@@ -31,6 +31,7 @@ import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -49,7 +50,6 @@ import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -101,7 +101,7 @@ public class JsonRowEncoder
 
     private boolean isSupportedType(Type type)
     {
-        return isVarcharType(type) ||
+        return type instanceof VarcharType ||
                 SUPPORTED_PRIMITIVE_TYPES.contains(type) ||
                 isSupportedTemporalType(type);
     }

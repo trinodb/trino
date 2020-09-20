@@ -36,7 +36,7 @@ public final class Varchars
     public static Slice truncateToLength(Slice slice, Type type)
     {
         requireNonNull(type, "type is null");
-        if (!isVarcharType(type)) {
+        if (!(type instanceof VarcharType)) {
             throw new IllegalArgumentException("type must be the instance of VarcharType");
         }
         return truncateToLength(slice, VarcharType.class.cast(type));

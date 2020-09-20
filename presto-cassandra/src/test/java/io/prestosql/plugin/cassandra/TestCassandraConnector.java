@@ -35,6 +35,7 @@ import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.testing.TestingConnectorContext;
 import io.prestosql.testing.TestingConnectorSession;
 import org.testng.annotations.AfterClass;
@@ -62,7 +63,6 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
@@ -228,7 +228,7 @@ public class TestCassandraConnector
                 else if (REAL.equals(type)) {
                     cursor.getLong(columnIndex);
                 }
-                else if (isVarcharType(type) || VARBINARY.equals(type)) {
+                else if (type instanceof VarcharType || VARBINARY.equals(type)) {
                     try {
                         cursor.getSlice(columnIndex);
                     }
