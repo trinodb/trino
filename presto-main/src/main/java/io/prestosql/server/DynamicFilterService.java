@@ -327,6 +327,9 @@ public class DynamicFilterService
                             }
 
                             if (context.getReplicatedDynamicFilters().contains(stageDomains.getKey())) {
+                                checkState(
+                                        stageDomains.getValue().size() == 1,
+                                        "Replicated dynamic filter should be collected from single task");
                                 // for replicated dynamic filters it's enough to get dynamic filter from a single task
                                 return true;
                             }
