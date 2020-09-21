@@ -292,6 +292,11 @@ public final class Environment
             this.name = requireNonNull(name, "name is null");
         }
 
+        public String getEnvironmentName()
+        {
+            return name;
+        }
+
         public Builder addContainers(DockerContainer... containers)
         {
             Arrays.stream(containers)
