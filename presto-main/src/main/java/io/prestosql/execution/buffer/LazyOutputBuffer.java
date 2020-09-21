@@ -51,6 +51,7 @@ public class LazyOutputBuffer
     private final DataSize maxBufferSize;
     private final Supplier<LocalMemoryContext> systemMemoryContextSupplier;
     private final Executor executor;
+    private final Runnable notifyStatusChanged;
 
     @GuardedBy("this")
     private OutputBuffer delegate;
@@ -66,7 +67,8 @@ public class LazyOutputBuffer
             String taskInstanceId,
             Executor executor,
             DataSize maxBufferSize,
-            Supplier<LocalMemoryContext> systemMemoryContextSupplier)
+            Supplier<LocalMemoryContext> systemMemoryContextSupplier,
+            Runnable notifyStatusChanged)
     {
         requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
@@ -75,6 +77,7 @@ public class LazyOutputBuffer
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         this.systemMemoryContextSupplier = requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null");
+        this.notifyStatusChanged = requireNonNull(notifyStatusChanged, "notifyStatusChanged is null");
     }
 
     @Override
@@ -161,7 +164,7 @@ public class LazyOutputBuffer
                         delegate = new PartitionedOutputBuffer(taskInstanceId, state, newOutputBuffers, maxBufferSize, systemMemoryContextSupplier, executor);
                         break;
                     case BROADCAST:
-                        delegate = new BroadcastOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
+                        delegate = new BroadcastOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor, notifyStatusChanged);
                         break;
                     case ARBITRARY:
                         delegate = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
