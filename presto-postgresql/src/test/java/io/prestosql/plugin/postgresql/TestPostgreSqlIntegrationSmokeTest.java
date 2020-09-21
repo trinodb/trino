@@ -45,7 +45,7 @@ public class TestPostgreSqlIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.postgreSqlServer = new TestingPostgreSqlServer();
+        postgreSqlServer = new TestingPostgreSqlServer();
         execute("CREATE EXTENSION file_fdw");
         return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, CUSTOMER, NATION, ORDERS, REGION);
     }

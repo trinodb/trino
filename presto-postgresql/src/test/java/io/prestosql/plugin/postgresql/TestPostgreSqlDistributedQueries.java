@@ -32,7 +32,7 @@ public class TestPostgreSqlDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.postgreSqlServer = new TestingPostgreSqlServer();
+        postgreSqlServer = new TestingPostgreSqlServer();
         return createPostgreSqlQueryRunner(
                 postgreSqlServer,
                 ImmutableMap.of(),
