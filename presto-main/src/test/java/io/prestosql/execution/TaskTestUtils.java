@@ -142,7 +142,8 @@ public final class TaskTestUtils
                 new PagesIndex.TestingFactory(false),
                 new JoinCompiler(metadata),
                 new LookupJoinOperators(),
-                new OrderingCompiler());
+                new OrderingCompiler(),
+                new DynamicFilterConfig());
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)

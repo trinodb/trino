@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.memory;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryStats;
@@ -33,7 +34,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.SystemSessionProperties.DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER;
+import static io.prestosql.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
@@ -55,7 +56,9 @@ public class TestMemorySmoke
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return MemoryQueryRunner.createQueryRunner();
+        return MemoryQueryRunner.createQueryRunner(
+                // Reduced broadcast join limit for large DF to make withLargeDynamicFilters use range DF collection
+                ImmutableMap.of("dynamic-filtering.large-broadcast.max-distinct-values-per-driver", "100"));
     }
 
     @Test
@@ -116,7 +119,7 @@ public class TestMemorySmoke
         // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
         assertDynamicFiltering(
                 sql,
-                withBroadcastJoinMinMax(),
+                withLargeDynamicFilters(),
                 expectedRowCount,
                 ImmutableSet.of(60139, ORDERS_COUNT));
     }
@@ -197,7 +200,7 @@ public class TestMemorySmoke
         // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
         assertDynamicFiltering(
                 sql,
-                withBroadcastJoinMinMax(),
+                withLargeDynamicFilters(),
                 expectedRowCount,
                 ImmutableSet.of(60139, ORDERS_COUNT));
     }
@@ -260,11 +263,11 @@ public class TestMemorySmoke
                 .build();
     }
 
-    private Session withBroadcastJoinMinMax()
+    private Session withLargeDynamicFilters()
     {
         return Session.builder(this.getQueryRunner().getDefaultSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
-                .setSystemProperty(DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER, "10000")
+                .setSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, "true")
                 .build();
     }
 

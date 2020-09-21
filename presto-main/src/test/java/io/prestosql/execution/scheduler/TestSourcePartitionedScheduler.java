@@ -21,6 +21,7 @@ import io.airlift.units.Duration;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.StatsAndCosts;
+import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.execution.MockRemoteTaskFactory;
 import io.prestosql.execution.MockRemoteTaskFactory.MockRemoteTask;
 import io.prestosql.execution.NodeTaskMap;
@@ -45,7 +46,6 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.split.ConnectorAwareSplitSource;
 import io.prestosql.split.SplitSource;
 import io.prestosql.sql.DynamicFilters;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.PlanFragment;
@@ -331,7 +331,7 @@ public class TestSourcePartitionedScheduler
                     Iterables.getOnlyElement(plan.getSplitSources().values()),
                     new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                     2,
-                    new DynamicFilterService(new FeaturesConfig()),
+                    new DynamicFilterService(new DynamicFilterConfig()),
                     () -> false);
             scheduler.schedule();
         }).hasErrorCode(NO_NODES_AVAILABLE);
@@ -405,7 +405,7 @@ public class TestSourcePartitionedScheduler
                 Iterables.getOnlyElement(plan.getSplitSources().values()),
                 new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                 500,
-                new DynamicFilterService(new FeaturesConfig()),
+                new DynamicFilterService(new DynamicFilterConfig()),
                 () -> false);
 
         // the queues of 3 running nodes should be full
@@ -444,7 +444,7 @@ public class TestSourcePartitionedScheduler
                 Iterables.getOnlyElement(plan.getSplitSources().values()),
                 new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                 400,
-                new DynamicFilterService(new FeaturesConfig()),
+                new DynamicFilterService(new DynamicFilterConfig()),
                 () -> true);
 
         // the queues of 3 running nodes should be full
@@ -468,7 +468,7 @@ public class TestSourcePartitionedScheduler
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap));
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new DynamicFilterConfig());
         dynamicFilterService.registerQuery(
                 QUERY_ID,
                 ImmutableList::of,
@@ -544,7 +544,7 @@ public class TestSourcePartitionedScheduler
                 splitSource,
                 placementPolicy,
                 splitBatchSize,
-                new DynamicFilterService(new FeaturesConfig()),
+                new DynamicFilterService(new DynamicFilterConfig()),
                 () -> false);
     }
 
