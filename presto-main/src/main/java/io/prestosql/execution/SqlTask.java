@@ -131,7 +131,8 @@ public class SqlTask
                 maxBufferSize,
                 // Pass a memory context supplier instead of a memory context to the output buffer,
                 // because we haven't created the task context that holds the the memory context yet.
-                () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext());
+                () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext(),
+                () -> notifyStatusChanged());
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
     }
 
