@@ -24,7 +24,14 @@ import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.testcontainers.Testcontainers;
+import org.testcontainers.containers.BrowserWebDriverContainer;
 import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -50,6 +57,7 @@ import static javax.ws.rs.core.HttpHeaders.WWW_AUTHENTICATE;
 import static javax.ws.rs.core.Response.Status.FOUND;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable;
 
 @Test(singleThreaded = true)
 public class TestOAuth2Authenticator
@@ -93,8 +101,8 @@ public class TestOAuth2Authenticator
                                 .put("http-server.https.keystore.path", Resources.getResource("cert/localhost.pem").getPath())
                                 .put("http-server.https.keystore.key", "")
                                 .put("http-server.authentication.type", "oauth2")
-                                .put("http-server.authentication.oauth2.auth-url", "http://127.0.0.1:9000/oauth2/auth")
-                                .put("http-server.authentication.oauth2.token-url", "http://127.0.0.1:9000/oauth2/token")
+                                .put("http-server.authentication.oauth2.auth-url", "http://hydra:4444/oauth2/auth")
+                                .put("http-server.authentication.oauth2.token-url", format("http://localhost:%s/oauth2/token", testingHydraService.getHydraPort()))
                                 .put("http-server.authentication.oauth2.client-id", "another-consumer")
                                 .put("http-server.authentication.oauth2.client-secret", "consumer-secret")
                                 .build())
@@ -133,6 +141,20 @@ public class TestOAuth2Authenticator
         }
     }
 
+    @Test
+    public void testSuccessfulAuthorizationFlow()
+    {
+        try (BrowserWebDriverContainer<?> browser = createChromeContainer()) {
+            WebDriver driver = browser.getWebDriver();
+            driver.get(format("https://host.testcontainers.internal:%d/ui/", HTTPS_PORT));
+            WebDriverWait wait = new WebDriverWait(driver, 5);
+            submitCredentials(driver, "foo@bar.com", "foobar", wait);
+            giveConsent(driver, wait);
+            // TODO: check cookie, after removing permanent redirect
+            wait.until(ExpectedConditions.urlContains("http://consent:3000/login"));
+        }
+    }
+
     private void createConsumer()
     {
         testingHydraService.createHydraContainer()
@@ -143,7 +165,7 @@ public class TestOAuth2Authenticator
                         "-g authorization_code,refresh_token " +
                         "-r token,code,id_token " +
                         "--scope openid,offline " +
-                        "--callbacks https://127.0.0.1:%s/callback", HTTPS_PORT))
+                        "--callbacks https://host.testcontainers.internal:%d/oauth2/callback", HTTPS_PORT))
                 .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofSeconds(30)))
                 .start();
     }
@@ -160,6 +182,41 @@ public class TestOAuth2Authenticator
         return new Request.Builder()
                 .url(serverUri.resolve("/v1/query/").toString())
                 .get();
+    }
+
+    private BrowserWebDriverContainer<?> createChromeContainer()
+    {
+        ChromeOptions options = new ChromeOptions();
+        options.setAcceptInsecureCerts(true);
+        BrowserWebDriverContainer<?> chromeContainer = new BrowserWebDriverContainer<>()
+                .withNetwork(testingHydraService.getNetwork())
+                .withCapabilities(options);
+        chromeContainer.start();
+        return chromeContainer;
+    }
+
+    private void submitCredentials(WebDriver driver, String email, String password, WebDriverWait wait)
+    {
+        By emailElementLocator = By.id("email");
+        wait.until(elementToBeClickable(emailElementLocator));
+        WebElement usernameElement = driver.findElement(emailElementLocator);
+        usernameElement.sendKeys(email);
+        By passwordElementLocator = By.id("password");
+        wait.until(elementToBeClickable(passwordElementLocator));
+        WebElement passwordElement = driver.findElement(passwordElementLocator);
+        passwordElement.sendKeys(password + "\n");
+    }
+
+    private void giveConsent(WebDriver driver, WebDriverWait wait)
+    {
+        By openIdCheckboxLocator = By.id("openid");
+        wait.until(elementToBeClickable(openIdCheckboxLocator));
+        WebElement openIdCheckbox = driver.findElement(openIdCheckboxLocator);
+        openIdCheckbox.click();
+        By acceptButtonLocator = By.id("accept");
+        wait.until(elementToBeClickable(acceptButtonLocator));
+        WebElement acceptButton = driver.findElement(acceptButtonLocator);
+        acceptButton.click();
     }
 
     private static int findAvailablePort()
@@ -188,7 +245,7 @@ public class TestOAuth2Authenticator
         assertThat(response.code()).isEqualTo(UNAUTHORIZED.getStatusCode());
         String authenticateHeader = response.header(WWW_AUTHENTICATE);
         assertThat(authenticateHeader).isNotNull();
-        Matcher authenticateHeaderMatcher = Pattern.compile("^Bearer realm=\"Presto\", redirectUrl=\"(.*)\", status=\"STARTED\"$")
+        Matcher authenticateHeaderMatcher = Pattern.compile("^Bearer realm=\"Presto\", authorizationUrl=\"(.*)\", status=\"STARTED\"$")
                 .matcher(authenticateHeader);
         assertThat(authenticateHeaderMatcher.matches()).isTrue();
         assertRedirectUrl(authenticateHeaderMatcher.group(1));
@@ -202,12 +259,12 @@ public class TestOAuth2Authenticator
         HttpUrl url = HttpUrl.parse(redirectUrl);
         assertThat(url).isNotNull();
         assertThat(location.getProtocol()).isEqualTo("http");
-        assertThat(location.getHost()).isEqualTo("127.0.0.1");
-        assertThat(location.getPort()).isEqualTo(9000);
+        assertThat(location.getHost()).isEqualTo("hydra");
+        assertThat(location.getPort()).isEqualTo(4444);
         assertThat(location.getPath()).isEqualTo("/oauth2/auth");
         assertThat(url.queryParameterValues("response_type")).isEqualTo(ImmutableList.of("code"));
         assertThat(url.queryParameterValues("scope")).isEqualTo(ImmutableList.of("openid"));
-        assertThat(url.queryParameterValues("redirect_uri")).isEqualTo(ImmutableList.of(format("https://127.0.0.1:%s/callback", HTTPS_PORT)));
+        assertThat(url.queryParameterValues("redirect_uri")).isEqualTo(ImmutableList.of(format("https://host.testcontainers.internal:%s/oauth2/callback", HTTPS_PORT)));
         assertThat(url.queryParameterValues("client_id")).isEqualTo(ImmutableList.of("another-consumer"));
         assertThat(url.queryParameterValues("state")).isNotNull();
     }

@@ -13,10 +13,6 @@
  */
 package io.prestosql.server.security.oauth2;
 
-import com.github.scribejava.core.builder.ServiceBuilder;
-import com.github.scribejava.core.builder.api.DefaultApi20;
-import com.github.scribejava.core.oauth.OAuth20Service;
-import io.airlift.http.server.HttpServerConfig;
 import io.prestosql.server.security.Authenticator;
 import io.prestosql.server.security.RedirectAuthenticationException;
 import io.prestosql.spi.security.Identity;
@@ -24,59 +20,30 @@ import io.prestosql.spi.security.Identity;
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 
-import java.security.SecureRandom;
-import java.util.Base64;
-
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OAuth2Authenticator
         implements Authenticator
 {
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-
-    private final OAuth20Service service;
+    private final OAuth2Service service;
 
     @Inject
-    public OAuth2Authenticator(OAuth2Config oauth2Config, HttpServerConfig httpServerConfig)
+    public OAuth2Authenticator(OAuth2Service service)
     {
-        requireNonNull(oauth2Config, "oauth2Config is null");
-        requireNonNull(httpServerConfig, "httpServerConfig is null");
-        this.service = new ServiceBuilder(oauth2Config.getClientId())
-                .apiSecret(oauth2Config.getClientSecret())
-                .defaultScope("openid")
-                .callback(format("https://127.0.0.1:%s/callback", httpServerConfig.getHttpsPort()))
-                .build(new DefaultApi20()
-                {
-                    @Override
-                    public String getAccessTokenEndpoint()
-                    {
-                        return oauth2Config.getTokenUrl();
-                    }
-
-                    @Override
-                    protected String getAuthorizationBaseUrl()
-                    {
-                        return oauth2Config.getAuthUrl();
-                    }
-                });
+        this.service = requireNonNull(service, "service is null");
     }
 
     @Override
     public Identity authenticate(ContainerRequestContext request)
             throws RedirectAuthenticationException
     {
-        String authorizationUrl = service.getAuthorizationUrl(randomState());
+        Challenge.Started challenge = service.startChallenge();
         throw new RedirectAuthenticationException(
                 "Unauthorized",
-                format("Bearer realm=\"Presto\", redirectUrl=\"%s\", status=\"STARTED\"", authorizationUrl),
-                authorizationUrl);
-    }
-
-    private static String randomState()
-    {
-        byte[] randomBytes = new byte[16];
-        SECURE_RANDOM.nextBytes(randomBytes);
-        return Base64.getEncoder().encodeToString(randomBytes);
+                format("Bearer realm=\"Presto\", authorizationUrl=\"%s\", status=\"%s\"",
+                        challenge.getAuthorizationUrl(),
+                        challenge.getStatus()),
+                challenge.getAuthorizationUrl());
     }
 }

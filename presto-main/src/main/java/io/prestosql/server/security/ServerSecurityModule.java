@@ -28,6 +28,9 @@ import io.airlift.http.server.HttpServerConfig;
 import io.airlift.jmx.MBeanResource;
 import io.prestosql.server.security.oauth2.OAuth2Authenticator;
 import io.prestosql.server.security.oauth2.OAuth2Config;
+import io.prestosql.server.security.oauth2.OAuth2Error;
+import io.prestosql.server.security.oauth2.OAuth2Resource;
+import io.prestosql.server.security.oauth2.OAuth2Service;
 
 import java.util.List;
 import java.util.Map;
@@ -41,6 +44,7 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.http.server.HttpServer.ClientCertificate.REQUESTED;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.prestosql.server.security.ResourceSecurityBinder.resourceSecurityBinder;
 import static java.util.Locale.ENGLISH;
 
@@ -73,7 +77,12 @@ public class ServerSecurityModule
         installAuthenticator("kerberos", KerberosAuthenticator.class, KerberosConfig.class);
         installAuthenticator("password", PasswordAuthenticator.class, PasswordAuthenticatorConfig.class);
         installAuthenticator("jwt", JsonWebTokenAuthenticator.class, JsonWebTokenConfig.class);
-        installAuthenticator("oauth2", OAuth2Authenticator.class, OAuth2Config.class);
+        install(authenticatorModule("oauth2", OAuth2Authenticator.class, oauth2Binder -> {
+            configBinder(oauth2Binder).bindConfig(OAuth2Config.class);
+            binder.bind(OAuth2Service.class).in(Scopes.SINGLETON);
+            jaxrsBinder(binder).bind(OAuth2Resource.class);
+            jsonCodecBinder(binder).bindJsonCodec(OAuth2Error.class);
+        }));
 
         configBinder(binder).bindConfig(InsecureAuthenticatorConfig.class);
         binder.bind(InsecureAuthenticator.class).in(Scopes.SINGLETON);

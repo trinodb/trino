@@ -50,6 +50,7 @@ public class TestingHydraService
     private final GenericContainer<?> consentContainer = new GenericContainer<>("oryd/hydra-login-consent-node:v1.4.2")
             .withNetwork(network)
             .withNetworkAliases("consent")
+            .withExposedPorts(3000)
             .withEnv("HYDRA_ADMIN_URL", "http://hydra:4445")
             .withEnv("NODE_TLS_REJECT_UNAUTHORIZED", "0")
             .waitingFor(Wait.forHttp("/").forStatusCode(200));
@@ -59,15 +60,16 @@ public class TestingHydraService
             .withExposedPorts(4444, 4445)
             .withEnv("SECRETS_SYSTEM", generateSecret())
             .withEnv("DSN", DSN)
-            .withEnv("URLS_SELF_ISSUER", "http://127.0.0.1:9000/")
-            .withEnv("URLS_CONSENT", "http://127.0.0.1:9020/consent")
-            .withEnv("URLS_LOGIN", "http://127.0.0.1:9020/login")
+            .withEnv("URLS_SELF_ISSUER", "http://hydra:4444/")
+            .withEnv("URLS_CONSENT", "http://consent:3000/consent")
+            .withEnv("URLS_LOGIN", "http://consent:3000/login")
+            .withEnv("OAUTH2_ACCESS_TOKEN_STRATEGY", "jwt")
             .withCommand("serve all --dangerous-force-http")
             .waitingFor(Wait.forHttp("/health/ready").forPort(4444).forStatusCode(200));
 
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
 
-    public TestingHydraService()
+    TestingHydraService()
     {
         closer.register(network);
         closer.register(databaseContainer);
@@ -87,6 +89,16 @@ public class TestingHydraService
     public GenericContainer<?> createHydraContainer()
     {
         return new GenericContainer<>(HYDRA_IMAGE).withNetwork(network);
+    }
+
+    Network getNetwork()
+    {
+        return network;
+    }
+
+    int getHydraPort()
+    {
+        return hydraContainer.getMappedPort(4444);
     }
 
     @Override
