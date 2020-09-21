@@ -18,8 +18,8 @@ import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
+import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.ServerPackage;
-import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Kerberos;
 import io.prestosql.tests.product.launcher.env.common.Standard;
@@ -42,7 +42,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class MultinodeTlsKerberos
-        extends AbstractEnvironmentProvider
+        extends EnvironmentProvider
 {
     private final DockerFiles dockerFiles;
 
@@ -68,7 +68,7 @@ public final class MultinodeTlsKerberos
 
     @Override
     @SuppressWarnings("resource")
-    protected void extendEnvironment(Environment.Builder builder)
+    public void extendEnvironment(Environment.Builder builder)
     {
         builder.configureContainer(COORDINATOR, container -> {
             verify(Objects.equals(container.getDockerImageName(), prestoDockerImageName), "Expected image '%s', but is '%s'", prestoDockerImageName, container.getDockerImageName());

@@ -16,7 +16,7 @@ package io.prestosql.tests.product.launcher.env.environment;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
+import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
@@ -31,7 +31,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class SinglenodeHdfsImpersonation
-        extends AbstractEnvironmentProvider
+        extends EnvironmentProvider
 {
     private final DockerFiles dockerFiles;
 
@@ -43,7 +43,7 @@ public final class SinglenodeHdfsImpersonation
     }
 
     @Override
-    protected void extendEnvironment(Environment.Builder builder)
+    public void extendEnvironment(Environment.Builder builder)
     {
         builder.configureContainer(COORDINATOR, container -> container
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-hdfs-impersonation/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)

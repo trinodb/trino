@@ -40,7 +40,7 @@ public class SinglenodeLdapInsecure
     }
 
     @Override
-    protected void extendEnvironment(Environment.Builder builder)
+    public void extendEnvironment(Environment.Builder builder)
     {
         super.extendEnvironment(builder);
         builder.configureContainer("ldapserver", container -> portBinder.exposePort(container, 389));

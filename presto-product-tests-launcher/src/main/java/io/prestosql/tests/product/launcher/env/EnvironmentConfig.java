@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
 
 import java.util.List;
-import java.util.Optional;
 
 import static io.prestosql.tests.product.launcher.env.Environments.nameForConfigClass;
 
 public interface EnvironmentConfig
+        extends EnvironmentExtender
 {
     String getImagesVersion();
 
@@ -46,8 +46,6 @@ public interface EnvironmentConfig
         return nameForConfigClass(getClass());
     }
 
-    default Optional<EnvironmentExtender> extendEnvironment(String environmentName)
-    {
-        return Optional.empty();
-    }
+    @Override
+    default void extendEnvironment(Environment.Builder builder) {}
 }
