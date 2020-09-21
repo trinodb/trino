@@ -130,8 +130,7 @@ public final class EnvironmentUp
         public Integer call()
         {
             Optional<Path> environmentLogPath = logsDirBase.map(dir -> dir.resolve(environment));
-
-            Environment.Builder builder = environmentFactory.get(environment)
+            Environment.Builder builder = environmentFactory.get(environment, environmentConfig)
                     .setContainerOutputMode(outputMode)
                     .setLogsBaseDir(environmentLogPath)
                     .removeContainer(TESTS);
@@ -145,9 +144,7 @@ public final class EnvironmentUp
                 builder.configureContainers(Standard::enablePrestoJavaDebugger);
             }
 
-            environmentConfig.extendEnvironment(this.environment).ifPresent(extender -> extender.extendEnvironment(builder));
             Environment environment = builder.build(getStandardListeners(environmentLogPath));
-
             environment.start();
 
             if (background) {

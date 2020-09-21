@@ -18,7 +18,7 @@ import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
+import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
@@ -37,7 +37,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public class SinglenodeSparkIceberg
-        extends AbstractEnvironmentProvider
+        extends EnvironmentProvider
 {
     private static final int SPARK_THRIFT_PORT = 10213;
 
@@ -55,7 +55,7 @@ public class SinglenodeSparkIceberg
     }
 
     @Override
-    protected void extendEnvironment(Environment.Builder builder)
+    public void extendEnvironment(Environment.Builder builder)
     {
         builder.configureContainer(HADOOP, dockerContainer -> {
             dockerContainer.setDockerImageName("prestodev/hdp3.1-hive:" + hadoopImagesVersion);

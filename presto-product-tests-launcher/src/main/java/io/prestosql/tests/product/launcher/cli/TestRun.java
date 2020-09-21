@@ -220,18 +220,18 @@ public final class TestRun
 
         private Environment getEnvironment()
         {
-            Environment.Builder environment = environmentFactory.get(this.environment)
+            Environment.Builder builder = environmentFactory.get(environment, environmentConfig)
                     .containerDependsOnRest(TESTS)
                     .setContainerOutputMode(outputMode)
                     .setStartupRetries(startupRetries)
                     .setLogsBaseDir(logsDirBase);
 
             if (debug) {
-                environment.configureContainers(Standard::enablePrestoJavaDebugger);
+                builder.configureContainers(Standard::enablePrestoJavaDebugger);
             }
 
-            environment.configureContainer(TESTS, this::mountReportsDir);
-            environment.configureContainer(TESTS, container -> {
+            builder.configureContainer(TESTS, this::mountReportsDir);
+            builder.configureContainer(TESTS, container -> {
                 List<String> temptoJavaOptions = Splitter.on(" ").omitEmptyStrings().splitToList(
                         container.getEnvMap().getOrDefault("TEMPTO_JAVA_OPTS", ""));
 
@@ -272,9 +272,7 @@ public final class TestRun
                                 .withStartupTimeout(ofMinutes(15)));
             });
 
-            environmentConfig.extendEnvironment(this.environment).ifPresent(extender -> extender.extendEnvironment(environment));
-
-            return environment.build(getStandardListeners(logsDirBase));
+            return builder.build(getStandardListeners(logsDirBase));
         }
 
         private static Iterable<? extends String> reportsDirOptions(Path path)

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
+import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
@@ -35,7 +35,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 // See https://github.com/prestosql/presto/issues/1841 for more information.
 @TestsEnvironment
 public class SinglenodeHdp3
-        extends AbstractEnvironmentProvider
+        extends EnvironmentProvider
 {
     private final DockerFiles dockerFiles;
     private final String hadoopImagesVersion;
@@ -49,7 +49,7 @@ public class SinglenodeHdp3
     }
 
     @Override
-    protected void extendEnvironment(Environment.Builder builder)
+    public void extendEnvironment(Environment.Builder builder)
     {
         String dockerImageName = "prestodev/hdp3.1-hive:" + hadoopImagesVersion;
 
