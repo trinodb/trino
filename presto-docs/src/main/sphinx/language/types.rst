@@ -153,8 +153,13 @@ Example: ``DATE '2001-08-22'``
 ``TIME``
 ^^^^^^^^
 
-Time of day (hour, minute, second, millisecond) without a time zone.
-Values of this type are parsed and rendered in the session time zone.
+``TIME`` is an alias for ``TIME(3)`` (millisecond precision).
+
+``TIME(P)``
+^^^^^^^^^^^
+
+Time of day (hour, minute, second) without a time zone with ``P`` digits of precision
+for the fraction of seconds. A precision of up to 12 (picoseconds) is supported.
 
 Example: ``TIME '01:02:03.456'``
 
@@ -176,10 +181,9 @@ Example: ``TIME '01:02:03.456 America/Los_Angeles'``
 ``TIMESTAMP(P)``
 ^^^^^^^^^^^^^^^^
 
-Instant in time that includes the date and time of day without a time zone
-with ``P`` digits of precision for the fraction of seconds. A precision of
-up to 12 (picoseconds) is supported. Values of this type are parsed and
-rendered in the session time zone.
+Calendar date and time of day without a time zone with ``P`` digits of precision
+for the fraction of seconds. A precision of up to 12 (picoseconds) is supported.
+This type is effectively a combination of the ``DATE`` and ``TIME(P)`` types.
 
 ``TIMESTAMP(P) WITHOUT TIME ZONE`` is an equivalent name.
 
