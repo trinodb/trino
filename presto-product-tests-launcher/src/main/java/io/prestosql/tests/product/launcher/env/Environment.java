@@ -247,13 +247,13 @@ public final class Environment
 
     private static boolean containerIsHealthy(Container container)
     {
-        if (!container.isHealthy()) {
-            log.warn("Container %s is not healthy", container.getContainerName());
+        if (!container.isRunning()) {
+            log.warn("Container %s is not running", container.getContainerName());
             return false;
         }
 
-        if (!container.isRunning()) {
-            log.warn("Container %s is not running", container.getContainerName());
+        if (!container.isHealthy()) {
+            log.warn("Container %s is not healthy", container.getContainerName());
             return false;
         }
 
