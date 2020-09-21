@@ -70,7 +70,7 @@ public final class TypeUtils
             return "VARCHAR";
         }
 
-        if (isCharType(elementType)) {
+        if (elementType instanceof CharType) {
             return "CHAR";
         }
 

@@ -40,7 +40,6 @@ import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static io.prestosql.orc.reader.ReaderUtils.verifyStreamType;
 import static io.prestosql.spi.type.Chars.byteCountWithoutTrailingSpace;
-import static io.prestosql.spi.type.VarbinaryType.isVarbinaryType;
 import static io.prestosql.spi.type.Varchars.byteCount;
 import static java.util.Objects.requireNonNull;
 
@@ -123,7 +122,7 @@ public class SliceColumnReader
         if (type instanceof CharType) {
             return ((CharType) type).getLength();
         }
-        if (isVarbinaryType(type)) {
+        if (type instanceof VarbinaryType) {
             return -1;
         }
         throw new IllegalArgumentException("Unsupported encoding " + type.getDisplayName());

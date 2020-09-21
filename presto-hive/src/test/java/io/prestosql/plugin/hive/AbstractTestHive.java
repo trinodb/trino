@@ -103,6 +103,7 @@ import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RowFieldName;
@@ -4531,7 +4532,7 @@ public abstract class AbstractTestHive
                 else if (column.getType() instanceof VarcharType) {
                     assertInstanceOf(value, String.class);
                 }
-                else if (isCharType(column.getType())) {
+                else if (column.getType() instanceof CharType) {
                     assertInstanceOf(value, String.class);
                 }
                 else if (VARBINARY.equals(column.getType())) {
