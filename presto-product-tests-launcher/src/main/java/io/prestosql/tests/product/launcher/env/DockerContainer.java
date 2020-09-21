@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static java.util.Objects.requireNonNull;
@@ -312,6 +313,8 @@ public class DockerContainer
         catch (Exception e) {
             log.warn("Could not stop container correctly: %s", getStackTraceAsString(e));
         }
+
+        checkState(!isRunning(), "Container %s is still running", logicalName);
     }
 
     public enum OutputMode
