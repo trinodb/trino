@@ -199,6 +199,7 @@ public class TestDynamicFilterService
                 new TestingColumnHandle("probeColumnA"),
                 multipleValues(INTEGER, ImmutableList.of(1L, 2L)))));
         assertTrue(blockedFuture.isDone());
+        assertFalse(blockedFuture.isCompletedExceptionally());
 
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
         assertEquals(stats.getDynamicFiltersCompleted(), 1);
@@ -233,6 +234,7 @@ public class TestDynamicFilterService
                 new TestingColumnHandle("probeColumnA"),
                 singleValue(INTEGER, 2L))));
         assertTrue(blockedFuture.isDone());
+        assertFalse(blockedFuture.isCompletedExceptionally());
 
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
         assertEquals(stats.getDynamicFiltersCompleted(), 2);
@@ -282,6 +284,7 @@ public class TestDynamicFilterService
         // "none" dynamic filter (id3) has been collected for column B as tuple domains from two tasks have been provided
         assertEquals(dynamicFilter.getCurrentPredicate(), TupleDomain.none());
         assertTrue(blockedFuture.isDone());
+        assertFalse(blockedFuture.isCompletedExceptionally());
 
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
         assertEquals(stats.getDynamicFiltersCompleted(), 3);
@@ -441,6 +444,7 @@ public class TestDynamicFilterService
                 singleValue(INTEGER, 1L))));
         assertTrue(dynamicFilter.isComplete());
         assertTrue(blockedFuture.isDone());
+        assertFalse(blockedFuture.isCompletedExceptionally());
     }
 
     @Test
