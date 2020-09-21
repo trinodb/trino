@@ -139,8 +139,6 @@ public final class Environment
         ImmutableList.copyOf(containers.values())
                 .forEach(container -> executor.run(container::tryStop));
 
-        executor.run(this::awaitContainersStopped);
-
         this.listener.ifPresent(listener -> listener.environmentStopped(this));
         pruneEnvironment();
     }
