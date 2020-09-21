@@ -30,6 +30,8 @@ import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -386,6 +388,37 @@ public class TestPostgreSqlIntegrationSmokeTest
                     "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
                     "VALUES ('col1', 'test comment'), ('col2', null), ('col3', null)");
         }
+    }
+
+    /**
+     * This test helps to tune TupleDomain simplification threshold.
+     */
+    @Test
+    public void testNativeLargeIn()
+            throws SQLException
+    {
+        execute("SELECT count(*) FROM tpch.orders WHERE " + getLongInClause(0, 500_000));
+    }
+
+    /**
+     * This test helps to tune TupleDomain simplification threshold.
+     */
+    @Test
+    public void testNativeMultipleInClauses()
+            throws SQLException
+    {
+        String longInClauses = range(0, 20)
+                .mapToObj(value -> getLongInClause(value * 10_000, 10_000))
+                .collect(joining(" OR "));
+        execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
+    }
+
+    private String getLongInClause(int start, int length)
+    {
+        String longValues = range(start, start + length)
+                .mapToObj(Integer::toString)
+                .collect(joining(", "));
+        return "orderkey IN (" + longValues + ")";
     }
 
     private AutoCloseable withSchema(String schema)
