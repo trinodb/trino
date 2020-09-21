@@ -137,6 +137,8 @@ public final class Environment
         FailsafeExecutor<Object> executor = Failsafe.with(timeout, retry);
 
         ImmutableList.copyOf(containers.values())
+                .stream()
+                .filter(DockerContainer::isRunning)
                 .forEach(container -> executor.run(container::tryStop));
 
         this.listener.ifPresent(listener -> listener.environmentStopped(this));
