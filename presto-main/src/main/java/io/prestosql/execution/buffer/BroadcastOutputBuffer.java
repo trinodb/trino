@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
@@ -68,12 +69,16 @@ public class BroadcastOutputBuffer
     private final AtomicLong totalRowsAdded = new AtomicLong();
     private final AtomicLong totalBufferedPages = new AtomicLong();
 
+    private final AtomicBoolean hasBlockedBefore = new AtomicBoolean();
+    private final Runnable notifyStatusChanged;
+
     public BroadcastOutputBuffer(
             String taskInstanceId,
             StateMachine<BufferState> state,
             DataSize maxBufferSize,
             Supplier<LocalMemoryContext> systemMemoryContextSupplier,
-            Executor notificationExecutor)
+            Executor notificationExecutor,
+            Runnable notifyStatusChanged)
     {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.state = requireNonNull(state, "state is null");
@@ -81,6 +86,7 @@ public class BroadcastOutputBuffer
                 requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
                 requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
+        this.notifyStatusChanged = requireNonNull(notifyStatusChanged, "notifyStatusChanged is null");
     }
 
     @Override
@@ -231,6 +237,15 @@ public class BroadcastOutputBuffer
 
         // drop the initial reference
         serializedPageReferences.forEach(SerializedPageReference::dereferencePage);
+
+        // if the buffer is full for first time and more clients are expected, update the task status
+        // notifying a status change will lead to the SourcePartitionedScheduler sending 'no-more-buffers' to unblock
+        if (!hasBlockedBefore.get()
+                && state.get().canAddBuffers()
+                && !isFull().isDone()
+                && hasBlockedBefore.compareAndSet(false, true)) {
+            notifyStatusChanged.run();
+        }
     }
 
     @Override
