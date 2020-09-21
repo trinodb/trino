@@ -31,7 +31,6 @@ import io.prestosql.tests.product.launcher.testcontainers.ExistingNetwork;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.Timeout;
 import net.jodah.failsafe.TimeoutExceededException;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Mixin;
@@ -284,7 +283,7 @@ public final class TestRun
             return ImmutableList.of("--report-dir", CONTAINER_REPORTS_DIR);
         }
 
-        private void mountReportsDir(Container container)
+        private void mountReportsDir(DockerContainer container)
         {
             if (isNullOrEmpty(reportsDirBase.toString())) {
                 return;
