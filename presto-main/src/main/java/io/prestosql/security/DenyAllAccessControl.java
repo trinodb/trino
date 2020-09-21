@@ -287,7 +287,7 @@ public class DenyAllAccessControl
     @Override
     public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
-        denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
+        denyCreateViewWithSelect(tableName.toString());
     }
 
     @Override

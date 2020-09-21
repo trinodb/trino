@@ -319,7 +319,7 @@ public class SqlStandardAccessControl
 
         // TODO implement column level access control
         if (!checkTablePermission(context, tableName, SELECT, true)) {
-            denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
+            denyCreateViewWithSelect(tableName.toString());
         }
     }
 

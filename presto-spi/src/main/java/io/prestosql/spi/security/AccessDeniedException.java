@@ -306,19 +306,14 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot create view %s%s", viewName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denyCreateViewWithSelect(String sourceName, Identity identity)
+    public static void denyCreateViewWithSelect(String sourceName)
     {
-        denyCreateViewWithSelect(sourceName, identity.toConnectorIdentity());
+        denyCreateViewWithSelect(sourceName, null);
     }
 
-    public static void denyCreateViewWithSelect(String sourceName, ConnectorIdentity identity)
+    public static void denyCreateViewWithSelect(String sourceName, String extraInfo)
     {
-        denyCreateViewWithSelect(sourceName, identity, null);
-    }
-
-    public static void denyCreateViewWithSelect(String sourceName, ConnectorIdentity identity, String extraInfo)
-    {
-        throw new AccessDeniedException(format("View owner '%s' cannot create view that selects from %s%s", identity.getUser(), sourceName, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format("View owner cannot create view that selects from %s%s", sourceName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyGrantExecuteFunctionPrivilege(String functionName, Identity identity, Identity grantee)

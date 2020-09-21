@@ -460,7 +460,7 @@ public class TestingAccessControlManager
     public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), CREATE_VIEW_WITH_SELECT_COLUMNS)) {
-            denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
+            denyCreateViewWithSelect(tableName.toString());
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);

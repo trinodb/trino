@@ -337,7 +337,7 @@ public interface ConnectorAccessControl
      */
     default void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
-        denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
+        denyCreateViewWithSelect(tableName.toString());
     }
 
     /**

@@ -453,7 +453,7 @@ public interface SystemAccessControl
      */
     default void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
-        denyCreateViewWithSelect(table.toString(), context.getIdentity());
+        denyCreateViewWithSelect(table.toString());
     }
 
     /**

@@ -646,7 +646,7 @@ public class FileBasedSystemAccessControl
     public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
-            denyCreateViewWithSelect(table.toString(), context.getIdentity());
+            denyCreateViewWithSelect(table.toString());
         }
     }
 
