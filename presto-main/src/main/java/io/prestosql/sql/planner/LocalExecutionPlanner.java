@@ -31,6 +31,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
+import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.execution.ExplainAnalyzeContext;
 import io.prestosql.execution.StageId;
 import io.prestosql.execution.TaskId;
@@ -230,13 +231,11 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.prestosql.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
-import static io.prestosql.SystemSessionProperties.getDynamicFilteringMaxPerDriverRowCount;
-import static io.prestosql.SystemSessionProperties.getDynamicFilteringMaxPerDriverSize;
-import static io.prestosql.SystemSessionProperties.getDynamicFilteringRangeRowLimitPerDriver;
 import static io.prestosql.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.prestosql.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static io.prestosql.SystemSessionProperties.getTaskConcurrency;
 import static io.prestosql.SystemSessionProperties.getTaskWriterCount;
+import static io.prestosql.SystemSessionProperties.isEnableLargeDynamicFilters;
 import static io.prestosql.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.prestosql.SystemSessionProperties.isLateMaterializationEnabled;
 import static io.prestosql.SystemSessionProperties.isSpillEnabled;
@@ -322,6 +321,7 @@ public class LocalExecutionPlanner
     private final JoinCompiler joinCompiler;
     private final LookupJoinOperators lookupJoinOperators;
     private final OrderingCompiler orderingCompiler;
+    private final DynamicFilterConfig dynamicFilterConfig;
 
     @Inject
     public LocalExecutionPlanner(
@@ -344,7 +344,8 @@ public class LocalExecutionPlanner
             PagesIndex.Factory pagesIndexFactory,
             JoinCompiler joinCompiler,
             LookupJoinOperators lookupJoinOperators,
-            OrderingCompiler orderingCompiler)
+            OrderingCompiler orderingCompiler,
+            DynamicFilterConfig dynamicFilterConfig)
     {
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -369,6 +370,7 @@ public class LocalExecutionPlanner
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
         this.lookupJoinOperators = requireNonNull(lookupJoinOperators, "lookupJoinOperators is null");
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
+        this.dynamicFilterConfig = requireNonNull(dynamicFilterConfig, "dynamicFilterConfig is null");
     }
 
     public LocalExecutionPlan plan(
@@ -2158,14 +2160,15 @@ public class LocalExecutionPlanner
                         return new DynamicFilterSourceOperator.Channel(filterId, type, index);
                     })
                     .collect(Collectors.toList());
+            boolean isReplicatedJoin = isBuildSideReplicated(node);
             return new DynamicFilterSourceOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
                     dynamicFilter.getTupleDomainConsumer(),
                     filterBuildChannels,
-                    getDynamicFilteringMaxPerDriverRowCount(context.getSession()),
-                    getDynamicFilteringMaxPerDriverSize(context.getSession()),
-                    getDynamicFilteringRangeRowLimitPerDriver(context.getSession()));
+                    getDynamicFilteringMaxDistinctValuesPerDriver(context.getSession(), isReplicatedJoin),
+                    getDynamicFilteringMaxSizePerDriver(context.getSession(), isReplicatedJoin),
+                    getDynamicFilteringRangeRowLimitPerDriver(context.getSession(), isReplicatedJoin));
         }
 
         private Optional<LocalDynamicFilterConsumer> createDynamicFilter(
@@ -2301,14 +2304,15 @@ public class LocalExecutionPlanner
                 if (isCoordinatorDynamicFilter) {
                     addSuccessCallback(domainsFuture, context::addCoordinatorDynamicFilters);
                 }
+                boolean isReplicatedJoin = isBuildSideReplicated(node);
                 buildOperatorFactories.add(new DynamicFilterSourceOperatorFactory(
                         buildContext.getNextOperatorId(),
                         node.getId(),
                         filterConsumer.getTupleDomainConsumer(),
                         ImmutableList.of(new DynamicFilterSourceOperator.Channel(filterId, buildSource.getTypes().get(buildChannel), buildChannel)),
-                        getDynamicFilteringMaxPerDriverRowCount(context.getSession()),
-                        getDynamicFilteringMaxPerDriverSize(context.getSession()),
-                        getDynamicFilteringRangeRowLimitPerDriver(context.getSession())));
+                        getDynamicFilteringMaxDistinctValuesPerDriver(context.getSession(), isReplicatedJoin),
+                        getDynamicFilteringMaxSizePerDriver(context.getSession(), isReplicatedJoin),
+                        getDynamicFilteringRangeRowLimitPerDriver(context.getSession(), isReplicatedJoin)));
             }
 
             Optional<Integer> buildHashChannel = node.getFilteringSourceHashSymbol().map(channelGetter(buildSource));
@@ -2979,6 +2983,48 @@ public class LocalExecutionPlanner
                         useSystemMemory);
             }
         }
+    }
+
+    private int getDynamicFilteringMaxDistinctValuesPerDriver(Session session, boolean isReplicatedJoin)
+    {
+        if (isEnableLargeDynamicFilters(session)) {
+            if (isReplicatedJoin) {
+                return dynamicFilterConfig.getLargeBroadcastMaxDistinctValuesPerDriver();
+            }
+            return dynamicFilterConfig.getLargePartitionedMaxDistinctValuesPerDriver();
+        }
+        if (isReplicatedJoin) {
+            return dynamicFilterConfig.getSmallBroadcastMaxDistinctValuesPerDriver();
+        }
+        return dynamicFilterConfig.getSmallPartitionedMaxDistinctValuesPerDriver();
+    }
+
+    private DataSize getDynamicFilteringMaxSizePerDriver(Session session, boolean isReplicatedJoin)
+    {
+        if (isEnableLargeDynamicFilters(session)) {
+            if (isReplicatedJoin) {
+                return dynamicFilterConfig.getLargeBroadcastMaxSizePerDriver();
+            }
+            return dynamicFilterConfig.getLargePartitionedMaxSizePerDriver();
+        }
+        if (isReplicatedJoin) {
+            return dynamicFilterConfig.getSmallBroadcastMaxSizePerDriver();
+        }
+        return dynamicFilterConfig.getSmallPartitionedMaxSizePerDriver();
+    }
+
+    private int getDynamicFilteringRangeRowLimitPerDriver(Session session, boolean isReplicatedJoin)
+    {
+        if (isEnableLargeDynamicFilters(session)) {
+            if (isReplicatedJoin) {
+                return dynamicFilterConfig.getLargeBroadcastRangeRowLimitPerDriver();
+            }
+            return dynamicFilterConfig.getLargePartitionedRangeRowLimitPerDriver();
+        }
+        if (isReplicatedJoin) {
+            return dynamicFilterConfig.getSmallBroadcastRangeRowLimitPerDriver();
+        }
+        return dynamicFilterConfig.getSmallPartitionedRangeRowLimitPerDriver();
     }
 
     private static List<Type> getTypes(List<Expression> expressions, Map<NodeRef<Expression>, Type> expressionTypes)

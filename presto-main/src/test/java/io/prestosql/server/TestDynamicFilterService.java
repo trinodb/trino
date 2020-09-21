@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.cost.StatsAndCosts;
+import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.execution.StageId;
 import io.prestosql.execution.StageState;
 import io.prestosql.execution.TaskId;
@@ -30,7 +31,6 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.sql.DynamicFilters;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.planner.PartitioningScheme;
@@ -91,7 +91,7 @@ public class TestDynamicFilterService
     @Test
     public void testDynamicFilterSummaryCompletion()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new DynamicFilterConfig());
         DynamicFilterId filterId = new DynamicFilterId("df");
         QueryId queryId = new QueryId("query");
         StageId stageId = new StageId(queryId, 0);
@@ -158,7 +158,7 @@ public class TestDynamicFilterService
     @Test
     public void testDynamicFilter()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new DynamicFilterConfig());
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         DynamicFilterId filterId2 = new DynamicFilterId("df2");
         DynamicFilterId filterId3 = new DynamicFilterId("df3");
@@ -353,7 +353,7 @@ public class TestDynamicFilterService
     @Test
     public void testShortCircuitOnAllTupleDomain()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new DynamicFilterConfig());
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         Expression df1 = expression("DF_SYMBOL1");
 
@@ -402,7 +402,7 @@ public class TestDynamicFilterService
     @Test
     public void testReplicatedDynamicFilter()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new DynamicFilterConfig());
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         Expression df1 = expression("DF_SYMBOL1");
         QueryId queryId = new QueryId("query");
@@ -473,7 +473,7 @@ public class TestDynamicFilterService
     @Test
     public void testDynamicFilterCancellation()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new DynamicFilterConfig());
         DynamicFilterId filterId = new DynamicFilterId("df");
         Expression df1 = expression("DF_SYMBOL1");
         QueryId queryId = new QueryId("query");
@@ -521,7 +521,7 @@ public class TestDynamicFilterService
     @Test
     public void testIsAwaitable()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new DynamicFilterConfig());
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         DynamicFilterId filterId2 = new DynamicFilterId("df2");
         Expression symbol = new Symbol("symbol").toSymbolReference();
@@ -557,7 +557,7 @@ public class TestDynamicFilterService
     @Test
     public void testMultipleColumnMapping()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new DynamicFilterConfig());
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         Expression df1 = expression("DF_SYMBOL1");
         Expression df2 = expression("DF_SYMBOL2");

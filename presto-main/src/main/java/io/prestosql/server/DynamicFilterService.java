@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
+import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.execution.SqlQueryExecution;
 import io.prestosql.execution.StageState;
 import io.prestosql.operator.JoinUtils;
@@ -35,7 +36,6 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Ranges;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.DynamicFilters;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.SubPlan;
 import io.prestosql.sql.planner.Symbol;
@@ -95,9 +95,9 @@ public class DynamicFilterService
     private final Map<QueryId, DynamicFilterContext> dynamicFilterContexts = new ConcurrentHashMap<>();
 
     @Inject
-    public DynamicFilterService(FeaturesConfig featuresConfig)
+    public DynamicFilterService(DynamicFilterConfig dynamicFilterConfig)
     {
-        this.dynamicFilteringRefreshInterval = requireNonNull(featuresConfig, "featuresConfig is null").getDynamicFilteringRefreshInterval();
+        this.dynamicFilteringRefreshInterval = requireNonNull(dynamicFilterConfig, "dynamicFilterConfig is null").getDynamicFilteringRefreshInterval();
     }
 
     @PostConstruct
