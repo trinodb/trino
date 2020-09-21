@@ -19,7 +19,6 @@ import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
 
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 
@@ -33,6 +32,10 @@ public class TestPostgreSqlDistributedQueries
             throws Exception
     {
         postgreSqlServer = new TestingPostgreSqlServer();
+        closeAfterClass(() -> {
+            postgreSqlServer.close();
+            postgreSqlServer = null;
+        });
         return createPostgreSqlQueryRunner(
                 postgreSqlServer,
                 ImmutableMap.of(),
@@ -42,12 +45,6 @@ public class TestPostgreSqlDistributedQueries
                         .put("metadata.cache-missing", "true")
                         .build(),
                 TpchTable.getTables());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        postgreSqlServer.close();
     }
 
     @Override
