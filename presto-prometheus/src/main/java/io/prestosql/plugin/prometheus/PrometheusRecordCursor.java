@@ -53,8 +53,6 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
-//import static io.prestosql.spi.type.StandardTypes.VARCHAR;
-
 public class PrometheusRecordCursor
         implements RecordCursor
 {
