@@ -307,6 +307,11 @@ public class DockerContainer
 
     public void tryStop()
     {
+        if (!isRunning()) {
+            log.warn("Could not stop already stopped container: %s", logicalName);
+            return;
+        }
+
         try {
             stop();
         }
