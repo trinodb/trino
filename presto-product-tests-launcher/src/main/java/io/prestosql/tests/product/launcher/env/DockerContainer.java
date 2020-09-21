@@ -219,6 +219,11 @@ public class DockerContainer
 
     private Stream<String> listFilesInContainer(String path)
     {
+        if (!isRunning()) {
+            log.warn("Could not list files in %s for stopped container %s", path, logicalName);
+            return Stream.empty();
+        }
+
         try {
             ExecResult result = execInContainer("/usr/bin/find", path, "-type", "f", "-print");
 
@@ -239,6 +244,11 @@ public class DockerContainer
 
     public Optional<Statistics> getStats()
     {
+        if (!isRunning()) {
+            log.warn("Could not get statistics for stopped container %s", logicalName);
+            return Optional.empty();
+        }
+
         try (DockerClient client = DockerClientFactory.lazyClient()) {
             InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>();
             client.statsCmd(getContainerId()).exec(callback);
