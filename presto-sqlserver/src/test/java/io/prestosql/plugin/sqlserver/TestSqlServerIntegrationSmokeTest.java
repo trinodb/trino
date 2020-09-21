@@ -25,6 +25,8 @@ import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
@@ -156,6 +158,45 @@ public class TestSqlServerIntegrationSmokeTest
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
         }
+    }
+
+    /**
+     * This test helps to tune TupleDomain simplification threshold.
+     */
+    @Test
+    public void testNativeLargeIn()
+    {
+        // Using IN list of size 10_000 as bigger list (around 40_000) causes error:
+        // "com.microsoft.sqlserver.jdbc.SQLServerException: Internal error: An expression services
+        //  limit has been reached.Please look for potentially complex expressions in your query,
+        //  and try to simplify them."
+        //
+        // List around 30_000 causes query to be really slow
+        sqlServer.execute("SELECT count(*) FROM dbo.orders WHERE " + getLongInClause(0, 10_000));
+    }
+
+    /**
+     * This test helps to tune TupleDomain simplification threshold.
+     */
+    @Test
+    public void testNativeMultipleInClauses()
+    {
+        // using 1_000 for single IN list as 10_000 causes error:
+        // "com.microsoft.sqlserver.jdbc.SQLServerException: Internal error: An expression services
+        //  limit has been reached.Please look for potentially complex expressions in your query,
+        //  and try to simplify them."
+        String longInClauses = range(0, 10)
+                .mapToObj(value -> getLongInClause(value * 1_000, 1_000))
+                .collect(joining(" OR "));
+        sqlServer.execute("SELECT count(*) FROM dbo.orders WHERE " + longInClauses);
+    }
+
+    private String getLongInClause(int start, int length)
+    {
+        String longValues = range(start, start + length)
+                .mapToObj(Integer::toString)
+                .collect(joining(", "));
+        return "orderkey IN (" + longValues + ")";
     }
 
     private AutoCloseable withTable(String tableName, String tableDefinition)
