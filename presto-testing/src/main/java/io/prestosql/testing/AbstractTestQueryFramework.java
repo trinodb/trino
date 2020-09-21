@@ -16,6 +16,8 @@ package io.prestosql.testing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MoreCollectors;
+import com.google.common.io.Closer;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.cost.CostCalculator;
@@ -57,6 +59,8 @@ import org.testng.annotations.BeforeClass;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -66,7 +70,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
@@ -83,14 +86,15 @@ public abstract class AbstractTestQueryFramework
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
+    private final Closer afterClassCloser = Closer.create();
     private io.prestosql.sql.query.QueryAssertions queryAssertions;
 
     @BeforeClass
     public void init()
             throws Exception
     {
-        queryRunner = createQueryRunner();
-        h2QueryRunner = new H2QueryRunner();
+        queryRunner = afterClassCloser.register(createQueryRunner());
+        h2QueryRunner = afterClassCloser.register(new H2QueryRunner());
         sqlParser = new SqlParser();
         queryAssertions = new io.prestosql.sql.query.QueryAssertions(queryRunner);
     }
@@ -100,8 +104,9 @@ public abstract class AbstractTestQueryFramework
 
     @AfterClass(alwaysRun = true)
     public void close()
+            throws IOException
     {
-        closeAllRuntimeException(queryRunner, h2QueryRunner);
+        afterClassCloser.close();
         queryRunner = null;
         h2QueryRunner = null;
         sqlParser = null;
@@ -458,5 +463,11 @@ public abstract class AbstractTestQueryFramework
                 .stream()
                 .filter(summary -> nodeId.equals(summary.getPlanNodeId()) && summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
                 .collect(MoreCollectors.onlyElement());
+    }
+
+    @CanIgnoreReturnValue
+    protected final <T extends Closeable> T closeAfterClass(T resource)
+    {
+        return afterClassCloser.register(resource);
     }
 }
