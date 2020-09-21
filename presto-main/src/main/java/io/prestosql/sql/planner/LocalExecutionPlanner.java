@@ -26,12 +26,14 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.execution.ExplainAnalyzeContext;
 import io.prestosql.execution.StageId;
+import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.execution.buffer.OutputBuffer;
 import io.prestosql.execution.buffer.PagesSerdeFactory;
@@ -221,6 +223,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.DiscreteDomain.integers;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -240,6 +243,7 @@ import static io.prestosql.SystemSessionProperties.isSpillEnabled;
 import static io.prestosql.SystemSessionProperties.isSpillOrderBy;
 import static io.prestosql.SystemSessionProperties.isSpillWindowOperator;
 import static io.prestosql.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
+import static io.prestosql.operator.JoinUtils.isBuildSideReplicated;
 import static io.prestosql.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import static io.prestosql.operator.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
 import static io.prestosql.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
@@ -600,6 +604,11 @@ public class LocalExecutionPlanner
             return taskContext.getTaskId().getStageId();
         }
 
+        public TaskId getTaskId()
+        {
+            return taskContext.getTaskId();
+        }
+
         public TypeProvider getTypes()
         {
             return types;
@@ -610,10 +619,14 @@ public class LocalExecutionPlanner
             return dynamicFiltersCollector;
         }
 
-        private void addDynamicFilter(Map<DynamicFilterId, Domain> dynamicTupleDomain)
+        private void addLocalDynamicFilters(Map<DynamicFilterId, Domain> dynamicTupleDomain)
+        {
+            dynamicFiltersCollector.collectDynamicFilterDomains(dynamicTupleDomain);
+        }
+
+        private void addCoordinatorDynamicFilters(Map<DynamicFilterId, Domain> dynamicTupleDomain)
         {
             taskContext.updateDomains(dynamicTupleDomain);
-            dynamicFiltersCollector.collectDynamicFilterDomains(dynamicTupleDomain);
         }
 
         public Optional<IndexSourceContext> getIndexSourceContext()
@@ -2012,7 +2025,7 @@ public class LocalExecutionPlanner
             // Plan build
             boolean spillEnabled = isSpillEnabled(session) && node.isSpillable().orElseThrow(() -> new IllegalArgumentException("spillable not yet set"));
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory =
-                    createLookupSourceFactory(node, buildNode, buildSymbols, buildHashSymbol, probeSource, context, spillEnabled);
+                    createLookupSourceFactory(node, buildNode, buildSymbols, buildHashSymbol, probeSource, context, spillEnabled, localDynamicFilters);
 
             OperatorFactory operator = createLookupJoin(node, probeSource, probeSymbols, probeHashSymbol, lookupSourceFactory, context, spillEnabled);
 
@@ -2033,7 +2046,8 @@ public class LocalExecutionPlanner
                 Optional<Symbol> buildHashSymbol,
                 PhysicalOperation probeSource,
                 LocalExecutionPlanContext context,
-                boolean spillEnabled)
+                boolean spillEnabled,
+                Set<DynamicFilterId> localDynamicFilters)
         {
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = buildNode.accept(this, buildContext);
@@ -2100,7 +2114,7 @@ public class LocalExecutionPlanner
             ImmutableList.Builder<OperatorFactory> factoriesBuilder = new ImmutableList.Builder<>();
             factoriesBuilder.addAll(buildSource.getOperatorFactories());
 
-            createDynamicFilter(buildSource, node, context, partitionCount).ifPresent(
+            createDynamicFilter(buildSource, node, context, partitionCount, localDynamicFilters).ifPresent(
                     filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node, buildSource, buildContext)));
 
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
@@ -2154,17 +2168,37 @@ public class LocalExecutionPlanner
                     getDynamicFilteringRangeRowLimitPerDriver(context.getSession()));
         }
 
-        private Optional<LocalDynamicFilterConsumer> createDynamicFilter(PhysicalOperation buildSource, JoinNode node, LocalExecutionPlanContext context, int partitionCount)
+        private Optional<LocalDynamicFilterConsumer> createDynamicFilter(
+                PhysicalOperation buildSource,
+                JoinNode node,
+                LocalExecutionPlanContext context,
+                int partitionCount,
+                Set<DynamicFilterId> localDynamicFilters)
         {
-            if (node.getDynamicFilters().isEmpty()) {
+            Set<DynamicFilterId> coordinatorDynamicFilters = getCoordinatorDynamicFilters(node.getDynamicFilters().keySet(), node, context.getTaskId());
+            Set<DynamicFilterId> collectedDynamicFilters = ImmutableSet.<DynamicFilterId>builder()
+                    .addAll(localDynamicFilters)
+                    .addAll(coordinatorDynamicFilters)
+                    .build();
+            if (collectedDynamicFilters.isEmpty()) {
                 return Optional.empty();
             }
             checkState(
                     buildSource.getPipelineExecutionStrategy() != GROUPED_EXECUTION,
                     "Dynamic filtering cannot be used with grouped execution");
             log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
-            LocalDynamicFilterConsumer filterConsumer = LocalDynamicFilterConsumer.create(node, buildSource.getTypes(), partitionCount);
-            addSuccessCallback(filterConsumer.getDynamicFilterDomains(), context::addDynamicFilter);
+            LocalDynamicFilterConsumer filterConsumer = LocalDynamicFilterConsumer.create(node, buildSource.getTypes(), partitionCount, collectedDynamicFilters);
+            ListenableFuture<Map<DynamicFilterId, Domain>> domainsFuture = filterConsumer.getDynamicFilterDomains();
+            if (!localDynamicFilters.isEmpty()) {
+                addSuccessCallback(domainsFuture, context::addLocalDynamicFilters);
+            }
+            if (!coordinatorDynamicFilters.isEmpty()) {
+                addSuccessCallback(
+                        domainsFuture,
+                        domains -> context.addCoordinatorDynamicFilters(domains.entrySet().stream()
+                                .filter(entry -> coordinatorDynamicFilters.contains(entry.getKey()))
+                                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue))));
+            }
             return Optional.of(filterConsumer);
         }
 
@@ -2225,12 +2259,17 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitSemiJoin(SemiJoinNode node, LocalExecutionPlanContext context)
         {
-            node.getDynamicFilterId().ifPresent(filterId -> {
+            boolean isLocalDynamicFilter = node.getDynamicFilterId()
+                    .map(filterId -> getConsumedDynamicFilterIds(node.getSource()).contains(filterId))
+                    .orElse(false);
+            boolean isCoordinatorDynamicFilter = node.getDynamicFilterId()
+                    .map(filterId -> !getCoordinatorDynamicFilters(ImmutableSet.of(filterId), node, context.getTaskId()).isEmpty())
+                    .orElse(false);
+            if (isLocalDynamicFilter) {
                 // Register locally if the table scan is on the same node (e.g., in case of broadcast semi-joins)
-                if (getConsumedDynamicFilterIds(node.getSource()).contains(filterId)) {
-                    context.getDynamicFiltersCollector().register(ImmutableSet.of(filterId));
-                }
-            });
+                context.getDynamicFiltersCollector().register(ImmutableSet.of(node.getDynamicFilterId().get()));
+            }
+
             // Plan probe
             PhysicalOperation probeSource = node.getSource().accept(this, context);
 
@@ -2247,14 +2286,21 @@ public class LocalExecutionPlanner
             ImmutableList.Builder<OperatorFactory> buildOperatorFactories = new ImmutableList.Builder<>();
             buildOperatorFactories.addAll(buildSource.getOperatorFactories());
 
-            node.getDynamicFilterId().ifPresent(filterId -> {
+            if (isLocalDynamicFilter || isCoordinatorDynamicFilter) {
                 // Add a DynamicFilterSourceOperatorFactory to build operator factories
+                DynamicFilterId filterId = node.getDynamicFilterId().get();
                 log.debug("[Semi-join] Dynamic filter: %s", filterId);
                 LocalDynamicFilterConsumer filterConsumer = new LocalDynamicFilterConsumer(
                         ImmutableMap.of(filterId, buildChannel),
                         ImmutableMap.of(filterId, buildSource.getTypes().get(buildChannel)),
                         partitionCount);
-                addSuccessCallback(filterConsumer.getDynamicFilterDomains(), context::addDynamicFilter);
+                ListenableFuture<Map<DynamicFilterId, Domain>> domainsFuture = filterConsumer.getDynamicFilterDomains();
+                if (isLocalDynamicFilter) {
+                    addSuccessCallback(domainsFuture, context::addLocalDynamicFilters);
+                }
+                if (isCoordinatorDynamicFilter) {
+                    addSuccessCallback(domainsFuture, context::addCoordinatorDynamicFilters);
+                }
                 buildOperatorFactories.add(new DynamicFilterSourceOperatorFactory(
                         buildContext.getNextOperatorId(),
                         node.getId(),
@@ -2263,7 +2309,7 @@ public class LocalExecutionPlanner
                         getDynamicFilteringMaxPerDriverRowCount(context.getSession()),
                         getDynamicFilteringMaxPerDriverSize(context.getSession()),
                         getDynamicFilteringRangeRowLimitPerDriver(context.getSession())));
-            });
+            }
 
             Optional<Integer> buildHashChannel = node.getFilteringSourceHashSymbol().map(channelGetter(buildSource));
             Optional<Integer> probeHashChannel = node.getSourceHashSymbol().map(channelGetter(probeSource));
@@ -2293,6 +2339,16 @@ public class LocalExecutionPlanner
 
             OperatorFactory operator = HashSemiJoinOperator.createOperatorFactory(context.getNextOperatorId(), node.getId(), setProvider, probeSource.getTypes(), probeChannel, probeHashChannel);
             return new PhysicalOperation(operator, outputMappings, context, probeSource);
+        }
+
+        private Set<DynamicFilterId> getCoordinatorDynamicFilters(Set<DynamicFilterId> dynamicFilters, PlanNode node, TaskId taskId)
+        {
+            if (!isBuildSideReplicated(node) || taskId.getId() == 0) {
+                // replicated dynamic filters are collected by single stage task only
+                return dynamicFilters;
+            }
+
+            return ImmutableSet.of();
         }
 
         @Override
