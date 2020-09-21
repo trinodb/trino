@@ -18,8 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.metadata.Metadata;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -55,10 +53,14 @@ public class TestPredicatePushdown
                         "FROM t JOIN u ON t.k = u.k AND t.v = u.v " +
                         "WHERE t.v = 'x'",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("t_k", "u_k")),
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("t_k", "u_k")),
                                 ImmutableMap.of("t_k", "u_k"),
-                                Optional.of("CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))"),
-                                tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")),
+                                project(
+                                        filter(
+                                                "CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))",
+                                                tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))),
                                 anyTree(
                                         project(
                                                 filter(
@@ -74,10 +76,14 @@ public class TestPredicatePushdown
                         "FROM t JOIN u ON t.k = u.k AND t.v = u.v " +
                         "WHERE t.v = 'x'",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("t_k", "u_k")),
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("t_k", "u_k")),
                                 ImmutableMap.of("t_k", "u_k"),
-                                Optional.of("CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))"),
-                                tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")),
+                                project(
+                                        filter(
+                                                "CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))",
+                                                tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))),
                                 anyTree(
                                         project(
                                                 filter(
