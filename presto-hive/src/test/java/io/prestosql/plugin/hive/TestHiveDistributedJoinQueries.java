@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive;
 
 import io.prestosql.Session;
+import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.operator.OperatorStats;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.testing.AbstractTestJoinQueries;
@@ -38,7 +39,7 @@ public class TestHiveDistributedJoinQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        verify(new FeaturesConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
+        verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
         return HiveQueryRunner.builder()
                 .setInitialTables(getTables())
                 .build();

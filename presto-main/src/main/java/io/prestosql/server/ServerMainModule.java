@@ -38,6 +38,7 @@ import io.prestosql.connector.ConnectorManager;
 import io.prestosql.connector.system.SystemConnectorModule;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.event.SplitMonitor;
+import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.ExplainAnalyzeContext;
@@ -436,6 +437,9 @@ public class ServerMainModule
         newExporter(binder).export(SpillerFactory.class).withGeneratedName();
         binder.bind(LocalSpillManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(NodeSpillConfig.class);
+
+        // Dynamic Filtering
+        configBinder(binder).bindConfig(DynamicFilterConfig.class);
 
         // dispatcher
         // TODO remove dispatcher fromm ServerMainModule, and bind dependent components only on coordinators

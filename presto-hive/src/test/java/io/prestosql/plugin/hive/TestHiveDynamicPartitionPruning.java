@@ -34,7 +34,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.SystemSessionProperties.DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER;
+import static io.prestosql.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.server.DynamicFilterService.DynamicFilterDomainStats;
@@ -63,6 +63,9 @@ public class TestHiveDynamicPartitionPruning
         return HiveQueryRunner.builder()
                 .setInitialTables(getTables())
                 .setHiveProperties(ImmutableMap.of("hive.dynamic-filtering-probe-blocking-timeout", "1h"))
+                // Reduced partitioned join limit for large DF to enable DF min/max collection with ENABLE_LARGE_DYNAMIC_FILTERS
+                .setSingleExtraProperty("dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "100")
+                .setSingleExtraProperty("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000")
                 .build();
     }
 
@@ -86,7 +89,8 @@ public class TestHiveDynamicPartitionPruning
         return Session.builder(super.getSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name()) // Avoid node local DF
-                .setSystemProperty(DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER, "100000")
+                // Enabled large dynamic filters to verify min/max DF collection in testJoinLargeBuildSideRangeDynamicFiltering
+                .setSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, "true")
                 .build();
     }
 
@@ -166,7 +170,7 @@ public class TestHiveDynamicPartitionPruning
     }
 
     @Test(timeOut = 30_000)
-    public void testJoinLargeBuildSideNoDynamicFiltering()
+    public void testJoinLargeBuildSideRangeDynamicFiltering()
     {
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
@@ -298,7 +302,7 @@ public class TestHiveDynamicPartitionPruning
     }
 
     @Test(timeOut = 30_000)
-    public void testSemiJoinLargeBuildSideNoDynamicFiltering()
+    public void testSemiJoinLargeBuildSideRangeDynamicFiltering()
     {
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
