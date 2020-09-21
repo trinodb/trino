@@ -28,7 +28,6 @@ import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeExecutor;
 import net.jodah.failsafe.RetryPolicy;
 import net.jodah.failsafe.Timeout;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.lifecycle.Startables;
@@ -110,6 +109,7 @@ public final class Environment
         try (Network network = createNetwork(name)) {
             List<DockerContainer> containers = ImmutableList.copyOf(this.containers.values());
             attachNetwork(containers, network);
+
             Startables.deepStart(containers).get();
             this.listener.ifPresent(listener -> listener.environmentStarted(this));
             return this;
@@ -172,8 +172,8 @@ public final class Environment
 
     public long awaitTestsCompletion()
     {
-        Container<?> testContainer = getContainer(TESTS);
-        Collection<Container<?>> containers = getContainers()
+        DockerContainer testContainer = getContainer(TESTS);
+        Collection<DockerContainer> containers = getContainers()
                 .stream()
                 .filter(container -> !container.equals(testContainer))
                 .collect(toImmutableList());
@@ -212,7 +212,7 @@ public final class Environment
                 .orElseThrow(() -> new IllegalArgumentException("No container with name " + name));
     }
 
-    public Collection<Container<?>> getContainers()
+    public Collection<DockerContainer> getContainers()
     {
         return ImmutableList.copyOf(containers.values());
     }
@@ -239,21 +239,21 @@ public final class Environment
         }
     }
 
-    private static boolean allContainersHealthy(Iterable<Container<?>> containers)
+    private static boolean allContainersHealthy(Iterable<DockerContainer> containers)
     {
         return Streams.stream(containers)
                 .allMatch(Environment::containerIsHealthy);
     }
 
-    private static boolean containerIsHealthy(Container container)
+    private static boolean containerIsHealthy(DockerContainer container)
     {
         if (!container.isRunning()) {
-            log.warn("Container %s is not running", container.getContainerName());
+            log.warn("Container %s is not running", container.getLogicalName());
             return false;
         }
 
         if (!container.isHealthy()) {
-            log.warn("Container %s is not healthy", container.getContainerName());
+            log.warn("Container %s is not healthy", container.getLogicalName());
             return false;
         }
 
