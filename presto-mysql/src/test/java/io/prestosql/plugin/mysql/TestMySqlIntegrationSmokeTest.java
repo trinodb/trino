@@ -14,12 +14,15 @@
 package io.prestosql.plugin.mysql;
 
 import io.prestosql.testing.QueryRunner;
+import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 
 public class TestMySqlIntegrationSmokeTest
         extends BaseMySqlIntegrationSmokeTest
@@ -30,5 +33,37 @@ public class TestMySqlIntegrationSmokeTest
     {
         mysqlServer = new TestingMySqlServer(false);
         return createMySqlQueryRunner(mysqlServer, CUSTOMER, NATION, ORDERS, REGION);
+    }
+
+    /**
+     * This test helps to tune TupleDomain simplification threshold.
+     */
+    @Test
+    public void testNativeLargeIn()
+    {
+        // Using IN list of size 140_000 as bigger list causes error:
+        // "com.mysql.jdbc.PacketTooBigException: Packet for query is too large (XXX > 1048576).
+        //  You can change this value on the server by setting the max_allowed_packet' variable."
+        mysqlServer.execute("SELECT count(*) FROM tpch.orders WHERE " + getLongInClause(0, 140_000));
+    }
+
+    /**
+     * This test helps to tune TupleDomain simplification threshold.
+     */
+    @Test
+    public void testNativeMultipleInClauses()
+    {
+        String longInClauses = range(0, 14)
+                .mapToObj(value -> getLongInClause(value * 10_000, 10_000))
+                .collect(joining(" OR "));
+        mysqlServer.execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
+    }
+
+    private String getLongInClause(int start, int length)
+    {
+        String longValues = range(start, start + length)
+                .mapToObj(Integer::toString)
+                .collect(joining(", "));
+        return "orderkey IN (" + longValues + ")";
     }
 }
