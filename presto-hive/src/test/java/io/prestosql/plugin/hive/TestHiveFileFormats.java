@@ -292,13 +292,8 @@ public class TestHiveFileFormats
     public void testOrc(int rowCount, long fileSizePadding)
             throws Exception
     {
-        // Hive binary writers are broken for timestamps
-        List<TestColumn> testColumns = TEST_COLUMNS.stream()
-                .filter(TestHiveFileFormats::withoutTimestamps)
-                .collect(toImmutableList());
-
         assertThatFileFormat(ORC)
-                .withColumns(testColumns)
+                .withColumns(TEST_COLUMNS)
                 .withRowsCount(rowCount)
                 .withFileSizePadding(fileSizePadding)
                 .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS, UTC));
