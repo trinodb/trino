@@ -23,6 +23,9 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.RecursiveDeleteOption;
 import io.airlift.log.Logger;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.FailsafeExecutor;
+import net.jodah.failsafe.Timeout;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
@@ -45,6 +48,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.io.MoreFiles.deleteRecursively;
+import static java.time.Duration.ofSeconds;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -54,6 +58,12 @@ public class DockerContainer
 {
     private static final Logger log = Logger.get(DockerContainer.class);
     private static final long NANOSECONDS_PER_SECOND = 1_000 * 1_000 * 1_000L;
+
+    private static final Timeout asyncTimeout = Timeout.of(ofSeconds(30))
+            .withCancel(true);
+
+    private static final FailsafeExecutor executor = Failsafe
+            .with(asyncTimeout);
 
     private String logicalName;
     private List<String> logPaths = new ArrayList<>();
@@ -210,7 +220,7 @@ public class DockerContainer
         ensurePathExists(targetPath.getParent());
 
         try {
-            copyFileFromContainer(filename, targetPath.toString());
+            executor.run(() -> copyFileFromContainer(filename, targetPath.toString()));
         }
         catch (Exception e) {
             log.warn("Could not copy file from %s to %s", filename, targetPath);
@@ -225,7 +235,7 @@ public class DockerContainer
         }
 
         try {
-            ExecResult result = execInContainer("/usr/bin/find", path, "-type", "f", "-print");
+            ExecResult result = (ExecResult) executor.get(() -> execInContainer("/usr/bin/find", path, "-type", "f", "-print"));
 
             if (result.getExitCode() == 0L) {
                 return Splitter.on("\n")
@@ -252,7 +262,9 @@ public class DockerContainer
         try (DockerClient client = DockerClientFactory.lazyClient()) {
             InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>();
             client.statsCmd(getContainerId()).exec(callback);
-            return Optional.ofNullable(callback.awaitResult());
+
+            return Optional.ofNullable(executor.get(callback::awaitResult))
+                    .map(Statistics.class::cast);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -323,7 +335,7 @@ public class DockerContainer
         }
 
         try {
-            stop();
+            executor.run(this::stop);
         }
         catch (Exception e) {
             log.warn("Could not stop container correctly: %s", getStackTraceAsString(e));
