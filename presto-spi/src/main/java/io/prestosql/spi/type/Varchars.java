@@ -24,19 +24,10 @@ public final class Varchars
 {
     private Varchars() {}
 
-    /**
-     * @deprecated Use {@code type instanceof VarcharType} instead.
-     */
-    @Deprecated
-    public static boolean isVarcharType(Type type)
-    {
-        return type instanceof VarcharType;
-    }
-
     public static Slice truncateToLength(Slice slice, Type type)
     {
         requireNonNull(type, "type is null");
-        if (!isVarcharType(type)) {
+        if (!(type instanceof VarcharType)) {
             throw new IllegalArgumentException("type must be the instance of VarcharType");
         }
         return truncateToLength(slice, VarcharType.class.cast(type));
