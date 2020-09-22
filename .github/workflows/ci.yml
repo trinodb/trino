@@ -15,7 +15,17 @@ env:
   MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
 
 jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Remove old builds
+      if: github.event_name == 'pull_request_target'
+      uses: styfle/cancel-workflow-action@0.4.0
+      with:
+        access_token: ${{ secrets.gitHubAccessToken }}
+
   maven-checks:
+    needs: setup
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -47,6 +57,7 @@ jobs:
         run: docker/build-local.sh
 
   error-prone-checks:
+    needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -64,6 +75,7 @@ jobs:
             -pl '!presto-docs,!presto-server,!presto-server-rpm'
 
   web-ui-checks:
+    needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -71,6 +83,7 @@ jobs:
         run: presto-main/bin/check_webui.sh
 
   test-jdbc-compatibility:
+    needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -90,6 +103,7 @@ jobs:
         run: ./mvnw test -B -Dair.check.skip-all -pl presto-test-jdbc-compatibility-old-server
 
   hive-tests:
+    needs: setup
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -184,6 +198,7 @@ jobs:
             presto-hive-hadoop2/bin/run_hive_alluxio_tests.sh
 
   test-other-modules:
+    needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -213,6 +228,7 @@ jobs:
             !presto-test-jdbc-compatibility-old-server'
 
   test:
+    needs: setup
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -245,6 +261,7 @@ jobs:
         run: ./mvnw test -B -fae -Dair.check.skip-all -pl ${{ matrix.modules }}
 
   test-memsql:
+    needs: setup
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -266,6 +283,7 @@ jobs:
           fi
 
   pt:
+    needs: setup
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
