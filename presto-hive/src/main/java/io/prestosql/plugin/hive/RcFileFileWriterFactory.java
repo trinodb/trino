@@ -48,6 +48,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isRcfileOptimizedWriterValidate;
 import static io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory.createTextVectorEncoding;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
@@ -122,7 +123,7 @@ public class RcFileFileWriterFactory
         // an index to rearrange columns in the proper order
         List<String> fileColumnNames = getColumnNames(schema);
         List<Type> fileColumnTypes = getColumnTypes(schema).stream()
-                .map(hiveType -> hiveType.getType(typeManager))
+                .map(hiveType -> hiveType.getType(typeManager, getTimestampPrecision(session).getPrecision()))
                 .collect(toList());
 
         int[] fileInputColumnIndexes = fileColumnNames.stream()
