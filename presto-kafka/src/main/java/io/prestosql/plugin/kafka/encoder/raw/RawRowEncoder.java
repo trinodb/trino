@@ -90,7 +90,7 @@ public class RawRowEncoder
         this.columnMappings = this.columnHandles.stream().map(ColumnMapping::new).collect(toImmutableList());
 
         for (ColumnMapping mapping : this.columnMappings) {
-            if (mapping.getLength() != mapping.getFieldType().getSize() && ! (mapping.getType() instanceof VarcharType)) {
+            if (mapping.getLength() != mapping.getFieldType().getSize() && !(mapping.getType() instanceof VarcharType)) {
                 throw new IndexOutOfBoundsException(format(
                         "Mapping length '%s' is not equal to expected length '%s' for column '%s'",
                         mapping.getLength(),

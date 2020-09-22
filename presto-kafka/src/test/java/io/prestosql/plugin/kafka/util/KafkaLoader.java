@@ -22,7 +22,6 @@ import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
-import io.prestosql.spi.type.Varchars;
 import io.prestosql.testing.AbstractTestingPrestoClient;
 import io.prestosql.testing.ResultsSession;
 import org.apache.kafka.clients.producer.KafkaProducer;
