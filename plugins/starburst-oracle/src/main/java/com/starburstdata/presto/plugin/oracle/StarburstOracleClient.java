@@ -40,6 +40,7 @@ import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitSource;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -66,8 +67,6 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.starburstdata.presto.plugin.oracle.StarburstOracleSessionProperties.getMaxSplitsPerScan;
-import static com.starburstdata.presto.plugin.oracle.StarburstOracleSessionProperties.getParallelismType;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
@@ -120,14 +119,12 @@ public class StarburstOracleClient
         tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
     }
 
+    /** @deprecated This should never be called; use {@link OracleSplitManager} to get splits. */
+    @Deprecated
     @Override
     public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        return splitManager.getSplitSource(
-                JdbcIdentity.from(session),
-                tableHandle,
-                getParallelismType(session),
-                getMaxSplitsPerScan(session));
+        throw new UnsupportedOperationException("Wrong entry point to get Oracle splits");
     }
 
     @Override

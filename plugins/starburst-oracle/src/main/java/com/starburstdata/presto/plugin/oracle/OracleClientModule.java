@@ -17,7 +17,9 @@ import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.oracle.OracleConfig;
 import io.prestosql.plugin.oracle.OracleSessionProperties;
+import io.prestosql.spi.connector.ConnectorSplitManager;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.plugin.jdbc.JdbcModule.bindProcedure;
 import static io.prestosql.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
@@ -37,6 +39,7 @@ public class OracleClientModule
     protected void setup(Binder binder)
     {
         binder.bind(OracleSplitManager.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ConnectorSplitManager.class).setBinding().to(OracleSplitManager.class).in(Scopes.SINGLETON);
 
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(StarburstOracleClient.class).in(Scopes.SINGLETON);
 

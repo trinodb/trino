@@ -17,7 +17,12 @@ import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
+import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedSplitSource;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
@@ -33,12 +38,15 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.NO_PARALLELISM;
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.PARTITIONS;
+import static com.starburstdata.presto.plugin.oracle.StarburstOracleSessionProperties.getMaxSplitsPerScan;
+import static com.starburstdata.presto.plugin.oracle.StarburstOracleSessionProperties.getParallelismType;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.lang.String.format;
 import static java.math.RoundingMode.CEILING;
 import static java.util.Objects.requireNonNull;
 
 public class OracleSplitManager
+        implements ConnectorSplitManager
 {
     private final ConnectionFactory connectionFactory;
 
@@ -48,12 +56,26 @@ public class OracleSplitManager
         this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
     }
 
-    public ConnectorSplitSource getSplitSource(JdbcIdentity identity, JdbcTableHandle tableHandle, OracleParallelismType parallelismType, int maxSplits)
+    @Override
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter)
     {
-        return new FixedSplitSource(getSplits(identity, tableHandle, parallelismType, maxSplits));
+        return new FixedSplitSource(listSplits(
+                JdbcIdentity.from(session),
+                (JdbcTableHandle) table,
+                getParallelismType(session),
+                getMaxSplitsPerScan(session)));
     }
 
-    public List<OracleSplit> getSplits(JdbcIdentity identity, JdbcTableHandle tableHandle, OracleParallelismType parallelismType, int maxSplits)
+    private List<OracleSplit> listSplits(
+            JdbcIdentity identity,
+            JdbcTableHandle tableHandle,
+            OracleParallelismType parallelismType,
+            int maxSplits)
     {
         if (parallelismType == NO_PARALLELISM || tableHandle.getGroupingSets().isPresent()) {
             return ImmutableList.of(new OracleSplit(Optional.empty(), Optional.empty()));
