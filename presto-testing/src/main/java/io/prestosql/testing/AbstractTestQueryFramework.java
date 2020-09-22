@@ -16,7 +16,6 @@ package io.prestosql.testing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MoreCollectors;
-import com.google.common.io.Closer;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
@@ -51,6 +50,7 @@ import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.query.QueryAssertions.QueryAssert;
 import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.testing.TestingAccessControlManager.TestingPrivilege;
+import io.prestosql.util.AutoCloseableCloser;
 import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -59,8 +59,6 @@ import org.testng.annotations.BeforeClass;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
-import java.io.Closeable;
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -86,7 +84,7 @@ public abstract class AbstractTestQueryFramework
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
-    private final Closer afterClassCloser = Closer.create();
+    private final AutoCloseableCloser afterClassCloser = AutoCloseableCloser.create();
     private io.prestosql.sql.query.QueryAssertions queryAssertions;
 
     @BeforeClass
@@ -104,7 +102,7 @@ public abstract class AbstractTestQueryFramework
 
     @AfterClass(alwaysRun = true)
     public void close()
-            throws IOException
+            throws Exception
     {
         afterClassCloser.close();
         queryRunner = null;
@@ -466,7 +464,7 @@ public abstract class AbstractTestQueryFramework
     }
 
     @CanIgnoreReturnValue
-    protected final <T extends Closeable> T closeAfterClass(T resource)
+    protected final <T extends AutoCloseable> T closeAfterClass(T resource)
     {
         return afterClassCloser.register(resource);
     }
