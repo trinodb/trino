@@ -1212,7 +1212,7 @@ class StatementAnalyzer
                 if (!metadata.schemaExists(session, new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
                     throw semanticException(SCHEMA_NOT_FOUND, table, "Schema '%s' does not exist", name.getSchemaName());
                 }
-                throw semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", name);
+                throw semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist or is not accessible", name);
             }
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
