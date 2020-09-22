@@ -24,8 +24,10 @@ import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.SmallintType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
@@ -56,10 +58,13 @@ import static io.prestosql.plugin.hive.util.HiveUtil.isArrayType;
 import static io.prestosql.plugin.hive.util.HiveUtil.isMapType;
 import static io.prestosql.plugin.hive.util.HiveUtil.isRowType;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.getHiveDecimal;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -118,8 +123,8 @@ public final class FieldSetterFactory
             return new DateFieldSetter(rowInspector, row, field);
         }
 
-        if (type.equals(TIMESTAMP_MILLIS)) {
-            return new TimestampFieldSetter(rowInspector, row, field, timeZone);
+        if (type instanceof TimestampType) {
+            return new TimestampFieldSetter(rowInspector, row, field, (TimestampType) type, timeZone);
         }
 
         if (type instanceof DecimalType) {
@@ -365,21 +370,48 @@ public final class FieldSetterFactory
             extends FieldSetter
     {
         private final DateTimeZone timeZone;
+        private final TimestampType type;
         private final TimestampWritableV2 value = new TimestampWritableV2();
 
-        public TimestampFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, DateTimeZone timeZone)
+        public TimestampFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, TimestampType type, DateTimeZone timeZone)
         {
             super(rowInspector, row, field);
+            this.type = requireNonNull(type, "type is null");
             this.timeZone = requireNonNull(timeZone, "timeZone is null");
         }
 
         @Override
         public void setField(Block block, int position)
         {
-            long epochMilli = floorDiv(TIMESTAMP_MILLIS.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
-            epochMilli = timeZone.convertLocalToUTC(epochMilli, false);
-            value.set(Timestamp.ofEpochMilli(epochMilli));
+            long epochMicros;
+            int picosOfMicro;
+            if (type.isShort()) {
+                epochMicros = type.getLong(block, position);
+                picosOfMicro = 0;
+            }
+            else {
+                LongTimestamp longTimestamp = (LongTimestamp) type.getObject(block, position);
+                epochMicros = longTimestamp.getEpochMicros();
+                picosOfMicro = longTimestamp.getPicosOfMicro();
+            }
+
+            long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+            long picosOfSecond = (long) floorMod(epochMicros, MICROSECONDS_PER_SECOND) * PICOSECONDS_PER_MICROSECOND + picosOfMicro;
+
+            epochSeconds = convertLocalEpochSecondsToUtc(epochSeconds);
+            // no rounding since the the data has nanosecond precision, at most
+            int nanosOfSecond = toIntExact(picosOfSecond / PICOSECONDS_PER_NANOSECOND);
+
+            Timestamp timestamp = Timestamp.ofEpochSecond(epochSeconds, nanosOfSecond);
+            value.set(timestamp);
             rowInspector.setStructFieldData(row, field, value);
+        }
+
+        private long convertLocalEpochSecondsToUtc(long epochSeconds)
+        {
+            long epochMillis = epochSeconds * MILLISECONDS_PER_SECOND;
+            epochMillis = timeZone.convertLocalToUTC(epochMillis, false);
+            return epochMillis / MILLISECONDS_PER_SECOND;
         }
     }
 

@@ -47,6 +47,7 @@ import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.SmallintType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
@@ -695,7 +696,7 @@ public final class HiveWriteUtils
             return writableDateObjectInspector;
         }
 
-        if (type.equals(TIMESTAMP_MILLIS)) {
+        if (type instanceof TimestampType) {
             return writableTimestampObjectInspector;
         }
 
