@@ -45,7 +45,7 @@ public class TimestampEncoding
             .parseDefaulting(ChronoField.HOUR_OF_DAY, 0)
             .optionalStart().appendFraction(ChronoField.NANO_OF_SECOND, 1, 9, true).optionalEnd()
             .toFormatter();
-    // TODO: switch to java.time when we implement writes with variable precision ()
+    // TODO: switch to java.time when we implement writes with variable precision
     private static final org.joda.time.format.DateTimeFormatter HIVE_TIMESTAMP_PRINTER =
             new org.joda.time.format.DateTimeFormatterBuilder().append(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS").getPrinter()).toFormatter().withZoneUTC();
 
@@ -56,7 +56,6 @@ public class TimestampEncoding
 
     public TimestampEncoding(TimestampType type, Slice nullSequence)
     {
-        requireNonNull(type, "type is null");
         this.type = requireNonNull(type, "type is null");
         this.nullSequence = nullSequence;
         prestoTimestampEncoder = createTimestampEncoder(this.type, UTC);

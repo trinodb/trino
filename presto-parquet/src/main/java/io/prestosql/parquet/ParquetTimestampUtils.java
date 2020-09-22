@@ -51,7 +51,7 @@ public final class ParquetTimestampUtils
 
         // little endian encoding - need to invert byte order
         long timeOfDayNanos = Longs.fromBytes(bytes[7], bytes[6], bytes[5], bytes[4], bytes[3], bytes[2], bytes[1], bytes[0]);
-        verify(timeOfDayNanos >= 0 && timeOfDayNanos < NANOSECONDS_PER_DAY);
+        verify(timeOfDayNanos >= 0 && timeOfDayNanos < NANOSECONDS_PER_DAY, "Invalid timeOfDayNanos: %s", timeOfDayNanos);
         int julianDay = Ints.fromBytes(bytes[11], bytes[10], bytes[9], bytes[8]);
 
         long epochSeconds = (julianDay - JULIAN_EPOCH_OFFSET_DAYS) * SECONDS_PER_DAY + timeOfDayNanos / NANOSECONDS_PER_SECOND;

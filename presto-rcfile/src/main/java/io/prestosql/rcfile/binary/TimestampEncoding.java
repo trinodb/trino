@@ -45,7 +45,6 @@ public class TimestampEncoding
 
     public TimestampEncoding(TimestampType type, DateTimeZone timeZone)
     {
-        requireNonNull(type, "type is null");
         this.type = requireNonNull(type, "type is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         prestoTimestampEncoder = createTimestampEncoder(this.type, timeZone);

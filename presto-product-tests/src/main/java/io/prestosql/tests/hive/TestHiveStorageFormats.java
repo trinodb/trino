@@ -345,13 +345,13 @@ public class TestHiveStorageFormats
 
         onPresto().executeQuery(format("CREATE TABLE %s (id BIGINT, ts TIMESTAMP) WITH (%s)", tableName, storageFormat.getStoragePropertiesAsSql()));
         List<TimestampAndPrecision> data = ImmutableList.of(
-                new TimestampAndPrecision(1, 3, "2020-01-02 12:34:56.123", "2020-01-02 12:34:56.123"),
-                new TimestampAndPrecision(2, 3, "2020-01-02 12:34:56.1234", "2020-01-02 12:34:56.123"),
-                new TimestampAndPrecision(3, 3, "2020-01-02 12:34:56.1236", "2020-01-02 12:34:56.124"),
-                new TimestampAndPrecision(4, 6, "2020-01-02 12:34:56.123456", "2020-01-02 12:34:56.123456"),
-                new TimestampAndPrecision(5, 6, "2020-01-02 12:34:56.1234564", "2020-01-02 12:34:56.123456"),
-                new TimestampAndPrecision(6, 6, "2020-01-02 12:34:56.1234567", "2020-01-02 12:34:56.123457"),
-                new TimestampAndPrecision(7, 9, "2020-01-02 12:34:56.123456789", "2020-01-02 12:34:56.123456789"));
+                new TimestampAndPrecision(1, "MILLISECONDS", "2020-01-02 12:34:56.123", "2020-01-02 12:34:56.123"),
+                new TimestampAndPrecision(2, "MILLISECONDS", "2020-01-02 12:34:56.1234", "2020-01-02 12:34:56.123"),
+                new TimestampAndPrecision(3, "MILLISECONDS", "2020-01-02 12:34:56.1236", "2020-01-02 12:34:56.124"),
+                new TimestampAndPrecision(4, "MICROSECONDS", "2020-01-02 12:34:56.123456", "2020-01-02 12:34:56.123456"),
+                new TimestampAndPrecision(5, "MICROSECONDS", "2020-01-02 12:34:56.1234564", "2020-01-02 12:34:56.123456"),
+                new TimestampAndPrecision(6, "MICROSECONDS", "2020-01-02 12:34:56.1234567", "2020-01-02 12:34:56.123457"),
+                new TimestampAndPrecision(7, "NANOSECONDS", "2020-01-02 12:34:56.123456789", "2020-01-02 12:34:56.123456789"));
 
         // insert records one by one so that we have one file per record, which allows us to exercise predicate push-down in Parquet
         // (which only works when the value range has a min = max)
@@ -359,22 +359,22 @@ public class TestHiveStorageFormats
             onHive().executeQuery(format("INSERT INTO %s VALUES (%s, '%s')", tableName, entry.getId(), entry.getValue()));
         }
 
-//        for (TimestampAndPrecision entry : data) {
-//            setSessionProperty(connection, "hive.timestamp_precision", entry.getPrecision());
-//            assertThat(onPresto().executeQuery(format("SELECT ts FROM %s WHERE id = %s", tableName, entry.getId())))
-//                    .containsOnly(row(Timestamp.valueOf(entry.getRoundedValue())));
-//            assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts = TIMESTAMP'%s'", tableName, entry.getId(), entry.getRoundedValue())))
-//                    .containsOnly(row(entry.getId()));
-//            if (entry.isRoundedUp()) {
-//                assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts > TIMESTAMP'%s'", tableName, entry.getId(), entry.getValue())))
-//                        .containsOnly(row(entry.getId()));
-//            }
-//            if (entry.isRoundedDown()) {
-//                assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts < TIMESTAMP'%s'", tableName, entry.getId(), entry.getValue())))
-//                        .containsOnly(row(entry.getId()));
-//            }
-//        }
-//        onPresto().executeQuery("DROP TABLE " + tableName);
+        for (TimestampAndPrecision entry : data) {
+            setSessionProperty(connection, "hive.timestamp_precision", entry.getPrecision());
+            assertThat(onPresto().executeQuery(format("SELECT ts FROM %s WHERE id = %s", tableName, entry.getId())))
+                    .containsOnly(row(Timestamp.valueOf(entry.getRoundedValue())));
+            assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts = TIMESTAMP'%s'", tableName, entry.getId(), entry.getRoundedValue())))
+                    .containsOnly(row(entry.getId()));
+            if (entry.isRoundedUp()) {
+                assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts > TIMESTAMP'%s'", tableName, entry.getId(), entry.getValue())))
+                        .containsOnly(row(entry.getId()));
+            }
+            if (entry.isRoundedDown()) {
+                assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts < TIMESTAMP'%s'", tableName, entry.getId(), entry.getValue())))
+                        .containsOnly(row(entry.getId()));
+            }
+        }
+        onPresto().executeQuery("DROP TABLE " + tableName);
     }
 
     /**
@@ -504,11 +504,11 @@ public class TestHiveStorageFormats
     private static class TimestampAndPrecision
     {
         private final int id;
-        private final int precision;
+        private final String precision;
         private final String value;
         private final String roundedValue;
 
-        public TimestampAndPrecision(int id, int precision, String value, String roundedValue)
+        public TimestampAndPrecision(int id, String precision, String value, String roundedValue)
         {
             this.id = id;
             this.precision = precision;
@@ -523,12 +523,7 @@ public class TestHiveStorageFormats
 
         public String getPrecision()
         {
-            switch (precision) {
-                case 3: return "MILLIS";
-                case 6: return "MICROS";
-                case 9: return "NANOS";
-            }
-            throw new IllegalArgumentException("Unsupported Hive timestamp precision: " + precision);
+            return precision;
         }
 
         public String getValue()

@@ -4145,7 +4145,10 @@ public class TestHiveIntegrationSmokeTest
         // TODO: revisit values once we handle write path and are able to write with higher precision,
         //  make sure push-down happens correctly in the presence of rounding;
         // consider using LocalDateTime instead of String
-        return new Object[][] {{HiveTimestampPrecision.MILLIS, "2012-10-31 01:00:08.123"}, {HiveTimestampPrecision.MICROS, "2012-10-31 01:00:08.123000"}, {HiveTimestampPrecision.NANOS, "2012-10-31 01:00:08.123000000"}};
+        return new Object[][] {
+                {HiveTimestampPrecision.MILLISECONDS, "2012-10-31 01:00:08.123"},
+                {HiveTimestampPrecision.MICROSECONDS, "2012-10-31 01:00:08.123000"},
+                {HiveTimestampPrecision.NANOSECONDS, "2012-10-31 01:00:08.123000000"}};
     }
 
     @Test(dataProvider = "timestampPrecisionAndValues")
@@ -5739,7 +5742,8 @@ public class TestHiveIntegrationSmokeTest
     public Object[][] nonDefaultTimestampPrecisions()
     {
         return new Object[][] {
-                new Object[] {HiveTimestampPrecision.MICROS}, new Object[] {HiveTimestampPrecision.NANOS}
+                {HiveTimestampPrecision.MICROSECONDS},
+                {HiveTimestampPrecision.NANOSECONDS}
         };
     }
 
@@ -5749,8 +5753,8 @@ public class TestHiveIntegrationSmokeTest
         SqlExecutor sqlExecutor = sql -> getQueryRunner().execute(sql);
         try (TestTable table = new TestTable(sqlExecutor, "test_analyze_empty_timestamp", "(c_bigint BIGINT, c_timestamp TIMESTAMP)")) {
             Session session = withTimestampPrecision(getSession(), timestampPrecision.name());
-            assertQueryFails(session, "ANALYZE " + table.getName(), format("\\QCurrently INSERT and ANALYZE are only supported for timestamp columns with precision 3 (found timestamp(%s))\\E", timestampPrecision.getPrecision()));
-            assertQueryFails(session, format("INSERT INTO %s VALUES (1, TIMESTAMP'2001-02-03 11:22:33.123456789')", table.getName()), format("\\QCurrently INSERT and ANALYZE are only supported for timestamp columns with precision 3 (found timestamp(%s))\\E", timestampPrecision.getPrecision()));
+            assertQueryFails(session, "ANALYZE " + table.getName(), format("\\QCREATE TABLE, INSERT and ANALYZE are not supported with requested timestamp precision: timestamp(%s)\\E", timestampPrecision.getPrecision()));
+            assertQueryFails(session, format("INSERT INTO %s VALUES (1, TIMESTAMP'2001-02-03 11:22:33.123456789')", table.getName()), format("\\QCREATE TABLE, INSERT and ANALYZE are not supported with requested timestamp precision: timestamp(%s)\\E", timestampPrecision.getPrecision()));
         }
     }
 
@@ -7224,7 +7228,10 @@ public class TestHiveIntegrationSmokeTest
     @DataProvider
     public Object[][] timestampPrecision()
     {
-        return new Object[][] {{HiveTimestampPrecision.MILLIS}, {HiveTimestampPrecision.MICROS}, {HiveTimestampPrecision.NANOS}};
+        return new Object[][] {
+                {HiveTimestampPrecision.MILLISECONDS},
+                {HiveTimestampPrecision.MICROSECONDS},
+                {HiveTimestampPrecision.NANOSECONDS}};
     }
 
     private Session withTimestampPrecision(Session session, String precision)

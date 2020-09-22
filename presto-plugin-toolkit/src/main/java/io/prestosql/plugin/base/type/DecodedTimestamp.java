@@ -25,7 +25,7 @@ public class DecodedTimestamp
 
     public DecodedTimestamp(long epochSeconds, int nanosOfSecond)
     {
-        checkArgument(nanosOfSecond >= 0 && nanosOfSecond < NANOS_PER_SECOND, "Invalid value for nanosOfSecond: " + nanosOfSecond);
+        checkArgument(nanosOfSecond >= 0 && nanosOfSecond < NANOS_PER_SECOND, "Invalid value for nanosOfSecond: %s", nanosOfSecond);
         this.epochSeconds = epochSeconds;
         this.nanosOfSecond = nanosOfSecond;
     }

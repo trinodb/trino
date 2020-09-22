@@ -2602,7 +2602,7 @@ public class HiveMetadata
             Type type = column.getType();
             if (type instanceof TimestampType) {
                 if (type != TIMESTAMP_MILLIS) {
-                    throw new PrestoException(NOT_SUPPORTED, format("Currently INSERT and ANALYZE are only supported for timestamp columns with precision 3 (found %s)", type));
+                    throw new PrestoException(NOT_SUPPORTED, "CREATE TABLE, INSERT and ANALYZE are not supported with requested timestamp precision: " + type);
                 }
             }
         }

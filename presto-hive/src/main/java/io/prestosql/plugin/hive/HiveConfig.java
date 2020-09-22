@@ -135,7 +135,7 @@ public class HiveConfig
 
     private Duration dynamicFilteringProbeBlockingTimeout = new Duration(0, MINUTES);
 
-    private HiveTimestampPrecision timestampPrecision = HiveTimestampPrecision.MILLIS;
+    private HiveTimestampPrecision timestampPrecision = HiveTimestampPrecision.MILLISECONDS;
 
     public int getMaxInitialSplits()
     {

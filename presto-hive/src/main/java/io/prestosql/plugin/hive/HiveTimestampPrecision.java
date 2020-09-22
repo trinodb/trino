@@ -15,7 +15,7 @@ package io.prestosql.plugin.hive;
 
 public enum HiveTimestampPrecision
 {
-    MILLIS(3), MICROS(6), NANOS(9);
+    MILLISECONDS(3), MICROSECONDS(6), NANOSECONDS(9);
 
     private final int precision;
 
