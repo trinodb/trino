@@ -167,7 +167,7 @@ public class SnowflakeClient
         int columnSize = typeHandle.getColumnSize();
 
         if (typeName.equals("NUMBER")) {
-            int decimalDigits = typeHandle.getDecimalDigits();
+            int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
             int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
             if (precision > Decimals.MAX_PRECISION) {
                 return Optional.empty();
