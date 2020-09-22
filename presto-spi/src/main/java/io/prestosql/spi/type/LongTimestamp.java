@@ -15,6 +15,8 @@ package io.prestosql.spi.type;
 
 import java.util.Objects;
 
+import static io.prestosql.spi.type.Timestamps.formatTimestamp;
+
 public final class LongTimestamp
         implements Comparable<LongTimestamp>
 {
@@ -73,5 +75,11 @@ public final class LongTimestamp
             return value;
         }
         return Integer.compareUnsigned(picosOfMicro, other.picosOfMicro);
+    }
+
+    @Override
+    public String toString()
+    {
+        return formatTimestamp(TimestampType.MAX_PRECISION, epochMicros, picosOfMicro);
     }
 }
