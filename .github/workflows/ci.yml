@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - master
-  pull_request:
+  pull_request_target:
 
 env:
   # An envar that signals to tests we are executing in the CI environment
