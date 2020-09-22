@@ -14,8 +14,15 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.iceberg.version>0.9.0</dep.iceberg.version>
+        <dep.iceberg.version>6c64022717</dep.iceberg.version>
     </properties>
+
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
 
     <dependencies>
         <dependency>
@@ -93,6 +100,43 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
+        <!-- Iceberg -->
+        <dependency>
+            <groupId>com.github.lxynov.incubator-iceberg</groupId>
+            <artifactId>iceberg-api</artifactId>
+            <version>${dep.iceberg.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.lxynov.incubator-iceberg</groupId>
+            <artifactId>iceberg-core</artifactId>
+            <version>${dep.iceberg.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.avro</groupId>
+                    <artifactId>avro</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.lxynov.incubator-iceberg</groupId>
+            <artifactId>iceberg-hive-metastore</artifactId>
+            <version>${dep.iceberg.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.lxynov.incubator-iceberg</groupId>
+            <artifactId>iceberg-parquet</artifactId>
+            <version>${dep.iceberg.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.parquet</groupId>
+                    <artifactId>parquet-avro</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
@@ -122,43 +166,6 @@
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
-        </dependency>
-
-        <!-- Iceberg -->
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-api</artifactId>
-            <version>${dep.iceberg.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-core</artifactId>
-            <version>${dep.iceberg.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.avro</groupId>
-                    <artifactId>avro</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-hive</artifactId>
-            <version>${dep.iceberg.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-parquet</artifactId>
-            <version>${dep.iceberg.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.parquet</groupId>
-                    <artifactId>parquet-avro</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
