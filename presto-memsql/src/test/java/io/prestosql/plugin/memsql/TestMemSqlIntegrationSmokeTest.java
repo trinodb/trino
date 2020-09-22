@@ -108,7 +108,7 @@ public class TestMemSqlIntegrationSmokeTest
     }
 
     @Test
-    public void testMySqlTinyint1()
+    public void testMemSqlTinyint()
     {
         execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
 
