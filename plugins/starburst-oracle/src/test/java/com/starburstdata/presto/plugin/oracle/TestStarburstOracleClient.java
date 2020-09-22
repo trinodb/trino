@@ -9,10 +9,10 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
+import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
-import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcExpression;
@@ -30,7 +30,6 @@ import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.testing.TestingConnectorSession;
 import oracle.jdbc.OracleTypes;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -61,13 +60,11 @@ public class TestStarburstOracleClient
                     .setJdbcTypeHandle(new JdbcTypeHandle(OracleTypes.BINARY_DOUBLE, Optional.empty(), 0, 0, Optional.empty()))
                     .build();
 
-    public static final ConnectionFactory CONNECTION_FACTORY = identity -> { throw new UnsupportedOperationException(); };
     private static final JdbcClient JDBC_CLIENT = new StarburstOracleClient(
             new BaseJdbcConfig(),
             new JdbcStatisticsConfig(),
             new OracleConfig(),
-            new OracleSplitManager(CONNECTION_FACTORY),
-            CONNECTION_FACTORY);
+            identity -> { throw new UnsupportedOperationException(); });
 
     public static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(ImmutableList.<PropertyMetadata<?>>builder()

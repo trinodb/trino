@@ -40,7 +40,6 @@ import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -82,11 +81,9 @@ public class StarburstOracleClient
         extends OracleClient
 {
     private static final int DEFAULT_ROW_FETCH_SIZE = 1000;
-    private static final int ORACLE_MAX_LIST_EXPRESSIONS = 1000;
     private static final int PRESTO_BIGINT_TYPE = 832_424_001;
 
     private final boolean synonymsEnabled;
-    private final OracleSplitManager splitManager;
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
     private final TableStatisticsClient tableStatisticsClient;
 
@@ -95,12 +92,10 @@ public class StarburstOracleClient
             BaseJdbcConfig config,
             JdbcStatisticsConfig statisticsConfig,
             OracleConfig oracleConfig,
-            OracleSplitManager oracleSplitManager,
             ConnectionFactory connectionFactory)
     {
         super(config, oracleConfig, connectionFactory);
         synonymsEnabled = oracleConfig.isSynonymsEnabled();
-        splitManager = oracleSplitManager;
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(PRESTO_BIGINT_TYPE, Optional.empty(), 0, 0, Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
                 this::quoted,

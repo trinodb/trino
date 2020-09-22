@@ -17,6 +17,7 @@ import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
@@ -24,6 +25,7 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedSplitSource;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.JdbiException;
@@ -68,17 +70,19 @@ public class OracleSplitManager
                 JdbcIdentity.from(session),
                 (JdbcTableHandle) table,
                 getParallelismType(session),
-                getMaxSplitsPerScan(session)));
+                getMaxSplitsPerScan(session),
+                dynamicFilter.getCurrentPredicate()));
     }
 
     private List<OracleSplit> listSplits(
             JdbcIdentity identity,
             JdbcTableHandle tableHandle,
             OracleParallelismType parallelismType,
-            int maxSplits)
+            int maxSplits,
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
         if (parallelismType == NO_PARALLELISM || tableHandle.getGroupingSets().isPresent()) {
-            return ImmutableList.of(new OracleSplit(Optional.empty(), Optional.empty()));
+            return ImmutableList.of(new OracleSplit(Optional.empty(), Optional.empty(), dynamicFilter));
         }
 
         if (parallelismType == PARTITIONS) {
@@ -86,7 +90,7 @@ public class OracleSplitManager
 
             if (partitions.isEmpty()) {
                 // Table is not partitioned
-                return ImmutableList.of(new OracleSplit(Optional.empty(), Optional.empty()));
+                return ImmutableList.of(new OracleSplit(Optional.empty(), Optional.empty(), dynamicFilter));
             }
 
             List<String> duplicatedPartitions = getDuplicates(partitions);
@@ -94,7 +98,7 @@ public class OracleSplitManager
 
             // Partition partitions into batches to limit total number of splits
             return Lists.partition(partitions, IntMath.divide(partitions.size(), maxSplits, CEILING)).stream()
-                    .map(batch -> new OracleSplit(Optional.of(batch), Optional.empty()))
+                    .map(batch -> new OracleSplit(Optional.of(batch), Optional.empty(), dynamicFilter))
                     .collect(toImmutableList());
         }
 

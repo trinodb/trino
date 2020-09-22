@@ -11,12 +11,17 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
+import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.DynamicFilteringModule;
+import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
+import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteringJdbcRecordSetProvider;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
+import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
 import io.prestosql.plugin.oracle.OracleConfig;
 import io.prestosql.plugin.oracle.OracleSessionProperties;
+import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -39,7 +44,8 @@ public class OracleClientModule
     protected void setup(Binder binder)
     {
         binder.bind(OracleSplitManager.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, ConnectorSplitManager.class).setBinding().to(OracleSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).annotatedWith(ForDynamicFiltering.class)
+                .to(OracleSplitManager.class).in(Scopes.SINGLETON);
 
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(StarburstOracleClient.class).in(Scopes.SINGLETON);
 
@@ -53,5 +59,12 @@ public class OracleClientModule
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
 
         install(new OracleAuthenticationModule(catalogName));
+
+        install(new DynamicFilteringModule());
+
+        newOptionalBinder(binder, ConnectorRecordSetProvider.class).setBinding()
+                .to(DynamicFilteringJdbcRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class)
+                .to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
     }
 }

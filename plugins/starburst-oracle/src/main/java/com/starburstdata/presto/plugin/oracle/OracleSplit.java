@@ -11,8 +11,9 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.jdbc.JdbcSplit;
+import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.JdbcSplitWithDynamicFilter;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,20 +22,19 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class OracleSplit
-        extends JdbcSplit
+        extends JdbcSplitWithDynamicFilter
 {
     private final Optional<List<String>> partitionNames;
 
     @JsonCreator
     public OracleSplit(
             @JsonProperty("partitionNames") Optional<List<String>> partitionNames,
-            @JsonProperty("additionalPredicate") Optional<String> additionalPredicate)
+            @JsonProperty("additionalPredicate") Optional<String> additionalPredicate,
+            @JsonProperty("dynamicFilter") TupleDomain<ColumnHandle> dynamicFilter)
     {
-        super(additionalPredicate);
-
-        requireNonNull(partitionNames, "partitionNames is null");
+        super(additionalPredicate, dynamicFilter);
+        this.partitionNames = requireNonNull(partitionNames, "partitionNames is null");
         partitionNames.ifPresent(names -> checkArgument(!names.isEmpty(), "partitionNames cannot be empty if present"));
-        this.partitionNames = partitionNames.map(ImmutableList::copyOf);
     }
 
     @JsonProperty
