@@ -22,7 +22,7 @@ jobs:
       matrix:
         java-version:
           - 11
-          - 14
+          - 15
     steps:
       - name: Free Disk Space
         run: |
