@@ -11,7 +11,9 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.testing.QueryRunner;
+import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createSession;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.KERBERIZED_USER;
@@ -23,6 +25,7 @@ import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOracleParallelSubpartitionsIntegrationSmokeTest
         extends BaseStarburstOracleIntegrationSmokeTest
@@ -65,5 +68,18 @@ public class TestOracleParallelSubpartitionsIntegrationSmokeTest
                 ") (PARTITION before_1900 VALUES LESS THAN (TO_DATE('01-JAN-1900','dd-MON-yyyy')))", SUBPARTITIONED_USER));
 
         executeInOracle(format("ALTER TABLE %s.nation MODIFY PARTITION BY HASH(name) PARTITIONS 3", SUBPARTITIONED_USER));
+    }
+
+    @Test
+    @Override
+    public void testLimitPushdown()
+    {
+        assertThat(query("SELECT name FROM nation LIMIT 30")).isNotFullyPushedDown(LimitNode.class);
+
+        // with filter over numeric column
+        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isNotFullyPushedDown(LimitNode.class);
+
+        // with filter over varchar column
+        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isNotFullyPushedDown(LimitNode.class);
     }
 }
