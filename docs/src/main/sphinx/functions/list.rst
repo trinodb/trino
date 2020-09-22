@@ -283,12 +283,14 @@ M
 - :func:`map_zip_with`
 - :func:`max`
 - :func:`max_by`
+- :func:`max_timeuuid`
 - :func:`md5`
 - :func:`merge`
 - :func:`merge_set_digest`
 - :func:`millisecond`
 - :func:`min`
 - :func:`min_by`
+- :func:`min_timeuuid`
 - :func:`minute`
 - :func:`mod`
 - :func:`month`
@@ -464,6 +466,7 @@ T
 - :func:`tanh`
 - :func:`tdigest_agg`
 - :func:`timestamp_objectid`
+- :func:`timeuuid_to_timestamp`
 - :func:`timezone_hour`
 - :func:`timezone_minute`
 - :func:`to_base`
