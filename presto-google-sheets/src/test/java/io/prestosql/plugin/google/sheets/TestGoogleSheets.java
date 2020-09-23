@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import static io.prestosql.plugin.google.sheets.TestSheetsPlugin.TEST_METADATA_SHEET_ID;
 import static io.prestosql.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static org.testng.Assert.assertEquals;
 
 public class TestGoogleSheets
         extends AbstractTestQueryFramework
@@ -62,6 +63,9 @@ public class TestGoogleSheets
     {
         assertQuery("show tables", "SELECT * FROM (VALUES 'metadata_table', 'number_text', 'table_with_duplicate_and_missing_column_names')");
         assertQueryReturnsEmptyResult("SHOW TABLES IN gsheets.information_schema LIKE 'number_text'");
+        assertQuery("select table_name from gsheets.information_schema.tables WHERE table_schema <> 'information_schema'", "SELECT * FROM (VALUES 'metadata_table', 'number_text', 'table_with_duplicate_and_missing_column_names')");
+        assertQuery("select table_name from gsheets.information_schema.tables WHERE table_schema <> 'information_schema' LIMIT 1000", "SELECT * FROM (VALUES 'metadata_table', 'number_text', 'table_with_duplicate_and_missing_column_names')");
+        assertEquals(getQueryRunner().execute("select table_name from gsheets.information_schema.tables WHERE table_schema = 'unknown_schema'").getRowCount(), 0);
     }
 
     @Test
