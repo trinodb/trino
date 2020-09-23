@@ -25,6 +25,15 @@ public final class Chars
 {
     private Chars() {}
 
+    /**
+     * @deprecated Use {@code type instanceof CharType} instead.
+     */
+    @Deprecated
+    public static boolean isCharType(Type type)
+    {
+        return type instanceof CharType;
+    }
+
     public static Slice padSpaces(Slice slice, CharType charType)
     {
         requireNonNull(charType, "charType is null");

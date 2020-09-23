@@ -24,6 +24,15 @@ public final class Varchars
 {
     private Varchars() {}
 
+    /**
+     * @deprecated Use {@code type instanceof VarcharType} instead.
+     */
+    @Deprecated
+    public static boolean isVarcharType(Type type)
+    {
+        return type instanceof VarcharType;
+    }
+
     public static Slice truncateToLength(Slice slice, Type type)
     {
         requireNonNull(type, "type is null");
