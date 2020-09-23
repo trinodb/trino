@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 import java.sql.CallableStatement;
 import java.sql.SQLException;
 
-import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
+import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.executeInOracle;
 import static java.lang.String.format;
 
 @Test(singleThreaded = true)
@@ -33,7 +33,7 @@ public class TestOracleTableStatistics
     {
         return OracleQueryRunner.builder()
             .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(TestingOracleServer.connectionProperties())
+                        .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("allow-drop-table", "true")
                         .put("case-insensitive-name-matching", "true")
                         .build())

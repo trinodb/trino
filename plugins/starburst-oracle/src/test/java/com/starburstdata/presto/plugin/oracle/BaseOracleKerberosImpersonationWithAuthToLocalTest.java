@@ -36,7 +36,7 @@ public abstract class BaseOracleKerberosImpersonationWithAuthToLocalTest
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("connection-url", TestingOracleServer.getJdbcUrl())
+                .put("connection-url", TestingStarburstOracleServer.getJdbcUrl())
                 .put("oracle.impersonation.enabled", "true")
                 .put("auth-to-local.config-file", getResource("auth-to-local.json").getPath())
                 .put("auth-to-local.refresh-period", "1s")

@@ -17,7 +17,7 @@ import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createSes
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.KERBERIZED_USER;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.createStandardUsers;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.createUser;
-import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
+import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.executeInOracle;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -25,7 +25,7 @@ import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 
 public class TestOracleParallelSubpartitionsIntegrationSmokeTest
-        extends BaseOracleIntegrationSmokeTest
+        extends BaseStarburstOracleIntegrationSmokeTest
 {
     private static final String SUBPARTITIONED_USER = "subpartitioned";
 
@@ -35,7 +35,7 @@ public class TestOracleParallelSubpartitionsIntegrationSmokeTest
     {
         return OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(TestingOracleServer.connectionProperties())
+                        .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("allow-drop-table", "true")
                         .put("oracle.parallelism-type", "PARTITIONS")
                         .put("oracle.concurrent.max-splits-per-scan", "17")

@@ -22,7 +22,7 @@ import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
 
 public class TestOracleKerberosIntegrationSmokeTest
-        extends BaseOracleIntegrationSmokeTest
+        extends BaseStarburstOracleIntegrationSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -30,7 +30,7 @@ public class TestOracleKerberosIntegrationSmokeTest
     {
         return OracleQueryRunner.builder().withConnectorProperties(
                 ImmutableMap.<String, String>builder()
-                        .put("connection-url", TestingOracleServer.getJdbcUrl())
+                        .put("connection-url", TestingStarburstOracleServer.getJdbcUrl())
                         .put("oracle.authentication.type", "KERBEROS")
                         .put("kerberos.client.principal", "test@TESTING-KRB.STARBURSTDATA.COM")
                         .put("kerberos.client.keytab", getResource("krb/client/test.keytab").getPath())

@@ -25,7 +25,7 @@ public class TestOracleTypeMapping
     {
         return OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(com.starburstdata.presto.plugin.oracle.TestingOracleServer.connectionProperties())
+                        .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("allow-drop-table", "true")
                         .put("case-insensitive-name-matching", "true")
                         .build())
@@ -36,6 +36,6 @@ public class TestOracleTypeMapping
     @Override
     protected SqlExecutor getOracleSqlExecutor()
     {
-        return TestingOracleServer::executeInOracle;
+        return TestingStarburstOracleServer::executeInOracle;
     }
 }

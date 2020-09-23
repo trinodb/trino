@@ -9,7 +9,16 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-public class TestOracleIntegrationSmokeTest
+import com.google.common.collect.ImmutableMap;
+import io.prestosql.testing.QueryRunner;
+
+public class TestOraclePooledIntegrationSmokeTest
         extends BaseStarburstOracleIntegrationSmokeTest
 {
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return createQueryRunner(ImmutableMap.of("oracle.connection-pool.enabled", "true"));
+    }
 }
