@@ -571,7 +571,7 @@ public class TestSourcePartitionedScheduler
                         INNER,
                         filterNode,
                         remote,
-                        ImmutableList.of(),
+                        ImmutableList.of(new JoinNode.EquiJoinClause(symbol, buildSymbol)),
                         tableScan.getOutputSymbols(),
                         remote.getOutputSymbols(),
                         Optional.empty(),

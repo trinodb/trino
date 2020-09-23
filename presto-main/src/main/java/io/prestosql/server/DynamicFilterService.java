@@ -420,7 +420,12 @@ public class DynamicFilterService
     private static Set<DynamicFilterId> getDynamicFiltersProducedInPlanNode(PlanNode planNode)
     {
         if (planNode instanceof JoinNode) {
-            return ((JoinNode) planNode).getDynamicFilters().keySet();
+            JoinNode joinNode = (JoinNode) planNode;
+            if (joinNode.isCrossJoin()) {
+                // TODO: support DF for nested loop joins
+                return ImmutableSet.of();
+            }
+            return joinNode.getDynamicFilters().keySet();
         }
         if (planNode instanceof SemiJoinNode) {
             return ((SemiJoinNode) planNode).getDynamicFilterId().map(ImmutableSet::of).orElse(ImmutableSet.of());
