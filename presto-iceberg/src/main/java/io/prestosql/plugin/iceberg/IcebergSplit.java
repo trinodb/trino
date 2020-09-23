@@ -36,6 +36,7 @@ public class IcebergSplit
     private final long length;
     private final FileFormat fileFormat;
     private final List<HostAddress> addresses;
+    private final String schemaAsJson;
     private final Map<Integer, String> partitionKeys;
 
     @JsonCreator
@@ -45,6 +46,7 @@ public class IcebergSplit
             @JsonProperty("length") long length,
             @JsonProperty("fileFormat") FileFormat fileFormat,
             @JsonProperty("addresses") List<HostAddress> addresses,
+            @JsonProperty("schemaAsJson") String schemaAsJson,
             @JsonProperty("partitionKeys") Map<Integer, String> partitionKeys)
     {
         this.path = requireNonNull(path, "path is null");
@@ -52,6 +54,7 @@ public class IcebergSplit
         this.length = length;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
+        this.schemaAsJson = requireNonNull(schemaAsJson, "schemaAsJson is null");
         this.partitionKeys = Collections.unmodifiableMap(requireNonNull(partitionKeys, "partitionKeys is null"));
     }
 
@@ -90,6 +93,12 @@ public class IcebergSplit
     public FileFormat getFileFormat()
     {
         return fileFormat;
+    }
+
+    @JsonProperty
+    public String getSchemaAsJson()
+    {
+        return schemaAsJson;
     }
 
     @JsonProperty

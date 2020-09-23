@@ -613,6 +613,11 @@ public abstract class AbstractTestIcebergSmoke
     @Test
     public void testHourTransform()
     {
+        testHourTransform(true);
+    }
+
+    void testHourTransform(boolean columnStatisticsCollected)
+    {
         assertUpdate("CREATE TABLE test_hour_transform (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['hour(d)'])");
 
         @Language("SQL") String values = "VALUES " +
@@ -636,6 +641,12 @@ public abstract class AbstractTestIcebergSmoke
                     "(397692, 2, NULL, NULL, 4, 5), " +
                     "(439525, 2, NULL, NULL, 6, 7)";
         }
+        if (!columnStatisticsCollected) {
+            expected = "VALUES " +
+                    "(394474, 3, NULL, NULL, NULL, NULL), " +
+                    "(397692, 2, NULL, NULL, NULL, NULL), " +
+                    "(439525, 2, NULL, NULL, NULL, NULL)";
+        }
 
         assertQuery("SELECT d_hour, row_count, d.min, d.max, b.min, b.max FROM \"test_hour_transform$partitions\"", expected);
 
@@ -644,6 +655,11 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     public void testDayTransformDate()
+    {
+        testDayTransformDate(true);
+    }
+
+    void testDayTransformDate(boolean columnStatisticsCollected)
     {
         assertUpdate("CREATE TABLE test_day_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
 
@@ -662,19 +678,30 @@ public abstract class AbstractTestIcebergSmoke
 
         assertQuery(
                 "SELECT d_day, row_count, d.min, d.max, b.min, b.max FROM \"test_day_transform_date$partitions\"",
-                "VALUES " +
+                "VALUES " + (columnStatisticsCollected ?
                         "(DATE '1970-01-01', 1, DATE '1970-01-01', DATE '1970-01-01', 1, 1), " +
-                        "(DATE '1970-03-04', 1, DATE '1970-03-04', DATE '1970-03-04', 2, 2), " +
-                        "(DATE '2015-01-01', 1, DATE '2015-01-01', DATE '2015-01-01', 3, 3), " +
-                        "(DATE '2015-01-13', 2, DATE '2015-01-13', DATE '2015-01-13', 4, 5), " +
-                        "(DATE '2015-05-15', 2, DATE '2015-05-15', DATE '2015-05-15', 6, 7), " +
-                        "(DATE '2020-02-21', 2, DATE '2020-02-21', DATE '2020-02-21', 8, 9)");
+                                "(DATE '1970-03-04', 1, DATE '1970-03-04', DATE '1970-03-04', 2, 2), " +
+                                "(DATE '2015-01-01', 1, DATE '2015-01-01', DATE '2015-01-01', 3, 3), " +
+                                "(DATE '2015-01-13', 2, DATE '2015-01-13', DATE '2015-01-13', 4, 5), " +
+                                "(DATE '2015-05-15', 2, DATE '2015-05-15', DATE '2015-05-15', 6, 7), " +
+                                "(DATE '2020-02-21', 2, DATE '2020-02-21', DATE '2020-02-21', 8, 9)" :
+                        "(DATE '1970-01-01', 1, NULL, NULL, NULL, NULL), " +
+                                "(DATE '1970-03-04', 1, NULL, NULL, NULL, NULL), " +
+                                "(DATE '2015-01-01', 1, NULL, NULL, NULL, NULL), " +
+                                "(DATE '2015-01-13', 2, NULL, NULL, NULL, NULL), " +
+                                "(DATE '2015-05-15', 2, NULL, NULL, NULL, NULL), " +
+                                "(DATE '2020-02-21', 2, NULL, NULL, NULL, NULL)"));
 
         dropTable("test_day_transform_date");
     }
 
     @Test
     public void testDayTransformTimestamp()
+    {
+        testDayTransformTimestamp(true);
+    }
+
+    void testDayTransformTimestamp(boolean columnStatisticsCollected)
     {
         assertUpdate("CREATE TABLE test_day_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
 
@@ -699,6 +726,12 @@ public abstract class AbstractTestIcebergSmoke
                     "(DATE '2015-05-15', 2, NULL, NULL, 4, 5), " +
                     "(DATE '2020-02-21', 2, NULL, NULL, 6, 7)";
         }
+        if (!columnStatisticsCollected) {
+            expected = "VALUES " +
+                    "(DATE '2015-01-01', 3, NULL, NULL, NULL, NULL), " +
+                    "(DATE '2015-05-15', 2, NULL, NULL, NULL, NULL), " +
+                    "(DATE '2020-02-21', 2, NULL, NULL, NULL, NULL)";
+        }
 
         assertQuery("SELECT d_day, row_count, d.min, d.max, b.min, b.max FROM \"test_day_transform_timestamp$partitions\"", expected);
 
@@ -707,6 +740,11 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     public void testMonthTransformDate()
+    {
+        testMonthTransformDate(true);
+    }
+
+    void testMonthTransformDate(boolean columnStatisticsCollected)
     {
         assertUpdate("CREATE TABLE test_month_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
 
@@ -726,20 +764,32 @@ public abstract class AbstractTestIcebergSmoke
 
         assertQuery(
                 "SELECT d_month, row_count, d.min, d.max, b.min, b.max FROM \"test_month_transform_date$partitions\"",
-                "VALUES " +
+                "VALUES " + (columnStatisticsCollected ?
                         "(0, 1, DATE '1970-01-01', DATE '1970-01-01', 1, 1), " +
-                        "(4, 1, DATE '1970-05-13', DATE '1970-05-13', 2, 2), " +
-                        "(11, 1, DATE '1970-12-31', DATE '1970-12-31', 3, 3), " +
-                        "(600, 1, DATE '2020-01-01', DATE '2020-01-01', 4, 4), " +
-                        "(605, 3, DATE '2020-06-06', DATE '2020-06-28', 5, 7), " +
-                        "(606, 2, DATE '2020-07-18', DATE '2020-07-28', 8, 9), " +
-                        "(611, 1, DATE '2020-12-31', DATE '2020-12-31', 10, 10)");
+                                "(4, 1, DATE '1970-05-13', DATE '1970-05-13', 2, 2), " +
+                                "(11, 1, DATE '1970-12-31', DATE '1970-12-31', 3, 3), " +
+                                "(600, 1, DATE '2020-01-01', DATE '2020-01-01', 4, 4), " +
+                                "(605, 3, DATE '2020-06-06', DATE '2020-06-28', 5, 7), " +
+                                "(606, 2, DATE '2020-07-18', DATE '2020-07-28', 8, 9), " +
+                                "(611, 1, DATE '2020-12-31', DATE '2020-12-31', 10, 10)" :
+                        "(0, 1, NULL, NULL, NULL, NULL), " +
+                                "(4, 1, NULL, NULL, NULL, NULL), " +
+                                "(11, 1, NULL, NULL, NULL, NULL), " +
+                                "(600, 1, NULL, NULL, NULL, NULL), " +
+                                "(605, 3, NULL, NULL, NULL, NULL), " +
+                                "(606, 2, NULL, NULL, NULL, NULL), " +
+                                "(611, 1, NULL, NULL, NULL, NULL)"));
 
         dropTable("test_month_transform_date");
     }
 
     @Test
     public void testMonthTransformTimestamp()
+    {
+        testMonthTransformTimestamp(true);
+    }
+
+    void testMonthTransformTimestamp(boolean columnStatisticsCollected)
     {
         assertUpdate("CREATE TABLE test_month_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
 
@@ -764,6 +814,12 @@ public abstract class AbstractTestIcebergSmoke
                     "(544, 2, NULL, NULL, 4, 5), " +
                     "(601, 2, NULL, NULL, 6, 7)";
         }
+        if (!columnStatisticsCollected) {
+            expected = "VALUES " +
+                    "(540, 3, NULL, NULL, NULL, NULL), " +
+                    "(544, 2, NULL, NULL, NULL, NULL), " +
+                    "(601, 2, NULL, NULL, NULL, NULL)";
+        }
 
         assertQuery("SELECT d_month, row_count, d.min, d.max, b.min, b.max FROM \"test_month_transform_timestamp$partitions\"", expected);
 
@@ -772,6 +828,11 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     public void testYearTransformDate()
+    {
+        testYearTransformDate(true);
+    }
+
+    void testYearTransformDate(boolean columnStatisticsCollected)
     {
         assertUpdate("CREATE TABLE test_year_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
 
@@ -790,17 +851,26 @@ public abstract class AbstractTestIcebergSmoke
 
         assertQuery(
                 "SELECT d_year, row_count, d.min, d.max, b.min, b.max FROM \"test_year_transform_date$partitions\"",
-                "VALUES " +
+                "VALUES " + (columnStatisticsCollected ?
                         "(0, 2, DATE '1970-01-01', DATE '1970-03-05', 11, 12), " +
-                        "(45, 3, DATE '2015-01-01', DATE '2015-07-28', 1, 3), " +
-                        "(46, 2, DATE '2016-05-15', DATE '2016-06-06', 4, 5), " +
-                        "(50, 2, DATE '2020-02-21', DATE '2020-11-10', 6, 7)");
+                                "(45, 3, DATE '2015-01-01', DATE '2015-07-28', 1, 3), " +
+                                "(46, 2, DATE '2016-05-15', DATE '2016-06-06', 4, 5), " +
+                                "(50, 2, DATE '2020-02-21', DATE '2020-11-10', 6, 7)" :
+                        "(0, 2, NULL, NULL, NULL, NULL), " +
+                                "(45, 3, NULL, NULL, NULL, NULL), " +
+                                "(46, 2, NULL, NULL, NULL, NULL), " +
+                                "(50, 2, NULL, NULL, NULL, NULL)"));
 
         dropTable("test_year_transform_date");
     }
 
     @Test
     public void testYearTransformTimestamp()
+    {
+        testYearTransformTimestamp(true);
+    }
+
+    void testYearTransformTimestamp(boolean columnStatisticsCollected)
     {
         assertUpdate("CREATE TABLE test_year_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
 
@@ -825,6 +895,12 @@ public abstract class AbstractTestIcebergSmoke
                     "(45, 2, NULL, NULL, 4, 5), " +
                     "(50, 2, NULL, NULL, 6, 7)";
         }
+        if (!columnStatisticsCollected) {
+            expected = "VALUES " +
+                    "(0, 3, NULL, NULL, NULL, NULL), " +
+                    "(45, 2, NULL, NULL, NULL, NULL), " +
+                    "(50, 2, NULL, NULL, NULL, NULL)";
+        }
 
         assertQuery("SELECT d_year, row_count, d.min, d.max, b.min, b.max FROM \"test_year_transform_timestamp$partitions\"", expected);
 
@@ -833,6 +909,11 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     public void testTruncateTransform()
+    {
+        testTruncateTransform(true);
+    }
+
+    void testTruncateTransform(boolean columnStatisticsCollected)
     {
         String select = "SELECT d_trunc, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_truncate_transform$partitions\"";
 
@@ -851,19 +932,24 @@ public abstract class AbstractTestIcebergSmoke
         assertQuery("SELECT COUNT(*) FROM \"test_truncate_transform$partitions\"", "SELECT 3");
 
         assertQuery("SELECT b FROM test_truncate_transform WHERE substring(d, 1, 2) = 'ab'", "SELECT b FROM (VALUES (1), (2), (3)) AS t(b)");
-        assertQuery(select + " WHERE d_trunc = 'ab'", "VALUES('ab', 3, 'ab598', 'abxy', 1, 3)");
+        assertQuery(select + " WHERE d_trunc = 'ab'", columnStatisticsCollected ? "VALUES('ab', 3, 'ab598', 'abxy', 1, 3)" : "VALUES('ab', 3, NULL, NULL, NULL, NULL)");
 
         assertQuery("SELECT b FROM test_truncate_transform WHERE substring(d, 1, 2) = 'mo'", "SELECT b FROM (VALUES (4), (5)) AS t(b)");
-        assertQuery(select + " WHERE d_trunc = 'mo'", "VALUES('mo', 2, 'mommy', 'moscow', 4, 5)");
+        assertQuery(select + " WHERE d_trunc = 'mo'", columnStatisticsCollected ? "VALUES('mo', 2, 'mommy', 'moscow', 4, 5)" : "VALUES('mo', 2, NULL, NULL, NULL, NULL)");
 
         assertQuery("SELECT b FROM test_truncate_transform WHERE substring(d, 1, 2) = 'Gr'", "SELECT b FROM (VALUES (6), (7)) AS t(b)");
-        assertQuery(select + " WHERE d_trunc = 'Gr'", "VALUES('Gr', 2, 'Greece', 'Grozny', 6, 7)");
+        assertQuery(select + " WHERE d_trunc = 'Gr'", columnStatisticsCollected ? "VALUES('Gr', 2, 'Greece', 'Grozny', 6, 7)" : "VALUES('Gr', 2, NULL, NULL, NULL, NULL)");
 
         dropTable("test_truncate_transform");
     }
 
     @Test
     public void testBucketTransform()
+    {
+        testBucketTransform(true);
+    }
+
+    void testBucketTransform(boolean columnStatisticsCollected)
     {
         String select = "SELECT d_bucket, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_bucket_transform$partitions\"";
 
@@ -880,9 +966,9 @@ public abstract class AbstractTestIcebergSmoke
 
         assertQuery("SELECT COUNT(*) FROM \"test_bucket_transform$partitions\"", "SELECT 2");
 
-        assertQuery(select + " WHERE d_bucket = 0", "VALUES(0, 3, 'Grozny', 'mommy', 1, 7)");
+        assertQuery(select + " WHERE d_bucket = 0", columnStatisticsCollected ? "VALUES(0, 3, 'Grozny', 'mommy', 1, 7)" : "VALUES(0, 3, NULL, NULL, NULL, NULL)");
 
-        assertQuery(select + " WHERE d_bucket = 1", "VALUES(1, 4, 'Greece', 'moscow', 2, 6)");
+        assertQuery(select + " WHERE d_bucket = 1", columnStatisticsCollected ? "VALUES(1, 4, 'Greece', 'moscow', 2, 6)" : "VALUES(1, 4, NULL, NULL, NULL, NULL)");
 
         dropTable("test_bucket_transform");
     }
@@ -965,6 +1051,11 @@ public abstract class AbstractTestIcebergSmoke
     @Test
     public void testBasicTableStatistics()
     {
+        testBasicTableStatistics(true);
+    }
+
+    void testBasicTableStatistics(boolean columnStatisticsCollected)
+    {
         String tableName = format("iceberg.tpch.test_basic_%s_table_statistics", format.name().toLowerCase(ENGLISH));
         assertUpdate(format("CREATE TABLE %s (col REAL)", tableName));
         String insertStart = format("INSERT INTO %s", tableName);
@@ -976,8 +1067,11 @@ public abstract class AbstractTestIcebergSmoke
         MaterializedResult result = computeActual("SHOW STATS FOR " + tableName);
         MaterializedResult expectedStatistics =
                 resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                        .row("col", columnSizeForFormat(96.0), null, 0.0, null, "-10.0", "100.0")
-                        .row(null, null, null, null, 2.0, null, null)
+                        .rows(new Object[][]{
+                                columnStatisticsCollected ?
+                                        new Object[]{"col", columnSizeForFormat(96.0), null, 0.0, null, "-10.0", "100.0"} :
+                                        new Object[]{"col", null, null, null, null, null, null},
+                                new Object[]{null, null, null, null, 2.0, null, null}})
                         .build();
         assertEquals(result, expectedStatistics);
 
@@ -986,8 +1080,11 @@ public abstract class AbstractTestIcebergSmoke
         result = computeActual("SHOW STATS FOR " + tableName);
         expectedStatistics =
                 resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                        .row("col", columnSizeForFormat(144.0), null, 0.0, null, "-10.0", "200.0")
-                        .row(null, null, null, null, 3.0, null, null)
+                        .rows(new Object[][]{
+                                columnStatisticsCollected ?
+                                        new Object[]{"col", columnSizeForFormat(144.0), null, 0.0, null, "-10.0", "200.0"} :
+                                        new Object[]{"col", null, null, null, null, null, null},
+                                new Object[]{null, null, null, null, 3.0, null, null}})
                         .build();
         assertEquals(result, expectedStatistics);
 
@@ -1002,6 +1099,11 @@ public abstract class AbstractTestIcebergSmoke
     @Test
     public void testMultipleColumnTableStatistics()
     {
+        testMultipleColumnTableStatistics(true);
+    }
+
+    void testMultipleColumnTableStatistics(boolean columnStatisticsCollected)
+    {
         String tableName = format("iceberg.tpch.test_multiple_%s_table_statistics", format.name().toLowerCase(ENGLISH));
         assertUpdate(format("CREATE TABLE %s (col1 REAL, col2 INTEGER, col3 DATE)", tableName));
         String insertStart = format("INSERT INTO %s", tableName);
@@ -1012,9 +1114,15 @@ public abstract class AbstractTestIcebergSmoke
 
         MaterializedResult expectedStatistics =
                 resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                        .row("col1", columnSizeForFormat(96.0), null, 0.0, null, "-10.0", "100.0")
-                        .row("col2", columnSizeForFormat(98.0), null, 0.0, null, "-1", "10")
-                        .row("col3", columnSizeForFormat(102.0), null, 0.0, null, "2019-06-28", "2020-01-01")
+                        .rows(columnStatisticsCollected ?
+                                new Object[][]{
+                                        new Object[]{"col1", columnSizeForFormat(96.0), null, 0.0, null, "-10.0", "100.0"},
+                                        new Object[]{"col2", columnSizeForFormat(98.0), null, 0.0, null, "-1", "10"},
+                                        new Object[]{"col3", columnSizeForFormat(102.0), null, 0.0, null, "2019-06-28", "2020-01-01"}} :
+                                new Object[][]{
+                                        new Object[]{"col1", null, null, null, null, null, null},
+                                        new Object[]{"col2", null, null, null, null, null, null},
+                                        new Object[]{"col3", null, null, null, null, null, null}})
                         .row(null, null, null, null, 2.0, null, null)
                         .build();
         assertEquals(result, expectedStatistics);
@@ -1023,9 +1131,15 @@ public abstract class AbstractTestIcebergSmoke
         result = computeActual("SHOW STATS FOR " + tableName);
         expectedStatistics =
                 resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                        .row("col1", columnSizeForFormat(144.0), null, 0.0, null, "-10.0", "200.0")
-                        .row("col2", columnSizeForFormat(147), null, 0.0, null, "-1", "20")
-                        .row("col3", columnSizeForFormat(153), null, 0.0, null, "2019-06-28", "2020-06-28")
+                        .rows(columnStatisticsCollected ?
+                                new Object[][]{
+                                        new Object[]{"col1", columnSizeForFormat(144.0), null, 0.0, null, "-10.0", "200.0"},
+                                        new Object[]{"col2", columnSizeForFormat(147), null, 0.0, null, "-1", "20"},
+                                        new Object[]{"col3", columnSizeForFormat(153), null, 0.0, null, "2019-06-28", "2020-06-28"}} :
+                                new Object[][]{
+                                        new Object[]{"col1", null, null, null, null, null, null},
+                                        new Object[]{"col2", null, null, null, null, null, null},
+                                        new Object[]{"col3", null, null, null, null, null, null}})
                         .row(null, null, null, null, 3.0, null, null)
                         .build();
         assertEquals(result, expectedStatistics);
@@ -1042,9 +1156,15 @@ public abstract class AbstractTestIcebergSmoke
 
         expectedStatistics =
                 resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                        .row("col1", columnSizeForFormat(271.0), null, 5.0 / 13.0, null, "-10.0", "200.0")
-                        .row("col2", columnSizeForFormat(251.0), null, 0.0, null, "-1", "30")
-                        .row("col3", columnSizeForFormat(261), null, 0.0, null, "2019-06-28", "2020-07-25")
+                        .rows(columnStatisticsCollected ?
+                                new Object[][]{
+                                        new Object[]{"col1", columnSizeForFormat(271.0), null, 5.0 / 13.0, null, "-10.0", "200.0"},
+                                        new Object[]{"col2", columnSizeForFormat(251.0), null, 0.0, null, "-1", "30"},
+                                        new Object[]{"col3", columnSizeForFormat(261), null, 0.0, null, "2019-06-28", "2020-07-25"}} :
+                                new Object[][]{
+                                        new Object[]{"col1", null, null, null, null, null, null},
+                                        new Object[]{"col2", null, null, null, null, null, null},
+                                        new Object[]{"col3", null, null, null, null, null, null}})
                         .row(null, null, null, null, 13.0, null, null)
                         .build();
         assertEquals(result, expectedStatistics);
@@ -1055,6 +1175,11 @@ public abstract class AbstractTestIcebergSmoke
     @Test
     public void testPartitionedTableStatistics()
     {
+        testPartitionedTableStatistics(true);
+    }
+
+    void testPartitionedTableStatistics(boolean columnStatisticsCollected)
+    {
         assertUpdate("CREATE TABLE iceberg.tpch.test_partitioned_table_statistics (col1 REAL, col2 BIGINT) WITH (partitioning = ARRAY['col2'])");
 
         String insertStart = "INSERT INTO test_partitioned_table_statistics";
@@ -1064,17 +1189,22 @@ public abstract class AbstractTestIcebergSmoke
         MaterializedResult result = computeActual("SHOW STATS FOR iceberg.tpch.test_partitioned_table_statistics");
         assertEquals(result.getRowCount(), 3);
 
-        MaterializedRow row0 = result.getMaterializedRows().get(0);
-        org.testng.Assert.assertEquals(row0.getField(0), "col1");
-        org.testng.Assert.assertEquals(row0.getField(3), 0.0);
-        org.testng.Assert.assertEquals(row0.getField(5), "-10.0");
-        org.testng.Assert.assertEquals(row0.getField(6), "100.0");
+        MaterializedRow row0;
+        MaterializedRow row1;
 
-        MaterializedRow row1 = result.getMaterializedRows().get(1);
-        assertEquals(row1.getField(0), "col2");
-        assertEquals(row1.getField(3), 0.0);
-        assertEquals(row1.getField(5), "-1");
-        assertEquals(row1.getField(6), "10");
+        if (columnStatisticsCollected) {
+            row0 = result.getMaterializedRows().get(0);
+            org.testng.Assert.assertEquals(row0.getField(0), "col1");
+            org.testng.Assert.assertEquals(row0.getField(3), 0.0);
+            org.testng.Assert.assertEquals(row0.getField(5), "-10.0");
+            org.testng.Assert.assertEquals(row0.getField(6), "100.0");
+
+            row1 = result.getMaterializedRows().get(1);
+            assertEquals(row1.getField(0), "col2");
+            assertEquals(row1.getField(3), 0.0);
+            assertEquals(row1.getField(5), "-1");
+            assertEquals(row1.getField(6), "10");
+        }
 
         MaterializedRow row2 = result.getMaterializedRows().get(2);
         assertEquals(row2.getField(4), 2.0);
@@ -1089,17 +1219,20 @@ public abstract class AbstractTestIcebergSmoke
 
         result = computeActual("SHOW STATS FOR iceberg.tpch.test_partitioned_table_statistics");
         assertEquals(result.getRowCount(), 3);
-        row0 = result.getMaterializedRows().get(0);
-        assertEquals(row0.getField(0), "col1");
-        assertEquals(row0.getField(3), 5.0 / 12.0);
-        assertEquals(row0.getField(5), "-10.0");
-        assertEquals(row0.getField(6), "105.0");
 
-        row1 = result.getMaterializedRows().get(1);
-        assertEquals(row1.getField(0), "col2");
-        assertEquals(row1.getField(3), 0.0);
-        assertEquals(row1.getField(5), "-1");
-        assertEquals(row1.getField(6), "10");
+        if (columnStatisticsCollected) {
+            row0 = result.getMaterializedRows().get(0);
+            assertEquals(row0.getField(0), "col1");
+            assertEquals(row0.getField(3), 5.0 / 12.0);
+            assertEquals(row0.getField(5), "-10.0");
+            assertEquals(row0.getField(6), "105.0");
+
+            row1 = result.getMaterializedRows().get(1);
+            assertEquals(row1.getField(0), "col2");
+            assertEquals(row1.getField(3), 0.0);
+            assertEquals(row1.getField(5), "-1");
+            assertEquals(row1.getField(6), "10");
+        }
 
         row2 = result.getMaterializedRows().get(2);
         assertEquals(row2.getField(4), 12.0);
@@ -1109,17 +1242,20 @@ public abstract class AbstractTestIcebergSmoke
                 .collect(Collectors.joining(", ")), 5);
 
         result = computeActual("SHOW STATS FOR iceberg.tpch.test_partitioned_table_statistics");
-        row0 = result.getMaterializedRows().get(0);
-        assertEquals(row0.getField(0), "col1");
-        assertEquals(row0.getField(3), 5.0 / 17.0);
-        assertEquals(row0.getField(5), "-10.0");
-        assertEquals(row0.getField(6), "105.0");
 
-        row1 = result.getMaterializedRows().get(1);
-        assertEquals(row1.getField(0), "col2");
-        assertEquals(row1.getField(3), 5.0 / 17.0);
-        assertEquals(row1.getField(5), "-1");
-        assertEquals(row1.getField(6), "10");
+        if (columnStatisticsCollected) {
+            row0 = result.getMaterializedRows().get(0);
+            assertEquals(row0.getField(0), "col1");
+            assertEquals(row0.getField(3), 5.0 / 17.0);
+            assertEquals(row0.getField(5), "-10.0");
+            assertEquals(row0.getField(6), "105.0");
+
+            row1 = result.getMaterializedRows().get(1);
+            assertEquals(row1.getField(0), "col2");
+            assertEquals(row1.getField(3), 5.0 / 17.0);
+            assertEquals(row1.getField(5), "-1");
+            assertEquals(row1.getField(6), "10");
+        }
 
         row2 = result.getMaterializedRows().get(2);
         assertEquals(row2.getField(4), 17.0);

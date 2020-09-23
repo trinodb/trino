@@ -44,6 +44,7 @@ import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.parquet.HdfsParquetDataSource;
 import io.prestosql.plugin.hive.parquet.ParquetPageSource;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
+import io.prestosql.plugin.iceberg.avro.IcebergAvroPageSource;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -55,6 +56,7 @@ import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -63,6 +65,8 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.SchemaParser;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
@@ -167,8 +171,10 @@ public class IcebergPageSourceProvider
                 split.getStart(),
                 split.getLength(),
                 split.getFileFormat(),
+                SchemaParser.fromJson(split.getSchemaAsJson()),
                 regularColumns,
-                table.getPredicate());
+                table.getPredicate(),
+                session.getTimeZoneKey());
 
         return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getTimeZoneKey());
     }
@@ -180,8 +186,10 @@ public class IcebergPageSourceProvider
             long start,
             long length,
             FileFormat fileFormat,
+            Schema fileSchema,
             List<IcebergColumnHandle> dataColumns,
-            TupleDomain<IcebergColumnHandle> predicate)
+            TupleDomain<IcebergColumnHandle> predicate,
+            TimeZoneKey timeZoneKey)
     {
         switch (fileFormat) {
             case ORC:
@@ -227,6 +235,16 @@ public class IcebergPageSourceProvider
                                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)),
                         predicate,
                         fileFormatDataSourceStats);
+            case AVRO:
+                return new IcebergAvroPageSource(
+                        path.toString(),
+                        start,
+                        length,
+                        hdfsEnvironment,
+                        hdfsContext,
+                        fileSchema,
+                        dataColumns,
+                        timeZoneKey);
         }
         throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
     }

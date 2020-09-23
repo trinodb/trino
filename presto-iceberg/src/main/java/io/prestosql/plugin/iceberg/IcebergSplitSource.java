@@ -22,6 +22,7 @@ import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
@@ -105,6 +106,7 @@ public class IcebergSplitSource
                 task.length(),
                 task.file().format(),
                 ImmutableList.of(),
+                SchemaParser.toJson(task.spec().schema()),
                 getPartitionKeys(task));
     }
 

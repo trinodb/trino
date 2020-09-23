@@ -28,6 +28,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.NodeVersion;
 import io.prestosql.plugin.hive.orc.HdfsOrcDataSource;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
+import io.prestosql.plugin.iceberg.avro.IcebergAvroFileWriter;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
@@ -104,6 +105,8 @@ public class IcebergFileWriterFactory
     }
 
     public IcebergFileWriter createFileWriter(
+            String schemaName,
+            String tableName,
             Path outputPath,
             Schema icebergSchema,
             JobConf jobConf,
@@ -116,6 +119,8 @@ public class IcebergFileWriterFactory
                 return createParquetWriter(outputPath, icebergSchema, jobConf, session, hdfsContext);
             case ORC:
                 return createOrcWriter(outputPath, icebergSchema, jobConf, session);
+            case AVRO:
+                return createAvroWriter(schemaName, tableName, outputPath, icebergSchema, session);
         }
         throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
     }
@@ -232,5 +237,25 @@ public class IcebergFileWriterFactory
         catch (IOException e) {
             throw new PrestoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating ORC file", e);
         }
+    }
+
+    private IcebergFileWriter createAvroWriter(
+            String schemaName,
+            String tableName,
+            Path outputPath,
+            Schema icebergSchema,
+            ConnectorSession session)
+    {
+        List<Type> fileColumnTypes = icebergSchema.columns().stream()
+                .map(column -> toPrestoType(column.type(), typeManager))
+                .collect(toImmutableList());
+        return new IcebergAvroFileWriter(
+                tableName,
+                outputPath,
+                hdfsEnvironment,
+                new HdfsContext(session, schemaName, tableName),
+                icebergSchema,
+                fileColumnTypes,
+                getCompressionCodec(session));
     }
 }
