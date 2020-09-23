@@ -562,6 +562,15 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createColorRepeatBlock(int value, int length)
+    {
+        BlockBuilder builder = COLOR.createFixedSizeBlockBuilder(length);
+        for (int i = 0; i < length; i++) {
+            COLOR.writeLong(builder, value);
+        }
+        return builder.build();
+    }
+
     public static Block createColorSequenceBlock(int start, int end)
     {
         BlockBuilder builder = COLOR.createBlockBuilder(null, end - start);
