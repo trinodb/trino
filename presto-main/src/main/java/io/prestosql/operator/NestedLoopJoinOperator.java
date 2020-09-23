@@ -15,8 +15,10 @@ package io.prestosql.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.execution.Lifespan;
+import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
@@ -30,6 +32,8 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
 
@@ -123,12 +127,12 @@ public class NestedLoopJoinOperator
     private final OperatorContext operatorContext;
     private final Runnable afterClose;
 
-    private final List<Integer> probeChannels;
-    private final List<Integer> buildChannels;
+    private final int[] probeChannels;
+    private final int[] buildChannels;
     private List<Page> buildPages;
     private Page probePage;
     private Iterator<Page> buildPageIterator;
-    private NestedLoopPageBuilder nestedLoopPageBuilder;
+    private NestedLoopOutputIterator nestedLoopPageBuilder;
     private boolean finishing;
     private boolean closed;
 
@@ -136,8 +140,8 @@ public class NestedLoopJoinOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.nestedLoopJoinPagesFuture = joinBridge.getPagesFuture();
-        this.probeChannels = ImmutableList.copyOf(requireNonNull(probeChannels, "probeChannels is null"));
-        this.buildChannels = ImmutableList.copyOf(requireNonNull(buildChannels, "buildChannels is null"));
+        this.probeChannels = Ints.toArray(requireNonNull(probeChannels, "probeChannels is null"));
+        this.buildChannels = Ints.toArray(requireNonNull(buildChannels, "buildChannels is null"));
         this.afterClose = requireNonNull(afterClose, "afterClose is null");
     }
 
@@ -214,11 +218,12 @@ public class NestedLoopJoinOperator
         }
 
         if (buildPageIterator.hasNext()) {
-            nestedLoopPageBuilder = new NestedLoopPageBuilder(probePage, buildPageIterator.next(), probeChannels, buildChannels);
+            nestedLoopPageBuilder = createNestedLoopOutputIterator(probePage, buildPageIterator.next(), probeChannels, buildChannels);
             return nestedLoopPageBuilder.next();
         }
 
         probePage = null;
+        nestedLoopPageBuilder = null;
         return null;
     }
 
@@ -226,6 +231,9 @@ public class NestedLoopJoinOperator
     public void close()
     {
         buildPages = null;
+        probePage = null;
+        nestedLoopPageBuilder = null;
+        buildPageIterator = null;
         // We don't want to release the supplier multiple times, since its reference counted
         if (closed) {
             return;
@@ -235,59 +243,132 @@ public class NestedLoopJoinOperator
         afterClose.run();
     }
 
+    @VisibleForTesting
+    static NestedLoopOutputIterator createNestedLoopOutputIterator(Page probePage, Page buildPage, int[] probeChannels, int[] buildChannels)
+    {
+        if (probeChannels.length == 0 && buildChannels.length == 0) {
+            int probePositions = probePage.getPositionCount();
+            int buildPositions = buildPage.getPositionCount();
+            try {
+                // positionCount is an int. Make sure the product can still fit in an int.
+                int outputPositions = multiplyExact(probePositions, buildPositions);
+                if (outputPositions <= PageProcessor.MAX_BATCH_SIZE) {
+                    return new PageRepeatingIterator(new Page(outputPositions), 1);
+                }
+            }
+            catch (ArithmeticException overflow) {
+            }
+            // Repeat larger position count a smaller position count number of times
+            Page outputPage = new Page(max(probePositions, buildPositions));
+            return new PageRepeatingIterator(outputPage, min(probePositions, buildPositions));
+        }
+        else if (probeChannels.length == 0 && probePage.getPositionCount() <= buildPage.getPositionCount()) {
+            return new PageRepeatingIterator(buildPage.getColumns(buildChannels), probePage.getPositionCount());
+        }
+        else if (buildChannels.length == 0 && buildPage.getPositionCount() <= probePage.getPositionCount()) {
+            return new PageRepeatingIterator(probePage.getColumns(probeChannels), buildPage.getPositionCount());
+        }
+        else {
+            return new NestedLoopPageBuilder(probePage, buildPage, probeChannels, buildChannels);
+        }
+    }
+
+    // bi-morphic parent class for the two implementations allowed. Adding a third implementation will make getOutput megamorphic and
+    // should be avoided
+    @VisibleForTesting
+    abstract static class NestedLoopOutputIterator
+    {
+        public abstract boolean hasNext();
+
+        public abstract Page next();
+    }
+
+    private static final class PageRepeatingIterator
+            extends NestedLoopOutputIterator
+    {
+        private final Page page;
+        private int remainingCount;
+
+        private PageRepeatingIterator(Page page, int repetitions)
+        {
+            this.page = requireNonNull(page, "page is null");
+            this.remainingCount = repetitions;
+        }
+
+        @Override
+        public boolean hasNext()
+        {
+            return remainingCount > 0;
+        }
+
+        @Override
+        public Page next()
+        {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+            remainingCount--;
+            return page;
+        }
+    }
+
     /**
      * This class takes one probe page(p rows) and one build page(b rows) and
      * build n pages with m rows in each page, where n = min(p, b) and m = max(p, b)
      */
-    @VisibleForTesting
-    static class NestedLoopPageBuilder
-            implements Iterator<Page>
+    private static final class NestedLoopPageBuilder
+            extends NestedLoopOutputIterator
     {
-        private final List<Integer> probeChannels;
-        private final List<Integer> buildChannels;
-        private final boolean buildPageLarger;
-        private final Page largePage;
-        private final Page smallPage;
+        //  Avoids allocation a new block array per iteration
+        private final Block[] resultBlockBuffer;
+        private final Block[] smallPageOutputBlocks;
+        private final int indexForRleBlocks;
+        private final int largePagePositionCount;
         private final int maxRowIndex; // number of rows - 1
 
-        private int rowIndex; // Iterator on the rows in the page with less rows.
-        private final int noColumnShortcutResult; // Only used if select count(*) from cross join.
+        private int rowIndex = -1; // Iterator on the rows in the page with less rows.
 
-        NestedLoopPageBuilder(Page probePage, Page buildPage, List<Integer> probeChannels, List<Integer> buildChannels)
+        NestedLoopPageBuilder(Page probePage, Page buildPage, int[] probeChannels, int[] buildChannels)
         {
             requireNonNull(probePage, "probePage is null");
             checkArgument(probePage.getPositionCount() > 0, "probePage has no rows");
             requireNonNull(buildPage, "buildPage is null");
             checkArgument(buildPage.getPositionCount() > 0, "buildPage has no rows");
-            this.probeChannels = ImmutableList.copyOf(requireNonNull(probeChannels, "probeChannels is null"));
-            this.buildChannels = ImmutableList.copyOf(requireNonNull(buildChannels, "buildChannels is null"));
 
-            // We will loop through all rows in the page with less rows.
-            this.rowIndex = -1;
-            this.buildPageLarger = buildPage.getPositionCount() > probePage.getPositionCount();
-            this.maxRowIndex = Math.min(buildPage.getPositionCount(), probePage.getPositionCount()) - 1;
-            this.largePage = buildPageLarger ? buildPage : probePage;
-            this.smallPage = buildPageLarger ? probePage : buildPage;
-
-            this.noColumnShortcutResult = calculateUseNoColumnShortcut(probeChannels.size(), buildChannels.size(), probePage.getPositionCount(), buildPage.getPositionCount());
-        }
-
-        private static int calculateUseNoColumnShortcut(
-                int numberOfProbeColumns,
-                int numberOfBuildColumns,
-                int positionCountProbe,
-                int positionCountBuild)
-        {
-            if (numberOfProbeColumns == 0 && numberOfBuildColumns == 0) {
-                try {
-                    // positionCount is an int. Make sure the product can still fit in an int.
-                    return multiplyExact(positionCountProbe, positionCountBuild);
-                }
-                catch (ArithmeticException exception) {
-                    // return -1 to disable the shortcut if overflows.
-                }
+            Page largePage;
+            Page smallPage;
+            int indexForPageBlocks;
+            int[] channelsForSmallPage;
+            int[] channelsForLargePage;
+            if (buildPage.getPositionCount() > probePage.getPositionCount()) {
+                largePage = buildPage;
+                smallPage = probePage;
+                channelsForLargePage = buildChannels;
+                channelsForSmallPage = probeChannels;
+                indexForPageBlocks = probeChannels.length;
+                this.indexForRleBlocks = 0;
             }
-            return -1;
+            else {
+                largePage = probePage;
+                smallPage = buildPage;
+                channelsForLargePage = probeChannels;
+                channelsForSmallPage = buildChannels;
+                indexForPageBlocks = 0;
+                this.indexForRleBlocks = probeChannels.length;
+            }
+            this.largePagePositionCount = largePage.getPositionCount();
+            this.maxRowIndex = smallPage.getPositionCount() - 1;
+
+            this.resultBlockBuffer = new Block[channelsForLargePage.length + channelsForSmallPage.length];
+            // Put the blocks from the page with more rows in the output buffer in order
+            for (int i = 0; i < channelsForLargePage.length; i++) {
+                resultBlockBuffer[indexForPageBlocks + i] = largePage.getBlock(channelsForLargePage[i]);
+            }
+            // Extract the small page output blocks in order
+            this.smallPageOutputBlocks = new Block[channelsForSmallPage.length];
+            for (int i = 0; i < channelsForSmallPage.length; i++) {
+                this.smallPageOutputBlocks[i] = smallPage.getBlock(channelsForSmallPage[i]);
+            }
         }
 
         @Override
@@ -303,37 +384,15 @@ public class NestedLoopJoinOperator
                 throw new NoSuchElementException();
             }
 
-            if (noColumnShortcutResult >= 0) {
-                rowIndex = maxRowIndex;
-                return new Page(noColumnShortcutResult);
-            }
-
             rowIndex++;
 
-            // Create an array of blocks for all columns in both pages.
-            Block[] blocks = new Block[probeChannels.size() + buildChannels.size()];
-
-            // Make sure we always put the probe data on the left and build data on the right.
-            int indexForRleBlocks = buildPageLarger ? 0 : probeChannels.size();
-            int indexForPageBlocks = buildPageLarger ? probeChannels.size() : 0;
-
-            List<Integer> smallPageChannels = buildPageLarger ? probeChannels : buildChannels;
-            List<Integer> largePageChannels = buildPageLarger ? buildChannels : probeChannels;
-
             // For the page with less rows, create RLE blocks and add them to the blocks array
-            for (int channel : smallPageChannels) {
-                Block block = smallPage.getBlock(channel).getSingleValueBlock(rowIndex);
-                blocks[indexForRleBlocks] = new RunLengthEncodedBlock(block, largePage.getPositionCount());
-                indexForRleBlocks++;
+            for (int i = 0; i < smallPageOutputBlocks.length; i++) {
+                Block block = smallPageOutputBlocks[i].getSingleValueBlock(rowIndex);
+                resultBlockBuffer[indexForRleBlocks + i] = new RunLengthEncodedBlock(block, largePagePositionCount);
             }
-
-            // Put the blocks from the page with more rows in the blocks array
-            for (int channel : largePageChannels) {
-                blocks[indexForPageBlocks] = largePage.getBlock(channel);
-                indexForPageBlocks++;
-            }
-
-            return new Page(largePage.getPositionCount(), blocks);
+            // Page constructor will create a copy of the block buffer (and must for correctness)
+            return new Page(largePagePositionCount, resultBlockBuffer);
         }
     }
 }
