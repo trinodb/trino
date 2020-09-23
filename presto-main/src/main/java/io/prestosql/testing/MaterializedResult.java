@@ -390,17 +390,6 @@ public class MaterializedResult
         return new MaterializedRow(prestoRow.getPrecision(), convertedValues);
     }
 
-    private static ZoneOffset toZoneOffset(TimeZoneKey timeZoneKey)
-    {
-        requireNonNull(timeZoneKey, "timeZoneKey is null");
-        if (Objects.equals("UTC", timeZoneKey.getId())) {
-            return ZoneOffset.UTC;
-        }
-
-        checkArgument(timeZoneKey.getId().matches("[+-]\\d\\d:\\d\\d"), "Not a zone-offset timezone: %s", timeZoneKey);
-        return ZoneOffset.of(timeZoneKey.getId());
-    }
-
     public static MaterializedResult materializeSourceDataStream(Session session, ConnectorPageSource pageSource, List<Type> types)
     {
         return materializeSourceDataStream(session.toConnectorSession(), pageSource, types);
