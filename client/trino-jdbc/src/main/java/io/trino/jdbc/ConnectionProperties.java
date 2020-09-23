@@ -18,6 +18,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 
 import java.io.File;
@@ -70,6 +71,8 @@ final class ConnectionProperties
     public static final ConnectionProperty<File> KERBEROS_KEYTAB_PATH = new KerberosKeytabPath();
     public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
+    public static final ConnectionProperty<Boolean> EXTERNAL_AUTHENTICATION = new ExternalAuthentication();
+    public static final ConnectionProperty<Duration> EXTERNAL_AUTHENTICATION_TIMEOUT = new ExternalAuthenticationTimeout();
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
     public static final ConnectionProperty<String> CLIENT_INFO = new ClientInfo();
     public static final ConnectionProperty<String> CLIENT_TAGS = new ClientTags();
@@ -108,6 +111,8 @@ final class ConnectionProperties
             .add(TRACE_TOKEN)
             .add(SESSION_PROPERTIES)
             .add(SOURCE)
+            .add(EXTERNAL_AUTHENTICATION)
+            .add(EXTERNAL_AUTHENTICATION_TIMEOUT)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -432,6 +437,27 @@ final class ConnectionProperties
         public AccessToken()
         {
             super("accessToken", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class ExternalAuthentication
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public ExternalAuthentication()
+        {
+            super("externalAuthentication", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class ExternalAuthenticationTimeout
+            extends AbstractConnectionProperty<Duration>
+    {
+        private static final Predicate<Properties> IF_EXTERNAL_AUTHENTICATION_ENABLED =
+                checkedPredicate(properties -> EXTERNAL_AUTHENTICATION.getValue(properties).orElse(false));
+
+        public ExternalAuthenticationTimeout()
+        {
+            super("externalAuthenticationTimeout", NOT_REQUIRED, IF_EXTERNAL_AUTHENTICATION_ENABLED, Duration::valueOf);
         }
     }
 
