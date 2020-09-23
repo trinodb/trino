@@ -23,8 +23,10 @@ import io.prestosql.testing.TestingTaskContext;
 import io.prestosql.tpch.LineItem;
 import io.prestosql.tpch.LineItemGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
+import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
@@ -54,10 +56,11 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 
 @State(Scope.Thread)
-@OutputTimeUnit(TimeUnit.SECONDS)
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Fork(3)
-@Warmup(iterations = 20, time = 500, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 20, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 15, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 15, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@BenchmarkMode(Mode.AverageTime)
 public class BenchmarkDynamicFilterSourceOperator
 {
     private static final int TOTAL_POSITIONS = 1_000_000;
@@ -65,8 +68,11 @@ public class BenchmarkDynamicFilterSourceOperator
     @State(Scope.Thread)
     public static class BenchmarkContext
     {
-        @Param({"32", "256", "1024"})
-        private String positionsPerPage = "32";
+        @Param({"32", "1024"})
+        private int positionsPerPage = 32;
+
+        @Param({"100,0", "500,5000", "5000,50000"})
+        private String collectionLimits = "100,0";
 
         private ExecutorService executor;
         private ScheduledExecutorService scheduledExecutor;
@@ -79,16 +85,20 @@ public class BenchmarkDynamicFilterSourceOperator
             executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
             scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
-            pages = createInputPages(Integer.valueOf(positionsPerPage));
+            pages = createInputPages(positionsPerPage);
+
+            String[] limits = collectionLimits.split(",", 2);
+            int maxDistinctValuesCount = Integer.parseInt(limits[0]);
+            int minMaxCollectionLimit = Integer.parseInt(limits[1]);
 
             operatorFactory = new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
                     1,
                     new PlanNodeId("joinNodeId"),
                     (tupleDomain -> {}),
                     ImmutableList.of(new DynamicFilterSourceOperator.Channel(new DynamicFilterId("0"), BIGINT, 0)),
-                    100,
+                    maxDistinctValuesCount,
                     DataSize.ofBytes(Long.MAX_VALUE),
-                    0);
+                    minMaxCollectionLimit);
         }
 
         @TearDown
