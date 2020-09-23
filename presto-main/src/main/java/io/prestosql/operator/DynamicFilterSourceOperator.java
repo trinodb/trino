@@ -75,7 +75,7 @@ public class DynamicFilterSourceOperator
         private final PlanNodeId planNodeId;
         private final Consumer<TupleDomain<DynamicFilterId>> dynamicPredicateConsumer;
         private final List<Channel> channels;
-        private final int maxFilterPositionsCount;
+        private final int maxDisinctValues;
         private final DataSize maxFilterSize;
         private final int minMaxCollectionLimit;
 
@@ -86,7 +86,7 @@ public class DynamicFilterSourceOperator
                 PlanNodeId planNodeId,
                 Consumer<TupleDomain<DynamicFilterId>> dynamicPredicateConsumer,
                 List<Channel> channels,
-                int maxFilterPositionsCount,
+                int maxDisinctValues,
                 DataSize maxFilterSize,
                 int minMaxCollectionLimit)
         {
@@ -98,7 +98,7 @@ public class DynamicFilterSourceOperator
                     "duplicate dynamic filters are not allowed");
             verify(channels.stream().map(channel -> channel.index).collect(toSet()).size() == channels.size(),
                     "duplicate channel indices are not allowed");
-            this.maxFilterPositionsCount = maxFilterPositionsCount;
+            this.maxDisinctValues = maxDisinctValues;
             this.maxFilterSize = maxFilterSize;
             this.minMaxCollectionLimit = minMaxCollectionLimit;
         }
@@ -112,7 +112,7 @@ public class DynamicFilterSourceOperator
                     dynamicPredicateConsumer,
                     channels,
                     planNodeId,
-                    maxFilterPositionsCount,
+                    maxDisinctValues,
                     maxFilterSize,
                     minMaxCollectionLimit);
         }
@@ -135,7 +135,7 @@ public class DynamicFilterSourceOperator
     private boolean finished;
     private Page current;
     private final Consumer<TupleDomain<DynamicFilterId>> dynamicPredicateConsumer;
-    private final int maxFilterPositionsCount;
+    private final int maxDistinctValues;
     private final long maxFilterSizeInBytes;
 
     private final List<Channel> channels;
@@ -158,12 +158,12 @@ public class DynamicFilterSourceOperator
             Consumer<TupleDomain<DynamicFilterId>> dynamicPredicateConsumer,
             List<Channel> channels,
             PlanNodeId planNodeId,
-            int maxFilterPositionsCount,
+            int maxDistinctValues,
             DataSize maxFilterSize,
             int minMaxCollectionLimit)
     {
         this.context = requireNonNull(context, "context is null");
-        this.maxFilterPositionsCount = maxFilterPositionsCount;
+        this.maxDistinctValues = maxDistinctValues;
         this.maxFilterSizeInBytes = maxFilterSize.toBytes();
 
         this.dynamicPredicateConsumer = requireNonNull(dynamicPredicateConsumer, "dynamicPredicateConsumer is null");
@@ -233,7 +233,7 @@ public class DynamicFilterSourceOperator
         minMaxCollectionLimit -= page.getPositionCount();
         // TODO: we should account for the memory used for collecting build-side values using MemoryContext
         long filterSizeInBytes = 0;
-        int filterPositionsCount = 0;
+        int filterMaxDistinctValues = 0;
         // Collect only the columns which are relevant for the JOIN.
         for (int channelIndex = 0; channelIndex < channels.size(); ++channelIndex) {
             Block block = page.getBlock(channels.get(channelIndex).index);
@@ -242,10 +242,10 @@ public class DynamicFilterSourceOperator
                 valueSet.add(block, position);
             }
             filterSizeInBytes += valueSet.getRetainedSizeInBytes();
-            filterPositionsCount += valueSet.size();
+            filterMaxDistinctValues = Math.max(filterMaxDistinctValues, valueSet.size());
         }
-        if (filterPositionsCount > maxFilterPositionsCount || filterSizeInBytes > maxFilterSizeInBytes) {
-            // The whole filter (summed over all columns) contains too much values or exceeds maxFilterSizeInBytes.
+        if (filterMaxDistinctValues > maxDistinctValues || filterSizeInBytes > maxFilterSizeInBytes) {
+            // The whole filter (summed over all columns) exceeds maxFilterSizeInBytes or a column contains too many distinct values
             handleTooLargePredicate();
         }
     }
