@@ -69,10 +69,21 @@
             <artifactId>okhttp-urlconnection</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>net.jodah</groupId>
+            <artifactId>failsafe</artifactId>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>mockwebserver</artifactId>
             <scope>test</scope>
         </dependency>
 
