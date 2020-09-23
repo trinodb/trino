@@ -151,6 +151,18 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>configuration</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>jaxrs</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>test</scope>
         </dependency>
@@ -183,6 +195,18 @@
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.ws.rs</groupId>
+            <artifactId>javax.ws.rs-api</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -278,6 +302,10 @@
                                 <relocation>
                                     <pattern>okio</pattern>
                                     <shadedPattern>${shadeBase}.okio</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>net.jodah.failsafe</pattern>
+                                    <shadedPattern>${shadeBase}.net.jodah.failsafe</shadedPattern>
                                 </relocation>
                             </relocations>
                             <filters>
