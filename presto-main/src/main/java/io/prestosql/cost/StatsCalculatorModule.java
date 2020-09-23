@@ -57,6 +57,7 @@ public class StatsCalculatorModule
         rules.add(new SemiJoinStatsRule());
         rules.add(new RowNumberStatsRule(normalizer));
         rules.add(new SortStatsRule());
+        rules.add(new SampleStatsRule(normalizer));
 
         return new ComposableStatsCalculator(rules.build());
     }
