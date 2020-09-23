@@ -18,6 +18,7 @@ import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Ulimit;
+import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -101,6 +102,13 @@ public final class Environment
                 .get(() -> tryStart());
     }
 
+    public List<String> getContainerNames()
+    {
+        return containers.values().stream()
+                .map(DockerContainer::getLogicalName)
+                .collect(toImmutableList());
+    }
+
     private Environment tryStart()
     {
         pruneEnvironment();
@@ -110,6 +118,9 @@ public final class Environment
             List<DockerContainer> containers = ImmutableList.copyOf(this.containers.values());
             attachNetwork(containers, network);
 
+            String containerNames = Joiner.on(", ").join(getContainerNames());
+
+            log.info("Starting containers %s for environment %s", containerNames, name);
             Startables.deepStart(containers).get();
             this.listener.ifPresent(listener -> listener.environmentStarted(this));
             return this;
