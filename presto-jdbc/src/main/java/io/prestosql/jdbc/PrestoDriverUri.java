@@ -41,10 +41,13 @@ import static io.prestosql.client.OkHttpUtil.setupKerberos;
 import static io.prestosql.client.OkHttpUtil.setupSocksProxy;
 import static io.prestosql.client.OkHttpUtil.setupSsl;
 import static io.prestosql.client.OkHttpUtil.tokenAuth;
+import static io.prestosql.client.auth.external.ExternalAuthenticator.setupExternalAuthenticator;
 import static io.prestosql.jdbc.ConnectionProperties.ACCESS_TOKEN;
 import static io.prestosql.jdbc.ConnectionProperties.APPLICATION_NAME_PREFIX;
 import static io.prestosql.jdbc.ConnectionProperties.CLIENT_INFO;
 import static io.prestosql.jdbc.ConnectionProperties.CLIENT_TAGS;
+import static io.prestosql.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION;
+import static io.prestosql.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_TIMEOUT;
 import static io.prestosql.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static io.prestosql.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
@@ -247,6 +250,16 @@ final class PrestoDriverUri
                     throw new SQLException("Authentication using an access token requires SSL to be enabled");
                 }
                 builder.addInterceptor(tokenAuth(ACCESS_TOKEN.getValue(properties).get()));
+            }
+            if (EXTERNAL_AUTHENTICATION.getValue(properties).orElse(false)) {
+                if (!useSecureConnection) {
+                    throw new SQLException("Authentication using SSO authorization requires SSL to be enabled");
+                }
+                setupExternalAuthenticator(
+                        builder,
+                        buildHttpUri(),
+                        EXTERNAL_AUTHENTICATION_TIMEOUT.getRequiredValue(properties),
+                        RedirectHandlerFactory.create());
             }
         }
         catch (ClientException e) {

@@ -21,6 +21,7 @@ import com.google.common.net.HostAndPort;
 import io.prestosql.client.ClientSelectedRole;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,6 +35,7 @@ import static com.google.common.collect.Maps.immutableEntry;
 import static io.prestosql.client.ClientSelectedRole.Type.ALL;
 import static io.prestosql.client.ClientSelectedRole.Type.NONE;
 import static io.prestosql.jdbc.AbstractConnectionProperty.checkedPredicate;
+import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -62,6 +64,8 @@ final class ConnectionProperties
     public static final ConnectionProperty<File> KERBEROS_KEYTAB_PATH = new KerberosKeytabPath();
     public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
+    public static final ConnectionProperty<Boolean> EXTERNAL_AUTHENTICATION = new ExternalAuthentication();
+    public static final ConnectionProperty<Duration> EXTERNAL_AUTHENTICATION_TIMEOUT = new ExternalAuthenticationTimeout();
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
     public static final ConnectionProperty<String> CLIENT_INFO = new ClientInfo();
     public static final ConnectionProperty<String> CLIENT_TAGS = new ClientTags();
@@ -99,6 +103,8 @@ final class ConnectionProperties
             .add(USE_SESSION_TIMEZONE)
             .add(SESSION_PROPERTIES)
             .add(SOURCE)
+            .add(EXTERNAL_AUTHENTICATION)
+            .add(EXTERNAL_AUTHENTICATION_TIMEOUT)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -396,6 +402,32 @@ final class ConnectionProperties
         public AccessToken()
         {
             super("accessToken", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class ExternalAuthentication
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public ExternalAuthentication()
+        {
+            super("externalAuthentication", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class ExternalAuthenticationTimeout
+            extends AbstractConnectionProperty<Duration>
+    {
+        public ExternalAuthenticationTimeout()
+        {
+            super("externalAuthenticationTimeout", Optional.of("120"), NOT_REQUIRED, ALLOWED, ExternalAuthenticationTimeout::parseSeconds);
+        }
+
+        private static Duration parseSeconds(String property)
+        {
+            Long seconds = Long.valueOf(property);
+            checkArgument(seconds > 0, "timeout seconds must be positive");
+
+            return Duration.of(seconds, SECONDS);
         }
     }
 
