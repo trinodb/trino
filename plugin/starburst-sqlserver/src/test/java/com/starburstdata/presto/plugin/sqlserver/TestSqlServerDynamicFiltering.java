@@ -17,7 +17,7 @@ import org.testng.annotations.AfterClass;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 
-public class TestDynamicFiltering
+public class TestSqlServerDynamicFiltering
         extends AbstractDynamicFilteringTest
 {
     private TestingSqlServer sqlServer;
