@@ -7,7 +7,7 @@
 * Improve performance of queries involving `IN` with subqueries by extending support for dynamic filtering. ({issue}`5017`)
 * Improve performance and latency of queries leveraging dynamic filters. ({issue}`4988`)
 * Improve performance of queries joining tables with missing or incomplete column statistics when
-  when cost based optimization is enabled (which is the default). ({issue}`5141`)
+  cost based optimization is enabled (which is the default). ({issue}`5141`)
 * Reduce latency for queries that perform a broadcast join of a large table. ({issue}`5237`)
 * Allow collection of dynamic filters for joins with large build side using the
   `enable-large-dynamic-filters` configuration property or the `enable_large_dynamic_filters`
