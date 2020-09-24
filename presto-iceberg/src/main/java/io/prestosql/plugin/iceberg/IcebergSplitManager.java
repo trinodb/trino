@@ -57,7 +57,7 @@ public class IcebergSplitManager
         HiveMetastore metastore = transactionManager.get(transaction).getMetastore();
         Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
 
-        TableScan tableScan = getTableScan(session, table.getPredicate(), table.getSnapshotId(), icebergTable);
+        TableScan tableScan = getTableScan(table.getPredicate(), icebergTable, table.getSnapshotId());
 
         // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
         //      propagate it at split level so the parquet pushdown can leverage it.

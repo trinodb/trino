@@ -107,7 +107,7 @@ final class IcebergUtil
         return Optional.ofNullable(table.properties().get(TABLE_COMMENT));
     }
 
-    public static TableScan getTableScan(ConnectorSession session, TupleDomain<IcebergColumnHandle> predicates, Optional<Long> snapshotId, Table icebergTable)
+    public static TableScan getTableScan(TupleDomain<IcebergColumnHandle> predicates, Table icebergTable, Optional<Long> snapshotId)
     {
         Expression expression = ExpressionConverter.toIcebergExpression(predicates);
         TableScan tableScan = icebergTable.newScan().filter(expression);
