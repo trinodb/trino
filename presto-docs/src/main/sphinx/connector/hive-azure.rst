@@ -31,12 +31,15 @@ configured independently with the storage credentials, you can use the following
 properties in the catalog configuration.
 
 We suggest to use this kind of configuration when you only have the Primary
-Storage account linked to the cluster. When there are secondary storage accounts
-involved, it is recommended to configure Presto using
-``hive.config.resources=<path_to_hadoop_core-site.xml>``, provided
-``core-site.xml`` has the all storage account credentials.
+Storage account linked to the cluster. When there are secondary storage
+accounts involved, we recommend configuring Presto using a ``core-site.xml``
+containing the appropriate credentials for each account, as described in the
+preceding section.
 
-.. list-table:: **WASB properties**
+WASB Storage
+^^^^^^^^^^^^
+
+.. list-table:: WASB properties
   :widths: 30, 70
   :header-rows: 1
 
@@ -47,21 +50,47 @@ involved, it is recommended to configure Presto using
   * - ``hive.azure.wasb-access-key``
     - The decrypted access key for the Azure Blob Storage
 
-If you choose to use ADLS Gen2, you need to add the following properties:
+ADLS Gen2 / ABFS Storage
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. list-table:: **ADLS Gen2 properties**
+To connect to ABFS storage, you may either use the storage account's access
+key, or a service principal. Do not use both sets of properties at the
+same time.
+
+.. list-table:: ABFS Access Key
   :widths: 30, 70
   :header-rows: 1
 
   * - Property name
     - Description
   * - ``hive.azure.abfs-storage-account``
-    - Storage account name of Azure Data Lake Storage Gen2
+    - The name of the ADLS Gen2 storage account
   * - ``hive.azure.abfs-access-key``
-    - The decrypted access key for the Azure Data Lake Storage Gen2ß
+    - The decrypted access key for the ADLS Gen2 storage account
+
+.. list-table:: ABFS Service Principal OAuth
+  :widths: 30, 70
+  :header-rows: 1
+
+  * - Property name
+    - Description
+  * - ``hive.azure.abfs.oauth.endpoint``
+    - The service principal / application's OAuth 2.0 token endpoint (v1).
+  * - ``hive.azure.abfs.oauth.client-id``
+    - The service principal's client/application ID.
+  * - ``hive.azure.abfs.oauth.secret``
+    - A client secret for the service principal.
+
+When using a service principal, it must have the Storage Blob Data Owner,
+Contributor, or Reader role on the storage account you are using, depending on
+which operations you would like to use.
+
+ADLS Gen1
+^^^^^^^^^
 
 While it is advised to migrate to ADLS Gen2 whenever possible, if you still
-choose to use ADLS Gen1 you need to add the following properties.
+choose to use ADLS Gen1 you need to include the following properties in your
+catalog configuration.
 
 .. note::
 
@@ -73,7 +102,7 @@ choose to use ADLS Gen1 you need to add the following properties.
     <https://docs.microsoft.com/en-us/azure/data-lake-store/data-lake-store-service-to-service-authenticate-using-active-directory>`_
     for details.
 
-.. list-table:: **ADLS properties**
+.. list-table:: ADLS properties
   :widths: 30, 70
   :header-rows: 1
 
