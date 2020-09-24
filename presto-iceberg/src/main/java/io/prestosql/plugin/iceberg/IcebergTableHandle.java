@@ -19,6 +19,7 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
 
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -85,7 +86,7 @@ public class IcebergTableHandle
 
     public SchemaTableName getSchemaTableNameWithType()
     {
-        return new SchemaTableName(schemaName, tableName + "$" + tableType.name());
+        return new SchemaTableName(schemaName, tableName + "$" + tableType.name().toLowerCase(Locale.ROOT));
     }
 
     @Override
@@ -115,17 +116,6 @@ public class IcebergTableHandle
     @Override
     public String toString()
     {
-        return getSchemaTableName().toString();
-    }
-
-    public static IcebergTableHandle from(SchemaTableName table)
-    {
-        IcebergTableName name = IcebergTableName.from(table.getTableName());
-        return new IcebergTableHandle(
-                table.getSchemaName(),
-                name.getTableName(),
-                name.getTableType(),
-                name.getSnapshotId(),
-                TupleDomain.all());
+        return getSchemaTableNameWithType() + "@" + snapshotId;
     }
 }
