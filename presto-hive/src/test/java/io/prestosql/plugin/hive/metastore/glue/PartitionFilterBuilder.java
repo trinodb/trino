@@ -116,9 +116,7 @@ public class PartitionFilterBuilder
 
     public TupleDomain<String> build()
     {
-        ImmutableMap<String, Domain> domains = ImmutableMap.copyOf(this.domains);
-        TupleDomain<String> stringTupleDomain = TupleDomain.withColumnDomains(domains);
-        return stringTupleDomain;
+        return TupleDomain.withColumnDomains(ImmutableMap.copyOf(this.domains));
     }
 
     public static Long decimalOf(String value)
