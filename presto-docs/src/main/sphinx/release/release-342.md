@@ -1,4 +1,4 @@
-# Release 342 (23 Sep 2020)
+# Release 342 (24 Sep 2020)
 
 ## General Changes
 
@@ -56,7 +56,7 @@
 
 ## MySQL Connector Changes
 
-* Improve performance of `INSERT` statement when MySQL instance isn't running in GTID mode. ({issue}`4995`)
+* Improve performance of `INSERT` queries when GTID mode is disabled in MySQL. ({issue}`4995`)
 
 ## PostgreSQL Connector Changes
 
