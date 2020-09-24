@@ -50,35 +50,35 @@ public class PartitionFilterBuilder
     {
         List<Slice> blockValues = Arrays.stream(values).map(Slices::utf8Slice).collect(toImmutableList());
         Domain domain = Domain.multipleValues(VarcharType.VARCHAR, blockValues);
-        domains.compute(columnName, (k, v) -> v == null ? domain : v.union(domain));
+        domains.merge(columnName, domain, Domain::union);
         return this;
     }
 
     public PartitionFilterBuilder addBigintValues(String columnName, Long... values)
     {
         Domain domain = Domain.multipleValues(BigintType.BIGINT, Arrays.asList(values));
-        domains.compute(columnName, (k, v) -> v == null ? domain : v.union(domain));
+        domains.merge(columnName, domain, Domain::union);
         return this;
     }
 
     public PartitionFilterBuilder addIntegerValues(String columnName, Long... values)
     {
         Domain domain = Domain.multipleValues(IntegerType.INTEGER, Arrays.asList(values));
-        domains.compute(columnName, (k, v) -> v == null ? domain : v.union(domain));
+        domains.merge(columnName, domain, Domain::union);
         return this;
     }
 
     public PartitionFilterBuilder addSmallintValues(String columnName, Long... values)
     {
         Domain domain = Domain.multipleValues(SmallintType.SMALLINT, Arrays.asList(values));
-        domains.compute(columnName, (k, v) -> v == null ? domain : v.union(domain));
+        domains.merge(columnName, domain, Domain::union);
         return this;
     }
 
     public PartitionFilterBuilder addTinyintValues(String columnName, Long... values)
     {
         Domain domain = Domain.multipleValues(TinyintType.TINYINT, Arrays.asList(values));
-        domains.compute(columnName, (k, v) -> v == null ? domain : v.union(domain));
+        domains.merge(columnName, domain, Domain::union);
         return this;
     }
 
@@ -89,14 +89,14 @@ public class PartitionFilterBuilder
                 .map(PartitionFilterBuilder::decimalOf)
                 .collect(toImmutableList());
         Domain domain = Domain.multipleValues(DECIMAL_TYPE, encodedValues);
-        domains.compute(columnName, (k, v) -> v == null ? domain : v.union(domain));
+        domains.merge(columnName, domain, Domain::union);
         return this;
     }
 
     public PartitionFilterBuilder addDateValues(String columnName, Long... values)
     {
         Domain domain = Domain.multipleValues(DateType.DATE, Arrays.asList(values));
-        domains.compute(columnName, (k, v) -> v == null ? domain : v.union(domain));
+        domains.merge(columnName, domain, Domain::union);
         return this;
     }
 
@@ -104,13 +104,13 @@ public class PartitionFilterBuilder
     {
         ValueSet values = ValueSet.ofRanges(range, ranges);
         Domain domain = Domain.create(values, false);
-        domains.compute(columnName, (k, v) -> v == null ? domain : v.union(domain));
+        domains.merge(columnName, domain, Domain::union);
         return this;
     }
 
     public PartitionFilterBuilder addDomain(String columnName, Domain domain)
     {
-        domains.compute(columnName, (k, v) -> v == null ? domain : v.union(domain));
+        domains.merge(columnName, domain, Domain::union);
         return this;
     }
 
