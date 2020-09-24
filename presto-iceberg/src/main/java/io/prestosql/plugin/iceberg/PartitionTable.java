@@ -16,7 +16,6 @@ package io.prestosql.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
@@ -153,11 +152,8 @@ public class PartitionTable
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         // TODO instead of cursor use pageSource method.
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            TableScan tableScan = getTableScan(TupleDomain.all(), icebergTable, tableHandle.getSnapshotId()).includeColumnStats();
-            Map<StructLikeWrapper, Partition> partitions = getPartitions(tableScan);
-            return buildRecordCursor(partitions, icebergTable.spec().fields());
-        }
+        TableScan tableScan = getTableScan(TupleDomain.all(), icebergTable, tableHandle.getSnapshotId()).includeColumnStats();
+        return buildRecordCursor(getPartitions(tableScan), icebergTable.spec().fields());
     }
 
     private Map<StructLikeWrapper, Partition> getPartitions(TableScan tableScan)

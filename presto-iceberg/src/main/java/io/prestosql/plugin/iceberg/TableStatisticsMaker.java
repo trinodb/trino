@@ -15,7 +15,6 @@ package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.predicate.Domain;
@@ -120,76 +119,74 @@ public class TableStatisticsMaker
         }
         Map<Integer, ColumnFieldDetails> idToDetails = idToDetailsBuilder.build();
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            TableScan tableScan = getTableScan(intersection, icebergTable, tableHandle.getSnapshotId()).includeColumnStats();
-            Partition summary = null;
-            try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
-                for (FileScanTask fileScanTask : fileScanTasks) {
-                    DataFile dataFile = fileScanTask.file();
-                    if (!dataFileMatches(
-                            dataFile,
-                            constraint,
+        TableScan tableScan = getTableScan(intersection, icebergTable, tableHandle.getSnapshotId()).includeColumnStats();
+        Partition summary = null;
+        try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
+            for (FileScanTask fileScanTask : fileScanTasks) {
+                DataFile dataFile = fileScanTask.file();
+                if (!dataFileMatches(
+                        dataFile,
+                        constraint,
+                        idToTypeMapping,
+                        partitionFields,
+                        idToDetails)) {
+                    continue;
+                }
+
+                if (summary == null) {
+                    summary = new Partition(
                             idToTypeMapping,
-                            partitionFields,
-                            idToDetails)) {
-                        continue;
-                    }
-
-                    if (summary == null) {
-                        summary = new Partition(
-                                idToTypeMapping,
-                                nonPartitionPrimitiveColumns,
-                                dataFile.partition(),
-                                dataFile.recordCount(),
-                                dataFile.fileSizeInBytes(),
-                                toMap(idToTypeMapping, dataFile.lowerBounds()),
-                                toMap(idToTypeMapping, dataFile.upperBounds()),
-                                dataFile.nullValueCounts(),
-                                dataFile.columnSizes());
-                    }
-                    else {
-                        summary.incrementFileCount();
-                        summary.incrementRecordCount(dataFile.recordCount());
-                        summary.incrementSize(dataFile.fileSizeInBytes());
-                        updateSummaryMin(summary, partitionFields, toMap(idToTypeMapping, dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
-                        updateSummaryMax(summary, partitionFields, toMap(idToTypeMapping, dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
-                        summary.updateNullCount(dataFile.nullValueCounts());
-                        updateColumnSizes(summary, dataFile.columnSizes());
-                    }
+                            nonPartitionPrimitiveColumns,
+                            dataFile.partition(),
+                            dataFile.recordCount(),
+                            dataFile.fileSizeInBytes(),
+                            toMap(idToTypeMapping, dataFile.lowerBounds()),
+                            toMap(idToTypeMapping, dataFile.upperBounds()),
+                            dataFile.nullValueCounts(),
+                            dataFile.columnSizes());
+                }
+                else {
+                    summary.incrementFileCount();
+                    summary.incrementRecordCount(dataFile.recordCount());
+                    summary.incrementSize(dataFile.fileSizeInBytes());
+                    updateSummaryMin(summary, partitionFields, toMap(idToTypeMapping, dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
+                    updateSummaryMax(summary, partitionFields, toMap(idToTypeMapping, dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
+                    summary.updateNullCount(dataFile.nullValueCounts());
+                    updateColumnSizes(summary, dataFile.columnSizes());
                 }
             }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-
-            if (summary == null) {
-                return TableStatistics.empty();
-            }
-
-            ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
-            double recordCount = summary.getRecordCount();
-            for (IcebergColumnHandle columnHandle : idToColumnHandle.values()) {
-                int fieldId = columnHandle.getId();
-                ColumnStatistics.Builder columnBuilder = new ColumnStatistics.Builder();
-                Long nullCount = summary.getNullCounts().get(fieldId);
-                if (nullCount != null) {
-                    columnBuilder.setNullsFraction(Estimate.of(nullCount / recordCount));
-                }
-                if (summary.getColumnSizes() != null) {
-                    Long columnSize = summary.getColumnSizes().get(fieldId);
-                    if (columnSize != null) {
-                        columnBuilder.setDataSize(Estimate.of(columnSize));
-                    }
-                }
-                Object min = summary.getMinValues().get(fieldId);
-                Object max = summary.getMaxValues().get(fieldId);
-                if (min instanceof Number && max instanceof Number) {
-                    columnBuilder.setRange(Optional.of(new DoubleRange(((Number) min).doubleValue(), ((Number) max).doubleValue())));
-                }
-                columnHandleBuilder.put(columnHandle, columnBuilder.build());
-            }
-            return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.build());
         }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
+        if (summary == null) {
+            return TableStatistics.empty();
+        }
+
+        ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
+        double recordCount = summary.getRecordCount();
+        for (IcebergColumnHandle columnHandle : idToColumnHandle.values()) {
+            int fieldId = columnHandle.getId();
+            ColumnStatistics.Builder columnBuilder = new ColumnStatistics.Builder();
+            Long nullCount = summary.getNullCounts().get(fieldId);
+            if (nullCount != null) {
+                columnBuilder.setNullsFraction(Estimate.of(nullCount / recordCount));
+            }
+            if (summary.getColumnSizes() != null) {
+                Long columnSize = summary.getColumnSizes().get(fieldId);
+                if (columnSize != null) {
+                    columnBuilder.setDataSize(Estimate.of(columnSize));
+                }
+            }
+            Object min = summary.getMinValues().get(fieldId);
+            Object max = summary.getMaxValues().get(fieldId);
+            if (min instanceof Number && max instanceof Number) {
+                columnBuilder.setRange(Optional.of(new DoubleRange(((Number) min).doubleValue(), ((Number) max).doubleValue())));
+            }
+            columnHandleBuilder.put(columnHandle, columnBuilder.build());
+        }
+        return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.build());
     }
 
     private boolean dataFileMatches(
