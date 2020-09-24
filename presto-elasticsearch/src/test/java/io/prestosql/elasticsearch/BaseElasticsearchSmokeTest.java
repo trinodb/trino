@@ -438,7 +438,7 @@ public abstract class BaseElasticsearchSmokeTest
                 .row(false)
                 .build();
 
-        assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(rows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
     }
 
     @Test
