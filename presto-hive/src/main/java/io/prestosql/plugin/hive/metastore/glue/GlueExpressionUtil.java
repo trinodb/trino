@@ -77,8 +77,7 @@ public final class GlueExpressionUtil
         return buildGlueExpression(columnNames, partitionKeysFilter, assumeCanonicalPartitionKeys, GLUE_EXPRESSION_CHAR_LIMIT);
     }
 
-    public static String buildGlueExpression(
-            List<String> columnNames, TupleDomain<String> partitionKeysFilter, boolean assumeCanonicalPartitionKeys, int expressionLengthLimit)
+    public static String buildGlueExpression(List<String> columnNames, TupleDomain<String> partitionKeysFilter, boolean assumeCanonicalPartitionKeys, int expressionLengthLimit)
     {
         // this should have been handled by callers
         checkState(!partitionKeysFilter.isNone());
