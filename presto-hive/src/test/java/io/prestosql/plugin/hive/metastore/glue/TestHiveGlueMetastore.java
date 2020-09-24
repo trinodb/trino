@@ -222,7 +222,7 @@ public class TestHiveGlueMetastore
         assertEquals(stats.getGetDatabase().getTotalFailures().getTotalCount(), initialFailureCount + 1);
     }
 
-    @Test(groups = "get-partitions-by-filter")
+    @Test
     public void testGetPartitionsFilterVarChar()
             throws Exception
     {
@@ -259,7 +259,7 @@ public class TestHiveGlueMetastore
                         ImmutableList.of("2020-01-01", "2020-02-01", "2020-03-01", "2020-04-01")));
     }
 
-    @Test(groups = "get-partitions-by-filter")
+    @Test
     public void testGetPartitionsFilterBigInt()
             throws Exception
     {
@@ -296,7 +296,7 @@ public class TestHiveGlueMetastore
                         ImmutableList.of("1", "100", "1000", "1000000")));
     }
 
-    @Test(groups = "get-partitions-by-filter")
+    @Test
     public void testGetPartitionsFilterInteger()
             throws Exception
     {
@@ -333,7 +333,7 @@ public class TestHiveGlueMetastore
                         ImmutableList.of("1", "100", "1000", "1000000")));
     }
 
-    @Test(groups = "get-partitions-by-filter")
+    @Test
     public void testGetPartitionsFilterSmallInt()
             throws Exception
     {
@@ -370,7 +370,7 @@ public class TestHiveGlueMetastore
                         ImmutableList.of("1", "100", "1000", "10000")));
     }
 
-    @Test(groups = "get-partitions-by-filter")
+    @Test
     public void testGetPartitionsFilterTinyInt()
             throws Exception
     {
@@ -407,7 +407,7 @@ public class TestHiveGlueMetastore
                         ImmutableList.of("1", "10", "100", "127")));
     }
 
-    @Test(groups = "get-partitions-by-filter")
+    @Test
     public void testGetPartitionsFilterTinyIntNegatives()
             throws Exception
     {
@@ -444,7 +444,7 @@ public class TestHiveGlueMetastore
                         ImmutableList.of("-128", "0", "100", "50")));
     }
 
-    @Test(groups = "get-partitions-by-filter")
+    @Test
     public void testGetPartitionsFilterDecimal()
             throws Exception
     {
@@ -487,7 +487,7 @@ public class TestHiveGlueMetastore
     }
 
     // we don't presently know how to properly convert a Date type into a string that is compatible with Glue.
-    @Test(groups = "get-partitions-by-filter")
+    @Test
     public void testGetPartitionsFilterDate()
             throws Exception
     {
@@ -533,7 +533,7 @@ public class TestHiveGlueMetastore
                         ImmutableList.of("18000", "19000", "20000", "21000")));
     }
 
-    @Test(groups = "get-partitions-by-filter")
+    @Test
     public void testGetPartitionsFilterTwoPartitionKeys()
             throws Exception
     {
@@ -567,7 +567,7 @@ public class TestHiveGlueMetastore
                                 PartitionValues.make("2020-04-01", "400"))));
     }
 
-    @Test(groups = "get-partitions-by-filter")
+    @Test
     public void testGetPartitionsFilterMaxLengthWildcard()
             throws Exception
     {
@@ -585,7 +585,7 @@ public class TestHiveGlueMetastore
                         ImmutableList.of("2020-01-01", "2020-02-01", "2020-03-01", "2020-04-01")));
     }
 
-    @Test(groups = "get-partitions-by-filter")
+    @Test
     public void testGetPartitionsFilterTwoPartitionKeysPartialQuery()
             throws Exception
     {
@@ -607,7 +607,7 @@ public class TestHiveGlueMetastore
                 ImmutableList.of(ImmutableList.of(PartitionValues.make("2020-03-01", "300"))));
     }
 
-    @Test(groups = "get-partitions-by-filter")
+    @Test
     public void testGetPartitionsFilterNone()
             throws Exception
     {
@@ -623,7 +623,7 @@ public class TestHiveGlueMetastore
                 ImmutableList.of(ImmutableList.of(), ImmutableList.of()));
     }
 
-    @Test(groups = "get-partitions-by-filter")
+    @Test
     public void testGetPartitionsFilterNotNull()
             throws Exception
     {
@@ -638,7 +638,7 @@ public class TestHiveGlueMetastore
                 ImmutableList.of(ImmutableList.of("2020-01-01", "2020-02-01", "2020-03-01", "2020-04-01")));
     }
 
-    @Test(groups = "get-partitions-by-filter")
+    @Test
     public void testGetPartitionsFilterIsNull()
             throws Exception
     {
@@ -653,7 +653,7 @@ public class TestHiveGlueMetastore
                 ImmutableList.of(ImmutableList.of()));
     }
 
-    @Test(groups = "get-partitions-by-filter")
+    @Test
     public void testGetPartitionsFilterIsNullWithValue()
             throws Exception
     {
