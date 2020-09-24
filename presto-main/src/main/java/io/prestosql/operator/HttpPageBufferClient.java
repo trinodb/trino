@@ -387,24 +387,24 @@ public final class HttpPageBufferClient
                             }
                         });
                     }
+
+                    // add pages:
+                    // addPages must be called regardless of whether pages is an empty list because
+                    // clientCallback can keep stats of requests and responses. For example, it may
+                    // keep track of how often a client returns empty response and adjust request
+                    // frequency or buffer size.
+                    if (clientCallback.addPages(HttpPageBufferClient.this, pages)) {
+                        pagesReceived.addAndGet(pages.size());
+                        rowsReceived.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
+                    }
+                    else {
+                        pagesRejected.addAndGet(pages.size());
+                        rowsRejected.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
+                    }
                 }
                 catch (PrestoException e) {
                     handleFailure(e, resultFuture);
                     return;
-                }
-
-                // add pages:
-                // addPages must be called regardless of whether pages is an empty list because
-                // clientCallback can keep stats of requests and responses. For example, it may
-                // keep track of how often a client returns empty response and adjust request
-                // frequency or buffer size.
-                if (clientCallback.addPages(HttpPageBufferClient.this, pages)) {
-                    pagesReceived.addAndGet(pages.size());
-                    rowsReceived.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
-                }
-                else {
-                    pagesRejected.addAndGet(pages.size());
-                    rowsRejected.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
                 }
 
                 synchronized (HttpPageBufferClient.this) {
