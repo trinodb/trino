@@ -15,11 +15,8 @@ package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
@@ -62,8 +59,6 @@ import static java.util.stream.Collectors.toUnmodifiableMap;
 
 public class TableStatisticsMaker
 {
-    private static final Logger log = Logger.get(TableStatisticsMaker.class);
-
     private final TypeManager typeManager;
     private final Table icebergTable;
 
@@ -73,20 +68,20 @@ public class TableStatisticsMaker
         this.icebergTable = icebergTable;
     }
 
-    public static TableStatistics getTableStatistics(TypeManager typeManager, ConnectorSession session, Constraint constraint, IcebergTableHandle tableHandle, org.apache.iceberg.Table icebergTable)
+    public static TableStatistics getTableStatistics(TypeManager typeManager, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable)
     {
-        return new TableStatisticsMaker(typeManager, icebergTable).makeTableStatistics(session, tableHandle, constraint);
+        return new TableStatisticsMaker(typeManager, icebergTable).makeTableStatistics(tableHandle, constraint);
     }
 
-    private TableStatistics makeTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Constraint constraint)
     {
-        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
-
         if (constraint.getSummary().isNone()) {
             return TableStatistics.empty();
         }
 
-        TupleDomain<IcebergColumnHandle> intersection = constraint.getSummary().transform(IcebergColumnHandle.class::cast).intersect(icebergTableHandle.getPredicate());
+        TupleDomain<IcebergColumnHandle> intersection = constraint.getSummary()
+                .transform(IcebergColumnHandle.class::cast)
+                .intersect(tableHandle.getPredicate());
 
         if (intersection.isNone()) {
             return TableStatistics.empty();
@@ -126,7 +121,7 @@ public class TableStatisticsMaker
         Map<Integer, ColumnFieldDetails> idToDetails = idToDetailsBuilder.build();
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            TableScan tableScan = getTableScan(session, intersection, icebergTableHandle.getSnapshotId(), icebergTable).includeColumnStats();
+            TableScan tableScan = getTableScan(intersection, icebergTable, tableHandle.getSnapshotId()).includeColumnStats();
             Partition summary = null;
             try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
                 for (FileScanTask fileScanTask : fileScanTasks) {

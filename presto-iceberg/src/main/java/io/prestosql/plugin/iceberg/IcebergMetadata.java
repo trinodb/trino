@@ -660,6 +660,6 @@ public class IcebergMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
-        return TableStatisticsMaker.getTableStatistics(typeManager, session, constraint, handle, icebergTable);
+        return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable);
     }
 }
