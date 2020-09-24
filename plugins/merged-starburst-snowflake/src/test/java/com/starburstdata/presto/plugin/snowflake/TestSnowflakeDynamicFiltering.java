@@ -16,7 +16,7 @@ import io.prestosql.testng.services.Flaky;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 
-public class TestDynamicFiltering
+public class TestSnowflakeDynamicFiltering
         extends AbstractDynamicFilteringTest
 {
     @Override
