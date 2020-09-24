@@ -64,7 +64,6 @@ public class TestKafkaConfig
                 .put("kafka.ssl.keystore.password", "anotherPassword")
                 .put("kafka.ssl.key.password", "keyPassword")
                 .build();
-
         KafkaConfig expected = new KafkaConfig()
                 .setTableDescriptionDir(new File("/var/lib/kafka"))
                 .setTableNames("table1, table2, table3")
@@ -80,7 +79,6 @@ public class TestKafkaConfig
                 .setSslKeystoreLocation("/another/path")
                 .setSslKeystorePassword("anotherPassword")
                 .setSslKeyPassword("keyPassword");
-
         assertFullMapping(properties, expected);
     }
 }
