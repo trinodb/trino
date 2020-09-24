@@ -121,13 +121,6 @@ public class PartitionFilterBuilder
         return stringTupleDomain;
     }
 
-    public static Long decimalOf(double value)
-    {
-        BigDecimal bigDecimalValue = new BigDecimal(value)
-                .setScale(DECIMAL_TYPE_SCALE, RoundingMode.UP);
-        return bigDecimalValue.unscaledValue().longValue();
-    }
-
     public static Long decimalOf(String value)
     {
         BigDecimal bigDecimalValue = new BigDecimal(value)
