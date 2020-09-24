@@ -46,9 +46,9 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getColumns;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getIdentityPartitions;
-import static io.prestosql.plugin.iceberg.IcebergUtil.getTableScan;
 import static io.prestosql.plugin.iceberg.Partition.toMap;
 import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
 import static java.util.Objects.requireNonNull;
@@ -74,7 +74,7 @@ public class TableStatisticsMaker
 
     private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Constraint constraint)
     {
-        if (constraint.getSummary().isNone()) {
+        if (tableHandle.getSnapshotId().isEmpty() || constraint.getSummary().isNone()) {
             return TableStatistics.empty();
         }
 
@@ -119,7 +119,11 @@ public class TableStatisticsMaker
         }
         Map<Integer, ColumnFieldDetails> idToDetails = idToDetailsBuilder.build();
 
-        TableScan tableScan = getTableScan(intersection, icebergTable, tableHandle.getSnapshotId()).includeColumnStats();
+        TableScan tableScan = icebergTable.newScan()
+                .filter(toIcebergExpression(intersection))
+                .useSnapshot(tableHandle.getSnapshotId().get())
+                .includeColumnStats();
+
         Partition summary = null;
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
             for (FileScanTask fileScanTask : fileScanTasks) {

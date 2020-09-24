@@ -58,6 +58,17 @@ public class IcebergTableName
         return snapshotId;
     }
 
+    public String getTableNameWithType()
+    {
+        return tableName + "$" + tableType.name().toLowerCase(Locale.ROOT);
+    }
+
+    @Override
+    public String toString()
+    {
+        return getTableNameWithType() + "@" + snapshotId;
+    }
+
     public static IcebergTableName from(String name)
     {
         Matcher match = TABLE_PATTERN.matcher(name);
