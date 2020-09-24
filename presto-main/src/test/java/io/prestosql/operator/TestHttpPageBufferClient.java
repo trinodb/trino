@@ -28,6 +28,8 @@ import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.operator.HttpPageBufferClient.ClientCallback;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -44,6 +46,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -52,14 +55,18 @@ import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.PrestoMediaTypes.PRESTO_PAGES;
 import static io.prestosql.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
+import static io.prestosql.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static io.prestosql.spi.StandardErrorCode.PAGE_TOO_LARGE;
 import static io.prestosql.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static io.prestosql.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.util.Failures.WORKER_NODE_ERROR;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestHttpPageBufferClient
 {
@@ -194,7 +201,7 @@ public class TestHttpPageBufferClient
                 "localhost",
                 new TestingHttpClient(processor, scheduler),
                 DataIntegrityVerification.ABORT,
-                DataSize.of(10, Unit.MEGABYTE),
+                DataSize.of(10, MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -237,7 +244,7 @@ public class TestHttpPageBufferClient
                 "localhost",
                 new TestingHttpClient(processor, scheduler),
                 DataIntegrityVerification.ABORT,
-                DataSize.of(10, Unit.MEGABYTE),
+                DataSize.of(10, MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -308,7 +315,7 @@ public class TestHttpPageBufferClient
                 "localhost",
                 new TestingHttpClient(processor, scheduler),
                 DataIntegrityVerification.ABORT,
-                DataSize.of(10, Unit.MEGABYTE),
+                DataSize.of(10, MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -365,7 +372,7 @@ public class TestHttpPageBufferClient
                 "localhost",
                 new TestingHttpClient(processor, scheduler),
                 DataIntegrityVerification.ABORT,
-                DataSize.of(10, Unit.MEGABYTE),
+                DataSize.of(10, MEGABYTE),
                 new Duration(30, TimeUnit.SECONDS),
                 true,
                 location,
@@ -419,6 +426,55 @@ public class TestHttpPageBufferClient
         assertEquals(new PageTooLargeException().getErrorCode(), PAGE_TOO_LARGE.toErrorCode());
         assertEquals(new PageTransportErrorException(HostAddress.fromParts("127.0.0.1", 8080), "").getErrorCode(), PAGE_TRANSPORT_ERROR.toErrorCode());
         assertEquals(new PageTransportTimeoutException(HostAddress.fromParts("127.0.0.1", 8080), "", null).getErrorCode(), PAGE_TRANSPORT_TIMEOUT.toErrorCode());
+    }
+
+    @Test
+    public void testMemoryExceededInAddPages()
+            throws Exception
+    {
+        URI location = URI.create("http://localhost:8080");
+        Page page = new Page(RunLengthEncodedBlock.create(BIGINT, 1L, 100));
+
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(DataSize.of(10, MEGABYTE));
+        CyclicBarrier requestComplete = new CyclicBarrier(2);
+        PrestoException expectedException = new PrestoException(EXCEEDED_LOCAL_MEMORY_LIMIT, "Memory limit exceeded");
+        AtomicBoolean addPagesCalled = new AtomicBoolean(false);
+
+        TestingClientCallback callback = new TestingClientCallback(requestComplete) {
+            @Override
+            public boolean addPages(HttpPageBufferClient client, List<SerializedPage> pages)
+            {
+                addPagesCalled.set(true);
+                throw expectedException;
+            }
+        };
+
+        HttpPageBufferClient client = new HttpPageBufferClient(
+                "localhost",
+                new TestingHttpClient(processor, scheduler),
+                DataIntegrityVerification.ABORT,
+                DataSize.of(10, MEGABYTE),
+                new Duration(30, TimeUnit.SECONDS),
+                true,
+                location,
+                callback,
+                scheduler,
+                pageBufferClientCallbackExecutor);
+
+        // attempt to fetch a page
+        processor.addPage(location, page);
+        callback.resetStats();
+        client.scheduleRequest();
+        requestComplete.await(10, TimeUnit.SECONDS);
+
+        // addPages was called
+        assertTrue(addPagesCalled.get());
+
+        // Memory exceeded failure is reported
+        assertEquals(callback.getCompletedRequests(), 1);
+        assertEquals(callback.getFinishedBuffers(), 0);
+        assertEquals(callback.getFailedBuffers(), 1);
+        assertEquals(callback.getFailure(), expectedException);
     }
 
     private static void assertStatus(
