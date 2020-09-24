@@ -91,7 +91,7 @@ class LongTimestampType
         if (value != 0) {
             return value;
         }
-        return Integer.compareUnsigned(leftFraction, rightFraction);
+        return Integer.compare(leftFraction, rightFraction);
     }
 
     @Override

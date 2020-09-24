@@ -97,6 +97,6 @@ public final class LongTimestampWithTimeZone
         if (value != 0) {
             return value;
         }
-        return Integer.compareUnsigned(picosOfMilli, other.picosOfMilli);
+        return Integer.compare(picosOfMilli, other.picosOfMilli);
     }
 }
