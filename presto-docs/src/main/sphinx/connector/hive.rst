@@ -288,6 +288,11 @@ Property Name                                      Description                  
 ``hive.orc.time-zone``                             Sets the default time zone for legacy ORC files that did	JVM default
                                                    not declare a time zone.
 
+``hive.timestamp-precision``                       Specifies the precision to use for columns of type 	        ``MILLISECONDS``
+                                                   ``timestamp``. Possible values are ``MILLISECONDS``,
+                                                   ``MICROSECONDS`` and ``NANOSECONDS``. Write operations
+                                                   are only supported for ``MILLISECONDS``.
+
 ``hive.temporary-staging-directory-enabled``       Controls whether the temporary staging directory configured  ``true``
                                                    at ``hive.temporary-staging-directory-path`` should be
                                                    used for write operations. Temporary staging directory is
