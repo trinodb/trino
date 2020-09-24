@@ -74,7 +74,7 @@ public final class LongTimestamp
         if (value != 0) {
             return value;
         }
-        return Integer.compareUnsigned(picosOfMicro, other.picosOfMicro);
+        return Integer.compare(picosOfMicro, other.picosOfMicro);
     }
 
     @Override
