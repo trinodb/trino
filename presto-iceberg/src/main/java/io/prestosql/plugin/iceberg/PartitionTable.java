@@ -154,7 +154,7 @@ public class PartitionTable
     {
         // TODO instead of cursor use pageSource method.
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            TableScan tableScan = getTableScan(session, TupleDomain.all(), tableHandle.getSnapshotId(), icebergTable).includeColumnStats();
+            TableScan tableScan = getTableScan(TupleDomain.all(), icebergTable, tableHandle.getSnapshotId()).includeColumnStats();
             Map<StructLikeWrapper, Partition> partitions = getPartitions(tableScan);
             return buildRecordCursor(partitions, icebergTable.spec().fields());
         }
