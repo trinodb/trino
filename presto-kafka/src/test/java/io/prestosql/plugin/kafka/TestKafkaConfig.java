@@ -61,8 +61,10 @@ public class TestKafkaConfig
                 .put("kafka.ssl.endpoint.identification.algorithm", "https")
                 .put("kafka.ssl.truststore.location", "/some/path")
                 .put("kafka.ssl.truststore.password", "password")
+                .put("kafka.ssl.truststore.type", "JKS")
                 .put("kafka.ssl.keystore.location", "/another/path")
                 .put("kafka.ssl.keystore.password", "anotherPassword")
+                .put("kafka.ssl.keystore.type", "JKS")
                 .put("kafka.ssl.key.password", "keyPassword")
                 .put("kafka.ssl.provider", "sslProviderName")
                 .build();
@@ -78,8 +80,10 @@ public class TestKafkaConfig
                 .setSslEndpointIdentificationAlgorithm("https")
                 .setSslTruststoreLocation("/some/path")
                 .setSslTruststorePassword("password")
+                .setSslTruststoreType("JKS")
                 .setSslKeystoreLocation("/another/path")
                 .setSslKeystorePassword("anotherPassword")
+                .setSslKeystoreType("JKS")
                 .setSslKeyPassword("keyPassword")
                 .setSslProvider("sslProviderName");
         assertFullMapping(properties, expected);

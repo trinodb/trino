@@ -203,6 +203,19 @@ public class KafkaConfig
         return securityConfig.getSslTruststorePassword();
     }
 
+    @Config("kafka.ssl.truststore.type")
+    @ConfigDescription("SSL truststore type for Kafka connection.")
+    public KafkaConfig setSslTruststoreType(String sslTruststoreType)
+    {
+        this.securityConfig.setSslTruststoreType(sslTruststoreType);
+        return this;
+    }
+
+    public String getSslTruststoreType()
+    {
+        return securityConfig.getSslTruststoreType();
+    }
+
     @Config("kafka.ssl.keystore.location")
     @ConfigDescription("SSL keystore location for Kafka connection.")
     @ConfigSecuritySensitive
@@ -229,6 +242,19 @@ public class KafkaConfig
     public String getSslKeystorePassword()
     {
         return securityConfig.getSslKeystorePassword();
+    }
+
+    @Config("kafka.ssl.keystore.type")
+    @ConfigDescription("SSL keystore type for Kafka connection.")
+    public KafkaConfig setSslKeystoreType(String sslKeystoreType)
+    {
+        this.securityConfig.setSslKeystoreType(sslKeystoreType);
+        return this;
+    }
+
+    public String getSslKeystoreType()
+    {
+        return securityConfig.getSslKeystoreType();
     }
 
     @Config("kafka.ssl.endpoint.identification.algorithm")

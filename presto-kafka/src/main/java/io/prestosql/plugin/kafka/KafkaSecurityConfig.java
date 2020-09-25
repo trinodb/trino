@@ -37,6 +37,8 @@ public class KafkaSecurityConfig
     private String sslEndpointIdentificationAlgorithm;
     private String sslKeyPassword;
     private String sslProvider;
+    private String sslKeystoreType;
+    private String sslTruststoreType;
 
     public void setSecurityProtocol(SecurityProtocol securityProtocol)
     {
@@ -68,6 +70,16 @@ public class KafkaSecurityConfig
         return sslTruststorePassword;
     }
 
+    public void setSslTruststoreType(String sslTruststoreType)
+    {
+        this.sslTruststoreType = sslTruststoreType;
+    }
+
+    public String getSslTruststoreType()
+    {
+        return sslTruststoreType;
+    }
+
     public void setSslKeystoreLocation(String sslKeystoreLocation)
     {
         this.sslKeystoreLocation = sslKeystoreLocation;
@@ -86,6 +98,16 @@ public class KafkaSecurityConfig
     public String getSslKeystorePassword()
     {
         return sslKeystorePassword;
+    }
+
+    public void setSslKeystoreType(String sslKeystoreType)
+    {
+        this.sslKeystoreType = sslKeystoreType;
+    }
+
+    public String getSslKeystoreType()
+    {
+        return sslKeystoreType;
     }
 
     public void setSslEndpointIdentificationAlgorithm(String sslEndpointIdentificationAlgorithm)
@@ -126,8 +148,10 @@ public class KafkaSecurityConfig
             addNotNull("security.protocol", securityProtocol.name);
             addNotNull(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, sslTruststoreLocation);
             addNotNull(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, sslTruststorePassword);
+            addNotNull(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, sslTruststoreType);
             addNotNull(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, sslKeystoreLocation);
             addNotNull(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, sslKeystorePassword);
+            addNotNull(SslConfigs.SSL_KEYSTORE_TYPE_CONFIG, sslKeystoreType);
             addNotNull(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, sslEndpointIdentificationAlgorithm);
             addNotNull(SslConfigs.SSL_KEY_PASSWORD_CONFIG, sslKeyPassword);
             addNotNull(SslConfigs.SSL_PROVIDER_CONFIG, sslProvider);
