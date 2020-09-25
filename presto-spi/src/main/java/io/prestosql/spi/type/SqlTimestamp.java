@@ -28,7 +28,6 @@ import static io.prestosql.spi.type.Timestamps.round;
 import static io.prestosql.spi.type.Timestamps.roundDiv;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class SqlTimestamp
@@ -152,7 +151,7 @@ public final class SqlTimestamp
         long epochSecond = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
         int microOfSecond = floorMod(epochMicros, MICROSECONDS_PER_SECOND);
         int nanoOfSecond = (microOfSecond * NANOSECONDS_PER_MICROSECOND) +
-                toIntExact(roundDiv(picosOfMicros, PICOSECONDS_PER_NANOSECOND));
+                roundDiv(picosOfMicros, PICOSECONDS_PER_NANOSECOND);
         return LocalDateTime.ofEpochSecond(epochSecond, nanoOfSecond, ZoneOffset.UTC);
     }
 }
