@@ -15,7 +15,6 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.SystemSessionProperties;
 import io.prestosql.cost.CostCalculator;
 import io.prestosql.cost.CostCalculator.EstimatedExchanges;
 import io.prestosql.cost.CostComparator;
@@ -208,6 +207,8 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Set;
 
+import static io.prestosql.SystemSessionProperties.isIterativeRuleBasedColumnPruning;
+
 public class PlanOptimizers
 {
     private final List<PlanOptimizer> optimizers;
@@ -376,7 +377,7 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                SystemSessionProperties::isIterativeRuleBasedColumnPruning,
+                session -> !isIterativeRuleBasedColumnPruning(session),
                 ImmutableList.of(new PruneUnreferencedOutputs(metadata, typeAnalyzer)),
                 columnPruningRules);
 
