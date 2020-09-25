@@ -52,7 +52,7 @@ public abstract class TimestampWithTimeZoneType
     public static TimestampWithTimeZoneType createTimestampWithTimeZoneType(int precision)
     {
         if (precision < 0 || precision > MAX_PRECISION) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIMESTAMP WITH TIME ZONE precision must be in range [0, %s]", MAX_PRECISION));
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIMESTAMP WITH TIME ZONE precision must be in range [0, %s]: %s", MAX_PRECISION, precision));
         }
         return TYPES[precision];
     }

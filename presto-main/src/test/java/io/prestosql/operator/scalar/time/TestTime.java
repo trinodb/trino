@@ -104,7 +104,7 @@ public class TestTime
                 .isEqualTo(time(12, 12, 34, 56, 123_456_789_123L));
 
         assertThatThrownBy(() -> assertions.expression("TIME '12:34:56.1234567891234'"))
-                .hasMessage("line 1:8: TIME precision must be in range [0, 12]");
+                .hasMessage("line 1:8: TIME precision must be in range [0, 12]: 13");
 
         assertThatThrownBy(() -> assertions.expression("TIME '25:00:00'"))
                 .hasMessage("line 1:8: '25:00:00' is not a valid time literal");

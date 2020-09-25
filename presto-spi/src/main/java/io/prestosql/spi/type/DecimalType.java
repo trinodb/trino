@@ -21,6 +21,7 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
 import static io.prestosql.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.prestosql.spi.type.TypeSignatureParameter.numericParameter;
+import static java.lang.String.format;
 
 public abstract class DecimalType
         extends AbstractType
@@ -31,6 +32,14 @@ public abstract class DecimalType
 
     public static DecimalType createDecimalType(int precision, int scale)
     {
+        if (precision <= 0 || precision > MAX_PRECISION) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("DECIMAL precision must be in range [1, %d]: %s", MAX_PRECISION, precision));
+        }
+
+        if (scale < 0 || scale > precision) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("DECIMAL scale must be in range [0, precision (%s)]: %s", precision, scale));
+        }
+
         if (precision <= MAX_SHORT_PRECISION) {
             return new ShortDecimalType(precision, scale);
         }
@@ -86,19 +95,15 @@ public abstract class DecimalType
         return precision <= MAX_SHORT_PRECISION;
     }
 
-    void validatePrecisionScale(int precision, int scale, int maxPrecision)
-    {
-        if (precision <= 0 || precision > maxPrecision) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "DECIMAL precision must be in range [1, " + MAX_PRECISION + "]");
-        }
-
-        if (scale < 0 || scale > precision) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "DECIMAL scale must be in range [0, precision]");
-        }
-    }
-
     private static List<TypeSignatureParameter> buildTypeParameters(int precision, int scale)
     {
         return List.of(numericParameter(precision), numericParameter(scale));
+    }
+
+    static void checkArgument(boolean condition, String format, Object... args)
+    {
+        if (!condition) {
+            throw new IllegalArgumentException(format(format, args));
+        }
     }
 }
