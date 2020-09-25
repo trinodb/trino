@@ -36,6 +36,7 @@ public class KafkaSecurityConfig
     private String sslKeystorePassword;
     private String sslEndpointIdentificationAlgorithm;
     private String sslKeyPassword;
+    private String sslProvider;
 
     public void setSecurityProtocol(SecurityProtocol securityProtocol)
     {
@@ -107,6 +108,16 @@ public class KafkaSecurityConfig
         return sslKeyPassword;
     }
 
+    public void setSslProvider(String sslProvider)
+    {
+        this.sslProvider = sslProvider;
+    }
+
+    public String getSslProvider()
+    {
+        return sslProvider;
+    }
+
     public Properties getKafkaSecurityConfig()
     {
         props = new Properties();
@@ -119,6 +130,7 @@ public class KafkaSecurityConfig
             addNotNull(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, sslKeystorePassword);
             addNotNull(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, sslEndpointIdentificationAlgorithm);
             addNotNull(SslConfigs.SSL_KEY_PASSWORD_CONFIG, sslKeyPassword);
+            addNotNull(SslConfigs.SSL_PROVIDER_CONFIG, sslProvider);
         }
         checkUnusedConfigsWhenPlaintext();
         return props;
@@ -156,6 +168,9 @@ public class KafkaSecurityConfig
             }
             if (isSet(sslKeyPassword)) {
                 logger.warn(String.format(MESSAGE_TEMPLATE_CONFIG_NOT_USED, "ssl.key.password"));
+            }
+            if (isSet(sslProvider)) {
+                logger.warn(String.format(MESSAGE_TEMPLATE_CONFIG_NOT_USED, "ssl.provider"));
             }
         }
     }

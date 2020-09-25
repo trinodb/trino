@@ -42,7 +42,8 @@ public class TestKafkaConfig
                 .setSslTruststorePassword(null)
                 .setSslKeystoreLocation(null)
                 .setSslKeystorePassword(null)
-                .setSslKeyPassword(null));
+                .setSslKeyPassword(null)
+                .setSslProvider(null));
     }
 
     @Test
@@ -63,6 +64,7 @@ public class TestKafkaConfig
                 .put("kafka.ssl.keystore.location", "/another/path")
                 .put("kafka.ssl.keystore.password", "anotherPassword")
                 .put("kafka.ssl.key.password", "keyPassword")
+                .put("kafka.ssl.provider", "sslProviderName")
                 .build();
         KafkaConfig expected = new KafkaConfig()
                 .setTableDescriptionDir(new File("/var/lib/kafka"))
@@ -78,7 +80,8 @@ public class TestKafkaConfig
                 .setSslTruststorePassword("password")
                 .setSslKeystoreLocation("/another/path")
                 .setSslKeystorePassword("anotherPassword")
-                .setSslKeyPassword("keyPassword");
+                .setSslKeyPassword("keyPassword")
+                .setSslProvider("sslProviderName");
         assertFullMapping(properties, expected);
     }
 }

@@ -27,7 +27,6 @@ import org.apache.kafka.common.security.auth.SecurityProtocol;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
-
 import java.io.File;
 import java.util.Properties;
 import java.util.Set;
@@ -36,8 +35,7 @@ import java.util.stream.StreamSupport;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 @DefunctConfig("kafka.connect-timeout")
-public class KafkaConfig
-{
+public class KafkaConfig {
     private static final int KAFKA_DEFAULT_PORT = 9092;
 
     private Set<HostAddress> nodes = ImmutableSet.of();
@@ -50,118 +48,101 @@ public class KafkaConfig
     private KafkaSecurityConfig securityConfig = new KafkaSecurityConfig();
 
     @Size(min = 1)
-    public Set<HostAddress> getNodes()
-    {
+    public Set<HostAddress> getNodes() {
         return nodes;
     }
 
     @Config("kafka.nodes")
     @ConfigDescription("Seed nodes for Kafka cluster. At least one must exist")
-    public KafkaConfig setNodes(String nodes)
-    {
+    public KafkaConfig setNodes(String nodes) {
         this.nodes = (nodes == null) ? null : parseNodes(nodes);
         return this;
     }
 
-    public DataSize getKafkaBufferSize()
-    {
+    public DataSize getKafkaBufferSize() {
         return kafkaBufferSize;
     }
 
     @Config("kafka.buffer-size")
     @ConfigDescription("Kafka message consumer buffer size")
-    public KafkaConfig setKafkaBufferSize(String kafkaBufferSize)
-    {
+    public KafkaConfig setKafkaBufferSize(String kafkaBufferSize) {
         this.kafkaBufferSize = DataSize.valueOf(kafkaBufferSize);
         return this;
     }
 
     @NotNull
-    public String getDefaultSchema()
-    {
+    public String getDefaultSchema() {
         return defaultSchema;
     }
 
     @Config("kafka.default-schema")
     @ConfigDescription("Schema name to use in the connector")
-    public KafkaConfig setDefaultSchema(String defaultSchema)
-    {
+    public KafkaConfig setDefaultSchema(String defaultSchema) {
         this.defaultSchema = defaultSchema;
         return this;
     }
 
     @NotNull
-    public Set<String> getTableNames()
-    {
+    public Set<String> getTableNames() {
         return tableNames;
     }
 
     @Config("kafka.table-names")
     @ConfigDescription("Set of tables known to this connector")
-    public KafkaConfig setTableNames(String tableNames)
-    {
+    public KafkaConfig setTableNames(String tableNames) {
         this.tableNames = ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(tableNames));
         return this;
     }
 
-    public boolean isHideInternalColumns()
-    {
+    public boolean isHideInternalColumns() {
         return hideInternalColumns;
     }
 
     @Config("kafka.hide-internal-columns")
     @ConfigDescription("Whether internal columns are shown in table metadata or not. Default is no")
-    public KafkaConfig setHideInternalColumns(boolean hideInternalColumns)
-    {
+    public KafkaConfig setHideInternalColumns(boolean hideInternalColumns) {
         this.hideInternalColumns = hideInternalColumns;
         return this;
     }
 
     @NotNull
-    public File getTableDescriptionDir()
-    {
+    public File getTableDescriptionDir() {
         return tableDescriptionDir;
     }
 
     @Config("kafka.table-description-dir")
     @ConfigDescription("Folder holding JSON description files for Kafka topics")
-    public KafkaConfig setTableDescriptionDir(File tableDescriptionDir)
-    {
+    public KafkaConfig setTableDescriptionDir(File tableDescriptionDir) {
         this.tableDescriptionDir = tableDescriptionDir;
         return this;
     }
 
-    private static ImmutableSet<HostAddress> parseNodes(String nodes)
-    {
+    private static ImmutableSet<HostAddress> parseNodes(String nodes) {
         Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
         return StreamSupport.stream(splitter.split(nodes).spliterator(), false)
                 .map(KafkaConfig::toHostAddress)
                 .collect(toImmutableSet());
     }
 
-    private static HostAddress toHostAddress(String value)
-    {
+    private static HostAddress toHostAddress(String value) {
         return HostAddress.fromString(value).withDefaultPort(KAFKA_DEFAULT_PORT);
     }
 
     @Min(1)
-    public int getMessagesPerSplit()
-    {
+    public int getMessagesPerSplit() {
         return messagesPerSplit;
     }
 
     @Config("kafka.messages-per-split")
     @ConfigDescription("Count of Kafka messages to be processed by single Presto Kafka connector split")
-    public KafkaConfig setMessagesPerSplit(int messagesPerSplit)
-    {
+    public KafkaConfig setMessagesPerSplit(int messagesPerSplit) {
         this.messagesPerSplit = messagesPerSplit;
         return this;
     }
 
     @Config("kafka.security.protocol")
     @ConfigDescription("Security protocol used for Kafka connection.")
-    public KafkaConfig setSecurityProtocol(String securityProtocol)
-    {
+    public KafkaConfig setSecurityProtocol(String securityProtocol) {
         if (securityProtocol == null) {
             return this;
         }
@@ -169,8 +150,7 @@ public class KafkaConfig
         return this;
     }
 
-    public String getSecurityProtocol()
-    {
+    public String getSecurityProtocol() {
         if (securityConfig.getSecurityProtocol() == null) {
             return null;
         }
@@ -179,87 +159,85 @@ public class KafkaConfig
 
     @Config("kafka.ssl.truststore.location")
     @ConfigDescription("SSL truststore location for Kafka connection.")
-    public KafkaConfig setSslTruststoreLocation(String sslTruststoreLocation)
-    {
+    public KafkaConfig setSslTruststoreLocation(String sslTruststoreLocation) {
         this.securityConfig.setSslTruststoreLocation(sslTruststoreLocation);
         return this;
     }
 
-    public String getSslTruststoreLocation()
-    {
+    public String getSslTruststoreLocation() {
         return securityConfig.getSslTruststoreLocation();
     }
 
     @Config("kafka.ssl.truststore.password")
     @ConfigDescription("SSL truststore password for Kafka connection.")
-    public KafkaConfig setSslTruststorePassword(String sslTruststorePassword)
-    {
+    public KafkaConfig setSslTruststorePassword(String sslTruststorePassword) {
         this.securityConfig.setSslTruststorePassword(sslTruststorePassword);
         return this;
     }
 
-    public String getSslTruststorePassword()
-    {
+    public String getSslTruststorePassword() {
         return securityConfig.getSslTruststorePassword();
     }
 
     @Config("kafka.ssl.keystore.location")
     @ConfigDescription("SSL keystore location for Kafka connection.")
     @ConfigSecuritySensitive
-    public KafkaConfig setSslKeystoreLocation(String sslKeystoreLocation)
-    {
+    public KafkaConfig setSslKeystoreLocation(String sslKeystoreLocation) {
         this.securityConfig.setSslKeystoreLocation(sslKeystoreLocation);
         return this;
     }
 
-    public String getSslKeystoreLocation()
-    {
+    public String getSslKeystoreLocation() {
         return securityConfig.getSslKeystoreLocation();
     }
 
     @Config("kafka.ssl.keystore.password")
     @ConfigDescription("SSL keystore password for Kafka connection.")
     @ConfigSecuritySensitive
-    public KafkaConfig setSslKeystorePassword(String sslKeystorePassword)
-    {
+    public KafkaConfig setSslKeystorePassword(String sslKeystorePassword) {
         this.securityConfig.setSslKeystorePassword(sslKeystorePassword);
         return this;
     }
 
-    public String getSslKeystorePassword()
-    {
+    public String getSslKeystorePassword() {
         return securityConfig.getSslKeystorePassword();
     }
 
     @Config("kafka.ssl.endpoint.identification.algorithm")
     @ConfigDescription("SSL endpoint identification algorithm for Kafka connection.")
-    public KafkaConfig setSslEndpointIdentificationAlgorithm(String sslEndpointIdentificationAlgorithm)
-    {
+    public KafkaConfig setSslEndpointIdentificationAlgorithm(String sslEndpointIdentificationAlgorithm) {
         this.securityConfig.setSslEndpointIdentificationAlgorithm(sslEndpointIdentificationAlgorithm);
         return this;
     }
 
-    public String getSslEndpointIdentificationAlgorithm()
-    {
+    public String getSslEndpointIdentificationAlgorithm() {
         return securityConfig.getSslEndpointIdentificationAlgorithm();
     }
 
     @Config("kafka.ssl.key.password")
     @ConfigDescription("SSL key password for Kafka connection.")
     @ConfigSecuritySensitive
-    public KafkaConfig setSslKeyPassword(String sslKeyPassword)
-    {
+    public KafkaConfig setSslKeyPassword(String sslKeyPassword) {
         this.securityConfig.setSslKeyPassword(sslKeyPassword);
         return this;
     }
 
-    public String getSslKeyPassword()
-    {
+    public String getSslKeyPassword() {
         return securityConfig.getSslKeyPassword();
     }
 
-    public Properties getSecurityConfigProperties()
-    {
+    @Config("kafka.ssl.provider")
+    @ConfigDescription("SSL provider for Kafka connection.")
+    public KafkaConfig setSslProvider(String sslProvider) {
+        this.securityConfig.setSslProvider(sslProvider);
+        return this;
+    }
+
+    public String getSslProvider() {
+        return securityConfig.getSslProvider();
+    }
+
+    public Properties getSecurityConfigProperties() {
         return securityConfig.getKafkaSecurityConfig();
     }
 }
