@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.hive.parquet;
 
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertDeprecatedEquivalence;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -37,13 +37,27 @@ public class TestParquetWriterConfig
     }
 
     @Test
+    public void testLegacyProperties()
+    {
+        assertDeprecatedEquivalence(
+                ParquetWriterConfig.class,
+                Map.of(
+                        "parquet.experimental-optimized-writer.enabled", "true",
+                        "parquet.writer.block-size", "2PB",
+                        "parquet.writer.page-size", "3PB"),
+                Map.of(
+                        "hive.parquet.optimized-writer.enabled", "true",
+                        "hive.parquet.writer.block-size", "2PB",
+                        "hive.parquet.writer.page-size", "3PB"));
+    }
+
+    @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("hive.parquet.experimental-optimized-writer.enabled", "true")
-                .put("hive.parquet.writer.block-size", "234MB")
-                .put("hive.parquet.writer.page-size", "11MB")
-                .build();
+        Map<String, String> properties = Map.of(
+                "parquet.experimental-optimized-writer.enabled", "true",
+                "parquet.writer.block-size", "234MB",
+                "parquet.writer.page-size", "11MB");
 
         ParquetWriterConfig expected = new ParquetWriterConfig()
                 .setParquetOptimizedWriterEnabled(true)
