@@ -135,6 +135,7 @@ import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.testing.assertions.Assert.assertEventually;
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -1795,6 +1796,34 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(session, "DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(session, tableName));
+    }
+
+    /**
+     * Regression test for https://github.com/prestosql/presto/issues/5295
+     */
+    @Test
+    public void testBucketedTableWithTimestampColumn()
+    {
+        String tableName = "test_bucketed_table_with_timestamp_" + randomTableSuffix();
+
+        String createTable = "" +
+                "CREATE TABLE " + tableName + " (" +
+                "  bucket_key integer, " +
+                "  a_timestamp timestamp(3) " +
+                ")" +
+                "WITH (" +
+                "  bucketed_by = ARRAY[ 'bucket_key' ], " +
+                "  bucket_count = 11 " +
+                ") ";
+        assertUpdate(createTable);
+
+        assertQuery(
+                "DESCRIBE " + tableName,
+                "VALUES " +
+                        "('bucket_key', 'integer', '', ''), " +
+                        "('a_timestamp', 'timestamp(3)', '', '')");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

@@ -373,7 +373,7 @@ public class HiveMetadata
                 tableName.getTableName(),
                 table.get().getParameters(),
                 getPartitionKeyColumnHandles(table.get(), typeManager),
-                getHiveBucketHandle(table.get(), typeManager));
+                getHiveBucketHandle(session, table.get(), typeManager));
     }
 
     @Override
@@ -2287,7 +2287,7 @@ public class HiveMetadata
             }
         }
 
-        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table, typeManager);
+        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(session, table, typeManager);
         if (hiveBucketHandle.isEmpty()) {
             // return preferred layout which is partitioned by partition columns
             List<Column> partitionColumns = table.getPartitionColumns();
