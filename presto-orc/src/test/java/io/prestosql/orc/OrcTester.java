@@ -151,7 +151,6 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.truncateToLength;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
-import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
@@ -837,7 +836,7 @@ public class OrcTester
                 actualValue = SqlTimestampWithTimeZone.newInstance(3, timestamp.toEpochMilli(), 0, UTC_KEY);
             }
             else if (type.equals(TIMESTAMP_TZ_MICROS)) {
-                int picosOfMilli = toIntExact(roundDiv(timestamp.getNanos(), NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_MICROSECOND);
+                int picosOfMilli = roundDiv(timestamp.getNanos(), NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_MICROSECOND;
                 actualValue = SqlTimestampWithTimeZone.newInstance(3, timestamp.toEpochMilli(), picosOfMilli, UTC_KEY);
             }
             else if (type.equals(TIMESTAMP_TZ_NANOS)) {
@@ -1041,7 +1040,7 @@ public class OrcTester
         }
         if (type.equals(TIMESTAMP_TZ_MILLIS) || type.equals(TIMESTAMP_TZ_MICROS) || type.equals(TIMESTAMP_TZ_NANOS)) {
             SqlTimestampWithTimeZone timestamp = (SqlTimestampWithTimeZone) value;
-            int nanosOfMilli = toIntExact(roundDiv(timestamp.getPicosOfMilli(), PICOSECONDS_PER_NANOSECOND));
+            int nanosOfMilli = roundDiv(timestamp.getPicosOfMilli(), PICOSECONDS_PER_NANOSECOND);
             return Timestamp.ofEpochMilli(timestamp.getEpochMillis(), nanosOfMilli);
         }
         if (type instanceof DecimalType) {
