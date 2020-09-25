@@ -18,6 +18,7 @@ import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.HealthCheck;
 import com.github.dockerjava.api.model.Statistics;
 import com.github.dockerjava.core.InvocationBuilder;
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
@@ -43,11 +44,15 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
+import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.io.MoreFiles.deleteRecursively;
+import static io.airlift.units.DataSize.ofBytes;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.size;
 import static java.time.Duration.ofSeconds;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -201,37 +206,70 @@ public class DockerContainer
         Path hostLogPath = Paths.get(hostPath.toString(), logicalName);
         ensurePathExists(hostLogPath);
 
+        ImmutableList.Builder<String> files = ImmutableList.builder();
+
         for (String containerLogPath : logPaths) {
             try {
-                listFilesInContainer(containerLogPath).forEach(filename ->
-                        copyFileFromContainer(filename, hostLogPath));
+                files.addAll(listFilesInContainer(containerLogPath));
             }
             catch (Exception e) {
-                log.warn("Could not copy logs from %s to '%s': %s", logicalName, hostPath, e);
+                log.warn("Could not list files in container %s path %s", logicalName, containerLogPath);
             }
+        }
+
+        ImmutableList<String> filesToCopy = files.build();
+        if (filesToCopy.isEmpty()) {
+            log.warn("There are no log files to copy from container %s", logicalName);
+            return;
+        }
+
+        try {
+            String filesList = Joiner.on("\n")
+                    .skipNulls()
+                    .join(filesToCopy);
+
+            String containerLogsListingFile = format("/tmp/%s-logs-list.txt", UUID.randomUUID());
+            String containerLogsArchive = format("/tmp/logs-%s-%s.tar.gz", logicalName, UUID.randomUUID());
+
+            log.info("Creating logs archive %s from file list %s (%d files)", containerLogsArchive, containerLogsListingFile, filesToCopy.size());
+
+            copyFileToContainer(Transferable.of(filesList.getBytes(UTF_8)), containerLogsListingFile);
+            ExecResult result = execInContainer("tar", "-cvf", containerLogsArchive, "-T", containerLogsListingFile);
+
+            if (result.getExitCode() != 0) {
+                throw new RuntimeException(format("Could not create logs tar: %s", result.getStderr()));
+            }
+
+            copyFileFromContainer(containerLogsArchive, hostPath.resolve(format("%s/logs.tar.gz", logicalName)));
+        }
+        catch (IOException e) {
+            log.warn("Could not create temporary file: %s", e);
+        }
+        catch (Exception e) {
+            log.warn("Could not copy logs archive from %s: %s", logicalName, getStackTraceAsString(e));
         }
     }
 
-    private void copyFileFromContainer(String filename, Path rootHostPath)
+    private void copyFileFromContainer(String filename, Path targetPath)
     {
-        Path targetPath = rootHostPath.resolve(filename.replaceFirst("^\\/", ""));
-
-        log.info("Copying file %s to %s", filename, targetPath);
         ensurePathExists(targetPath.getParent());
 
         try {
-            executor.run(() -> copyFileFromContainer(filename, targetPath.toString()));
+            log.info("Copying file %s to %s", filename, targetPath);
+            executor.runAsync(() -> copyFileFromContainer(filename, targetPath.toString())).get();
+
+            log.info("Copied file %s to %s (size: %s bytes)", filename, targetPath, ofBytes(size(targetPath)).succinct());
         }
         catch (Exception e) {
-            log.warn("Could not copy file from %s to %s", filename, targetPath);
+            log.warn("Could not copy file from %s to %s: %s", filename, targetPath, getStackTraceAsString(e));
         }
     }
 
-    private Stream<String> listFilesInContainer(String path)
+    private List<String> listFilesInContainer(String path)
     {
         if (!isRunning()) {
             log.warn("Could not list files in %s for stopped container %s", path, logicalName);
-            return Stream.empty();
+            return ImmutableList.of();
         }
 
         try {
@@ -240,7 +278,7 @@ public class DockerContainer
             if (result.getExitCode() == 0L) {
                 return Splitter.on("\n")
                         .omitEmptyStrings()
-                        .splitToStream(result.getStdout());
+                        .splitToList(result.getStdout());
             }
 
             log.warn("Could not list files in %s: %s", path, result.getStderr());
@@ -249,7 +287,7 @@ public class DockerContainer
             log.warn("Could not list files in container '%s': %s", logicalName, e);
         }
 
-        return Stream.empty();
+        return ImmutableList.of();
     }
 
     public Optional<Statistics> getStats()
