@@ -16,6 +16,7 @@ package io.prestosql.plugin.sqlserver;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -105,6 +106,81 @@ public class TestSqlServerIntegrationSmokeTest
             assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
             assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
             assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+        }
+    }
+
+    @Test
+    public void testStddevPushdown()
+    {
+        try (TestTable testTable = new TestTable(sqlServer::execute, getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
+
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+        }
+
+        try (TestTable testTable = new TestTable(sqlServer::execute, getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            // Test non-whole number results
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (2)");
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (4)");
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
+
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+        }
+    }
+
+    @Test
+    public void testVariancePushdown()
+    {
+        try (TestTable testTable = new TestTable(sqlServer::execute, getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
+
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+        }
+
+        try (TestTable testTable = new TestTable(sqlServer::execute, getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            // Test non-whole number results
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (2)");
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (4)");
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
+
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
         }
     }
 
