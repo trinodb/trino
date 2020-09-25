@@ -108,6 +108,10 @@ public class SqlServerClient
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
                         .add(new ImplementAvgBigint())
+                        .add(new ImplementSqlServerStdev())
+                        .add(new ImplementSqlServerStddevPop())
+                        .add(new ImplementSqlServerVariance())
+                        .add(new ImplementSqlServerVariancePop())
                         .build());
     }
 
