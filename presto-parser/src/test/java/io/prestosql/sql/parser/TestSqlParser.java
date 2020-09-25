@@ -2603,19 +2603,19 @@ public class TestSqlParser
                 new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query2,
                         true, false, new ArrayList<>(), Optional.of("A simple materialized view")));
 
-        assertStatement("CREATE OR REPLACE MATERIALIZED VIEW IF NOT EXISTS catalog.schema.matview COMMENT 'A simple materialized view'" +
+        assertStatement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A simple materialized view'" +
                         " AS SELECT * FROM catalog2.schema2.tab",
                 new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query2,
-                        true, true, new ArrayList<>(), Optional.of("A simple materialized view")));
+                        true, false, new ArrayList<>(), Optional.of("A simple materialized view")));
 
         List<Property> properties = ImmutableList.of(new Property(new Identifier("partitioned_by"),
                 new ArrayConstructor(ImmutableList.of(new StringLiteral("dateint")))));
 
-        assertStatement("CREATE OR REPLACE MATERIALIZED VIEW IF NOT EXISTS catalog.schema.matview COMMENT 'A simple materialized view'" +
+        assertStatement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A simple materialized view'" +
                         "WITH (partitioned_by = ARRAY ['dateint'])" +
                         " AS SELECT * FROM catalog2.schema2.tab",
                 new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query2,
-                        true, true, properties, Optional.of("A simple materialized view")));
+                        true, false, properties, Optional.of("A simple materialized view")));
 
         Query query3 = new Query(Optional.of(new With(false, ImmutableList.of(
                 new WithQuery(identifier("a"), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), Optional.of(ImmutableList.of(identifier("t"), identifier("u")))),
@@ -2625,11 +2625,11 @@ public class TestSqlParser
                 Optional.empty(),
                 Optional.empty());
 
-        assertStatement("CREATE OR REPLACE MATERIALIZED VIEW IF NOT EXISTS catalog.schema.matview COMMENT 'A partitioned materialized view' " +
+        assertStatement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A partitioned materialized view' " +
                         "WITH (partitioned_by = ARRAY ['dateint'])" +
                         " AS WITH a (t, u) AS (SELECT * FROM x), b AS (SELECT * FROM a) TABLE b",
                 new CreateMaterializedView(location, QualifiedName.of("catalog", "schema", "matview"), query3,
-                        true, true, properties, Optional.of("A partitioned materialized view")));
+                        true, false, properties, Optional.of("A partitioned materialized view")));
     }
 
     @Test
