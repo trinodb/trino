@@ -2618,6 +2618,13 @@ public class TestAnalyzer
         analyze("SELECT lag(1) IGNORE NULLS OVER (ORDER BY x) FROM (VALUES 1) t(x)");
     }
 
+    @Test
+    public void testCreateOrReplaceMaterializedView()
+    {
+        assertFails("CREATE OR REPLACE MATERIALIZED VIEW IF NOT EXISTS mv1 AS SELECT * FROM tab1")
+                .hasErrorCode(NOT_SUPPORTED);
+    }
+
     @BeforeClass
     public void setup()
     {
