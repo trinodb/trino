@@ -709,13 +709,14 @@ public class TestLogicalPlanner
                 noJoinReordering(),
                 anyTree(
                         filter(format("CASE \"is_distinct\" WHEN true THEN true ELSE CAST(fail(%s, 'Scalar sub-query has returned multiple rows') AS boolean) END", SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()),
-                                markDistinct("is_distinct", ImmutableList.of("unique"),
-                                        join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
-                                                assignUniqueId("unique",
-                                                        exchange(REMOTE, REPARTITION,
-                                                                anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))),
-                                                anyTree(
-                                                        tableScan("region", ImmutableMap.of("r_regionkey", "regionkey"))))))));
+                                project(
+                                        markDistinct("is_distinct", ImmutableList.of("unique"),
+                                                join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
+                                                        assignUniqueId("unique",
+                                                                exchange(REMOTE, REPARTITION,
+                                                                        anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))),
+                                                        anyTree(
+                                                                tableScan("region", ImmutableMap.of("r_regionkey", "regionkey")))))))));
     }
 
     @Test
@@ -858,16 +859,17 @@ public class TestLogicalPlanner
                 OPTIMIZED,
                 anyTree(
                         filter("OUTER_FILTER",
-                                apply(ImmutableList.of("O", "C"),
-                                        ImmutableMap.of("OUTER_FILTER", expression("THREE IN (C)")),
-                                        project(ImmutableMap.of("THREE", expression("BIGINT '3'")),
-                                                tableScan("orders", ImmutableMap.of(
-                                                        "O", "orderkey",
-                                                        "C", "custkey"))),
-                                        project(
-                                                any(
+                                project(
+                                        apply(ImmutableList.of("O", "C"),
+                                                ImmutableMap.of("OUTER_FILTER", expression("THREE IN (C)")),
+                                                project(ImmutableMap.of("THREE", expression("BIGINT '3'")),
+                                                        tableScan("orders", ImmutableMap.of(
+                                                                "O", "orderkey",
+                                                                "C", "custkey"))),
+                                                project(
                                                         any(
-                                                                tableScan("lineitem", ImmutableMap.of("L", "orderkey")))))))),
+                                                                any(
+                                                                        tableScan("lineitem", ImmutableMap.of("L", "orderkey"))))))))),
                 MorePredicates.<PlanOptimizer>isInstanceOfAny(AddLocalExchanges.class, CheckSubqueryNodesAreRewritten.class).negate());
     }
 
@@ -878,12 +880,13 @@ public class TestLogicalPlanner
                 "SELECT orderkey FROM orders WHERE EXISTS(SELECT 1 WHERE orderkey = 3)", // EXISTS maps to count(*) > 0
                 anyTree(
                         filter("FINAL_COUNT > BIGINT '0'",
-                                aggregation(ImmutableMap.of("FINAL_COUNT", functionCall("count", ImmutableList.of("NON_NULL"))),
-                                        join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
-                                                any(
-                                                        tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
-                                                project(ImmutableMap.of("NON_NULL", expression("true")),
-                                                        node(ValuesNode.class)))))));
+                                project(
+                                        aggregation(ImmutableMap.of("FINAL_COUNT", functionCall("count", ImmutableList.of("NON_NULL"))),
+                                                join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
+                                                        any(
+                                                                tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
+                                                        project(ImmutableMap.of("NON_NULL", expression("true")),
+                                                                node(ValuesNode.class))))))));
     }
 
     @Test
