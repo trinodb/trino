@@ -758,7 +758,7 @@ public final class UnscaledDecimal128Arithmetic
             accumulator = (accumulator >>> 32) + r3 * l0;
 
             z3 = accumulator & LOW_32_BITS;
-            z4 = (accumulator >>> 32) & LOW_32_BITS;
+            z4 = accumulator >>> 32;
         }
 
         if (l1 != 0) {
@@ -773,7 +773,7 @@ public final class UnscaledDecimal128Arithmetic
             accumulator = (accumulator >>> 32) + r3 * l1 + z4;
 
             z4 = accumulator & LOW_32_BITS;
-            z5 = (accumulator >>> 32) & LOW_32_BITS;
+            z5 = accumulator >>> 32;
         }
 
         if (l2 != 0) {
@@ -788,7 +788,7 @@ public final class UnscaledDecimal128Arithmetic
             accumulator = (accumulator >>> 32) + r3 * l2 + z5;
 
             z5 = accumulator & LOW_32_BITS;
-            z6 = (accumulator >>> 32) & LOW_32_BITS;
+            z6 = accumulator >>> 32;
         }
 
         if (l3 != 0) {
@@ -803,7 +803,7 @@ public final class UnscaledDecimal128Arithmetic
             accumulator = (accumulator >>> 32) + r3 * l3 + z6;
 
             z6 = accumulator & LOW_32_BITS;
-            z7 = (accumulator >>> 32) & LOW_32_BITS;
+            z7 = accumulator >>> 32;
         }
 
         left[0] = (int) z0;
