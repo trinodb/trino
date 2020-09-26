@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
@@ -48,6 +49,8 @@ import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 
 final class IcebergUtil
 {
+    private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
+
     private IcebergUtil() {}
 
     public static boolean isIcebergTable(io.prestosql.plugin.hive.metastore.Table table)
@@ -60,7 +63,7 @@ final class IcebergUtil
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
         HiveIdentity identity = new HiveIdentity(session);
         TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, table.getSchemaName(), table.getTableName());
-        return new BaseTable(operations, table.getSchemaName() + "." + table.getTableName());
+        return new BaseTable(operations, quotedTableName(table));
     }
 
     public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)
@@ -120,5 +123,18 @@ final class IcebergUtil
     {
         return stream(icebergTable.snapshots())
                 .anyMatch(snapshot -> snapshot.snapshotId() == id);
+    }
+
+    private static String quotedTableName(SchemaTableName name)
+    {
+        return quotedName(name.getSchemaName()) + "." + quotedName(name.getTableName());
+    }
+
+    private static String quotedName(String name)
+    {
+        if (SIMPLE_NAME.matcher(name).matches()) {
+            return name;
+        }
+        return '"' + name.replace("\"", "\"\"") + '"';
     }
 }
