@@ -194,13 +194,13 @@ public class KafkaSecurityConfig
                 logger.warn(String.format(MESSAGE_TEMPLATE_CONFIG_NOT_USED, "kafka.ssl.keystore.type"));
             }
             if (isSet(sslEndpointIdentificationAlgorithm)) {
-                logger.warn(String.format(MESSAGE_TEMPLATE_CONFIG_NOT_USED, "ssl.endpoint.identification.algorithm"));
+                logger.warn(String.format(MESSAGE_TEMPLATE_CONFIG_NOT_USED, "kafka.ssl.endpoint.identification.algorithm"));
             }
             if (isSet(sslKeyPassword)) {
-                logger.warn(String.format(MESSAGE_TEMPLATE_CONFIG_NOT_USED, "ssl.key.password"));
+                logger.warn(String.format(MESSAGE_TEMPLATE_CONFIG_NOT_USED, "kafka.ssl.key.password"));
             }
             if (isSet(sslProvider)) {
-                logger.warn(String.format(MESSAGE_TEMPLATE_CONFIG_NOT_USED, "ssl.provider"));
+                logger.warn(String.format(MESSAGE_TEMPLATE_CONFIG_NOT_USED, "kafka.ssl.provider"));
             }
         }
     }

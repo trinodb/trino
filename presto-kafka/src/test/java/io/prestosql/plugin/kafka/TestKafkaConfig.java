@@ -40,8 +40,10 @@ public class TestKafkaConfig
                 .setSslEndpointIdentificationAlgorithm(null)
                 .setSslTruststoreLocation(null)
                 .setSslTruststorePassword(null)
+                .setSslTruststoreType(null)
                 .setSslKeystoreLocation(null)
                 .setSslKeystorePassword(null)
+                .setSslKeystoreType(null)
                 .setSslKeyPassword(null)
                 .setSslProvider(null));
     }
