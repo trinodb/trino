@@ -37,6 +37,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -1353,6 +1354,33 @@ public abstract class AbstractTestIcebergSmoke
 
         dropTable("test_nested_table_2");
         dropTable("test_nested_table_3");
+    }
+
+    @Test
+    public void testSerializableReadIsolation()
+    {
+        assertUpdate("CREATE TABLE test_read_isolation (x int)");
+        assertUpdate("INSERT INTO test_read_isolation VALUES 123, 456", 2);
+
+        withTransaction(session -> {
+            assertQuery(session, "SELECT * FROM test_read_isolation", "VALUES 123, 456");
+
+            assertUpdate("INSERT INTO test_read_isolation VALUES 789", 1);
+            assertQuery("SELECT * FROM test_read_isolation", "VALUES 123, 456, 789");
+
+            assertQuery(session, "SELECT * FROM test_read_isolation", "VALUES 123, 456");
+        });
+
+        assertQuery("SELECT * FROM test_read_isolation", "VALUES 123, 456, 789");
+
+        dropTable("test_read_isolation");
+    }
+
+    private void withTransaction(Consumer<Session> consumer)
+    {
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .readCommitted()
+                .execute(getSession(), consumer);
     }
 
     private void dropTable(String table)
