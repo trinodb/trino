@@ -40,7 +40,6 @@ import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.shiftLeft;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.shiftLeftDestructive;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.shiftLeftMultiPrecision;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.shiftRight;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.shiftRightArray8;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.shiftRightMultiPrecision;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.toUnscaledString;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
@@ -192,16 +191,6 @@ public class TestUnscaledDecimal128Arithmetic
     }
 
     @Test
-    public void testMultiplyByInt()
-    {
-        assertEquals(multiply(unscaledDecimal(0), 1), unscaledDecimal(0));
-        assertEquals(multiply(unscaledDecimal(2), Integer.MAX_VALUE), unscaledDecimal(2L * Integer.MAX_VALUE));
-        assertEquals(multiply(unscaledDecimal(Integer.MAX_VALUE), -3), unscaledDecimal(-3L * Integer.MAX_VALUE));
-        assertEquals(multiply(unscaledDecimal(Integer.MIN_VALUE), -3), unscaledDecimal(-3L * Integer.MIN_VALUE));
-        assertEquals(multiply(unscaledDecimal(TWO.pow(100).subtract(BigInteger.ONE)), 2), unscaledDecimal(TWO.pow(101).subtract(TWO)));
-    }
-
-    @Test
     public void testMultiplyOverflow()
     {
         assertMultiplyOverflows(unscaledDecimal("99999999999999"), unscaledDecimal("-10000000000000000000000000"));
@@ -227,36 +216,6 @@ public class TestUnscaledDecimal128Arithmetic
         assertShiftRight(MAX_DECIMAL, 1, true, unscaledDecimal(MAX_DECIMAL_UNSCALED_VALUE.shiftRight(1).add(BigInteger.ONE)));
         assertShiftRight(MIN_DECIMAL, 1, true, unscaledDecimal(MAX_DECIMAL_UNSCALED_VALUE.shiftRight(1).add(BigInteger.ONE).negate()));
         assertShiftRight(MAX_DECIMAL, 66, true, unscaledDecimal(MAX_DECIMAL_UNSCALED_VALUE.shiftRight(66).add(BigInteger.ONE)));
-    }
-
-    @Test
-    public void testShiftRightArray8()
-    {
-        assertShiftRightArray8(TWO.pow(1), 0);
-        assertShiftRightArray8(TWO.pow(1), 1);
-        assertShiftRightArray8(TWO.pow(1), 10);
-
-        assertShiftRightArray8(TWO.pow(15).add(TWO.pow(3)), 2);
-        assertShiftRightArray8(TWO.pow(15).add(TWO.pow(3)), 10);
-        assertShiftRightArray8(TWO.pow(15).add(TWO.pow(3)), 20);
-
-        assertShiftRightArray8(TWO.pow(70), 30);
-        assertShiftRightArray8(TWO.pow(70).subtract(TWO.pow(1)), 30, true);
-        assertShiftRightArray8(TWO.pow(70), 32);
-        assertShiftRightArray8(TWO.pow(70).subtract(TWO.pow(1)), 32, true);
-        assertShiftRightArray8(TWO.pow(120), 70);
-        assertShiftRightArray8(TWO.pow(120).subtract(TWO.pow(1)), 70, true);
-        assertShiftRightArray8(TWO.pow(120), 96);
-        assertShiftRightArray8(TWO.pow(120).subtract(TWO.pow(1)), 96, true);
-
-        assertShiftRightArray8(MAX_DECIMAL_UNSCALED_VALUE, 20, true);
-        assertShiftRightArray8(MAX_DECIMAL_UNSCALED_VALUE.multiply(MAX_DECIMAL_UNSCALED_VALUE), 130);
-
-        assertShiftRightArray8(TWO.pow(256).subtract(BigInteger.ONE), 130, true);
-
-        assertShiftRightArray8Overflow(TWO.pow(156), 1);
-        assertShiftRightArray8Overflow(MAX_DECIMAL_UNSCALED_VALUE.multiply(MAX_DECIMAL_UNSCALED_VALUE), 20);
-        assertShiftRightArray8Overflow(TWO.pow(256).subtract(BigInteger.ONE), 129);
     }
 
     @Test
@@ -626,35 +585,6 @@ public class TestUnscaledDecimal128Arithmetic
     private static void assertDivideAllSigns(int[] dividend, int[] divisor)
     {
         assertDivideAllSigns(Slices.wrappedIntArray(dividend), 0, Slices.wrappedIntArray(divisor), 0);
-    }
-
-    private void assertShiftRightArray8Overflow(BigInteger value, int rightShifts)
-    {
-        try {
-            assertShiftRightArray8(value, rightShifts);
-            fail();
-        }
-        catch (ArithmeticException ignored) {
-        }
-    }
-
-    private void assertShiftRightArray8(BigInteger value, int rightShifts)
-    {
-        assertShiftRightArray8(value, rightShifts, false);
-    }
-
-    private void assertShiftRightArray8(BigInteger value, int rightShifts, boolean roundUp)
-    {
-        BigInteger expectedResult = value.shiftRight(rightShifts);
-        if (roundUp) {
-            expectedResult = expectedResult.add(BigInteger.ONE);
-        }
-
-        int[] ints = toInt8Array(value);
-        Slice result = unscaledDecimal();
-        shiftRightArray8(ints, rightShifts, result);
-
-        assertEquals(decodeUnscaledValue(result), expectedResult);
     }
 
     private void assertShiftLeftOverflow(BigInteger value, int leftShifts)
