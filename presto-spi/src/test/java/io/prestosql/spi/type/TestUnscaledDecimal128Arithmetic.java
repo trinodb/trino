@@ -22,6 +22,7 @@ import java.math.BigInteger;
 import java.util.Collections;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.Slices.wrappedIntArray;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.prestosql.spi.type.Decimals.MAX_DECIMAL_UNSCALED_VALUE;
 import static io.prestosql.spi.type.Decimals.MIN_DECIMAL_UNSCALED_VALUE;
@@ -33,7 +34,7 @@ import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.divide;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.isNegative;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.multiply;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.multiply256;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.multiply256Destructive;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.overflows;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.shiftLeft;
@@ -176,7 +177,6 @@ public class TestUnscaledDecimal128Arithmetic
     public void testMultiply256()
     {
         assertMultiply256(MAX_DECIMAL, MAX_DECIMAL, wrappedLongArray(0xECEBBB8000000001L, 0xE0FF0CA0BC87870BL, 0x0764B4ABE8652978L, 0x161BCCA7119915B5L));
-        assertMultiply256(MIN_DECIMAL, MIN_DECIMAL, wrappedLongArray(0xECEBBB8000000001L, 0xE0FF0CA0BC87870BL, 0x0764B4ABE8652978L, 0x161BCCA7119915B5L));
         assertMultiply256(wrappedLongArray(0xFFFFFFFFFFFFFFFFL, 0x0FFFFFFFFFFFFFFFL), wrappedLongArray(0xFFFFFFFFFFFFFFFFL, 0x0FFFFFFFFFFFFFFFL),
                 wrappedLongArray(0x0000000000000001L, 0xE000000000000000L, 0xFFFFFFFFFFFFFFFFL, 0x00FFFFFFFFFFFFFFL));
         assertMultiply256(wrappedLongArray(0x1234567890ABCDEFL, 0x0EDCBA0987654321L), wrappedLongArray(0xFEDCBA0987654321L, 0x1234567890ABCDEL),
@@ -185,9 +185,14 @@ public class TestUnscaledDecimal128Arithmetic
 
     private static void assertMultiply256(Slice left, Slice right, Slice expected)
     {
-        Slice actual = Slices.allocate(Long.BYTES * 4);
-        multiply256(left, right, actual);
-        assertEquals(actual, expected);
+        int[] leftArg = new int[8];
+        leftArg[0] = left.getInt(0);
+        leftArg[1] = left.getInt(4);
+        leftArg[2] = left.getInt(8);
+        leftArg[3] = left.getInt(12);
+
+        multiply256Destructive(leftArg, right);
+        assertEquals(wrappedIntArray(leftArg), expected);
     }
 
     @Test

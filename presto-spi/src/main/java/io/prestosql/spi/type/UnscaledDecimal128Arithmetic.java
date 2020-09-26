@@ -721,14 +721,16 @@ public final class UnscaledDecimal128Arithmetic
         pack(result, (int) z0, (int) z1, (int) z2, 0, leftNegative != rightNegative);
     }
 
-    public static void multiply256(Slice left, Slice right, Slice result)
+    /**
+     * This an unsigned operation. Supplying negative arguments will yield wrong results.
+     * Assumes left array length to be >= 8. However only first 4 int values are multiplied
+     */
+    static void multiply256Destructive(int[] left, Slice right)
     {
-        checkArgument(result.length() >= NUMBER_OF_LONGS * Long.BYTES * 2);
-
-        long l0 = toUnsignedLong(getInt(left, 0));
-        long l1 = toUnsignedLong(getInt(left, 1));
-        long l2 = toUnsignedLong(getInt(left, 2));
-        long l3 = toUnsignedLong(getInt(left, 3));
+        long l0 = toUnsignedLong(left[0]);
+        long l1 = toUnsignedLong(left[1]);
+        long l2 = toUnsignedLong(left[2]);
+        long l3 = toUnsignedLong(left[3]);
 
         long r0 = toUnsignedLong(getInt(right, 0));
         long r1 = toUnsignedLong(getInt(right, 1));
@@ -804,26 +806,27 @@ public final class UnscaledDecimal128Arithmetic
             z7 = (accumulator >>> 32) & LOW_32_BITS;
         }
 
-        setRawInt(result, 0, (int) z0);
-        setRawInt(result, 1, (int) z1);
-        setRawInt(result, 2, (int) z2);
-        setRawInt(result, 3, (int) z3);
-        setRawInt(result, 4, (int) z4);
-        setRawInt(result, 5, (int) z5);
-        setRawInt(result, 6, (int) z6);
-        setRawInt(result, 7, (int) z7);
+        left[0] = (int) z0;
+        left[1] = (int) z1;
+        left[2] = (int) z2;
+        left[3] = (int) z3;
+        left[4] = (int) z4;
+        left[5] = (int) z5;
+        left[6] = (int) z6;
+        left[7] = (int) z7;
     }
 
-    public static void multiply256(Slice left, long right, Slice result)
+    /**
+     * This an unsigned operation. Supplying negative arguments will yield wrong results.
+     * Assumes left array length to be >= 6. However only first 4 int values are multiplied
+     */
+    static void multiply256Destructive(int[] left, long right)
     {
-        checkArgument(result.length() >= NUMBER_OF_LONGS * Long.BYTES * 2);
+        long l0 = toUnsignedLong(left[0]);
+        long l1 = toUnsignedLong(left[1]);
+        long l2 = toUnsignedLong(left[2]);
+        long l3 = toUnsignedLong(left[3]);
 
-        long l0 = toUnsignedLong(getInt(left, 0));
-        long l1 = toUnsignedLong(getInt(left, 1));
-        long l2 = toUnsignedLong(getInt(left, 2));
-        long l3 = toUnsignedLong(getInt(left, 3));
-
-        right = abs(right);
         long r0 = right & LOW_32_BITS;
         long r1 = right >>> 32;
 
@@ -870,26 +873,24 @@ public final class UnscaledDecimal128Arithmetic
             z5 = accumulator >>> 32;
         }
 
-        setRawInt(result, 0, (int) z0);
-        setRawInt(result, 1, (int) z1);
-        setRawInt(result, 2, (int) z2);
-        setRawInt(result, 3, (int) z3);
-        setRawInt(result, 4, (int) z4);
-        setRawInt(result, 5, (int) z5);
-        setRawInt(result, 6, 0);
-        setRawInt(result, 7, 0);
+        left[0] = (int) z0;
+        left[1] = (int) z1;
+        left[2] = (int) z2;
+        left[3] = (int) z3;
+        left[4] = (int) z4;
+        left[5] = (int) z5;
     }
 
-    public static void multiply256(Slice left, int right, Slice result)
+    /**
+     * This an unsigned operation. Supplying negative arguments will yield wrong results.
+     * Assumes left array length to be >= 5. However only first 4 int values are multiplied
+     */
+    static void multiply256Destructive(int[] left, int r0)
     {
-        checkArgument(result.length() >= NUMBER_OF_LONGS * Long.BYTES * 2);
-
-        long l0 = toUnsignedLong(getInt(left, 0));
-        long l1 = toUnsignedLong(getInt(left, 1));
-        long l2 = toUnsignedLong(getInt(left, 2));
-        long l3 = toUnsignedLong(getInt(left, 3));
-
-        long r0 = abs(right);
+        long l0 = toUnsignedLong(left[0]);
+        long l1 = toUnsignedLong(left[1]);
+        long l2 = toUnsignedLong(left[2]);
+        long l3 = toUnsignedLong(left[3]);
 
         long z0;
         long z1;
@@ -913,14 +914,11 @@ public final class UnscaledDecimal128Arithmetic
         z3 = accumulator & LOW_32_BITS;
         z4 = accumulator >>> 32;
 
-        setRawInt(result, 0, (int) z0);
-        setRawInt(result, 1, (int) z1);
-        setRawInt(result, 2, (int) z2);
-        setRawInt(result, 3, (int) z3);
-        setRawInt(result, 4, (int) z4);
-        setRawInt(result, 5, 0);
-        setRawInt(result, 6, 0);
-        setRawInt(result, 7, 0);
+        left[0] = (int) z0;
+        left[1] = (int) z1;
+        left[2] = (int) z2;
+        left[3] = (int) z3;
+        left[4] = (int) z4;
     }
 
     public static int compare(Slice left, Slice right)
@@ -1400,8 +1398,7 @@ public final class UnscaledDecimal128Arithmetic
         dividend[3] = (highInt(dividendHigh) & ~SIGN_INT_MASK);
 
         if (dividendScaleFactor > 0) {
-            Slice sliceDividend = Slices.wrappedIntArray(dividend);
-            shiftLeftBy5Destructive(sliceDividend, dividendScaleFactor);
+            shiftLeftBy5Destructive(dividend, dividendScaleFactor);
             shiftLeftMultiPrecision(dividend, NUMBER_OF_INTS * 2, dividendScaleFactor);
         }
 
@@ -1412,8 +1409,7 @@ public final class UnscaledDecimal128Arithmetic
         divisor[3] = (highInt(divisorHigh) & ~SIGN_INT_MASK);
 
         if (divisorScaleFactor > 0) {
-            Slice sliceDivisor = Slices.wrappedIntArray(divisor);
-            shiftLeftBy5Destructive(sliceDivisor, divisorScaleFactor);
+            shiftLeftBy5Destructive(divisor, divisorScaleFactor);
             shiftLeftMultiPrecision(divisor, NUMBER_OF_INTS * 2, divisorScaleFactor);
         }
 
@@ -1429,18 +1425,18 @@ public final class UnscaledDecimal128Arithmetic
     }
 
     /**
-     * Value must be a 256-bit slice
+     * Value must have a length of 8
      */
-    private static void shiftLeftBy5Destructive(Slice value, int shift)
+    private static void shiftLeftBy5Destructive(int[] value, int shift)
     {
         if (shift <= MAX_POWER_OF_FIVE_INT) {
-            multiply256(value, POWERS_OF_FIVES_INT[shift], value);
+            multiply256Destructive(value, POWERS_OF_FIVES_INT[shift]);
         }
         else if (shift < MAX_POWER_OF_TEN_LONG) {
-            multiply256(value, POWERS_OF_FIVE_LONG[shift], value);
+            multiply256Destructive(value, POWERS_OF_FIVE_LONG[shift]);
         }
         else {
-            multiply256(value, POWERS_OF_FIVE[shift], value);
+            multiply256Destructive(value, POWERS_OF_FIVE[shift]);
         }
     }
 
