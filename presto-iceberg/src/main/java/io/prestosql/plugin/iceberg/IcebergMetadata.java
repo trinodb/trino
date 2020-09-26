@@ -82,6 +82,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
 
@@ -130,6 +131,8 @@ public class IcebergMetadata
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
+
+    private final Map<String, Optional<Long>> snapshotIds = new ConcurrentHashMap<>();
 
     private Transaction transaction;
 
@@ -687,10 +690,10 @@ public class IcebergMetadata
         return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable);
     }
 
-    private static Optional<Long> getSnapshotId(org.apache.iceberg.Table table, Optional<Long> snapshotId)
+    private Optional<Long> getSnapshotId(org.apache.iceberg.Table table, Optional<Long> snapshotId)
     {
-        return snapshotId
+        return snapshotIds.computeIfAbsent(table.toString(), ignored -> snapshotId
                 .map(id -> IcebergUtil.resolveSnapshotId(table, id))
-                .or(() -> Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId));
+                .or(() -> Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId)));
     }
 }
