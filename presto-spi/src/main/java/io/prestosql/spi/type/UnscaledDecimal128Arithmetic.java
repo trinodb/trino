@@ -470,13 +470,6 @@ public final class UnscaledDecimal128Arithmetic
         return result;
     }
 
-    public static Slice multiply(long left, int right)
-    {
-        Slice result = unscaledDecimal();
-        multiply(left, right, result);
-        return result;
-    }
-
     public static void multiply(Slice left, Slice right, Slice result)
     {
         checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
@@ -930,44 +923,6 @@ public final class UnscaledDecimal128Arithmetic
         setRawInt(result, 7, 0);
     }
 
-    public static Slice multiply(Slice decimal, int multiplier)
-    {
-        Slice result = Slices.copyOf(decimal);
-        multiplyDestructive(result, multiplier);
-        return result;
-    }
-
-    private static void multiplyDestructive(Slice decimal, int multiplier)
-    {
-        long l0 = toUnsignedLong(getInt(decimal, 0));
-        long l1 = toUnsignedLong(getInt(decimal, 1));
-        long l2 = toUnsignedLong(getInt(decimal, 2));
-        long l3 = toUnsignedLong(getInt(decimal, 3));
-
-        long r0 = abs(multiplier);
-
-        long product;
-
-        product = r0 * l0;
-        int z0 = (int) product;
-
-        product = r0 * l1 + (product >>> 32);
-        int z1 = (int) product;
-
-        product = r0 * l2 + (product >>> 32);
-        int z2 = (int) product;
-
-        product = r0 * l3 + (product >>> 32);
-        int z3 = (int) product;
-
-        if ((product >>> 32) != 0) {
-            throwOverflowException();
-        }
-
-        boolean negative = (isNegative(decimal) != (multiplier < 0));
-        pack(decimal, z0, z1, z2, z3, negative);
-    }
-
     public static int compare(Slice left, Slice right)
     {
         boolean leftStrictlyNegative = isStrictlyNegative(left);
@@ -1163,19 +1118,6 @@ public final class UnscaledDecimal128Arithmetic
     }
 
     /**
-     * Scale up the value for 5**fiveScale (decimal := decimal * 5**fiveScale).
-     */
-    private static void scaleUpFiveDestructive(Slice decimal, int fiveScale)
-    {
-        while (fiveScale > 0) {
-            int powerFive = Math.min(fiveScale, MAX_POWER_OF_FIVE_INT);
-            fiveScale -= powerFive;
-            int multiplier = POWERS_OF_FIVES_INT[powerFive];
-            multiplyDestructive(decimal, multiplier);
-        }
-    }
-
-    /**
      * Scale down the value for 10**tenScale (this := this / 5**tenScale). This
      * method rounds-up, eg 44/10=4, 44/10=5.
      */
@@ -1277,84 +1219,6 @@ public final class UnscaledDecimal128Arithmetic
         }
 
         pack(result, low, high, negative);
-    }
-
-    /**
-     * shift right array of 8 ints (rounding up) and ensure that result fits in unscaledDecimal
-     */
-    public static void shiftRightArray8(int[] values, int rightShifts, Slice result)
-    {
-        if (values.length != NUMBER_OF_INTS * 2) {
-            throw new IllegalArgumentException("Incorrect values length");
-        }
-        if (rightShifts == 0) {
-            for (int i = NUMBER_OF_INTS; i < 2 * NUMBER_OF_INTS; i++) {
-                if (values[i] != 0) {
-                    throwOverflowException();
-                }
-            }
-            for (int i = 0; i < NUMBER_OF_INTS; i++) {
-                setRawInt(result, i, values[i]);
-            }
-            return;
-        }
-
-        int wordShifts = rightShifts / 32;
-        int bitShiftsInWord = rightShifts % 32;
-        int shiftRestore = 32 - bitShiftsInWord;
-
-        // check round-ups before settings values to result.
-        // be aware that result could be the same object as decimal.
-        boolean roundCarry;
-        if (bitShiftsInWord == 0) {
-            roundCarry = values[wordShifts - 1] < 0;
-        }
-        else {
-            roundCarry = (values[wordShifts] & (1 << (bitShiftsInWord - 1))) != 0;
-        }
-
-        int r0 = values[0 + wordShifts];
-        int r1 = values[1 + wordShifts];
-        int r2 = values[2 + wordShifts];
-        int r3 = values[3 + wordShifts];
-        int r4 = wordShifts >= 4 ? 0 : values[4 + wordShifts];
-        int r5 = wordShifts >= 3 ? 0 : values[5 + wordShifts];
-        int r6 = wordShifts >= 2 ? 0 : values[6 + wordShifts];
-        int r7 = wordShifts >= 1 ? 0 : values[7 + wordShifts];
-
-        if (bitShiftsInWord > 0) {
-            r0 = (r0 >>> bitShiftsInWord) | (r1 << shiftRestore);
-            r1 = (r1 >>> bitShiftsInWord) | (r2 << shiftRestore);
-            r2 = (r2 >>> bitShiftsInWord) | (r3 << shiftRestore);
-            r3 = (r3 >>> bitShiftsInWord) | (r4 << shiftRestore);
-        }
-
-        if ((r4 >>> bitShiftsInWord) != 0 || r5 != 0 || r6 != 0 || r7 != 0) {
-            throwOverflowException();
-        }
-
-        if (r3 < 0) {
-            throwOverflowException();
-        }
-
-        // increment
-        if (roundCarry) {
-            r0++;
-            if (r0 == 0) {
-                r1++;
-                if (r1 == 0) {
-                    r2++;
-                    if (r2 == 0) {
-                        r3++;
-                        if (r3 < 0) {
-                            throwOverflowException();
-                        }
-                    }
-                }
-            }
-        }
-
-        pack(result, r0, r1, r2, r3, false);
     }
 
     public static Slice divideRoundUp(long dividend, int dividendScaleFactor, long divisor)
@@ -1892,14 +1756,6 @@ public final class UnscaledDecimal128Arithmetic
     private static void throwDivisionByZeroException()
     {
         throw new ArithmeticException("Division by zero");
-    }
-
-    private static void multiplyShiftDestructive(Slice decimal, Slice multiplier, int rightShifts)
-    {
-        int[] product = new int[NUMBER_OF_INTS * 2];
-        Slice multiplicationResult = Slices.wrappedIntArray(product);
-        multiply256(decimal, multiplier, multiplicationResult);
-        shiftRightArray8(product, rightShifts, decimal);
     }
 
     private static void setNegative(Slice decimal, boolean negative)
