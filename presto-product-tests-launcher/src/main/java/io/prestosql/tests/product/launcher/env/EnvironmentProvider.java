@@ -26,7 +26,7 @@ import static java.util.stream.Collectors.joining;
 public abstract class EnvironmentProvider
         implements EnvironmentExtender
 {
-    private static final Logger log = Logger.get(EnvironmentExtender.class);
+    private static final Logger log = Logger.get(EnvironmentProvider.class);
     private final List<EnvironmentExtender> bases;
 
     protected EnvironmentProvider(List<EnvironmentExtender> bases)
