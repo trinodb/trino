@@ -1945,6 +1945,34 @@ public class TestTimestamp
 
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-10 12:34:56.5' AS TIMESTAMP(0))")).matches("TIMESTAMP '2020-05-10 12:34:57'");
 
+        // overflow to next second
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.5' AS timestamp(0))")).matches("TIMESTAMP '1970-01-01 00:00:01'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.95' AS timestamp(1))")).matches("TIMESTAMP '1970-01-01 00:00:01.0'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.995' AS timestamp(2))")).matches("TIMESTAMP '1970-01-01 00:00:01.00'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.9995' AS timestamp(3))")).matches("TIMESTAMP '1970-01-01 00:00:01.000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.99995' AS timestamp(4))")).matches("TIMESTAMP '1970-01-01 00:00:01.0000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999995' AS timestamp(5))")).matches("TIMESTAMP '1970-01-01 00:00:01.00000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.9999995' AS timestamp(6))")).matches("TIMESTAMP '1970-01-01 00:00:01.000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.99999995' AS timestamp(7))")).matches("TIMESTAMP '1970-01-01 00:00:01.0000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999995' AS timestamp(8))")).matches("TIMESTAMP '1970-01-01 00:00:01.00000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.9999999995' AS timestamp(9))")).matches("TIMESTAMP '1970-01-01 00:00:01.000000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.99999999995' AS timestamp(10))")).matches("TIMESTAMP '1970-01-01 00:00:01.0000000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999995' AS timestamp(11))")).matches("TIMESTAMP '1970-01-01 00:00:01.00000000000'");
+
+        // overflow to next second -- maximal precision
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(0))")).matches("TIMESTAMP '1970-01-01 00:00:01'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(1))")).matches("TIMESTAMP '1970-01-01 00:00:01.0'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(2))")).matches("TIMESTAMP '1970-01-01 00:00:01.00'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(3))")).matches("TIMESTAMP '1970-01-01 00:00:01.000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(4))")).matches("TIMESTAMP '1970-01-01 00:00:01.0000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(5))")).matches("TIMESTAMP '1970-01-01 00:00:01.00000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(6))")).matches("TIMESTAMP '1970-01-01 00:00:01.000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(7))")).matches("TIMESTAMP '1970-01-01 00:00:01.0000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(8))")).matches("TIMESTAMP '1970-01-01 00:00:01.00000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(9))")).matches("TIMESTAMP '1970-01-01 00:00:01.000000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(10))")).matches("TIMESTAMP '1970-01-01 00:00:01.0000000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(11))")).matches("TIMESTAMP '1970-01-01 00:00:01.00000000000'");
+
         // negative epoch
         assertThat(assertions.expression("CAST(TIMESTAMP '1500-05-10 12:34:56.555555555555' AS TIMESTAMP(0))")).matches("TIMESTAMP '1500-05-10 12:34:57'");
         assertThat(assertions.expression("CAST(TIMESTAMP '1500-05-10 12:34:56.555555555555' AS TIMESTAMP(1))")).matches("TIMESTAMP '1500-05-10 12:34:56.6'");
