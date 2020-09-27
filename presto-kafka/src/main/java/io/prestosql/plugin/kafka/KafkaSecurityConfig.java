@@ -20,7 +20,9 @@ import org.apache.kafka.common.security.auth.SecurityProtocol;
 import java.util.Properties;
 
 /**
- *
+ *  {@KafkaSecurityConfig} manages Kafka configuration related to connection security. I.e. if the security protocol
+ *  'SSL' is being used. If so, additional properties might be supplied, i.e. location and password of the truststore
+ *  and keystore to be used.
  */
 public class KafkaSecurityConfig
 {
@@ -143,7 +145,8 @@ public class KafkaSecurityConfig
     public Properties getKafkaSecurityConfig()
     {
         props = new Properties();
-
+        // Default security.protocol is PLAINTEXT, all additional security related properties only apply
+        // if the security.protocol SSL is used
         if (isNotNullOrPlaintext(securityProtocol)) {
             addNotNull("security.protocol", securityProtocol.name);
             addNotNull(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, sslTruststoreLocation);
