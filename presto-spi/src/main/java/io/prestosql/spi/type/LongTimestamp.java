@@ -28,10 +28,10 @@ public final class LongTimestamp
     public LongTimestamp(long epochMicros, int picosOfMicro)
     {
         if (picosOfMicro < 0) {
-            throw new IllegalArgumentException("picosOfMicro must be >= 0");
+            throw new IllegalArgumentException("picosOfMicro must be >= 0: " + picosOfMicro);
         }
         if (picosOfMicro >= PICOSECONDS_PER_MICROSECOND) {
-            throw new IllegalArgumentException("picosOfMicro must be < 1_000_000");
+            throw new IllegalArgumentException("picosOfMicro must be < 1_000_000: " + picosOfMicro);
         }
         this.epochMicros = epochMicros;
         this.picosOfMicro = picosOfMicro;

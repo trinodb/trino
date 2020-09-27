@@ -78,6 +78,12 @@ public final class TimestampToTimestampCast
             @LiteralParameter("targetPrecision") long targetPrecision,
             @SqlType("timestamp(sourcePrecision)") LongTimestamp value)
     {
-        return new LongTimestamp(value.getEpochMicros(), (int) round(value.getPicosOfMicro(), (int) (MAX_PRECISION - targetPrecision)));
+        long epochMicros = value.getEpochMicros();
+        int picosOfMicro = (int) round(value.getPicosOfMicro(), (int) (MAX_PRECISION - targetPrecision));
+        if (picosOfMicro == PICOSECONDS_PER_MICROSECOND) {
+            epochMicros++;
+            picosOfMicro = 0;
+        }
+        return new LongTimestamp(epochMicros, picosOfMicro);
     }
 }
