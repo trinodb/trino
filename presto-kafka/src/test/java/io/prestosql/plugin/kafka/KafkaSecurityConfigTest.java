@@ -45,6 +45,13 @@ public class KafkaSecurityConfigTest
         sut.setSecurityProtocol(SecurityProtocol.PLAINTEXT);
         sut.setSslTruststoreLocation("/some/path/to/truststore");
         sut.setSslTruststorePassword("superSavePassword");
+        sut.setSslTruststoreType("JKS");
+        sut.setSslKeystoreLocation("/some/path/to/keystore");
+        sut.setSslKeystorePassword("savePassword");
+        sut.setSslKeystoreType("JKS");
+        sut.setSslEndpointIdentificationAlgorithm("HTTPS");
+        sut.setSslKeyPassword("keyPassword");
+        sut.setSslProvider("provider");
         Assert.assertEquals(sut.getKafkaSecurityConfig().isEmpty(), true);
     }
 
