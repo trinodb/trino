@@ -28,6 +28,7 @@ public class TestKafkaConfig
     @Test
     public void testDefaults()
     {
+        // SSL related configurations don't have any defaults, they are only use if security.protocol 'SSL' is used.
         assertRecordedDefaults(recordDefaults(KafkaConfig.class)
                 .setNodes("")
                 .setKafkaBufferSize("64kB")
