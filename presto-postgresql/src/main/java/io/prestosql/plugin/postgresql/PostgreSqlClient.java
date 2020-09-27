@@ -510,6 +510,17 @@ public class PostgreSqlClient
         };
     }
 
+    @Override
+    public void setColumnComment(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        String sql = format(
+                "COMMENT ON COLUMN %s.%s IS %s",
+                quoted(handle.getRemoteTableName()),
+                quoted(column.getColumnName()),
+                comment.isPresent() ? format("'%s'", comment.get()) : "NULL");
+        execute(identity, sql);
+    }
+
     private static ColumnMapping timestampWithTimeZoneColumnMapping(int precision)
     {
         // PosgreSQL supports timestamptz precision up to microseconds
