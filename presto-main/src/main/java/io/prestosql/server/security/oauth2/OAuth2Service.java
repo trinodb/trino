@@ -13,78 +13,104 @@
  */
 package io.prestosql.server.security.oauth2;
 
-import com.github.scribejava.core.builder.ServiceBuilder;
-import com.github.scribejava.core.builder.api.DefaultApi20;
-import com.github.scribejava.core.oauth.OAuth20Service;
-import io.airlift.http.server.HttpServerConfig;
+import com.github.scribejava.core.model.OAuth2AccessToken;
+import com.github.scribejava.core.model.OAuth2AccessTokenErrorResponse;
+import com.github.scribejava.core.model.OAuthConstants;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableMap;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
+import io.jsonwebtoken.JwtParser;
+import io.jsonwebtoken.Jwts;
+import io.prestosql.server.security.oauth2.Challenge.Started;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.net.URI;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.server.security.oauth2.OAuth2Resource.CALLBACK_ENDPOINT;
 import static io.prestosql.server.security.oauth2.OAuth2Resource.OAUTH2_API_PREFIX;
 import static java.util.Objects.requireNonNull;
 
 public class OAuth2Service
 {
-    private final HttpServerConfig httpServerConfig;
-    private final OAuth20Service service;
+    private final DynamicCallbackOAuth2Service service;
+    private final JwtParser jwtParser;
+    private final Cache<State, Started> authorizationChallenges;
 
     @Inject
-    public OAuth2Service(OAuth2Config oauth2Config, HttpServerConfig httpServerConfig)
+    public OAuth2Service(OAuth2Config oauth2Config)
     {
         requireNonNull(oauth2Config, "oauth2Config is null");
-        this.httpServerConfig = requireNonNull(httpServerConfig, "httpServerConfig is null");
-        this.service = new ServiceBuilder(oauth2Config.getClientId())
-                .apiSecret(oauth2Config.getClientSecret())
-                .defaultScope("openid")
-                .callback(serverUrl() + OAUTH2_API_PREFIX + CALLBACK_ENDPOINT)
-                .build(new DefaultApi20()
-                {
-                    @Override
-                    public String getAccessTokenEndpoint()
-                    {
-                        return oauth2Config.getTokenUrl();
-                    }
-
-                    @Override
-                    protected String getAuthorizationBaseUrl()
-                    {
-                        return oauth2Config.getAuthUrl();
-                    }
-                });
+        this.service = new DynamicCallbackOAuth2Service(
+                OAuth2Api.create(oauth2Config),
+                oauth2Config.getClientId(),
+                oauth2Config.getClientSecret(),
+                "openid");
+        this.jwtParser = Jwts.parser()
+                .setSigningKeyResolver(new JWKSSigningKeyResolver(oauth2Config.getServerUrl()));
+        this.authorizationChallenges = CacheBuilder.newBuilder()
+                .expireAfterWrite(oauth2Config.getChallengeTimeout().toMillis(), TimeUnit.MILLISECONDS)
+                .build();
     }
 
-    Challenge.Started startChallenge()
+    Started startChallenge(URI serverUri)
     {
         State state = State.randomState();
-        String authorizationUrl = service.getAuthorizationUrl(state.get());
-        return new Challenge.Started(state, authorizationUrl);
+        String authorizationUrl = service.getAuthorizationUrl(
+                ImmutableMap.of(
+                        OAuthConstants.REDIRECT_URI, serverUri.resolve(OAUTH2_API_PREFIX + CALLBACK_ENDPOINT).toString(),
+                        OAuthConstants.STATE, state.toString()));
+        Started challenge = new Started(state, authorizationUrl);
+        authorizationChallenges.put(state, challenge);
+        return challenge;
     }
 
-    String finishChallenge(State state, String code)
+    Challenge finishChallenge(
+            URI serverUri,
+            State state,
+            Optional<String> code,
+            Optional<OAuth2ErrorResponse> error)
+            throws InterruptedException, ExecutionException, IOException
     {
         requireNonNull(state, "state is null");
         requireNonNull(code, "code is null");
-        try {
-            return service.getAccessToken(code).getAccessToken();
+        requireNonNull(error, "error is null");
+        checkArgument(code.isPresent() || error.isPresent(), "Either code or error should be present");
+        checkArgument(code.isEmpty() || error.isEmpty(), "Either code or error should be empty");
+        Started challenge = getStartedChallenge(state);
+        authorizationChallenges.invalidate(state);
+        if (error.isPresent()) {
+            return challenge.fail(error.get());
         }
-        catch (IOException | InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
+        try {
+            OAuth2AccessToken token = service.getAccessToken(code.get(), serverUri.resolve(OAUTH2_API_PREFIX + CALLBACK_ENDPOINT).toString());
+            return challenge.succeed(token, parseClaimsJws(token.getAccessToken()));
+        }
+        catch (OAuth2AccessTokenErrorResponse e) {
+            return challenge.fail(
+                    new OAuth2ErrorResponse(
+                            e.getError(),
+                            Optional.ofNullable(e.getErrorDescription()),
+                            Optional.ofNullable(e.getErrorUri())));
         }
     }
 
-    private String serverUrl()
+    Jws<Claims> parseClaimsJws(String token)
     {
-        // TODO: use server external address
-        String host = "host.testcontainers.internal";
-        if (httpServerConfig.isHttpsEnabled()) {
-            return "https://" + host + ":" + httpServerConfig.getHttpsPort();
-        }
-        else {
-            return "http://" + host + ":" + httpServerConfig.getHttpPort();
-        }
+        return jwtParser.parseClaimsJws(token);
+    }
+
+    private Started getStartedChallenge(State state)
+    {
+        return Optional
+                .ofNullable(authorizationChallenges.getIfPresent(state))
+                .orElseThrow(() -> new ChallengeNotFoundException(state));
     }
 }

@@ -30,6 +30,7 @@ import static java.time.Duration.ofMinutes;
 public class TestingHydraService
         implements Closeable
 {
+    static final int TTL_ACCESS_TOKEN_IN_SECONDS = 5;
     private static final String HYDRA_IMAGE = "oryd/hydra:v1.4.2";
     private static final String DSN = "postgres://hydra:mysecretpassword@database:5432/hydra?sslmode=disable";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -64,6 +65,7 @@ public class TestingHydraService
             .withEnv("URLS_CONSENT", "http://consent:3000/consent")
             .withEnv("URLS_LOGIN", "http://consent:3000/login")
             .withEnv("OAUTH2_ACCESS_TOKEN_STRATEGY", "jwt")
+            .withEnv("TTL_ACCESS_TOKEN", TTL_ACCESS_TOKEN_IN_SECONDS + "s")
             .withCommand("serve all --dangerous-force-http")
             .waitingFor(Wait.forHttp("/health/ready").forPort(4444).forStatusCode(200));
 
@@ -91,12 +93,12 @@ public class TestingHydraService
         return new GenericContainer<>(HYDRA_IMAGE).withNetwork(network);
     }
 
-    Network getNetwork()
+    public Network getNetwork()
     {
         return network;
     }
 
-    int getHydraPort()
+    public int getHydraPort()
     {
         return hydraContainer.getMappedPort(4444);
     }

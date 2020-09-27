@@ -15,15 +15,40 @@ package io.prestosql.server.security.oauth2;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.validation.FileExists;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
 
+import java.io.File;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+
 public class OAuth2Config
 {
+    private String serverUrl;
     private String authUrl;
     private String tokenUrl;
     private String clientId;
     private String clientSecret;
+    private Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
+    private Optional<String> userMappingPattern = Optional.empty();
+    private Optional<File> userMappingFile = Optional.empty();
+
+    @NotNull
+    public String getServerUrl()
+    {
+        return serverUrl;
+    }
+
+    @Config("http-server.authentication.oauth2.server-url")
+    @ConfigDescription("URL of the authorization server")
+    public OAuth2Config setServerUrl(String serverUrl)
+    {
+        this.serverUrl = serverUrl;
+        return this;
+    }
 
     @NotNull
     public String getAuthUrl()
@@ -76,6 +101,43 @@ public class OAuth2Config
     public OAuth2Config setClientSecret(String clientSecret)
     {
         this.clientSecret = clientSecret;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getChallengeTimeout()
+    {
+        return challengeTimeout;
+    }
+
+    @Config("http-server.authentication.oauth2.challenge-timeout")
+    public OAuth2Config setChallengeTimeout(Duration challengeTimeout)
+    {
+        this.challengeTimeout = challengeTimeout;
+        return this;
+    }
+
+    public Optional<String> getUserMappingPattern()
+    {
+        return userMappingPattern;
+    }
+
+    @Config("http-server.authentication.oauth2.user-mapping.pattern")
+    public OAuth2Config setUserMappingPattern(String userMappingPattern)
+    {
+        this.userMappingPattern = Optional.ofNullable(userMappingPattern);
+        return this;
+    }
+
+    public Optional<@FileExists File> getUserMappingFile()
+    {
+        return userMappingFile;
+    }
+
+    @Config("http-server.authentication.oauth2.user-mapping.file")
+    public OAuth2Config setUserMappingFile(File userMappingFile)
+    {
+        this.userMappingFile = Optional.ofNullable(userMappingFile);
         return this;
     }
 }

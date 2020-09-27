@@ -28,7 +28,7 @@ import io.airlift.http.server.HttpServerConfig;
 import io.airlift.jmx.MBeanResource;
 import io.prestosql.server.security.oauth2.OAuth2Authenticator;
 import io.prestosql.server.security.oauth2.OAuth2Config;
-import io.prestosql.server.security.oauth2.OAuth2Error;
+import io.prestosql.server.security.oauth2.OAuth2ErrorResponse;
 import io.prestosql.server.security.oauth2.OAuth2Resource;
 import io.prestosql.server.security.oauth2.OAuth2Service;
 
@@ -81,7 +81,7 @@ public class ServerSecurityModule
             configBinder(oauth2Binder).bindConfig(OAuth2Config.class);
             binder.bind(OAuth2Service.class).in(Scopes.SINGLETON);
             jaxrsBinder(binder).bind(OAuth2Resource.class);
-            jsonCodecBinder(binder).bindJsonCodec(OAuth2Error.class);
+            jsonCodecBinder(binder).bindJsonCodec(OAuth2ErrorResponse.class);
         }));
 
         configBinder(binder).bindConfig(InsecureAuthenticatorConfig.class);

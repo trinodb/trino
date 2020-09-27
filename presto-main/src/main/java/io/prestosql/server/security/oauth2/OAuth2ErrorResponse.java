@@ -15,24 +15,29 @@ package io.prestosql.server.security.oauth2;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.github.scribejava.core.oauth2.OAuth2Error;
 
 import javax.annotation.Nullable;
 
+import java.net.URI;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class OAuth2Error
+/**
+ * Error response according to: https://tools.ietf.org/html/rfc6749#section-4.1.2.1
+ */
+public class OAuth2ErrorResponse
 {
-    private final String error;
+    private final OAuth2Error error;
     private final Optional<String> errorDescription;
-    private final Optional<String> errorUri;
+    private final Optional<URI> errorUri;
 
     @JsonCreator
-    public OAuth2Error(
-            @JsonProperty("error") String error,
+    public OAuth2ErrorResponse(
+            @JsonProperty("error") OAuth2Error error,
             @JsonProperty("error_description") Optional<String> errorDescription,
-            @JsonProperty("error_uri") Optional<String> errorUri)
+            @JsonProperty("error_uri") Optional<URI> errorUri)
     {
         this.error = requireNonNull(error, "error is null");
         this.errorDescription = requireNonNull(errorDescription, "errorDescription is null");
@@ -42,7 +47,7 @@ public class OAuth2Error
     @JsonProperty
     public String getError()
     {
-        return error;
+        return error.getErrorString();
     }
 
     @JsonProperty("error_description")
@@ -55,6 +60,6 @@ public class OAuth2Error
     @Nullable
     public Optional<String> getErrorUri()
     {
-        return errorUri;
+        return errorUri.map(URI::toString);
     }
 }

@@ -14,8 +14,12 @@
 package io.prestosql.server.security.oauth2;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -28,27 +32,41 @@ public class TestOAuth2Config
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(OAuth2Config.class)
+                .setServerUrl(null)
                 .setAuthUrl(null)
                 .setTokenUrl(null)
                 .setClientId(null)
-                .setClientSecret(null));
+                .setClientSecret(null)
+                .setChallengeTimeout(Duration.valueOf("15m"))
+                .setUserMappingPattern(null)
+                .setUserMappingFile(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path userMappingFile = Files.createTempFile(null, null);
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("http-server.authentication.oauth2.server-url", "http://127.0.0.1:9000")
                 .put("http-server.authentication.oauth2.auth-url", "http://127.0.0.1:9000/oauth2/auth")
                 .put("http-server.authentication.oauth2.token-url", "http://127.0.0.1:9000/oauth2/token")
                 .put("http-server.authentication.oauth2.client-id", "another-consumer")
                 .put("http-server.authentication.oauth2.client-secret", "consumer-secret")
+                .put("http-server.authentication.oauth2.challenge-timeout", "90s")
+                .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@something")
+                .put("http-server.authentication.oauth2.user-mapping.file", userMappingFile.toString())
                 .build();
 
         OAuth2Config expected = new OAuth2Config()
+                .setServerUrl("http://127.0.0.1:9000")
                 .setAuthUrl("http://127.0.0.1:9000/oauth2/auth")
                 .setTokenUrl("http://127.0.0.1:9000/oauth2/token")
                 .setClientId("another-consumer")
-                .setClientSecret("consumer-secret");
+                .setClientSecret("consumer-secret")
+                .setChallengeTimeout(Duration.valueOf("90s"))
+                .setUserMappingPattern("(.*)@something")
+                .setUserMappingFile(userMappingFile.toFile());
 
         assertFullMapping(properties, expected);
     }

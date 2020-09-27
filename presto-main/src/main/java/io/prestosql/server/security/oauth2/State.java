@@ -13,25 +13,23 @@
  */
 package io.prestosql.server.security.oauth2;
 
+import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Objects;
-import java.util.UUID;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 
 class State
 {
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     private final String value;
 
-    State(String value)
+    private State(String value)
     {
-        this.value = requireNonNull(value, "values is null");
-    }
-
-    String get()
-    {
-        return value;
+        checkArgument(!isNullOrEmpty(value), "State is null or empty");
+        this.value = value;
     }
 
     @Override
@@ -53,11 +51,21 @@ class State
         return Objects.hash(value);
     }
 
+    @Override
+    public String toString()
+    {
+        return value;
+    }
+
+    static State valueOf(String value)
+    {
+        return new State(value);
+    }
+
     static State randomState()
     {
-        return new State(
-                new String(
-                        Base64.getEncoder()
-                                .encode(UUID.randomUUID().toString().getBytes(UTF_8)), UTF_8));
+        byte[] randomBytes = new byte[16];
+        SECURE_RANDOM.nextBytes(randomBytes);
+        return valueOf(Base64.getEncoder().encodeToString(randomBytes));
     }
 }

@@ -13,6 +13,10 @@
  */
 package io.prestosql.server.security.oauth2;
 
+import com.github.scribejava.core.model.OAuth2AccessToken;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
+
 import static java.util.Objects.requireNonNull;
 
 class Challenge
@@ -50,6 +54,57 @@ class Challenge
         String getAuthorizationUrl()
         {
             return authorizationUrl;
+        }
+
+        Succeeded succeed(OAuth2AccessToken token, Jws<Claims> jwtToken)
+        {
+            return new Succeeded(getState(), token, jwtToken);
+        }
+
+        Failed fail(OAuth2ErrorResponse error)
+        {
+            return new Failed(getState(), error);
+        }
+    }
+
+    static class Succeeded
+            extends Challenge
+    {
+        private final OAuth2AccessToken token;
+        private final Jws<Claims> jwtToken;
+
+        Succeeded(State state, OAuth2AccessToken token, Jws<Claims> jwtToken)
+        {
+            super(state, Status.SUCCEEDED);
+            this.token = requireNonNull(token, "token is null");
+            this.jwtToken = requireNonNull(jwtToken, "jwtToken is null");
+        }
+
+        OAuth2AccessToken getToken()
+        {
+            return token;
+        }
+
+        Jws<Claims> getJwtToken()
+        {
+            return jwtToken;
+        }
+    }
+
+    static class Failed
+            extends Challenge
+    {
+        private final OAuth2ErrorResponse error;
+
+        Failed(State state, OAuth2ErrorResponse error)
+        {
+            super(state, Status.FAILED);
+            this.error = requireNonNull(error, "error is null");
+        }
+
+        OAuth2ErrorResponse getError()
+        {
+            return error;
         }
     }
 }

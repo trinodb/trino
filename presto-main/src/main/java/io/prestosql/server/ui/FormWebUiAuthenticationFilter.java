@@ -58,7 +58,7 @@ public class FormWebUiAuthenticationFilter
     private static final Logger LOG = Logger.get(FormWebUiAuthenticationFilter.class);
 
     private static final String PRESTO_UI_AUDIENCE = "presto-ui";
-    public static final String PRESTO_UI_COOKIE = "Presto-UI-Token";
+    private static final String PRESTO_UI_COOKIE = "Presto-UI-Token";
     static final String LOGIN_FORM = "/ui/login.html";
     static final URI LOGIN_FORM_URI = URI.create(LOGIN_FORM);
     static final String DISABLED_LOCATION = "/ui/disabled.html";

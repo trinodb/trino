@@ -13,6 +13,8 @@
  */
 package io.prestosql.server.security.oauth2;
 
+import com.github.scribejava.core.oauth2.OAuth2Error;
+import io.airlift.log.Logger;
 import io.prestosql.server.security.ResourceSecurity;
 
 import javax.inject.Inject;
@@ -24,21 +26,30 @@ import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.NewCookie;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.SecurityContext;
+import javax.ws.rs.core.UriInfo;
 
+import java.io.IOException;
+import java.net.URI;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 
 import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.prestosql.server.security.oauth2.OAuth2Resource.OAUTH2_API_PREFIX;
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.PRESTO_UI_COOKIE;
 import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.HttpHeaders.LOCATION;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.FOUND;
+import static javax.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR;
+import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path(OAUTH2_API_PREFIX)
 public class OAuth2Resource
 {
+    private static final Logger LOG = Logger.get(OAuth2Resource.class);
+    static final String OAUTH2_COOKIE = "Presto-OAuth2-Token";
+
     static final String OAUTH2_API_PREFIX = "/oauth2";
     static final String CALLBACK_ENDPOINT = "/callback";
 
@@ -59,41 +70,74 @@ public class OAuth2Resource
             @QueryParam("error") String error,
             @QueryParam("error_description") String errorDescription,
             @QueryParam("error_uri") String errorUri,
+            @Context UriInfo uriInfo,
             @Context SecurityContext securityContext)
     {
-        if (error != null && !error.isBlank()) {
+        try {
+            Challenge challenge = service.finishChallenge(
+                    uriInfo.getBaseUri(),
+                    State.valueOf(state),
+                    Optional.ofNullable(code),
+                    Optional.ofNullable(error)
+                            .map(err ->
+                                    new OAuth2ErrorResponse(
+                                            OAuth2Error.parseFrom(error),
+                                            Optional.ofNullable(errorDescription),
+                                            Optional.ofNullable(errorUri).map(URI::create))));
+            switch (challenge.getStatus()) {
+                case SUCCEEDED:
+                    Challenge.Succeeded succeeded = (Challenge.Succeeded) challenge;
+                    return Response
+                            .status(FOUND)
+                            .header(LOCATION, UI_LOCATION)
+                            .cookie(new NewCookie(
+                                    OAUTH2_COOKIE,
+                                    succeeded.getToken().getAccessToken(),
+                                    UI_LOCATION,
+                                    null,
+                                    Cookie.DEFAULT_VERSION,
+                                    null,
+                                    NewCookie.DEFAULT_MAX_AGE,
+                                    succeeded.getJwtToken().getBody().getExpiration(),
+                                    securityContext.isSecure(),
+                                    true))
+                            .build();
+                case FAILED:
+                    Challenge.Failed failed = (Challenge.Failed) challenge;
+                    return Response
+                            .status(BAD_REQUEST)
+                            .entity(failed.getError())
+                            .build();
+                default:
+                    String message = format("Invalid challenge: state=%s status=%s", challenge.getState(), challenge.getStatus());
+                    LOG.error(message);
+                    return Response
+                            .status(INTERNAL_SERVER_ERROR)
+                            .entity(message)
+                            .build();
+            }
+        }
+        catch (ChallengeNotFoundException e) {
+            String message = "Challenge not found: state=" + e.getState();
+            LOG.debug(message, e);
             return Response
-                    .status(BAD_REQUEST)
-                    .entity(new OAuth2Error(error, Optional.ofNullable(errorDescription), Optional.ofNullable(errorUri)))
+                    .status(NOT_FOUND)
+                    .entity(message)
                     .build();
         }
-        if (state == null || state.isBlank()) {
+        catch (IllegalArgumentException e) {
+            String message = "Invalid challenge request: " + e.getMessage();
+            LOG.debug(message, e);
             return Response
                     .status(BAD_REQUEST)
-                    .entity(new OAuth2Error("State is null or empty", Optional.empty(), Optional.empty()))
+                    .entity(message)
                     .build();
         }
-        if (code == null || code.isBlank()) {
+        catch (InterruptedException | ExecutionException | IOException e) {
             return Response
-                    .status(BAD_REQUEST)
-                    .entity(new OAuth2Error("Code is null or empty", Optional.empty(), Optional.empty()))
+                    .status(INTERNAL_SERVER_ERROR)
+                    .entity(e.getMessage())
                     .build();
         }
-        String accessToken = service.finishChallenge(new State(state), code);
-        return Response
-                .status(FOUND)
-                .header(LOCATION, UI_LOCATION)
-                .cookie(new NewCookie(
-                        PRESTO_UI_COOKIE,
-                        accessToken,
-                        UI_LOCATION,
-                        null,
-                        Cookie.DEFAULT_VERSION,
-                        null,
-                        NewCookie.DEFAULT_MAX_AGE,
-                        null, // TODO: get from token
-                        securityContext.isSecure(),
-                        true))
-                .build();
     }
 }
