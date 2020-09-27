@@ -27,6 +27,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
@@ -85,7 +86,7 @@ public class HivePageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, TupleDomain<ColumnHandle> dynamicFilter)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
     {
         HiveTableHandle hiveTable = (HiveTableHandle) table;
 
@@ -98,6 +99,9 @@ public class HivePageSourceProvider
 
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
 
+        TupleDomain<HiveColumnHandle> simplifiedDynamicFilter = dynamicFilter
+                .getCurrentPredicate()
+                .transform(HiveColumnHandle.class::cast).simplify();
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 pageSourceFactories,
                 cursorProviders,
@@ -110,7 +114,7 @@ public class HivePageSourceProvider
                 hiveSplit.getEstimatedFileSize(),
                 hiveSplit.getFileModifiedTime(),
                 hiveSplit.getSchema(),
-                hiveTable.getCompactEffectivePredicate().intersect(dynamicFilter.transform(HiveColumnHandle.class::cast).simplify()),
+                hiveTable.getCompactEffectivePredicate().intersect(simplifiedDynamicFilter),
                 hiveColumns,
                 hiveSplit.getPartitionName(),
                 hiveSplit.getPartitionKeys(),
