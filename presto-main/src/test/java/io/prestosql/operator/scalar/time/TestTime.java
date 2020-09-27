@@ -23,6 +23,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.function.BiFunction;
 
@@ -1660,7 +1661,7 @@ public class TestTime
     {
         Session session = assertions.sessionBuilder()
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Pacific/Apia"))
-                .setStart(Instant.from(ZonedDateTime.of(2020, 5, 1, 12, 0, 0, 0, assertions.getDefaultSession().getTimeZoneKey().getZoneId())))
+                .setStart(Instant.from(ZonedDateTime.of(2020, 5, 1, 12, 0, 0, 0, ZoneId.of("Pacific/Apia"))))
                 .build();
 
         assertThat(assertions.expression("TIME '12:34:56' AT TIME ZONE '+08:35'", session)).matches("TIME '08:09:56+08:35'");
