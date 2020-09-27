@@ -159,6 +159,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public void setColumnComment(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        stats.getSetColumnComment().wrap(() -> delegate().setColumnComment(identity, handle, column, comment));
+    }
+
+    @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         stats.getAddColumn().wrap(() -> delegate().addColumn(session, handle, column));

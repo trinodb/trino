@@ -275,6 +275,13 @@ public final class CachingJdbcClient
     }
 
     @Override
+    public void setColumnComment(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        delegate.setColumnComment(identity, handle, column, comment);
+        invalidateColumnsCache(identity, handle.getSchemaTableName());
+    }
+
+    @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         delegate.addColumn(session, handle, column);
