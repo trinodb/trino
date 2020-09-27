@@ -26,7 +26,7 @@ import java.util.Properties;
  */
 public class KafkaSecurityConfig
 {
-    protected static final String MESSAGE_TEMPLATE_CONFIG_NOT_USED = "Config '%s' won't be used when 'security.protocol' is set to PLAINTEXT (default value)!";
+    protected static final String MESSAGE_TEMPLATE_CONFIG_NOT_USED = "Config property '%s' won't be used when 'security.protocol' is set to PLAINTEXT (default value)!";
     Logger logger = Logger.get(KafkaSecurityConfig.class);
 
     private Properties props;
