@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.sqlserver;
 
-import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
@@ -214,25 +213,25 @@ public class TestSqlServerIntegrationSmokeTest
 
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 124"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
-                    .isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
+                    .isCorrectlyPushedDown();
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 124"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
-                    .isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
+                    .isCorrectlyPushedDown();
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal <= 123456790"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
-                    .isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
+                    .isCorrectlyPushedDown();
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 123.321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
-                    .isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
+                    .isCorrectlyPushedDown();
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal <= 123456789.987654321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
-                    .isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
+                    .isCorrectlyPushedDown();
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal = 123.321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
-                    .isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
+                    .isCorrectlyPushedDown();
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal = 123456789.987654321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
-                    .isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
+                    .isCorrectlyPushedDown();
         }
     }
 
@@ -242,10 +241,10 @@ public class TestSqlServerIntegrationSmokeTest
         assertThat(query("SELECT name FROM nation LIMIT 30")).isCorrectlyPushedDown(); // Use high limit for result determinism
 
         // with filter over numeric column
-        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
+        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isCorrectlyPushedDown();
 
         // with filter over varchar column
-        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
+        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isCorrectlyPushedDown();
     }
 
     /**
