@@ -1750,6 +1750,9 @@ abstract class AbstractPrestoResultSet
         if (value instanceof Boolean) {
             return ((Boolean) value) ? 1 : 0;
         }
+        if (value instanceof String) {
+            return new BigDecimal((String) value);
+        }
         throw new SQLException("Value is not a number: " + value.getClass().getCanonicalName());
     }
 
