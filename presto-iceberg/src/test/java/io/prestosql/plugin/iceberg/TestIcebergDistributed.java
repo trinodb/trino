@@ -54,7 +54,7 @@ public class TestIcebergDistributed
     @Override
     public void testDelete()
     {
-        // Neither row delete nor partition delete is supported yet
+        // TODO (https://github.com/prestosql/presto/pull/4639#issuecomment-700737583)
     }
 
     @Override

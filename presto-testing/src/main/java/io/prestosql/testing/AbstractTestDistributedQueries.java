@@ -84,6 +84,11 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
+    protected boolean supportsDelete()
+    {
+        return true;
+    }
+
     protected boolean supportsViews()
     {
         return true;
@@ -610,6 +615,13 @@ public abstract class AbstractTestDistributedQueries
     {
         // delete half the table, then delete the rest
         String tableName = "test_delete_" + randomTableSuffix();
+
+        if (!supportsDelete()) {
+            assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders WITH NO DATA", 0);
+            assertQueryFails("DELETE FROM " + tableName, "This connector does not support updates or deletes");
+            assertUpdate("DROP TABLE " + tableName);
+            return;
+        }
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
 

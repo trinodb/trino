@@ -55,6 +55,12 @@ public class TestSqlServerDistributedQueries
     }
 
     @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean supportsViews()
     {
         return false;
@@ -89,12 +95,6 @@ public class TestSqlServerDistributedQueries
                         "col_default BIGINT DEFAULT 43," +
                         "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
                         "col_required2 BIGINT NOT NULL)");
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // delete is not supported
     }
 
     @Override

@@ -38,6 +38,12 @@ public class TestPhoenixDistributedQueries
     }
 
     @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean supportsViews()
     {
         return false;
@@ -84,12 +90,6 @@ public class TestPhoenixDistributedQueries
     public void testRenameColumn()
     {
         // Phoenix does not support renaming columns
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // delete not currently supported
     }
 
     @Override
