@@ -14,7 +14,6 @@
 package io.prestosql.jdbc;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -43,8 +42,6 @@ import static org.testng.Assert.assertTrue;
 
 public abstract class BaseTestJdbcResultSet
 {
-    private static final Logger log = Logger.get(BaseTestJdbcResultSet.class);
-
     protected abstract Connection createConnection()
             throws SQLException;
 
