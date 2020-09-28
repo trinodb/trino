@@ -69,6 +69,18 @@ public class TestMySqlDistributedQueries
     }
 
     @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
+    }
+
+    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         return new TestTable(
@@ -105,13 +117,6 @@ public class TestMySqlDistributedQueries
     public void testInsertWithCoercion()
     {
         // this connector uses a non-canonical type for varchar columns in tpch
-    }
-
-    @Override
-    public void testCommentTable()
-    {
-        // MySQL connector currently does not support comment on table
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
     }
 
     @Override

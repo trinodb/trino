@@ -94,9 +94,14 @@ public abstract class AbstractTestDistributedQueries
         return true;
     }
 
+    protected boolean supportsCommentOnTable()
+    {
+        return true;
+    }
+
     protected boolean supportsCommentOnColumn()
     {
-        return false;
+        return true;
     }
 
     /**
@@ -337,6 +342,13 @@ public abstract class AbstractTestDistributedQueries
     public void testCommentTable()
     {
         String tableName = "test_comment_" + randomTableSuffix();
+        if (!supportsCommentOnTable()) {
+            assertUpdate("CREATE TABLE " + tableName + "(a integer)");
+            assertQueryFails("COMMENT ON TABLE " + tableName + " IS 'new comment'", "This connector does not support setting table comments");
+            assertUpdate("DROP TABLE " + tableName);
+            return;
+        }
+
         assertUpdate("CREATE TABLE " + tableName + "(a integer)");
 
         assertUpdate("COMMENT ON TABLE " + tableName + " IS 'new comment'");
@@ -357,7 +369,12 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCommentColumn()
     {
-        skipTestUnless(supportsCommentOnColumn());
+        if (!supportsCommentOnColumn()) {
+            assertUpdate("CREATE TABLE test_comment_column(a integer)");
+            assertQueryFails("COMMENT ON COLUMN test_comment_column.a IS 'new comment'", "This connector does not support setting column comments");
+            assertUpdate("DROP TABLE test_comment_column");
+            return;
+        }
 
         assertUpdate("CREATE TABLE test_comment_column(a integer)");
 

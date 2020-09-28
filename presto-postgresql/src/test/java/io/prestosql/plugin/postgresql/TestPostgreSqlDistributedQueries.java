@@ -19,6 +19,7 @@ import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
+import org.testng.SkipException;
 
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 
@@ -61,6 +62,19 @@ public class TestPostgreSqlDistributedQueries
     }
 
     @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    public void testCommentColumn()
+    {
+        // tested with io.prestosql.plugin.postgresql.TestPostgreSqlIntegrationSmokeTest#testColumnComment
+        throw new SkipException("");
+    }
+
+    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         return new TestTable(
@@ -71,13 +85,6 @@ public class TestPostgreSqlDistributedQueries
                         "col_default BIGINT DEFAULT 43," +
                         "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
                         "col_required2 BIGINT NOT NULL)");
-    }
-
-    @Override
-    public void testCommentTable()
-    {
-        // PostgreSQL connector currently does not support comment on table
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
     }
 
     @Override

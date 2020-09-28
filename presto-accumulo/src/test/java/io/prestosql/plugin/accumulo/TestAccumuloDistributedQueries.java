@@ -50,6 +50,18 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
+    }
+
+    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Accumulo connector does not support column default values");
@@ -337,13 +349,6 @@ public class TestAccumuloDistributedQueries
         finally {
             assertUpdate("DROP TABLE test_create_table_empty_columns");
         }
-    }
-
-    @Override
-    public void testCommentTable()
-    {
-        // Accumulo connector currently does not support comment on table
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
     }
 
     @Override
