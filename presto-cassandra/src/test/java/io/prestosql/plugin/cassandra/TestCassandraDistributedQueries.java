@@ -50,6 +50,12 @@ public class TestCassandraDistributedQueries
     }
 
     @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean supportsViews()
     {
         return false;
@@ -113,12 +119,6 @@ public class TestCassandraDistributedQueries
         assertThatThrownBy(super::testInsertArray)
                 .hasMessage("unsupported type: array(double)");
         throw new SkipException("Unsupported");
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // Cassandra connector currently does not support delete
     }
 
     @Override

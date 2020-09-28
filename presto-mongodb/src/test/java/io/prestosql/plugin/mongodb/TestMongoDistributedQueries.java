@@ -48,6 +48,12 @@ public class TestMongoDistributedQueries
     }
 
     @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean supportsViews()
     {
         return false;
@@ -93,12 +99,6 @@ public class TestMongoDistributedQueries
     public void testDropColumn()
     {
         // the connector does not support dropping columns
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // the connector does not support delete
     }
 
     @Override

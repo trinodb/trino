@@ -50,6 +50,12 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean supportsCommentOnTable()
     {
         return false;
@@ -117,12 +123,6 @@ public class TestAccumuloDistributedQueries
                 "SELECT * FROM orders WITH NO DATA",
                 "SELECT * FROM orders LIMIT 0",
                 "SELECT 0");
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // Deletes are not supported by the connector
     }
 
     @Override

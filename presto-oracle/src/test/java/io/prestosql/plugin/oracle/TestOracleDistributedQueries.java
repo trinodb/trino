@@ -60,6 +60,12 @@ public class TestOracleDistributedQueries
     }
 
     @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean supportsViews()
     {
         return false;
@@ -81,12 +87,6 @@ public class TestOracleDistributedQueries
     protected boolean supportsCommentOnColumn()
     {
         return false;
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // delete is not supported
     }
 
     @Override
