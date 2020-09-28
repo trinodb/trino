@@ -161,6 +161,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4927", match = "Hive table .* is is corrupt. Found sub-directory in bucket directory for partition")
     public void testReadInsertOnly(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
@@ -209,6 +210,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4927", match = "Hive table .* is is corrupt. Found sub-directory in bucket directory for partition")
     public void testReadFullAcidWithOriginalFiles(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
@@ -252,6 +254,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4927", match = "Hive table .* is is corrupt. Found sub-directory in bucket directory for partition")
     public void testReadInsertOnlyWithOriginalFiles(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
