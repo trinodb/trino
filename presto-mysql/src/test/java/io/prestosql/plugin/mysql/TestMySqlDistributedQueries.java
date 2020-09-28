@@ -57,6 +57,12 @@ public class TestMySqlDistributedQueries
     }
 
     @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean supportsViews()
     {
         return false;
@@ -117,12 +123,6 @@ public class TestMySqlDistributedQueries
     public void testInsertWithCoercion()
     {
         // this connector uses a non-canonical type for varchar columns in tpch
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // delete is not supported
     }
 
     @Override
