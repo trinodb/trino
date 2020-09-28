@@ -25,6 +25,7 @@ import io.prestosql.plugin.jdbc.ObjectWriteFunction;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.CharType;
@@ -78,6 +79,7 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFuncti
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
@@ -145,6 +147,35 @@ public class SapHanaClient
                         .collect(joining(", ")),
                 quoted(catalogName, schemaName, tableName));
         execute(connection, sql);
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
+    {
+        try (Connection connection = this.connectionFactory.openConnection(JdbcIdentity.from(session))) {
+            String columnName = column.getName();
+            if (connection.getMetaData().storesUpperCaseIdentifiers()) {
+                columnName = columnName.toUpperCase(ENGLISH);
+            }
+            String sql = format(
+                    "ALTER TABLE %s ADD (%s)",
+                    quoted(handle.getRemoteTableName()),
+                    this.getColumnDefinitionSql(session, column, columnName));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void dropColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        String sql = format(
+                "ALTER TABLE %s DROP (%s)",
+                quoted(handle.getRemoteTableName()),
+                column.getColumnName());
+        execute(identity, sql);
     }
 
     @Override
@@ -253,7 +284,12 @@ public class SapHanaClient
 
             case Types.CLOB:
             case Types.NCLOB:
-                return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
+                VarcharType varcharType = createUnboundedVarcharType();
+                return Optional.of(ColumnMapping.sliceMapping(
+                        varcharType,
+                        varcharReadFunction(varcharType),
+                        varcharWriteFunction(),
+                        DISABLE_PUSHDOWN));
 
             case Types.BLOB:
             case Types.VARBINARY:
