@@ -25,7 +25,6 @@ import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
-import io.prestosql.plugin.jdbc.PredicatePushdownController;
 import io.prestosql.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
@@ -82,15 +81,6 @@ public class SqlServerClient
     private static final int SQL_SERVER_MAX_LIST_EXPRESSIONS = 500;
 
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
-
-    private static final PredicatePushdownController SIMPLIFY_UNSUPPORTED_PUSHDOWN = domain -> {
-        Domain pushedDown = domain;
-        if (domain.getValues().getRanges().getRangeCount() > SQL_SERVER_MAX_LIST_EXPRESSIONS) {
-            pushedDown = domain.simplify();
-        }
-        // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
-        return new DomainPushdownResult(pushedDown, domain);
-    };
 
     @Inject
     public SqlServerClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
@@ -173,7 +163,7 @@ public class SqlServerClient
                         columnMapping.getType(),
                         columnMapping.getReadFunction(),
                         columnMapping.getWriteFunction(),
-                        SIMPLIFY_UNSUPPORTED_PUSHDOWN));
+                        this::fullPushDownIfPossilble));
     }
 
     @Override
@@ -279,5 +269,13 @@ public class SqlServerClient
                 statement.setBytes(index, null);
             }
         };
+    }
+
+    private DomainPushdownResult fullPushDownIfPossilble(Domain domain)
+    {
+        if (domain.getValues().getRanges().getRangeCount() > SQL_SERVER_MAX_LIST_EXPRESSIONS) {
+            return new DomainPushdownResult(domain.simplify(), domain);
+        }
+        return new DomainPushdownResult(domain, Domain.all(domain.getType()));
     }
 }
