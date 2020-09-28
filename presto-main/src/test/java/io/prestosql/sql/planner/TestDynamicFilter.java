@@ -36,7 +36,6 @@ import java.util.Optional;
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -54,8 +53,6 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 public class TestDynamicFilter
         extends BasePlanTest
 {
-    private final Metadata metadata = createTestMetadataManager();
-
     public TestDynamicFilter()
     {
         super(ImmutableMap.of(
