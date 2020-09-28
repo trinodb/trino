@@ -139,11 +139,11 @@ public class SuiteDescribe
             Suite suite = suiteFactory.getSuite(suiteName);
             EnvironmentConfig config = configFactory.getConfig(this.config);
 
-            out.println(format("Suite '%s' with configuration '%s' consists of following test runs: ", suiteName, this.config));
+            out.printf("Suite '%s' with configuration '%s' consists of following test runs: \n", suiteName, this.config);
 
             for (SuiteTestRun testRun : suite.getTestRuns(config)) {
                 TestRun.TestRunOptions runOptions = createTestRunOptions(suiteName, testRun, config);
-                out.println(format("\n%s test run %s\n", environmentOptions.launcherBin, OptionsPrinter.format(environmentOptions, runOptions)));
+                out.printf("\n%s test run %s\n\n", environmentOptions.launcherBin, OptionsPrinter.format(environmentOptions, runOptions));
             }
 
             return OK;

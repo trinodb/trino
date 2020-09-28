@@ -158,7 +158,7 @@ public final class EnvironmentUp
             return ExitCode.OK;
         }
 
-        private void killContainersReaperContainer()
+        private static void killContainersReaperContainer()
         {
             try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
                 log.info("Killing the testcontainers reaper container (Ryuk) so that environment can stay alive");

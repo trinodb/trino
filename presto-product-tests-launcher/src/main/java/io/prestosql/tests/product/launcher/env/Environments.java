@@ -98,7 +98,7 @@ public final class Environments
             return ClassPath.from(Environments.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
                     .map(ClassPath.ClassInfo::load)
                     .filter(clazz -> !isAbstract(clazz.getModifiers()))
-                    .filter(clazz -> EnvironmentConfig.class.isAssignableFrom(clazz))
+                    .filter(EnvironmentConfig.class::isAssignableFrom)
                     .map(clazz -> (Class<? extends EnvironmentConfig>) clazz.asSubclass(EnvironmentConfig.class))
                     .collect(toImmutableList());
         }
