@@ -50,6 +50,18 @@
     </violation>
 
     <violation>
+        <name>org/testng/Assert.assertThrows:(Lorg/testng/Assert$ThrowingRunnable;)V</name>
+        <version>1.8</version>
+        <comment>Use AssertJ's assertThatThrownBy, see https://github.com/prestosql/presto/issues/5320 for rationale</comment>
+    </violation>
+
+    <violation>
+        <name>org/testng/Assert.assertThrows:(Ljava/lang/Class;Lorg/testng/Assert$ThrowingRunnable;)V</name>
+        <version>1.8</version>
+        <comment>Use AssertJ's assertThatThrownBy, see https://github.com/prestosql/presto/issues/5320 for rationale</comment>
+    </violation>
+
+    <violation>
         <name>org/apache/hadoop/conf/Configuration."&lt;init&gt;":()V</name>
         <version>1.1</version>
         <comment>Prefer new Configuration(false)</comment>
