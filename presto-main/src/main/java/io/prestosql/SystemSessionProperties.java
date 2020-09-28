@@ -126,6 +126,7 @@ public final class SystemSessionProperties
     public static final String REQUIRED_WORKERS_MAX_WAIT_TIME = "required_workers_max_wait_time";
     public static final String COST_ESTIMATION_WORKER_COUNT = "cost_estimation_worker_count";
     public static final String OMIT_DATETIME_TYPE_PRECISION = "omit_datetime_type_precision";
+    public static final String EMBEDDED_JSON_PLAN_REPRESENTATION_ENABLED = "embedded_json_plan_representations_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -561,6 +562,11 @@ public final class SystemSessionProperties
                         OMIT_DATETIME_TYPE_PRECISION,
                         "Omit precision when rendering datetime type names with default precision",
                         featuresConfig.isOmitDateTimeTypePrecision(),
+                        false),
+                booleanProperty(
+                        EMBEDDED_JSON_PLAN_REPRESENTATION_ENABLED,
+                        "Enable creating embedded JSON plan representations for the consumption by the Web UI",
+                        featuresConfig.isEmbeddedJsonPlanRepresentationEnabled(),
                         false));
     }
 
@@ -1007,5 +1013,10 @@ public final class SystemSessionProperties
     public static boolean isOmitDateTimeTypePrecision(Session session)
     {
         return session.getSystemProperty(OMIT_DATETIME_TYPE_PRECISION, Boolean.class);
+    }
+
+    public static boolean isEmbeddedJsonPlanRepresentationEnabled(Session session)
+    {
+        return session.getSystemProperty(EMBEDDED_JSON_PLAN_REPRESENTATION_ENABLED, Boolean.class);
     }
 }

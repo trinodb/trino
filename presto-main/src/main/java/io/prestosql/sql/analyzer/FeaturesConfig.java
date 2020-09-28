@@ -129,6 +129,7 @@ public class FeaturesConfig
     private boolean predicatePushdownUseTableProperties = true;
     private boolean ignoreDownstreamPreferences;
     private boolean iterativeRuleBasedColumnPruning = true;
+    private boolean embeddedJsonPlanRepresentationEnabled = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
@@ -999,6 +1000,18 @@ public class FeaturesConfig
     public FeaturesConfig setIterativeRuleBasedColumnPruning(boolean iterativeRuleBasedColumnPruning)
     {
         this.iterativeRuleBasedColumnPruning = iterativeRuleBasedColumnPruning;
+        return this;
+    }
+
+    public boolean isEmbeddedJsonPlanRepresentationEnabled()
+    {
+        return embeddedJsonPlanRepresentationEnabled;
+    }
+
+    @Config("embedded-json-plan-representations-enabled")
+    public FeaturesConfig setEmbeddedJsonPlanRepresentationEnabled(boolean embeddedJsonPlanRepresentationEnabled)
+    {
+        this.embeddedJsonPlanRepresentationEnabled = embeddedJsonPlanRepresentationEnabled;
         return this;
     }
 }

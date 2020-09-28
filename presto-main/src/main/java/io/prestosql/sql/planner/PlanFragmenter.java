@@ -67,6 +67,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.getQueryMaxStageCount;
 import static io.prestosql.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
+import static io.prestosql.SystemSessionProperties.isEmbeddedJsonPlanRepresentationEnabled;
 import static io.prestosql.SystemSessionProperties.isForceSingleNodeOutput;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
@@ -250,6 +251,11 @@ public class PlanFragmenter
 
             Map<Symbol, Type> symbols = Maps.filterKeys(types.allTypes(), in(dependencies));
 
+            Optional<String> embeddedPlanJson = Optional.empty();
+            if (isEmbeddedJsonPlanRepresentationEnabled(session)) {
+                embeddedPlanJson = Optional.of(jsonFragmentPlan(root, symbols, metadata, session));
+            }
+
             PlanFragment fragment = new PlanFragment(
                     fragmentId,
                     root,
@@ -259,7 +265,7 @@ public class PlanFragmenter
                     properties.getPartitioningScheme(),
                     ungroupedExecution(),
                     statsAndCosts.getForSubplan(root),
-                    Optional.of(jsonFragmentPlan(root, symbols, metadata, session)));
+                    embeddedPlanJson);
 
             return new SubPlan(fragment, properties.getChildren());
         }

@@ -110,7 +110,8 @@ public class TestFeaturesConfig
                 .setPredicatePushdownUseTableProperties(true)
                 .setIgnoreDownstreamPreferences(false)
                 .setOmitDateTimeTypePrecision(false)
-                .setIterativeRuleBasedColumnPruning(true));
+                .setIterativeRuleBasedColumnPruning(true)
+                .setEmbeddedJsonPlanRepresentationEnabled(true));
     }
 
     @Test
@@ -183,6 +184,7 @@ public class TestFeaturesConfig
                 .put("optimizer.ignore-downstream-preferences", "true")
                 .put("deprecated.omit-datetime-type-precision", "true")
                 .put("optimizer.iterative-rule-based-column-pruning", "false")
+                .put("embedded-json-plan-representations-enabled", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -251,7 +253,8 @@ public class TestFeaturesConfig
                 .setPredicatePushdownUseTableProperties(false)
                 .setIgnoreDownstreamPreferences(true)
                 .setOmitDateTimeTypePrecision(true)
-                .setIterativeRuleBasedColumnPruning(false);
+                .setIterativeRuleBasedColumnPruning(false)
+                .setEmbeddedJsonPlanRepresentationEnabled(false);
         assertFullMapping(properties, expected);
     }
 }
