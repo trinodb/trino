@@ -859,12 +859,11 @@ public class TestSapHanaTypeMapping
         assertThat(query("SELECT a FROM " + tableName))
                 .matches("VALUES " + expectedResult);
 
-        // TODO (https://github.com/prestosql/presto/issues/5310)
-//        // INSERT as a control query, where the coercion is done by the engine
-//        server.execute("DELETE FROM tpch." + tableName);
-//        assertUpdate("INSERT INTO " + tableName + " (a) VALUES (" + inputLiteral + ")", 1);
-//        assertThat(query("SELECT a FROM " + tableName))
-//                .matches("VALUES " + expectedResult);
+        // INSERT as a control query, where the coercion is done by the engine
+        server.execute("DELETE FROM tpch." + tableName);
+        assertUpdate("INSERT INTO " + tableName + " (a) VALUES (" + inputLiteral + ")", 1);
+        assertThat(query("SELECT a FROM " + tableName))
+                .matches("VALUES " + expectedResult);
 
         assertUpdate("DROP TABLE " + tableName);
     }
