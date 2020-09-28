@@ -92,6 +92,10 @@ public abstract class BaseTestJdbcResultSet
         try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "0.1", Types.DECIMAL, new BigDecimal("0.1"));
             checkRepresentation(connectedStatement.getStatement(), "DECIMAL '0.1'", Types.DECIMAL, new BigDecimal("0.1"));
+            checkRepresentation(connectedStatement.getStatement(), "0.12", Types.DECIMAL,
+                    (rs, column) -> assertEquals(rs.getDouble(column), 0.12D));
+            checkRepresentation(connectedStatement.getStatement(), "DECIMAL '0.1'", Types.DECIMAL,
+                    (rs, column) -> assertEquals(rs.getDouble(column), 0.1D));
         }
     }
 
