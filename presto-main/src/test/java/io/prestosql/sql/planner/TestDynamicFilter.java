@@ -206,7 +206,7 @@ public class TestDynamicFilter
                                 ImmutableList.of(equiJoinClause("PART_PK", "LINEITEM_OK")),
                                 ImmutableMap.of("PART_PK", "LINEITEM_OK"),
                                 anyTree(
-                                    tableScan("part", ImmutableMap.of("PART_PK", "partkey"))),
+                                        tableScan("part", ImmutableMap.of("PART_PK", "partkey"))),
                                 anyTree(
                                         join(
                                                 INNER,
