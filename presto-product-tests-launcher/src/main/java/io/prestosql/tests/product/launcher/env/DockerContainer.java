@@ -33,7 +33,6 @@ import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.SelinuxContext;
 import org.testcontainers.images.builder.Transferable;
-import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -124,13 +123,6 @@ public class DockerContainer
     {
         verifyHostPath(hostPath);
         return super.withFileSystemBind(hostPath, containerPath, mode);
-    }
-
-    @Override
-    public void copyFileToContainer(MountableFile mountableFile, String containerPath)
-    {
-        verifyHostPath(mountableFile.getResolvedPath());
-        copyFileToContainer(containerPath, () -> super.copyFileToContainer(mountableFile, containerPath));
     }
 
     @Override
