@@ -72,9 +72,15 @@ public class TestOracleDistributedQueries
     }
 
     @Override
-    public void testCommentTable()
+    protected boolean supportsCommentOnTable()
     {
-        // table comment not supported
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
     }
 
     @Override

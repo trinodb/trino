@@ -34,16 +34,21 @@ public class TestRaptorDistributedQueries
     }
 
     @Override
-    protected TestTable createTableWithDefaultColumns()
+    protected boolean supportsCommentOnTable()
     {
-        throw new SkipException("Raptor connector does not support column default values");
+        return false;
     }
 
     @Override
-    public void testCommentTable()
+    protected boolean supportsCommentOnColumn()
     {
-        // Raptor connector currently does not support comment on table
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
+        return false;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Raptor connector does not support column default values");
     }
 
     @Override

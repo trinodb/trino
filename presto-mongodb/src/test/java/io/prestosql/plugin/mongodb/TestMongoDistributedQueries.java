@@ -54,6 +54,18 @@ public class TestMongoDistributedQueries
     }
 
     @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
+    }
+
+    @Override
     public void testCreateSchema()
     {
         // the connector does not support creating schemas
@@ -87,13 +99,6 @@ public class TestMongoDistributedQueries
     public void testDelete()
     {
         // the connector does not support delete
-    }
-
-    @Override
-    public void testCommentTable()
-    {
-        // the connector does not support comment on table
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
     }
 
     @Override
