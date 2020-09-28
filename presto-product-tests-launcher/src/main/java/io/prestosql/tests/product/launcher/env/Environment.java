@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -56,24 +57,27 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.tests.product.launcher.env.DockerContainer.ensurePathExists;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.prestosql.tests.product.launcher.env.Environments.pruneEnvironment;
 import static java.lang.String.format;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public final class Environment
         implements AutoCloseable
 {
+    private static final ExecutorService executorService = newCachedThreadPool(daemonThreadsNamed("environment-%d"));
+    private static final Logger log = Logger.get(Environment.class);
+
     public static final String PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME = Environment.class.getName() + ".ptl-started";
     public static final String PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE = "true";
     public static final String PRODUCT_TEST_LAUNCHER_NETWORK = "ptl-network";
     public static final String PRODUCT_TEST_LAUNCHER_ENVIRONMENT_LABEL_NAME = "ptl-environment-name";
 
     public static final Integer ENVIRONMENT_FAILED_EXIT_CODE = 99;
-
-    private static final Logger log = Logger.get(Environment.class);
 
     private final String name;
     private final int startupRetries;
@@ -99,6 +103,7 @@ public final class Environment
 
         return Failsafe
                 .with(retryPolicy)
+                .with(executorService)
                 .get(this::tryStart);
     }
 
@@ -145,7 +150,9 @@ public final class Environment
         RetryPolicy retry = new RetryPolicy()
                 .withMaxAttempts(3);
 
-        FailsafeExecutor<Object> executor = Failsafe.with(timeout, retry);
+        FailsafeExecutor<Object> executor = Failsafe
+                .with(timeout, retry)
+                .with(executorService);
 
         ImmutableList.copyOf(containers.values())
                 .stream()

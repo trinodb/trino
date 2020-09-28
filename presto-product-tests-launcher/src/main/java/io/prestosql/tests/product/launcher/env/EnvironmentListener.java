@@ -17,6 +17,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import io.airlift.log.Logger;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.FailsafeExecutor;
+import net.jodah.failsafe.Timeout;
 
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -24,7 +27,10 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public interface EnvironmentListener
 {
@@ -63,11 +69,11 @@ public interface EnvironmentListener
     {
     }
 
-    static void tryInvokeListener(Consumer<EnvironmentListener> call, EnvironmentListener... listeners)
+    static void tryInvokeListener(FailsafeExecutor executor, Consumer<EnvironmentListener> call, EnvironmentListener... listeners)
     {
         Arrays.stream(listeners).forEach(listener -> {
             try {
-                call.accept(listener);
+                executor.runAsync(() -> call.accept(listener)).get();
             }
             catch (Exception e) {
                 log.error("Could not invoke listener %s due to %s", listener.getClass().getSimpleName(), getStackTraceAsString(e));
@@ -79,52 +85,56 @@ public interface EnvironmentListener
     {
         return new EnvironmentListener()
         {
+            private FailsafeExecutor executor = Failsafe
+                    .with(Timeout.of(ofMinutes(5)).withCancel(true))
+                    .with(newCachedThreadPool(daemonThreadsNamed("environment-listener-%d")));
+
             @Override
             public void environmentStarting(Environment environment)
             {
-                tryInvokeListener(listener -> listener.environmentStarting(environment), listeners);
+                tryInvokeListener(executor, listener -> listener.environmentStarting(environment), listeners);
             }
 
             @Override
             public void environmentStarted(Environment environment)
             {
-                tryInvokeListener(listener -> listener.environmentStarted(environment), listeners);
+                tryInvokeListener(executor, listener -> listener.environmentStarted(environment), listeners);
             }
 
             @Override
             public void environmentStopping(Environment environment)
             {
-                tryInvokeListener(listener -> listener.environmentStopping(environment), listeners);
+                tryInvokeListener(executor, listener -> listener.environmentStopping(environment), listeners);
             }
 
             @Override
             public void environmentStopped(Environment environment)
             {
-                tryInvokeListener(listener -> listener.environmentStopped(environment), listeners);
+                tryInvokeListener(executor, listener -> listener.environmentStopped(environment), listeners);
             }
 
             @Override
             public void containerStarting(DockerContainer container, InspectContainerResponse response)
             {
-                tryInvokeListener(listener -> listener.containerStarting(container, response), listeners);
+                tryInvokeListener(executor, listener -> listener.containerStarting(container, response), listeners);
             }
 
             @Override
             public void containerStarted(DockerContainer container, InspectContainerResponse response)
             {
-                tryInvokeListener(listener -> listener.containerStarted(container, response), listeners);
+                tryInvokeListener(executor, listener -> listener.containerStarted(container, response), listeners);
             }
 
             @Override
             public void containerStopping(DockerContainer container, InspectContainerResponse response)
             {
-                tryInvokeListener(listener -> listener.containerStopping(container, response), listeners);
+                tryInvokeListener(executor, listener -> listener.containerStopping(container, response), listeners);
             }
 
             @Override
             public void containerStopped(DockerContainer container, InspectContainerResponse response)
             {
-                tryInvokeListener(listener -> listener.containerStopped(container, response), listeners);
+                tryInvokeListener(executor, listener -> listener.containerStopped(container, response), listeners);
             }
         };
     }
