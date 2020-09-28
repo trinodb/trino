@@ -27,6 +27,7 @@ import io.airlift.log.Logger;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeExecutor;
 import net.jodah.failsafe.Timeout;
+import net.jodah.failsafe.function.CheckedRunnable;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
@@ -45,10 +46,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Executors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.io.MoreFiles.deleteRecursively;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.ofBytes;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -68,7 +71,8 @@ public class DockerContainer
             .withCancel(true);
 
     private static final FailsafeExecutor executor = Failsafe
-            .with(asyncTimeout);
+            .with(asyncTimeout)
+            .with(Executors.newCachedThreadPool(daemonThreadsNamed("docker-container-%d")));
 
     private String logicalName;
     private List<String> logPaths = new ArrayList<>();
@@ -182,11 +186,27 @@ public class DockerContainer
         this.listener.ifPresent(listener -> listener.containerStopped(this, containerInfo));
     }
 
-    private void copyFileToContainer(String containerPath, Runnable copy)
+    private void copyFileToContainer(String containerPath, CheckedRunnable copy)
     {
-        Stopwatch stopwatch = Stopwatch.createStarted();
-        copy.run();
-        log.info("Copied files into %s %s in %.1f s", this, containerPath, stopwatch.elapsed(MILLISECONDS) / 1000.);
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+
+        try {
+            executor.runAsync(copy).whenComplete((ignore, throwable) -> {
+                if (throwable == null) {
+                    log.info("Copied files into %s %s in %.1f s", this, containerPath, stopwatch.elapsed(MILLISECONDS) / 1000.);
+                }
+                else {
+                    log.warn("Could not copy files into %s %s: %s", this, containerPath, getStackTraceAsString((Throwable) throwable));
+                }
+            }).get();
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public void clearDependencies()
@@ -232,10 +252,9 @@ public class DockerContainer
             String containerLogsArchive = format("/tmp/logs-%s-%s.tar.gz", logicalName, UUID.randomUUID());
 
             log.info("Creating logs archive %s from file list %s (%d files)", containerLogsArchive, containerLogsListingFile, filesToCopy.size());
+            executor.runAsync(() -> copyFileToContainer(Transferable.of(filesList.getBytes(UTF_8)), containerLogsListingFile)).get();
 
-            copyFileToContainer(Transferable.of(filesList.getBytes(UTF_8)), containerLogsListingFile);
             ExecResult result = execInContainer("tar", "-cvf", containerLogsArchive, "-T", containerLogsListingFile);
-
             if (result.getExitCode() != 0) {
                 throw new RuntimeException(format("Could not create logs tar: %s", result.getStderr()));
             }
@@ -255,10 +274,11 @@ public class DockerContainer
         ensurePathExists(targetPath.getParent());
 
         try {
-            log.info("Copying file %s to %s", filename, targetPath);
-            executor.runAsync(() -> copyFileFromContainer(filename, targetPath.toString())).get();
-
-            log.info("Copied file %s to %s (size: %s bytes)", filename, targetPath, ofBytes(size(targetPath)).succinct());
+            executor.runAsync(() -> {
+                log.info("Copying file %s to %s", filename, targetPath);
+                copyFileFromContainer(filename, targetPath.toString());
+                log.info("Copied file %s to %s (size: %s bytes)", filename, targetPath, ofBytes(size(targetPath)).succinct());
+            }).get();
         }
         catch (Exception e) {
             log.warn("Could not copy file from %s to %s: %s", filename, targetPath, getStackTraceAsString(e));
@@ -273,7 +293,7 @@ public class DockerContainer
         }
 
         try {
-            ExecResult result = (ExecResult) executor.get(() -> execInContainer("/usr/bin/find", path, "-type", "f", "-print"));
+            ExecResult result = (ExecResult) executor.getAsync(() -> execInContainer("/usr/bin/find", path, "-type", "f", "-print")).get();
 
             if (result.getExitCode() == 0L) {
                 return Splitter.on("\n")
@@ -373,7 +393,7 @@ public class DockerContainer
         }
 
         try {
-            executor.run(this::stop);
+            executor.runAsync(this::stop).get();
         }
         catch (Exception e) {
             log.warn("Could not stop container correctly: %s", getStackTraceAsString(e));
