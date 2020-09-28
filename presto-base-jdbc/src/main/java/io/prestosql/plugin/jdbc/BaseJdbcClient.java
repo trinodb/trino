@@ -474,7 +474,7 @@ public abstract class BaseJdbcClient
                 }
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
-                columnList.add(getColumnSql(session, column, columnName));
+                columnList.add(getColumnDefinitionSql(session, column, columnName));
             }
 
             RemoteTableName remoteTableName = new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), tableName);
@@ -497,7 +497,7 @@ public abstract class BaseJdbcClient
         return format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns));
     }
 
-    private String getColumnSql(ConnectorSession session, ColumnMetadata column, String columnName)
+    protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
     {
         StringBuilder sb = new StringBuilder()
                 .append(quoted(columnName))
@@ -641,7 +641,7 @@ public abstract class BaseJdbcClient
             String sql = format(
                     "ALTER TABLE %s ADD %s",
                     quoted(handle.getRemoteTableName()),
-                    getColumnSql(session, column, columnName));
+                    getColumnDefinitionSql(session, column, columnName));
             execute(connection, sql);
         }
         catch (SQLException e) {
