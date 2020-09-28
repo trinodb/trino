@@ -13,10 +13,9 @@
  */
 package io.prestosql;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Resources;
 import io.prestosql.jdbc.BaseTestJdbcResultSet;
-import io.prestosql.jdbc.PrestoDriver;
 import org.testcontainers.containers.PrestoContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -34,6 +33,7 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.prestosql.testing.DataProviders.toDataProvider;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -43,7 +43,6 @@ public class TestJdbcResultSetCompatibilityOldServer
 {
     private static final int NUMBER_OF_TESTED_VERSIONS = 5;
     private static final int TESTED_VERSIONS_GRANULARITY = 3;
-    private static final String TESTED_VERSIONS_ENV_KEY = "TESTED_PRESTO_SERVER_VERSIONS";
 
     /**
      * Empty means that we could not obtain current Presto version and tests defined here will be marked as failed.
@@ -61,17 +60,8 @@ public class TestJdbcResultSetCompatibilityOldServer
     public static Object[][] testedPrestoVersions()
     {
         try {
-            if (System.getenv(TESTED_VERSIONS_ENV_KEY) != null) {
-                // This is currently needed so that the test is runnable from IDE
-                // TODO use filtered resource to provide current version instead.
-                return Splitter.on(",").trimResults().splitToList(System.getenv(TESTED_VERSIONS_ENV_KEY)).stream()
-                        .map(Optional::of)
-                        .collect(toDataProvider());
-            }
-
-            String currentVersionString = requireNonNull(PrestoDriver.class.getPackage().getImplementationVersion());
-            // this should match git-describe output which is used as version stored in metadata
-            Matcher matcher = Pattern.compile("(\\d+)(?:-\\d+-[a-z0-9]+)?").matcher(currentVersionString);
+            String currentVersionString = Resources.toString(Resources.getResource("presto-test-jdbc-compatibility-old-server-version.txt"), UTF_8).trim();
+            Matcher matcher = Pattern.compile("(\\d+)(?:-SNAPSHOT)?").matcher(currentVersionString);
             checkState(matcher.matches());
             int currentVersion = Integer.parseInt(matcher.group(1));
             ImmutableList.Builder<String> testedPrestoVersions = ImmutableList.builder();
