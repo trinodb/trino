@@ -56,6 +56,18 @@ public class TestCassandraDistributedQueries
     }
 
     @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
+    }
+
+    @Override
     public void testCreateSchema()
     {
         // Cassandra does not support creating schemas
@@ -127,13 +139,6 @@ public class TestCassandraDistributedQueries
                 .build();
 
         assertEquals(actual, expectedParametrizedVarchar);
-    }
-
-    @Override
-    public void testCommentTable()
-    {
-        // Cassandra connector currently does not support comment on table
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
     }
 
     @Override

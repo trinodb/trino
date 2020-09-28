@@ -40,6 +40,12 @@ public class TestIcebergDistributed
     }
 
     @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
+    }
+
+    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Iceberg connector does not support column default values");

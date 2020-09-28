@@ -60,6 +60,18 @@ public class TestKuduDistributedQueries
     }
 
     @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
+    }
+
+    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Kudu connector does not support column default values");
@@ -69,6 +81,20 @@ public class TestKuduDistributedQueries
     public void testInsert()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
+    }
+
+    @Override
+    public void testCommentTable()
+    {
+        // TODO
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testCommentColumn()
+    {
+        // TODO
+        throw new SkipException("TODO");
     }
 
     @Override
@@ -119,12 +145,6 @@ public class TestKuduDistributedQueries
                 .build();
 
         assertEquals(actual, expectedParametrizedVarchar);
-    }
-
-    @Override
-    public void testCommentTable()
-    {
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
     }
 
     @Override
