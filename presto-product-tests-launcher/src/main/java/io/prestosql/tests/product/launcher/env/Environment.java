@@ -19,7 +19,6 @@ import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Ulimit;
 import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
@@ -50,6 +49,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -99,7 +99,7 @@ public final class Environment
 
         return Failsafe
                 .with(retryPolicy)
-                .get(() -> tryStart());
+                .get(this::tryStart);
     }
 
     public List<String> getContainerNames()
@@ -169,8 +169,6 @@ public final class Environment
             }
 
             log.warn("Some of the containers are stopped or unhealthy");
-
-            return;
         }
         catch (InterruptedException e) {
             log.info("Interrupted");
@@ -374,8 +372,8 @@ public final class Environment
             containers.entrySet()
                     .stream()
                     .filter(entry -> !entry.getKey().equals(logicalName))
-                    .map(entry -> entry.getValue())
-                    .forEach(dependant -> container.dependsOn(dependant));
+                    .map(Map.Entry::getValue)
+                    .forEach(container::dependsOn);
 
             return this;
         }
@@ -449,11 +447,11 @@ public final class Environment
             switch (outputMode) {
                 case DISCARD:
                     log.warn("Containers logs are not printed to stdout");
-                    setContainerOutputConsumer(this::discardContainerLogs);
+                    setContainerOutputConsumer(Environment.Builder::discardContainerLogs);
                     break;
 
                 case PRINT:
-                    setContainerOutputConsumer(this::printContainerLogs);
+                    setContainerOutputConsumer(Environment.Builder::printContainerLogs);
                     break;
 
                 case PRINT_WRITE:
@@ -485,7 +483,7 @@ public final class Environment
             return new Environment(name, startupRetries, containers, listener);
         }
 
-        private Consumer<OutputFrame> writeContainerLogs(DockerContainer container, Path path)
+        private static Consumer<OutputFrame> writeContainerLogs(DockerContainer container, Path path)
         {
             Path containerLogFile = path.resolve(container.getLogicalName() + "/container.log");
             log.info("Writing container %s logs to %s", container, containerLogFile);
@@ -499,7 +497,7 @@ public final class Environment
             }
         }
 
-        private Consumer<OutputFrame> printContainerLogs(DockerContainer container)
+        private static Consumer<OutputFrame> printContainerLogs(DockerContainer container)
         {
             try {
                 // write directly to System.out, bypassing logging & io.airlift.log.Logging#rewireStdStreams
@@ -512,13 +510,13 @@ public final class Environment
             }
         }
 
-        private Consumer<OutputFrame> discardContainerLogs(DockerContainer container)
+        private static Consumer<OutputFrame> discardContainerLogs(DockerContainer container)
         {
             // Discard log frames
             return outputFrame -> {};
         }
 
-        private Consumer<OutputFrame> combineConsumers(Consumer<OutputFrame>... consumers)
+        private static Consumer<OutputFrame> combineConsumers(Consumer<OutputFrame>... consumers)
         {
             return outputFrame -> Arrays.stream(consumers).forEach(consumer -> consumer.accept(outputFrame));
         }
