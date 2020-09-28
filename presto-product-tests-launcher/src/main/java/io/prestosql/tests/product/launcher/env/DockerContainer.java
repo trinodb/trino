@@ -45,6 +45,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -206,6 +207,32 @@ public class DockerContainer
         dependencies.clear();
     }
 
+    public String execCommand(String... command)
+    {
+        String fullCommand = Joiner.on(" ").join(command);
+        if (!isRunning()) {
+            throw new RuntimeException(format("Could not execute command '%s' in stopped container %s", fullCommand, logicalName));
+        }
+
+        log.info("Executing command '%s' in container %s", fullCommand, logicalName);
+
+        try {
+            ExecResult result = (ExecResult) executor.getAsync(() -> execInContainer(command)).get();
+            if (result.getExitCode() == 0) {
+                return result.getStdout();
+            }
+
+            throw new RuntimeException(format("Could not execute command '%s' in container %s: %s", fullCommand, logicalName, result.getStderr()));
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public void copyLogsToHostPath(Path hostPath)
     {
         if (!isRunning()) {
@@ -246,15 +273,8 @@ public class DockerContainer
             log.info("Creating logs archive %s from file list %s (%d files)", containerLogsArchive, containerLogsListingFile, filesToCopy.size());
             executor.runAsync(() -> copyFileToContainer(Transferable.of(filesList.getBytes(UTF_8)), containerLogsListingFile)).get();
 
-            ExecResult result = execInContainer("tar", "-cvf", containerLogsArchive, "-T", containerLogsListingFile);
-            if (result.getExitCode() != 0) {
-                throw new RuntimeException(format("Could not create logs tar: %s", result.getStderr()));
-            }
-
+            execCommand("tar", "-cf", containerLogsArchive, "-T", containerLogsListingFile);
             copyFileFromContainer(containerLogsArchive, hostPath.resolve(format("%s/logs.tar.gz", logicalName)));
-        }
-        catch (IOException e) {
-            log.warn("Could not create temporary file: %s", e);
         }
         catch (Exception e) {
             log.warn("Could not copy logs archive from %s: %s", logicalName, getStackTraceAsString(e));
@@ -279,24 +299,13 @@ public class DockerContainer
 
     private List<String> listFilesInContainer(String path)
     {
-        if (!isRunning()) {
-            log.warn("Could not list files in %s for stopped container %s", path, logicalName);
-            return ImmutableList.of();
-        }
-
         try {
-            ExecResult result = (ExecResult) executor.getAsync(() -> execInContainer("/usr/bin/find", path, "-type", "f", "-print")).get();
-
-            if (result.getExitCode() == 0L) {
-                return Splitter.on("\n")
-                        .omitEmptyStrings()
-                        .splitToList(result.getStdout());
-            }
-
-            log.warn("Could not list files in %s: %s", path, result.getStderr());
+            return Splitter.on("\n")
+                    .omitEmptyStrings()
+                    .splitToList(execCommand("/usr/bin/find", path, "-type", "f", "-print"));
         }
         catch (Exception e) {
-            log.warn("Could not list files in container '%s': %s", logicalName, e);
+            log.warn("Could not list files in container '%s' path %s: %s", logicalName, path, e);
         }
 
         return ImmutableList.of();
