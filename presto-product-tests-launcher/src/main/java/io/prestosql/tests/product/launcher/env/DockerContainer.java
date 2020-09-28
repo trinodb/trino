@@ -17,7 +17,7 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.HealthCheck;
 import com.github.dockerjava.api.model.Statistics;
-import com.github.dockerjava.core.InvocationBuilder;
+import com.github.dockerjava.core.InvocationBuilder.AsyncResultCallback;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
@@ -309,10 +309,8 @@ public class DockerContainer
             return Optional.empty();
         }
 
-        try (DockerClient client = DockerClientFactory.lazyClient()) {
-            InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>();
+        try (DockerClient client = DockerClientFactory.lazyClient(); AsyncResultCallback<Statistics> callback = new AsyncResultCallback<>()) {
             client.statsCmd(getContainerId()).exec(callback);
-
             return Optional.ofNullable(executor.get(callback::awaitResult))
                     .map(Statistics.class::cast);
         }
