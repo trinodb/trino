@@ -1265,6 +1265,8 @@ public class PrestoS3FileSystem
                             .withRequesterPays(requesterPaysEnabled);
 
             this.uploadId = s3.initiateMultipartUpload(initRequest).getUploadId();
+
+            log.debug("OutputStream for S3 key '%s' using direct upload: %s", keyName, uploadId);
         }
 
         @Override
