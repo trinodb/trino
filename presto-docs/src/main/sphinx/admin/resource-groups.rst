@@ -77,7 +77,11 @@ Selector Rules
 
 * ``user`` (optional): regex to match against user name.
 
+* ``originalUser`` (optional): regex to match against the original user.
+
 * ``userGroup`` (optional): regex to match against every user group the user belongs to.
+
+* ``originalUserGroup`` (optional): regex to match against every user group the original user belongs to.
 
 * ``source`` (optional): regex to match against source string.
 
@@ -125,9 +129,9 @@ In the example configuration below, there are several resource groups, some of w
 Templates allow administrators to construct resource group trees dynamically. For example, in
 the ``pipeline_${USER}`` group, ``${USER}`` is expanded to the name of the user that submitted
 the query. ``${SOURCE}`` is also supported, which is expanded to the source that submitted the
-query. You may also use custom named variables in the ``source`` and ``user`` regular expressions.
+query. You may also use custom named variables in the ``source``, ``user``, and ``originalUser`` regular expressions.
 
-There are four selectors, that define which queries run in which resource group:
+There are seven selectors, that define which queries run in which resource group:
 
 * The first selector matches queries from ``bob`` and places them in the admin group.
 
@@ -148,6 +152,10 @@ There are four selectors, that define which queries run in which resource group:
   client tags ``hipri`` and ``fast``. This query is routed to the ``global.pipeline.bi-powerfulbi.kayla``
   resource group.
 
+* The sixth selector matches queries where the original user is ``john`` and he is in the ``admin`` user
+  group. These queries are placed them in the admin group. ``john`` is the initial user that connects to
+  Presto, but he could be running the query as someone else.
+
 * The last selector is a catch-all, which places all queries that have not yet been matched into a per-user
   adhoc group.
 
@@ -156,6 +164,11 @@ Together, these selectors implement the following policy:
 * The user ``bob`` and any user belonging to user group ``admin``
   is an admin and can run up to 50 concurrent queries.
   Queries will be run based on user-provided priority.
+
+* In the case of impersonation where someone is running as someone else,
+  the original user ``john`` who is in the ``admin`` group will be an admin
+  and can run up to 50 concurrent queries. Queries will be run based on john's
+  provided query-priority.
 
 For the remaining users:
 

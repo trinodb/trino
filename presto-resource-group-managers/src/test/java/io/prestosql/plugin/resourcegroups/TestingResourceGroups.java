@@ -78,6 +78,8 @@ final class TestingResourceGroups
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
                         groupIdTemplate));
     }
 
@@ -102,7 +104,24 @@ final class TestingResourceGroups
             return new SelectorSpecBuilder(
                     new SelectorSpec(
                             Optional.of(matchLiterals(users)),
+                            spec.getOriginalUserRegex(),
                             spec.getUserGroupRegex(),
+                            spec.getOriginalUserGroupRegex(),
+                            spec.getSourceRegex(),
+                            spec.getQueryType(),
+                            spec.getClientTags(),
+                            spec.getResourceEstimate(),
+                            spec.getGroup()));
+        }
+
+        public SelectorSpecBuilder originalUsers(String... originalUsers)
+        {
+            return new SelectorSpecBuilder(
+                    new SelectorSpec(
+                            spec.getUserRegex(),
+                            Optional.of(matchLiterals(originalUsers)),
+                            spec.getUserGroupRegex(),
+                            spec.getOriginalUserGroupRegex(),
                             spec.getSourceRegex(),
                             spec.getQueryType(),
                             spec.getClientTags(),
@@ -115,7 +134,24 @@ final class TestingResourceGroups
             return new SelectorSpecBuilder(
                     new SelectorSpec(
                             spec.getUserRegex(),
+                            spec.getOriginalUserRegex(),
                             Optional.of(matchLiterals(groups)),
+                            spec.getOriginalUserGroupRegex(),
+                            spec.getSourceRegex(),
+                            spec.getQueryType(),
+                            spec.getClientTags(),
+                            spec.getResourceEstimate(),
+                            spec.getGroup()));
+        }
+
+        public SelectorSpecBuilder originalUserGroups(String... originalUserGroups)
+        {
+            return new SelectorSpecBuilder(
+                    new SelectorSpec(
+                            spec.getUserRegex(),
+                            spec.getOriginalUserRegex(),
+                            spec.getUserGroupRegex(),
+                            Optional.of(matchLiterals(originalUserGroups)),
                             spec.getSourceRegex(),
                             spec.getQueryType(),
                             spec.getClientTags(),

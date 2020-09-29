@@ -107,6 +107,11 @@
       "group": "global.adhoc.bi-${toolname}.${USER}"
     },
     {
+      "originalUser": "john",
+      "originalUserGroup": "admin",
+      "group": "admin"
+    },
+    {
       "group": "global.adhoc.other.${USER}"
     }
   ],

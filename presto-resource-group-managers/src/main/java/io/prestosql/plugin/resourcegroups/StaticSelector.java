@@ -41,7 +41,9 @@ public class StaticSelector
     private static final String SOURCE_VARIABLE = "SOURCE";
 
     private final Optional<Pattern> userRegex;
+    private final Optional<Pattern> originalUserRegex;
     private final Optional<Pattern> userGroupRegex;
+    private final Optional<Pattern> originalUserGroupRegex;
     private final Optional<Pattern> sourceRegex;
     private final Set<String> clientTags;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
@@ -51,7 +53,9 @@ public class StaticSelector
 
     public StaticSelector(
             Optional<Pattern> userRegex,
+            Optional<Pattern> originalUserRegex,
             Optional<Pattern> userGroupRegex,
+            Optional<Pattern> originalUserGroupRegex,
             Optional<Pattern> sourceRegex,
             Optional<List<String>> clientTags,
             Optional<SelectorResourceEstimate> selectorResourceEstimate,
@@ -59,7 +63,9 @@ public class StaticSelector
             ResourceGroupIdTemplate group)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
+        this.originalUserRegex = requireNonNull(originalUserRegex, "originalUserRegex is null");
         this.userGroupRegex = requireNonNull(userGroupRegex, "userGroupRegex is null");
+        this.originalUserGroupRegex = requireNonNull(originalUserGroupRegex, "originalUserGroupRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         requireNonNull(clientTags, "clientTags is null");
         this.clientTags = ImmutableSet.copyOf(clientTags.orElse(ImmutableList.of()));
@@ -69,6 +75,7 @@ public class StaticSelector
 
         HashSet<String> variableNames = new HashSet<>(ImmutableList.of(USER_VARIABLE, SOURCE_VARIABLE));
         userRegex.ifPresent(u -> addNamedGroups(u, variableNames));
+        originalUserRegex.ifPresent(o -> addNamedGroups(o, variableNames));
         sourceRegex.ifPresent(s -> addNamedGroups(s, variableNames));
         this.variableNames = ImmutableSet.copyOf(variableNames);
 
@@ -90,7 +97,20 @@ public class StaticSelector
             addVariableValues(userRegex.get(), criteria.getUser(), variables);
         }
 
+        if (originalUserRegex.isPresent()) {
+            Matcher originalUserMatcher = originalUserRegex.get().matcher(criteria.getOriginalUser());
+            if (!originalUserMatcher.matches()) {
+                return Optional.empty();
+            }
+
+            addVariableValues(originalUserRegex.get(), criteria.getOriginalUser(), variables);
+        }
+
         if (userGroupRegex.isPresent() && criteria.getUserGroups().stream().noneMatch(group -> userGroupRegex.get().matcher(group).matches())) {
+            return Optional.empty();
+        }
+
+        if (originalUserGroupRegex.isPresent() && criteria.getOriginalUserGroups().stream().noneMatch(group -> originalUserGroupRegex.get().matcher(group).matches())) {
             return Optional.empty();
         }
 
