@@ -13,11 +13,7 @@
  */
 package io.prestosql.plugin.hive.s3;
 
-import com.amazonaws.AbortedException;
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.Protocol;
+import com.amazonaws.*;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
@@ -384,7 +380,7 @@ public class PrestoS3FileSystem
                 qualifiedPath(path));
     }
 
-    private static long getObjectSize(Path path, ObjectMetadata metadata)
+    private long getObjectSize(Path path, ObjectMetadata metadata)
             throws IOException
     {
         Map<String, String> userMetadata = metadata.getUserMetadata();
@@ -1287,28 +1283,38 @@ public class PrestoS3FileSystem
             if (data.size() > 0) {
                 uploadChunk(true);
             }
-
-            CompleteMultipartUploadRequest compRequest = new CompleteMultipartUploadRequest(this.bucketName, this.keyName,
-                    this.uploadId, partETags);
-            this.s3.completeMultipartUpload(compRequest);
+            try {
+                CompleteMultipartUploadRequest compRequest = new CompleteMultipartUploadRequest(this.bucketName, this.keyName,
+                        this.uploadId, partETags);
+                this.s3.completeMultipartUpload(compRequest);
+                STATS.uploadSuccessful();
+            }
+            catch (AmazonClientException e) {
+                STATS.uploadFailed();
+                throw new IOException(e);
+            }
         }
 
-        private void uploadChunk(Boolean lastPart) throws AmazonS3Exception
-        {
-            UploadPartRequest uploadRequest = new UploadPartRequest()
-                    .withBucketName(this.bucketName)
-                    .withKey(this.keyName)
-                    .withUploadId(this.uploadId)
-                    .withPartSize(data.size())
-                    .withPartNumber(this.partNumber)
-                    .withLastPart(lastPart)
-                    .withInputStream(new ByteArrayInputStream(this.data.toByteArray()));
+        private void uploadChunk(Boolean lastPart) throws AmazonS3Exception, IOException {
+            try {
+                UploadPartRequest uploadRequest = new UploadPartRequest()
+                        .withBucketName(this.bucketName)
+                        .withKey(this.keyName)
+                        .withUploadId(this.uploadId)
+                        .withPartSize(data.size())
+                        .withPartNumber(this.partNumber)
+                        .withLastPart(lastPart)
+                        .withInputStream(new ByteArrayInputStream(this.data.toByteArray()));
 
-            // Upload the part and add the response's ETag to our list.
-            UploadPartResult uploadResult = s3.uploadPart(uploadRequest);
-            partETags.add(uploadResult.getPartETag());
-            this.partNumber++;
-            data.reset();
+                // Upload the part and add the response's ETag to our list.
+                UploadPartResult uploadResult = s3.uploadPart(uploadRequest);
+                partETags.add(uploadResult.getPartETag());
+                this.partNumber++;
+                data.reset();
+            }
+            catch (AmazonClientException e) {
+                throw new IOException(e);
+            }
         }
     }
 
