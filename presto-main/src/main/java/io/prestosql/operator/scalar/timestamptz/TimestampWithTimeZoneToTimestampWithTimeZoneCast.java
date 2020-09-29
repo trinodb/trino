@@ -81,9 +81,15 @@ public final class TimestampWithTimeZoneToTimestampWithTimeZoneCast
             @LiteralParameter("targetPrecision") long targetPrecision,
             @SqlType("timestamp(sourcePrecision) with time zone") LongTimestampWithTimeZone timestamp)
     {
+        long epochMillis = timestamp.getEpochMillis();
+        int picosOfMilli = (int) round(timestamp.getPicosOfMilli(), (int) (MAX_PRECISION - targetPrecision));
+        if (picosOfMilli == PICOSECONDS_PER_MILLISECOND) {
+            epochMillis++;
+            picosOfMilli = 0;
+        }
         return LongTimestampWithTimeZone.fromEpochMillisAndFraction(
-                timestamp.getEpochMillis(),
-                (int) round(timestamp.getPicosOfMilli(), (int) (MAX_PRECISION - targetPrecision)),
+                epochMillis,
+                picosOfMilli,
                 timestamp.getTimeZoneKey());
     }
 }

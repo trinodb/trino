@@ -1423,6 +1423,34 @@ public class TestTimestampWithTimeZone
         // short with microsecond representation to short with microsecond representation not at the bounday
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-10 12:34:56.555555 Asia/Kathmandu' AS TIMESTAMP(4) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-10 12:34:56.5556 Asia/Kathmandu'");
         assertThat(assertions.expression("CAST(TIMESTAMP '1500-05-10 12:34:56.555555 Asia/Kathmandu' AS TIMESTAMP(4) WITH TIME ZONE)")).matches("TIMESTAMP '1500-05-10 12:34:56.5556 Asia/Kathmandu'");
+
+        // overflow to next second
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.5 UTC' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.95 UTC' AS TIMESTAMP(1) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.0 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.995 UTC' AS TIMESTAMP(2) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.00 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.9995 UTC' AS TIMESTAMP(3) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.000 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.99995 UTC' AS TIMESTAMP(4) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.0000 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999995 UTC' AS TIMESTAMP(5) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.00000 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.9999995 UTC' AS TIMESTAMP(6) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.000000 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.99999995 UTC' AS TIMESTAMP(7) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.0000000 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999995 UTC' AS TIMESTAMP(8) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.00000000 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.9999999995 UTC' AS TIMESTAMP(9) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.000000000 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.99999999995 UTC' AS TIMESTAMP(10) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.0000000000 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999995 UTC' AS TIMESTAMP(11) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.00000000000 UTC'");
+
+        // overflow to next second -- maximal precision
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999 UTC' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999 UTC' AS TIMESTAMP(1) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.0 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999 UTC' AS TIMESTAMP(2) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.00 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999 UTC' AS TIMESTAMP(3) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.000 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999 UTC' AS TIMESTAMP(4) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.0000 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999 UTC' AS TIMESTAMP(5) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.00000 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999 UTC' AS TIMESTAMP(6) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.000000 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999 UTC' AS TIMESTAMP(7) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.0000000 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999 UTC' AS TIMESTAMP(8) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.00000000 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999 UTC' AS TIMESTAMP(9) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.000000000 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999 UTC' AS TIMESTAMP(10) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.0000000000 UTC'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999 UTC' AS TIMESTAMP(11) WITH TIME ZONE)")).matches("TIMESTAMP '1970-01-01 00:00:01.00000000000 UTC'");
     }
 
     @Test
