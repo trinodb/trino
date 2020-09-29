@@ -344,6 +344,12 @@ public class DockerContainer
         }
     }
 
+    public void reset()
+    {
+        // When retrying environment startup we need to stop created containers to reset it's containerId
+        stop();
+    }
+
     @Override
     public String toString()
     {
