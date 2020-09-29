@@ -945,6 +945,8 @@ public class TestPostgreSqlTypeMapping
                     .build();
             testCases.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_date"));
             testCases.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_date"));
+            testCases.execute(getQueryRunner(), session, prestoCreateAsSelect(getSession(), "test_date"));
+            testCases.execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_date"));
         }
     }
 
@@ -997,6 +999,8 @@ public class TestPostgreSqlTypeMapping
 
         if (insertWithPresto) {
             tests.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_time"));
+            tests.execute(getQueryRunner(), session, prestoCreateAsSelect(getSession(), "test_time"));
+            tests.execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_time"));
         }
         else {
             tests.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_time"));
@@ -1040,6 +1044,8 @@ public class TestPostgreSqlTypeMapping
 
         if (insertWithPresto) {
             tests.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_timestamp"));
+            tests.execute(getQueryRunner(), session, prestoCreateAsSelect(getSession(), "test_timestamp"));
+            tests.execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_timestamp"));
         }
         else {
             tests.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_timestamp"));
@@ -1579,6 +1585,11 @@ public class TestPostgreSqlTypeMapping
     private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+    }
+
+    private DataSetup prestoCreateAndInsert(Session session, String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup postgresCreateAndInsert(String tableNamePrefix)
