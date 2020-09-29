@@ -387,27 +387,6 @@ public class TestPostgreSqlIntegrationSmokeTest
         assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isCorrectlyPushedDown();
     }
 
-    @Test
-    public void testColumnComment()
-            throws Exception
-    {
-        try (AutoCloseable ignore = withTable("tpch.test_column_comment",
-                "(col1 bigint, col2 bigint, col3 bigint)")) {
-            assertUpdate("COMMENT ON COLUMN tpch.test_column_comment.col1 IS 'test comment'");
-            assertUpdate("COMMENT ON COLUMN tpch.test_column_comment.col2 IS ''"); // it will be NULL, PostgreSQL doesn't store empty comment
-
-            assertQuery(
-                    "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
-                    "VALUES ('col1', 'test comment'), ('col2', null), ('col3', null)");
-
-            assertUpdate("COMMENT ON COLUMN tpch.test_column_comment.col1 IS NULL");
-
-            assertQuery(
-                    "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
-                    "VALUES ('col1', null), ('col2', null), ('col3', null)");
-        }
-    }
-
     /**
      * This test helps to tune TupleDomain simplification threshold.
      */
