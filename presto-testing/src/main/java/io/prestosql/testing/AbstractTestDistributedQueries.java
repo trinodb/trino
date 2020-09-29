@@ -337,7 +337,7 @@ public abstract class AbstractTestDistributedQueries
     public void testCommentTable()
     {
         String tableName = "test_comment_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + "(id integer)");
+        assertUpdate("CREATE TABLE " + tableName + "(a integer)");
 
         assertUpdate("COMMENT ON TABLE " + tableName + " IS 'new comment'");
         MaterializedResult materializedRows = computeActual("SHOW CREATE TABLE " + tableName);
@@ -359,17 +359,17 @@ public abstract class AbstractTestDistributedQueries
     {
         skipTestUnless(supportsCommentOnColumn());
 
-        assertUpdate("CREATE TABLE test_comment_column(id integer)");
+        assertUpdate("CREATE TABLE test_comment_column(a integer)");
 
-        assertUpdate("COMMENT ON COLUMN test_comment_column.id IS 'new comment'");
+        assertUpdate("COMMENT ON COLUMN test_comment_column.a IS 'new comment'");
         MaterializedResult materializedRows = computeActual("SHOW CREATE TABLE test_comment_column");
         assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'new comment'"));
 
-        assertUpdate("COMMENT ON COLUMN test_comment_column.id IS ''");
+        assertUpdate("COMMENT ON COLUMN test_comment_column.a IS ''");
         materializedRows = computeActual("SHOW CREATE TABLE test_comment_column");
         assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT ''"));
 
-        assertUpdate("COMMENT ON COLUMN test_comment_column.id IS NULL");
+        assertUpdate("COMMENT ON COLUMN test_comment_column.a IS NULL");
         materializedRows = computeActual("SHOW CREATE TABLE test_comment_column");
         assertFalse(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT"));
 
