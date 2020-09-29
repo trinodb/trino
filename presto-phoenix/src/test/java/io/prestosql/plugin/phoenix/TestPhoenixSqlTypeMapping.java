@@ -233,7 +233,7 @@ public class TestPhoenixSqlTypeMapping
                 .addRoundTrip(primaryKey(), 1);
 
         for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
-            Session session = Session.builder(getQueryRunner().getDefaultSession())
+            Session session = Session.builder(getSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
                     .build();
             prestoTestCases.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_date"));
