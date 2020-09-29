@@ -428,7 +428,7 @@ public class TestMySqlTypeMapping
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
                     .build();
             testCases.execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_date"));
-            testCases.execute(getQueryRunner(), session, prestoCreateAsSelect("test_date"));
+            testCases.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_date"));
         }
     }
 
@@ -539,7 +539,12 @@ public class TestMySqlTypeMapping
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner()), tableNamePrefix);
+        return prestoCreateAsSelect(getSession(), tableNamePrefix);
+    }
+
+    private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)
+    {
+        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup mysqlCreateAndInsert(String tableNamePrefix)
