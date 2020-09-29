@@ -24,6 +24,7 @@ import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DataProviders;
 import io.prestosql.testing.QueryRunner;
@@ -1007,6 +1008,51 @@ public class TestPostgreSqlTypeMapping
         }
         else {
             tests.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_time"));
+        }
+    }
+
+    @Test
+    public void testTime24()
+    {
+        try (TestTable testTable = new TestTable(
+                new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl()),
+                "tpch.test_time_24",
+                "(a time(0), b time(3), c time(6))",
+                List.of(
+                        // "zero" row
+                        "TIME '00:00:00', TIME '00:00:00.000', TIME '00:00:00.000000'",
+                        // "max" row
+                        "TIME '23:59:59', TIME '23:59:59.999', TIME '23:59:59.999999'",
+                        // "24" row
+                        "TIME '24:00:00', TIME '24:00:00.000', TIME '24:00:00.000000'"))) {
+            // select
+            assertThat(query("SELECT a, b, c FROM " + testTable.getName()))
+                    .matches("VALUES " +
+                            "(TIME '00:00:00.000', TIME '00:00:00.000', TIME '00:00:00.000'), " +
+                            "(TIME '23:59:59.000', TIME '23:59:59.999', TIME '23:59:59.999'), " +
+                            "(TIME '23:59:59.999', TIME '23:59:59.999', TIME '23:59:59.999')");
+
+            // select with predicate -- should not be pushed down
+            assertThat(query("SELECT count(*) FROM " + testTable.getName() + " WHERE a = TIME '23:59:59.999'"))
+                    .matches("VALUES BIGINT '1'")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT count(*) FROM " + testTable.getName() + " WHERE b = TIME '23:59:59.999'"))
+                    .matches("VALUES BIGINT '2'")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT count(*) FROM " + testTable.getName() + " WHERE c = TIME '23:59:59.999'"))
+                    .matches("VALUES BIGINT '2'")
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            // aggregation should not be pushed down, as it would incorrectly treat values
+            assertThat(query("SELECT count(*) FROM " + testTable.getName() + " GROUP BY a"))
+                    .matches("VALUES BIGINT '1', BIGINT '1', BIGINT '1'");
+            // TODO https://github.com/prestosql/presto/issues/5339
+//            assertThat(query("SELECT count(*) FROM " + testTable.getName() + " GROUP BY b"))
+//                    .matches("VALUES BIGINT '1', BIGINT '2'")
+//                    .isNotFullyPushedDown(AggregationNode.class);
+//            assertThat(query("SELECT count(*) FROM " + testTable.getName() + " GROUP BY c"))
+//                    .matches("VALUES BIGINT '1', BIGINT '2'")
+//                    .isNotFullyPushedDown(AggregationNode.class);
         }
     }
 
