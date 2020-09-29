@@ -19,7 +19,6 @@ import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
-import org.testng.SkipException;
 
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 
@@ -71,13 +70,6 @@ public class TestPostgreSqlDistributedQueries
     protected boolean supportsCommentOnTable()
     {
         return false;
-    }
-
-    @Override
-    public void testCommentColumn()
-    {
-        // tested with io.prestosql.plugin.postgresql.TestPostgreSqlIntegrationSmokeTest#testColumnComment
-        throw new SkipException("");
     }
 
     @Override

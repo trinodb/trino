@@ -200,6 +200,8 @@ public class TestMemSqlIntegrationSmokeTest
     @Test
     public void testColumnComment()
     {
+        // TODO add support for setting comments on existing column and replace the test with io.prestosql.testing.AbstractTestDistributedQueries#testCommentColumn
+
         execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
 
         assertQuery(
