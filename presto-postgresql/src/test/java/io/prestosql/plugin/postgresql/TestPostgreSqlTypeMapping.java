@@ -43,6 +43,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -100,6 +101,7 @@ import static io.prestosql.testing.datatype.DataType.timeDataType;
 import static io.prestosql.testing.datatype.DataType.timestampDataType;
 import static io.prestosql.testing.datatype.DataType.varbinaryDataType;
 import static io.prestosql.testing.datatype.DataType.varcharDataType;
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UuidType.UUID;
 import static java.lang.String.format;
@@ -113,6 +115,7 @@ import static java.util.Collections.singletonList;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPostgreSqlTypeMapping
         extends AbstractTestQueryFramework
@@ -1007,6 +1010,9 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
+    /**
+     * @see #testTimestampCoercion
+     */
     @Test(dataProvider = "testTimestampDataProvider")
     public void testTimestamp(boolean insertWithPresto, ZoneId sessionZone)
     {
@@ -1050,6 +1056,60 @@ public class TestPostgreSqlTypeMapping
         else {
             tests.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_timestamp"));
         }
+    }
+
+    /**
+     * Additional test supplementing {@link #testTimestamp} with values that do not necessarily round-trip, including
+     * timestamp precision higher than expressible with {@code LocalDateTime}.
+     *
+     * @see #testTimestamp
+     */
+    @Test
+    public void testTimestampCoercion()
+            throws SQLException
+    {
+        // precision 0 ends up as precision 0
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'");
+
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.1'", "TIMESTAMP '1970-01-01 00:00:00.1'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.9'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 00:00:00.123'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123000'", "TIMESTAMP '1970-01-01 00:00:00.123000'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.999'", "TIMESTAMP '1970-01-01 00:00:00.999'");
+        // max supported precision
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
+
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.1'", "TIMESTAMP '2020-09-27 12:34:56.1'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.9'", "TIMESTAMP '2020-09-27 12:34:56.9'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.123'", "TIMESTAMP '2020-09-27 12:34:56.123'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.123000'", "TIMESTAMP '2020-09-27 12:34:56.123000'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.999'", "TIMESTAMP '2020-09-27 12:34:56.999'");
+        // max supported precision
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.123456'", "TIMESTAMP '2020-09-27 12:34:56.123456'");
+
+        // round down
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.1234561'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
+
+        // nanoc round up, end result rounds down
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456499'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456499999'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
+
+        // round up
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.1234565'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
+
+        // max precision
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "TIMESTAMP '1970-01-01 00:00:00.111222'");
+
+        // round up to next second
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.9999995'", "TIMESTAMP '1970-01-01 00:00:01.000000'");
+
+        // round up to next day
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 23:59:59.9999995'", "TIMESTAMP '1970-01-02 00:00:00.000000'");
+
+        // negative epoch
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
@@ -1419,6 +1479,25 @@ public class TestPostgreSqlTypeMapping
                     "SELECT * FROM " + table.getName(),
                     format("VALUES ('1', NULL), ('2', %s), ('5', NULL)", prestoValue));
         }
+    }
+
+    private void testCreateTableAsAndInsertConsistency(String inputLiteral, String expectedResult)
+            throws SQLException
+    {
+        String tableName = "test_ctas_and_insert_" + randomTableSuffix();
+
+        // CTAS
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT " + inputLiteral + " a", 1);
+        assertThat(query("SELECT a FROM " + tableName))
+                .matches("VALUES " + expectedResult);
+
+        // INSERT as a control query, where the coercion is done by the engine
+        postgreSqlServer.execute("DELETE FROM tpch." + tableName);
+        assertUpdate("INSERT INTO " + tableName + " (a) VALUES (" + inputLiteral + ")", 1);
+        assertThat(query("SELECT a FROM " + tableName))
+                .matches("VALUES " + expectedResult);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     public static DataType<ZonedDateTime> timestampWithTimeZoneDataType(int precision, boolean insertWithPresto)
