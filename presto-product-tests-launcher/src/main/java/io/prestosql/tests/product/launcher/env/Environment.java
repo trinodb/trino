@@ -124,8 +124,12 @@ public final class Environment
             attachNetwork(containers, network);
 
             String containerNames = Joiner.on(", ").join(getContainerNames());
-
             log.info("Starting containers %s for environment %s", containerNames, name);
+
+            for (DockerContainer container : containers) {
+                container.reset();
+            }
+
             Startables.deepStart(containers).get();
             this.listener.ifPresent(listener -> listener.environmentStarted(this));
             return this;
@@ -255,7 +259,7 @@ public final class Environment
         }
     }
 
-    private static boolean allContainersHealthy(Iterable<DockerContainer> containers)
+    public static boolean allContainersHealthy(Iterable<DockerContainer> containers)
     {
         return Streams.stream(containers)
                 .allMatch(Environment::containerIsHealthy);
@@ -369,20 +373,6 @@ public final class Environment
                 new Ulimit("nofile", 65535L, 65535L),
                 // Number of processes
                 new Ulimit("nproc", 8096L, 8096L));
-        }
-
-        public Builder containerDependsOnRest(String logicalName)
-        {
-            checkState(containers.containsKey(logicalName), "Container with name %s does not exist", logicalName);
-            DockerContainer container = containers.get(logicalName);
-
-            containers.entrySet()
-                    .stream()
-                    .filter(entry -> !entry.getKey().equals(logicalName))
-                    .map(Map.Entry::getValue)
-                    .forEach(container::dependsOn);
-
-            return this;
         }
 
         public Builder configureContainer(String logicalName, Consumer<DockerContainer> configurer)
