@@ -20,6 +20,9 @@ import io.prestosql.spi.session.SessionPropertyConfigurationManager;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public abstract class AbstractSessionPropertyManager
         implements SessionPropertyConfigurationManager
@@ -27,12 +30,11 @@ public abstract class AbstractSessionPropertyManager
     @Override
     public final Map<String, String> getSystemSessionProperties(SessionConfigurationContext context)
     {
-        // later properties override earlier properties
-        Map<String, String> combinedProperties = new HashMap<>();
-        for (SessionMatchSpec sessionMatchSpec : getSessionMatchSpecs()) {
-            combinedProperties.putAll(sessionMatchSpec.match(context));
-        }
-        return ImmutableMap.copyOf(combinedProperties);
+        return getSessionProperties(context)
+                .entrySet()
+                .stream()
+                .filter(property -> !isCatalogSessionProperty(property))
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
     @Override
@@ -43,4 +45,19 @@ public abstract class AbstractSessionPropertyManager
     }
 
     protected abstract List<SessionMatchSpec> getSessionMatchSpecs();
+
+    private Map<String, String> getSessionProperties(SessionConfigurationContext context)
+    {
+        // later properties override earlier properties
+        Map<String, String> combinedProperties = new HashMap<>();
+        for (SessionMatchSpec sessionMatchSpec : getSessionMatchSpecs()) {
+            combinedProperties.putAll(sessionMatchSpec.match(context));
+        }
+        return combinedProperties;
+    }
+
+    private static boolean isCatalogSessionProperty(Entry<String, String> property)
+    {
+        return property.getKey().contains(".");
+    }
 }
