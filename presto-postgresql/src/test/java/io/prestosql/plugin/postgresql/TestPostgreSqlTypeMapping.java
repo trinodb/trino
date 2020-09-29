@@ -1316,6 +1316,9 @@ public class TestPostgreSqlTypeMapping
         };
     }
 
+    /**
+     * @see #testTimestampWithTimeZoneCoercion
+     */
     @Test(dataProvider = "trueFalse", dataProviderClass = DataProviders.class)
     public void testTimestampWithTimeZone(boolean insertWithPresto)
     {
@@ -1370,13 +1373,57 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
+    /**
+     * Additional test supplementing {@link #testTimestampWithTimeZone} with values that do not necessarily round-trip, including
+     * timestamp precision higher than expressible with {@code ZonedDateTime}.
+     *
+     * @see #testTimestamp
+     */
     @Test
-    public void testCreateTableWithInvalidTimestampWithTimeZone()
+    public void testTimestampWithTimeZoneCoercion()
+            throws SQLException
     {
-        String tableName = "test_create_table_with_invalid_timestamp_with_time_zone";
-        assertQueryFails(
-                "CREATE TABLE " + tableName + " AS " + "SELECT * FROM (VALUES(CAST(null AS TIMESTAMP(7) WITH TIME ZONE))) t(invalid_column)",
-                "Unsupported column type: timestamp\\(7\\) with time zone");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00 UTC'", "TIMESTAMP '1970-01-01 00:00:00 UTC'");
+
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.1 UTC'", "TIMESTAMP '1970-01-01 00:00:00.1 UTC'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.9 UTC'", "TIMESTAMP '1970-01-01 00:00:00.9 UTC'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123 UTC'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123000 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123000 UTC'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.999 UTC'", "TIMESTAMP '1970-01-01 00:00:00.999 UTC'");
+        // max supported precision
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123456 UTC'");
+
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.1 UTC'", "TIMESTAMP '2020-09-27 12:34:56.1 UTC'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.9 UTC'", "TIMESTAMP '2020-09-27 12:34:56.9 UTC'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.123 UTC'", "TIMESTAMP '2020-09-27 12:34:56.123 UTC'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.123000 UTC'", "TIMESTAMP '2020-09-27 12:34:56.123000 UTC'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.999 UTC'", "TIMESTAMP '2020-09-27 12:34:56.999 UTC'");
+        // max supported precision
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.123456 UTC'", "TIMESTAMP '2020-09-27 12:34:56.123456 UTC'");
+
+        // round down
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.1234561 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123456 UTC'");
+
+        // nanoc round up, end result rounds down
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456499 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123456 UTC'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456499999 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123456 UTC'");
+
+        // round up
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.1234565 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123457 UTC'");
+
+        // max precision
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.111222333444 UTC'", "TIMESTAMP '1970-01-01 00:00:00.111222 UTC'");
+
+        // round up to next second
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.9999995 UTC'", "TIMESTAMP '1970-01-01 00:00:01.000000 UTC'");
+
+        // round up to next day
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 23:59:59.9999995 UTC'", "TIMESTAMP '1970-01-02 00:00:00.000000 UTC'");
+
+        // negative epoch
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.9999995 UTC'", "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.999999499999 UTC'", "TIMESTAMP '1969-12-31 23:59:59.999999 UTC'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.9999994 UTC'", "TIMESTAMP '1969-12-31 23:59:59.999999 UTC'");
     }
 
     @Test(dataProvider = "trueFalse", dataProviderClass = DataProviders.class)
