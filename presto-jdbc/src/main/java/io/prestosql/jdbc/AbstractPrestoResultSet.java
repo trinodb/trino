@@ -1751,7 +1751,7 @@ abstract class AbstractPrestoResultSet
             return ((Boolean) value) ? 1 : 0;
         }
         if (value instanceof String) {
-            return Double.valueOf((String) value);
+            return new BigDecimal((String) value);
         }
         throw new SQLException("Value is not a number: " + value.getClass().getCanonicalName());
     }
