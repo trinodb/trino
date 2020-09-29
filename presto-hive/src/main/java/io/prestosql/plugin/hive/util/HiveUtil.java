@@ -27,6 +27,7 @@ import io.prestosql.hadoop.TextLineLengthLimitExceededException;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePartitionKey;
+import io.prestosql.plugin.hive.HiveStorageFormat;
 import io.prestosql.plugin.hive.HiveTimestampPrecision;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.avro.PrestoAvroSerDe;
@@ -53,13 +54,11 @@ import org.apache.hadoop.hive.common.JavaUtils;
 import org.apache.hadoop.hive.ql.exec.Utilities;
 import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
-import org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
-import org.apache.hadoop.hive.serde2.avro.AvroSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
@@ -89,6 +88,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -130,6 +130,7 @@ import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.HiveBucketing.bucketedOnTimestamp;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -308,13 +309,15 @@ public final class HiveUtil
 
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
             if (symlinkTarget && inputFormatClass == SymlinkTextInputFormat.class) {
-                // Symlink targets are assumed to be TEXTFILE unless serde indicates otherwise.
-                inputFormatClass = TextInputFormat.class;
-                if (isDeserializerClass(schema, AvroSerDe.class)) {
-                    inputFormatClass = AvroContainerInputFormat.class;
+                String serDe = getDeserializerClassName(schema);
+                for (HiveStorageFormat format : EnumSet.allOf(HiveStorageFormat.class)) {
+                    if (serDe.equals(format.getSerDe())) {
+                        inputFormatClass = HiveUtil.getInputFormatClass(jobConf, format.getInputFormat());
+                        return ReflectionUtils.newInstance(inputFormatClass, jobConf);
+                    }
                 }
+                throw new PrestoException(INVALID_TABLE_PROPERTY, format("No corresponding InputFormat for SerDe %s when building splits for SymlinkInputFormat table", serDe));
             }
-
             return ReflectionUtils.newInstance(inputFormatClass, jobConf);
         }
         catch (ClassNotFoundException | RuntimeException e) {

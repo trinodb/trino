@@ -535,6 +535,7 @@ public class TestBackgroundHiveSplitLoader
                 threads,
                 false,
                 false,
+                true,
                 Optional.empty());
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
@@ -886,6 +887,7 @@ public class TestBackgroundHiveSplitLoader
                 2,
                 false,
                 false,
+                true,
                 validWriteIds);
     }
 
@@ -917,6 +919,7 @@ public class TestBackgroundHiveSplitLoader
                 2,
                 false,
                 false,
+                true,
                 Optional.empty());
     }
 
@@ -942,6 +945,7 @@ public class TestBackgroundHiveSplitLoader
                 2,
                 false,
                 false,
+                true,
                 Optional.empty());
     }
 

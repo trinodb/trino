@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
@@ -62,13 +63,14 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.annotation.Annotation;
-import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -83,6 +85,8 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
@@ -111,9 +115,11 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Integer.parseInt;
 import static java.lang.Math.max;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.hadoop.fs.Path.getPathWithoutSchemeAndAuthority;
 import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
 
 public class BackgroundHiveSplitLoader
@@ -146,6 +152,7 @@ public class BackgroundHiveSplitLoader
     private final int loaderConcurrency;
     private final boolean recursiveDirWalkerEnabled;
     private final boolean ignoreAbsentPartitions;
+    private final boolean optimizeSymlinkListing;
     private final Executor executor;
     private final ConnectorSession session;
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
@@ -190,6 +197,7 @@ public class BackgroundHiveSplitLoader
             int loaderConcurrency,
             boolean recursiveDirWalkerEnabled,
             boolean ignoreAbsentPartitions,
+            boolean optimizeSymlinkListing,
             Optional<ValidWriteIdList> validWriteIds)
     {
         this.table = table;
@@ -207,6 +215,7 @@ public class BackgroundHiveSplitLoader
         this.directoryLister = directoryLister;
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         this.ignoreAbsentPartitions = ignoreAbsentPartitions;
+        this.optimizeSymlinkListing = optimizeSymlinkListing;
         this.executor = executor;
         this.partitions = new ConcurrentLazyQueue<>(partitions);
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
@@ -359,55 +368,47 @@ public class BackgroundHiveSplitLoader
         FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path);
         boolean s3SelectPushdownEnabled = shouldEnablePushdownForTable(session, table, path.toString(), partition.getPartition());
 
+        // S3 Select pushdown works at the granularity of individual S3 objects,
+        // therefore we must not split files when it is enabled.
+        // Skip header / footer lines are not splittable except for a special case when skip.header.line.count=1
+        boolean splittable = !s3SelectPushdownEnabled && getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;
+
         if (inputFormat instanceof SymlinkTextInputFormat) {
             if (tableBucketInfo.isPresent()) {
                 throw new PrestoException(NOT_SUPPORTED, "Bucketed table in SymlinkTextInputFormat is not yet supported");
             }
-
-            // TODO: This should use an iterator like the HiveFileIterator
             ListenableFuture<?> lastResult = COMPLETED_FUTURE;
             List<Path> targetPaths = hdfsEnvironment.doAs(
                     hdfsContext.getIdentity().getUser(),
                     () -> getTargetPathsFromSymlink(fs, path));
-            for (Path targetPath : targetPaths) {
-                // The input should be in TextInputFormat.
-                TextInputFormat targetInputFormat = new TextInputFormat();
-                // the splits must be generated using the file system for the target path
-                // get the configuration for the target path -- it may be a different hdfs instance
-                FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, targetPath);
-                JobConf targetJob = toJobConf(targetFilesystem.getConf());
-                targetJob.setInputFormat(TextInputFormat.class);
-                Optional<Principal> principal = hdfsContext.getIdentity().getPrincipal();
-                if (principal.isPresent()) {
-                    targetJob.set(MRConfig.FRAMEWORK_NAME, MRConfig.CLASSIC_FRAMEWORK_NAME);
-                    targetJob.set(MRConfig.MASTER_USER_NAME, principal.get().getName());
-                }
-                targetInputFormat.configure(targetJob);
-                FileInputFormat.setInputPaths(targetJob, targetPath);
-                InputSplit[] targetSplits = hdfsEnvironment.doAs(
-                        hdfsContext.getIdentity().getUser(),
-                        () -> targetInputFormat.getSplits(targetJob, 0));
-
-                InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
-                        targetFilesystem,
-                        partitionName,
-                        inputFormat,
-                        schema,
-                        partitionKeys,
-                        effectivePredicate,
-                        partitionMatchSupplier,
-                        partition.getTableToPartitionMapping(),
-                        Optional.empty(),
-                        getMaxInitialSplitSize(session),
-                        isForceLocalScheduling(session),
-                        s3SelectPushdownEnabled,
-                        transaction);
-                lastResult = addSplitsToSource(targetSplits, splitFactory);
-                if (stopped) {
+            ImmutableSet<Path> parents = targetPaths.stream()
+                    .map(Path::getParent)
+                    .distinct()
+                    .collect(toImmutableSet());
+            InputFormat<?, ?> fileInputFormat = getInputFormat(configuration, schema, true);
+            InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
+                    fs,
+                    partitionName,
+                    fileInputFormat,
+                    schema,
+                    partitionKeys,
+                    effectivePredicate,
+                    partitionMatchSupplier,
+                    partition.getTableToPartitionMapping(),
+                    Optional.empty(), //no bucketing support
+                    getMaxInitialSplitSize(session),
+                    isForceLocalScheduling(session),
+                    s3SelectPushdownEnabled,
+                    transaction);
+            if (optimizeSymlinkListing && parents.size() == 1 && !recursiveDirWalkerEnabled) {
+                Optional<Iterator<InternalHiveSplit>> manifestFileIterator = buildManifestFileIterator(table, getOnlyElement(parents), targetPaths, directoryLister, namenodeStats, splitFactory, splittable);
+                if (manifestFileIterator.isPresent()) {
+                    fileIterators.addLast(manifestFileIterator.get());
                     return COMPLETED_FUTURE;
                 }
+                return createHiveSymlinkSplits(lastResult, targetPaths, fileInputFormat, splitFactory);
             }
-            return lastResult;
+            return createHiveSymlinkSplits(lastResult, targetPaths, fileInputFormat, splitFactory);
         }
 
         Optional<BucketConversion> bucketConversion = Optional.empty();
@@ -428,6 +429,7 @@ public class BackgroundHiveSplitLoader
                 }
             }
         }
+
         InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                 fs,
                 partitionName,
@@ -521,12 +523,6 @@ public class BackgroundHiveSplitLoader
         else {
             readPaths = ImmutableList.of(path);
         }
-
-        // S3 Select pushdown works at the granularity of individual S3 objects,
-        // therefore we must not split files when it is enabled.
-        // Skip header / footer lines are not splittable except for a special case when skip.header.line.count=1
-        boolean splittable = !s3SelectPushdownEnabled && getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;
-
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
         if (tableBucketInfo.isPresent()) {
             ListenableFuture<?> lastResult = immediateFuture(null); // TODO document in addToQueue() that it is sufficient to hold on to last returned future
@@ -566,6 +562,75 @@ public class BackgroundHiveSplitLoader
         }
 
         return COMPLETED_FUTURE;
+    }
+
+    private ListenableFuture<?> createHiveSymlinkSplits(ListenableFuture<?> lastResult, List<Path> targetPaths, InputFormat<?, ?> fileInputFormat, InternalHiveSplitFactory splitFactory)
+            throws IOException
+    {
+        for (Path targetPath : targetPaths) {
+            // The input should be in TextInputFormat.
+            // the splits must be generated using the file system for the target path
+            // get the configuration for the target path -- it may be a different hdfs instance
+            FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, targetPath);
+            JobConf targetJob = toJobConf(targetFilesystem.getConf());
+            targetJob.setInputFormat(TextInputFormat.class);
+            Optional<Principal> principal = hdfsContext.getIdentity().getPrincipal();
+            if (principal.isPresent()) {
+                targetJob.set(MRConfig.FRAMEWORK_NAME, MRConfig.CLASSIC_FRAMEWORK_NAME);
+                targetJob.set(MRConfig.MASTER_USER_NAME, principal.get().getName());
+            }
+            if (fileInputFormat instanceof TextInputFormat) {
+                ((TextInputFormat) fileInputFormat).configure(targetJob);
+            }
+            FileInputFormat.setInputPaths(targetJob, targetPath);
+            InputSplit[] targetSplits = hdfsEnvironment.doAs(
+                    hdfsContext.getIdentity().getUser(),
+                    () -> fileInputFormat.getSplits(targetJob, 0));
+
+            lastResult = addSplitsToSource(targetSplits, splitFactory);
+            if (stopped) {
+                return COMPLETED_FUTURE;
+            }
+        }
+        return lastResult;
+    }
+
+    private Optional<Iterator<InternalHiveSplit>> buildManifestFileIterator(
+            Table table,
+            Path parent,
+            List<Path> paths,
+            DirectoryLister directoryLister,
+            NamenodeStats namenodeStats,
+            InternalHiveSplitFactory splitFactory,
+            boolean splittable)
+    {
+        Map<Path, LocatedFileStatus> fileStatuses = new HashMap();
+        try {
+            FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, parent);
+            HiveFileIterator fileStatusIterator = new HiveFileIterator(table, parent, targetFilesystem, directoryLister, namenodeStats, IGNORED, true);
+            fileStatusIterator.forEachRemaining(status -> fileStatuses.putIfAbsent(getPathWithoutSchemeAndAuthority(status.getPath()), status));
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("No Filesystem available for %s", parent), e);
+        }
+
+        List<LocatedFileStatus> locatedFileStatuses = new ArrayList<>();
+        for (Path path : paths) {
+            LocatedFileStatus status = fileStatuses.get(getPathWithoutSchemeAndAuthority(path));
+            if (status == null) {
+                return Optional.empty();
+                // This check will catch all directories in the manifest since HiveFileIterator will not return any directories.
+                // Some files may not be listed by HiveFileIterator - if those are included in the manifest this check will fail as well.
+            }
+
+            locatedFileStatuses.add(status);
+        }
+
+        return Optional.of(locatedFileStatuses.stream()
+                .map(locatedFileStatus -> splitFactory.createInternalHiveSplit(locatedFileStatus, OptionalInt.empty(), splittable, Optional.empty()))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .iterator());
     }
 
     private Iterator<InternalHiveSplit> generateOriginalFilesSplits(
@@ -764,7 +829,7 @@ public class BackgroundHiveSplitLoader
             List<Path> targets = new ArrayList<>();
 
             for (FileStatus symlink : symlinks) {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(fileSystem.open(symlink.getPath()), StandardCharsets.UTF_8))) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(fileSystem.open(symlink.getPath()), UTF_8))) {
                     CharStreams.readLines(reader).stream()
                             .map(Path::new)
                             .forEach(targets::add);

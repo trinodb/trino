@@ -67,6 +67,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMA
 import static io.prestosql.plugin.hive.HivePartition.UNPARTITIONED_ID;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getDynamicFilteringProbeBlockingTimeout;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isIgnoreAbsentPartitions;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isOptimizeSymlinkListing;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isPartitionUseColumnNames;
 import static io.prestosql.plugin.hive.TableToPartitionMapping.mapColumnsByIndex;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getProtectMode;
@@ -235,6 +236,7 @@ public class HiveSplitManager
                 executor,
                 concurrency,
                 recursiveDfsWalkerEnabled,
+                isOptimizeSymlinkListing(session),
                 !hiveTable.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session),
                 metastore.getValidWriteIds(session, hiveTable)
                         .map(validTxnWriteIdList -> validTxnWriteIdList.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())));

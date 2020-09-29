@@ -93,6 +93,7 @@ public final class HiveSessionProperties
     private static final String TIMESTAMP_PRECISION = "timestamp_precision";
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "experimental_parquet_optimized_writer_enabled";
     private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
+    private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -384,6 +385,10 @@ public final class HiveSessionProperties
                         DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT,
                         "Duration to wait for completion of dynamic filters during split generation for probe side table",
                         hiveConfig.getDynamicFilteringProbeBlockingTimeout(),
+                        false),
+                booleanProperty(OPTIMIZE_SYMLINK_LISTING,
+                        "Optimize listing for SymlinkTextFormat tables with files in a single folder.",
+                        hiveConfig.isOptimizeSymlinkListing(),
                         false));
     }
 
@@ -654,5 +659,10 @@ public final class HiveSessionProperties
     public static Duration getDynamicFilteringProbeBlockingTimeout(ConnectorSession session)
     {
         return session.getProperty(DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT, Duration.class);
+    }
+
+    public static boolean isOptimizeSymlinkListing(ConnectorSession session)
+    {
+        return session.getProperty(OPTIMIZE_SYMLINK_LISTING, Boolean.class);
     }
 }
