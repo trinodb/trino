@@ -14,6 +14,7 @@
 package io.prestosql.jdbc;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import io.airlift.log.Logging;
 import io.airlift.units.Duration;
 import io.prestosql.client.ClientSelectedRole;
@@ -29,6 +30,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.net.URL;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Date;
@@ -43,6 +45,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Optional;
@@ -256,6 +259,21 @@ public class TestPrestoDriver
                 }
             }
         }
+    }
+
+    @Test
+    public void testDriverDiscovery()
+            throws Exception
+    {
+        Enumeration<URL> resources = getClass().getClassLoader().getResources("META-INF/services/java.sql.Driver");
+        while (resources.hasMoreElements()) {
+            URL resourceUrl = resources.nextElement();
+            if (Resources.toString(resourceUrl, UTF_8).equals("io.prestosql.jdbc.PrestoDriver\n")) {
+                // found
+                return;
+            }
+        }
+        fail("Could not find driver class");
     }
 
     @Test
