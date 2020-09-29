@@ -341,15 +341,15 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("COMMENT ON TABLE " + tableName + " IS 'new comment'");
         MaterializedResult materializedRows = computeActual("SHOW CREATE TABLE " + tableName);
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'new comment'"));
+        assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT 'new comment'");
 
         assertUpdate("COMMENT ON TABLE " + tableName + " IS ''");
         materializedRows = computeActual("SHOW CREATE TABLE " + tableName);
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT ''"));
+        assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT ''");
 
         assertUpdate("COMMENT ON TABLE " + tableName + " IS NULL");
         materializedRows = computeActual("SHOW CREATE TABLE " + tableName);
-        assertFalse(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT"));
+        assertThat((String) materializedRows.getOnlyValue()).doesNotContain("COMMENT");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -363,15 +363,15 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("COMMENT ON COLUMN test_comment_column.a IS 'new comment'");
         MaterializedResult materializedRows = computeActual("SHOW CREATE TABLE test_comment_column");
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'new comment'"));
+        assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT 'new comment'");
 
         assertUpdate("COMMENT ON COLUMN test_comment_column.a IS ''");
         materializedRows = computeActual("SHOW CREATE TABLE test_comment_column");
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT ''"));
+        assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT ''");
 
         assertUpdate("COMMENT ON COLUMN test_comment_column.a IS NULL");
         materializedRows = computeActual("SHOW CREATE TABLE test_comment_column");
-        assertFalse(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT"));
+        assertThat((String) materializedRows.getOnlyValue()).doesNotContain("COMMENT");
 
         assertUpdate("DROP TABLE test_comment_column");
     }
@@ -739,7 +739,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("CREATE OR REPLACE VIEW " + testViewWithComment + " COMMENT 'orders' AS " + query);
 
         MaterializedResult materializedRows = computeActual("SHOW CREATE VIEW " + testViewWithComment);
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'orders'"));
+        assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT 'orders'");
 
         assertQuery("SELECT * FROM " + testView, query);
         assertQuery("SELECT * FROM " + testViewWithComment, query);
