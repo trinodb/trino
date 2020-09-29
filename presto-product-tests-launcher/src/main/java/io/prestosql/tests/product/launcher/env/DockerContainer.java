@@ -13,11 +13,8 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
-import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.HealthCheck;
-import com.github.dockerjava.api.model.Statistics;
-import com.github.dockerjava.core.InvocationBuilder.AsyncResultCallback;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
@@ -28,7 +25,6 @@ import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeExecutor;
 import net.jodah.failsafe.Timeout;
 import net.jodah.failsafe.function.CheckedRunnable;
-import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.SelinuxContext;
@@ -75,6 +71,7 @@ public class DockerContainer
             .with(Executors.newCachedThreadPool(daemonThreadsNamed("docker-container-%d")));
 
     private String logicalName;
+    private final StatisticsFetcher statistics;
     private List<String> logPaths = new ArrayList<>();
     private Optional<EnvironmentListener> listener = Optional.empty();
 
@@ -82,6 +79,7 @@ public class DockerContainer
     {
         super(dockerImageName);
         this.logicalName = requireNonNull(logicalName, "logicalName is null");
+        this.statistics = new StatisticsFetcher(this, executor);
 
         // workaround for https://github.com/testcontainers/testcontainers-java/pull/2861
         setCopyToFileContainerPathMap(new LinkedHashMap<>());
@@ -281,6 +279,11 @@ public class DockerContainer
         }
     }
 
+    public StatisticsFetcher.Stats getStats()
+    {
+        return statistics.get();
+    }
+
     private void copyFileFromContainer(String filename, Path targetPath)
     {
         ensurePathExists(targetPath.getParent());
@@ -309,27 +312,6 @@ public class DockerContainer
         }
 
         return ImmutableList.of();
-    }
-
-    public Optional<Statistics> getStats()
-    {
-        if (!isRunning()) {
-            log.warn("Could not get statistics for stopped container %s", logicalName);
-            return Optional.empty();
-        }
-
-        try (DockerClient client = DockerClientFactory.lazyClient(); AsyncResultCallback<Statistics> callback = new AsyncResultCallback<>()) {
-            client.statsCmd(getContainerId()).exec(callback);
-            return Optional.ofNullable(executor.get(callback::awaitResult))
-                    .map(Statistics.class::cast);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        catch (Exception e) {
-            log.error("Could not fetch container %s statistics: %s", logicalName, getStackTraceAsString(e));
-            return Optional.empty();
-        }
     }
 
     @Override
