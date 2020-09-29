@@ -32,6 +32,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.Map;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -150,7 +151,9 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIME '09:39:05.000'", Types.TIME, (rs, column) -> {
                 assertEquals(rs.getObject(column), Time.valueOf(LocalTime.of(9, 39, 5)));
                 assertEquals(rs.getObject(column, Time.class), Time.valueOf(LocalTime.of(9, 39, 5)));
-                assertThrows(() -> rs.getDate(column));
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Expected column to be a date type but is time(3)");
                 assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(9, 39, 5)));
                 assertThrows(() -> rs.getTimestamp(column));
             });
@@ -163,7 +166,9 @@ public abstract class BaseTestJdbcResultSet
 
             checkRepresentation(connectedStatement.getStatement(), "TIME '09:39:07 +01:00'", Types.TIME /* TODO TIME_WITH_TIMEZONE */, (rs, column) -> {
                 assertEquals(rs.getObject(column), Time.valueOf(LocalTime.of(1, 39, 7))); // TODO this should represent TIME '09:39:07 +01:00'
-                assertThrows(() -> rs.getDate(column));
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Expected column to be a date type but is time with time zone(0)");
                 assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(1, 39, 7))); // TODO this should fail, or represent TIME '09:39:07'
                 assertThrows(() -> rs.getTimestamp(column));
             });
@@ -175,7 +180,9 @@ public abstract class BaseTestJdbcResultSet
                                 - DAYS.toMillis(1) /* because we use currently 'shifted' representation, not possible to create just using LocalTime */
                                 + HOURS.toMillis(1) /* because there was offset shift on 1970-01-01 in America/Bahia_Banderas */);
                 assertEquals(rs.getObject(column), someBogusValue); // TODO this should represent TIME '01:39:07 +01:00'
-                assertThrows(() -> rs.getDate(column));
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Expected column to be a date type but is time with time zone(0)");
                 assertEquals(rs.getTime(column), someBogusValue); // TODO this should fail, or represent TIME '01:39:07'
                 assertThrows(() -> rs.getTimestamp(column));
             });
@@ -187,7 +194,9 @@ public abstract class BaseTestJdbcResultSet
                                 - DAYS.toMillis(1) /* because we use currently 'shifted' representation, not possible to create just using LocalTime */
                                 + HOURS.toMillis(1) /* because there was offset shift on 1970-01-01 in America/Bahia_Banderas */);
                 assertEquals(rs.getObject(column), someBogusValue); // TODO this should represent TIME '00:39:07 +01:00'
-                assertThrows(() -> rs.getDate(column));
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Expected column to be a date type but is time with time zone(0)");
                 assertEquals(rs.getTime(column), someBogusValue); // TODO this should fail, as there no java.sql.Time representation for TIME '00:39:07' in America/Bahia_Banderas
                 assertThrows(() -> rs.getTimestamp(column));
             });
@@ -202,7 +211,9 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.123'", Types.TIMESTAMP, (rs, column) -> {
                 assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
                 assertEquals(rs.getObject(column, Timestamp.class), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
-                assertThrows(() -> rs.getDate(column));
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Expected column to be a date type but is timestamp(3)");
                 assertThrows(() -> rs.getTime(column));
                 assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
             });
@@ -210,7 +221,9 @@ public abstract class BaseTestJdbcResultSet
             if (serverSupportsVariablePrecisionTimestamp()) {
                 checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.111111111111'", Types.TIMESTAMP, (rs, column) -> {
                     assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 111_111_111)));
-                    assertThrows(() -> rs.getDate(column));
+                    assertThatThrownBy(() -> rs.getDate(column))
+                            .isInstanceOf(IllegalArgumentException.class)
+                            .hasMessage("Expected column to be a date type but is timestamp(12)");
                     assertThrows(() -> rs.getTime(column));
                     assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 111_111_111)));
                 });
@@ -219,7 +232,9 @@ public abstract class BaseTestJdbcResultSet
             if (serverSupportsVariablePrecisionTimestamp()) {
                 checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.555555555555'", Types.TIMESTAMP, (rs, column) -> {
                     assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 555_555_556)));
-                    assertThrows(() -> rs.getDate(column));
+                    assertThatThrownBy(() -> rs.getDate(column))
+                            .isInstanceOf(IllegalArgumentException.class)
+                            .hasMessage("Expected column to be a date type but is timestamp(12)");
                     assertThrows(() -> rs.getTime(column));
                     assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 555_555_556)));
                 });
@@ -228,7 +243,9 @@ public abstract class BaseTestJdbcResultSet
             // distant past, but apparently not an uncommon value in practice
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '0001-01-01 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
                 assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1, 1, 1, 0, 0, 0)));
-                assertThrows(() -> rs.getDate(column));
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Expected column to be a date type but is timestamp(0)");
                 assertThrows(() -> rs.getTime(column));
                 assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1, 1, 1, 0, 0, 0)));
             });
@@ -236,7 +253,9 @@ public abstract class BaseTestJdbcResultSet
             // the Julian-Gregorian calendar "default cut-over"
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1582-10-04 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
                 assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 4, 0, 0, 0)));
-                assertThrows(() -> rs.getDate(column));
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Expected column to be a date type but is timestamp(0)");
                 assertThrows(() -> rs.getTime(column));
                 assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 4, 0, 0, 0)));
             });
@@ -244,7 +263,9 @@ public abstract class BaseTestJdbcResultSet
             // after the Julian-Gregorian calendar "default cut-over", but before the Gregorian calendar start
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1582-10-10 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
                 assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 10, 0, 0, 0)));
-                assertThrows(() -> rs.getDate(column));
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Expected column to be a date type but is timestamp(0)");
                 assertThrows(() -> rs.getTime(column));
                 assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 10, 0, 0, 0)));
             });
@@ -252,14 +273,18 @@ public abstract class BaseTestJdbcResultSet
             // the Gregorian calendar start
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1582-10-15 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
                 assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 15, 0, 0, 0)));
-                assertThrows(() -> rs.getDate(column));
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Expected column to be a date type but is timestamp(0)");
                 assertThrows(() -> rs.getTime(column));
                 assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 15, 0, 0, 0)));
             });
 
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1583-01-01 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
                 assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1583, 1, 1, 0, 0, 0)));
-                assertThrows(() -> rs.getDate(column));
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Expected column to be a date type but is timestamp(0)");
                 assertThrows(() -> rs.getTime(column));
                 assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1583, 1, 1, 0, 0, 0)));
             });
@@ -273,28 +298,36 @@ public abstract class BaseTestJdbcResultSet
             if (serverSupportsVariablePrecisionTimestamp()) {
                 checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '123456-01-23 01:23:45.123456789'", Types.TIMESTAMP, (rs, column) -> {
                     assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(123456, 1, 23, 1, 23, 45, 123_456_789)));
-                    assertThrows(() -> rs.getDate(column));
+                    assertThatThrownBy(() -> rs.getDate(column))
+                            .isInstanceOf(IllegalArgumentException.class)
+                            .hasMessage("Expected column to be a date type but is timestamp(9)");
                     assertThrows(() -> rs.getTime(column));
                     assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(123456, 1, 23, 1, 23, 45, 123_456_789)));
                 });
             }
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
                 assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 6, 14, 15, 227_000_000))); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
-                assertThrows(() -> rs.getDate(column));
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Expected column to be a date type but is timestamp with time zone(3)");
                 assertThrows(() -> rs.getTime(column));
                 assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 6, 14, 15, 227_000_000))); // TODO this should fail, or represent TIMESTAMP '2018-02-13 13:14:15.227'
             });
 
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1970-01-01 09:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
                 assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 1, 14, 15, 227_000_000))); // TODO this should represent TIMESTAMP '1970-01-01 09:14:15.227 Europe/Warsaw'
-                assertThrows(() -> rs.getDate(column));
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Expected column to be a date type but is timestamp with time zone(3)");
                 assertThrows(() -> rs.getTime(column));
                 assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 1, 14, 15, 227_000_000))); // TODO this should fail, or represent TIMESTAMP '1970-01-01 09:14:15.227'
             });
 
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1970-01-01 00:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
                 assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1969, 12, 31, 15, 14, 15, 227_000_000))); // TODO this should represent TIMESTAMP '1970-01-01 00:14:15.227 Europe/Warsaw'
-                assertThrows(() -> rs.getDate(column));
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Expected column to be a date type but is timestamp with time zone(3)");
                 assertThrows(() -> rs.getTime(column));
                 // TODO this should fail, as there no java.sql.Timestamp representation for TIMESTAMP '1970-01-01 00:14:15.227ó' in America/Bahia_Banderas
                 assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1969, 12, 31, 15, 14, 15, 227_000_000)));
@@ -308,7 +341,9 @@ public abstract class BaseTestJdbcResultSet
             if (serverSupportsVariablePrecisionTimestampWithTimeZone()) {
                 checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '12345-01-23 01:23:45.123456789 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
                     assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(12345, 1, 22, 18, 23, 45, 123_456_789))); // TODO this should contain the zone
-                    assertThrows(() -> rs.getDate(column));
+                    assertThatThrownBy(() -> rs.getDate(column))
+                            .isInstanceOf(IllegalArgumentException.class)
+                            .hasMessage("Expected column to be a date type but is timestamp with time zone(9)");
                     assertThrows(() -> rs.getTime(column));
                     assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(12345, 1, 22, 18, 23, 45, 123_456_789)));
                 });

@@ -279,7 +279,7 @@ abstract class AbstractPrestoResultSet
             return new Date(calendar.getTimeInMillis());
         }
         catch (IllegalArgumentException e) {
-            throw new SQLException("Invalid date from server: " + value, e);
+            throw new IllegalArgumentException("Expected column to be a date type but is " + columnInfo(columnIndex).getColumnTypeName());
         }
     }
 
