@@ -31,6 +31,7 @@ import io.airlift.units.Duration;
 import io.prestosql.block.BlockJsonSerde;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.NodeTaskMap;
@@ -307,7 +308,7 @@ public class TestHttpRemoteTask
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)
     {
-        return createHttpRemoteTaskFactory(testingTaskResource, new DynamicFilterService());
+        return createHttpRemoteTaskFactory(testingTaskResource, new DynamicFilterService(new DynamicFilterConfig()));
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, DynamicFilterService dynamicFilterService)
