@@ -40,9 +40,9 @@ public class DynamicFilterConfig
     private int smallBroadcastMaxDistinctValuesPerDriver = 100;
     private DataSize smallBroadcastMaxSizePerDriver = DataSize.of(10, KILOBYTE);
     private int smallBroadcastRangeRowLimitPerDriver;
-    private int smallPartitionedMaxDistinctValuesPerDriver = 100;
+    private int smallPartitionedMaxDistinctValuesPerDriver = 10;
     private DataSize smallPartitionedMaxSizePerDriver = DataSize.of(10, KILOBYTE);
-    private int smallPartitionedRangeRowLimitPerDriver;
+    private int smallPartitionedRangeRowLimitPerDriver = 100;
 
     private int largeBroadcastMaxDistinctValuesPerDriver = 5_000;
     private DataSize largeBroadcastMaxSizePerDriver = DataSize.of(500, KILOBYTE);

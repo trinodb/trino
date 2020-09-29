@@ -166,7 +166,7 @@ public class TestHiveDynamicPartitionPruning
                 range(INTEGER, 1L, true, 100L, true)), false)
                 .toString(getSession().toConnectorSession()));
         assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
+        assertEquals(domainStats.getRangeCount(), 100);
     }
 
     @Test(timeOut = 30_000)
@@ -298,7 +298,7 @@ public class TestHiveDynamicPartitionPruning
                 range(INTEGER, 1L, true, 100L, true)), false)
                 .toString(getSession().toConnectorSession()));
         assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
+        assertEquals(domainStats.getRangeCount(), 100);
     }
 
     @Test(timeOut = 30_000)

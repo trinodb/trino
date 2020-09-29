@@ -61,6 +61,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.prestosql.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.prestosql.spi.predicate.Domain.singleValue;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
@@ -99,6 +100,7 @@ public class TestCoordinatorDynamicFiltering
         Session session = testSessionBuilder()
                 .setCatalog("test")
                 .setSchema("default")
+                .setSystemProperty(TASK_CONCURRENCY, "2")
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .build();
