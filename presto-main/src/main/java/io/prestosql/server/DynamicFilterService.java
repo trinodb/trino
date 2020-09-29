@@ -21,7 +21,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.inject.Inject;
 import io.prestosql.Session;
+import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.execution.SqlQueryExecution;
 import io.prestosql.execution.StageId;
 import io.prestosql.execution.TaskId;
@@ -78,7 +80,7 @@ import static io.prestosql.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.prestosql.util.MorePredicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newSingleThreadExecutor;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 
 @ThreadSafe
 public class DynamicFilterService
@@ -86,9 +88,10 @@ public class DynamicFilterService
     private final ExecutorService executor;
     private final Map<QueryId, DynamicFilterContext> dynamicFilterContexts = new ConcurrentHashMap<>();
 
-    public DynamicFilterService()
+    @Inject
+    public DynamicFilterService(DynamicFilterConfig dynamicFilterConfig)
     {
-        this(newSingleThreadExecutor(daemonThreadsNamed("DynamicFilterService")));
+        this(newFixedThreadPool(dynamicFilterConfig.getServiceThreadCount(), daemonThreadsNamed("DynamicFilterService")));
     }
 
     @VisibleForTesting

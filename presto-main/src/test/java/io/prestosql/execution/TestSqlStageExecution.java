@@ -111,7 +111,7 @@ public class TestSqlStageExecution
                 nodeTaskMap,
                 executor,
                 new NoOpFailureDetector(),
-                new DynamicFilterService(),
+                new DynamicFilterService(new DynamicFilterConfig()),
                 new SplitSchedulerStats());
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY));
 
@@ -174,7 +174,7 @@ public class TestSqlStageExecution
                 nodeTaskMap,
                 executor,
                 new NoOpFailureDetector(),
-                new DynamicFilterService(),
+                new DynamicFilterService(new DynamicFilterConfig()),
                 new SplitSchedulerStats());
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY));
 
