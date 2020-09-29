@@ -613,7 +613,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testArrayDisabled()
     {
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getSession())
                 .setCatalogSessionProperty("postgresql", PostgreSqlSessionProperties.ARRAY_MAPPING, DISABLED.name())
                 .build();
 
@@ -790,7 +790,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testArrayAsJson()
     {
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getSession())
                 .setSystemProperty("postgresql.array_mapping", AS_JSON.name())
                 .build();
 
@@ -940,7 +940,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(dateDataType(), dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
 
         for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
-            Session session = Session.builder(getQueryRunner().getDefaultSession())
+            Session session = Session.builder(getSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
                     .build();
             testCases.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_date"));
@@ -991,7 +991,7 @@ public class TestPostgreSqlTypeMapping
         tests.addRoundTrip(timeDataType(), epoch.toLocalTime());
         tests.addRoundTrip(timeDataType(), timeGapInJvmZone);
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
@@ -1034,7 +1034,7 @@ public class TestPostgreSqlTypeMapping
         tests.addRoundTrip(timestampDataType(6), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_000_000));
         tests.addRoundTrip(timestampDataType(6), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_000));
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
@@ -1549,14 +1549,14 @@ public class TestPostgreSqlTypeMapping
 
     private Session sessionWithArrayAsArray()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setSystemProperty("postgresql.array_mapping", AS_ARRAY.name())
                 .build();
     }
 
     private Session sessionWithDecimalMappingAllowOverflow(RoundingMode roundingMode, int scale)
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setCatalogSessionProperty("postgresql", DECIMAL_MAPPING, ALLOW_OVERFLOW.name())
                 .setCatalogSessionProperty("postgresql", DECIMAL_ROUNDING_MODE, roundingMode.name())
                 .setCatalogSessionProperty("postgresql", DECIMAL_DEFAULT_SCALE, Integer.valueOf(scale).toString())
@@ -1565,7 +1565,7 @@ public class TestPostgreSqlTypeMapping
 
     private Session sessionWithDecimalMappingStrict(UnsupportedTypeHandling unsupportedTypeHandling)
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setCatalogSessionProperty("postgresql", DECIMAL_MAPPING, STRICT.name())
                 .setCatalogSessionProperty("postgresql", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
                 .build();
