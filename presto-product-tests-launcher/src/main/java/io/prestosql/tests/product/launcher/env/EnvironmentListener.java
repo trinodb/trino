@@ -13,8 +13,6 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import io.airlift.log.Logger;
 import net.jodah.failsafe.Failsafe;
@@ -24,6 +22,8 @@ import net.jodah.failsafe.Timeout;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
@@ -31,11 +31,11 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public interface EnvironmentListener
 {
     Logger log = Logger.get(EnvironmentListener.class);
-    ObjectMapper mapper = new ObjectMapper();
 
     default void environmentStarting(Environment environment)
     {
@@ -207,19 +207,40 @@ public interface EnvironmentListener
 
     static EnvironmentListener statsPrintingListener()
     {
+        ScheduledExecutorService executorService = Executors.newScheduledThreadPool(2, daemonThreadsNamed("container-stats-%d"));
+
         return new EnvironmentListener()
         {
             @Override
+            public void containerStarting(DockerContainer container, InspectContainerResponse response)
+            {
+                // Print stats every 30 seconds
+                executorService.scheduleWithFixedDelay(() ->
+                {
+                    StatisticsFetcher.Stats stats = container.getStats();
+                    if (stats.areCalculated()) {
+                        log.info("%s - %s", container.getLogicalName(), container.getStats());
+                    }
+                }, 5 * 1000L, 30 * 1000L, MILLISECONDS);
+            }
+
+            @Override
+            public void containerStarted(DockerContainer container, InspectContainerResponse containerInfo)
+            {
+                // Force fetching of stats so CPU usage can be calculated from delta
+                container.getStats();
+            }
+
+            @Override
+            public void environmentStopped(Environment environment)
+            {
+                executorService.shutdown();
+            }
+
+            @Override
             public void containerStopping(DockerContainer container, InspectContainerResponse response)
             {
-                container.getStats().ifPresent(statistics -> {
-                    try {
-                        log.info("Container %s stats: %s", container, mapper.writeValueAsString(statistics));
-                    }
-                    catch (JsonProcessingException e) {
-                        log.warn("Could not display container %s stats: %s", container, e);
-                    }
-                });
+                log.info("Container %s final statistics - %s", container, container.getStats());
             }
         };
     }
