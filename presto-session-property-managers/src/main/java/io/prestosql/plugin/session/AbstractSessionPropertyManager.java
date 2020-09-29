@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
@@ -40,8 +41,26 @@ public abstract class AbstractSessionPropertyManager
     @Override
     public final Map<String, Map<String, String>> getCatalogSessionProperties(SessionConfigurationContext context)
     {
-        // NOT IMPLEMENTED YET
-        return ImmutableMap.of();
+        Map<String, ImmutableMap.Builder<String, String>> catalogsSessionProperties = new HashMap<>();
+        getSessionProperties(context)
+                .entrySet()
+                .stream()
+                .filter(property -> isCatalogSessionProperty(property))
+                .forEach(catalogProperty -> {
+                    String[] property = catalogProperty.getKey().split("\\.", 2);
+                    String propertyCatalog = property[0];
+                    String propertyName = property[1];
+                    catalogsSessionProperties.compute(propertyCatalog, (catalog, properties) -> {
+                        ImmutableMap.Builder<String, String> catalogPropertiesBuilder =
+                                Optional.ofNullable(properties).orElseGet(ImmutableMap::builder);
+                        catalogPropertiesBuilder.put(propertyName, catalogProperty.getValue());
+                        return catalogPropertiesBuilder;
+                    });
+                });
+        return catalogsSessionProperties
+                .entrySet()
+                .stream()
+                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().build()));
     }
 
     protected abstract List<SessionMatchSpec> getSessionMatchSpecs();
