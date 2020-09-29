@@ -944,7 +944,7 @@ public class TestPostgreSqlTypeMapping
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
                     .build();
             testCases.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_date"));
-            testCases.execute(getQueryRunner(), session, prestoCreateAsSelect("test_date"));
+            testCases.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_date"));
         }
     }
 
@@ -1039,7 +1039,7 @@ public class TestPostgreSqlTypeMapping
                 .build();
 
         if (insertWithPresto) {
-            tests.execute(getQueryRunner(), session, prestoCreateAsSelect("test_timestamp"));
+            tests.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_timestamp"));
         }
         else {
             tests.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_timestamp"));
