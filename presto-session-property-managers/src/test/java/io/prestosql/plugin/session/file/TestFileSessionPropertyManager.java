@@ -32,14 +32,15 @@ public class TestFileSessionPropertyManager
         extends AbstractTestSessionPropertyManager
 {
     @Override
-    protected void assertProperties(Map<String, String> properties, SessionMatchSpec... spec)
+    protected void assertProperties(Map<String, String> systemProperties, Map<String, Map<String, String>> catalogProperties, SessionMatchSpec... specs)
             throws IOException
     {
         try (TempFile tempFile = new TempFile()) {
             Path configurationFile = tempFile.path();
-            Files.write(configurationFile, CODEC.toJsonBytes(Arrays.asList(spec)));
+            Files.write(configurationFile, CODEC.toJsonBytes(Arrays.asList(specs)));
             SessionPropertyConfigurationManager manager = new FileSessionPropertyManager(new FileSessionPropertyManagerConfig().setConfigFile(configurationFile.toFile()));
-            assertEquals(manager.getSystemSessionProperties(CONTEXT), properties);
+            assertEquals(manager.getSystemSessionProperties(CONTEXT), systemProperties);
+            assertEquals(manager.getCatalogSessionProperties(CONTEXT), catalogProperties);
         }
     }
 }
