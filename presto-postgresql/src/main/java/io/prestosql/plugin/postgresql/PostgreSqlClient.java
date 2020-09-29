@@ -16,6 +16,7 @@ package io.prestosql.plugin.postgresql;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.math.LongMath;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
@@ -64,6 +65,7 @@ import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.TinyintType;
@@ -87,7 +89,9 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -112,8 +116,6 @@ import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.getDecima
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeColumnMappingWithTruncation;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
@@ -134,14 +136,17 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.StandardTypes.JSON;
-import static io.prestosql.spi.type.TimeType.TIME;
+import static io.prestosql.spi.type.TimeType.createTimeType;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.prestosql.spi.type.Timestamps.round;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -359,9 +364,8 @@ public class PostgreSqlClient
             return Optional.of(typedVarcharColumnMapping(jdbcTypeName));
         }
         if (typeHandle.getJdbcType() == Types.TIME) {
-            // When inserting a time such as 12:34:56.999, Postgres returns 12:34:56.999999999. If we use rounding semantics, the time turns into 00:00:00.000 when
-            // reading it back into a time(3). Hence, truncate instead
-            return Optional.of(timeColumnMappingWithTruncation());
+            int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+            return Optional.of(timeColumnMapping(decimalDigits));
         }
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
             int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
@@ -443,8 +447,12 @@ public class PostgreSqlClient
         if (VARBINARY.equals(type)) {
             return WriteMapping.sliceMapping("bytea", varbinaryWriteFunction());
         }
-        if (TIME.equals(type)) {
-            return WriteMapping.longMapping("time", timeWriteFunction());
+        if (type instanceof TimeType) {
+            TimeType timeType = (TimeType) type;
+            if (timeType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
+                return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
+            }
+            return WriteMapping.longMapping(format("time(%s)", POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION), timeWriteFunction(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION));
         }
         if (type instanceof TimestampType) {
             TimestampType timestampType = (TimestampType) type;
@@ -504,6 +512,45 @@ public class PostgreSqlClient
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
         return true;
+    }
+
+    private static ColumnMapping timeColumnMapping(int precision)
+    {
+        verify(precision <= 6, "Unsupported precision: %s", precision); // PostgreSQL limit but also assumption within this method
+        return ColumnMapping.longMapping(
+                createTimeType(precision),
+                (resultSet, columnIndex) -> {
+                    LocalTime time = resultSet.getObject(columnIndex, LocalTime.class);
+                    long nanosOfDay = time.toNanoOfDay();
+                    if (nanosOfDay == NANOSECONDS_PER_DAY - 1) {
+                        // PostgreSQL's 24:00:00 is returned as 23:59:59.999999999, regardless of column precision
+                        nanosOfDay = NANOSECONDS_PER_DAY - LongMath.pow(10, 9 - precision);
+                    }
+
+                    long picosOfDay = nanosOfDay * PICOSECONDS_PER_NANOSECOND;
+                    return round(picosOfDay, 12 - precision);
+                },
+                timeWriteFunction(precision),
+                // Pushdown disabled because PostgreSQL distinguishes TIME '24:00:00' and TIME '00:00:00' whereas Presto does not.
+                DISABLE_PUSHDOWN);
+    }
+
+    public static LongWriteFunction timeWriteFunction(int precision)
+    {
+        checkArgument(precision <= 6, "Unsupported precision: %s", precision); // PostgreSQL limit but also assumption within this method
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
+        return (statement, index, picosOfDay) -> {
+            picosOfDay = round(picosOfDay, 12 - precision);
+            if (picosOfDay == PICOSECONDS_PER_DAY) {
+                picosOfDay = 0;
+            }
+            LocalTime localTime = LocalTime.ofNanoOfDay(picosOfDay / PICOSECONDS_PER_NANOSECOND);
+            // statement.setObject(.., localTime) would yield incorrect end result for 23:59:59.999000
+            PGobject pgObject = new PGobject();
+            pgObject.setType("time");
+            pgObject.setValue(dateTimeFormatter.format(localTime));
+            statement.setObject(index, pgObject);
+        };
     }
 
     // When writing with setObject() using LocalDateTime, driver converts the value to string representing date-time in JVM zone,
