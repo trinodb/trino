@@ -463,15 +463,16 @@ public class PostgreSqlClient
             verify(timestampType.getPrecision() > TimestampType.MAX_SHORT_PRECISION);
             return WriteMapping.objectMapping(format("timestamp(%s)", POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION), longTimestampWriteFunction());
         }
-        if (type instanceof TimestampWithTimeZoneType && ((TimestampWithTimeZoneType) type).getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
-            int precision = ((TimestampWithTimeZoneType) type).getPrecision();
-            String postgresType = format("timestamptz(%d)", precision);
-            if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
-                return WriteMapping.longMapping(postgresType, shortTimestampWithTimeZoneWriteFunction());
+        if (type instanceof TimestampWithTimeZoneType) {
+            TimestampWithTimeZoneType timestampWithTimeZoneType = (TimestampWithTimeZoneType) type;
+            if (timestampWithTimeZoneType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
+                String dataType = format("timestamptz(%d)", timestampWithTimeZoneType.getPrecision());
+                if (timestampWithTimeZoneType.getPrecision() <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
+                    return WriteMapping.longMapping(dataType, shortTimestampWithTimeZoneWriteFunction());
+                }
+                return WriteMapping.objectMapping(dataType, longTimestampWithTimeZoneWriteFunction());
             }
-            else {
-                return WriteMapping.objectMapping(postgresType, longTimestampWithTimeZoneWriteFunction());
-            }
+            return WriteMapping.objectMapping(format("timestamptz(%d)", POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION), longTimestampWithTimeZoneWriteFunction());
         }
         if (TinyintType.TINYINT.equals(type)) {
             return WriteMapping.longMapping("smallint", tinyintWriteFunction());
