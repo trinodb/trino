@@ -13,3 +13,4 @@ Administration
     admin/resource-groups
     admin/session-property-managers
     admin/dist-sort
+    admin/dynamic-filtering
