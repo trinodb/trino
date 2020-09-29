@@ -236,7 +236,7 @@ public class TestPhoenixSqlTypeMapping
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
                     .build();
-            prestoTestCases.execute(getQueryRunner(), session, prestoCreateAsSelect("test_date"));
+            prestoTestCases.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_date"));
             phoenixTestCases.execute(getQueryRunner(), session, phoenixCreateAndInsert("tpch.test_date"));
         }
     }
@@ -406,7 +406,12 @@ public class TestPhoenixSqlTypeMapping
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner()), tableNamePrefix);
+        return prestoCreateAsSelect(getSession(), tableNamePrefix);
+    }
+
+    private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)
+    {
+        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup phoenixCreateAndInsert(String tableNamePrefix)
