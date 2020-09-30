@@ -4175,6 +4175,9 @@ public class TestHiveIntegrationSmokeTest
         //  make sure push-down happens correctly in the presence of rounding;
         // consider using LocalDateTime instead of String
         return new Object[][] {
+                {HiveTimestampPrecision.MILLISECONDS, "1965-10-31 01:00:08.123"},
+                {HiveTimestampPrecision.MICROSECONDS, "1965-10-31 01:00:08.123000"},
+                {HiveTimestampPrecision.NANOSECONDS, "1965-10-31 01:00:08.123000000"},
                 {HiveTimestampPrecision.MILLISECONDS, "2012-10-31 01:00:08.123"},
                 {HiveTimestampPrecision.MICROSECONDS, "2012-10-31 01:00:08.123000"},
                 {HiveTimestampPrecision.NANOSECONDS, "2012-10-31 01:00:08.123000000"}};
