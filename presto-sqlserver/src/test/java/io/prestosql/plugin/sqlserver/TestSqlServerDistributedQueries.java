@@ -39,6 +39,7 @@ public class TestSqlServerDistributedQueries
         sqlServer.start();
         return createSqlServerQueryRunner(
                 sqlServer,
+                ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         // caching here speeds up tests highly, caching is not used in smoke tests
                         .put("metadata.cache-ttl", "10m")
