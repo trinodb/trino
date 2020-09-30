@@ -18,6 +18,7 @@ import io.prestosql.plugin.hive.HiveCompressionCodec;
 import org.apache.iceberg.FileFormat;
 
 import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
 
 import static io.prestosql.plugin.hive.HiveCompressionCodec.GZIP;
 import static io.prestosql.plugin.iceberg.IcebergFileFormat.ORC;
@@ -41,6 +42,7 @@ public class IcebergConfig
         return this;
     }
 
+    @NotNull
     public FileFormat getFileFormat()
     {
         return FileFormat.valueOf(fileFormat.name());
@@ -53,6 +55,7 @@ public class IcebergConfig
         return this;
     }
 
+    @NotNull
     public HiveCompressionCodec getCompressionCodec()
     {
         return compressionCodec;
