@@ -290,6 +290,14 @@ public class TestSqlServerIntegrationSmokeTest
         sqlServer.execute("SELECT count(*) FROM dbo.orders WHERE " + getLongInClause(0, 10_000));
     }
 
+    @Test
+    public void testDomainSizeThreshold()
+    {
+        assertQuery(
+                "SHOW SESSION LIKE 'sqlserver.domain_size_threshold'",
+                "VALUES ('sqlserver.domain_size_threshold', '500', '500', 'integer', 'Maximum ranges to allow in a tuple domain without simplifying it')");
+    }
+
     /**
      * This test helps to tune TupleDomain simplification threshold.
      */

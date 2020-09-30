@@ -23,6 +23,7 @@ import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
+import io.prestosql.plugin.jdbc.JdbcMetadataConfig;
 import io.prestosql.plugin.jdbc.RetryingConnectionFactory;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import oracle.jdbc.OracleConnection;
@@ -33,6 +34,7 @@ import java.util.Properties;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
+import static io.prestosql.plugin.oracle.OracleClient.ORACLE_MAX_LIST_EXPRESSIONS;
 
 public class OracleClientModule
         implements Module
@@ -43,6 +45,7 @@ public class OracleClientModule
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(OracleClient.class).in(Scopes.SINGLETON);
         bindSessionPropertiesProvider(binder, OracleSessionProperties.class);
         configBinder(binder).bindConfig(OracleConfig.class);
+        configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setDomainSizeThreshold(ORACLE_MAX_LIST_EXPRESSIONS));
     }
 
     @Provides

@@ -13,13 +13,14 @@
  */
 package io.prestosql.plugin.jdbc;
 
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
 
 import static java.util.Objects.requireNonNull;
 
 public interface PredicatePushdownController
 {
-    DomainPushdownResult apply(Domain domain);
+    DomainPushdownResult apply(ConnectorSession session, Domain domain);
 
     final class DomainPushdownResult
     {

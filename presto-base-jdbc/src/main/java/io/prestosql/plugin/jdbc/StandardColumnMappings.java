@@ -46,7 +46,7 @@ import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
+import static io.prestosql.plugin.jdbc.ColumnMapping.disablePushdown;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
@@ -269,7 +269,7 @@ public final class StandardColumnMappings
                 VARBINARY,
                 (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex)),
                 varbinaryWriteFunction(),
-                DISABLE_PUSHDOWN);
+                disablePushdown());
     }
 
     public static SliceWriteFunction varbinaryWriteFunction()
@@ -374,7 +374,7 @@ public final class StandardColumnMappings
                     return ((time.toNanoOfDay() / NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_MILLISECOND) % PICOSECONDS_PER_DAY;
                 },
                 timeWriteFunction(),
-                DISABLE_PUSHDOWN);
+                disablePushdown());
     }
 
     public static LongWriteFunction timeWriteFunction()

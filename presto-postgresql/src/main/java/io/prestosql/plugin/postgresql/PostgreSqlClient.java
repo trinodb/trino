@@ -103,7 +103,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.prestosql.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.prestosql.plugin.base.util.JsonTypeUtil.toJsonValue;
-import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
+import static io.prestosql.plugin.jdbc.ColumnMapping.disablePushdown;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
@@ -590,7 +590,7 @@ public class PostgreSqlClient
                 varcharMapType,
                 varcharMapReadFunction(),
                 hstoreWriteFunction(session),
-                DISABLE_PUSHDOWN);
+                disablePushdown());
     }
 
     private ObjectReadFunction varcharMapReadFunction()
@@ -683,7 +683,7 @@ public class PostgreSqlClient
                 jsonType,
                 arrayAsJsonReadFunction(session, baseElementMapping),
                 (statement, index, block) -> { throw new UnsupportedOperationException(); },
-                DISABLE_PUSHDOWN);
+                disablePushdown());
     }
 
     private static SliceReadFunction arrayAsJsonReadFunction(ConnectorSession session, ColumnMapping baseElementMapping)
@@ -744,7 +744,7 @@ public class PostgreSqlClient
                 jsonType,
                 (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
                 typedVarcharWriteFunction("json"),
-                DISABLE_PUSHDOWN);
+                disablePushdown());
     }
 
     private static ColumnMapping typedVarcharColumnMapping(String jdbcTypeName)
@@ -799,7 +799,7 @@ public class PostgreSqlClient
                     }
                 },
                 (statement, index, value) -> { throw new PrestoException(NOT_SUPPORTED, "Money type is not supported for INSERT"); },
-                DISABLE_PUSHDOWN);
+                disablePushdown());
     }
 
     private static SliceWriteFunction uuidWriteFunction()

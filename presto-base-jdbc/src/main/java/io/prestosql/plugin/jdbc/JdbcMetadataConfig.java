@@ -16,10 +16,13 @@ package io.prestosql.plugin.jdbc;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
+import javax.validation.constraints.Min;
+
 public class JdbcMetadataConfig
 {
     private boolean allowDropTable;
     private boolean allowAggregationPushdown = true;
+    private int domainSizeThreshold = 10_000;
 
     public boolean isAllowDropTable()
     {
@@ -44,6 +47,20 @@ public class JdbcMetadataConfig
     public JdbcMetadataConfig setAllowAggregationPushdown(boolean allowAggregationPushdown)
     {
         this.allowAggregationPushdown = allowAggregationPushdown;
+        return this;
+    }
+
+    @Min(0)
+    public int getDomainSizeThreshold()
+    {
+        return domainSizeThreshold;
+    }
+
+    @Config("domain-size-threshold")
+    @ConfigDescription("Maximum ranges to allow in a tuple domain without compacting it")
+    public JdbcMetadataConfig setDomainSizeThreshold(int domainSizeThreshold)
+    {
+        this.domainSizeThreshold = domainSizeThreshold;
         return this;
     }
 }

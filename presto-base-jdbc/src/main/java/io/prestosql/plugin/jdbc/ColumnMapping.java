@@ -14,22 +14,53 @@
 package io.prestosql.plugin.jdbc;
 
 import io.prestosql.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
+import io.prestosql.spi.predicate.DiscreteValues;
 import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.Ranges;
 import io.prestosql.spi.type.Type;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.jdbc.JdbcMetadataSessionProperties.getDomainSizeThreshold;
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnMapping
 {
-    public static final PredicatePushdownController FULL_PUSHDOWN = domain -> new DomainPushdownResult(domain, Domain.all(domain.getType()));
-    public static final PredicatePushdownController PUSHDOWN_AND_KEEP = domain -> new DomainPushdownResult(domain, domain);
-    public static final PredicatePushdownController DISABLE_PUSHDOWN = domain -> new DomainPushdownResult(Domain.all(domain.getType()), domain);
+    public static PredicatePushdownController fullPushDown()
+    {
+        return (session, domain) -> {
+            if (getDomainSize(domain) > getDomainSizeThreshold(session)) {
+                // pushdown simplified domain
+                return new DomainPushdownResult(domain.simplify(), domain);
+            }
+            else {
+                // full pushdown
+                return new DomainPushdownResult(domain, Domain.all(domain.getType()));
+            }
+        };
+    }
+
+    public static PredicatePushdownController pushDownAndKeep()
+    {
+        return (session, domain) -> new DomainPushdownResult(domain.simplify(getDomainSizeThreshold(session)), domain);
+    }
+
+    public static PredicatePushdownController disablePushdown()
+    {
+        return (session, domain) -> new DomainPushdownResult(Domain.all(domain.getType()), domain);
+    }
+
+    private static int getDomainSize(Domain domain)
+    {
+        return domain.getValues().getValuesProcessor().transform(
+                Ranges::getRangeCount,
+                DiscreteValues::getValuesCount,
+                ignored -> 0);
+    }
 
     public static ColumnMapping booleanMapping(Type prestoType, BooleanReadFunction readFunction, BooleanWriteFunction writeFunction)
     {
-        return booleanMapping(prestoType, readFunction, writeFunction, FULL_PUSHDOWN);
+        return booleanMapping(prestoType, readFunction, writeFunction, fullPushDown());
     }
 
     public static ColumnMapping booleanMapping(
@@ -43,7 +74,7 @@ public final class ColumnMapping
 
     public static ColumnMapping longMapping(Type prestoType, LongReadFunction readFunction, LongWriteFunction writeFunction)
     {
-        return longMapping(prestoType, readFunction, writeFunction, FULL_PUSHDOWN);
+        return longMapping(prestoType, readFunction, writeFunction, fullPushDown());
     }
 
     public static ColumnMapping longMapping(
@@ -57,7 +88,7 @@ public final class ColumnMapping
 
     public static ColumnMapping doubleMapping(Type prestoType, DoubleReadFunction readFunction, DoubleWriteFunction writeFunction)
     {
-        return doubleMapping(prestoType, readFunction, writeFunction, FULL_PUSHDOWN);
+        return doubleMapping(prestoType, readFunction, writeFunction, fullPushDown());
     }
 
     public static ColumnMapping doubleMapping(
@@ -71,7 +102,7 @@ public final class ColumnMapping
 
     public static ColumnMapping sliceMapping(Type prestoType, SliceReadFunction readFunction, SliceWriteFunction writeFunction)
     {
-        return sliceMapping(prestoType, readFunction, writeFunction, FULL_PUSHDOWN);
+        return sliceMapping(prestoType, readFunction, writeFunction, fullPushDown());
     }
 
     public static ColumnMapping sliceMapping(
@@ -85,7 +116,7 @@ public final class ColumnMapping
 
     public static <T> ColumnMapping objectMapping(Type prestoType, ObjectReadFunction readFunction, ObjectWriteFunction writeFunction)
     {
-        return objectMapping(prestoType, readFunction, writeFunction, FULL_PUSHDOWN);
+        return objectMapping(prestoType, readFunction, writeFunction, fullPushDown());
     }
 
     public static <T> ColumnMapping objectMapping(

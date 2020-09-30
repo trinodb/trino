@@ -24,7 +24,6 @@ import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
-import io.prestosql.plugin.jdbc.PredicatePushdownController;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
 import io.prestosql.plugin.jdbc.expression.AggregateFunctionRule;
@@ -68,8 +67,8 @@ import static com.mysql.jdbc.SQLError.SQL_STATE_ER_TABLE_EXISTS_ERROR;
 import static com.mysql.jdbc.SQLError.SQL_STATE_SYNTAX_ERROR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.base.util.JsonTypeUtil.jsonParse;
-import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
-import static io.prestosql.plugin.jdbc.ColumnMapping.PUSHDOWN_AND_KEEP;
+import static io.prestosql.plugin.jdbc.ColumnMapping.disablePushdown;
+import static io.prestosql.plugin.jdbc.ColumnMapping.pushDownAndKeep;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
@@ -235,8 +234,7 @@ public class MySqlClient
             case Types.LONGNVARCHAR:
                 VarcharType varcharType = (columnSize <= VarcharType.MAX_LENGTH) ? createVarcharType(columnSize) : createUnboundedVarcharType();
                 // Remote database can be case insensitive.
-                PredicatePushdownController predicatePushdownController = PUSHDOWN_AND_KEEP;
-                return Optional.of(ColumnMapping.sliceMapping(varcharType, varcharReadFunction(varcharType), varcharWriteFunction(), predicatePushdownController));
+                return Optional.of(ColumnMapping.sliceMapping(varcharType, varcharReadFunction(varcharType), varcharWriteFunction(), pushDownAndKeep()));
 
             case Types.DECIMAL:
                 int precision = columnSize;
@@ -371,7 +369,7 @@ public class MySqlClient
                 jsonType,
                 (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
                 varcharWriteFunction(),
-                DISABLE_PUSHDOWN);
+                disablePushdown());
     }
 
     private static boolean isGtidMode(Connection connection)

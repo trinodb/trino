@@ -161,6 +161,14 @@ public abstract class BaseOracleIntegrationSmokeTest
         }
     }
 
+    @Test
+    public void testDomainSizeThreshold()
+    {
+        assertQuery(
+                "SHOW SESSION LIKE 'oracle.domain_size_threshold'",
+                "VALUES ('oracle.domain_size_threshold', '1000', '1000', 'integer', 'Maximum ranges to allow in a tuple domain without simplifying it')");
+    }
+
     private void predicatePushdownTest(String oracleType, String oracleLiteral, String operator, String filterLiteral)
     {
         String tableName = "test_pdown_" + oracleType.replaceAll("[^a-zA-Z0-9]", "");
