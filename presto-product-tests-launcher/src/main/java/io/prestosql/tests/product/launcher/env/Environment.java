@@ -118,17 +118,19 @@ public final class Environment
     {
         pruneEnvironment();
 
+        // Reset containerId so that containers can start when failed in previous attempt
+        List<DockerContainer> containers = ImmutableList.copyOf(this.containers.values());
+        for (DockerContainer container : containers) {
+            container.reset();
+        }
+
         // Create new network when environment tries to start
         try (Network network = createNetwork(name)) {
-            List<DockerContainer> containers = ImmutableList.copyOf(this.containers.values());
             attachNetwork(containers, network);
 
             String containerNames = Joiner.on(", ").join(getContainerNames());
             log.info("Starting containers %s for environment %s", containerNames, name);
 
-            for (DockerContainer container : containers) {
-                container.reset();
-            }
             Startables.deepStart(containers).get();
 
             // After deepStart all containers should be running and healthy
