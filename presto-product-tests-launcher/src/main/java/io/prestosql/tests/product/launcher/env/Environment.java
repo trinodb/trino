@@ -129,8 +129,11 @@ public final class Environment
             for (DockerContainer container : containers) {
                 container.reset();
             }
-
             Startables.deepStart(containers).get();
+
+            // After deepStart all containers should be running and healthy
+            checkState(allContainersHealthy(containers), "Not all containers are running or healthy");
+
             this.listener.ifPresent(listener -> listener.environmentStarted(this));
             return this;
         }
