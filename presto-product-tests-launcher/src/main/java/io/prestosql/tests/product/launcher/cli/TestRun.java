@@ -31,7 +31,6 @@ import io.prestosql.tests.product.launcher.testcontainers.ExistingNetwork;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.Timeout;
 import net.jodah.failsafe.TimeoutExceededException;
-import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
@@ -62,6 +61,7 @@ import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
+import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
 
@@ -285,7 +285,7 @@ public final class TestRun
                                 .addAll(reportsDirOptions(reportsDirBase))
                                 .build().toArray(new String[0]))
                         // this message marks that environment has started and tests are running
-                        .waitingFor(new LogMessageWaitStrategy().withRegEx(".*\\[TestNG] Running.*")
+                        .waitingFor(forLogMessage(".*\\[TestNG] Running.*", 1)
                                 .withStartupTimeout(ofMinutes(15)));
             });
 
