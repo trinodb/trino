@@ -20,7 +20,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSapHanaDistributedQueries
         extends AbstractTestDistributedQueries
@@ -45,18 +44,10 @@ public class TestSapHanaDistributedQueries
         server.close();
     }
 
-    // Now unused, but added here to provoke conflict when upgrading to https://github.com/prestosql/presto/pull/5326
-    // TODO remove testDelete override
+    @Override
     protected boolean supportsDelete()
     {
         return false;
-    }
-
-    @Override
-    public void testDelete()
-    {
-        assertThatThrownBy(super::testDelete)
-                .hasStackTraceContaining("This connector does not support updates or deletes");
     }
 
     @Override
@@ -71,18 +62,10 @@ public class TestSapHanaDistributedQueries
         return false;
     }
 
-    // Now unused, but added here to provoke conflict when upgrading to https://github.com/prestosql/presto/pull/5326
-    // TODO remove testCommentTable override
+    @Override
     protected boolean supportsCommentOnTable()
     {
         return false;
-    }
-
-    @Override
-    public void testCommentTable()
-    {
-        assertThatThrownBy(super::testCommentTable)
-                .hasStackTraceContaining("io.prestosql.spi.PrestoException: This connector does not support setting table comments");
     }
 
     @Override
