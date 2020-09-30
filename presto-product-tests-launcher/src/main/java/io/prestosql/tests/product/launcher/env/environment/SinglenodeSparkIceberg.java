@@ -69,11 +69,8 @@ public class SinglenodeSparkIceberg
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg/iceberg.properties")),
                         CONTAINER_PRESTO_ETC + "/catalog/iceberg.properties"));
 
-        DockerContainer spark = createSpark();
-        // Spark needs the HMS to be up before it starts
-        builder.configureContainer(HADOOP, spark::dependsOn);
-
-        builder.addContainer(spark);
+        builder.addContainer(createSpark())
+                .containerDependsOn("spark", HADOOP);
     }
 
     @SuppressWarnings("resource")
