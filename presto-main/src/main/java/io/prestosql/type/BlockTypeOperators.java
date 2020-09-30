@@ -13,11 +13,15 @@
  */
 package io.prestosql.type;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeOperators;
+import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -25,10 +29,11 @@ import javax.inject.Inject;
 import java.lang.invoke.MethodHandle;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -47,7 +52,7 @@ public final class BlockTypeOperators
     private static final InvocationConvention ORDERING_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
     private static final InvocationConvention LESS_THAN_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
 
-    private final ConcurrentMap<GeneratedBlockOperatorKey<?>, GeneratedBlockOperator<?>> generatedBlockOperatorCache = new ConcurrentHashMap<>();
+    private final Cache<GeneratedBlockOperatorKey<?>, GeneratedBlockOperator<?>> generatedBlockOperatorCache;
     private final TypeOperators typeOperators;
 
     public BlockTypeOperators()
@@ -59,6 +64,10 @@ public final class BlockTypeOperators
     public BlockTypeOperators(TypeOperators typeOperators)
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        this.generatedBlockOperatorCache = CacheBuilder.newBuilder()
+                .maximumSize(10_000)
+                .expireAfterWrite(2, TimeUnit.HOURS)
+                .build();
     }
 
     public BlockPositionEqual getEqualOperator(Type type)
@@ -187,11 +196,17 @@ public final class BlockTypeOperators
 
     private <T> T getBlockOperator(Type type, Class<T> operatorInterface, Supplier<MethodHandle> methodHandleSupplier, Optional<Object> additionalKey)
     {
-        @SuppressWarnings("unchecked")
-        GeneratedBlockOperator<T> generatedBlockOperator = (GeneratedBlockOperator<T>) generatedBlockOperatorCache.computeIfAbsent(
-                new GeneratedBlockOperatorKey<>(type, operatorInterface, additionalKey),
-                key -> new GeneratedBlockOperator<>(key.getType(), key.getOperatorInterface(), methodHandleSupplier.get()));
-        return generatedBlockOperator.get();
+        try {
+            @SuppressWarnings("unchecked")
+            GeneratedBlockOperator<T> generatedBlockOperator = (GeneratedBlockOperator<T>) generatedBlockOperatorCache.get(
+                    new GeneratedBlockOperatorKey<>(type, operatorInterface, additionalKey),
+                    () -> new GeneratedBlockOperator<>(type, operatorInterface, methodHandleSupplier.get()));
+            return generatedBlockOperator.get();
+        }
+        catch (ExecutionException | UncheckedExecutionException e) {
+            throwIfUnchecked(e.getCause());
+            throw new RuntimeException(e.getCause());
+        }
     }
 
     private static class GeneratedBlockOperatorKey<T>
@@ -263,5 +278,36 @@ public final class BlockTypeOperators
             operator = compileSingleAccessMethod(suggestedClassName, operatorInterface, methodHandle);
             return operator;
         }
+    }
+
+    // stats
+    @Managed
+    public long cacheSize()
+    {
+        return generatedBlockOperatorCache.size();
+    }
+
+    @Managed
+    public Double getCacheHitRate()
+    {
+        return generatedBlockOperatorCache.stats().hitRate();
+    }
+
+    @Managed
+    public Double getCacheMissRate()
+    {
+        return generatedBlockOperatorCache.stats().missRate();
+    }
+
+    @Managed
+    public long getCacheRequestCount()
+    {
+        return generatedBlockOperatorCache.stats().requestCount();
+    }
+
+    @Managed
+    public void cacheReset()
+    {
+        generatedBlockOperatorCache.invalidateAll();
     }
 }
