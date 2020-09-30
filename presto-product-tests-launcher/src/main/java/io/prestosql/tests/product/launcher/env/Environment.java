@@ -320,6 +320,15 @@ public final class Environment
             return name;
         }
 
+        public Builder containerDependsOn(String container, String dependencyContainer)
+        {
+            checkState(containers.containsKey(container), "Container with name %s is not registered", name);
+            checkState(containers.containsKey(dependencyContainer), "Dependency container with name %s is not registered", dependencyContainer);
+            containers.get(container).dependsOn(containers.get(dependencyContainer));
+
+            return this;
+        }
+
         public Builder addContainers(DockerContainer... containers)
         {
             Arrays.stream(containers)
