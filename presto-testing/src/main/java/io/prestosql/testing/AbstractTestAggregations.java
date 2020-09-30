@@ -723,13 +723,25 @@ public abstract class AbstractTestAggregations
         assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP)) FROM orders", "SELECT 2379");
         assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP), 0.023) FROM orders", "SELECT 2379");
 
+        // test timestamp(9) (long representation)
+        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP(9))) FROM orders", "SELECT 2393");
+        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP(9)), 0.023) FROM orders", "SELECT 2393");
+
         // test timestamp with time zone
         assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP WITH TIME ZONE)) FROM orders", "SELECT 2347");
         assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP WITH TIME ZONE), 0.023) FROM orders", "SELECT 2347");
 
+        // test timestamp(9) with time zone (long representation)
+        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP(9) WITH TIME ZONE)) FROM orders", "SELECT 2322");
+        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP(9) WITH TIME ZONE), 0.023) FROM orders", "SELECT 2322");
+
         // test time
         assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME)) FROM orders", "SELECT 969");
         assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME), 0.023) FROM orders", "SELECT 969");
+
+        // test time(9) (long representation)
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME(9))) FROM orders", "SELECT 969");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME(9)), 0.023) FROM orders", "SELECT 969");
 
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("+08:35"))
@@ -738,6 +750,10 @@ public abstract class AbstractTestAggregations
         // test time with time zone
         assertQuery(session, "SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE)) FROM orders", "SELECT 993");
         assertQuery(session, "SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE), 0.023) FROM orders", "SELECT 993");
+
+        // test time(12) with time zone (long representation)
+        assertQuery(session, "SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME(12) WITH TIME ZONE)) FROM orders", "SELECT 1000");
+        assertQuery(session, "SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME(12) WITH TIME ZONE), 0.023) FROM orders", "SELECT 1000");
 
         // test short decimal
         assertQuery("SELECT approx_distinct(CAST(custkey AS DECIMAL(18, 0))) FROM orders", "SELECT 990");
