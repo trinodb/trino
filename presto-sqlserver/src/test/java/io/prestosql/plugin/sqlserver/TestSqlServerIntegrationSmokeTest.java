@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.sqlserver;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
@@ -44,7 +46,7 @@ public class TestSqlServerIntegrationSmokeTest
     {
         sqlServer = new TestingSqlServer();
         sqlServer.start();
-        return createSqlServerQueryRunner(sqlServer, CUSTOMER, NATION, ORDERS, REGION);
+        return createSqlServerQueryRunner(sqlServer, ImmutableMap.of(), ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION));
     }
 
     @AfterClass(alwaysRun = true)
