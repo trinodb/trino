@@ -14,6 +14,7 @@
 package io.prestosql.plugin.phoenix;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.TimeZoneKey;
@@ -76,7 +77,7 @@ public class TestPhoenixSqlTypeMapping
             throws Exception
     {
         phoenixServer = TestingPhoenixServer.getInstance();
-        return createPhoenixQueryRunner(phoenixServer);
+        return createPhoenixQueryRunner(phoenixServer, ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)
