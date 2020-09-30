@@ -26,6 +26,7 @@ import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.RowType;
@@ -41,10 +42,12 @@ import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.iceberg.util.Timestamps.timestampTzToMicros;
 import static io.prestosql.spi.predicate.Marker.Bound.ABOVE;
 import static io.prestosql.spi.predicate.Marker.Bound.BELOW;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
 import static io.prestosql.spi.type.TimeType.TIME_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -183,6 +186,10 @@ public final class ExpressionConverter
 
         if (type.equals(TIME_MICROS)) {
             return ((long) marker.getValue()) / PICOSECONDS_PER_MICROSECOND;
+        }
+
+        if (type.equals(TIMESTAMP_TZ_MICROS)) {
+            return timestampTzToMicros((LongTimestampWithTimeZone) marker.getValue());
         }
 
         if (type instanceof VarcharType) {
