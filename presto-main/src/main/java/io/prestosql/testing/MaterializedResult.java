@@ -27,6 +27,7 @@ import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDate;
@@ -294,7 +295,12 @@ public class MaterializedResult
         }
         else if (type instanceof TimestampType) {
             long micros = ((SqlTimestamp) value).getEpochMicros();
-            type.writeLong(blockBuilder, micros);
+            if (((TimestampType) type).getPrecision() <= TimestampType.MAX_SHORT_PRECISION) {
+                type.writeLong(blockBuilder, micros);
+            }
+            else {
+                type.writeObject(blockBuilder, new LongTimestamp(micros, ((SqlTimestamp) value).getPicosOfMicros()));
+            }
         }
         else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
             long millisUtc = ((SqlTimestampWithTimeZone) value).getMillisUtc();
