@@ -316,15 +316,6 @@ public class TimestampColumnWriter
         statisticsBuilder = statisticsBuilderSupplier.get();
     }
 
-    private void writeTimestampMillis(Block block)
-    {
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (!block.isNull(i)) {
-                writeMillis(type.getLong(block, i));
-            }
-        }
-    }
-
     private void writeTimestampMicros(Block block)
     {
         for (int i = 0; i < block.getPositionCount(); i++) {
