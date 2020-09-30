@@ -93,15 +93,5 @@ public abstract class AbstractSinglenodeLdap
         return "centos6-oj8-openldap";
     }
 
-    protected DockerFiles getDockerFiles()
-    {
-        return dockerFiles;
-    }
-
-    protected String getImagesVersion()
-    {
-        return imagesVersion;
-    }
-
     protected abstract String getPasswordAuthenticatorConfigPath();
 }
