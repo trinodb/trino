@@ -40,7 +40,8 @@ public class Kafka
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addContainers(createZookeeper(), createKafka());
+        builder.addContainers(createZookeeper(), createKafka())
+                .containerDependsOn("kafka", "zookeeper");
     }
 
     @SuppressWarnings("resource")
