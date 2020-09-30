@@ -58,7 +58,9 @@ public class TestMemorySmoke
     {
         return MemoryQueryRunner.createQueryRunner(
                 // Reduced broadcast join limit for large DF to make withLargeDynamicFilters use range DF collection
-                ImmutableMap.of("dynamic-filtering.large-broadcast.max-distinct-values-per-driver", "100"));
+                ImmutableMap.of(
+                        "dynamic-filtering.large-broadcast.max-distinct-values-per-driver", "100",
+                        "dynamic-filtering.large-broadcast.range-row-limit-per-driver", "100000"));
     }
 
     @Test

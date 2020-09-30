@@ -37,10 +37,7 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.EmptyPageSource;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.transaction.IsolationLevel;
 import io.prestosql.split.EmptySplit;
 import io.prestosql.testing.AbstractTestQueryFramework;
@@ -168,9 +165,7 @@ public class TestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey",
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE,
-                        Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 100L, true)), false))));
+                TupleDomain.all());
     }
 
     @Test(timeOut = 30_000)
@@ -247,9 +242,7 @@ public class TestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier)",
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE,
-                        Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 100L, true)), false))));
+                TupleDomain.all());
     }
 
     @Test(timeOut = 30_000)
