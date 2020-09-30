@@ -35,7 +35,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
 
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
@@ -61,7 +62,18 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 public class TypeOperators
 {
     private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(NullAdaptationPolicy.UNSUPPORTED);
-    private final ConcurrentMap<OperatorConvention, OperatorAdaptor> cache = new ConcurrentHashMap<>();
+    private final BiFunction<Object, Supplier<Object>, Object> cache;
+
+    public TypeOperators()
+    {
+        ConcurrentHashMap<Object, Object> cache = new ConcurrentHashMap<>();
+        this.cache = (operatorConvention, supplier) -> cache.computeIfAbsent(operatorConvention, key -> supplier.get());
+    }
+
+    public TypeOperators(BiFunction<Object, Supplier<Object>, Object> cache)
+    {
+        this.cache = cache;
+    }
 
     public MethodHandle getEqualOperator(Type type, InvocationConvention callingConvention)
     {
@@ -142,9 +154,8 @@ public class TypeOperators
 
     private OperatorAdaptor getOperatorAdaptor(Type type, Optional<SortOrder> sortOrder, InvocationConvention callingConvention, OperatorType operatorType)
     {
-        return cache.computeIfAbsent(
-                new OperatorConvention(type, operatorType, sortOrder, callingConvention),
-                operatorConvention -> new OperatorAdaptor(functionAdapter, operatorConvention));
+        OperatorConvention operatorConvention = new OperatorConvention(type, operatorType, sortOrder, callingConvention);
+        return (OperatorAdaptor) cache.apply(operatorConvention, () -> new OperatorAdaptor(functionAdapter, operatorConvention));
     }
 
     private class OperatorAdaptor

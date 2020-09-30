@@ -134,6 +134,7 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.transaction.TransactionManagerConfig;
 import io.prestosql.type.BlockTypeOperators;
 import io.prestosql.type.TypeDeserializer;
+import io.prestosql.type.TypeOperatorsCache;
 import io.prestosql.type.TypeSignatureDeserializer;
 import io.prestosql.type.TypeSignatureKeyDeserializer;
 import io.prestosql.util.FinalizerService;
@@ -354,8 +355,10 @@ public class ServerMainModule
         configBinder(binder).bindConfig(StaticCatalogStoreConfig.class);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
-        binder.bind(TypeOperators.class).in(Scopes.SINGLETON);
+        binder.bind(TypeOperatorsCache.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(TypeOperatorsCache.class).as(factory -> factory.generatedNameOf(TypeOperators.class));
         binder.bind(BlockTypeOperators.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(TypeOperatorsCache.class).withGeneratedName();
 
         // type
         binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);
@@ -455,6 +458,13 @@ public class ServerMainModule
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
+    }
+
+    @Provides
+    @Singleton
+    public static TypeOperators createTypeOperators(TypeOperatorsCache typeOperatorsCache)
+    {
+        return new TypeOperators(typeOperatorsCache);
     }
 
     @Provides
