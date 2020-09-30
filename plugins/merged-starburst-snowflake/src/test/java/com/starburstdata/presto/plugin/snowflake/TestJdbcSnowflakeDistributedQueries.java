@@ -29,6 +29,12 @@ public class TestJdbcSnowflakeDistributedQueries
     }
 
     @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         // TODO https://starburstdata.atlassian.net/browse/PRESTO-3389

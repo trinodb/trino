@@ -35,6 +35,12 @@ public abstract class BaseSnowflakeDistributedQueries
     SnowflakeServer server = new SnowflakeServer();
 
     @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean supportsViews()
     {
         return false;
@@ -42,6 +48,18 @@ public abstract class BaseSnowflakeDistributedQueries
 
     @Override
     protected boolean supportsArrays()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
     {
         return false;
     }
@@ -97,18 +115,6 @@ public abstract class BaseSnowflakeDistributedQueries
                 .build();
 
         assertEquals(actual, expectedParametrizedVarchar);
-    }
-
-    @Override
-    public void testCommentTable()
-    {
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
-    }
-
-    @Override
-    public void testDelete()
-    {
-        throw new SkipException("Delete is not yet implemented");
     }
 
     @Override
