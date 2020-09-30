@@ -43,6 +43,12 @@ public class TestOracleDistributedQueries
     }
 
     @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean supportsViews()
     {
         return false;
@@ -50,6 +56,18 @@ public class TestOracleDistributedQueries
 
     @Override
     protected boolean supportsArrays()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
     {
         return false;
     }
@@ -87,22 +105,10 @@ public class TestOracleDistributedQueries
     }
 
     @Override
-    public void testCommentTable()
-    {
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
-    }
-
-    @Override
     public void testCreateSchema()
     {
         // does not support creating schemas
         assertQueryFails("CREATE SCHEMA test_schema_create", "This connector does not support creating schemas");
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // delete is not supported
     }
 
     @Override
