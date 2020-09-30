@@ -31,6 +31,7 @@ import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_HEALTH_D;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
+import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public final class Hadoop
@@ -98,7 +99,7 @@ public final class Hadoop
                 .withCommand("/usr/local/hadoop-run.sh")
                 .withExposedLogPaths("/var/log/hadoop-yarn", "/var/log/hadoop-hdfs", "/var/log/hive", "/var/log/container-health.log")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(forSelectedPorts(10000)) // HiveServer2
+                .waitingForAll(forSelectedPorts(10000), forHealthcheck()) // HiveServer2
                 .withStartupTimeout(Duration.ofMinutes(5))
                 .withHealthCheck(dockerFiles.getDockerFilesHostPath("health-checks/health.sh"));
     }
