@@ -32,7 +32,6 @@ public class TestIcebergConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
-                .setMetastoreTransactionCacheSize(1000)
                 .setFileFormat(ORC)
                 .setCompressionCodec(GZIP));
     }
@@ -41,13 +40,11 @@ public class TestIcebergConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("iceberg.metastore.transaction-cache.size", "999")
                 .put("iceberg.file-format", "Parquet")
                 .put("iceberg.compression-codec", "NONE")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
-                .setMetastoreTransactionCacheSize(999)
                 .setFileFormat(PARQUET)
                 .setCompressionCodec(HiveCompressionCodec.NONE);
 
