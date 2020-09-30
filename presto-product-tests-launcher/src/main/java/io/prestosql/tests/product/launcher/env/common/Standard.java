@@ -21,7 +21,6 @@ import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.ServerPackage;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 
 import javax.inject.Inject;
@@ -47,6 +46,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public final class Standard
@@ -125,7 +125,7 @@ public final class Standard
                 .withFileSystemBind(serverPackage.getPath(), "/docker/presto-server.tar.gz", READ_ONLY)
                 .withCommand("/docker/presto-product-tests/run-presto.sh")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(Wait.forLogMessage(".*======== SERVER STARTED ========.*", 1))
+                .waitingFor(forLogMessage(".*======== SERVER STARTED ========.*", 1))
                 .withStartupTimeout(Duration.ofMinutes(5))
                 .withHealthCheck(dockerFiles.getDockerFilesHostPath("health-checks/health.sh"));
     }
