@@ -38,13 +38,13 @@ public class TestDynamicFilterConfig
                 .setSmallBroadcastRangeRowLimitPerDriver(0)
                 .setSmallPartitionedMaxDistinctValuesPerDriver(10)
                 .setSmallPartitionedMaxSizePerDriver(DataSize.of(10, KILOBYTE))
-                .setSmallPartitionedRangeRowLimitPerDriver(100)
+                .setSmallPartitionedRangeRowLimitPerDriver(0)
                 .setLargeBroadcastMaxDistinctValuesPerDriver(5000)
                 .setLargeBroadcastMaxSizePerDriver(DataSize.of(500, KILOBYTE))
-                .setLargeBroadcastRangeRowLimitPerDriver(50_000)
+                .setLargeBroadcastRangeRowLimitPerDriver(0)
                 .setLargePartitionedMaxDistinctValuesPerDriver(500)
                 .setLargePartitionedMaxSizePerDriver(DataSize.of(50, KILOBYTE))
-                .setLargePartitionedRangeRowLimitPerDriver(5_000));
+                .setLargePartitionedRangeRowLimitPerDriver(0));
     }
 
     @Test
