@@ -46,9 +46,7 @@ public class TestOracleDistributedQueries
             throws Exception
     {
         this.oracleServer = new TestingOracleServer();
-        return OracleQueryRunner.createOracleQueryRunner(
-                oracleServer,
-                TpchTable.getTables());
+        return OracleQueryRunner.createOracleQueryRunner(oracleServer, TpchTable.getTables(), false);
     }
 
     @AfterClass(alwaysRun = true)
