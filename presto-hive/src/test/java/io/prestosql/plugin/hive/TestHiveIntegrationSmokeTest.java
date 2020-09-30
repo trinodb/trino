@@ -5751,6 +5751,40 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCollectStatisticsOnCreateTableTimestampWithPrecision()
+    {
+        Session nanosecondsTimestamp = withTimestampPrecision(getSession(), HiveTimestampPrecision.NANOSECONDS);
+
+        String tableName = "test_stats_on_create_timestamp_with_precision";
+
+        try {
+            assertUpdate(nanosecondsTimestamp,
+                    "CREATE TABLE " + tableName + "(c_timestamp) AS VALUES " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.119', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111999', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111111', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111999' ",
+                    12);
+
+            assertQuery("SHOW STATS FOR " + tableName,
+                    "SELECT * FROM VALUES " +
+                            "('c_timestamp', null, 9.0, 0.0, null, null, null), " +
+                            "(null, null, null, null, 12.0, null, null)");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
     public void testCollectColumnStatisticsOnInsert()
     {
         String tableName = "test_collect_column_statistics_on_insert";
@@ -6334,6 +6368,68 @@ public class TestHiveIntegrationSmokeTest
 
         // Drop the unpartitioned test table
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testAnalyzeTableTimestampWithPrecision()
+    {
+        String catalog = getSession().getCatalog().get();
+        Session nanosecondsTimestamp = Session.builder(withTimestampPrecision(getSession(), HiveTimestampPrecision.NANOSECONDS))
+                // Disable column statistics collection when creating the table
+                .setCatalogSessionProperty(catalog, "collect_column_statistics_on_write", "false")
+                .build();
+        Session microsecondsTimestamp = withTimestampPrecision(getSession(), HiveTimestampPrecision.MICROSECONDS);
+        Session millisecondsTimestamp = withTimestampPrecision(getSession(), HiveTimestampPrecision.MILLISECONDS);
+
+        String tableName = "test_analyze_timestamp_with_precision";
+
+        try {
+            assertUpdate(
+                    nanosecondsTimestamp,
+                    "CREATE TABLE " + tableName + "(c_timestamp) AS VALUES " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.119', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111999', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111111', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111999' ",
+                    12);
+
+            assertQuery("SHOW STATS FOR " + tableName,
+                    "SELECT * FROM VALUES " +
+                            "('c_timestamp', null, null, null, null, null, null), " +
+                            "(null, null, null, null, 12.0, null, null)");
+
+            assertUpdate(format("CALL system.drop_stats('%s', '%s')", TPCH_SCHEMA, tableName));
+            assertUpdate(nanosecondsTimestamp, "ANALYZE " + tableName, 12);
+            assertQuery("SHOW STATS FOR " + tableName,
+                    "SELECT * FROM VALUES " +
+                            "('c_timestamp', null, 9.0, 0.0, null, null, null), " +
+                            "(null, null, null, null, 12.0, null, null)");
+
+            assertUpdate(format("CALL system.drop_stats('%s', '%s')", TPCH_SCHEMA, tableName));
+            assertUpdate(microsecondsTimestamp, "ANALYZE " + tableName, 12);
+            assertQuery("SHOW STATS FOR " + tableName,
+                    "SELECT * FROM VALUES " +
+                            "('c_timestamp', null, 7.0, 0.0, null, null, null), " +
+                            "(null, null, null, null, 12.0, null, null)");
+
+            assertUpdate(format("CALL system.drop_stats('%s', '%s')", TPCH_SCHEMA, tableName));
+            assertUpdate(millisecondsTimestamp, "ANALYZE " + tableName, 12);
+            assertQuery("SHOW STATS FOR " + tableName,
+                    "SELECT * FROM VALUES " +
+                            "('c_timestamp', null, 4.0, 0.0, null, null, null), " +
+                            "(null, null, null, null, 12.0, null, null)");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     @Test
