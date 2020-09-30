@@ -15,7 +15,6 @@ package io.prestosql.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import io.prestosql.spi.HostAddress;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -25,6 +24,7 @@ import javax.inject.Inject;
 import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.collect.Maps.fromProperties;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.kafka.clients.producer.ProducerConfig.ACKS_CONFIG;
@@ -46,7 +46,7 @@ public class PlainTextKafkaProducerFactory
                         .collect(joining(",")))
                 .put(ACKS_CONFIG, "all")
                 .put(LINGER_MS_CONFIG, 5)
-                .putAll(Maps.fromProperties(kafkaConfig.getSecurityConfigProperties()))
+                .putAll(fromProperties(kafkaConfig.getSecurityConfigProperties()))
                 .build();
     }
 
