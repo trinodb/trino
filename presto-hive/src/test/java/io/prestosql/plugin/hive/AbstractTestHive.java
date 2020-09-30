@@ -817,6 +817,7 @@ public abstract class AbstractTestHive
         pageSourceProvider = new HivePageSourceProvider(
                 TYPE_MANAGER,
                 hdfsEnvironment,
+                hiveConfig,
                 getDefaultHivePageSourceFactories(hdfsEnvironment, hiveConfig),
                 getDefaultHiveRecordCursorProviders(hiveConfig, hdfsEnvironment),
                 new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig));
