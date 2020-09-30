@@ -45,12 +45,6 @@ public final class SqlServerQueryRunner
 
     private static final String TEST_SCHEMA = "dbo";
 
-    public static QueryRunner createSqlServerQueryRunner(TestingSqlServer testingSqlServer, TpchTable<?>... tables)
-            throws Exception
-    {
-        return createSqlServerQueryRunner(testingSqlServer, ImmutableMap.of(), ImmutableList.copyOf(tables));
-    }
-
     public static QueryRunner createSqlServerQueryRunner(TestingSqlServer testingSqlServer, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
             throws Exception
     {
