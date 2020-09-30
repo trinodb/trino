@@ -23,11 +23,11 @@ import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
-import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
@@ -89,7 +89,7 @@ public class SinglenodeSparkIceberg
                         "--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
                         "spark-internal")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(new SelectedPortWaitStrategy(SPARK_THRIFT_PORT));
+                .waitingFor(forSelectedPorts(SPARK_THRIFT_PORT));
 
         portBinder.exposePort(container, SPARK_THRIFT_PORT);
 
