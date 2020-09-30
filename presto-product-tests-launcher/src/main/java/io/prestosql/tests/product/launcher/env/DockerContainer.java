@@ -28,6 +28,8 @@ import net.jodah.failsafe.function.CheckedRunnable;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.SelinuxContext;
+import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
+import org.testcontainers.containers.wait.strategy.WaitStrategy;
 import org.testcontainers.images.builder.Transferable;
 
 import java.io.IOException;
@@ -282,6 +284,16 @@ public class DockerContainer
     public StatisticsFetcher.Stats getStats()
     {
         return statistics.get();
+    }
+
+    public DockerContainer waitingForAll(WaitStrategy... strategies)
+    {
+        WaitAllStrategy waitAllStrategy = new WaitAllStrategy();
+        for (WaitStrategy strategy : strategies) {
+            waitAllStrategy.withStrategy(strategy);
+        }
+        waitingFor(waitAllStrategy);
+        return this;
     }
 
     private void copyFileFromContainer(String filename, Path targetPath)

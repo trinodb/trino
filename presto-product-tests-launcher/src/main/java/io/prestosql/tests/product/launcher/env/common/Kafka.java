@@ -23,6 +23,7 @@ import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
+import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 
 public class Kafka
         implements EnvironmentExtender
@@ -68,7 +69,9 @@ public class Kafka
                 .withEnv("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", "1")
                 .withEnv("KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS", "0")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(new SelectedPortWaitStrategy(9092));
+                .waitingForAll(
+                        new SelectedPortWaitStrategy(9092),
+                        forLogMessage(".*started \\(kafka.server.KafkaServer\\).*", 1));
 
         portBinder.exposePort(container, 9092);
 
