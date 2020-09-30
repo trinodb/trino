@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.phoenix;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
@@ -28,7 +29,7 @@ public class TestPhoenixDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createPhoenixQueryRunner(TestingPhoenixServer.getInstance());
+        return createPhoenixQueryRunner(TestingPhoenixServer.getInstance(), ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)
