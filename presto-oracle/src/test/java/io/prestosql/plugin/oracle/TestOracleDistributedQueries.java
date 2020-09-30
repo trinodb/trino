@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.oracle;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.testing.AbstractTestDistributedQueries;
@@ -46,7 +47,7 @@ public class TestOracleDistributedQueries
             throws Exception
     {
         this.oracleServer = new TestingOracleServer();
-        return OracleQueryRunner.createOracleQueryRunner(oracleServer, TpchTable.getTables(), false);
+        return OracleQueryRunner.createOracleQueryRunner(oracleServer, ImmutableMap.of(), TpchTable.getTables(), false);
     }
 
     @AfterClass(alwaysRun = true)
