@@ -46,7 +46,7 @@ public class TestSqlServerIntegrationSmokeTest
     {
         sqlServer = new TestingSqlServer();
         sqlServer.start();
-        return createSqlServerQueryRunner(sqlServer, ImmutableMap.of(), ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION));
+        return createSqlServerQueryRunner(sqlServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION));
     }
 
     @AfterClass(alwaysRun = true)

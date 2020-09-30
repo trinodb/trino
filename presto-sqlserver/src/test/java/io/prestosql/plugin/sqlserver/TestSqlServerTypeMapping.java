@@ -44,6 +44,7 @@ public class TestSqlServerTypeMapping
         return createSqlServerQueryRunner(
                 sqlServer,
                 ImmutableMap.of(),
+                ImmutableMap.of(),
                 ImmutableList.of());
     }
 
