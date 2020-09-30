@@ -17,7 +17,7 @@ import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
+import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
@@ -37,7 +37,7 @@ import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public abstract class AbstractSinglenodeLdap
-        extends AbstractEnvironmentProvider
+        extends EnvironmentProvider
 {
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
@@ -54,7 +54,7 @@ public abstract class AbstractSinglenodeLdap
     }
 
     @Override
-    protected void extendEnvironment(Environment.Builder builder)
+    public void extendEnvironment(Environment.Builder builder)
     {
         String baseImage = format("prestodev/%s:%s", getBaseImage(), imagesVersion);
 

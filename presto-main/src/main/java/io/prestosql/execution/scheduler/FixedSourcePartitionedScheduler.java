@@ -28,6 +28,7 @@ import io.prestosql.execution.scheduler.group.LifespanScheduler;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.StageExecutionDescriptor;
+import io.prestosql.server.DynamicFilterService;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.split.SplitSource;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -73,7 +74,8 @@ public class FixedSourcePartitionedScheduler
             int splitBatchSize,
             OptionalInt concurrentLifespansPerTask,
             NodeSelector nodeSelector,
-            List<ConnectorPartitionHandle> partitionHandles)
+            List<ConnectorPartitionHandle> partitionHandles,
+            DynamicFilterService dynamicFilterService)
     {
         requireNonNull(stage, "stage is null");
         requireNonNull(splitSources, "splitSources is null");
@@ -116,6 +118,7 @@ public class FixedSourcePartitionedScheduler
                     splitPlacementPolicy,
                     Math.max(splitBatchSize / concurrentLifespans, 1),
                     groupedExecutionForScanNode,
+                    dynamicFilterService,
                     () -> true);
 
             if (stageExecutionDescriptor.isStageGroupedExecution() && !groupedExecutionForScanNode) {

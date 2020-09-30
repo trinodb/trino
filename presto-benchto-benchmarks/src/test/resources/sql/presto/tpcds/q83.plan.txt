@@ -1,14 +1,14 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         join (INNER, PARTITIONED):
-            final aggregation over (i_item_id)
+            final aggregation over (i_item_id_59)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["i_item_id"])
-                        partial aggregation over (i_item_id)
+                    remote exchange (REPARTITION, HASH, ["i_item_id_59"])
+                        partial aggregation over (i_item_id_59)
                             semijoin (REPLICATED):
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        scan store_returns
+                                        scan catalog_returns
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 scan date_dim
@@ -23,14 +23,14 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan date_dim
             join (INNER, PARTITIONED):
-                final aggregation over (i_item_id_59)
+                final aggregation over (i_item_id)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["i_item_id_59"])
-                            partial aggregation over (i_item_id_59)
+                        remote exchange (REPARTITION, HASH, ["i_item_id"])
+                            partial aggregation over (i_item_id)
                                 semijoin (REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            scan catalog_returns
+                                            scan store_returns
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan date_dim

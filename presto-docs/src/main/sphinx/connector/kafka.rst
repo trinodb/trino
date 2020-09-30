@@ -56,27 +56,28 @@ Configuration Properties
 
 The following configuration properties are available:
 
-================================================= ==============================================================
-Property Name                                     Description
-================================================= ==============================================================
-``kafka.table-names``                             List of all tables provided by the catalog
-``kafka.default-schema``                          Default schema name for tables
-``kafka.nodes``                                   List of nodes in the Kafka cluster
-``kafka.buffer-size``                             Kafka read buffer size
-``kafka.table-description-dir``                   Directory containing topic description files
-``kafka.hide-internal-columns``                   Controls whether internal columns are part of the table schema or not
-``kafka.messages-per-split``                      Number of messages that are processed by each Presto split, defaults to 100000
-``kafka.security.protocol``                       Security protocol for connection to Kafka cluster, defaults to ``PLAINTEXT`` (when using ``SSL``, the optional properties with prefix ``kafka.ssl`` can be used)
-``kafka.ssl.endpoint.identification.algorithm``   The endpoint identification algorithm used by clients to validate server host name
-``kafka.ssl.provider``                            The name of the security provider used for SSL connections, default is the default security provider of the JVM
-``kafka.ssl.truststore.location``                 Location of the truststore file
-``kafka.ssl.truststore.password``                 Password for the truststore file
-``kafka.ssl.truststore.type``                     File format for the truststore file, defaults to ``JKS``
-``kafka.ssl.keystore.location``                   Location of the keystore file
-``kafka.ssl.keystore.password``                   Password for the keystore file
-``kafka.ssl.keystore.type``                       File format for the keystore file, defaults to ``JKS``
-``kafka.ssl.key.password``                        Password for the private key in the keystore file
-================================================= ==============================================================
+========================================================== ==============================================================
+Property Name                                              Description
+========================================================== ==============================================================
+``kafka.table-names``                                      List of all tables provided by the catalog
+``kafka.default-schema``                                   Default schema name for tables
+``kafka.nodes``                                            List of nodes in the Kafka cluster
+``kafka.buffer-size``                                      Kafka read buffer size
+``kafka.table-description-dir``                            Directory containing topic description files
+``kafka.timestamp-upper-bound-force-push-down-enabled``    Controls if upper bound timestamp push down is enabled for topics using ``CreateTime`` mode
+``kafka.hide-internal-columns``                            Controls whether internal columns are part of the table schema or not
+``kafka.messages-per-split``                               Number of messages that are processed by each Presto split, defaults to 100000
+``kafka.security.protocol``                                Security protocol for connection to Kafka cluster, defaults to ``PLAINTEXT``
+``kafka.ssl.endpoint.identification.algorithm``            The endpoint identification algorithm used by clients to validate server host name
+``kafka.ssl.provider``                                     The name of the security provider used for SSL connections, default is the default security provider of the JVM
+``kafka.ssl.truststore.location``                          Location of the truststore file
+``kafka.ssl.truststore.password``                          Password for the truststore file
+``kafka.ssl.truststore.type``                              File format for the truststore file, defaults to ``JKS``
+``kafka.ssl.keystore.location``                            Location of the keystore file
+``kafka.ssl.keystore.password``                            Password for the keystore file
+``kafka.ssl.keystore.type``                                File format for the keystore file, defaults to ``JKS``
+``kafka.ssl.key.password``                                 Password for the private key in the keystore file
+========================================================== ==============================================================
 
 ``kafka.table-names``
 ^^^^^^^^^^^^^^^^^^^^^
@@ -131,6 +132,18 @@ files (must end with ``.json``) which contain table description files.
 
 This property is optional; the default is ``etc/kafka``.
 
+``kafka.timestamp-upper-bound-force-push-down-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The upper bound predicate on ``_timestamp`` column
+is pushed down only for topics using ``LogAppendTime`` mode.
+
+For topics using ``CreateTime`` mode, upper bound push down must be explicitly
+allowed via ``kafka.timestamp-upper-bound-force-push-down-enabled`` config property
+or ``timestamp_upper_bound_force_push_down_enabled`` session property.
+
+This property is optional; the default is ``false``.
+
 ``kafka.hide-internal-columns``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -140,6 +153,14 @@ these columns are hidden, they can still be used in queries but do not
 show up in ``DESCRIBE <table-name>`` or ``SELECT *``.
 
 This property is optional; the default is ``true``.
+
+``kafka.security.protocol``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To enable ``SSL`` for the Kafka connection, set this property to ``SSL``. When using
+```SSL`` the optional configuration properties with prefix ``kafka.ssl`` can be used.
+
+This property is optional; the default ist ``PLAINTEXT``.
 
 Internal Columns
 ----------------
@@ -161,6 +182,7 @@ Column name             Type                            Description
 ``_key_corrupt``        BOOLEAN                         True if the key decoder could not decode the key for this row. When true, data columns mapped from the key should be treated as invalid.
 ``_key``                VARCHAR                         Key bytes as an UTF-8 encoded string. This is only useful for textual keys.
 ``_key_length``         BIGINT                          Number of bytes in the key.
+``_timestamp``          TIMESTAMP                       Message timestamp.
 ======================= =============================== =============================
 
 For tables without a table definition file, the ``_key_corrupt`` and

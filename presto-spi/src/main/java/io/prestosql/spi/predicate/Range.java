@@ -81,7 +81,8 @@ public final class Range
 
     public static Range equal(Type type, Object value)
     {
-        return new Range(Marker.exactly(type, value), Marker.exactly(type, value));
+        Marker marker = Marker.exactly(type, value);
+        return new Range(marker, marker);
     }
 
     public static Range range(Type type, Object low, boolean lowInclusive, Object high, boolean highInclusive)

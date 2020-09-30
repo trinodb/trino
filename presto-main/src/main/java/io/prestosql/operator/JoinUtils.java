@@ -21,6 +21,7 @@ import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.planner.plan.RemoteSourceNode;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.util.MorePredicates;
 
@@ -67,14 +68,14 @@ public final class JoinUtils
                     .recurseOnlyWhen(
                             MorePredicates.<PlanNode>isInstanceOfAny(ProjectNode.class)
                                     .or(JoinUtils::isLocalRepartitionExchange))
-                    .where(JoinUtils::isRemoteReplicatedExchange)
+                    .where(joinNode -> isRemoteReplicatedExchange(joinNode) || isRemoteReplicatedSourceNode(joinNode))
                     .matches();
         }
         return PlanNodeSearcher.searchFrom(((SemiJoinNode) node).getFilteringSource())
                 .recurseOnlyWhen(
                         MorePredicates.<PlanNode>isInstanceOfAny(ProjectNode.class)
                                 .or(JoinUtils::isLocalGatherExchange))
-                .where(JoinUtils::isRemoteReplicatedExchange)
+                .where(joinNode -> isRemoteReplicatedExchange(joinNode) || isRemoteReplicatedSourceNode(joinNode))
                 .matches();
     }
 
@@ -86,6 +87,16 @@ public final class JoinUtils
 
         ExchangeNode exchangeNode = (ExchangeNode) node;
         return exchangeNode.getScope() == REMOTE && exchangeNode.getType() == REPLICATE;
+    }
+
+    private static boolean isRemoteReplicatedSourceNode(PlanNode node)
+    {
+        if (!(node instanceof RemoteSourceNode)) {
+            return false;
+        }
+
+        RemoteSourceNode remoteSourceNode = (RemoteSourceNode) node;
+        return remoteSourceNode.getExchangeType() == REPLICATE;
     }
 
     private static boolean isLocalRepartitionExchange(PlanNode node)

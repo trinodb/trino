@@ -15,7 +15,6 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.SystemSessionProperties;
 import io.prestosql.cost.CostCalculator;
 import io.prestosql.cost.CostCalculator.EstimatedExchanges;
 import io.prestosql.cost.CostComparator;
@@ -66,9 +65,11 @@ import io.prestosql.sql.planner.iterative.rule.MultipleDistinctAggregationToMark
 import io.prestosql.sql.planner.iterative.rule.PruneAggregationColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneAggregationSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneApplyColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneApplyCorrelation;
 import io.prestosql.sql.planner.iterative.rule.PruneApplySourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneAssignUniqueIdColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneCorrelatedJoinColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneCorrelatedJoinCorrelation;
 import io.prestosql.sql.planner.iterative.rule.PruneCountAggregationOverScalar;
 import io.prestosql.sql.planner.iterative.rule.PruneDeleteSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneDistinctAggregation;
@@ -134,6 +135,8 @@ import io.prestosql.sql.planner.iterative.rule.PushOffsetThroughProject;
 import io.prestosql.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
 import io.prestosql.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
 import io.prestosql.sql.planner.iterative.rule.PushPredicateIntoTableScan;
+import io.prestosql.sql.planner.iterative.rule.PushPredicateThroughProjectIntoRowNumber;
+import io.prestosql.sql.planner.iterative.rule.PushPredicateThroughProjectIntoWindow;
 import io.prestosql.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushProjectionThroughExchange;
 import io.prestosql.sql.planner.iterative.rule.PushProjectionThroughUnion;
@@ -203,6 +206,8 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Set;
+
+import static io.prestosql.SystemSessionProperties.isIterativeRuleBasedColumnPruning;
 
 public class PlanOptimizers
 {
@@ -281,9 +286,11 @@ public class PlanOptimizers
                 new PruneAggregationColumns(),
                 new PruneAggregationSourceColumns(),
                 new PruneApplyColumns(),
+                new PruneApplyCorrelation(),
                 new PruneApplySourceColumns(),
                 new PruneAssignUniqueIdColumns(),
                 new PruneCorrelatedJoinColumns(),
+                new PruneCorrelatedJoinCorrelation(),
                 new PruneDeleteSourceColumns(),
                 new PruneDistinctLimitSourceColumns(),
                 new PruneEnforceSingleRowColumns(),
@@ -370,7 +377,7 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                SystemSessionProperties::isIterativeRuleBasedColumnPruning,
+                session -> !isIterativeRuleBasedColumnPruning(session),
                 ImmutableList.of(new PruneUnreferencedOutputs(metadata, typeAnalyzer)),
                 columnPruningRules);
 
@@ -570,6 +577,8 @@ public class PlanOptimizers
                                 // add UnaliasSymbolReferences when it's ported
                                 .add(new RemoveRedundantIdentityProjections())
                                 .addAll(GatherAndMergeWindows.rules())
+                                .add(new PushPredicateThroughProjectIntoRowNumber(metadata))
+                                .add(new PushPredicateThroughProjectIntoWindow(metadata))
                                 .build()),
                 inlineProjections,
                 columnPruningOptimizer, // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point

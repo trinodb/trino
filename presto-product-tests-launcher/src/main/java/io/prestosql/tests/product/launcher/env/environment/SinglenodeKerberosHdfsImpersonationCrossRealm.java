@@ -16,7 +16,7 @@ package io.prestosql.tests.product.launcher.env.environment;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
+import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Kerberos;
 import io.prestosql.tests.product.launcher.env.common.Standard;
@@ -32,7 +32,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class SinglenodeKerberosHdfsImpersonationCrossRealm
-        extends AbstractEnvironmentProvider
+        extends EnvironmentProvider
 {
     private final DockerFiles dockerFiles;
 
@@ -45,7 +45,7 @@ public final class SinglenodeKerberosHdfsImpersonationCrossRealm
 
     @Override
     @SuppressWarnings("resource")
-    protected void extendEnvironment(Environment.Builder builder)
+    public void extendEnvironment(Environment.Builder builder)
     {
         builder.configureContainer(COORDINATOR, container -> {
             container

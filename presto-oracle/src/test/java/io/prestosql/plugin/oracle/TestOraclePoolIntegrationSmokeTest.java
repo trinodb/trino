@@ -13,15 +13,43 @@
  */
 package io.prestosql.plugin.oracle;
 
+import com.google.common.collect.ImmutableList;
+import io.airlift.testing.Closeables;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
+import io.prestosql.testing.sql.SqlExecutor;
+import org.testng.annotations.AfterClass;
+
+import java.io.IOException;
+
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
+import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 
 public class TestOraclePoolIntegrationSmokeTest
         extends BaseOracleIntegrationSmokeTest
 {
+    private TestingOracleServer oracleServer;
+
     @Override
-    protected QueryRunner createOracleQueryRunner(TestingOracleServer server, Iterable<TpchTable<?>> tables) throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        return OracleQueryRunner.createOraclePoolQueryRunner(server, tables);
+        oracleServer = new TestingOracleServer();
+        return OracleQueryRunner.createOraclePoolQueryRunner(oracleServer, ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION));
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void destroy()
+            throws IOException
+    {
+        Closeables.closeAll(oracleServer);
+        oracleServer = null;
+    }
+
+    @Override
+    protected SqlExecutor onOracle()
+    {
+        return oracleServer::execute;
     }
 }

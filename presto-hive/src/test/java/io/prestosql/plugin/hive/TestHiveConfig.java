@@ -26,6 +26,8 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
+import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
 import static io.prestosql.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
 
 public class TestHiveConfig
@@ -58,6 +60,7 @@ public class TestHiveConfig
                 .setHiveCompressionCodec(HiveCompressionCodec.GZIP)
                 .setRespectTableFormat(true)
                 .setImmutablePartitions(false)
+                .setInsertExistingPartitionsBehavior(APPEND)
                 .setCreateEmptyBucketFiles(false)
                 .setSortedWritingEnabled(true)
                 .setMaxPartitionsPerWriter(100)
@@ -96,7 +99,8 @@ public class TestHiveConfig
                 .setQueryPartitionFilterRequired(false)
                 .setPartitionUseColumnNames(false)
                 .setProjectionPushdownEnabled(true)
-                .setDynamicFilteringProbeBlockingTimeout(new Duration(0, TimeUnit.MINUTES)));
+                .setDynamicFilteringProbeBlockingTimeout(new Duration(0, TimeUnit.MINUTES))
+                .setTimestampPrecision(HiveTimestampPrecision.MILLISECONDS));
     }
 
     @Test
@@ -124,6 +128,7 @@ public class TestHiveConfig
                 .put("hive.compression-codec", "NONE")
                 .put("hive.respect-table-format", "false")
                 .put("hive.immutable-partitions", "true")
+                .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
                 .put("hive.create-empty-bucket-files", "true")
                 .put("hive.max-partitions-per-writers", "222")
                 .put("hive.max-open-sort-files", "333")
@@ -166,6 +171,7 @@ public class TestHiveConfig
                 .put("hive.partition-use-column-names", "true")
                 .put("hive.projection-pushdown-enabled", "false")
                 .put("hive.dynamic-filtering-probe-blocking-timeout", "10s")
+                .put("hive.timestamp-precision", "NANOSECONDS")
                 .build();
 
         HiveConfig expected = new HiveConfig()
@@ -193,6 +199,7 @@ public class TestHiveConfig
                 .setHiveCompressionCodec(HiveCompressionCodec.NONE)
                 .setRespectTableFormat(false)
                 .setImmutablePartitions(true)
+                .setInsertExistingPartitionsBehavior(OVERWRITE)
                 .setCreateEmptyBucketFiles(true)
                 .setMaxPartitionsPerWriter(222)
                 .setMaxOpenSortFiles(333)
@@ -231,7 +238,8 @@ public class TestHiveConfig
                 .setQueryPartitionFilterRequired(true)
                 .setPartitionUseColumnNames(true)
                 .setProjectionPushdownEnabled(false)
-                .setDynamicFilteringProbeBlockingTimeout(new Duration(10, TimeUnit.SECONDS));
+                .setDynamicFilteringProbeBlockingTimeout(new Duration(10, TimeUnit.SECONDS))
+                .setTimestampPrecision(HiveTimestampPrecision.NANOSECONDS);
 
         assertFullMapping(properties, expected);
     }

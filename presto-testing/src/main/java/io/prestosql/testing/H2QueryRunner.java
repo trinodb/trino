@@ -65,7 +65,6 @@ import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.plugin.tpch.TpchRecordSet.createTpchRecordSet;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -76,7 +75,6 @@ import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.LINE_ITEM;
 import static io.prestosql.tpch.TpchTable.NATION;
@@ -281,7 +279,7 @@ public class H2QueryRunner
                         row.add(jsonParse(utf8Slice(stringValue)).toStringUtf8());
                     }
                 }
-                else if (isVarcharType(type)) {
+                else if (type instanceof VarcharType) {
                     String stringValue = resultSet.getString(i);
                     if (resultSet.wasNull()) {
                         row.add(null);
@@ -290,7 +288,7 @@ public class H2QueryRunner
                         row.add(stringValue);
                     }
                 }
-                else if (isCharType(type)) {
+                else if (type instanceof CharType) {
                     String stringValue = resultSet.getString(i);
                     if (resultSet.wasNull()) {
                         row.add(null);

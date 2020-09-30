@@ -14,7 +14,7 @@
 FROM centos:centos7
 LABEL maintainer="Presto community <https://prestosql.io/community.html>"
 
-ENV JAVA_HOME /usr/lib/jvm/java-11
+ENV JAVA_HOME /usr/lib/jvm/zulu11
 RUN \
     set -xeu && \
     yum -y -q install https://cdn.azul.com/zulu/bin/zulu-repo-1.0.0-1.noarch.rpm && \

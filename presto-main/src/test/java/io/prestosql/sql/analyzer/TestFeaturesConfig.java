@@ -36,7 +36,6 @@ import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROA
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.prestosql.sql.analyzer.RegexLibrary.JONI;
 import static io.prestosql.sql.analyzer.RegexLibrary.RE2J;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -110,10 +109,6 @@ public class TestFeaturesConfig
                 .setLateMaterializationEnabled(false)
                 .setSkipRedundantSort(true)
                 .setPredicatePushdownUseTableProperties(true)
-                .setEnableDynamicFiltering(true)
-                .setDynamicFilteringMaxPerDriverRowCount(100)
-                .setDynamicFilteringMaxPerDriverSize(DataSize.of(10, KILOBYTE))
-                .setDynamicFilteringRefreshInterval(new Duration(200, MILLISECONDS))
                 .setIgnoreDownstreamPreferences(false)
                 .setOmitDateTimeTypePrecision(false)
                 .setIterativeRuleBasedColumnPruning(true));
@@ -187,10 +182,6 @@ public class TestFeaturesConfig
                 .put("experimental.late-materialization.enabled", "true")
                 .put("optimizer.skip-redundant-sort", "false")
                 .put("optimizer.predicate-pushdown-use-table-properties", "false")
-                .put("enable-dynamic-filtering", "false")
-                .put("dynamic-filtering-max-per-driver-row-count", "256")
-                .put("dynamic-filtering-max-per-driver-size", "64kB")
-                .put("experimental.dynamic-filtering-refresh-interval", "300ms")
                 .put("optimizer.ignore-downstream-preferences", "true")
                 .put("deprecated.omit-datetime-type-precision", "true")
                 .put("optimizer.iterative-rule-based-column-pruning", "false")
@@ -261,10 +252,6 @@ public class TestFeaturesConfig
                 .setLateMaterializationEnabled(true)
                 .setSkipRedundantSort(false)
                 .setPredicatePushdownUseTableProperties(false)
-                .setEnableDynamicFiltering(false)
-                .setDynamicFilteringMaxPerDriverRowCount(256)
-                .setDynamicFilteringMaxPerDriverSize(DataSize.of(64, KILOBYTE))
-                .setDynamicFilteringRefreshInterval(new Duration(300, MILLISECONDS))
                 .setIgnoreDownstreamPreferences(true)
                 .setOmitDateTimeTypePrecision(true)
                 .setIterativeRuleBasedColumnPruning(false);

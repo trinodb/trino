@@ -50,7 +50,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
@@ -123,7 +122,7 @@ public class AvroColumnDecoder
 
     private boolean isSupportedPrimitive(Type type)
     {
-        return isVarcharType(type) || SUPPORTED_PRIMITIVE_TYPES.contains(type);
+        return type instanceof VarcharType || SUPPORTED_PRIMITIVE_TYPES.contains(type);
     }
 
     public FieldValueProvider decodeField(GenericRecord avroRecord)

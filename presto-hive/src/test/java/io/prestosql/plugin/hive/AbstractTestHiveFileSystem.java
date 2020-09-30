@@ -25,7 +25,6 @@ import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.AbstractTestHive.HiveTransaction;
 import io.prestosql.plugin.hive.AbstractTestHive.Transaction;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Column;
@@ -54,6 +53,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -186,7 +186,7 @@ public abstract class AbstractTestHiveFileSystem
                 executor,
                 getBasePath(),
                 hdfsEnvironment);
-        locationService = new HiveLocationService(hdfsEnvironment, new HiveAuthenticationConfig());
+        locationService = new HiveLocationService(hdfsEnvironment);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
                 new CatalogName("hive"),
@@ -450,7 +450,7 @@ public abstract class AbstractTestHiveFileSystem
             ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, tableHandle);
             ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
-            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle, columnHandles, TupleDomain.all())) {
+            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle, columnHandles, DynamicFilter.EMPTY)) {
                 MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
                 assertEqualsIgnoreOrder(result.getMaterializedRows(), data.getMaterializedRows());
             }
@@ -488,7 +488,7 @@ public abstract class AbstractTestHiveFileSystem
 
             List<ConnectorSplit> splits = getAllSplits(splitSource);
             for (ConnectorSplit split : splits) {
-                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, table, columnHandles, TupleDomain.all())) {
+                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, table, columnHandles, DynamicFilter.EMPTY)) {
                     MaterializedResult pageSourceResult = materializeSourceDataStream(session, pageSource, allTypes);
                     for (MaterializedRow row : pageSourceResult.getMaterializedRows()) {
                         Object[] dataValues = IntStream.range(0, row.getFieldCount())

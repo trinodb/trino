@@ -51,6 +51,7 @@ import io.prestosql.execution.DataDefinitionTask;
 import io.prestosql.execution.DeallocateTask;
 import io.prestosql.execution.DropTableTask;
 import io.prestosql.execution.DropViewTask;
+import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.NodeTaskMap;
 import io.prestosql.execution.PrepareTask;
@@ -311,7 +312,7 @@ public class LocalQueryRunner
 
         this.metadata = new MetadataManager(
                 featuresConfig,
-                new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), taskManagerConfig, new MemoryManagerConfig(), featuresConfig, new NodeMemoryConfig())),
+                new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), taskManagerConfig, new MemoryManagerConfig(), featuresConfig, new NodeMemoryConfig(), new DynamicFilterConfig())),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
@@ -728,7 +729,8 @@ public class LocalQueryRunner
                 new PagesIndex.TestingFactory(false),
                 joinCompiler,
                 new LookupJoinOperators(),
-                new OrderingCompiler());
+                new OrderingCompiler(),
+                new DynamicFilterConfig());
 
         // plan query
         StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();

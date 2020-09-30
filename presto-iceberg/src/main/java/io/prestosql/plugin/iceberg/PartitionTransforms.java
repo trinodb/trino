@@ -21,6 +21,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import org.apache.iceberg.PartitionField;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
@@ -53,7 +54,6 @@ import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_HOUR;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Integer.parseInt;
 import static java.lang.Math.floorDiv;
 import static java.util.Objects.requireNonNull;
@@ -66,6 +66,8 @@ public final class PartitionTransforms
 
     private static final DateTimeField YEAR_FIELD = ISOChronology.getInstanceUTC().year();
     private static final DateTimeField MONTH_FIELD = ISOChronology.getInstanceUTC().monthOfYear();
+    private static final DateTimeField DAY_OF_YEAR_FIELD = ISOChronology.getInstanceUTC().dayOfYear();
+    private static final DateTimeField DAY_OF_MONTH_FIELD = ISOChronology.getInstanceUTC().dayOfMonth();
 
     private PartitionTransforms() {}
 
@@ -148,7 +150,7 @@ public final class PartitionTransforms
             if (type.equals(TIMESTAMP_TZ_MICROS)) {
                 return new ColumnTransform(INTEGER, block -> bucketTimestampWithTimeZone(block, count));
             }
-            if (isVarcharType(type)) {
+            if (type instanceof VarcharType) {
                 return new ColumnTransform(INTEGER, block -> bucketVarchar(block, count));
             }
             if (type.equals(VARBINARY)) {
@@ -174,7 +176,7 @@ public final class PartitionTransforms
                 DecimalType decimal = (DecimalType) type;
                 return new ColumnTransform(type, block -> truncateLongDecimal(decimal, block, width));
             }
-            if (isVarcharType(type)) {
+            if (type instanceof VarcharType) {
                 return new ColumnTransform(VARCHAR, block -> truncateVarchar(block, width));
             }
             if (type.equals(VARBINARY)) {
@@ -493,27 +495,50 @@ public final class PartitionTransforms
     }
 
     @VisibleForTesting
-    static long epochYear(long epochMillis)
+    static long epochYear(long epochMilli)
     {
-        return YEAR_FIELD.get(epochMillis) - 1970;
+        int epochYear = YEAR_FIELD.get(epochMilli) - 1970;
+        // Iceberg incorrectly handles negative epoch values
+        if ((epochMilli < 0) && ((DAY_OF_YEAR_FIELD.get(epochMilli) > 1) || !isMidnight(epochMilli))) {
+            epochYear++;
+        }
+        return epochYear;
     }
 
     @VisibleForTesting
     static long epochMonth(long epochMilli)
     {
-        long year = epochYear(epochMilli);
+        long year = YEAR_FIELD.get(epochMilli) - 1970;
         int month = MONTH_FIELD.get(epochMilli) - 1;
-        return (year * 12) + month;
+        long epochMonth = (year * 12) + month;
+        // Iceberg incorrectly handles negative epoch values
+        if ((epochMilli < 0) && ((DAY_OF_MONTH_FIELD.get(epochMilli) > 1) || !isMidnight(epochMilli))) {
+            epochMonth++;
+        }
+        return epochMonth;
     }
 
-    private static long epochDay(long epochMilli)
+    @VisibleForTesting
+    static long epochDay(long epochMilli)
     {
-        return floorDiv(epochMilli, MILLISECONDS_PER_DAY);
+        long epochDay = floorDiv(epochMilli, MILLISECONDS_PER_DAY);
+        // Iceberg incorrectly handles negative epoch values
+        if ((epochMilli < 0) && !isMidnight(epochMilli)) {
+            epochDay++;
+        }
+        return epochDay;
     }
 
-    private static long epochHour(long epochMilli)
+    @VisibleForTesting
+    static long epochHour(long epochMilli)
     {
-        return floorDiv(epochMilli, MILLISECONDS_PER_HOUR);
+        // Iceberg incorrectly handles negative epoch values
+        return epochMilli / MILLISECONDS_PER_HOUR;
+    }
+
+    private static boolean isMidnight(long epochMilli)
+    {
+        return (epochMilli % MILLISECONDS_PER_DAY) == 0;
     }
 
     public static class ColumnTransform

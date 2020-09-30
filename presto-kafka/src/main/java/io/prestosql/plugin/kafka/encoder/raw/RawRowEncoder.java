@@ -19,6 +19,7 @@ import io.prestosql.plugin.kafka.encoder.AbstractRowEncoder;
 import io.prestosql.plugin.kafka.encoder.EncoderColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -39,7 +40,6 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 
@@ -90,7 +90,7 @@ public class RawRowEncoder
         this.columnMappings = this.columnHandles.stream().map(ColumnMapping::new).collect(toImmutableList());
 
         for (ColumnMapping mapping : this.columnMappings) {
-            if (mapping.getLength() != mapping.getFieldType().getSize() && !isVarcharType(mapping.getType())) {
+            if (mapping.getLength() != mapping.getFieldType().getSize() && !(mapping.getType() instanceof VarcharType)) {
                 throw new IndexOutOfBoundsException(format(
                         "Mapping length '%s' is not equal to expected length '%s' for column '%s'",
                         mapping.getLength(),
@@ -198,7 +198,7 @@ public class RawRowEncoder
             else if (columnType == DOUBLE) {
                 checkFieldTypeOneOf(fieldType, columnName, columnType, FieldType.DOUBLE, FieldType.FLOAT);
             }
-            else if (isVarcharType(columnType)) {
+            else if (columnType instanceof VarcharType) {
                 checkFieldTypeOneOf(fieldType, columnName, columnType, FieldType.BYTE);
             }
         }
@@ -246,7 +246,7 @@ public class RawRowEncoder
 
     private static boolean isSupportedType(Type type)
     {
-        return isVarcharType(type) || SUPPORTED_PRIMITIVE_TYPES.contains(type);
+        return type instanceof VarcharType || SUPPORTED_PRIMITIVE_TYPES.contains(type);
     }
 
     @Override

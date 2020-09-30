@@ -43,7 +43,7 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_STATE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_VERSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.prestosql.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
@@ -59,6 +59,7 @@ class ContinuousTaskStatusFetcher
     private final Consumer<Throwable> onFail;
     private final StateMachine<TaskStatus> taskStatus;
     private final JsonCodec<TaskStatus> taskStatusCodec;
+    private final DynamicFiltersFetcher dynamicFiltersFetcher;
 
     private final Duration refreshMaxWait;
     private final Executor executor;
@@ -79,6 +80,7 @@ class ContinuousTaskStatusFetcher
             TaskStatus initialTaskStatus,
             Duration refreshMaxWait,
             JsonCodec<TaskStatus> taskStatusCodec,
+            DynamicFiltersFetcher dynamicFiltersFetcher,
             Executor executor,
             HttpClient httpClient,
             Duration maxErrorDuration,
@@ -93,6 +95,7 @@ class ContinuousTaskStatusFetcher
 
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
         this.taskStatusCodec = requireNonNull(taskStatusCodec, "taskStatusCodec is null");
+        this.dynamicFiltersFetcher = requireNonNull(dynamicFiltersFetcher, "dynamicFiltersFetcher is null");
 
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -145,7 +148,7 @@ class ContinuousTaskStatusFetcher
         Request request = prepareGet()
                 .setUri(uriBuilderFrom(taskStatus.getSelf()).appendPath("status").build())
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
-                .setHeader(PRESTO_CURRENT_STATE, taskStatus.getState().toString())
+                .setHeader(PRESTO_CURRENT_VERSION, Long.toString(taskStatus.getVersion()))
                 .setHeader(PRESTO_MAX_WAIT, refreshMaxWait.toString())
                 .build();
 
@@ -237,6 +240,8 @@ class ContinuousTaskStatusFetcher
             // While sending the DELETE is not required, it is preferred because a task was created by the previous request.
             onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().getSelf()))));
         }
+
+        dynamicFiltersFetcher.updateDynamicFiltersVersion(newValue.getDynamicFiltersVersion());
     }
 
     /**

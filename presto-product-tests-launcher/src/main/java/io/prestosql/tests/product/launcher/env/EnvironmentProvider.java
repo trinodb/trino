@@ -13,7 +13,53 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
-public interface EnvironmentProvider
+import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
+import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
+
+import java.util.List;
+import java.util.stream.StreamSupport;
+
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
+
+public abstract class EnvironmentProvider
+        implements EnvironmentExtender
 {
-    Environment.Builder createEnvironment(String name);
+    private static final Logger log = Logger.get(EnvironmentProvider.class);
+    private final List<EnvironmentExtender> bases;
+
+    protected EnvironmentProvider(List<EnvironmentExtender> bases)
+    {
+        this.bases = requireNonNull(bases, "bases is null");
+    }
+
+    public final Environment.Builder createEnvironment(String name, EnvironmentConfig environmentConfig)
+    {
+        requireNonNull(environmentConfig, "environmentConfig is null");
+        Environment.Builder builder = Environment.builder(name);
+
+        // Environment is created by applying bases, environment definition and environment config to builder
+        ImmutableList<EnvironmentExtender> extenders = ImmutableList.<EnvironmentExtender>builder()
+                .addAll(bases)
+                .add(this)
+                .add(environmentConfig)
+                .build();
+
+        compose(extenders).extendEnvironment(builder);
+        return builder;
+    }
+
+    static EnvironmentExtender compose(Iterable<EnvironmentExtender> extenders)
+    {
+        String extendersNames = StreamSupport.stream(extenders.spliterator(), false)
+                .map(Object::getClass)
+                .map(Class::getSimpleName)
+                .collect(joining(", "));
+
+        return builder -> {
+            log.info("Building environment %s with extenders: %s", builder.getEnvironmentName(), extendersNames);
+            extenders.forEach(extender -> extender.extendEnvironment(builder));
+        };
+    }
 }

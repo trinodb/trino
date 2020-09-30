@@ -10,7 +10,7 @@
 
     <groupId>io.prestosql</groupId>
     <artifactId>presto-root</artifactId>
-    <version>342-SNAPSHOT</version>
+    <version>344-SNAPSHOT</version>
 
     <name>presto-root</name>
     <description>Presto</description>
@@ -138,7 +138,8 @@
         <module>presto-spi</module>
         <module>presto-sqlserver</module>
         <module>presto-teradata-functions</module>
-        <module>presto-test-jdbc-compatibility</module>
+        <module>presto-test-jdbc-compatibility-old-driver</module>
+        <module>presto-test-jdbc-compatibility-old-server</module>
         <module>presto-testing</module>
         <module>presto-testing-kafka</module>
         <module>presto-testng-services</module>
@@ -503,7 +504,7 @@
             <dependency>
                 <groupId>io.prestosql.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.1.2-1</version>
+                <version>3.1.2-3</version>
             </dependency>
 
             <dependency>

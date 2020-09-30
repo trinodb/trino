@@ -216,6 +216,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public void setColumnComment(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        delegate().setColumnComment(identity, handle, column, comment);
+    }
+
+    @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         delegate().addColumn(session, handle, column);

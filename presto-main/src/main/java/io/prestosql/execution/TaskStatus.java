@@ -16,21 +16,18 @@ package io.prestosql.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.sql.planner.plan.DynamicFilterId;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.prestosql.execution.TaskState.PLANNED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -38,15 +35,10 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class TaskStatus
 {
     /**
-     * The first valid version that will be returned for a remote task.
+     * Version of task status that can be used to create an initial local task
+     * that is always older or equal than any remote task.
      */
-    public static final long STARTING_VERSION = 1;
-
-    /**
-     * A value lower than {@link #STARTING_VERSION}. This value can be used to
-     * create an initial local task that is always older than any remote task.
-     */
-    private static final long MIN_VERSION = 0;
+    public static final long STARTING_VERSION = 0;
 
     /**
      * A value larger than any valid value. This value can be used to create
@@ -75,7 +67,7 @@ public class TaskStatus
 
     private final List<ExecutionFailureInfo> failures;
 
-    private final Map<DynamicFilterId, Domain> dynamicFilterDomains;
+    private final long dynamicFiltersVersion;
 
     @JsonCreator
     public TaskStatus(
@@ -96,12 +88,12 @@ public class TaskStatus
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("fullGcCount") long fullGcCount,
             @JsonProperty("fullGcTime") Duration fullGcTime,
-            @JsonProperty("dynamicFilterDomains") Map<DynamicFilterId, Domain> dynamicFilterDomains)
+            @JsonProperty("dynamicFiltersVersion") long dynamicFiltersVersion)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
 
-        checkState(version >= MIN_VERSION, "version must be >= MIN_VERSION");
+        checkState(version >= STARTING_VERSION, "version must be >= STARTING_VERSION");
         this.version = version;
         this.state = requireNonNull(state, "state is null");
         this.self = requireNonNull(self, "self is null");
@@ -126,7 +118,8 @@ public class TaskStatus
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
         this.fullGcCount = fullGcCount;
         this.fullGcTime = requireNonNull(fullGcTime, "fullGcTime is null");
-        this.dynamicFilterDomains = ImmutableMap.copyOf(requireNonNull(dynamicFilterDomains, "dynamicFilterDomains is null"));
+        checkArgument(dynamicFiltersVersion >= INITIAL_DYNAMIC_FILTERS_VERSION, "dynamicFiltersVersion must be >= INITIAL_DYNAMIC_FILTERS_VERSION");
+        this.dynamicFiltersVersion = dynamicFiltersVersion;
     }
 
     @JsonProperty
@@ -232,9 +225,9 @@ public class TaskStatus
     }
 
     @JsonProperty
-    public Map<DynamicFilterId, Domain> getDynamicFilterDomains()
+    public long getDynamicFiltersVersion()
     {
-        return dynamicFilterDomains;
+        return dynamicFiltersVersion;
     }
 
     @Override
@@ -251,7 +244,7 @@ public class TaskStatus
         return new TaskStatus(
                 taskId,
                 "",
-                MIN_VERSION,
+                STARTING_VERSION,
                 PLANNED,
                 location,
                 nodeId,
@@ -266,7 +259,7 @@ public class TaskStatus
                 DataSize.ofBytes(0),
                 0,
                 new Duration(0, MILLISECONDS),
-                ImmutableMap.of());
+                INITIAL_DYNAMIC_FILTERS_VERSION);
     }
 
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
@@ -289,6 +282,6 @@ public class TaskStatus
                 taskStatus.getRevocableMemoryReservation(),
                 taskStatus.getFullGcCount(),
                 taskStatus.getFullGcTime(),
-                taskStatus.getDynamicFilterDomains());
+                taskStatus.getDynamicFiltersVersion());
     }
 }

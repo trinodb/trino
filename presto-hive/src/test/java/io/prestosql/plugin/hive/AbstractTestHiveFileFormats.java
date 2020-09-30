@@ -37,6 +37,7 @@ import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import org.apache.hadoop.conf.Configuration;
@@ -98,7 +99,6 @@ import static io.prestosql.plugin.hive.util.SerDeUtils.serializeObject;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
@@ -108,7 +108,6 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.MaterializedResult.materializeSourceDataStream;
 import static io.prestosql.testing.StructuralTestUtil.arrayBlockOf;
@@ -705,7 +704,7 @@ public abstract class AbstractTestHiveFileFormats
         if (DOUBLE.equals(type)) {
             return cursor.getDouble(field);
         }
-        if (isVarcharType(type) || isCharType(type) || VARBINARY.equals(type)) {
+        if (type instanceof VarcharType || type instanceof CharType || VARBINARY.equals(type)) {
             return cursor.getSlice(field);
         }
         if (DateType.DATE.equals(type)) {

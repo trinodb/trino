@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>342-SNAPSHOT</version>
+        <version>344-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-druid</artifactId>
@@ -86,9 +86,17 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- for testing -->
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-main</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-main</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 

@@ -74,15 +74,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # checkout tags so version in Manifest is set properly
       - uses: actions/setup-java@v1
         with:
           java-version: 11
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-test-jdbc-compatibility,!presto-docs,!presto-server,!presto-server-rpm'
-      - name: Test JDBC clients
-        run: presto-test-jdbc-compatibility/bin/run_tests.sh
+          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-test-jdbc-compatibility-old-driver,!presto-docs,!presto-server,!presto-server-rpm'
+      - name: Test old JDBC vs current server
+        run: presto-test-jdbc-compatibility-old-driver/bin/run_tests.sh
+      - name: Test current JDBC vs old server
+        if: always()
+        run: ./mvnw test -B -Dair.check.skip-all -pl presto-test-jdbc-compatibility-old-server
 
   hive-tests:
     runs-on: ubuntu-latest
@@ -126,7 +131,7 @@ jobs:
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
             ./mvnw test -B -Dair.check.skip-all -pl presto-hive -P test-hive-glue
           fi
-      - name: Run Hive Azure ABFS Tests
+      - name: Run Hive Azure ABFS Access Key Tests
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
         env:
           ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
@@ -135,7 +140,20 @@ jobs:
         run: |
           if [ "${ABFS_CONTAINER}" != "" ]; then
             source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
-              presto-hive-hadoop2/bin/run_hive_abfs_tests.sh
+              presto-hive-hadoop2/bin/run_hive_abfs_access_key_tests.sh
+          fi
+      - name: Run Hive Azure ABFS OAuth Tests
+        if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
+        env:
+          ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
+          ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
+          ABFS_OAUTH_ENDPOINT: ${{ secrets.AZURE_ABFS_OAUTH_ENDPOINT }}
+          ABFS_OAUTH_CLIENTID: ${{ secrets.AZURE_ABFS_OAUTH_CLIENTID }}
+          ABFS_OAUTH_SECRET: ${{ secrets.AZURE_ABFS_OAUTH_SECRET }}
+        run: |
+          if [ -n "$ABFS_CONTAINER" ]; then
+            source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+              presto-hive-hadoop2/bin/run_hive_abfs_oauth_tests.sh
           fi
       - name: Run Hive Azure WASB Tests
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
@@ -191,7 +209,8 @@ jobs:
             !presto-oracle,
             !presto-kudu,
             !presto-phoenix,!presto-iceberg,!presto-druid,
-            !presto-docs,!presto-server,!presto-server-rpm'
+            !presto-docs,!presto-server,!presto-server-rpm,
+            !presto-test-jdbc-compatibility-old-server'
 
   test:
     runs-on: ubuntu-latest

@@ -20,13 +20,14 @@ import io.airlift.json.JsonCodec;
 import io.prestosql.Session;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.DataProviders;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingSession;
-import io.prestosql.testing.TestngUtils;
 import io.prestosql.testing.datatype.CreateAndInsertDataSetup;
 import io.prestosql.testing.datatype.CreateAndPrestoInsertDataSetup;
 import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
@@ -36,7 +37,6 @@ import io.prestosql.testing.datatype.DataTypeTest;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -64,6 +64,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
 import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_DEFAULT_SCALE;
@@ -76,12 +77,14 @@ import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_AR
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.DISABLED;
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
+import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.datatype.DataType.bigintDataType;
 import static io.prestosql.testing.datatype.DataType.booleanDataType;
 import static io.prestosql.testing.datatype.DataType.dataType;
@@ -144,18 +147,16 @@ public class TestPostgreSqlTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.postgreSqlServer = new TestingPostgreSqlServer();
+        postgreSqlServer = new TestingPostgreSqlServer();
+        closeAfterClass(() -> {
+            postgreSqlServer.close();
+            postgreSqlServer = null;
+        });
         return createPostgreSqlQueryRunner(
                 postgreSqlServer,
                 ImmutableMap.of(),
                 ImmutableMap.of("jdbc-types-mapped-to-varchar", "Tsrange, Inet" /* make sure that types are compared case insensitively */),
                 ImmutableList.of());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        postgreSqlServer.close();
     }
 
     @BeforeClass
@@ -192,11 +193,11 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testVarbinary()
     {
-        varbinaryTestCases(varbinaryDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
-
         varbinaryTestCases(byteaDataType())
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases(varbinaryDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
     }
 
     private DataTypeTest varbinaryTestCases(DataType<byte[]> varbinaryDataType)
@@ -211,73 +212,74 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
-    public void testPrestoCreatedParameterizedVarchar()
+    public void testPostgreSqlCreatedChar()
     {
-        varcharDataTypeTest()
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_parameterized_varchar"));
+        characterDataTypeTest(DataType::charDataType)
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_char"));
+
+        // too long for a char in Presto
+        int length = CharType.MAX_LENGTH + 1;
+        DataType<String> longChar = dataType(
+                format("char(%s)", length),
+                createVarcharType(length),
+                DataType::formatStringLiteral,
+                input -> padSpaces(utf8Slice(input), length).toStringUtf8());
+        String sampleFourByteUnicodeCharacter = "\uD83D\uDE02";
+        DataTypeTest.create()
+                .addRoundTrip(longChar, "text_f")
+                .addRoundTrip(longChar, "a".repeat(length))
+                .addRoundTrip(longChar, sampleFourByteUnicodeCharacter.repeat(length))
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_char"));
     }
 
     @Test
-    public void testPostgreSqlCreatedParameterizedVarchar()
+    public void testPrestoCreatedChar()
     {
-        varcharDataTypeTest()
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_parameterized_varchar"));
-    }
-
-    private DataTypeTest varcharDataTypeTest()
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(varcharDataType(10), "text_a")
-                .addRoundTrip(varcharDataType(255), "text_b")
-                .addRoundTrip(varcharDataType(65535), "text_d")
-                .addRoundTrip(varcharDataType(10485760), "text_f")
-                .addRoundTrip(varcharDataType(), "unbounded");
+        characterDataTypeTest(DataType::charDataType)
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_char"));
     }
 
     @Test
-    public void testPrestoCreatedParameterizedVarcharUnicode()
+    public void testPostgreSqlCreatedVarchar()
     {
-        unicodeVarcharDateTypeTest()
-                .execute(getQueryRunner(), prestoCreateAsSelect("postgresql_test_parameterized_varchar_unicode"));
+        varcharDataTypeTest(DataType::varcharDataType)
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_varchar"));
+
+        varcharDataTypeTest(length -> varcharDataType())
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_varchar"));
     }
 
     @Test
-    public void testPostgreSqlCreatedParameterizedVarcharUnicode()
+    public void testPrestoCreatedVarchar()
     {
-        unicodeVarcharDateTypeTest()
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_parameterized_varchar_unicode"));
+        varcharDataTypeTest(DataType::varcharDataType)
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_varchar"));
+
+        varcharDataTypeTest(length -> varcharDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_varchar"));
     }
 
-    @Test
-    public void testPrestoCreatedParameterizedCharUnicode()
+    private DataTypeTest varcharDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
     {
-        unicodeDataTypeTest(DataType::charDataType)
-                .execute(getQueryRunner(), prestoCreateAsSelect("postgresql_test_parameterized_char_unicode"));
+        return characterDataTypeTest(dataTypeFactory)
+                .addRoundTrip(dataTypeFactory.apply(10485760), "text_f"); // too long for a char in Presto
     }
 
-    @Test
-    public void testPostgreSqlCreatedParameterizedCharUnicode()
-    {
-        unicodeDataTypeTest(DataType::charDataType)
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_parameterized_char_unicode"));
-    }
-
-    private DataTypeTest unicodeVarcharDateTypeTest()
-    {
-        return unicodeDataTypeTest(DataType::varcharDataType)
-                .addRoundTrip(varcharDataType(), "\u041d\u0443, \u043f\u043e\u0433\u043e\u0434\u0438!");
-    }
-
-    private DataTypeTest unicodeDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
+    private DataTypeTest characterDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
     {
         String sampleUnicodeText = "\u653b\u6bbb\u6a5f\u52d5\u968a";
         String sampleFourByteUnicodeCharacter = "\uD83D\uDE02";
 
         return DataTypeTest.create()
+                .addRoundTrip(dataTypeFactory.apply(10), "text_a")
+                .addRoundTrip(dataTypeFactory.apply(255), "text_b")
+                .addRoundTrip(dataTypeFactory.apply(65535), "text_d")
+
                 .addRoundTrip(dataTypeFactory.apply(sampleUnicodeText.length()), sampleUnicodeText)
                 .addRoundTrip(dataTypeFactory.apply(32), sampleUnicodeText)
                 .addRoundTrip(dataTypeFactory.apply(20000), sampleUnicodeText)
-                .addRoundTrip(dataTypeFactory.apply(1), sampleFourByteUnicodeCharacter);
+                .addRoundTrip(dataTypeFactory.apply(1), sampleFourByteUnicodeCharacter)
+                .addRoundTrip(dataTypeFactory.apply(77), "\u041d\u0443, \u043f\u043e\u0433\u043e\u0434\u0438!");
     }
 
     @Test
@@ -1028,6 +1030,10 @@ public class TestPostgreSqlTypeMapping
         tests.addRoundTrip(timestampDataType(5), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_450_000));
         tests.addRoundTrip(timestampDataType(6), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_000));
 
+        // before epoch with second fraction
+        tests.addRoundTrip(timestampDataType(6), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_000_000));
+        tests.addRoundTrip(timestampDataType(6), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_000));
+
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
@@ -1109,7 +1115,7 @@ public class TestPostgreSqlTypeMapping
         };
     }
 
-    @Test(dataProvider = "trueFalse", dataProviderClass = TestngUtils.class)
+    @Test(dataProvider = "trueFalse", dataProviderClass = DataProviders.class)
     public void testTimestampWithTimeZone(boolean insertWithPresto)
     {
         DataTypeTest tests = DataTypeTest.create(true);
@@ -1172,7 +1178,7 @@ public class TestPostgreSqlTypeMapping
                 "Unsupported column type: timestamp\\(7\\) with time zone");
     }
 
-    @Test(dataProvider = "trueFalse", dataProviderClass = TestngUtils.class)
+    @Test(dataProvider = "trueFalse", dataProviderClass = DataProviders.class)
     public void testArrayTimestampWithTimeZone(boolean insertWithPresto)
     {
         DataTypeTest tests = DataTypeTest.create();
@@ -1219,9 +1225,10 @@ public class TestPostgreSqlTypeMapping
     public void testJson()
     {
         jsonTestCases(jsonDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json"));
-        jsonTestCases(jsonDataType())
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_json"));
+
+        jsonTestCases(jsonDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json"));
     }
 
     @Test
@@ -1271,10 +1278,10 @@ public class TestPostgreSqlTypeMapping
     public void testUuid()
     {
         uuidTestCases(uuidDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_uuid"));
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_uuid"));
 
         uuidTestCases(uuidDataType())
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_uuid"));
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_uuid"));
     }
 
     private DataTypeTest uuidTestCases(DataType<java.util.UUID> uuidDataType)
@@ -1298,21 +1305,21 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testReal()
     {
-        singlePrecisionFloatingPointTests(realDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_real"));
-
         singlePrecisionFloatingPointTests(postgreSqlRealDataType())
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_real"));
+
+        singlePrecisionFloatingPointTests(realDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_real"));
     }
 
     @Test
     public void testDouble()
     {
-        doublePrecisionFloatinPointTests(doubleDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_double"));
-
-        doublePrecisionFloatinPointTests(postgreSqlDoubleDataType())
+        doublePrecisionFloatingPointTests(postgreSqlDoubleDataType())
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_double"));
+
+        doublePrecisionFloatingPointTests(doubleDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_double"));
     }
 
     private static DataTypeTest singlePrecisionFloatingPointTests(DataType<Float> floatType)
@@ -1326,7 +1333,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(floatType, null);
     }
 
-    private static DataTypeTest doublePrecisionFloatinPointTests(DataType<Double> doubleType)
+    private static DataTypeTest doublePrecisionFloatingPointTests(DataType<Double> doubleType)
     {
         return DataTypeTest.create(true)
                 .addRoundTrip(doubleType, 1.0e100d)
@@ -1372,7 +1379,7 @@ public class TestPostgreSqlTypeMapping
                 ImmutableList.of(
                         "1, NULL",
                         "2, " + databaseValue))) {
-            Session convertToVarchar = Session.builder(getSession())
+            Session convertToVarchar = Session.builder(session)
                     .setCatalogSessionProperty("postgresql", UNSUPPORTED_TYPE_HANDLING, CONVERT_TO_VARCHAR.name())
                     .build();
             assertQuery(

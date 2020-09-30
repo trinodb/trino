@@ -137,7 +137,7 @@ abstract class BaseMySqlIntegrationSmokeTest
     }
 
     @Test
-    public void testMySqlTinyint1()
+    public void testMySqlTinyint()
     {
         execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
 
@@ -240,6 +240,18 @@ abstract class BaseMySqlIntegrationSmokeTest
             assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
             assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
         }
+    }
+
+    @Test
+    public void testLimitPushdown()
+    {
+        assertThat(query("SELECT name FROM nation LIMIT 30")).isCorrectlyPushedDown(); // Use high limit for result determinism
+
+        // with filter over numeric column
+        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isCorrectlyPushedDown();
+
+        // with filter over varchar column
+        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isNotFullyPushedDown(FilterNode.class);
     }
 
     @Test

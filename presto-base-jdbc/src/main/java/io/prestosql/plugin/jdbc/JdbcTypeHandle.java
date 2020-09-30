@@ -27,16 +27,17 @@ public final class JdbcTypeHandle
     private final int jdbcType;
     private final Optional<String> jdbcTypeName;
     private final int columnSize;
-    private final int decimalDigits;
+    private final Optional<Integer> decimalDigits;
     private final Optional<Integer> arrayDimensions;
     private final Optional<CaseSensitivity> caseSensitivity;
 
+    @Deprecated
     public JdbcTypeHandle(int jdbcType, Optional<String> jdbcTypeName, int columnSize, int decimalDigits, Optional<Integer> arrayDimensions)
     {
         this(jdbcType, jdbcTypeName, columnSize, decimalDigits, arrayDimensions, Optional.empty());
     }
 
-    @JsonCreator
+    @Deprecated
     public JdbcTypeHandle(
             @JsonProperty("jdbcType") int jdbcType,
             @JsonProperty("jdbcTypeName") Optional<String> jdbcTypeName,
@@ -45,10 +46,22 @@ public final class JdbcTypeHandle
             @JsonProperty("arrayDimensions") Optional<Integer> arrayDimensions,
             @JsonProperty("caseSensitivity") Optional<CaseSensitivity> caseSensitivity)
     {
+        this(jdbcType, jdbcTypeName, columnSize, Optional.of(decimalDigits), arrayDimensions, caseSensitivity);
+    }
+
+    @JsonCreator
+    public JdbcTypeHandle(
+            @JsonProperty("jdbcType") int jdbcType,
+            @JsonProperty("jdbcTypeName") Optional<String> jdbcTypeName,
+            @JsonProperty("columnSize") int columnSize,
+            @JsonProperty("decimalDigits") Optional<Integer> decimalDigits,
+            @JsonProperty("arrayDimensions") Optional<Integer> arrayDimensions,
+            @JsonProperty("caseSensitivity") Optional<CaseSensitivity> caseSensitivity)
+    {
         this.jdbcType = jdbcType;
         this.jdbcTypeName = requireNonNull(jdbcTypeName, "jdbcTypeName is null");
         this.columnSize = columnSize;
-        this.decimalDigits = decimalDigits;
+        this.decimalDigits = requireNonNull(decimalDigits, "decimalDigits is null");
         this.arrayDimensions = requireNonNull(arrayDimensions, "arrayDimensions is null");
         this.caseSensitivity = requireNonNull(caseSensitivity, "caseSensitivity is null");
     }
@@ -72,7 +85,7 @@ public final class JdbcTypeHandle
     }
 
     @JsonProperty
-    public int getDecimalDigits()
+    public Optional<Integer> getDecimalDigits()
     {
         return decimalDigits;
     }

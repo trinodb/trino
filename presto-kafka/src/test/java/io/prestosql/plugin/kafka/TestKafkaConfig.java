@@ -37,6 +37,7 @@ public class TestKafkaConfig
                 .setTableDescriptionDir(new File("etc/kafka/"))
                 .setHideInternalColumns(true)
                 .setMessagesPerSplit(100_000)
+                .setTimestampUpperBoundPushDownEnabled(false)
                 .setSecurityProtocol(null)
                 .setSslEndpointIdentificationAlgorithm(null)
                 .setSslTruststoreLocation(null)
@@ -60,6 +61,7 @@ public class TestKafkaConfig
                 .put("kafka.buffer-size", "1MB")
                 .put("kafka.hide-internal-columns", "false")
                 .put("kafka.messages-per-split", "1")
+                .put("kafka.timestamp-upper-bound-force-push-down-enabled", "true")
                 .put("kafka.security.protocol", "SSL")
                 .put("kafka.ssl.endpoint.identification.algorithm", "https")
                 .put("kafka.ssl.truststore.location", "/some/path")
@@ -79,6 +81,7 @@ public class TestKafkaConfig
                 .setKafkaBufferSize("1MB")
                 .setHideInternalColumns(false)
                 .setMessagesPerSplit(1)
+                .setTimestampUpperBoundPushDownEnabled(true)
                 .setSecurityProtocol("SSL")
                 .setSslEndpointIdentificationAlgorithm("https")
                 .setSslTruststoreLocation("/some/path")
@@ -89,6 +92,7 @@ public class TestKafkaConfig
                 .setSslKeystoreType("JKS")
                 .setSslKeyPassword("keyPassword")
                 .setSslProvider("sslProviderName");
+
         assertFullMapping(properties, expected);
     }
 }

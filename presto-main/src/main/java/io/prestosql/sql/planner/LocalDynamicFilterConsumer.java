@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -105,9 +106,15 @@ public class LocalDynamicFilterConsumer
         return ImmutableMap.copyOf(domains);
     }
 
-    public static LocalDynamicFilterConsumer create(JoinNode planNode, List<Type> buildSourceTypes, int partitionCount)
+    public static LocalDynamicFilterConsumer create(
+            JoinNode planNode,
+            List<Type> buildSourceTypes,
+            int partitionCount,
+            Set<DynamicFilterId> collectedFilters)
     {
         checkArgument(!planNode.getDynamicFilters().isEmpty(), "Join node dynamicFilters is empty.");
+        checkArgument(!collectedFilters.isEmpty(), "Collected dynamic filters set is empty");
+        checkArgument(planNode.getDynamicFilters().keySet().containsAll(collectedFilters), "Collected dynamic filters set is not subset of join dynamic filters");
 
         PlanNode buildNode = planNode.getRight();
         // Collect dynamic filters for all dynamic filters produced by join

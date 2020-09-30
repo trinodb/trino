@@ -26,9 +26,11 @@ import static java.lang.String.format;
 public class AccessDeniedException
         extends PrestoException
 {
+    public static final String PREFIX = "Access Denied: ";
+
     public AccessDeniedException(String message)
     {
-        super(PERMISSION_DENIED, "Access Denied: " + message);
+        super(PERMISSION_DENIED, PREFIX + message);
     }
 
     public static void denyImpersonateUser(String originalUser, String newUser)

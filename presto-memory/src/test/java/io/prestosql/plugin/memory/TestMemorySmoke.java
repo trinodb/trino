@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.memory;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryStats;
@@ -33,13 +34,13 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
@@ -55,7 +56,9 @@ public class TestMemorySmoke
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return MemoryQueryRunner.createQueryRunner();
+        return MemoryQueryRunner.createQueryRunner(
+                // Reduced broadcast join limit for large DF to make withLargeDynamicFilters use range DF collection
+                ImmutableMap.of("dynamic-filtering.large-broadcast.max-distinct-values-per-driver", "100"));
     }
 
     @Test
@@ -103,14 +106,22 @@ public class TestMemorySmoke
     }
 
     @Test
-    public void testJoinLargeBuildSideNoDynamicFiltering()
+    public void testJoinLargeBuildSideDynamicFiltering()
     {
+        @Language("SQL") String sql = "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey and orders.custkey BETWEEN 300 AND 700";
+        int expectedRowCount = 15793;
         // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
         assertDynamicFiltering(
-                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey",
+                sql,
                 withBroadcastJoin(),
-                toIntExact(LINEITEM_COUNT),
+                expectedRowCount,
                 ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
+        // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
+        assertDynamicFiltering(
+                sql,
+                withLargeDynamicFilters(),
+                expectedRowCount,
+                ImmutableSet.of(60139, ORDERS_COUNT));
     }
 
     @Test
@@ -174,14 +185,24 @@ public class TestMemorySmoke
     }
 
     @Test
-    public void testSemiJoinLargeBuildSideNoDynamicFiltering()
+    public void testSemiJoinLargeBuildSideDynamicFiltering()
     {
         // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
+        @Language("SQL") String sql = "SELECT * FROM lineitem WHERE lineitem.orderkey IN " +
+                "(SELECT orders.orderkey FROM orders WHERE orders.custkey BETWEEN 300 AND 700)";
+        int expectedRowCount = 15793;
+        // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
         assertDynamicFiltering(
-                "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders)",
+                sql,
                 withBroadcastJoin(),
-                toIntExact(LINEITEM_COUNT),
+                expectedRowCount,
                 ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
+        // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
+        assertDynamicFiltering(
+                sql,
+                withLargeDynamicFilters(),
+                expectedRowCount,
+                ImmutableSet.of(60139, ORDERS_COUNT));
     }
 
     @Test
@@ -226,7 +247,7 @@ public class TestMemorySmoke
                 ImmutableSet.of(1, ORDERS_COUNT, PART_COUNT));
     }
 
-    private void assertDynamicFiltering(String selectQuery, Session session, int expectedRowCount, Set<Integer> expectedOperatorRowsRead)
+    private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, Set<Integer> expectedOperatorRowsRead)
     {
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(session, selectQuery);
@@ -239,6 +260,14 @@ public class TestMemorySmoke
     {
         return Session.builder(this.getQueryRunner().getDefaultSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
+                .build();
+    }
+
+    private Session withLargeDynamicFilters()
+    {
+        return Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
+                .setSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, "true")
                 .build();
     }
 

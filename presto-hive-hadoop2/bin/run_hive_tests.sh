@@ -22,15 +22,15 @@ HADOOP_MASTER_IP=$(hadoop_master_ip)
 pushd "${PROJECT_ROOT}"
 set +e
 ./mvnw -B -pl presto-hive-hadoop2 test -P test-hive-hadoop2 \
-  -DHADOOP_USER_NAME=hive \
-  -Dhive.hadoop2.metastoreHost=localhost \
-  -Dhive.hadoop2.metastorePort=9083 \
-  -Dhive.hadoop2.databaseName=default \
-  -Dhive.hadoop2.hiveVersionMajor="${TESTS_HIVE_VERSION_MAJOR}" \
-  -Dhive.hadoop2.timeZone=Asia/Kathmandu \
-  -Dhive.metastore.thrift.client.socks-proxy="${PROXY}:1180" \
-  -Dhive.hdfs.socks-proxy="${PROXY}:1180" \
-  -Dhadoop-master-ip="${HADOOP_MASTER_IP}"
+    -DHADOOP_USER_NAME=hive \
+    -Dhive.hadoop2.metastoreHost=localhost \
+    -Dhive.hadoop2.metastorePort=9083 \
+    -Dhive.hadoop2.databaseName=default \
+    -Dhive.hadoop2.hiveVersionMajor="${TESTS_HIVE_VERSION_MAJOR}" \
+    -Dhive.hadoop2.timeZone=Asia/Kathmandu \
+    -Dhive.metastore.thrift.client.socks-proxy="${PROXY}:1180" \
+    -Dhive.hdfs.socks-proxy="${PROXY}:1180" \
+    -Dhadoop-master-ip="${HADOOP_MASTER_IP}"
 EXIT_CODE=$?
 set -e
 popd

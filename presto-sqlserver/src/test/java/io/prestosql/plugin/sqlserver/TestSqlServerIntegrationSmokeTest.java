@@ -16,6 +16,7 @@ package io.prestosql.plugin.sqlserver;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -25,6 +26,8 @@ import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
@@ -79,6 +82,109 @@ public class TestSqlServerIntegrationSmokeTest
     }
 
     @Test
+    public void testAggregationPushdown()
+            throws Exception
+    {
+        // TODO support aggregation pushdown with GROUPING SETS
+        // TODO support aggregation over expressions
+
+        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+
+        assertThat(query("SELECT count(*) FROM orders")).isCorrectlyPushedDown();
+        assertThat(query("SELECT count(nationkey) FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT min(totalprice) FROM orders")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+
+        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+
+        try (AutoCloseable ignoreTable = withTable("test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
+            sqlServer.execute("INSERT INTO test_aggregation_pushdown VALUES (100.000, 100000000.000000000)");
+            sqlServer.execute("INSERT INTO test_aggregation_pushdown VALUES (123.321, 123456789.987654321)");
+
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+        }
+    }
+
+    @Test
+    public void testStddevPushdown()
+    {
+        try (TestTable testTable = new TestTable(sqlServer::execute, getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
+
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+        }
+
+        try (TestTable testTable = new TestTable(sqlServer::execute, getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            // Test non-whole number results
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (2)");
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (4)");
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
+
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+        }
+    }
+
+    @Test
+    public void testVariancePushdown()
+    {
+        try (TestTable testTable = new TestTable(sqlServer::execute, getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
+
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+        }
+
+        try (TestTable testTable = new TestTable(sqlServer::execute, getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            // Test non-whole number results
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (2)");
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (4)");
+            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
+
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+        }
+    }
+
+    @Test
     public void testColumnComment()
             throws Exception
     {
@@ -128,6 +234,57 @@ public class TestSqlServerIntegrationSmokeTest
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
         }
+    }
+
+    @Test
+    public void testLimitPushdown()
+    {
+        assertThat(query("SELECT name FROM nation LIMIT 30")).isCorrectlyPushedDown(); // Use high limit for result determinism
+
+        // with filter over numeric column
+        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
+
+        // with filter over varchar column
+        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
+    }
+
+    /**
+     * This test helps to tune TupleDomain simplification threshold.
+     */
+    @Test
+    public void testNativeLargeIn()
+    {
+        // Using IN list of size 10_000 as bigger list (around 40_000) causes error:
+        // "com.microsoft.sqlserver.jdbc.SQLServerException: Internal error: An expression services
+        //  limit has been reached.Please look for potentially complex expressions in your query,
+        //  and try to simplify them."
+        //
+        // List around 30_000 causes query to be really slow
+        sqlServer.execute("SELECT count(*) FROM dbo.orders WHERE " + getLongInClause(0, 10_000));
+    }
+
+    /**
+     * This test helps to tune TupleDomain simplification threshold.
+     */
+    @Test
+    public void testNativeMultipleInClauses()
+    {
+        // using 1_000 for single IN list as 10_000 causes error:
+        // "com.microsoft.sqlserver.jdbc.SQLServerException: Internal error: An expression services
+        //  limit has been reached.Please look for potentially complex expressions in your query,
+        //  and try to simplify them."
+        String longInClauses = range(0, 10)
+                .mapToObj(value -> getLongInClause(value * 1_000, 1_000))
+                .collect(joining(" OR "));
+        sqlServer.execute("SELECT count(*) FROM dbo.orders WHERE " + longInClauses);
+    }
+
+    private String getLongInClause(int start, int length)
+    {
+        String longValues = range(start, start + length)
+                .mapToObj(Integer::toString)
+                .collect(joining(", "));
+        return "orderkey IN (" + longValues + ")";
     }
 
     private AutoCloseable withTable(String tableName, String tableDefinition)

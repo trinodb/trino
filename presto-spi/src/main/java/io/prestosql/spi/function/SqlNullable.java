@@ -20,6 +20,16 @@ import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
+/**
+ * Indicates a parameter or return value can be NULL.
+ * <p>
+ * {@code @SqlNullable} annotation, when placed on a parameter of a {@link ScalarFunction} or {@link ScalarOperator} method,
+ * indicates that the method should be called also when the parameter is NULL. In the absence of {@code @SqlNullable}
+ * annotation, the engine assumes the implemented SQL function or operator is supposed to return NULL when given parameter is NULL
+ * and does not call the implementing method.
+ * <p>
+ * {@code @SqlNullable} placed on a {@link ScalarFunction} method indicates that the implementation may return NULL.
+ */
 @Retention(RUNTIME)
 @Target({METHOD, PARAMETER})
 public @interface SqlNullable

@@ -15,12 +15,11 @@ package io.prestosql.tests.product.launcher.env.configs;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
-import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
+import io.prestosql.tests.product.launcher.env.Environment;
 
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Optional;
 
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.PRESTO;
 import static java.util.Objects.requireNonNull;
@@ -49,17 +48,17 @@ public class ConfigHdp3
     }
 
     @Override
-    public Optional<EnvironmentExtender> extendEnvironment(String environmentName)
+    public void extendEnvironment(Environment.Builder builder)
     {
-        return Optional.of((builder -> builder.configureContainers(container -> {
+        builder.configureContainers(container -> {
             if (container.getLogicalName().startsWith(PRESTO)) {
                 container.withCopyFileToContainer(forHostPath(
                         // HDP3's handling of timestamps is incompatible with previous versions of Hive (see https://issues.apache.org/jira/browse/HIVE-21002);
                         // in order for Presto to deal with the differences, we must set catalog properties for Parquet and RCFile
-                        dockerFiles.getDockerFilesHostPath("common/hadoop/hadoop-presto-init-hdp3.sh")),
-                        "/docker/presto-init.d/hadoop-presto-init.sh");
+                        dockerFiles.getDockerFilesHostPath("common/standard/presto-init-hdp3.sh")),
+                        "/docker/presto-init.d/presto-init-hdp3.sh");
             }
-        })));
+        });
     }
 
     @Override

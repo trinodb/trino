@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>342-SNAPSHOT</version>
+        <version>344-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-plugin-toolkit</artifactId>
@@ -91,6 +91,11 @@
         <dependency>
             <groupId>javax.validation</groupId>
             <artifactId>validation-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
         </dependency>
 
         <dependency>

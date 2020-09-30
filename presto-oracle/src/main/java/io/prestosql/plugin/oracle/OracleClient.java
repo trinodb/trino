@@ -82,7 +82,6 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
@@ -102,7 +101,6 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.max;
@@ -271,7 +269,7 @@ public class OracleClient
                         oracleDoubleWriteFunction(),
                         OracleClient::fullPushdownIfSupported));
             case OracleTypes.NUMBER:
-                int decimalDigits = typeHandle.getDecimalDigits();
+                int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
                 // Map negative scale to decimal(p+s, 0).
                 int precision = columnSize + max(-decimalDigits, 0);
                 int scale = max(decimalDigits, 0);
@@ -312,7 +310,7 @@ public class OracleClient
                 CharType charType = createCharType(columnSize);
                 return Optional.of(ColumnMapping.sliceMapping(
                         charType,
-                        charReadFunction(),
+                        charReadFunction(charType),
                         oracleCharWriteFunction(charType),
                         OracleClient::fullPushdownIfSupported));
 
@@ -444,7 +442,7 @@ public class OracleClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             String dataType;
             VarcharType varcharType = (VarcharType) type;
             if (varcharType.isUnbounded() || varcharType.getBoundedLength() > ORACLE_VARCHAR2_MAX_CHARS) {
@@ -455,7 +453,7 @@ public class OracleClient
             }
             return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
-        if (isCharType(type)) {
+        if (type instanceof CharType) {
             String dataType;
             if (((CharType) type).getLength() > ORACLE_CHAR_MAX_CHARS) {
                 dataType = "nclob";

@@ -17,7 +17,6 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -31,6 +30,8 @@ import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -45,15 +46,13 @@ public class TestPostgreSqlIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.postgreSqlServer = new TestingPostgreSqlServer();
+        postgreSqlServer = new TestingPostgreSqlServer();
+        closeAfterClass(() -> {
+            postgreSqlServer.close();
+            postgreSqlServer = null;
+        });
         execute("CREATE EXTENSION file_fdw");
         return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, CUSTOMER, NATION, ORDERS, REGION);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        postgreSqlServer.close();
     }
 
     @Test
@@ -377,18 +376,67 @@ public class TestPostgreSqlIntegrationSmokeTest
     }
 
     @Test
+    public void testLimitPushdown()
+    {
+        assertThat(query("SELECT name FROM nation LIMIT 30")).isCorrectlyPushedDown(); // Use high limit for result determinism
+
+        // with filter over numeric column
+        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isCorrectlyPushedDown();
+
+        // with filter over varchar column
+        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isCorrectlyPushedDown();
+    }
+
+    @Test
     public void testColumnComment()
             throws Exception
     {
         try (AutoCloseable ignore = withTable("tpch.test_column_comment",
                 "(col1 bigint, col2 bigint, col3 bigint)")) {
-            execute("COMMENT ON COLUMN tpch.test_column_comment.col1 IS 'test comment'");
-            execute("COMMENT ON COLUMN tpch.test_column_comment.col2 IS ''"); // it will be NULL, PostgreSQL doesn't store empty comment
+            assertUpdate("COMMENT ON COLUMN tpch.test_column_comment.col1 IS 'test comment'");
+            assertUpdate("COMMENT ON COLUMN tpch.test_column_comment.col2 IS ''"); // it will be NULL, PostgreSQL doesn't store empty comment
 
             assertQuery(
                     "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
                     "VALUES ('col1', 'test comment'), ('col2', null), ('col3', null)");
+
+            assertUpdate("COMMENT ON COLUMN tpch.test_column_comment.col1 IS NULL");
+
+            assertQuery(
+                    "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
+                    "VALUES ('col1', null), ('col2', null), ('col3', null)");
         }
+    }
+
+    /**
+     * This test helps to tune TupleDomain simplification threshold.
+     */
+    @Test
+    public void testNativeLargeIn()
+            throws SQLException
+    {
+        execute("SELECT count(*) FROM tpch.orders WHERE " + getLongInClause(0, 500_000));
+    }
+
+    /**
+     * This test helps to tune TupleDomain simplification threshold.
+     */
+    @Test
+    public void testNativeMultipleInClauses()
+            throws SQLException
+    {
+        String longInClauses = range(0, 20)
+                .mapToObj(value -> getLongInClause(value * 10_000, 10_000))
+                .collect(joining(" OR "));
+        execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
+    }
+
+    private String getLongInClause(int start, int length)
+    {
+        String longValues = range(start, start + length)
+                .mapToObj(Integer::toString)
+                .collect(joining(", "));
+        return "orderkey IN (" + longValues + ")";
     }
 
     private AutoCloseable withSchema(String schema)

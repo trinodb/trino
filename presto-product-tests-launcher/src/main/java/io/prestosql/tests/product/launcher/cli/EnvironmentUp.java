@@ -40,8 +40,8 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
 import static io.prestosql.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Mixin;
@@ -55,7 +55,6 @@ public final class EnvironmentUp
         implements Callable<Integer>
 {
     private static final Logger log = Logger.get(EnvironmentUp.class);
-    private static final String LOGS_DIR = "logs/";
 
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
     public boolean usageHelpRequested;
@@ -131,14 +130,13 @@ public final class EnvironmentUp
         public Integer call()
         {
             Optional<Path> environmentLogPath = logsDirBase.map(dir -> dir.resolve(environment));
-
-            Environment.Builder builder = environmentFactory.get(environment)
+            Environment.Builder builder = environmentFactory.get(environment, environmentConfig)
                     .setContainerOutputMode(outputMode)
                     .setLogsBaseDir(environmentLogPath)
                     .removeContainer(TESTS);
 
             if (withoutPrestoMaster) {
-                builder.removeContainer(COORDINATOR);
+                builder.removeContainers(container -> isPrestoContainer(container.getLogicalName()));
             }
 
             log.info("Creating environment '%s' with configuration %s", environment, environmentConfig);
@@ -155,12 +153,12 @@ public final class EnvironmentUp
             }
 
             environment.awaitContainersStopped();
-            log.info("Exiting, the containers will exit too");
+            environment.stop();
 
             return ExitCode.OK;
         }
 
-        private void killContainersReaperContainer()
+        private static void killContainersReaperContainer()
         {
             try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
                 log.info("Killing the testcontainers reaper container (Ryuk) so that environment can stay alive");

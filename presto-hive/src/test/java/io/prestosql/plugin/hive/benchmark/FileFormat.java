@@ -58,6 +58,7 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
@@ -397,7 +398,7 @@ public enum FileFormat
                 session, split,
                 new HiveTableHandle("schema_name", "table_name", ImmutableMap.of(), ImmutableList.of(), Optional.empty()),
                 readColumns,
-                TupleDomain.all());
+                DynamicFilter.EMPTY);
 
         return hivePageSource;
     }

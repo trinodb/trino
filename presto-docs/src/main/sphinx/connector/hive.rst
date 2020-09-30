@@ -217,6 +217,20 @@ Property Name                                      Description                  
                                                    format or the default Presto format?
 
 ``hive.immutable-partitions``                      Can new data be inserted into existing partitions?           ``false``
+                                                   If ``true`` then setting
+                                                   ``hive.insert-existing-partitions-behavior`` to ``APPEND``
+                                                   is not allowed.
+                                                   This also affects the
+                                                   ``insert_existing_partitions_behavior``
+                                                   session property in the same way.
+
+``hive.insert-existing-partitions-behavior``       What happens when data is inserted into an existing          ``APPEND``
+                                                   partition?
+                                                   Possible values are
+
+                                                   * ``APPEND`` - appends data to existing partitions
+                                                   * ``OVERWRITE`` - overwrites existing partitions
+                                                   * ``ERROR`` - modifying existing partitions is not allowed
 
 ``hive.create-empty-bucket-files``                 Should empty files be created for buckets that have no data? ``false``
 
@@ -273,6 +287,11 @@ Property Name                                      Description                  
 
 ``hive.orc.time-zone``                             Sets the default time zone for legacy ORC files that did	JVM default
                                                    not declare a time zone.
+
+``hive.timestamp-precision``                       Specifies the precision to use for columns of type 	        ``MILLISECONDS``
+                                                   ``timestamp``. Possible values are ``MILLISECONDS``,
+                                                   ``MICROSECONDS`` and ``NANOSECONDS``. Write operations
+                                                   are only supported for ``MILLISECONDS``.
 
 ``hive.temporary-staging-directory-enabled``       Controls whether the temporary staging directory configured  ``true``
                                                    at ``hive.temporary-staging-directory-path`` should be

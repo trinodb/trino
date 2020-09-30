@@ -36,7 +36,6 @@ import java.util.Optional;
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -54,8 +53,6 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 public class TestDynamicFilter
         extends BasePlanTest
 {
-    private final Metadata metadata = createTestMetadataManager();
-
     public TestDynamicFilter()
     {
         super(ImmutableMap.of(
@@ -72,6 +69,7 @@ public class TestDynamicFilter
                         join(
                                 LEFT,
                                 ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                                ImmutableMap.of(),
                                 project(
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                                 exchange(
@@ -87,6 +85,7 @@ public class TestDynamicFilter
                         join(
                                 INNER,
                                 ImmutableList.of(),
+                                ImmutableMap.of(),
                                 tableScan("orders"),
                                 exchange(
                                         tableScan("lineitem")))));
@@ -101,8 +100,8 @@ public class TestDynamicFilter
                                 INNER,
                                 ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
                                 ImmutableMap.of("ORDERS_OK", "LINEITEM_OK"),
-                                Optional.empty(),
-                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                                 exchange(
                                         project(
                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
@@ -133,8 +132,8 @@ public class TestDynamicFilter
                                         equiJoinClause("ORDERS_OK", "LINEITEM_OK"),
                                         equiJoinClause("ORDERS_CK", "LINEITEM_PK")),
                                 ImmutableMap.of("ORDERS_OK", "LINEITEM_OK", "ORDERS_CK", "LINEITEM_PK"),
-                                Optional.empty(),
-                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey", "ORDERS_CK", "custkey")),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey", "ORDERS_CK", "custkey"))),
                                 exchange(
                                         project(
                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey", "LINEITEM_PK", "partkey")))))));
@@ -149,8 +148,8 @@ public class TestDynamicFilter
                                 INNER,
                                 ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
                                 ImmutableMap.of("ORDERS_OK", "LINEITEM_OK"),
-                                Optional.empty(),
-                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                                 exchange(
                                         project(
                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
@@ -165,8 +164,8 @@ public class TestDynamicFilter
                                 INNER,
                                 ImmutableList.of(equiJoinClause("X", "Y")),
                                 ImmutableMap.of("X", "Y"),
-                                Optional.empty(),
-                                tableScan("orders", ImmutableMap.of("X", "orderkey")),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("X", "orderkey"))),
                                 project(
                                         node(
                                                 EnforceSingleRowNode.class,
@@ -185,6 +184,9 @@ public class TestDynamicFilter
                                         INNER,
                                         ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
                                         Optional.of("O_ORDERKEY < L_ORDERKEY"),
+                                        Optional.of(ImmutableMap.of("O_SHIPPRIORITY", "L_LINENUMBER")),
+                                        Optional.empty(),
+                                        Optional.empty(),
                                         anyTree(tableScan("orders", ImmutableMap.of(
                                                 "O_SHIPPRIORITY", "shippriority",
                                                 "O_ORDERKEY", "orderkey"))),
@@ -203,15 +205,15 @@ public class TestDynamicFilter
                                 INNER,
                                 ImmutableList.of(equiJoinClause("PART_PK", "LINEITEM_OK")),
                                 ImmutableMap.of("PART_PK", "LINEITEM_OK"),
-                                Optional.empty(),
-                                tableScan("part", ImmutableMap.of("PART_PK", "partkey")),
+                                anyTree(
+                                        tableScan("part", ImmutableMap.of("PART_PK", "partkey"))),
                                 anyTree(
                                         join(
                                                 INNER,
                                                 ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
                                                 ImmutableMap.of("LINEITEM_OK", "ORDERS_OK"),
-                                                Optional.empty(),
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")),
+                                                anyTree(
+                                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))),
                                                 exchange(
                                                         project(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))))))));
     }
@@ -225,9 +227,11 @@ public class TestDynamicFilter
                         join(
                                 INNER,
                                 ImmutableList.of(equiJoinClause("LINEITEM_OK", "PART_PK")),
+                                ImmutableMap.of("LINEITEM_OK", "PART_PK", "ORDERS_OK", "PART_PK"),
                                 join(
                                         INNER,
                                         ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
+                                        ImmutableMap.of("LINEITEM_OK", "ORDERS_OK"),
                                         anyTree(node(FilterNode.class,
                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))
                                                 .with(numberOfDynamicFilters(2))),
@@ -254,8 +258,8 @@ public class TestDynamicFilter
                                 INNER,
                                 ImmutableList.of(equiJoinClause("ORDERS_CK", "ORDERS_CK6")),
                                 ImmutableMap.of("ORDERS_CK", "ORDERS_CK6"),
-                                Optional.empty(),
-                                tableScan("orders", ImmutableMap.of("ORDERS_CK", "clerk")),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("ORDERS_CK", "clerk"))),
                                 anyTree(
                                         join(
                                                 LEFT,
@@ -284,12 +288,14 @@ public class TestDynamicFilter
                         join(
                                 INNER,
                                 ImmutableList.of(equiJoinClause("K0", "K2"), equiJoinClause("S", "V2")),
+                                Optional.empty(), // Should be ImmutableMap.of("K0", "K2", "K1", "K2") but K1 symbol is not available when matching current join node
                                 project(
                                         project(
                                                 ImmutableMap.of("S", expression("V0 + V1")),
                                                 join(
                                                         INNER,
                                                         ImmutableList.of(equiJoinClause("K0", "K1")),
+                                                        ImmutableMap.of("K0", "K1"),
                                                         project(
                                                                 node(
                                                                         FilterNode.class,
