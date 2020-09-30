@@ -35,19 +35,7 @@ public final class OracleQueryRunner
 {
     private OracleQueryRunner() {}
 
-    public static DistributedQueryRunner createOracleQueryRunner(TestingOracleServer server, Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        return createQueryRunner(server, tables, false);
-    }
-
-    public static DistributedQueryRunner createOraclePoolQueryRunner(TestingOracleServer server, Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        return createQueryRunner(server, tables, true);
-    }
-
-    private static DistributedQueryRunner createQueryRunner(TestingOracleServer server, Iterable<TpchTable<?>> tables, boolean connectionPoolEnabled)
+    public static DistributedQueryRunner createOracleQueryRunner(TestingOracleServer server, Iterable<TpchTable<?>> tables, boolean connectionPoolEnabled)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -92,7 +80,8 @@ public final class OracleQueryRunner
 
         DistributedQueryRunner queryRunner = createOracleQueryRunner(
                 new TestingOracleServer(),
-                TpchTable.getTables());
+                TpchTable.getTables(),
+                false);
 
         Logger log = Logger.get(OracleQueryRunner.class);
         log.info("======== SERVER STARTED ========");
