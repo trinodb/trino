@@ -365,6 +365,38 @@ public class MySqlClient
         return true;
     }
 
+    @Override
+    public void setColumnComment(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            ResultSet resultSet = getColumns(handle, connection.getMetaData());
+
+            String columnDefinition = "";
+            while (resultSet.next()) {
+                if (resultSet.getString("COLUMN_NAME").equalsIgnoreCase(column.getColumnName())) {
+                    columnDefinition = format("%s %s(%s)%s%s%s",
+                            column.getColumnName(),
+                            column.getJdbcTypeHandle().getJdbcTypeName().get(),
+                            column.getJdbcTypeHandle().getColumnSize(),
+                            resultSet.getString("IS_NULLABLE").equalsIgnoreCase("YES") ? "" : " NOT NULL",
+                            resultSet.getString("IS_AUTOINCREMENT").equalsIgnoreCase("NO") ? "" : " AUTO_INCREMENT",
+                            resultSet.getString("COLUMN_DEF") == null ? "" : format(" DEFAULT '%s'", resultSet.getString("COLUMN_DEF")));
+                    break;
+                }
+            }
+            resultSet.close();
+            String sql = format(
+                    "ALTER TABLE %s MODIFY %s COMMENT '%s'",
+                    quoted(handle.getRemoteTableName()),
+                    columnDefinition,
+                    comment.orElse(""));
+            execute(identity, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
     private ColumnMapping jsonColumnMapping()
     {
         return ColumnMapping.sliceMapping(

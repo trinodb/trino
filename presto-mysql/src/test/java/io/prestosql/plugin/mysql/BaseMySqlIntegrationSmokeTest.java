@@ -274,6 +274,10 @@ abstract class BaseMySqlIntegrationSmokeTest
                 "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
                 "VALUES ('col1', 'test comment'), ('col2', null), ('col3', null)");
 
+        assertUpdate("COMMENT ON COLUMN tpch.test_column_comment.col1 IS 'test comment in col1'");
+        assertUpdate("COMMENT ON COLUMN tpch.test_column_comment.col1 IS ''");
+        assertUpdate("COMMENT ON COLUMN tpch.test_column_comment.col1 IS NULL");
+
         assertUpdate("DROP TABLE test_column_comment");
     }
 

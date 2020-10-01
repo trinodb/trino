@@ -83,7 +83,7 @@ public class TestMySqlDistributedQueries
     @Override
     protected boolean supportsCommentOnColumn()
     {
-        return false;
+        return true;
     }
 
     @Override
