@@ -15,15 +15,16 @@ import io.prestosql.plugin.jdbc.JdbcConnectorFactory;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
+import static com.starburstdata.presto.license.StarburstPrestoFeature.SAP_HANA;
+
 public class SapHanaPlugin
         implements Plugin
 {
     public static final String CONNECTOR_NAME = "sap-hana";
-    public static final String FEATURE_NAME = CONNECTOR_NAME;
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new LicenceCheckingConnectorFactory(new JdbcConnectorFactory(CONNECTOR_NAME, SapHanaClientModule::new), FEATURE_NAME));
+        return ImmutableList.of(new LicenceCheckingConnectorFactory(SAP_HANA, new JdbcConnectorFactory(CONNECTOR_NAME, SapHanaClientModule::new)));
     }
 }
