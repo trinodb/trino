@@ -112,6 +112,7 @@ import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.prestosql.spi.predicate.Marker.Bound.ABOVE;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
+import static io.prestosql.spi.security.Identity.ofUser;
 import static io.prestosql.spi.security.SelectedRole.Type.ROLE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -129,6 +130,8 @@ import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom
 import static io.prestosql.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.prestosql.testing.TestingAccessControlManager.privilege;
@@ -2329,6 +2332,11 @@ public class TestHiveIntegrationSmokeTest
                 ")");
         assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 0");
 
+        assertAccessDenied(
+                format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, tableName, "empty"),
+                format("Cannot insert into table hive.tpch.%s", tableName),
+                privilege(tableName, INSERT_TABLE));
+
         // create an empty partition
         assertUpdate(format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, tableName, "empty"));
         assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 1");
@@ -2355,11 +2363,21 @@ public class TestHiveIntegrationSmokeTest
 
         String firstPartition = new Path((String) paths.get(0).getField(0)).getParent().toString();
 
+        assertAccessDenied(
+                format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['first'])", TPCH_SCHEMA, tableName),
+                format("Cannot delete from table hive.tpch.%s", tableName),
+                privilege(tableName, DELETE_TABLE));
+
         assertQueryFails(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['empty'])", TPCH_SCHEMA, tableName), "Partition 'part=empty' does not exist");
         assertUpdate(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['first'])", TPCH_SCHEMA, tableName));
 
         assertQuery(getSession(), format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 2");
         assertQuery(getSession(), "SELECT count(*) FROM " + tableName, "SELECT 2");
+
+        assertAccessDenied(
+                format("CALL system.register_partition('%s', '%s', ARRAY['part'], ARRAY['first'])", TPCH_SCHEMA, tableName),
+                format("Cannot insert into table hive.tpch.%s", tableName),
+                privilege(tableName, INSERT_TABLE));
 
         assertUpdate(format("CALL system.register_partition('%s', '%s', ARRAY['part'], ARRAY['first'], '%s')", TPCH_SCHEMA, tableName, firstPartition));
 
@@ -5558,7 +5576,7 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String createTable = "CREATE TABLE " + tableName + " (a bigint, b varchar, c double)";
 
         Session testSession = testSessionBuilder()
-                .setIdentity(Identity.ofUser("test_access_owner"))
+                .setIdentity(ofUser("test_access_owner"))
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
                 .build();
@@ -5705,7 +5723,7 @@ public class TestHiveIntegrationSmokeTest
         String viewName = "test_show_views";
 
         Session testSession = testSessionBuilder()
-                .setIdentity(Identity.ofUser("test_view_access_owner"))
+                .setIdentity(ofUser("test_view_access_owner"))
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
                 .build();
@@ -6972,6 +6990,11 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(
                 format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['WRONG', 'KEY']])", TPCH_SCHEMA, "non_existing_table"),
                 format("Table '%s.non_existing_table' does not exist", TPCH_SCHEMA));
+
+        assertAccessDenied(
+                format("CALL system.drop_stats('%s', '%s')", TPCH_SCHEMA, unpartitionedTableName),
+                format("Cannot insert into table hive.tpch.%s", unpartitionedTableName),
+                privilege(unpartitionedTableName, INSERT_TABLE));
 
         assertUpdate("DROP TABLE " + unpartitionedTableName);
         assertUpdate("DROP TABLE " + partitionedTableName);

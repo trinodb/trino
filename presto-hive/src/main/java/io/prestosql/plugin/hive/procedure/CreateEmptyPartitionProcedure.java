@@ -31,6 +31,7 @@ import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
+import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.procedure.Procedure;
@@ -61,6 +62,7 @@ public class CreateEmptyPartitionProcedure
             CreateEmptyPartitionProcedure.class,
             "createEmptyPartition",
             ConnectorSession.class,
+            ConnectorAccessControl.class,
             String.class,
             String.class,
             List.class,
@@ -94,20 +96,22 @@ public class CreateEmptyPartitionProcedure
                 CREATE_EMPTY_PARTITION.bindTo(this));
     }
 
-    public void createEmptyPartition(ConnectorSession session, String schema, String table, List<String> partitionColumnNames, List<String> partitionValues)
+    public void createEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<String> partitionColumnNames, List<String> partitionValues)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doCreateEmptyPartition(session, schema, table, partitionColumnNames, partitionValues);
+            doCreateEmptyPartition(session, accessControl, schema, table, partitionColumnNames, partitionValues);
         }
     }
 
-    private void doCreateEmptyPartition(ConnectorSession session, String schemaName, String tableName, List<String> partitionColumnNames, List<String> partitionValues)
+    private void doCreateEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumnNames, List<String> partitionValues)
     {
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.create();
         HiveTableHandle tableHandle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName));
         if (tableHandle == null) {
             throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schemaName, tableName)));
         }
+
+        accessControl.checkCanInsertIntoTable(null, new SchemaTableName(schemaName, tableName));
 
         List<String> actualPartitionColumnNames = tableHandle.getPartitionColumns().stream()
                 .map(HiveColumnHandle::getName)
