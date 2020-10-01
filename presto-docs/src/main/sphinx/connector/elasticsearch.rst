@@ -99,7 +99,7 @@ This property controls how often the list of available Elasticsearch nodes is re
 This property is optional; the default is ``1m``.
 
 ``elasticsearch.ignore-publish-address``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Enable or disable using the address published by Elasticsearch to connect for
 queries.
