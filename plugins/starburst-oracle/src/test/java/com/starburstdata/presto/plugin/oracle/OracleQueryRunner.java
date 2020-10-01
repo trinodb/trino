@@ -74,7 +74,7 @@ public final class OracleQueryRunner
 
             createUsers.run();
 
-            queryRunner.installPlugin(new TestingOraclePlugin());
+            queryRunner.installPlugin(new OraclePlugin());
             queryRunner.createCatalog(ORACLE_CATALOG, ORACLE_CATALOG, connectorProperties);
 
             queryRunner.installPlugin(new JmxPlugin());

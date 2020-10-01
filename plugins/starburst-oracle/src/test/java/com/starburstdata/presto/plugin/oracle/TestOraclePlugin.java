@@ -25,7 +25,7 @@ public class TestOraclePlugin
     @Test
     public void testCreateConnector()
     {
-        Plugin plugin = new TestingOraclePlugin();
+        Plugin plugin = new OraclePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext());
     }
@@ -33,7 +33,7 @@ public class TestOraclePlugin
     @Test
     public void testUserNotUsedWithKerberos()
     {
-        Plugin plugin = new TestingOraclePlugin();
+        Plugin plugin = new OraclePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         expectThrows(ApplicationConfigurationException.class, () -> factory.create(
                 "test",
