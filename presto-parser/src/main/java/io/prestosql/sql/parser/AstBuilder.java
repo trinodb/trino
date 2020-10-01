@@ -2587,11 +2587,11 @@ class AstBuilder
     public static NodeLocation getLocation(Token token)
     {
         requireNonNull(token, "token is null");
-        return new NodeLocation(token.getLine(), token.getCharPositionInLine());
+        return new NodeLocation(token.getLine(), token.getCharPositionInLine() + 1);
     }
 
     private static ParsingException parseError(String message, ParserRuleContext context)
     {
-        return new ParsingException(message, null, context.getStart().getLine(), context.getStart().getCharPositionInLine());
+        return new ParsingException(message, null, context.getStart().getLine(), context.getStart().getCharPositionInLine() + 1);
     }
 }

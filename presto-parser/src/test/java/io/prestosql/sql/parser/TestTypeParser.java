@@ -39,136 +39,136 @@ public class TestTypeParser
     public void testCaseVariants()
     {
         assertThat(type("varchar"))
-                .isEqualTo(simpleType(location(1, 0), "varchar"));
+                .isEqualTo(simpleType(location(1, 1), "varchar"));
 
         assertThat(type("VARCHAR"))
-                .isEqualTo(simpleType(location(1, 0), "VARCHAR"));
+                .isEqualTo(simpleType(location(1, 1), "VARCHAR"));
 
         assertThat(type("Varchar"))
-                .isEqualTo(simpleType(location(1, 0), "Varchar"));
+                .isEqualTo(simpleType(location(1, 1), "Varchar"));
 
         assertThat(type("ARRAY(bigint)"))
                 .isEqualTo(parametricType(
-                        location(1, 0),
-                        identifier(location(1, 0), "ARRAY"),
-                        parameter(simpleType(location(1, 6), "bigint"))));
+                        location(1, 1),
+                        identifier(location(1, 1), "ARRAY"),
+                        parameter(simpleType(location(1, 7), "bigint"))));
 
         assertThat(type("Array(Bigint)"))
                 .isEqualTo(parametricType(
-                        location(1, 0),
-                        identifier(location(1, 0), "Array"),
-                        parameter(simpleType(location(1, 6), "Bigint"))));
+                        location(1, 1),
+                        identifier(location(1, 1), "Array"),
+                        parameter(simpleType(location(1, 7), "Bigint"))));
 
         assertThat(type("array(bigint)"))
                 .isEqualTo(parametricType(
-                        location(1, 0),
-                        identifier(location(1, 0), "array"),
-                        parameter(simpleType(location(1, 6), "bigint"))));
+                        location(1, 1),
+                        identifier(location(1, 1), "array"),
+                        parameter(simpleType(location(1, 7), "bigint"))));
     }
 
     @Test
     public void testDoublePrecisionVariants()
     {
         assertThat(type("DOUBLE PRECISION"))
-                .isEqualTo(simpleType(location(1, 0), "DOUBLE"));
+                .isEqualTo(simpleType(location(1, 1), "DOUBLE"));
 
         assertThat(type("DOUBLE     PRECISION"))
-                .isEqualTo(simpleType(location(1, 0), "DOUBLE"));
+                .isEqualTo(simpleType(location(1, 1), "DOUBLE"));
 
         assertThat(type("double precision"))
-                .isEqualTo(simpleType(location(1, 0), "double"));
+                .isEqualTo(simpleType(location(1, 1), "double"));
 
         assertThat(type("ROW(DOUBLE PRECISION)"))
                 .isEqualTo(rowType(
-                        location(1, 0),
-                        field(location(1, 4), simpleType(location(1, 4), "DOUBLE"))));
+                        location(1, 1),
+                        field(location(1, 5), simpleType(location(1, 5), "DOUBLE"))));
     }
 
     @Test
     public void testSimpleTypes()
     {
         assertThat(type("VARCHAR"))
-                .isEqualTo(simpleType(location(1, 0), "VARCHAR"));
+                .isEqualTo(simpleType(location(1, 1), "VARCHAR"));
 
         assertThat(type("BIGINT"))
-                .isEqualTo(simpleType(location(1, 0), "BIGINT"));
+                .isEqualTo(simpleType(location(1, 1), "BIGINT"));
 
         assertThat(type("DOUBLE"))
-                .isEqualTo(simpleType(location(1, 0), "DOUBLE"));
+                .isEqualTo(simpleType(location(1, 1), "DOUBLE"));
 
         assertThat(type("BOOLEAN"))
-                .isEqualTo(simpleType(location(1, 0), "BOOLEAN"));
+                .isEqualTo(simpleType(location(1, 1), "BOOLEAN"));
     }
 
     @Test
     public void testDayTimeTypes()
     {
         assertThat(type("TIMESTAMP"))
-                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, false));
+                .isEqualTo(dateTimeType(location(1, 1), TIMESTAMP, false));
 
         assertThat(type("TIMESTAMP WITHOUT TIME ZONE"))
-                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, false));
+                .isEqualTo(dateTimeType(location(1, 1), TIMESTAMP, false));
 
         assertThat(type("TIMESTAMP WITH TIME ZONE"))
-                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, true));
+                .isEqualTo(dateTimeType(location(1, 1), TIMESTAMP, true));
 
         assertThat(type("TIMESTAMP(3)"))
-                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, false, parameter(location(1, 10), "3")));
+                .isEqualTo(dateTimeType(location(1, 1), TIMESTAMP, false, parameter(location(1, 11), "3")));
 
         assertThat(type("TIMESTAMP(3) WITHOUT TIME ZONE"))
-                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, false, parameter(location(1, 10), "3")));
+                .isEqualTo(dateTimeType(location(1, 1), TIMESTAMP, false, parameter(location(1, 11), "3")));
 
         assertThat(type("TIMESTAMP(3) WITH TIME ZONE"))
-                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, true, parameter(location(1, 10), "3")));
+                .isEqualTo(dateTimeType(location(1, 1), TIMESTAMP, true, parameter(location(1, 11), "3")));
 
         assertThat(type("TIMESTAMP(p)"))
-                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, false, parameter(simpleType(location(1, 10), "p"))));
+                .isEqualTo(dateTimeType(location(1, 1), TIMESTAMP, false, parameter(simpleType(location(1, 11), "p"))));
 
         assertThat(type("TIMESTAMP(p) WITHOUT TIME ZONE"))
-                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, false, parameter(simpleType(location(1, 10), "p"))));
+                .isEqualTo(dateTimeType(location(1, 1), TIMESTAMP, false, parameter(simpleType(location(1, 11), "p"))));
 
         assertThat(type("TIMESTAMP(p) WITH TIME ZONE"))
-                .isEqualTo(dateTimeType(location(1, 0), TIMESTAMP, true, parameter(simpleType(location(1, 10), "p"))));
+                .isEqualTo(dateTimeType(location(1, 1), TIMESTAMP, true, parameter(simpleType(location(1, 11), "p"))));
 
         assertThat(type("TIME"))
-                .isEqualTo(dateTimeType(location(1, 0), TIME, false));
+                .isEqualTo(dateTimeType(location(1, 1), TIME, false));
 
         assertThat(type("TIME WITHOUT TIME ZONE"))
-                .isEqualTo(dateTimeType(location(1, 0), TIME, false));
+                .isEqualTo(dateTimeType(location(1, 1), TIME, false));
 
         assertThat(type("TIME WITH TIME ZONE"))
-                .isEqualTo(dateTimeType(location(1, 0), TIME, true));
+                .isEqualTo(dateTimeType(location(1, 1), TIME, true));
 
         assertThat(type("TIME(3)"))
-                .isEqualTo(dateTimeType(location(1, 0), TIME, false, parameter(location(1, 5), "3")));
+                .isEqualTo(dateTimeType(location(1, 1), TIME, false, parameter(location(1, 6), "3")));
 
         assertThat(type("TIME(3) WITHOUT TIME ZONE"))
-                .isEqualTo(dateTimeType(location(1, 0), TIME, false, parameter(location(1, 5), "3")));
+                .isEqualTo(dateTimeType(location(1, 1), TIME, false, parameter(location(1, 6), "3")));
 
         assertThat(type("TIME(3) WITH TIME ZONE"))
-                .isEqualTo(dateTimeType(location(1, 0), TIME, true, parameter(location(1, 5), "3")));
+                .isEqualTo(dateTimeType(location(1, 1), TIME, true, parameter(location(1, 6), "3")));
 
         assertThat(type("TIME(p)"))
-                .isEqualTo(dateTimeType(location(1, 0), TIME, false, parameter(simpleType(location(1, 5), "p"))));
+                .isEqualTo(dateTimeType(location(1, 1), TIME, false, parameter(simpleType(location(1, 6), "p"))));
 
         assertThat(type("TIME(p) WITHOUT TIME ZONE"))
-                .isEqualTo(dateTimeType(location(1, 0), TIME, false, parameter(simpleType(location(1, 5), "p"))));
+                .isEqualTo(dateTimeType(location(1, 1), TIME, false, parameter(simpleType(location(1, 6), "p"))));
 
         assertThat(type("TIME(p) WITH TIME ZONE"))
-                .isEqualTo(dateTimeType(location(1, 0), TIME, true, parameter(simpleType(location(1, 5), "p"))));
+                .isEqualTo(dateTimeType(location(1, 1), TIME, true, parameter(simpleType(location(1, 6), "p"))));
     }
 
     @Test
     public void testIntervalTypes()
     {
         assertThat(type("INTERVAL YEAR TO DAY"))
-                .isEqualTo(intervalType(location(1, 0), YEAR, DAY));
+                .isEqualTo(intervalType(location(1, 1), YEAR, DAY));
 
         assertThat(type("INTERVAL YEAR TO MONTH"))
-                .isEqualTo(intervalType(location(1, 0), YEAR, MONTH));
+                .isEqualTo(intervalType(location(1, 1), YEAR, MONTH));
 
         assertThat(type("INTERVAL SECOND"))
-                .isEqualTo(intervalType(location(1, 0), SECOND, SECOND));
+                .isEqualTo(intervalType(location(1, 1), SECOND, SECOND));
     }
 
     @Test
@@ -176,56 +176,56 @@ public class TestTypeParser
     {
         assertThat(type("ARRAY(TINYINT)"))
                 .isEqualTo(parametricType(
-                        location(1, 0),
-                        identifier(location(1, 0), "ARRAY"),
-                        parameter(simpleType(location(1, 6), "TINYINT"))));
+                        location(1, 1),
+                        identifier(location(1, 1), "ARRAY"),
+                        parameter(simpleType(location(1, 7), "TINYINT"))));
 
         assertThat(type("ARRAY ( TINYINT ) "))
                 .isEqualTo(parametricType(
-                        location(1, 0),
-                        identifier(location(1, 0), "ARRAY"),
-                        parameter(simpleType(location(1, 8), "TINYINT"))));
+                        location(1, 1),
+                        identifier(location(1, 1), "ARRAY"),
+                        parameter(simpleType(location(1, 9), "TINYINT"))));
 
         assertThat(type("MAP(BIGINT, SMALLINT)"))
                 .isEqualTo(parametricType(
-                        location(1, 0),
+                        location(1, 1),
                         "MAP",
-                        parameter(simpleType(location(1, 4), "BIGINT")),
-                        parameter(simpleType(location(1, 12), "SMALLINT"))));
+                        parameter(simpleType(location(1, 5), "BIGINT")),
+                        parameter(simpleType(location(1, 13), "SMALLINT"))));
     }
 
     @Test
     public void testArray()
     {
         assertThat(type("foo(42, 55) ARRAY"))
-                .isEqualTo(parametricType(location(1, 0),
-                        identifier(location(1, 12), "ARRAY"),
-                        parameter(parametricType(location(1, 0), "foo",
-                                parameter(location(1, 4), "42"),
-                                parameter(location(1, 8), "55")))));
+                .isEqualTo(parametricType(location(1, 1),
+                        identifier(location(1, 13), "ARRAY"),
+                        parameter(parametricType(location(1, 1), "foo",
+                                parameter(location(1, 5), "42"),
+                                parameter(location(1, 9), "55")))));
 
         assertThat(type("VARCHAR(7) ARRAY"))
                 .isEqualTo(parametricType(
-                        location(1, 0),
-                        identifier(location(1, 11), "ARRAY"),
+                        location(1, 1),
+                        identifier(location(1, 12), "ARRAY"),
                         parameter(parametricType(
-                                location(1, 0),
-                                identifier(location(1, 0), "VARCHAR"),
-                                parameter(location(1, 8), "7")))));
+                                location(1, 1),
+                                identifier(location(1, 1), "VARCHAR"),
+                                parameter(location(1, 9), "7")))));
 
         assertThat(type("VARCHAR(7) ARRAY array"))
                 .isEqualTo(
                         parametricType(
-                                location(1, 0),
-                                identifier(location(1, 17), "array"),
+                                location(1, 1),
+                                identifier(location(1, 18), "array"),
                                 parameter(
                                         parametricType(
-                                                location(1, 0),
-                                                identifier(location(1, 11), "ARRAY"),
+                                                location(1, 1),
+                                                identifier(location(1, 12), "ARRAY"),
                                                 parameter(parametricType(
-                                                        location(1, 0),
-                                                        identifier(location(1, 0), "VARCHAR"),
-                                                        parameter(location(1, 8), "7")))))));
+                                                        location(1, 1),
+                                                        identifier(location(1, 1), "VARCHAR"),
+                                                        parameter(location(1, 9), "7")))))));
     }
 
     @Test
@@ -233,22 +233,22 @@ public class TestTypeParser
     {
         assertThat(type("ROW(a BIGINT, b VARCHAR)"))
                 .isEqualTo(rowType(
-                        location(1, 0),
-                        field(location(1, 4), "a", simpleType(location(1, 6), "BIGINT")),
-                        field(location(1, 14), "b", simpleType(location(1, 16), "VARCHAR"))));
+                        location(1, 1),
+                        field(location(1, 5), "a", simpleType(location(1, 7), "BIGINT")),
+                        field(location(1, 15), "b", simpleType(location(1, 17), "VARCHAR"))));
 
         assertThat(type("ROW(a BIGINT,b VARCHAR)"))
                 .describedAs("No space after comma")
                 .isEqualTo(rowType(
-                        location(1, 0),
-                        field(location(1, 4), "a", simpleType(location(1, 6), "BIGINT")),
-                        field(location(1, 13), "b", simpleType(location(1, 15), "VARCHAR"))));
+                        location(1, 1),
+                        field(location(1, 5), "a", simpleType(location(1, 7), "BIGINT")),
+                        field(location(1, 14), "b", simpleType(location(1, 16), "VARCHAR"))));
 
         assertThat(type("ROW(\"a\" BIGINT, \"b\" VARCHAR)"))
                 .isEqualTo(rowType(
-                        location(1, 0),
-                        field(location(1, 4), "a", true, simpleType(location(1, 8), "BIGINT")),
-                        field(location(1, 16), "b", true, simpleType(location(1, 20), "VARCHAR"))));
+                        location(1, 1),
+                        field(location(1, 5), "a", true, simpleType(location(1, 9), "BIGINT")),
+                        field(location(1, 17), "b", true, simpleType(location(1, 21), "VARCHAR"))));
     }
 
     @Test
@@ -256,20 +256,20 @@ public class TestTypeParser
     {
         assertThat(type("ROW(x BIGINT, y DOUBLE PRECISION, z ROW(m array<bigint>,n map<double,varchar>))"))
                 .isEqualTo(rowType(
-                        location(1, 0),
-                        field(location(1, 4), "x", simpleType(location(1, 6), "BIGINT")),
-                        field(location(1, 14), "y", simpleType(location(1, 16), "DOUBLE")),
-                        field(location(1, 34), "z", rowType(
-                                location(1, 36),
-                                field(location(1, 40), "m", parametricType(
-                                        location(1, 42),
+                        location(1, 1),
+                        field(location(1, 5), "x", simpleType(location(1, 7), "BIGINT")),
+                        field(location(1, 15), "y", simpleType(location(1, 17), "DOUBLE")),
+                        field(location(1, 35), "z", rowType(
+                                location(1, 37),
+                                field(location(1, 41), "m", parametricType(
+                                        location(1, 43),
                                         "array",
-                                        parameter(simpleType(location(1, 48), "bigint")))),
-                                field(location(1, 56), "n", parametricType(
-                                        location(1, 58),
+                                        parameter(simpleType(location(1, 49), "bigint")))),
+                                field(location(1, 57), "n", parametricType(
+                                        location(1, 59),
                                         "map",
-                                        parameter(simpleType(location(1, 62), "double")),
-                                        parameter(simpleType(location(1, 69), "varchar"))))))));
+                                        parameter(simpleType(location(1, 63), "double")),
+                                        parameter(simpleType(location(1, 70), "varchar"))))))));
     }
 
     @Test
@@ -277,58 +277,58 @@ public class TestTypeParser
     {
         assertThat(type("ARRAY<BIGINT>"))
                 .isEqualTo(parametricType(
-                        location(1, 0),
-                        identifier(location(1, 0), "ARRAY"),
-                        parameter(simpleType(location(1, 6), "BIGINT"))));
+                        location(1, 1),
+                        identifier(location(1, 1), "ARRAY"),
+                        parameter(simpleType(location(1, 7), "BIGINT"))));
 
         assertThat(type("ARRAY < BIGINT > "))
                 .isEqualTo(parametricType(
-                        location(1, 0),
-                        identifier(location(1, 0), "ARRAY"),
-                        parameter(simpleType(location(1, 8), "BIGINT"))));
+                        location(1, 1),
+                        identifier(location(1, 1), "ARRAY"),
+                        parameter(simpleType(location(1, 9), "BIGINT"))));
 
         assertThat(type("ARRAY<ARRAY<BIGINT>>"))
-                .isEqualTo(parametricType(location(1, 0), "ARRAY", parameter(
+                .isEqualTo(parametricType(location(1, 1), "ARRAY", parameter(
                         parametricType(
-                                location(1, 6),
+                                location(1, 7),
                                 "ARRAY",
-                                parameter(simpleType(location(1, 12), "BIGINT"))))));
+                                parameter(simpleType(location(1, 13), "BIGINT"))))));
 
         assertThat(type("ARRAY<array<varchar(42)>>"))
                 .isEqualTo(parametricType(
-                        location(1, 0),
+                        location(1, 1),
                         "ARRAY",
                         parameter(parametricType(
-                                location(1, 6),
+                                location(1, 7),
                                 "array",
                                 parameter(parametricType(
-                                        location(1, 12),
+                                        location(1, 13),
                                         "varchar",
-                                        parameter(location(1, 20), "42")))))));
+                                        parameter(location(1, 21), "42")))))));
 
         assertThat(type("ARRAY<varchar(42)>"))
-                .isEqualTo(parametricType(location(1, 0), "ARRAY", parameter(
+                .isEqualTo(parametricType(location(1, 1), "ARRAY", parameter(
                         parametricType(
-                                location(1, 6),
+                                location(1, 7),
                                 "varchar",
-                                parameter(location(1, 14), "42")))));
+                                parameter(location(1, 15), "42")))));
 
         assertThat(type("MAP<BIGINT, VARCHAR>"))
                 .isEqualTo(parametricType(
-                        location(1, 0),
+                        location(1, 1),
                         "MAP",
-                        parameter(simpleType(location(1, 4), "BIGINT")),
-                        parameter(simpleType(location(1, 12), "VARCHAR"))));
+                        parameter(simpleType(location(1, 5), "BIGINT")),
+                        parameter(simpleType(location(1, 13), "VARCHAR"))));
 
         assertThat(type("MAP<BIGINT, VARCHAR> ARRAY"))
                 .isEqualTo(parametricType(
-                        location(1, 0),
-                        identifier(location(1, 21), "ARRAY"),
+                        location(1, 1),
+                        identifier(location(1, 22), "ARRAY"),
                         parameter(
                                 parametricType(
-                                        location(1, 0),
+                                        location(1, 1),
                                         "MAP",
-                                        parameter(simpleType(location(1, 4), "BIGINT")),
-                                        parameter(simpleType(location(1, 12), "VARCHAR"))))));
+                                        parameter(simpleType(location(1, 5), "BIGINT")),
+                                        parameter(simpleType(location(1, 13), "VARCHAR"))))));
     }
 }
