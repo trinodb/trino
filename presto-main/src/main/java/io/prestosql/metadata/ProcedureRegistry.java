@@ -17,6 +17,7 @@ import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.procedure.Procedure;
@@ -86,6 +87,7 @@ public class ProcedureRegistry
     {
         List<Class<?>> parameters = procedure.getMethodHandle().type().parameterList().stream()
                 .filter(type -> !ConnectorSession.class.equals(type))
+                .filter(type -> !ConnectorAccessControl.class.equals(type))
                 .collect(toList());
 
         for (int i = 0; i < procedure.getArguments().size(); i++) {
