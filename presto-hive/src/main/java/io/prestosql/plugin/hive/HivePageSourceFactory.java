@@ -33,7 +33,7 @@ public interface HivePageSourceFactory
             Path path,
             long start,
             long length,
-            long fileSize,
+            long estimatedFileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,

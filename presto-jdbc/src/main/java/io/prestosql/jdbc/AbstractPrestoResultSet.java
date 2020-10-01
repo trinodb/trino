@@ -86,7 +86,7 @@ abstract class AbstractPrestoResultSet
     private static final Pattern TIME_PATTERN = Pattern.compile("(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?");
     private static final Pattern TIME_WITH_TIME_ZONE_PATTERN = Pattern.compile("" +
             "(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?" +
-            "(?<offsetHour>[+-]\\d\\d):(?<offsetMinute>\\d\\d)");
+            "[ ]?(?<offsetHour>[+-]\\d\\d):(?<offsetMinute>\\d\\d)");
 
     private static final long[] POWERS_OF_TEN = {
             1L,

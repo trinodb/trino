@@ -26,6 +26,7 @@ import io.prestosql.execution.SqlStageExecution;
 import io.prestosql.execution.scheduler.FixedSourcePartitionedScheduler.BucketedSplitPlacementPolicy;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
+import io.prestosql.server.DynamicFilterService;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.split.EmptySplit;
 import io.prestosql.split.SplitSource;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BooleanSupplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -91,6 +93,7 @@ public class SourcePartitionedScheduler
     private final int splitBatchSize;
     private final PlanNodeId partitionedNode;
     private final boolean groupedExecution;
+    private final DynamicFilterService dynamicFilterService;
     private final BooleanSupplier anySourceTaskBlocked;
 
     private final Map<Lifespan, ScheduleGroup> scheduleGroups = new HashMap<>();
@@ -106,12 +109,14 @@ public class SourcePartitionedScheduler
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
             boolean groupedExecution,
+            DynamicFilterService dynamicFilterService,
             BooleanSupplier anySourceTaskBlocked)
     {
         this.stage = requireNonNull(stage, "stage is null");
         this.partitionedNode = requireNonNull(partitionedNode, "partitionedNode is null");
         this.splitSource = requireNonNull(splitSource, "splitSource is null");
         this.splitPlacementPolicy = requireNonNull(splitPlacementPolicy, "splitPlacementPolicy is null");
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.anySourceTaskBlocked = requireNonNull(anySourceTaskBlocked, "anySourceTaskBlocked is null");
 
         checkArgument(splitBatchSize > 0, "splitBatchSize must be at least one");
@@ -138,6 +143,7 @@ public class SourcePartitionedScheduler
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
+            DynamicFilterService dynamicFilterService,
             BooleanSupplier anySourceTaskBlocked)
     {
         SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(
@@ -147,6 +153,7 @@ public class SourcePartitionedScheduler
                 splitPlacementPolicy,
                 splitBatchSize,
                 false,
+                dynamicFilterService,
                 anySourceTaskBlocked);
         sourcePartitionedScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
         sourcePartitionedScheduler.noMoreLifespans();
@@ -187,6 +194,7 @@ public class SourcePartitionedScheduler
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
             boolean groupedExecution,
+            DynamicFilterService dynamicFilterService,
             BooleanSupplier anySourceTaskBlocked)
     {
         return new SourcePartitionedScheduler(
@@ -196,6 +204,7 @@ public class SourcePartitionedScheduler
                 splitPlacementPolicy,
                 splitBatchSize,
                 groupedExecution,
+                dynamicFilterService,
                 anySourceTaskBlocked);
     }
 
@@ -366,10 +375,24 @@ public class SourcePartitionedScheduler
             return new ScheduleResult(false, overallNewTasks.build(), overallSplitAssignmentCount);
         }
 
+        if (anyBlockedOnNextSplitBatch
+                && stage.getScheduledNodes().isEmpty()
+                && dynamicFilterService.isCollectingTaskNeeded(stage.getStageId().getQueryId(), stage.getFragment())) {
+            // schedule a task for collecting dynamic filters in case probe split generator is waiting for them
+            overallNewTasks.addAll(createTaskOnRandomNode());
+        }
+
+        boolean anySourceTaskBlocked = this.anySourceTaskBlocked.getAsBoolean();
+        if (anySourceTaskBlocked) {
+            // Dynamic filters might not be collected due to build side source tasks being blocked on full buffer.
+            // In such case probe split generation that is waiting for dynamic filters should be unblocked to prevent deadlock.
+            dynamicFilterService.unblockStageDynamicFilters(stage.getStageId().getQueryId(), stage.getFragment());
+        }
+
         if (groupedExecution) {
             overallNewTasks.addAll(finalizeTaskCreationIfNecessary());
         }
-        else if (anyBlockedOnPlacements && anySourceTaskBlocked.getAsBoolean()) {
+        else if (anyBlockedOnPlacements && anySourceTaskBlocked) {
             // In a broadcast join, output buffers of the tasks in build source stage have to
             // hold onto all data produced before probe side task scheduling finishes,
             // even if the data is acknowledged by all known consumers. This is because
@@ -476,6 +499,15 @@ public class SourcePartitionedScheduler
                     noMoreSplits.build()));
         }
         return newTasks.build();
+    }
+
+    private Set<RemoteTask> createTaskOnRandomNode()
+    {
+        checkState(stage.getScheduledNodes().isEmpty(), "Stage task is already scheduled on node");
+        List<InternalNode> allNodes = splitPlacementPolicy.allNodes();
+        checkState(allNodes.size() > 0, "No nodes available");
+        InternalNode node = allNodes.get(ThreadLocalRandom.current().nextInt(0, allNodes.size()));
+        return stage.scheduleSplits(node, ImmutableMultimap.of(), ImmutableMultimap.of());
     }
 
     private Set<RemoteTask> finalizeTaskCreationIfNecessary()

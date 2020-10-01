@@ -44,6 +44,7 @@ public class KafkaConfig
     private File tableDescriptionDir = new File("etc/kafka/");
     private boolean hideInternalColumns = true;
     private int messagesPerSplit = 100_000;
+    private boolean timestampUpperBoundPushDownEnabled;
 
     @Size(min = 1)
     public Set<HostAddress> getNodes()
@@ -151,6 +152,19 @@ public class KafkaConfig
     public KafkaConfig setMessagesPerSplit(int messagesPerSplit)
     {
         this.messagesPerSplit = messagesPerSplit;
+        return this;
+    }
+
+    public boolean isTimestampUpperBoundPushDownEnabled()
+    {
+        return timestampUpperBoundPushDownEnabled;
+    }
+
+    @Config("kafka.timestamp-upper-bound-force-push-down-enabled")
+    @ConfigDescription("timestamp upper bound force pushing down enabled")
+    public KafkaConfig setTimestampUpperBoundPushDownEnabled(boolean timestampUpperBoundPushDownEnabled)
+    {
+        this.timestampUpperBoundPushDownEnabled = timestampUpperBoundPushDownEnabled;
         return this;
     }
 }

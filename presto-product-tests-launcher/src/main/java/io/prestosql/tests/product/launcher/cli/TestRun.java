@@ -13,12 +13,11 @@
  */
 package io.prestosql.tests.product.launcher.cli;
 
-import com.github.dockerjava.api.command.InspectContainerResponse;
-import com.github.dockerjava.api.command.InspectContainerResponse.ContainerState;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
@@ -27,13 +26,12 @@ import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
-import io.prestosql.tests.product.launcher.env.Environments;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.testcontainers.ExistingNetwork;
 import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
-import org.testcontainers.containers.Container;
-import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
+import net.jodah.failsafe.Timeout;
+import net.jodah.failsafe.TimeoutExceededException;
+import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
 
@@ -42,19 +40,28 @@ import javax.inject.Inject;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.getStackTraceAsString;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
 import static io.prestosql.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
+import static io.prestosql.tests.product.launcher.env.Environment.allContainersHealthy;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.prestosql.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
+import static java.lang.StrictMath.toIntExact;
+import static java.lang.String.format;
+import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
+import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
 
@@ -63,7 +70,7 @@ import static picocli.CommandLine.Option;
         description = "Run a Presto product test",
         usageHelpAutoWidth = true)
 public final class TestRun
-        implements Runnable
+        implements Callable<Integer>
 {
     private static final Logger log = Logger.get(TestRun.class);
 
@@ -84,9 +91,9 @@ public final class TestRun
     }
 
     @Override
-    public void run()
+    public Integer call()
     {
-        runCommand(
+        return runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
                         .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
@@ -115,7 +122,10 @@ public final class TestRun
         public Optional<Path> logsDirBase;
 
         @Option(names = "--startup-retries", paramLabel = "<retries>", description = "Environment startup retries " + DEFAULT_VALUE, defaultValue = "5")
-        public int startupRetries;
+        public Integer startupRetries = 5;
+
+        @Option(names = "--timeout", paramLabel = "<timeout>", description = "Maximum duration of tests execution " + DEFAULT_VALUE, converter = DurationConverter.class, defaultValue = "2h")
+        public Duration timeout;
 
         @Parameters(paramLabel = "<argument>", description = "Test arguments")
         public List<String> testArguments;
@@ -127,7 +137,7 @@ public final class TestRun
     }
 
     public static class Execution
-            implements Runnable
+            implements Callable<Integer>
     {
         private static final String CONTAINER_REPORTS_DIR = "/docker/test-reports";
         private final EnvironmentFactory environmentFactory;
@@ -136,6 +146,8 @@ public final class TestRun
         private final List<String> testArguments;
         private final String environment;
         private final boolean attach;
+        private final Duration timeout;
+        private final DockerContainer.OutputMode outputMode;
         private final int startupRetries;
         private final Path reportsDirBase;
         private final Optional<Path> logsDirBase;
@@ -151,6 +163,8 @@ public final class TestRun
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testOptions.testArguments is null"));
             this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
             this.attach = testRunOptions.attach;
+            this.timeout = requireNonNull(testRunOptions.timeout, "testRunOptions.timeout is null");
+            this.outputMode = requireNonNull(environmentOptions.output, "environmentOptions.output is null");
             this.startupRetries = testRunOptions.startupRetries;
             this.reportsDirBase = requireNonNull(testRunOptions.reportsDir, "testRunOptions.reportsDirBase is empty");
             this.logsDirBase = requireNonNull(testRunOptions.logsDirBase, "testRunOptions.logsDirBase is empty");
@@ -158,69 +172,83 @@ public final class TestRun
         }
 
         @Override
-        public void run()
+        public Integer call()
         {
-            RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
-                    .withMaxRetries(startupRetries)
-                    .onFailedAttempt(event -> log.warn("Could not start environment '%s': %s", environment, getStackTraceAsString(event.getLastFailure())))
-                    .onRetry(event -> log.info("Trying to start environment '%s', %d failed attempt(s)", environment, event.getAttemptCount() + 1))
-                    .onSuccess(event -> log.info("Environment '%s' started in %s, %d attempt(s)", environment, event.getElapsedTime(), event.getAttemptCount()))
-                    .onFailure(event -> log.info("Environment '%s' failed to start in attempt(s): %d: %s", environment, event.getAttemptCount(), event.getFailure()));
+            try {
+                int exitCode = Failsafe
+                        .with(Timeout.of(java.time.Duration.ofMillis(timeout.toMillis()))
+                                .withCancel(true))
+                        .get(() -> tryExecuteTests());
 
-            try (UncheckedCloseable ignore = this::cleanUp) {
-                Environment environment = Failsafe.with(retryPolicy)
-                        .get(() -> tryStartEnvironment());
-
-                awaitTestsCompletion(environment);
+                log.info("Tests execution completed with code %d", exitCode);
+                return exitCode;
+            }
+            catch (TimeoutExceededException ignored) {
+                log.error("Test execution exceeded timeout of %s", timeout);
             }
             catch (Throwable e) {
                 // log failure (tersely) because cleanup may take some time
-                log.error("Failure: %s", e);
-                throw e;
+                log.error("Failure: %s", getStackTraceAsString(e));
+            }
+
+            return ExitCode.SOFTWARE;
+        }
+
+        private Integer tryExecuteTests()
+        {
+            try (Environment environment = startEnvironment()) {
+                return toIntExact(environment.awaitTestsCompletion());
+            }
+            catch (Exception e) {
+                log.warn("Failed to execute tests: %s", getStackTraceAsString(e));
+                return ExitCode.SOFTWARE;
             }
         }
 
-        private Environment tryStartEnvironment()
+        private Environment startEnvironment()
         {
             Environment environment = getEnvironment();
 
+            Collection<DockerContainer> allContainers = environment.getContainers();
+            DockerContainer testsContainer = environment.getContainer(TESTS);
+
+            Collection<DockerContainer> environmentContainers = allContainers.stream()
+                    .filter(container -> !container.equals(testsContainer))
+                    .collect(toImmutableList());
+
             if (!attach) {
-                log.info("Pruning old environment(s)");
-                Environments.pruneEnvironment();
+                // Reestablish dependency on every startEnvironment attempt
+                testsContainer.dependsOn(environmentContainers);
 
                 log.info("Starting the environment '%s' with configuration %s", this.environment, environmentConfig);
                 environment.start();
             }
             else {
-                DockerContainer tests = (DockerContainer) environment.getContainer("tests");
-                tests.clearDependencies();
-                tests.setNetwork(new ExistingNetwork(Environment.PRODUCT_TEST_LAUNCHER_NETWORK));
+                if (!allContainersHealthy(environmentContainers)) {
+                    throw new RuntimeException(format("Could not attach tests to unhealthy environment %s", this.environment));
+                }
+
+                testsContainer.setNetwork(new ExistingNetwork(Environment.PRODUCT_TEST_LAUNCHER_NETWORK));
                 // TODO prune previous ptl-tests container
-                tests.start();
+                testsContainer.start();
             }
 
             return environment;
         }
 
-        private void cleanUp()
-        {
-            if (!attach) {
-                log.info("Done, cleaning up");
-                Environments.pruneEnvironment();
-            }
-        }
-
         private Environment getEnvironment()
         {
-            Environment.Builder environment = environmentFactory.get(this.environment)
-                    .containerDependsOnRest("tests");
+            Environment.Builder builder = environmentFactory.get(environment, environmentConfig)
+                    .setContainerOutputMode(outputMode)
+                    .setStartupRetries(startupRetries)
+                    .setLogsBaseDir(logsDirBase);
 
             if (debug) {
-                environment.configureContainers(Standard::enablePrestoJavaDebugger);
+                builder.configureContainers(Standard::enablePrestoJavaDebugger);
             }
 
-            environment.configureContainer("tests", this::mountReportsDir);
-            environment.configureContainer("tests", container -> {
+            builder.configureContainer(TESTS, this::mountReportsDir);
+            builder.configureContainer(TESTS, container -> {
                 List<String> temptoJavaOptions = Splitter.on(" ").omitEmptyStrings().splitToList(
                         container.getEnvMap().getOrDefault("TEMPTO_JAVA_OPTS", ""));
 
@@ -257,14 +285,11 @@ public final class TestRun
                                 .addAll(reportsDirOptions(reportsDirBase))
                                 .build().toArray(new String[0]))
                         // this message marks that environment has started and tests are running
-                        .waitingFor(new LogMessageWaitStrategy().withRegEx(".*\\[TestNG] Running.*"));
+                        .waitingFor(forLogMessage(".*\\[TestNG] Running.*", 1)
+                                .withStartupTimeout(ofMinutes(15)));
             });
 
-            environmentConfig.extendEnvironment(this.environment).ifPresent(extender -> extender.extendEnvironment(environment));
-
-            logsDirBase.ifPresent(environment::exposeLogsInHostPath);
-            return environment
-                    .build();
+            return builder.build(getStandardListeners(logsDirBase));
         }
 
         private static Iterable<? extends String> reportsDirOptions(Path path)
@@ -276,7 +301,7 @@ public final class TestRun
             return ImmutableList.of("--report-dir", CONTAINER_REPORTS_DIR);
         }
 
-        private void mountReportsDir(Container container)
+        private void mountReportsDir(DockerContainer container)
         {
             if (isNullOrEmpty(reportsDirBase.toString())) {
                 return;
@@ -286,37 +311,5 @@ public final class TestRun
             container.withFileSystemBind(reportsDirBase.toString(), CONTAINER_REPORTS_DIR, READ_WRITE);
             log.info("Exposing tests report dir in host directory '%s'", reportsDirBase);
         }
-
-        private void awaitTestsCompletion(Environment environment)
-        {
-            Container<?> container = environment.getContainer("tests");
-
-            log.info("Waiting for test completion");
-            try {
-                while (container.isRunning()) {
-                    Thread.sleep(1000);
-                }
-
-                InspectContainerResponse containerInfo = container.getCurrentContainerInfo();
-                ContainerState containerState = containerInfo.getState();
-                Long exitCode = containerState.getExitCodeLong();
-                log.info("Test container %s is %s, with exitCode %s", containerInfo.getId(), containerState.getStatus(), exitCode);
-                checkState(exitCode != null, "No exitCode for tests container %s in state %s", container, containerState);
-                if (exitCode != 0L) {
-                    throw new RuntimeException("Tests exited with " + exitCode);
-                }
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException("Interrupted", e);
-            }
-        }
-    }
-
-    private interface UncheckedCloseable
-            extends AutoCloseable
-    {
-        @Override
-        void close();
     }
 }

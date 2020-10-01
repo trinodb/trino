@@ -393,6 +393,55 @@ public abstract class BaseElasticsearchSmokeTest
     }
 
     @Test
+    public void testBoolean()
+            throws IOException
+    {
+        String indexName = "booleans";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"boolean_column\":   { \"type\": \"boolean\" }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("boolean_column", true)
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("boolean_column", "true")
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("boolean_column", false)
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("boolean_column", "false")
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("boolean_column", "")
+                .build());
+
+        MaterializedResult rows = computeActual("SELECT boolean_column FROM booleans");
+
+        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+                .row(true)
+                .row(true)
+                .row(false)
+                .row(false)
+                .row(false)
+                .build();
+
+        assertThat(rows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+    }
+
+    @Test
     public void testCoercions()
             throws IOException
     {

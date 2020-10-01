@@ -18,20 +18,26 @@ import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
-import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
 import java.time.Duration;
 
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.HADOOP;
+import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_CONF_ROOT;
+import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_HEALTH_D;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
+import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public final class Hadoop
         implements EnvironmentExtender
 {
+    public static final String CONTAINER_HADOOP_INIT_D = "/etc/hadoop-init.d/";
     public static final String CONTAINER_PRESTO_HIVE_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/hive.properties";
     public static final String CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/hive_with_external_writes.properties";
     public static final String CONTAINER_PRESTO_ICEBERG_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/iceberg.properties";
@@ -57,39 +63,44 @@ public final class Hadoop
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addContainer("hadoop-master", createHadoopMaster());
+        builder.addContainer(createHadoopContainer(dockerFiles, hadoopBaseImage + ":" + hadoopImagesVersion, HADOOP));
 
-        builder.configureContainer("presto-master", container -> container
+        builder.configureContainer(HADOOP, container -> {
+            portBinder.exposePort(container, 1180);  // socks proxy
+            // TODO portBinder.exposePort(container, 5006); // debug port
+            portBinder.exposePort(container, 8020);
+            portBinder.exposePort(container, 8042);
+            portBinder.exposePort(container, 8088);
+            portBinder.exposePort(container, 9000);
+            portBinder.exposePort(container, 9083); // Metastore Thrift
+            portBinder.exposePort(container, 9864); // DataNode Web UI since Hadoop 3
+            portBinder.exposePort(container, 9870); // NameNode Web UI since Hadoop 3
+            portBinder.exposePort(container, 10000); // HiveServer2
+            portBinder.exposePort(container, 19888);
+            portBinder.exposePort(container, 50070); // NameNode Web UI prior to Hadoop 3
+            portBinder.exposePort(container, 50075); // DataNode Web UI prior to Hadoop 3
+        });
+
+        builder.configureContainer(COORDINATOR, container -> container
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_with_external_writes.properties")), CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES));
     }
 
     @SuppressWarnings("resource")
-    private DockerContainer createHadoopMaster()
+    public static DockerContainer createHadoopContainer(DockerFiles dockerFiles, String dockerImage, String logicalName)
     {
-        DockerContainer container = new DockerContainer(hadoopBaseImage + ":" + hadoopImagesVersion)
+        return new DockerContainer(dockerImage, logicalName)
                 // TODO HIVE_PROXY_PORT:1180
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
-                .withExposedLogPaths("/var/log/hadoop-yarn", "/var/log/hadoop-hdfs", "/var/log/hive")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), CONTAINER_CONF_ROOT)
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("health-checks/hadoop-health-check.sh")), CONTAINER_HEALTH_D + "hadoop-health-check.sh")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hadoop-run.sh")), "/usr/local/hadoop-run.sh")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/apply-config-overrides.sh")), CONTAINER_HADOOP_INIT_D + "00-apply-config-overrides.sh")
+                .withCommand("/usr/local/hadoop-run.sh")
+                .withExposedLogPaths("/var/log/hadoop-yarn", "/var/log/hadoop-hdfs", "/var/log/hive", "/var/log/container-health.log")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(new SelectedPortWaitStrategy(10000)) // HiveServer2
-                .withStartupTimeout(Duration.ofMinutes(5));
-
-        portBinder.exposePort(container, 1180);  // socks proxy
-        // TODO portBinder.exposePort(container, 5006); // debug port
-        portBinder.exposePort(container, 8020);
-        portBinder.exposePort(container, 8042);
-        portBinder.exposePort(container, 8088);
-        portBinder.exposePort(container, 9000);
-        portBinder.exposePort(container, 9083); // Metastore Thrift
-        portBinder.exposePort(container, 9864); // DataNode Web UI since Hadoop 3
-        portBinder.exposePort(container, 9870); // NameNode Web UI since Hadoop 3
-        portBinder.exposePort(container, 10000); // HiveServer2
-        portBinder.exposePort(container, 19888);
-        portBinder.exposePort(container, 50070); // NameNode Web UI prior to Hadoop 3
-        portBinder.exposePort(container, 50075); // DataNode Web UI prior to Hadoop 3
-
-        return container;
+                .waitingForAll(forSelectedPorts(10000), forHealthcheck()) // HiveServer2
+                .withStartupTimeout(Duration.ofMinutes(5))
+                .withHealthCheck(dockerFiles.getDockerFilesHostPath("health-checks/health.sh"));
     }
 }

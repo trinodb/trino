@@ -24,6 +24,7 @@ import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.suite.SuiteFactory;
 import io.prestosql.tests.product.launcher.suite.SuiteModule;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Option;
 
 import javax.inject.Inject;
@@ -33,6 +34,7 @@ import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
+import java.util.concurrent.Callable;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static java.util.Objects.requireNonNull;
@@ -42,7 +44,7 @@ import static java.util.Objects.requireNonNull;
         description = "List tests suite",
         usageHelpAutoWidth = true)
 public final class SuiteList
-        implements Runnable
+        implements Callable<Integer>
 {
     private final Module additionalEnvironments;
     private final Module additionalSuites;
@@ -57,9 +59,9 @@ public final class SuiteList
     }
 
     @Override
-    public void run()
+    public Integer call()
     {
-        runCommand(
+        return runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
                         .add(new EnvironmentModule(EnvironmentOptions.empty(), additionalEnvironments))
@@ -69,7 +71,7 @@ public final class SuiteList
     }
 
     public static class Execution
-            implements Runnable
+            implements Callable<Integer>
     {
         private final PrintStream out;
         private final EnvironmentConfigFactory configFactory;
@@ -90,13 +92,15 @@ public final class SuiteList
         }
 
         @Override
-        public void run()
+        public Integer call()
         {
             out.println("Available suites: ");
             this.suiteFactory.listSuites().forEach(out::println);
 
             out.println("\nAvailable environment configs: ");
             this.configFactory.listConfigs().forEach(out::println);
+
+            return ExitCode.OK;
         }
     }
 }

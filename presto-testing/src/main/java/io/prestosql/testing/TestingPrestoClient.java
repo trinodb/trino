@@ -22,6 +22,7 @@ import io.prestosql.client.QueryStatusInfo;
 import io.prestosql.client.Warning;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
@@ -57,7 +58,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
@@ -210,7 +210,7 @@ public class TestingPrestoClient
         else if (type instanceof VarcharType) {
             return value;
         }
-        else if (isCharType(type)) {
+        else if (type instanceof CharType) {
             return value;
         }
         else if (VARBINARY.equals(type)) {
@@ -253,7 +253,7 @@ public class TestingPrestoClient
         else if (type instanceof RowType) {
             List<Type> fieldTypes = type.getTypeParameters();
             Collection<?> values = ((Map<?, ?>) value).values();
-            return dataToRow(fieldTypes).apply(new ArrayList(values));
+            return dataToRow(fieldTypes).apply(new ArrayList<>(values));
         }
         else if (type instanceof DecimalType) {
             return new BigDecimal((String) value);

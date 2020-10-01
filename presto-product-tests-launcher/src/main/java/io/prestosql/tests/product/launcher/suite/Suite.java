@@ -28,7 +28,7 @@ public abstract class Suite
     @Override
     public String toString()
     {
-        return toStringHelper(this)
+        return toStringHelper(getSuiteName())
                 .add("testRuns", getTestRuns(new ConfigDefault()))
                 .toString();
     }

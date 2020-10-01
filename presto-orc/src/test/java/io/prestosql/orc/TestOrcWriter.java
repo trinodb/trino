@@ -107,7 +107,12 @@ public class TestOrcWriter
 
             // read the footer and verify the streams are ordered by size
             OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
-            Footer footer = new OrcReader(orcDataSource, READER_OPTIONS).getFooter();
+            Footer footer = OrcReader.createOrcReader(orcDataSource, READER_OPTIONS)
+                    .orElseThrow(() -> new RuntimeException("File is empty"))
+                    .getFooter();
+
+            // OrcReader closes the original data source because it buffers the full file, so we need to reopen
+            orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
 
             for (StripeInformation stripe : footer.getStripes()) {
                 // read the footer

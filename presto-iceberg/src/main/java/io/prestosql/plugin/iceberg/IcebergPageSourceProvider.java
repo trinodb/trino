@@ -28,6 +28,7 @@ import io.prestosql.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
 import io.prestosql.parquet.Field;
 import io.prestosql.parquet.ParquetCorruptionException;
 import io.prestosql.parquet.ParquetDataSource;
+import io.prestosql.parquet.ParquetDataSourceId;
 import io.prestosql.parquet.ParquetReaderOptions;
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.parquet.predicate.Predicate;
@@ -40,6 +41,7 @@ import io.prestosql.plugin.hive.orc.HdfsOrcDataSource;
 import io.prestosql.plugin.hive.orc.OrcPageSource;
 import io.prestosql.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
 import io.prestosql.plugin.hive.orc.OrcReaderConfig;
+import io.prestosql.plugin.hive.parquet.HdfsParquetDataSource;
 import io.prestosql.plugin.hive.parquet.ParquetPageSource;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.spi.PrestoException;
@@ -88,7 +90,6 @@ import static io.prestosql.parquet.ParquetTypeUtils.getDescriptors;
 import static io.prestosql.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static io.prestosql.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.prestosql.parquet.predicate.PredicateUtils.predicateMatches;
-import static io.prestosql.plugin.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static io.prestosql.plugin.hive.parquet.ParquetColumnIOConverter.constructField;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
@@ -254,7 +255,8 @@ public class IcebergPageSourceProvider
                     inputStream,
                     stats);
 
-            OrcReader reader = new OrcReader(orcDataSource, options);
+            OrcReader reader = OrcReader.createOrcReader(orcDataSource, options)
+                    .orElseThrow(() -> new PrestoException(ICEBERG_BAD_DATA, "ORC file is zero length"));
             List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
             Map<Integer, OrcColumn> fileColumnsByIcebergId = fileColumns.stream()
                     .filter(orcColumn -> orcColumn.getAttributes().containsKey(ORC_ICEBERG_ID_KEY))
@@ -357,10 +359,11 @@ public class IcebergPageSourceProvider
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
             FileStatus fileStatus = hdfsEnvironment.doAs(user, () -> fileSystem.getFileStatus(path));
-            long fileSize = fileStatus.getLen();
+            long estimatedFileSize = fileStatus.getLen();
             FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.open(path));
-            dataSource = buildHdfsParquetDataSource(inputStream, path, fileSize, fileFormatDataSourceStats, options);
-            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(fileSystem, path, fileSize));
+            dataSource = new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), estimatedFileSize, inputStream, fileFormatDataSourceStats, options);
+            ParquetDataSource theDataSource = dataSource; // extra variable required for lambda below
+            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(theDataSource));
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 

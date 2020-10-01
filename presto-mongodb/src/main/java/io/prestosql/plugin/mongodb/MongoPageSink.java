@@ -42,6 +42,7 @@ import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.spi.type.VarcharType;
 import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
@@ -68,7 +69,6 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.roundDiv;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
@@ -153,7 +153,7 @@ public class MongoPageSink
         if (type.equals(DoubleType.DOUBLE)) {
             return type.getDouble(block, position);
         }
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return type.getSlice(block, position).toStringUtf8();
         }
         if (type instanceof CharType) {
@@ -174,7 +174,7 @@ public class MongoPageSink
             long millisUtc = floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
             return new Date(millisUtc);
         }
-        if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
+        if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS)) {
             long millisUtc = unpackMillisUtc(type.getLong(block, position));
             return new Date(millisUtc);
         }

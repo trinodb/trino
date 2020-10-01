@@ -56,17 +56,18 @@ Configuration Properties
 
 The following configuration properties are available:
 
-=============================== ==============================================================
-Property Name                   Description
-=============================== ==============================================================
-``kafka.table-names``           List of all tables provided by the catalog
-``kafka.default-schema``        Default schema name for tables
-``kafka.nodes``                 List of nodes in the Kafka cluster
-``kafka.buffer-size``           Kafka read buffer size
-``kafka.table-description-dir`` Directory containing topic description files
-``kafka.hide-internal-columns`` Controls whether internal columns are part of the table schema or not
-``kafka.messages-per-split``    Number of messages that are processed by each Presto split, defaults to 100000
-=============================== ==============================================================
+========================================================== ==============================================================================
+Property Name                                              Description
+========================================================== ==============================================================================
+``kafka.table-names``                                      List of all tables provided by the catalog
+``kafka.default-schema``                                   Default schema name for tables
+``kafka.nodes``                                            List of nodes in the Kafka cluster
+``kafka.buffer-size``                                      Kafka read buffer size
+``kafka.table-description-dir``                            Directory containing topic description files
+``kafka.hide-internal-columns``                            Controls whether internal columns are part of the table schema or not
+``kafka.messages-per-split``                               Number of messages that are processed by each Presto split, defaults to 100000
+``kafka.timestamp-upper-bound-force-push-down-enabled``    Controls if upper bound timestamp push down is enabled for topics using ``CreateTime`` mode
+========================================================== ==============================================================================
 
 ``kafka.table-names``
 ^^^^^^^^^^^^^^^^^^^^^
@@ -121,6 +122,18 @@ files (must end with ``.json``) which contain table description files.
 
 This property is optional; the default is ``etc/kafka``.
 
+``kafka.timestamp-upper-bound-force-push-down-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The upper bound predicate on ``_timestamp`` column
+is pushed down only for topics using ``LogAppendTime`` mode.
+
+For topics using ``CreateTime`` mode, upper bound push down must be explicitly
+allowed via ``kafka.timestamp-upper-bound-force-push-down-enabled`` config property
+or ``timestamp_upper_bound_force_push_down_enabled`` session property.
+
+This property is optional; the default is ``false``.
+
 ``kafka.hide-internal-columns``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -136,21 +149,23 @@ Internal Columns
 
 For each defined table, the connector maintains the following columns:
 
-======================= ========= =============================
-Column name             Type      Description
-======================= ========= =============================
-``_partition_id``       BIGINT    ID of the Kafka partition which contains this row.
-``_partition_offset``   BIGINT    Offset within the Kafka partition for this row.
-``_segment_start``      BIGINT    Lowest offset in the segment (inclusive) which contains this row. This offset is partition specific.
-``_segment_end``        BIGINT    Highest offset in the segment (exclusive) which contains this row. The offset is partition specific. This is the same value as ``_segment_start`` of the next segment (if it exists).
-``_segment_count``      BIGINT    Running count for the current row within the segment. For an uncompacted topic, ``_segment_start + _segment_count`` is equal to ``_partition_offset``.
-``_message_corrupt``    BOOLEAN   True if the decoder could not decode the message for this row. When true, data columns mapped from the message should be treated as invalid.
-``_message``            VARCHAR   Message bytes as an UTF-8 encoded string. This is only useful for a text topic.
-``_message_length``     BIGINT    Number of bytes in the message.
-``_key_corrupt``        BOOLEAN   True if the key decoder could not decode the key for this row. When true, data columns mapped from the key should be treated as invalid.
-``_key``                VARCHAR   Key bytes as an UTF-8 encoded string. This is only useful for textual keys.
-``_key_length``         BIGINT    Number of bytes in the key.
-======================= ========= =============================
+======================= =============================== =============================
+Column name             Type                            Description
+======================= =============================== =============================
+``_partition_id``       BIGINT                          ID of the Kafka partition which contains this row.
+``_partition_offset``   BIGINT                          Offset within the Kafka partition for this row.
+``_segment_start``      BIGINT                          Lowest offset in the segment (inclusive) which contains this row. This offset is partition specific.
+``_segment_end``        BIGINT                          Highest offset in the segment (exclusive) which contains this row. The offset is partition specific. This is the same value as ``_segment_start`` of the next segment (if it exists).
+``_segment_count``      BIGINT                          Running count for the current row within the segment. For an uncompacted topic, ``_segment_start + _segment_count`` is equal to ``_partition_offset``.
+``_message_corrupt``    BOOLEAN                         True if the decoder could not decode the message for this row. When true, data columns mapped from the message should be treated as invalid.
+``_message``            VARCHAR                         Message bytes as an UTF-8 encoded string. This is only useful for a text topic.
+``_message_length``     BIGINT                          Number of bytes in the message.
+``_headers``            map(VARCHAR, array(VARBINARY))  Headers of the message where values with the same key are grouped as array.
+``_key_corrupt``        BOOLEAN                         True if the key decoder could not decode the key for this row. When true, data columns mapped from the key should be treated as invalid.
+``_key``                VARCHAR                         Key bytes as an UTF-8 encoded string. This is only useful for textual keys.
+``_key_length``         BIGINT                          Number of bytes in the key.
+``_timestamp``          TIMESTAMP                       Message timestamp.
+======================= =============================== =============================
 
 For tables without a table definition file, the ``_key_corrupt`` and
 ``_message_corrupt`` columns will always be ``false``.
@@ -509,17 +524,72 @@ For fields, the following attributes are supported:
 * ``type`` - Presto type of column.
 * ``mapping`` - slash-separated list of field names to select a field from the
   JSON object
+* ``dataFormat`` - name of formatter (required for temporal types)
+* ``formatHint`` - pattern to format temporal data (only use with
+  ``custom-date-time`` formatter)
 
-The following Presto data types are supported by the JSON encoder
+The following Presto data types are supported by the JSON encoder:
 
-* ``BIGINT``
-* ``INTEGER``
-* ``SMALLINT``
-* ``TINYINT``
-* ``DOUBLE``
-* ``REAL``
-* ``BOOLEAN``
-* ``VARCHAR``
++-------------------------------------+
+| Presto data types                   |
++=====================================+
+| ``BIGINT``                          |
+|                                     |
+| ``INTEGER``                         |
+|                                     |
+| ``SMALLINT``                        |
+|                                     |
+| ``TINYINT``                         |
+|                                     |
+| ``DOUBLE``                          |
+|                                     |
+| ``REAL``                            |
+|                                     |
+| ``BOOLEAN``                         |
+|                                     |
+| ``VARCHAR``                         |
+|                                     |
+| ``DATE``                            |
+|                                     |
+| ``TIME``                            |
+|                                     |
+| ``TIME WITH TIME ZONE``             |
+|                                     |
+| ``TIMESTAMP``                       |
+|                                     |
+| ``TIMESTAMP WITH TIME ZONE``        |
++-------------------------------------+
+
+The following ``dataFormats`` are available for temporal data:
+
+* ``iso8601``
+* ``rfc2822``
+* ``custom-date-time`` - formats temporal data according to
+  `Joda Time <https://www.joda.org/joda-time/key_format.html>`__
+  pattern given by ``formatHint`` field
+* ``milliseconds-since-epoch``
+* ``seconds-since-epoch``
+
+All temporal data in Kafka supports milliseconds precision
+
+The following table defines which temporal data types are supported by
+``dataFormats``:
+
++-------------------------------------+--------------------------------------------------------------------------------+
+| Presto data type                    | Decoding rules                                                                 |
++=====================================+================================================================================+
+| ``DATE``                            | ``custom-date-time``, ``iso8601``                                              |
++-------------------------------------+--------------------------------------------------------------------------------+
+| ``TIME``                            | ``custom-date-time``, ``iso8601``, ``milliseconds-since-epoch``,               |
+|                                     | ``seconds-since-epoch``                                                        |
++-------------------------------------+--------------------------------------------------------------------------------+
+| ``TIME WITH TIME ZONE``             | ``custom-date-time``, ``iso8601``                                              |
++-------------------------------------+--------------------------------------------------------------------------------+
+| ``TIMESTAMP``                       | ``custom-date-time``, ``iso8601``, ``rfc2822``,                                |
+|                                     | ``milliseconds-since-epoch``, ``seconds-since-epoch``                          |
++-------------------------------------+--------------------------------------------------------------------------------+
+| ``TIMESTAMP WITH TIME ZONE``        | ``custom-date-time``, ``iso8601``, ``rfc2822``,                                |
++-------------------------------------+--------------------------------------------------------------------------------+
 
 Example JSON field definition in a `table definition file <#table-definition-files>`__
 for a Kafka message:
@@ -546,7 +616,9 @@ for a Kafka message:
           },
           {
             "name": "field3",
-            "type": "BOOLEAN",
+            "type": "TIMESTAMP",
+            "dataFormat": "custom-date-time",
+            "formatHint": "yyyy-dd-MM HH:mm:ss.SSS",
             "mapping": "field3"
           }
         ]
@@ -556,7 +628,7 @@ for a Kafka message:
 Example insert query for the above table definition::
 
     INSERT INTO example_json_table (field1, field2, field3)
-      VALUES (123456789, 'example text', TRUE);
+      VALUES (123456789, 'example text', TIMESTAMP '2020-07-15 01:02:03.456');
 
 Avro Encoder
 ^^^^^^^^^^^^
@@ -820,12 +892,17 @@ which can be specified via ``dataFormat`` attribute.
 | | ``VARCHAR``                       |                                                                                |
 | | ``VARCHAR(x)``                    |                                                                                |
 +-------------------------------------+--------------------------------------------------------------------------------+
-| | ``TIMESTAMP``                     | ``custom-date-time``, ``iso8601``, ``rfc2822``,                                |
-| | ``TIMESTAMP WITH TIME ZONE``      | ``milliseconds-since-epoch``, ``seconds-since-epoch``                          |
-| | ``TIME``                          |                                                                                |
-| | ``TIME WITH TIME ZONE``           |                                                                                |
+| | ``DATE``                          | ``custom-date-time``, ``iso8601``                                              |
 +-------------------------------------+--------------------------------------------------------------------------------+
-| ``DATE``                            | ``custom-date-time``, ``iso8601``, ``rfc2822``,                                |
+| | ``TIME``                          | ``custom-date-time``, ``iso8601``, ``milliseconds-since-epoch``,               |
+| |                                   | ``seconds-since-epoch``                                                        |
++-------------------------------------+--------------------------------------------------------------------------------+
+| | ``TIME WITH TIME ZONE``           | ``custom-date-time``, ``iso8601``                                              |
++-------------------------------------+--------------------------------------------------------------------------------+
+| | ``TIMESTAMP``                     | ``custom-date-time``, ``iso8601``, ``rfc2822``,                                |
+| |                                   | ``milliseconds-since-epoch``, ``seconds-since-epoch``                          |
++-------------------------------------+--------------------------------------------------------------------------------+
+| | ``TIMESTAMP WITH TIME ZONE``      | ``custom-date-time``, ``iso8601``, ``rfc2822``                                 |
 +-------------------------------------+--------------------------------------------------------------------------------+
 
 

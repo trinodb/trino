@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -21,6 +22,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
 import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
 import io.prestosql.plugin.hive.metastore.Column;
@@ -35,6 +37,7 @@ import io.prestosql.plugin.hive.util.ResumableTasks;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
@@ -74,7 +77,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntPredicate;
-import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -82,6 +84,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
@@ -109,6 +112,7 @@ import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Collections.max;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
 
 public class BackgroundHiveSplitLoader
@@ -129,7 +133,8 @@ public class BackgroundHiveSplitLoader
 
     private final Table table;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
-    private final Supplier<TupleDomain<ColumnHandle>> dynamicFilterSupplier;
+    private final DynamicFilter dynamicFilter;
+    private final long dynamicFilteringProbeBlockingTimeoutMillis;
     private final TypeManager typeManager;
     private final Optional<BucketSplitInfo> tableBucketInfo;
     private final HdfsEnvironment hdfsEnvironment;
@@ -163,13 +168,15 @@ public class BackgroundHiveSplitLoader
     private final ReadWriteLock taskExecutionLock = new ReentrantReadWriteLock();
 
     private HiveSplitSource hiveSplitSource;
+    private Stopwatch stopwatch;
     private volatile boolean stopped;
 
     public BackgroundHiveSplitLoader(
             Table table,
             Iterable<HivePartitionMetadata> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
-            Supplier<TupleDomain<ColumnHandle>> dynamicFilterSupplier,
+            DynamicFilter dynamicFilter,
+            Duration dynamicFilteringProbeBlockingTimeout,
             TypeManager typeManager,
             Optional<BucketSplitInfo> tableBucketInfo,
             ConnectorSession session,
@@ -184,10 +191,12 @@ public class BackgroundHiveSplitLoader
     {
         this.table = table;
         this.compactEffectivePredicate = compactEffectivePredicate;
-        this.dynamicFilterSupplier = dynamicFilterSupplier;
+        this.dynamicFilter = dynamicFilter;
+        this.dynamicFilteringProbeBlockingTimeoutMillis = dynamicFilteringProbeBlockingTimeout.toMillis();
         this.typeManager = typeManager;
         this.tableBucketInfo = tableBucketInfo;
         this.loaderConcurrency = loaderConcurrency;
+        checkArgument(loaderConcurrency > 0, "loaderConcurrency must be > 0, found: %s", loaderConcurrency);
         this.session = session;
         this.hdfsEnvironment = hdfsEnvironment;
         this.namenodeStats = namenodeStats;
@@ -204,6 +213,7 @@ public class BackgroundHiveSplitLoader
     public void start(HiveSplitSource splitSource)
     {
         this.hiveSplitSource = splitSource;
+        this.stopwatch = Stopwatch.createStarted();
         for (int i = 0; i < loaderConcurrency; i++) {
             ListenableFuture<?> future = ResumableTasks.submit(executor, new HiveSplitLoaderTask());
             addExceptionCallback(future, hiveSplitSource::fail); // best effort; hiveSplitSource could be already completed
@@ -227,6 +237,14 @@ public class BackgroundHiveSplitLoader
                     return TaskStatus.finished();
                 }
                 ListenableFuture<?> future;
+                // Block until one of below conditions is met:
+                // 1. Completion of DynamicFilter
+                // 2. Timeout after waiting for the configured time
+                long timeLeft = dynamicFilteringProbeBlockingTimeoutMillis - stopwatch.elapsed(MILLISECONDS);
+                if (timeLeft > 0 && dynamicFilter.isAwaitable()) {
+                    future = toListenableFuture(dynamicFilter.isBlocked().orTimeout(timeLeft, MILLISECONDS));
+                    return TaskStatus.continueOn(future);
+                }
                 taskExecutionLock.readLock().lock();
                 try {
                     future = loadSplits();
@@ -325,7 +343,7 @@ public class BackgroundHiveSplitLoader
         TupleDomain<HiveColumnHandle> effectivePredicate = compactEffectivePredicate.transform(HiveColumnHandle.class::cast);
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table, typeManager);
-        BooleanSupplier partitionMatchSupplier = () -> partitionMatches(partitionColumns, dynamicFilterSupplier.get(), hivePartition);
+        BooleanSupplier partitionMatchSupplier = () -> partitionMatches(partitionColumns, dynamicFilter.getCurrentPredicate(), hivePartition);
         if (!partitionMatchSupplier.getAsBoolean()) {
             // Avoid listing files and creating splits from a partition if it has been pruned due to dynamic filters
             return COMPLETED_FUTURE;

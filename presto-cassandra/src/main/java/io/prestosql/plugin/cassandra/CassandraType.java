@@ -34,6 +34,7 @@ import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.spi.type.VarcharType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -54,7 +55,6 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.util.Objects.requireNonNull;
@@ -73,7 +73,7 @@ public enum CassandraType
     DECIMAL(DoubleType.DOUBLE),
 
     DATE(DateType.DATE),
-    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE),
+    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS),
 
     ASCII(createUnboundedVarcharType()),
     TEXT(createUnboundedVarcharType()),
@@ -492,7 +492,7 @@ public enum CassandraType
         if (type.equals(RealType.REAL)) {
             return FLOAT;
         }
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return TEXT;
         }
         if (type.equals(DateType.DATE)) {
@@ -501,7 +501,7 @@ public enum CassandraType
         if (type.equals(VarbinaryType.VARBINARY)) {
             return BLOB;
         }
-        if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
+        if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS)) {
             return TIMESTAMP;
         }
         throw new IllegalArgumentException("unsupported type: " + type);

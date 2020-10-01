@@ -19,10 +19,23 @@ import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.types.Types.TimestampType;
 import org.testng.annotations.Test;
 
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneOffset;
+
+import static io.prestosql.plugin.iceberg.PartitionTransforms.epochDay;
+import static io.prestosql.plugin.iceberg.PartitionTransforms.epochHour;
+import static io.prestosql.plugin.iceberg.PartitionTransforms.epochMonth;
+import static io.prestosql.plugin.iceberg.PartitionTransforms.epochYear;
+import static java.lang.Math.toIntExact;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TestPartitionTransforms
 {
+    private static final DateType ICEBERG_DATE = DateType.get();
+    private static final TimestampType ICEBERG_TIMESTAMP = TimestampType.withoutZone();
+
     @Test
     public void testToStringMatchesSpecification()
     {
@@ -33,5 +46,35 @@ public class TestPartitionTransforms
         assertEquals(Transforms.month(DateType.get()).toString(), "month");
         assertEquals(Transforms.day(DateType.get()).toString(), "day");
         assertEquals(Transforms.hour(TimestampType.withoutZone()).toString(), "hour");
+    }
+
+    @Test
+    public void testEpochTransforms()
+    {
+        long start = LocalDateTime.of(1965, 10, 1, 0, 0, 0).toEpochSecond(ZoneOffset.UTC);
+        long end = LocalDateTime.of(1974, 3, 1, 0, 0, 0).toEpochSecond(ZoneOffset.UTC);
+
+        for (long epochSecond = start; epochSecond <= end; epochSecond += 1800) {
+            LocalDateTime time = LocalDateTime.ofEpochSecond(epochSecond, 0, ZoneOffset.UTC);
+
+            long epochMilli = SECONDS.toMillis(epochSecond);
+            int actualYear = toIntExact(epochYear(epochMilli));
+            int actualMonth = toIntExact(epochMonth(epochMilli));
+            int actualDay = toIntExact(epochDay(epochMilli));
+            int actualHour = toIntExact(epochHour(epochMilli));
+
+            if (time.toLocalTime().equals(LocalTime.MIDNIGHT)) {
+                int epochDay = toIntExact(time.toLocalDate().toEpochDay());
+                assertEquals(actualYear, (int) Transforms.year(ICEBERG_DATE).apply(epochDay), time.toString());
+                assertEquals(actualMonth, (int) Transforms.month(ICEBERG_DATE).apply(epochDay), time.toString());
+                assertEquals(actualDay, (int) Transforms.day(ICEBERG_DATE).apply(epochDay), time.toString());
+            }
+
+            long epochMicro = SECONDS.toMicros(epochSecond);
+            assertEquals(actualYear, (int) Transforms.year(ICEBERG_TIMESTAMP).apply(epochMicro), time.toString());
+            assertEquals(actualMonth, (int) Transforms.month(ICEBERG_TIMESTAMP).apply(epochMicro), time.toString());
+            assertEquals(actualDay, (int) Transforms.day(ICEBERG_TIMESTAMP).apply(epochMicro), time.toString());
+            assertEquals(actualHour, (int) Transforms.hour(ICEBERG_TIMESTAMP).apply(epochMicro), time.toString());
+        }
     }
 }

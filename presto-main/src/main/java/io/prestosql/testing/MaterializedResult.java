@@ -261,7 +261,7 @@ public class MaterializedResult
             type.writeLong(blockBuilder, ((Number) value).byteValue());
         }
         else if (REAL.equals(type)) {
-            type.writeLong(blockBuilder, (long) floatToRawIntBits(((Number) value).floatValue()));
+            type.writeLong(blockBuilder, floatToRawIntBits(((Number) value).floatValue()));
         }
         else if (DOUBLE.equals(type)) {
             type.writeDouble(blockBuilder, ((Number) value).doubleValue());
@@ -388,17 +388,6 @@ public class MaterializedResult
             convertedValues.add(convertedValue);
         }
         return new MaterializedRow(prestoRow.getPrecision(), convertedValues);
-    }
-
-    private static ZoneOffset toZoneOffset(TimeZoneKey timeZoneKey)
-    {
-        requireNonNull(timeZoneKey, "timeZoneKey is null");
-        if (Objects.equals("UTC", timeZoneKey.getId())) {
-            return ZoneOffset.UTC;
-        }
-
-        checkArgument(timeZoneKey.getId().matches("[+-]\\d\\d:\\d\\d"), "Not a zone-offset timezone: %s", timeZoneKey);
-        return ZoneOffset.of(timeZoneKey.getId());
     }
 
     public static MaterializedResult materializeSourceDataStream(Session session, ConnectorPageSource pageSource, List<Type> types)

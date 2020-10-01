@@ -23,6 +23,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.orc.OrcWriteValidation.StatisticsValidation;
 import io.prestosql.orc.OrcWriteValidation.WriteChecksum;
 import io.prestosql.orc.OrcWriteValidation.WriteChecksumBuilder;
@@ -108,6 +109,7 @@ public class OrcRecordReader
     private final Map<String, Slice> userMetadata;
 
     private final AggregatedMemoryContext systemMemoryUsage;
+    private final LocalMemoryContext orcDataSourceMemoryUsage;
 
     private final OrcBlockFactory blockFactory;
 
@@ -205,6 +207,8 @@ public class OrcRecordReader
 
         orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, options.getMaxMergeDistance(), options.getTinyStripeThreshold());
         this.orcDataSource = orcDataSource;
+        this.orcDataSourceMemoryUsage = systemMemoryUsage.newLocalMemoryContext(OrcDataSource.class.getSimpleName());
+        this.orcDataSourceMemoryUsage.setBytes(orcDataSource.getRetainedSize());
         this.splitLength = splitLength;
 
         this.fileRowCount = stripeInfos.stream()
@@ -261,7 +265,7 @@ public class OrcRecordReader
     @VisibleForTesting
     static OrcDataSource wrapWithCacheIfTinyStripes(OrcDataSource dataSource, List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
     {
-        if (dataSource instanceof CachingOrcDataSource) {
+        if (dataSource instanceof MemoryOrcDataSource || dataSource instanceof CachingOrcDataSource) {
             return dataSource;
         }
         for (StripeInformation stripe : stripes) {
@@ -516,6 +520,7 @@ public class OrcRecordReader
 
             rowGroups = stripe.getRowGroups().iterator();
         }
+        orcDataSourceMemoryUsage.setBytes(orcDataSource.getRetainedSize());
     }
 
     private void validateWrite(Predicate<OrcWriteValidation> test, String messageFormat, Object... args)

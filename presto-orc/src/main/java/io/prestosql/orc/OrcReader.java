@@ -88,20 +88,43 @@ public class OrcReader
 
     private final Optional<OrcWriteValidation> writeValidation;
 
-    public OrcReader(OrcDataSource orcDataSource, OrcReaderOptions options)
+    public static Optional<OrcReader> createOrcReader(OrcDataSource orcDataSource, OrcReaderOptions options)
             throws IOException
     {
-        this(orcDataSource, options, Optional.empty());
+        return createOrcReader(orcDataSource, options, Optional.empty());
     }
 
-    private OrcReader(
+    private static Optional<OrcReader> createOrcReader(
             OrcDataSource orcDataSource,
             OrcReaderOptions options,
             Optional<OrcWriteValidation> writeValidation)
             throws IOException
     {
-        this.options = requireNonNull(options, "options is null");
         orcDataSource = wrapWithCacheIfTiny(orcDataSource, options.getTinyStripeThreshold());
+
+        // read the tail of the file, and check if the file is actually empty
+        long estimatedFileSize = orcDataSource.getEstimatedSize();
+        if (estimatedFileSize > 0 && estimatedFileSize <= MAGIC.length()) {
+            throw new OrcCorruptionException(orcDataSource.getId(), "Invalid file size %s", estimatedFileSize);
+        }
+
+        long expectedReadSize = min(estimatedFileSize, EXPECTED_FOOTER_SIZE);
+        Slice fileTail = orcDataSource.readTail(toIntExact(expectedReadSize));
+        if (fileTail.length() == 0) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new OrcReader(orcDataSource, options, writeValidation, fileTail));
+    }
+
+    private OrcReader(
+            OrcDataSource orcDataSource,
+            OrcReaderOptions options,
+            Optional<OrcWriteValidation> writeValidation,
+            Slice fileTail)
+            throws IOException
+    {
+        this.options = requireNonNull(options, "options is null");
         this.orcDataSource = orcDataSource;
         this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), new OrcMetadataReader());
 
@@ -115,32 +138,29 @@ public class OrcReader
         // variable: PostScript - contains length of footer and metadata
         // 1 byte: postScriptSize
 
-        // figure out the size of the file using the option or filesystem
-        long size = orcDataSource.getSize();
-        if (size <= MAGIC.length()) {
-            throw new OrcCorruptionException(orcDataSource.getId(), "Invalid file size %s", size);
-        }
-
-        // Read the tail of the file
-        int expectedBufferSize = toIntExact(min(size, EXPECTED_FOOTER_SIZE));
-        Slice buffer = orcDataSource.readFully(size - expectedBufferSize, expectedBufferSize);
-
         // get length of PostScript - last byte of the file
-        int postScriptSize = buffer.getUnsignedByte(buffer.length() - SIZE_OF_BYTE);
-        if (postScriptSize >= buffer.length()) {
+        int postScriptSize = fileTail.getUnsignedByte(fileTail.length() - SIZE_OF_BYTE);
+        if (postScriptSize >= fileTail.length()) {
             throw new OrcCorruptionException(orcDataSource.getId(), "Invalid postscript length %s", postScriptSize);
         }
 
         // decode the post script
         PostScript postScript;
         try {
-            postScript = metadataReader.readPostScript(buffer.slice(buffer.length() - SIZE_OF_BYTE - postScriptSize, postScriptSize).getInput());
+            postScript = metadataReader.readPostScript(fileTail.slice(fileTail.length() - SIZE_OF_BYTE - postScriptSize, postScriptSize).getInput());
         }
         catch (OrcCorruptionException e) {
             // check if this is an ORC file and not an RCFile or something else
-            if (!isValidHeaderMagic(orcDataSource)) {
-                throw new OrcCorruptionException(orcDataSource.getId(), "Not an ORC file");
+            try {
+                Slice headerMagic = orcDataSource.readFully(0, MAGIC.length());
+                if (!MAGIC.equals(headerMagic)) {
+                    throw new OrcCorruptionException(orcDataSource.getId(), "Not an ORC file");
+                }
             }
+            catch (IOException ignored) {
+                // throw original exception
+            }
+
             throw e;
         }
 
@@ -163,13 +183,13 @@ public class OrcReader
         // check if extra bytes need to be read
         Slice completeFooterSlice;
         int completeFooterSize = footerSize + metadataSize + postScriptSize + SIZE_OF_BYTE;
-        if (completeFooterSize > buffer.length()) {
+        if (completeFooterSize > fileTail.length()) {
             // initial read was not large enough, so just read again with the correct size
-            completeFooterSlice = orcDataSource.readFully(size - completeFooterSize, completeFooterSize);
+            completeFooterSlice = orcDataSource.readTail(completeFooterSize);
         }
         else {
-            // footer is already in the bytes in buffer, just adjust position, length
-            completeFooterSlice = buffer.slice(buffer.length() - completeFooterSize, completeFooterSize);
+            // footer is already in the bytes in fileTail, just adjust position, length
+            completeFooterSlice = fileTail.slice(fileTail.length() - completeFooterSize, completeFooterSize);
         }
 
         // read metadata
@@ -243,7 +263,7 @@ public class OrcReader
                 readTypes,
                 predicate,
                 0,
-                orcDataSource.getSize(),
+                orcDataSource.getEstimatedSize(),
                 legacyFileTimeZone,
                 systemMemoryUsage,
                 initialBatchSize,
@@ -315,15 +335,17 @@ public class OrcReader
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
+            throws IOException
     {
-        if (dataSource instanceof CachingOrcDataSource) {
+        if (dataSource instanceof MemoryOrcDataSource || dataSource instanceof CachingOrcDataSource) {
             return dataSource;
         }
-        if (dataSource.getSize() > maxCacheSize.toBytes()) {
+        if (dataSource.getEstimatedSize() > maxCacheSize.toBytes()) {
             return dataSource;
         }
-        DiskRange diskRange = new DiskRange(0, toIntExact(dataSource.getSize()));
-        return new CachingOrcDataSource(dataSource, desiredOffset -> diskRange);
+        Slice data = dataSource.readTail(toIntExact(dataSource.getEstimatedSize()));
+        dataSource.close();
+        return new MemoryOrcDataSource(dataSource.getId(), data);
     }
 
     private static OrcColumn createOrcColumn(
@@ -369,16 +391,6 @@ public class OrcReader
     }
 
     /**
-     * Does the file start with the ORC magic bytes?
-     */
-    private static boolean isValidHeaderMagic(OrcDataSource source)
-            throws IOException
-    {
-        Slice headerMagic = source.readFully(0, MAGIC.length());
-        return MAGIC.equals(headerMagic);
-    }
-
-    /**
      * Check to see if this ORC file is from a future version and if so,
      * warn the user that we may not be able to read all of the column encodings.
      */
@@ -417,7 +429,8 @@ public class OrcReader
             throws OrcCorruptionException
     {
         try {
-            OrcReader orcReader = new OrcReader(input, new OrcReaderOptions(), Optional.of(writeValidation));
+            OrcReader orcReader = createOrcReader(input, new OrcReaderOptions(), Optional.of(writeValidation))
+                    .orElseThrow(() -> new OrcCorruptionException(input.getId(), "File is empty"));
             try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     readTypes,

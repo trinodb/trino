@@ -68,14 +68,7 @@ public class TestTpcdsCostBasedPlan
     protected Stream<String> getQueryResourcePaths()
     {
         return IntStream.range(1, 100)
-                .boxed()
-                .flatMap(i -> {
-                    String queryId = format("q%02d", i);
-                    if (i == 14 || i == 23 || i == 24 || i == 39) {
-                        return Stream.of(queryId + "_1", queryId + "_2");
-                    }
-                    return Stream.of(queryId);
-                })
+                .mapToObj(i -> format("q%02d", i))
                 .map(queryId -> format("/sql/presto/tpcds/%s.sql", queryId));
     }
 

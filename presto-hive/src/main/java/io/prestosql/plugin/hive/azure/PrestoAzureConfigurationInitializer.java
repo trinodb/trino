@@ -35,41 +35,50 @@ public class PrestoAzureConfigurationInitializer
     private final Optional<String> adlRefreshUrl;
     private final Optional<String> abfsAccessKey;
     private final Optional<String> abfsStorageAccount;
+    private final Optional<String> abfsOAuthClientEndpoint;
+    private final Optional<String> abfsOAuthClientId;
+    private final Optional<String> abfsOAuthClientSecret;
 
     @Inject
-    public PrestoAzureConfigurationInitializer(HiveAzureConfig hiveAzureConfig)
+    public PrestoAzureConfigurationInitializer(HiveAzureConfig config)
     {
-        this.wasbAccessKey = hiveAzureConfig.getWasbAccessKey();
-        this.wasbStorageAccount = hiveAzureConfig.getWasbStorageAccount();
+        this.wasbAccessKey = dropEmpty(config.getWasbAccessKey());
+        this.wasbStorageAccount = dropEmpty(config.getWasbStorageAccount());
         if (wasbAccessKey.isPresent() || wasbStorageAccount.isPresent()) {
             checkArgument(
-                    wasbAccessKey.isPresent() && !wasbAccessKey.get().isEmpty(),
-                    "hive.azure.wasb-storage-account is set, but hive.azure.wasb-access-key is not");
-            checkArgument(
-                    wasbStorageAccount.isPresent() && !wasbStorageAccount.get().isEmpty(),
-                    "hive.azure.wasb-access-key is set, but hive.azure.wasb-storage-account is not");
+                    wasbAccessKey.isPresent() && wasbStorageAccount.isPresent(),
+                    "If WASB storage account or access key is set, both must be set");
         }
 
-        this.abfsAccessKey = hiveAzureConfig.getAbfsAccessKey();
-        this.abfsStorageAccount = hiveAzureConfig.getAbfsStorageAccount();
+        this.abfsAccessKey = dropEmpty(config.getAbfsAccessKey());
+        this.abfsStorageAccount = dropEmpty(config.getAbfsStorageAccount());
         if (abfsAccessKey.isPresent() || abfsStorageAccount.isPresent()) {
             checkArgument(
-                    abfsAccessKey.isPresent() && !abfsAccessKey.get().isEmpty(),
-                    "hive.azure.abfs-storage-account is set, but hive.azure.abfs-access-key is not");
-            checkArgument(
-                    abfsStorageAccount.isPresent() && !abfsStorageAccount.get().isEmpty(),
-                    "hive.azure.abfs-access-key is set, but hive.azure.abfs-storage-account is not");
+                    abfsStorageAccount.isPresent() && abfsAccessKey.isPresent(),
+                    "If ABFS storage account or access key is set, both must be set");
         }
 
-        this.adlClientId = hiveAzureConfig.getAdlClientId();
-        this.adlCredential = hiveAzureConfig.getAdlCredential();
-        this.adlRefreshUrl = hiveAzureConfig.getAdlRefreshUrl();
+        this.adlClientId = dropEmpty(config.getAdlClientId());
+        this.adlCredential = dropEmpty(config.getAdlCredential());
+        this.adlRefreshUrl = dropEmpty(config.getAdlRefreshUrl());
         if (adlClientId.isPresent() || adlCredential.isPresent() || adlRefreshUrl.isPresent()) {
-            checkArgument(adlClientId.isPresent() && !adlClientId.get().isEmpty() &&
-                            adlCredential.isPresent() && !adlCredential.get().isEmpty() &&
-                            adlRefreshUrl.isPresent() && !adlRefreshUrl.get().isEmpty(),
-                    "If one of adlClientId, adlCredential, adlRefreshUrl is set, all must be set");
+            checkArgument(
+                    adlClientId.isPresent() && adlCredential.isPresent() && adlRefreshUrl.isPresent(),
+                    "If any of ADL client ID, credential, and refresh URL are set, all must be set");
         }
+
+        this.abfsOAuthClientEndpoint = dropEmpty(config.getAbfsOAuthClientEndpoint());
+        this.abfsOAuthClientId = dropEmpty(config.getAbfsOAuthClientId());
+        this.abfsOAuthClientSecret = dropEmpty(config.getAbfsOAuthClientSecret());
+        if (abfsOAuthClientEndpoint.isPresent() || abfsOAuthClientSecret.isPresent() || abfsOAuthClientId.isPresent()) {
+            checkArgument(
+                    abfsOAuthClientEndpoint.isPresent() && abfsOAuthClientId.isPresent() && abfsOAuthClientSecret.isPresent(),
+                    "If any of ABFS OAuth2 Client endpoint, ID, and secret are set, all must be set.");
+        }
+
+        checkArgument(
+                !(abfsAccessKey.isPresent() && abfsOAuthClientSecret.isPresent()),
+                "Multiple ABFS authentication methods configured: access key and OAuth2");
     }
 
     @Override
@@ -83,6 +92,13 @@ public class PrestoAzureConfigurationInitializer
             config.set(format("fs.azure.account.key.%s.dfs.core.windows.net", abfsStorageAccount.get()), abfsAccessKey.get());
             config.set("fs.abfs.impl", AzureBlobFileSystem.class.getName());
         }
+        if (abfsOAuthClientEndpoint.isPresent() && abfsOAuthClientId.isPresent() && abfsOAuthClientSecret.isPresent()) {
+            config.set("fs.azure.account.auth.type", "OAuth");
+            config.set("fs.azure.account.oauth.provider.type", "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider");
+            config.set("fs.azure.account.oauth2.client.endpoint", abfsOAuthClientEndpoint.get());
+            config.set("fs.azure.account.oauth2.client.id", abfsOAuthClientId.get());
+            config.set("fs.azure.account.oauth2.client.secret", abfsOAuthClientSecret.get());
+        }
 
         if (adlClientId.isPresent() && adlCredential.isPresent() && adlRefreshUrl.isPresent()) {
             config.set("fs.adl.oauth2.access.token.provider.type", "ClientCredential");
@@ -91,7 +107,13 @@ public class PrestoAzureConfigurationInitializer
             config.set("fs.adl.oauth2.refresh.url", adlRefreshUrl.get());
             config.set("fs.adl.impl", AdlFileSystem.class.getName());
         }
+
         // do not rely on information returned from local system about users and groups
         config.set("fs.azure.skipUserGroupMetadataDuringInitialization", "true");
+    }
+
+    private static Optional<String> dropEmpty(Optional<String> optional)
+    {
+        return optional.filter(value -> !value.isEmpty());
     }
 }

@@ -21,6 +21,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedSplitSource;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
@@ -33,7 +34,9 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.util.Objects.requireNonNull;
 
 public class AtopSplitManager
@@ -53,7 +56,12 @@ public class AtopSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter)
     {
         AtopTableHandle tableHandle = (AtopTableHandle) table;
 
@@ -63,7 +71,14 @@ public class AtopSplitManager
             ZonedDateTime start = end.minusDays(maxHistoryDays - 1).withHour(0).withMinute(0).withSecond(0).withNano(0);
             while (start.isBefore(end)) {
                 ZonedDateTime splitEnd = start.withHour(23).withMinute(59).withSecond(59).withNano(0);
-                Domain splitDomain = Domain.create(ValueSet.ofRanges(Range.range(TIMESTAMP_WITH_TIME_ZONE, 1000 * start.toEpochSecond(), true, 1000 * splitEnd.toEpochSecond(), true)), false);
+                Domain splitDomain = Domain.create(
+                        ValueSet.ofRanges(Range.range(
+                                TIMESTAMP_TZ_MILLIS,
+                                packDateTimeWithZone(start.toInstant().toEpochMilli(), UTC_KEY),
+                                true,
+                                packDateTimeWithZone(splitEnd.toInstant().toEpochMilli(), UTC_KEY),
+                                true)),
+                        false);
                 if (tableHandle.getStartTimeConstraint().overlaps(splitDomain) && tableHandle.getEndTimeConstraint().overlaps(splitDomain)) {
                     splits.add(new AtopSplit(node.getHostAndPort(), start.toEpochSecond(), start.getZone()));
                 }

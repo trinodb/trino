@@ -65,6 +65,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static io.prestosql.plugin.hive.HivePartition.UNPARTITIONED_ID;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getDynamicFilteringProbeBlockingTimeout;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isIgnoreAbsentPartitions;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isPartitionUseColumnNames;
 import static io.prestosql.plugin.hive.TableToPartitionMapping.mapColumnsByIndex;
@@ -79,6 +80,7 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.hive.ql.io.AcidUtils.isTransactionalTable;
 
 public class HiveSplitManager
         implements ConnectorSplitManager
@@ -215,11 +217,14 @@ public class HiveSplitManager
 
         Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(session, metastore, table, tableName, partitions, bucketHandle.map(HiveBucketHandle::toTableBucketProperty));
 
+        // Only one thread per partition is usable when a table is not transactional
+        int concurrency = isTransactionalTable(table.getParameters()) ? splitLoaderConcurrency : min(splitLoaderConcurrency, partitions.size());
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
                 hivePartitions,
                 hiveTable.getCompactEffectivePredicate(),
-                dynamicFilter::getCurrentPredicate,
+                dynamicFilter,
+                getDynamicFilteringProbeBlockingTimeout(session),
                 typeManager,
                 createBucketSplitInfo(bucketHandle, bucketFilter),
                 session,
@@ -227,7 +232,7 @@ public class HiveSplitManager
                 namenodeStats,
                 directoryLister,
                 executor,
-                splitLoaderConcurrency,
+                concurrency,
                 recursiveDfsWalkerEnabled,
                 !hiveTable.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session),
                 metastore.getValidWriteIds(session, hiveTable)

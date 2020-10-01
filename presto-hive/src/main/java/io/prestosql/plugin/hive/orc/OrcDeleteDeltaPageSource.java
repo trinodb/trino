@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.orc;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.OrcColumn;
+import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcDataSourceId;
 import io.prestosql.orc.OrcPredicate;
@@ -38,12 +39,14 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
+import static io.prestosql.orc.OrcReader.createOrcReader;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
@@ -66,7 +69,7 @@ public class OrcDeleteDeltaPageSource
 
     private boolean closed;
 
-    public OrcDeleteDeltaPageSource(
+    public static Optional<ConnectorPageSource> createOrcDeleteDeltaPageSource(
             Path path,
             long fileSize,
             OrcReaderOptions options,
@@ -75,8 +78,7 @@ public class OrcDeleteDeltaPageSource
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats)
     {
-        this.stats = requireNonNull(stats, "stats is null");
-
+        OrcDataSource orcDataSource;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
             FSDataInputStream inputStream = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.open(path));
@@ -96,26 +98,11 @@ public class OrcDeleteDeltaPageSource
         }
 
         try {
-            OrcReader reader = new OrcReader(orcDataSource, options);
-
-            verifyAcidSchema(reader, path);
-            Map<String, OrcColumn> acidColumns = uniqueIndex(
-                    reader.getRootColumn().getNestedColumns(),
-                    orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
-            List<OrcColumn> rowIdColumns = ImmutableList.of(
-                    acidColumns.get(ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)),
-                    acidColumns.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
-
-            recordReader = reader.createRecordReader(
-                    rowIdColumns,
-                    ImmutableList.of(BIGINT, BIGINT),
-                    OrcPredicate.TRUE,
-                    0,
-                    fileSize,
-                    UTC,
-                    systemMemoryContext,
-                    MAX_BATCH_SIZE,
-                    exception -> handleException(orcDataSource.getId(), exception));
+            Optional<OrcReader> orcReader = createOrcReader(orcDataSource, options);
+            if (orcReader.isPresent()) {
+                return Optional.of(new OrcDeleteDeltaPageSource(path, fileSize, orcReader.get(), orcDataSource, stats));
+            }
+            return Optional.empty();
         }
         catch (Exception e) {
             try {
@@ -133,6 +120,37 @@ public class OrcDeleteDeltaPageSource
             }
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    private OrcDeleteDeltaPageSource(
+            Path path,
+            long fileSize,
+            OrcReader reader,
+            OrcDataSource orcDataSource,
+            FileFormatDataSourceStats stats)
+            throws OrcCorruptionException
+    {
+        this.stats = requireNonNull(stats, "stats is null");
+        this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
+
+        verifyAcidSchema(reader, path);
+        Map<String, OrcColumn> acidColumns = uniqueIndex(
+                reader.getRootColumn().getNestedColumns(),
+                orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
+        List<OrcColumn> rowIdColumns = ImmutableList.of(
+                acidColumns.get(ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)),
+                acidColumns.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
+
+        recordReader = reader.createRecordReader(
+                rowIdColumns,
+                ImmutableList.of(BIGINT, BIGINT),
+                OrcPredicate.TRUE,
+                0,
+                fileSize,
+                UTC,
+                systemMemoryContext,
+                MAX_BATCH_SIZE,
+                exception -> handleException(orcDataSource.getId(), exception));
     }
 
     @Override

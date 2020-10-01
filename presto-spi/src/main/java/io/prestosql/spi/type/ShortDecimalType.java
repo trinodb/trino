@@ -23,7 +23,6 @@ import io.prestosql.spi.connector.ConnectorSession;
 import java.math.BigInteger;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.prestosql.spi.type.Decimals.MAX_SHORT_PRECISION;
 
 final class ShortDecimalType
         extends DecimalType
@@ -31,7 +30,8 @@ final class ShortDecimalType
     ShortDecimalType(int precision, int scale)
     {
         super(precision, scale, long.class);
-        validatePrecisionScale(precision, scale, MAX_SHORT_PRECISION);
+        checkArgument(0 < precision && precision <= Decimals.MAX_SHORT_PRECISION, "Invalid precision: %s", precision);
+        checkArgument(0 <= scale && scale <= precision, "Invalid scale for precision %s: %s", precision, scale);
     }
 
     @Override

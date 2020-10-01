@@ -17,24 +17,25 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
+import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
-import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
 import java.time.Duration;
 
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class SinglenodeCassandra
-        extends AbstractEnvironmentProvider
+        extends EnvironmentProvider
 {
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
@@ -51,17 +52,17 @@ public final class SinglenodeCassandra
     }
 
     @Override
-    protected void extendEnvironment(Environment.Builder builder)
+    public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addContainer("cassandra", createCassandra());
+        builder.addContainer(createCassandra());
 
-        builder.configureContainer("presto-master", container -> container
+        builder.configureContainer(COORDINATOR, container -> container
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-cassandra/cassandra.properties")), CONTAINER_PRESTO_CASSANDRA_PROPERTIES));
     }
 
     private DockerContainer createCassandra()
     {
-        DockerContainer container = new DockerContainer("cassandra:3.9")
+        DockerContainer container = new DockerContainer("cassandra:3.9", "cassandra")
                 .withEnv("HEAP_NEWSIZE", "128M")
                 .withEnv("MAX_HEAP_SIZE", "512M")
                 .withCommand(
@@ -69,7 +70,7 @@ public final class SinglenodeCassandra
                         "-cxeu",
                         "ln -snf /usr/share/zoneinfo/Asia/Kathmandu /etc/localtime && echo Asia/Kathmandu > /etc/timezone && /docker-entrypoint.sh cassandra -f")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(new SelectedPortWaitStrategy(CASSANDRA_PORT))
+                .waitingFor(forSelectedPorts(CASSANDRA_PORT))
                 .withStartupTimeout(Duration.ofMinutes(5));
 
         portBinder.exposePort(container, CASSANDRA_PORT);

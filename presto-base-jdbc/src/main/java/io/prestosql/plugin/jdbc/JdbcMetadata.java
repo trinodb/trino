@@ -447,6 +447,16 @@ public class JdbcMetadata
     }
 
     @Override
+    public void setColumnComment(ConnectorSession session, ConnectorTableHandle table, ColumnHandle column, Optional<String> comment)
+    {
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
+        verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
+        verify(!columnHandle.isSynthetic(), "Not a column reference: %s", columnHandle);
+        jdbcClient.setColumnComment(JdbcIdentity.from(session), tableHandle, columnHandle, comment);
+    }
+
+    @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle table, ColumnMetadata columnMetadata)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;

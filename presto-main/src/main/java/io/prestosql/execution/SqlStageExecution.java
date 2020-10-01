@@ -27,7 +27,7 @@ import io.prestosql.execution.scheduler.SplitSchedulerStats;
 import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
-import io.prestosql.server.DynamicFilterService.StageDynamicFilters;
+import io.prestosql.server.DynamicFilterService;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.split.RemoteSplit;
 import io.prestosql.sql.planner.PlanFragment;
@@ -77,6 +77,7 @@ public final class SqlStageExecution
     private final boolean summarizeTaskInfo;
     private final Executor executor;
     private final FailureDetector failureDetector;
+    private final DynamicFilterService dynamicFilterService;
 
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
 
@@ -116,6 +117,7 @@ public final class SqlStageExecution
             NodeTaskMap nodeTaskMap,
             ExecutorService executor,
             FailureDetector failureDetector,
+            DynamicFilterService dynamicFilterService,
             SplitSchedulerStats schedulerStats)
     {
         requireNonNull(stageId, "stageId is null");
@@ -126,6 +128,7 @@ public final class SqlStageExecution
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         requireNonNull(executor, "executor is null");
         requireNonNull(failureDetector, "failureDetector is null");
+        requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         requireNonNull(schedulerStats, "schedulerStats is null");
 
         SqlStageExecution sqlStageExecution = new SqlStageExecution(
@@ -134,12 +137,20 @@ public final class SqlStageExecution
                 nodeTaskMap,
                 summarizeTaskInfo,
                 executor,
-                failureDetector);
+                failureDetector,
+                dynamicFilterService);
         sqlStageExecution.initialize();
         return sqlStageExecution;
     }
 
-    private SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap, boolean summarizeTaskInfo, Executor executor, FailureDetector failureDetector)
+    private SqlStageExecution(
+            StageStateMachine stateMachine,
+            RemoteTaskFactory remoteTaskFactory,
+            NodeTaskMap nodeTaskMap,
+            boolean summarizeTaskInfo,
+            Executor executor,
+            FailureDetector failureDetector,
+            DynamicFilterService dynamicFilterService)
     {
         this.stateMachine = stateMachine;
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
@@ -147,6 +158,7 @@ public final class SqlStageExecution
         this.summarizeTaskInfo = summarizeTaskInfo;
         this.executor = requireNonNull(executor, "executor is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
 
         ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> fragmentToExchangeSource = ImmutableMap.builder();
         for (RemoteSourceNode remoteSourceNode : stateMachine.getFragment().getRemoteSourceNodes()) {
@@ -161,6 +173,11 @@ public final class SqlStageExecution
     private void initialize()
     {
         stateMachine.addStateChangeListener(newState -> checkAllTaskFinal());
+        stateMachine.addStateChangeListener(newState -> {
+            if (!newState.canScheduleMoreTasks()) {
+                dynamicFilterService.stageCannotScheduleMoreTasks(stateMachine.getStageId(), getAllTasks().size());
+            }
+        });
     }
 
     public StageId getStageId()
@@ -285,17 +302,6 @@ public final class SqlStageExecution
     public StageInfo getStageInfo()
     {
         return stateMachine.getStageInfo(this::getAllTaskInfo);
-    }
-
-    public StageDynamicFilters getStageDynamicFilters()
-    {
-        List<RemoteTask> tasks = getAllTasks();
-        return new StageDynamicFilters(
-                stateMachine.getState(),
-                tasks.size(),
-                tasks.stream()
-                        .map(task -> task.getTaskStatus().getDynamicFilterDomains())
-                        .collect(toImmutableList()));
     }
 
     private Iterable<TaskInfo> getAllTaskInfo()

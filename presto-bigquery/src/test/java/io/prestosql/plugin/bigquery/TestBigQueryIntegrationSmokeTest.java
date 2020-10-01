@@ -73,6 +73,20 @@ public class TestBigQueryIntegrationSmokeTest
         assertEquals((long) actualValues.getOnlyValue(), 1L);
     }
 
+    @Test(enabled = false)
+    public void testSelectFromYearlyPartitionedTable()
+    {
+        BigQuery client = createBigQueryClient();
+
+        executeBigQuerySql(client, "DROP TABLE IF EXISTS test.yearly_partitioned");
+        executeBigQuerySql(client, "CREATE TABLE test.yearly_partitioned (value INT64, ts TIMESTAMP) PARTITION BY TIMESTAMP_TRUNC(ts, YEAR)");
+        executeBigQuerySql(client, "INSERT INTO test.yearly_partitioned (value, ts) VALUES (1000, '2018-01-01 10:00:00')");
+
+        MaterializedResult actualValues = computeActual("SELECT COUNT(1) FROM test.yearly_partitioned");
+
+        assertEquals((long) actualValues.getOnlyValue(), 1L);
+    }
+
     private static void executeBigQuerySql(BigQuery bigquery, String query)
     {
         QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(query)

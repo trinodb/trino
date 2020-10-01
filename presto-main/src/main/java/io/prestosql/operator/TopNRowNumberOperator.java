@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
@@ -129,7 +128,7 @@ public class TopNRowNumberOperator
     private final OperatorContext operatorContext;
     private final LocalMemoryContext localUserMemoryContext;
 
-    private final List<Integer> outputChannels;
+    private final int[] outputChannels;
 
     private final GroupByHash groupByHash;
     private final GroupedTopNBuilder groupedTopNBuilder;
@@ -162,7 +161,7 @@ public class TopNRowNumberOperator
         if (generateRowNumber) {
             outputChannelsBuilder.add(outputChannels.size());
         }
-        this.outputChannels = outputChannelsBuilder.build();
+        this.outputChannels = Ints.toArray(outputChannelsBuilder.build());
 
         checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
 
@@ -253,13 +252,8 @@ public class TopNRowNumberOperator
 
         Page output = null;
         if (outputIterator.hasNext()) {
-            Page page = outputIterator.next();
             // rewrite to expected column ordering
-            Block[] blocks = new Block[page.getChannelCount()];
-            for (int i = 0; i < outputChannels.size(); i++) {
-                blocks[i] = page.getBlock(outputChannels.get(i));
-            }
-            output = new Page(blocks);
+            output = outputIterator.next().getColumns(outputChannels);
         }
         updateMemoryReservation();
         return output;

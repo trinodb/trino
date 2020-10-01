@@ -137,7 +137,7 @@ abstract class BaseMySqlIntegrationSmokeTest
     }
 
     @Test
-    public void testMySqlTinyint1()
+    public void testMySqlTinyint()
     {
         execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
 
@@ -243,8 +243,22 @@ abstract class BaseMySqlIntegrationSmokeTest
     }
 
     @Test
+    public void testLimitPushdown()
+    {
+        assertThat(query("SELECT name FROM nation LIMIT 30")).isCorrectlyPushedDown(); // Use high limit for result determinism
+
+        // with filter over numeric column
+        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isCorrectlyPushedDown();
+
+        // with filter over varchar column
+        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isNotFullyPushedDown(FilterNode.class);
+    }
+
+    @Test
     public void testColumnComment()
     {
+        // TODO add support for setting comments on existing column and replace the test with io.prestosql.testing.AbstractTestDistributedQueries#testCommentColumn
+
         execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
 
         assertQuery(

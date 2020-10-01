@@ -22,7 +22,6 @@ import io.prestosql.operator.OperatorFactory;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.operator.project.PageProjection;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -84,8 +83,7 @@ public class DynamicTupleFilterFactory
 
     public OperatorFactory filterWithTuple(Page tuplePage)
     {
-        Page filterTuple = getFilterTuple(tuplePage);
-        Supplier<PageProcessor> processor = createPageProcessor(filterTuple, OptionalInt.empty());
+        Supplier<PageProcessor> processor = createPageProcessor(tuplePage.getColumns(tupleFilterChannels), OptionalInt.empty());
         return FilterAndProjectOperator.createOperatorFactory(filterOperatorId, planNodeId, processor, outputTypes, DataSize.ofBytes(0), 0);
     }
 
@@ -98,14 +96,5 @@ public class DynamicTupleFilterFactory
                 outputProjections.stream()
                         .map(Supplier::get)
                         .collect(toImmutableList()), initialBatchSize);
-    }
-
-    private Page getFilterTuple(Page tuplePage)
-    {
-        Block[] normalizedBlocks = new Block[tupleFilterChannels.length];
-        for (int i = 0; i < tupleFilterChannels.length; i++) {
-            normalizedBlocks[i] = tuplePage.getBlock(tupleFilterChannels[i]);
-        }
-        return new Page(normalizedBlocks);
     }
 }

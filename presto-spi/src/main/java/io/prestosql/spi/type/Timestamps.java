@@ -45,6 +45,9 @@ public class Timestamps
     };
 
     public static final int MILLISECONDS_PER_SECOND = 1_000;
+    public static final int MILLISECONDS_PER_MINUTE = MILLISECONDS_PER_SECOND * 60;
+    public static final int MILLISECONDS_PER_HOUR = MILLISECONDS_PER_MINUTE * 60;
+    public static final int MILLISECONDS_PER_DAY = MILLISECONDS_PER_HOUR * 24;
     public static final int MICROSECONDS_PER_MILLISECOND = 1_000;
     public static final int MICROSECONDS_PER_SECOND = 1_000_000;
     public static final long MICROSECONDS_PER_DAY = 24 * 60 * 60 * 1_000_000L;
@@ -62,10 +65,11 @@ public class Timestamps
     public static final long PICOSECONDS_PER_DAY = PICOSECONDS_PER_HOUR * 24;
     public static final long SECONDS_PER_MINUTE = 60;
     public static final long MINUTES_PER_HOUR = 60;
+    public static final long SECONDS_PER_DAY = SECONDS_PER_MINUTE * MINUTES_PER_HOUR * 24;
 
     private Timestamps() {}
 
-    static long round(long value, int magnitude)
+    public static long round(long value, int magnitude)
     {
         return roundDiv(value, POWERS_OF_TEN[magnitude]) * POWERS_OF_TEN[magnitude];
     }

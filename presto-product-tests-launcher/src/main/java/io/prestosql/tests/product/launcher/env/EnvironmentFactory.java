@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.tests.product.launcher.env.Environments.canonicalName;
 import static java.util.Objects.requireNonNull;
 
 public final class EnvironmentFactory
@@ -33,11 +34,12 @@ public final class EnvironmentFactory
         this.environmentProviders = requireNonNull(environmentProviders, "environmentProviders is null");
     }
 
-    public Environment.Builder get(String environmentName)
+    public Environment.Builder get(String environmentName, EnvironmentConfig config)
     {
+        environmentName = canonicalName(environmentName);
         checkArgument(environmentProviders.containsKey(environmentName), "No environment with name '%s'. Those do exist, however: %s", environmentName, list());
         return environmentProviders.get(environmentName)
-                .createEnvironment(environmentName);
+                .createEnvironment(environmentName, config);
     }
 
     public List<String> list()

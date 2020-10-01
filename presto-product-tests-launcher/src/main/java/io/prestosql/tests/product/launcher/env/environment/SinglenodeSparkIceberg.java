@@ -18,23 +18,26 @@ import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
+import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
-import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.HADOOP;
+import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public class SinglenodeSparkIceberg
-        extends AbstractEnvironmentProvider
+        extends EnvironmentProvider
 {
     private static final int SPARK_THRIFT_PORT = 10213;
 
@@ -52,30 +55,28 @@ public class SinglenodeSparkIceberg
     }
 
     @Override
-    protected void extendEnvironment(Environment.Builder builder)
+    public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer("hadoop-master", dockerContainer -> {
+        builder.configureContainer(HADOOP, dockerContainer -> {
             dockerContainer.setDockerImageName("prestodev/hdp3.1-hive:" + hadoopImagesVersion);
-            dockerContainer.withCreateContainerCmdModifier(createContainerCmd ->
-                    createContainerCmd.withEntrypoint(ImmutableList.of(("/docker/presto-product-tests/conf/environment/singlenode-hdp3/hadoop-entrypoint.sh"))));
+            dockerContainer.withCopyFileToContainer(
+                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-hdp3/apply-hdp3-config.sh")),
+                    CONTAINER_HADOOP_INIT_D + "apply-hdp3-config.sh");
         });
 
-        builder.configureContainer("presto-master", container -> container
+        builder.configureContainer(COORDINATOR, container -> container
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg/iceberg.properties")),
                         CONTAINER_PRESTO_ETC + "/catalog/iceberg.properties"));
 
-        DockerContainer spark = createSpark();
-        // Spark needs the HMS to be up before it starts
-        builder.configureContainer("hadoop-master", spark::dependsOn);
-
-        builder.addContainer("spark", spark);
+        builder.addContainer(createSpark())
+                .containerDependsOn("spark", HADOOP);
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createSpark()
     {
-        DockerContainer container = new DockerContainer("prestodev/spark3.0-iceberg:" + hadoopImagesVersion)
+        DockerContainer container = new DockerContainer("prestodev/spark3.0-iceberg:" + hadoopImagesVersion, "spark")
                 .withEnv("HADOOP_USER_NAME", "hive")
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg/spark-defaults.conf")),
@@ -88,7 +89,7 @@ public class SinglenodeSparkIceberg
                         "--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
                         "spark-internal")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(new SelectedPortWaitStrategy(SPARK_THRIFT_PORT));
+                .waitingFor(forSelectedPorts(SPARK_THRIFT_PORT));
 
         portBinder.exposePort(container, SPARK_THRIFT_PORT);
 

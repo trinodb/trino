@@ -15,6 +15,8 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
@@ -38,6 +40,7 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -216,19 +219,19 @@ public class IonSqlQueryBuilder
     private static String valueToQuery(Type type, Object value)
     {
         if (type.equals(BIGINT)) {
-            return String.valueOf(((Number) value).longValue());
+            return String.valueOf((long) value);
         }
         if (type.equals(INTEGER)) {
-            return String.valueOf(((Number) value).intValue());
+            return String.valueOf(toIntExact((long) value));
         }
         if (type.equals(SMALLINT)) {
-            return String.valueOf(((Number) value).shortValue());
+            return String.valueOf(Shorts.checkedCast((long) value));
         }
         if (type.equals(TINYINT)) {
-            return String.valueOf(((Number) value).byteValue());
+            return String.valueOf(SignedBytes.checkedCast((long) value));
         }
         if (type.equals(BOOLEAN)) {
-            return String.valueOf(value);
+            return String.valueOf((boolean) value);
         }
         if (type.equals(DATE)) {
             return "`" + FORMATTER.print(DAYS.toMillis((long) value)) + "`";

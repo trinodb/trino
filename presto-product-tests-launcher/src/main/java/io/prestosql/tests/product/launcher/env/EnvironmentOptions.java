@@ -15,6 +15,7 @@ package io.prestosql.tests.product.launcher.env;
 
 import java.io.File;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static picocli.CommandLine.Option;
 
 public final class EnvironmentOptions
@@ -27,7 +28,7 @@ public final class EnvironmentOptions
     @Option(names = "--server-package", paramLabel = "<package>", description = "Path to Presto server package " + DEFAULT_VALUE, defaultValue = "${server.module}/target/${server.name}-${project.version}.tar.gz")
     public File serverPackage;
 
-    @Option(names = "--without-presto", description = "Do not start presto-master")
+    @Option(names = "--without-presto", description = "Do not start " + COORDINATOR)
     public boolean withoutPrestoMaster;
 
     @Option(names = "--no-bind", description = "Bind ports on localhost", negatable = true)
@@ -35,6 +36,12 @@ public final class EnvironmentOptions
 
     @Option(names = "--debug", description = "Open Java debug ports")
     public boolean debug;
+
+    @Option(names = "--output", description = "Container output handling mode: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "PRINT")
+    public DockerContainer.OutputMode output;
+
+    @Option(names = "--launcher-bin", paramLabel = "<launcher bin>", description = "Launcher bin path (used to display run commands)", defaultValue = "${launcher.bin}", hidden = true)
+    public String launcherBin;
 
     public static EnvironmentOptions empty()
     {

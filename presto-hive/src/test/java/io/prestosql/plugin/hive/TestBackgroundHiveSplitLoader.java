@@ -30,7 +30,9 @@ import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -68,6 +70,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -118,6 +121,7 @@ import static org.testng.Assert.fail;
 public class TestBackgroundHiveSplitLoader
 {
     private static final int BUCKET_COUNT = 2;
+    private static final int TIMESTAMP_PRECISION = 3;
 
     private static final String SAMPLE_PATH = "hdfs://VOL1:9000/db_name/table_name/000000_0";
     private static final String SAMPLE_PATH_FILTERED = "hdfs://VOL1:9000/db_name/table_name/000000_1";
@@ -303,7 +307,7 @@ public class TestBackgroundHiveSplitLoader
                 PARTITIONED_TABLE,
                 Optional.of(
                         new HiveBucketHandle(
-                                getRegularColumnHandles(PARTITIONED_TABLE, TYPE_MANAGER),
+                                getRegularColumnHandles(PARTITIONED_TABLE, TYPE_MANAGER, TIMESTAMP_PRECISION),
                                 BUCKETING_V1,
                                 BUCKET_COUNT,
                                 BUCKET_COUNT)));
@@ -341,6 +345,52 @@ public class TestBackgroundHiveSplitLoader
 
         assertThrows(RuntimeException.class, () -> drain(hiveSplitSource));
         assertThrows(RuntimeException.class, hiveSplitSource::isFinished);
+    }
+
+    @Test(timeOut = 30_000)
+    public void testIncompleteDynamicFilterTimeout()
+            throws Exception
+    {
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                new DynamicFilter()
+                {
+                    @Override
+                    public CompletableFuture<?> isBlocked()
+                    {
+                        return CompletableFuture.runAsync(() -> {
+                            try {
+                                TimeUnit.HOURS.sleep(1);
+                            }
+                            catch (InterruptedException e) {
+                                throw new IllegalStateException(e);
+                            }
+                        });
+                    }
+
+                    @Override
+                    public boolean isComplete()
+                    {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean isAwaitable()
+                    {
+                        return true;
+                    }
+
+                    @Override
+                    public TupleDomain<ColumnHandle> getCurrentPredicate()
+                    {
+                        return TupleDomain.all();
+                    }
+                },
+                Duration.valueOf("1s"));
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+
+        assertEquals(drain(hiveSplitSource).size(), 2);
+        assertTrue(hiveSplitSource.isFinished());
     }
 
     @Test
@@ -454,7 +504,8 @@ public class TestBackgroundHiveSplitLoader
                     }
                 },
                 TupleDomain.all(),
-                TupleDomain::all,
+                DynamicFilter.EMPTY,
+                Duration.valueOf("0s"),
                 TYPE_MANAGER,
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 SESSION,
@@ -704,6 +755,21 @@ public class TestBackgroundHiveSplitLoader
     }
 
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
+            DynamicFilter dynamicFilter,
+            Duration dynamicFilteringProbeBlockingTimeoutMillis)
+    {
+        return backgroundHiveSplitLoader(
+                new TestingHdfsEnvironment(TEST_FILES),
+                TupleDomain.all(),
+                dynamicFilter,
+                dynamicFilteringProbeBlockingTimeoutMillis,
+                Optional.empty(),
+                SIMPLE_TABLE,
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
             List<LocatedFileStatus> files,
             TupleDomain<HiveColumnHandle> tupleDomain)
     {
@@ -756,6 +822,27 @@ public class TestBackgroundHiveSplitLoader
             Optional<HiveBucketHandle> bucketHandle,
             Optional<ValidWriteIdList> validWriteIds)
     {
+        return backgroundHiveSplitLoader(
+                hdfsEnvironment,
+                compactEffectivePredicate,
+                DynamicFilter.EMPTY,
+                Duration.valueOf("0s"),
+                hiveBucketFilter,
+                table,
+                bucketHandle,
+                validWriteIds);
+    }
+
+    private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
+            HdfsEnvironment hdfsEnvironment,
+            TupleDomain<HiveColumnHandle> compactEffectivePredicate,
+            DynamicFilter dynamicFilter,
+            Duration dynamicFilteringProbeBlockingTimeout,
+            Optional<HiveBucketFilter> hiveBucketFilter,
+            Table table,
+            Optional<HiveBucketHandle> bucketHandle,
+            Optional<ValidWriteIdList> validWriteIds)
+    {
         List<HivePartitionMetadata> hivePartitionMetadatas =
                 ImmutableList.of(
                         new HivePartitionMetadata(
@@ -767,7 +854,8 @@ public class TestBackgroundHiveSplitLoader
                 table,
                 hivePartitionMetadatas,
                 compactEffectivePredicate,
-                TupleDomain::all,
+                dynamicFilter,
+                dynamicFilteringProbeBlockingTimeout,
                 TYPE_MANAGER,
                 createBucketSplitInfo(bucketHandle, hiveBucketFilter),
                 SESSION,
@@ -796,7 +884,8 @@ public class TestBackgroundHiveSplitLoader
                 SIMPLE_TABLE,
                 hivePartitionMetadatas,
                 TupleDomain.none(),
-                TupleDomain::all,
+                DynamicFilter.EMPTY,
+                Duration.valueOf("0s"),
                 TYPE_MANAGER,
                 Optional.empty(),
                 connectorSession,
@@ -819,7 +908,8 @@ public class TestBackgroundHiveSplitLoader
                 SIMPLE_TABLE,
                 createPartitionMetadataWithOfflinePartitions(),
                 TupleDomain.all(),
-                TupleDomain::all,
+                DynamicFilter.EMPTY,
+                Duration.valueOf("0s"),
                 TYPE_MANAGER,
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 connectorSession,

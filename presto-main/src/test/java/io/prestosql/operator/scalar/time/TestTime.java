@@ -23,6 +23,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.function.BiFunction;
 
@@ -104,7 +105,7 @@ public class TestTime
                 .isEqualTo(time(12, 12, 34, 56, 123_456_789_123L));
 
         assertThatThrownBy(() -> assertions.expression("TIME '12:34:56.1234567891234'"))
-                .hasMessage("line 1:8: TIME precision must be in range [0, 12]");
+                .hasMessage("line 1:8: TIME precision must be in range [0, 12]: 13");
 
         assertThatThrownBy(() -> assertions.expression("TIME '25:00:00'"))
                 .hasMessage("line 1:8: '25:00:00' is not a valid time literal");
@@ -1660,6 +1661,7 @@ public class TestTime
     {
         Session session = assertions.sessionBuilder()
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Pacific/Apia"))
+                .setStart(Instant.from(ZonedDateTime.of(2020, 5, 1, 12, 0, 0, 0, ZoneId.of("Pacific/Apia"))))
                 .build();
 
         assertThat(assertions.expression("TIME '12:34:56' AT TIME ZONE '+08:35'", session)).matches("TIME '08:09:56+08:35'");

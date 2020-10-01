@@ -17,22 +17,23 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
+import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
-import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class SinglenodeMysql
-        extends AbstractEnvironmentProvider
+        extends EnvironmentProvider
 {
     // Use non-default MySQL port to avoid conflicts with locally installed MySQL if any.
     public static final int MYSQL_PORT = 13306;
@@ -49,27 +50,27 @@ public final class SinglenodeMysql
     }
 
     @Override
-    protected void extendEnvironment(Environment.Builder builder)
+    public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer("presto-master", container -> container
+        builder.configureContainer(COORDINATOR, container -> container
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-mysql/mysql.properties")),
                         CONTAINER_PRESTO_ETC + "/catalog/mysql.properties"));
 
-        builder.addContainer("mysql", createMySql());
+        builder.addContainer(createMySql());
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createMySql()
     {
-        DockerContainer container = new DockerContainer("mysql:5.7")
+        DockerContainer container = new DockerContainer("mysql:5.7", "mysql")
                 .withEnv("MYSQL_USER", "test")
                 .withEnv("MYSQL_PASSWORD", "test")
                 .withEnv("MYSQL_ROOT_PASSWORD", "test")
                 .withEnv("MYSQL_DATABASE", "test")
                 .withCommand("mysqld", "--port", Integer.toString(MYSQL_PORT))
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(new SelectedPortWaitStrategy(MYSQL_PORT));
+                .waitingFor(forSelectedPorts(MYSQL_PORT));
 
         portBinder.exposePort(container, MYSQL_PORT);
 

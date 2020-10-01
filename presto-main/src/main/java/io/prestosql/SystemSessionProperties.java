@@ -16,6 +16,7 @@ package io.prestosql;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.memory.MemoryManagerConfig;
@@ -40,11 +41,9 @@ import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
-import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public final class SystemSessionProperties
 {
@@ -119,10 +118,9 @@ public final class SystemSessionProperties
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
     public static final String LATE_MATERIALIZATION = "late_materialization";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
+    public static final String ENABLE_LARGE_DYNAMIC_FILTERS = "enable_large_dynamic_filters";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
     public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE = "query_max_total_memory_per_node";
-    public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
-    public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
     public static final String ITERATIVE_COLUMN_PRUNING = "iterative_rule_based_column_pruning";
     public static final String REQUIRED_WORKERS_COUNT = "required_workers_count";
@@ -134,7 +132,7 @@ public final class SystemSessionProperties
 
     public SystemSessionProperties()
     {
-        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig(), new NodeMemoryConfig());
+        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig(), new NodeMemoryConfig(), new DynamicFilterConfig());
     }
 
     @Inject
@@ -143,7 +141,8 @@ public final class SystemSessionProperties
             TaskManagerConfig taskManagerConfig,
             MemoryManagerConfig memoryManagerConfig,
             FeaturesConfig featuresConfig,
-            NodeMemoryConfig nodeMemoryConfig)
+            NodeMemoryConfig nodeMemoryConfig,
+            DynamicFilterConfig dynamicFilterConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -195,7 +194,7 @@ public final class SystemSessionProperties
                 new PropertyMetadata<>(
                         TASK_WRITER_COUNT,
                         "Default number of local parallel table writer jobs per worker",
-                        BIGINT,
+                        INTEGER,
                         Integer.class,
                         taskManagerConfig.getWriterCount(),
                         false,
@@ -229,7 +228,7 @@ public final class SystemSessionProperties
                 new PropertyMetadata<>(
                         TASK_CONCURRENCY,
                         "Default number of local parallel jobs per worker",
-                        BIGINT,
+                        INTEGER,
                         Integer.class,
                         taskManagerConfig.getTaskConcurrency(),
                         false,
@@ -319,12 +318,12 @@ public final class SystemSessionProperties
                 new PropertyMetadata<>(
                         MAX_REORDERED_JOINS,
                         "The maximum number of joins to reorder as one group in cost-based join reordering",
-                        BIGINT,
+                        INTEGER,
                         Integer.class,
                         featuresConfig.getMaxReorderedJoins(),
                         false,
                         value -> {
-                            int intValue = ((Number) requireNonNull(value, "value is null")).intValue();
+                            int intValue = (int) value;
                             if (intValue < 2) {
                                 throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be greater than or equal to 2: %s", MAX_REORDERED_JOINS, intValue));
                             }
@@ -528,7 +527,12 @@ public final class SystemSessionProperties
                 booleanProperty(
                         ENABLE_DYNAMIC_FILTERING,
                         "Enable dynamic filtering",
-                        featuresConfig.isEnableDynamicFiltering(),
+                        dynamicFilterConfig.isEnableDynamicFiltering(),
+                        false),
+                booleanProperty(
+                        ENABLE_LARGE_DYNAMIC_FILTERS,
+                        "Enable collection of large dynamic filters",
+                        dynamicFilterConfig.isEnableLargeDynamicFilters(),
                         false),
                 dataSizeProperty(
                         QUERY_MAX_MEMORY_PER_NODE,
@@ -540,16 +544,6 @@ public final class SystemSessionProperties
                         "Maximum amount of total memory a query can use per node",
                         nodeMemoryConfig.getMaxQueryTotalMemoryPerNode(),
                         true),
-                integerProperty(
-                        DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT,
-                        "Experimental: maximum number of build-side rows to be collected for dynamic filtering per-driver",
-                        featuresConfig.getDynamicFilteringMaxPerDriverRowCount(),
-                        false),
-                dataSizeProperty(
-                        DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE,
-                        "Experimental: maximum number of bytes to be collected for dynamic filtering per-driver",
-                        featuresConfig.getDynamicFilteringMaxPerDriverSize(),
-                        false),
                 booleanProperty(
                         IGNORE_DOWNSTREAM_PREFERENCES,
                         "Ignore Parent's PreferredProperties in AddExchange optimizer",
@@ -902,7 +896,7 @@ public final class SystemSessionProperties
 
     private static int validateValueIsPowerOfTwo(Object value, String property)
     {
-        int intValue = ((Number) requireNonNull(value, "value is null")).intValue();
+        int intValue = (int) value;
         if (Integer.bitCount(intValue) != 1) {
             throw new PrestoException(
                     INVALID_SESSION_PROPERTY,
@@ -926,7 +920,7 @@ public final class SystemSessionProperties
             return null;
         }
 
-        int intValue = ((Number) value).intValue();
+        int intValue = (int) value;
         if (intValue < lowerBoundIncluded) {
             throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be equal or greater than %s", property, lowerBoundIncluded));
         }
@@ -988,6 +982,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.class);
     }
 
+    public static boolean isEnableLargeDynamicFilters(Session session)
+    {
+        return session.getSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, Boolean.class);
+    }
+
     public static DataSize getQueryMaxMemoryPerNode(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_MEMORY_PER_NODE, DataSize.class);
@@ -996,16 +995,6 @@ public final class SystemSessionProperties
     public static DataSize getQueryMaxTotalMemoryPerNode(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, DataSize.class);
-    }
-
-    public static int getDynamicFilteringMaxPerDriverRowCount(Session session)
-    {
-        return session.getSystemProperty(DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT, Integer.class);
-    }
-
-    public static DataSize getDynamicFilteringMaxPerDriverSize(Session session)
-    {
-        return session.getSystemProperty(DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE, DataSize.class);
     }
 
     public static boolean ignoreDownStreamPreferences(Session session)

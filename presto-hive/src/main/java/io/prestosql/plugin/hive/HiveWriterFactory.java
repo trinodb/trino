@@ -81,6 +81,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getCompressionCodec;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getTemporaryStagingDirectoryPath;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
@@ -135,7 +136,6 @@ public class HiveWriterFactory
     private final int maxOpenSortFiles;
     private final boolean sortedWritingTempStagingPathEnabled;
     private final String sortedWritingTempStagingPath;
-    private final boolean immutablePartitions;
     private final InsertExistingPartitionsBehavior insertExistingPartitionsBehavior;
     private final DateTimeZone parquetTimeZone;
 
@@ -170,7 +170,6 @@ public class HiveWriterFactory
             PageSorter pageSorter,
             DataSize sortBufferSize,
             int maxOpenSortFiles,
-            boolean immutablePartitions,
             DateTimeZone parquetTimeZone,
             ConnectorSession session,
             NodeManager nodeManager,
@@ -199,11 +198,7 @@ public class HiveWriterFactory
         this.maxOpenSortFiles = maxOpenSortFiles;
         this.sortedWritingTempStagingPathEnabled = isTemporaryStagingDirectoryEnabled(session);
         this.sortedWritingTempStagingPath = getTemporaryStagingDirectoryPath(session);
-        this.immutablePartitions = immutablePartitions;
-        this.insertExistingPartitionsBehavior = HiveSessionProperties.getInsertExistingPartitionsBehavior(session);
-        if (immutablePartitions) {
-            checkArgument(insertExistingPartitionsBehavior != InsertExistingPartitionsBehavior.APPEND, "insertExistingPartitionsBehavior cannot be APPEND");
-        }
+        this.insertExistingPartitionsBehavior = getInsertExistingPartitionsBehavior(session);
         this.parquetTimeZone = requireNonNull(parquetTimeZone, "parquetTimeZone is null");
 
         // divide input columns into partition and data columns
@@ -353,7 +348,6 @@ public class HiveWriterFactory
                 else {
                     switch (insertExistingPartitionsBehavior) {
                         case APPEND:
-                            checkState(!immutablePartitions);
                             updateMode = UpdateMode.APPEND;
                             writeInfo = locationService.getTableWriteInfo(locationHandle, false);
                             break;
@@ -384,7 +378,6 @@ public class HiveWriterFactory
             // Write to: an existing partition in an existing partitioned table
             if (insertExistingPartitionsBehavior == InsertExistingPartitionsBehavior.APPEND) {
                 // Append to an existing partition
-                checkState(!immutablePartitions);
                 updateMode = UpdateMode.APPEND;
                 // Check the column types in partition schema match the column types in table schema
                 List<Column> tableColumns = table.getDataColumns();

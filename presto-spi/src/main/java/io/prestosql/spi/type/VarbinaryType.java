@@ -28,6 +28,10 @@ public final class VarbinaryType
         super(new TypeSignature(StandardTypes.VARBINARY), Slice.class);
     }
 
+    /**
+     * @deprecated Use {@code type instanceof VarbinaryType} instead.
+     */
+    @Deprecated
     public static boolean isVarbinaryType(Type type)
     {
         return type instanceof VarbinaryType;

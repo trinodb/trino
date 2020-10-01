@@ -38,6 +38,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
+import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.prestosql.sql.DynamicFilters.Descriptor;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -66,7 +67,6 @@ class LocalDynamicFiltersCollector
     {
         dynamicFilterDomains
                 .entrySet()
-                .stream()
                 .forEach(entry -> {
                     SettableFuture<Domain> future = futures.get(entry.getKey());
                     // Skip dynamic filters that are not applied locally.
@@ -145,13 +145,19 @@ class LocalDynamicFiltersCollector
         @Override
         public synchronized CompletableFuture<?> isBlocked()
         {
-            return isBlocked;
+            return unmodifiableFuture(isBlocked);
         }
 
         @Override
         public synchronized boolean isComplete()
         {
             return futuresLeft == 0;
+        }
+
+        @Override
+        public synchronized boolean isAwaitable()
+        {
+            return futuresLeft > 0;
         }
 
         @Override

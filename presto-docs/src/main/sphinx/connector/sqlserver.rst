@@ -12,7 +12,7 @@ Configuration
 
 The connector can query a single database on an SQL server instance. Create a
 catalog properties file that specifies the SQL server connector by setting the
-``connector.name`` to ``sqlserver``.  
+``connector.name`` to ``sqlserver``.
 
 For example, to access a database as ``sqlserverdb``, create the file
 ``etc/catalog/sqlserverdb.properties``. Replace the connection properties as
@@ -29,14 +29,14 @@ Multiple SQL Server Databases or Servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The SQL Server connector can't access more than one database using a single
-catalog. 
+catalog.
 
 If you have multiple databases, or want to access multiple instances
 of SQL Server, you need to configure one catalog for each instance.
 
 To add another catalog:
 
-- Add another properties file to ``etc/catalog`` 
+- Add another properties file to ``etc/catalog``
 - Save it with a different name that ends in ``.properties``
 
 For example, if you name the property file ``sales.properties``, Presto uses the
@@ -69,6 +69,26 @@ Finally, you can query the ``clicks`` table in the ``web`` schema::
 
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``sqlserver`` in the above examples.
+
+.. _sqlserver-pushdown:
+
+Pushdown
+--------
+
+The connector supports :doc:`pushdown </optimizer/pushdown>` for processing the
+following aggregate functions:
+
+* :func:`avg`
+* :func:`count`
+* :func:`max`
+* :func:`min`
+* :func:`sum`
+* :func:`stddev`
+* :func:`stddev_pop`
+* :func:`stddev_samp`
+* :func:`variance`
+* :func:`var_pop`
+* :func:`var_samp`
 
 Limitations
 -----------

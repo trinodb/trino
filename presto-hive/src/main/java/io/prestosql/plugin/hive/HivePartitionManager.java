@@ -122,7 +122,7 @@ public class HivePartitionManager
                     .collect(toImmutableList());
         }
         else {
-            List<String> partitionNames = getFilteredPartitionNames(metastore, identity, tableName, partitionColumns, effectivePredicate);
+            List<String> partitionNames = getFilteredPartitionNames(metastore, identity, tableName, partitionColumns, compactEffectivePredicate);
             partitionsIterable = () -> partitionNames.stream()
                     // Apply extra filters which could not be done by getFilteredPartitionNames
                     .map(partitionName -> parseValuesAndFilterPartition(tableName, partitionName, partitionColumns, partitionTypes, effectivePredicate, predicate))
@@ -241,7 +241,7 @@ public class HivePartitionManager
         return true;
     }
 
-    private List<String> getFilteredPartitionNames(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<ColumnHandle> effectivePredicate)
+    private List<String> getFilteredPartitionNames(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<HiveColumnHandle> effectivePredicate)
     {
         List<String> columnNames = partitionKeys.stream()
                 .map(HiveColumnHandle::getName)

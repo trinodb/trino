@@ -587,7 +587,8 @@ public class OrcTester
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
-        OrcReader orcReader = new OrcReader(orcDataSource, READER_OPTIONS);
+        OrcReader orcReader = OrcReader.createOrcReader(orcDataSource, READER_OPTIONS)
+                .orElseThrow(() -> new RuntimeException("File is empty"));
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup().orElse(0), 10_000);

@@ -18,22 +18,23 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
+import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
-import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class SinglenodeSqlserver
-        extends AbstractEnvironmentProvider
+        extends EnvironmentProvider
 {
     public static final int SQLSERVER_PORT = 1433;
 
@@ -49,24 +50,24 @@ public final class SinglenodeSqlserver
     }
 
     @Override
-    protected void extendEnvironment(Environment.Builder builder)
+    public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer("presto-master", container -> container
+        builder.configureContainer(COORDINATOR, container -> container
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-sqlserver/sqlserver.properties")),
                         CONTAINER_PRESTO_ETC + "/catalog/sqlserver.properties"));
 
-        builder.addContainer("sqlserver", createSqlServer());
+        builder.addContainer(createSqlServer());
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createSqlServer()
     {
-        DockerContainer container = new DockerContainer("microsoft/mssql-server-linux:2017-CU13")
+        DockerContainer container = new DockerContainer("microsoft/mssql-server-linux:2017-CU13", "sqlserver")
                 .withEnv("ACCEPT_EULA", "Y")
                 .withEnv("SA_PASSWORD", "SQLServerPass1")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(new SelectedPortWaitStrategy(SQLSERVER_PORT));
+                .waitingFor(forSelectedPorts(SQLSERVER_PORT));
 
         portBinder.exposePort(container, 1433);
 

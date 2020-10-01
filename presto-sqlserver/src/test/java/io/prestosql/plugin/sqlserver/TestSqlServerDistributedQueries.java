@@ -39,6 +39,7 @@ public class TestSqlServerDistributedQueries
         sqlServer.start();
         return createSqlServerQueryRunner(
                 sqlServer,
+                ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         // caching here speeds up tests highly, caching is not used in smoke tests
                         .put("metadata.cache-ttl", "10m")
@@ -55,6 +56,12 @@ public class TestSqlServerDistributedQueries
     }
 
     @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean supportsViews()
     {
         return false;
@@ -62,6 +69,18 @@ public class TestSqlServerDistributedQueries
 
     @Override
     protected boolean supportsArrays()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
     {
         return false;
     }
@@ -77,19 +96,6 @@ public class TestSqlServerDistributedQueries
                         "col_default BIGINT DEFAULT 43," +
                         "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
                         "col_required2 BIGINT NOT NULL)");
-    }
-
-    @Override
-    public void testCommentTable()
-    {
-        // SQLServer connector currently does not support comment on table
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // delete is not supported
     }
 
     @Override

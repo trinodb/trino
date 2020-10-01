@@ -20,6 +20,7 @@
 * Mac OS X or Linux
 * Java 11, 64-bit
 * Python 2.6+ (for running with the launcher script)
+* Docker (for building and running tests)
 
 ## Building Presto
 

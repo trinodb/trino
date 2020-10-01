@@ -13,7 +13,7 @@
  */
 package io.prestosql.tests;
 
-import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.testing.AbstractTestJoinQueries;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
@@ -31,7 +31,7 @@ public class TestJoinQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        verify(new FeaturesConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
+        verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
         return TpchQueryRunnerBuilder.builder().build();
     }
 

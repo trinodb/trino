@@ -13,15 +13,67 @@
  */
 package io.prestosql.plugin.oracle;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.testing.Closeables;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
+import io.prestosql.testing.sql.SqlExecutor;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.Test;
+
+import java.io.IOException;
+
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
+import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 
 public class TestOracleIntegrationSmokeTest
         extends BaseOracleIntegrationSmokeTest
 {
+    private TestingOracleServer oracleServer;
+
     @Override
-    protected QueryRunner createOracleQueryRunner(TestingOracleServer server, Iterable<TpchTable<?>> tables) throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        return OracleQueryRunner.createOracleQueryRunner(server, tables);
+        oracleServer = new TestingOracleServer();
+        return OracleQueryRunner.createOracleQueryRunner(oracleServer, ImmutableMap.of(), ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION), false);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void destroy()
+            throws IOException
+    {
+        Closeables.closeAll(oracleServer);
+        oracleServer = null;
+    }
+
+    /**
+     * This test helps to tune TupleDomain simplification threshold.
+     */
+    @Test
+    public void testNativeMultipleInClauses()
+    {
+        String longInClauses = range(0, 10)
+                .mapToObj(value -> getLongInClause(value * 1_000, 1_000))
+                .collect(joining(" OR "));
+        oracleServer.execute("SELECT count(*) FROM presto_test.orders WHERE " + longInClauses);
+    }
+
+    private String getLongInClause(int start, int length)
+    {
+        String longValues = range(start, start + length)
+                .mapToObj(Integer::toString)
+                .collect(joining(", "));
+        return "orderkey IN (" + longValues + ")";
+    }
+
+    @Override
+    protected SqlExecutor onOracle()
+    {
+        return oracleServer::execute;
     }
 }

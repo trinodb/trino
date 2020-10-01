@@ -26,6 +26,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorPageSink;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -54,10 +55,9 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -158,10 +158,10 @@ public class CassandraPageSink
         else if (DATE.equals(type)) {
             values.add(toCassandraDate.apply(type.getLong(block, position)));
         }
-        else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+        else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
             values.add(new Timestamp(unpackMillisUtc(type.getLong(block, position))));
         }
-        else if (isVarcharType(type)) {
+        else if (type instanceof VarcharType) {
             values.add(type.getSlice(block, position).toStringUtf8());
         }
         else if (VARBINARY.equals(type)) {

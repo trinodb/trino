@@ -31,7 +31,6 @@ import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.assertions.Assert;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -41,7 +40,6 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -70,7 +68,7 @@ public abstract class AbstractTestIcebergSmoke
 
     private final FileFormat format;
 
-    public AbstractTestIcebergSmoke(FileFormat format)
+    protected AbstractTestIcebergSmoke(FileFormat format)
     {
         this.format = requireNonNull(format, "format is null");
     }
@@ -89,7 +87,7 @@ public abstract class AbstractTestIcebergSmoke
                 .matches("CREATE SCHEMA iceberg.tpch\n" +
                         "AUTHORIZATION USER user\n" +
                         "WITH \\(\n" +
-                        "   location = '.*/iceberg_data/tpch'\n" +
+                        "\\s+location = '.*/iceberg_data/tpch'\n" +
                         "\\)");
     }
 
@@ -109,7 +107,7 @@ public abstract class AbstractTestIcebergSmoke
                 .row("comment", "varchar", "", "")
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        Assert.assertEquals(actualColumns, expectedColumns);
+        assertEquals(actualColumns, expectedColumns);
     }
 
     @Override
@@ -218,12 +216,12 @@ public abstract class AbstractTestIcebergSmoke
         String tableName = format("test_%s_by_timestamp", partitioned ? "partitioned" : "selected");
         assertUpdate(format("CREATE TABLE %s (_timestamp timestamp(6)) %s",
                 tableName, partitioned ? "WITH (partitioning = ARRAY['_timestamp'])" : ""));
-        String select1 = "SELECT TIMESTAMP '2017-05-01 10:12:34' _timestamp";
-        assertUpdate(format("INSERT INTO %s ", tableName) + select1, 1);
-        String select2 = "SELECT TIMESTAMP '2017-10-01 10:12:34' _timestamp";
-        assertUpdate(format("INSERT INTO %s " + select2, tableName), 1);
-        String select3 = "SELECT TIMESTAMP '2018-05-01 10:12:34' _timestamp";
-        assertUpdate(format("INSERT INTO %s " + select3, tableName), 1);
+        @Language("SQL") String select1 = "SELECT TIMESTAMP '2017-05-01 10:12:34' _timestamp";
+        @Language("SQL") String select2 = "SELECT TIMESTAMP '2017-10-01 10:12:34' _timestamp";
+        @Language("SQL") String select3 = "SELECT TIMESTAMP '2018-05-01 10:12:34' _timestamp";
+        assertUpdate(format("INSERT INTO %s %s", tableName, select1), 1);
+        assertUpdate(format("INSERT INTO %s %s", tableName, select2), 1);
+        assertUpdate(format("INSERT INTO %s %s", tableName, select3), 1);
         assertQuery(format("SELECT COUNT(*) from %s", tableName), "SELECT 3");
 
         assertQuery(format("SELECT * from %s WHERE _timestamp = TIMESTAMP '2017-05-01 10:12:34'", tableName), select1);
@@ -286,7 +284,7 @@ public abstract class AbstractTestIcebergSmoke
         assertUpdate(format("INSERT INTO test_partitioned_table %s", select), 1);
         assertQuery("SELECT * FROM test_partitioned_table", select);
 
-        String selectAgain = "" +
+        @Language("SQL") String selectAgain = "" +
                 "SELECT * FROM test_partitioned_table WHERE" +
                 " 'foo' = _string" +
                 " AND 456 = _integer" +
@@ -396,8 +394,8 @@ public abstract class AbstractTestIcebergSmoke
                         "   format = '%s',\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
                         ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 "test_create_partitioned_table_as",
                 format);
 
@@ -412,6 +410,8 @@ public abstract class AbstractTestIcebergSmoke
     @Test
     public void testColumnComments()
     {
+        // TODO add support for setting comments on existing column and replace the test with io.prestosql.testing.AbstractTestDistributedQueries#testCommentColumn
+
         assertUpdate("CREATE TABLE test_column_comments (_bigint BIGINT COMMENT 'test column comment')");
         assertQuery("SHOW COLUMNS FROM test_column_comments",
                 "VALUES ('_bigint', 'bigint', '', 'test column comment')");
@@ -430,11 +430,11 @@ public abstract class AbstractTestIcebergSmoke
                 "WITH (\n" +
                 format("   format = '%s'\n", format) +
                 ")";
-        String createTableSql = format(createTableTemplate, "test table comment", format);
+        @Language("SQL") String createTableSql = format(createTableTemplate, "test table comment", format);
         assertUpdate(createTableSql);
         MaterializedResult resultOfCreate = computeActual("SHOW CREATE TABLE test_table_comments");
         assertEquals(getOnlyElement(resultOfCreate.getOnlyColumnAsSet()), createTableSql);
-        String showCreateTable = "SHOW CREATE TABLE test_table_comments";
+        @Language("SQL") String showCreateTable = "SHOW CREATE TABLE test_table_comments";
 
         assertUpdate("COMMENT ON TABLE test_table_comments IS 'different test table comment'");
         MaterializedResult resultOfCommentChange = computeActual(showCreateTable);
@@ -455,6 +455,22 @@ public abstract class AbstractTestIcebergSmoke
         assertEquals(getOnlyElement(resultOfRemovingComment.getOnlyColumnAsSet()), format(createTableWithoutComment, format));
 
         dropTable("iceberg.tpch.test_table_comments");
+    }
+
+    // TODO: This test shows that column $snapshot_id doesn't exist at this time.  Decide if we should
+    // add it and $snapshot_timestamp_ms
+    @Test(enabled = false)
+    public void testQueryBySnapshotId()
+    {
+        assertUpdate("CREATE TABLE test_query_by_snapshot (col0 INTEGER, col1 BIGINT)");
+        assertUpdate("INSERT INTO test_query_by_snapshot (col0, col1) VALUES (123, CAST(987 AS BIGINT))", 1);
+        long afterFirstInsertId = getLatestSnapshotId("test_query_by_snapshot");
+
+        assertUpdate("INSERT INTO test_query_by_snapshot (col0, col1) VALUES (456, CAST(654 AS BIGINT))", 1);
+        assertQuery("SELECT * FROM test_query_by_snapshot ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT)), (456, CAST(654 AS BIGINT))");
+        assertQuery("SELECT * FROM test_query_by_snapshot WHERE \"$snapshot_id\" = " + afterFirstInsertId, "VALUES (123, CAST(987 AS BIGINT))");
+
+        dropTable("test_query_by_snapshot");
     }
 
     @Test
@@ -577,12 +593,7 @@ public abstract class AbstractTestIcebergSmoke
         MaterializedResult showCreateTable = computeActual("SHOW CREATE TABLE " + tableName);
         String createTable = (String) getOnlyElement(showCreateTable.getOnlyColumnAsSet());
         Matcher matcher = WITH_CLAUSE_EXTRACTER.matcher(createTable);
-        if (matcher.matches()) {
-            return matcher.group(1);
-        }
-        else {
-            return null;
-        }
+        return matcher.matches() ? matcher.group(1) : null;
     }
 
     @Test
@@ -595,142 +606,274 @@ public abstract class AbstractTestIcebergSmoke
     }
 
     @Test
-    public void testHourTransforms()
+    public void testHourTransform()
     {
-        String select = "SELECT d_hour, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_hour_transform$partitions\"";
-
         assertUpdate("CREATE TABLE test_hour_transform (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['hour(d)'])");
 
-        String values = "VALUES " +
+        @Language("SQL") String values = "VALUES " +
+                "(TIMESTAMP '1969-12-31 22:22:22.222222', 8)," +
+                "(TIMESTAMP '1969-12-31 23:33:11.456789', 9)," +
+                "(TIMESTAMP '1969-12-31 23:44:55.567890', 10)," +
+                "(TIMESTAMP '1970-01-01 00:55:44.765432', 11)," +
                 "(TIMESTAMP '2015-01-01 10:01:23.123456', 1)," +
                 "(TIMESTAMP '2015-01-01 10:10:02.987654', 2)," +
                 "(TIMESTAMP '2015-01-01 10:55:00.456789', 3)," +
                 "(TIMESTAMP '2015-05-15 12:05:01.234567', 4)," +
                 "(TIMESTAMP '2015-05-15 12:21:02.345678', 5)," +
-                "(TIMESTAMP '2015-02-21 13:11:11.876543', 6)," +
-                "(TIMESTAMP '2015-02-21 13:12:12.654321', 7)";
-        String insertSql = "INSERT INTO test_hour_transform " + values;
-        assertUpdate(insertSql, 7);
-
+                "(TIMESTAMP '2020-02-21 13:11:11.876543', 6)," +
+                "(TIMESTAMP '2020-02-21 13:12:12.654321', 7)";
+        assertUpdate("INSERT INTO test_hour_transform " + values, 11);
         assertQuery("SELECT * FROM test_hour_transform", values);
-        assertQuery("SELECT COUNT(*) FROM \"test_hour_transform$partitions\"", "SELECT 3");
 
-        assertQuery("SELECT b FROM test_hour_transform WHERE hour(d) = 10 ORDER BY d", "SELECT b FROM (VALUES (1), (2), (3)) AS t(b)");
-        // 16436 days = DATE '2015-01-01' - DATE '1970-01-01'
-        // 394474 = (16436 * 24) + 10
-        // Parquet has min/max for timestamps but ORC does not.
-        String expectedQuery = format == PARQUET ?
-                "VALUES(394474, 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 10:55:00.456789', 1, 3)" :
-                "VALUES(394474, 3, NULL, NULL, 1, 3)";
-        assertQuery(select + " WHERE d_hour = 394474", expectedQuery);
+        @Language("SQL") String expected = "VALUES " +
+                "(-1, 1, TIMESTAMP '1969-12-31 22:22:22.222222', TIMESTAMP '1969-12-31 22:22:22.222222', 8, 8), " +
+                "(0, 3, TIMESTAMP '1969-12-31 23:33:11.456789', TIMESTAMP '1970-01-01 00:55:44.765432', 9, 11), " +
+                "(394474, 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 10:55:00.456789', 1, 3), " +
+                "(397692, 2, TIMESTAMP '2015-05-15 12:05:01.234567', TIMESTAMP '2015-05-15 12:21:02.345678', 4, 5), " +
+                "(439525, 2, TIMESTAMP '2020-02-21 13:11:11.876543', TIMESTAMP '2020-02-21 13:12:12.654321', 6, 7)";
+        if (format == ORC) {
+            expected = "VALUES " +
+                    "(-1, 1, NULL, NULL, 8, 8), " +
+                    "(0, 3, NULL, NULL, 9, 11), " +
+                    "(394474, 3, NULL, NULL, 1, 3), " +
+                    "(397692, 2, NULL, NULL, 4, 5), " +
+                    "(439525, 2, NULL, NULL, 6, 7)";
+        }
 
-        // 16570  days = DATE '2015-05-15' - DATE '1970-01-01'
-        // 397692 = (16570 * 24) + 12
-        assertQuery("SELECT b FROM test_hour_transform WHERE hour(d) = 12", "SELECT b FROM (VALUES (4), (5)) AS t(b)");
-        expectedQuery = format == PARQUET ?
-                "VALUES(397692, 2, TIMESTAMP '2015-05-15 12:05:01.234567', TIMESTAMP '2015-05-15 12:21:02.345678', 4, 5)" :
-                "VALUES(397692, 2, NULL, NULL, 4, 5)";
-        assertQuery(select + " WHERE d_hour = 397692", expectedQuery);
+        assertQuery("SELECT d_hour, row_count, d.min, d.max, b.min, b.max FROM \"test_hour_transform$partitions\"", expected);
 
-        // 16487  days = DATE '2015-02-21' - DATE '1970-01-01'
-        // 397692 = (16487 * 24) + 13
-        assertQuery("SELECT b FROM test_hour_transform WHERE hour(d) = 13", "SELECT b FROM (VALUES (6), (7)) AS t(b)");
-        expectedQuery = format == PARQUET ?
-                "VALUES(395701, 2, TIMESTAMP '2015-02-21 13:11:11.876543', TIMESTAMP '2015-02-21 13:12:12.654321', 6, 7)" :
-                "VALUES(395701, 2, NULL, NULL, 6, 7)";
-        assertQuery(select + " WHERE d_hour = 395701", expectedQuery);
+        System.out.println(computeActual("SELECT * FROM \"test_hour_transform$files\""));
 
         dropTable("test_hour_transform");
     }
 
     @Test
-    public void testDayTransforms()
+    public void testDayTransformDate()
     {
-        String select = "SELECT d_day, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_day_transform$partitions\"";
+        assertUpdate("CREATE TABLE test_day_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
 
-        assertUpdate("CREATE TABLE test_day_transform (d DATE, b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
+        @Language("SQL") String values = "VALUES " +
+                "(DATE '1969-01-01', 10), " +
+                "(DATE '1969-12-31', 11), " +
+                "(DATE '1970-01-01', 1), " +
+                "(DATE '1970-03-04', 2), " +
+                "(DATE '2015-01-01', 3), " +
+                "(DATE '2015-01-13', 4), " +
+                "(DATE '2015-01-13', 5), " +
+                "(DATE '2015-05-15', 6), " +
+                "(DATE '2015-05-15', 7), " +
+                "(DATE '2020-02-21', 8), " +
+                "(DATE '2020-02-21', 9)";
+        assertUpdate("INSERT INTO test_day_transform_date " + values, 11);
+        assertQuery("SELECT * FROM test_day_transform_date", values);
 
-        String insertSql = "INSERT INTO test_day_transform VALUES" +
-                "(DATE '2015-01-13', 1)," +
-                "(DATE '2015-01-13', 2)," +
-                "(DATE '2015-01-13', 3)," +
-                "(DATE '2015-05-15', 4)," +
-                "(DATE '2015-05-15', 5)," +
-                "(DATE '2015-02-21', 6)," +
-                "(DATE '2015-02-21', 7)";
-        assertUpdate(insertSql, 7);
+        assertQuery(
+                "SELECT d_day, row_count, d.min, d.max, b.min, b.max FROM \"test_day_transform_date$partitions\"",
+                "VALUES " +
+                        "(DATE '1969-01-01', 1, DATE '1969-01-01', DATE '1969-01-01', 10, 10), " +
+                        "(DATE '1969-12-31', 1, DATE '1969-12-31', DATE '1969-12-31', 11, 11), " +
+                        "(DATE '1970-01-01', 1, DATE '1970-01-01', DATE '1970-01-01', 1, 1), " +
+                        "(DATE '1970-03-04', 1, DATE '1970-03-04', DATE '1970-03-04', 2, 2), " +
+                        "(DATE '2015-01-01', 1, DATE '2015-01-01', DATE '2015-01-01', 3, 3), " +
+                        "(DATE '2015-01-13', 2, DATE '2015-01-13', DATE '2015-01-13', 4, 5), " +
+                        "(DATE '2015-05-15', 2, DATE '2015-05-15', DATE '2015-05-15', 6, 7), " +
+                        "(DATE '2020-02-21', 2, DATE '2020-02-21', DATE '2020-02-21', 8, 9)");
 
-        assertQuery("SELECT COUNT(*) FROM \"test_day_transform$partitions\"", "SELECT 3");
-
-        assertQuery("SELECT b FROM test_day_transform WHERE day(d) = 13", "SELECT b FROM (VALUES (1), (2), (3)) AS t(b)");
-        assertQuery(select + " WHERE d_day = date '2015-01-13'", "VALUES(DATE '2015-01-13', 3, DATE '2015-01-13', DATE '2015-01-13', 1, 3)");
-
-        assertQuery("SELECT b FROM test_day_transform WHERE day(d) = 15", "SELECT b FROM (VALUES (4), (5)) AS t(b)");
-        assertQuery(select + " WHERE d_day = date '2015-05-15'", "VALUES(DATE '2015-05-15', 2, DATE '2015-05-15', DATE '2015-05-15', 4, 5)");
-
-        assertQuery("SELECT b FROM test_day_transform WHERE day(d) = 21", "SELECT b FROM (VALUES (6), (7)) AS t(b)");
-        assertQuery(select + " WHERE d_day = date '2015-02-21'", "VALUES(DATE '2015-02-21', 2, DATE '2015-02-21', DATE '2015-02-21', 6, 7)");
-
-        dropTable("test_day_transform");
+        dropTable("test_day_transform_date");
     }
 
     @Test
-    public void testMonthTransforms()
+    public void testDayTransformTimestamp()
     {
-        String select = "SELECT d_month, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_month_transform$partitions\"";
+        assertUpdate("CREATE TABLE test_day_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
 
-        assertUpdate("CREATE TABLE test_month_transform (d DATE, b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
+        @Language("SQL") String values = "VALUES " +
+                "(TIMESTAMP '1969-12-25 15:13:12.876543', 8)," +
+                "(TIMESTAMP '1969-12-30 18:47:33.345678', 9)," +
+                "(TIMESTAMP '1969-12-31 00:00:00.000000', 10)," +
+                "(TIMESTAMP '1969-12-31 05:06:07.234567', 11)," +
+                "(TIMESTAMP '1970-01-01 12:03:08.456789', 12)," +
+                "(TIMESTAMP '2015-01-01 10:01:23.123456', 1)," +
+                "(TIMESTAMP '2015-01-01 11:10:02.987654', 2)," +
+                "(TIMESTAMP '2015-01-01 12:55:00.456789', 3)," +
+                "(TIMESTAMP '2015-05-15 13:05:01.234567', 4)," +
+                "(TIMESTAMP '2015-05-15 14:21:02.345678', 5)," +
+                "(TIMESTAMP '2020-02-21 15:11:11.876543', 6)," +
+                "(TIMESTAMP '2020-02-21 16:12:12.654321', 7)";
+        assertUpdate("INSERT INTO test_day_transform_timestamp " + values, 12);
+        assertQuery("SELECT * FROM test_day_transform_timestamp", values);
 
-        String insertSql = "INSERT INTO test_month_transform VALUES" +
-                "(DATE '2020-06-16', 1)," +
-                "(DATE '2020-06-28', 2)," +
-                "(DATE '2020-06-06', 3)," +
-                "(DATE '2020-07-18', 4)," +
-                "(DATE '2020-07-28', 5)";
-        assertUpdate(insertSql, 5);
+        @Language("SQL") String expected = "VALUES " +
+                "(DATE '1969-12-26', 1, TIMESTAMP '1969-12-25 15:13:12.876543', TIMESTAMP '1969-12-25 15:13:12.876543', 8, 8), " +
+                "(DATE '1969-12-31', 2, TIMESTAMP '1969-12-30 18:47:33.345678', TIMESTAMP '1969-12-31 00:00:00.000000', 9, 10), " +
+                "(DATE '1970-01-01', 2, TIMESTAMP '1969-12-31 05:06:07.234567', TIMESTAMP '1970-01-01 12:03:08.456789', 11, 12), " +
+                "(DATE '2015-01-01', 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 12:55:00.456789', 1, 3), " +
+                "(DATE '2015-05-15', 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-05-15 14:21:02.345678', 4, 5), " +
+                "(DATE '2020-02-21', 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-02-21 16:12:12.654321', 6, 7)";
+        if (format == ORC) {
+            expected = "VALUES " +
+                    "(DATE '1969-12-26', 1, NULL, NULL, 8, 8), " +
+                    "(DATE '1969-12-31', 2, NULL, NULL, 9, 10), " +
+                    "(DATE '1970-01-01', 2, NULL, NULL, 11, 12), " +
+                    "(DATE '2015-01-01', 3, NULL, NULL, 1, 3), " +
+                    "(DATE '2015-05-15', 2, NULL, NULL, 4, 5), " +
+                    "(DATE '2020-02-21', 2, NULL, NULL, 6, 7)";
+        }
 
-        assertQuery("SELECT COUNT(*) FROM \"test_month_transform$partitions\"", "SELECT 2");
+        assertQuery("SELECT d_day, row_count, d.min, d.max, b.min, b.max FROM \"test_day_transform_timestamp$partitions\"", expected);
 
-        assertQuery("SELECT b FROM test_month_transform WHERE month(d) = 6", "SELECT b FROM (VALUES (1), (2), (3)) AS t(b)");
-        // 605 = (2020 - 1970) * 12 + (6 - 1)
-        assertQuery(select + " WHERE d_month = 605", "VALUES(605, 3, DATE '2020-06-06', DATE '2020-06-28', 1, 3)");
-
-        assertQuery("SELECT b FROM test_month_transform WHERE month(d) = 7", "SELECT b FROM (VALUES (4), (5)) AS t(b)");
-        assertQuery(select + " WHERE d_month = 606", "VALUES(606, 2, DATE '2020-07-18', DATE '2020-07-28', 4, 5)");
-
-        dropTable("test_month_transform");
+        dropTable("test_day_transform_timestamp");
     }
 
     @Test
-    public void testYearTransforms()
+    public void testMonthTransformDate()
     {
-        String select = "SELECT d_year, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_year_transform$partitions\"";
+        assertUpdate("CREATE TABLE test_month_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
 
-        assertUpdate("CREATE TABLE test_year_transform (d DATE, b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
+        @Language("SQL") String values = "VALUES " +
+                "(DATE '1969-11-13', 1)," +
+                "(DATE '1969-12-01', 2)," +
+                "(DATE '1969-12-02', 3)," +
+                "(DATE '1969-12-31', 4)," +
+                "(DATE '1970-01-01', 5), " +
+                "(DATE '1970-05-13', 6), " +
+                "(DATE '1970-12-31', 7), " +
+                "(DATE '2020-01-01', 8), " +
+                "(DATE '2020-06-16', 9), " +
+                "(DATE '2020-06-28', 10), " +
+                "(DATE '2020-06-06', 11), " +
+                "(DATE '2020-07-18', 12), " +
+                "(DATE '2020-07-28', 13), " +
+                "(DATE '2020-12-31', 14)";
+        assertUpdate("INSERT INTO test_month_transform_date " + values, 14);
+        assertQuery("SELECT * FROM test_month_transform_date", values);
 
-        String insertSql = "INSERT INTO test_year_transform VALUES" +
-                "(DATE '2015-01-13', 1)," +
-                "(DATE '2015-06-16', 2)," +
-                "(DATE '2015-07-28', 3)," +
-                "(DATE '2016-05-15', 4)," +
-                "(DATE '2016-06-06', 5)," +
-                "(DATE '2020-02-21', 6)," +
-                "(DATE '2020-11-10', 7)";
-        assertUpdate(insertSql, 7);
+        assertQuery(
+                "SELECT d_month, row_count, d.min, d.max, b.min, b.max FROM \"test_month_transform_date$partitions\"",
+                "VALUES " +
+                        "(-1, 2, DATE '1969-11-13', DATE '1969-12-01', 1, 2), " +
+                        "(0, 3, DATE '1969-12-02', DATE '1970-01-01', 3, 5), " +
+                        "(4, 1, DATE '1970-05-13', DATE '1970-05-13', 6, 6), " +
+                        "(11, 1, DATE '1970-12-31', DATE '1970-12-31', 7, 7), " +
+                        "(600, 1, DATE '2020-01-01', DATE '2020-01-01', 8, 8), " +
+                        "(605, 3, DATE '2020-06-06', DATE '2020-06-28', 9, 11), " +
+                        "(606, 2, DATE '2020-07-18', DATE '2020-07-28', 12, 13), " +
+                        "(611, 1, DATE '2020-12-31', DATE '2020-12-31', 14, 14)");
 
-        assertQuery("SELECT COUNT(*) FROM \"test_year_transform$partitions\"", "SELECT 3");
+        dropTable("test_month_transform_date");
+    }
 
-        assertQuery("SELECT b FROM test_year_transform WHERE year(d) = 2015", "SELECT b FROM (VALUES (1), (2), (3)) AS t(b)");
-        // 45 = 2015 - 1970
-        assertQuery(select + " WHERE d_year = 45", "VALUES(45, 3, DATE '2015-01-13', DATE '2015-07-28', 1, 3)");
+    @Test
+    public void testMonthTransformTimestamp()
+    {
+        assertUpdate("CREATE TABLE test_month_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
 
-        assertQuery("SELECT b FROM test_year_transform WHERE year(d) = 2016", "SELECT b FROM (VALUES (4), (5)) AS t(b)");
-        assertQuery(select + " WHERE d_year = 46", "VALUES(46, 2, DATE '2016-05-15', DATE '2016-06-06', 4, 5)");
+        @Language("SQL") String values = "VALUES " +
+                "(TIMESTAMP '1969-11-15 15:13:12.876543', 8)," +
+                "(TIMESTAMP '1969-11-19 18:47:33.345678', 9)," +
+                "(TIMESTAMP '1969-12-01 00:00:00.000000', 10)," +
+                "(TIMESTAMP '1969-12-01 05:06:07.234567', 11)," +
+                "(TIMESTAMP '1970-01-01 12:03:08.456789', 12)," +
+                "(TIMESTAMP '2015-01-01 10:01:23.123456', 1)," +
+                "(TIMESTAMP '2015-01-01 11:10:02.987654', 2)," +
+                "(TIMESTAMP '2015-01-01 12:55:00.456789', 3)," +
+                "(TIMESTAMP '2015-05-15 13:05:01.234567', 4)," +
+                "(TIMESTAMP '2015-05-15 14:21:02.345678', 5)," +
+                "(TIMESTAMP '2020-02-21 15:11:11.876543', 6)," +
+                "(TIMESTAMP '2020-02-21 16:12:12.654321', 7)";
+        assertUpdate("INSERT INTO test_month_transform_timestamp " + values, 12);
+        assertQuery("SELECT * FROM test_month_transform_timestamp", values);
 
-        assertQuery("SELECT b FROM test_year_transform WHERE year(d) = 2020", "SELECT b FROM (VALUES (6), (7)) AS t(b)");
-        assertQuery(select + " WHERE d_year = 50", "VALUES(50, 2, DATE '2020-02-21', DATE '2020-11-10', 6, 7)");
+        @Language("SQL") String expected = "VALUES " +
+                "(-1, 3, TIMESTAMP '1969-11-15 15:13:12.876543', TIMESTAMP '1969-12-01 00:00:00.000000', 8, 10), " +
+                "(0, 2, TIMESTAMP '1969-12-01 05:06:07.234567', TIMESTAMP '1970-01-01 12:03:08.456789', 11, 12), " +
+                "(540, 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 12:55:00.456789', 1, 3), " +
+                "(544, 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-05-15 14:21:02.345678', 4, 5), " +
+                "(601, 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-02-21 16:12:12.654321', 6, 7)";
+        if (format == ORC) {
+            expected = "VALUES " +
+                    "(-1, 3, NULL, NULL, 8, 10), " +
+                    "(0, 2, NULL, NULL, 11, 12), " +
+                    "(540, 3, NULL, NULL, 1, 3), " +
+                    "(544, 2, NULL, NULL, 4, 5), " +
+                    "(601, 2, NULL, NULL, 6, 7)";
+        }
 
-        dropTable("test_year_transform");
+        assertQuery("SELECT d_month, row_count, d.min, d.max, b.min, b.max FROM \"test_month_transform_timestamp$partitions\"", expected);
+
+        dropTable("test_month_transform_timestamp");
+    }
+
+    @Test
+    public void testYearTransformDate()
+    {
+        assertUpdate("CREATE TABLE test_year_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
+
+        @Language("SQL") String values = "VALUES " +
+                "(DATE '1968-10-13', 1), " +
+                "(DATE '1969-01-01', 2), " +
+                "(DATE '1969-03-15', 3), " +
+                "(DATE '1970-01-01', 4), " +
+                "(DATE '1970-03-05', 5), " +
+                "(DATE '2015-01-01', 6), " +
+                "(DATE '2015-06-16', 7), " +
+                "(DATE '2015-07-28', 8), " +
+                "(DATE '2016-05-15', 9), " +
+                "(DATE '2016-06-06', 10), " +
+                "(DATE '2020-02-21', 11), " +
+                "(DATE '2020-11-10', 12)";
+        assertUpdate("INSERT INTO test_year_transform_date " + values, 12);
+        assertQuery("SELECT * FROM test_year_transform_date", values);
+
+        assertQuery(
+                "SELECT d_year, row_count, d.min, d.max, b.min, b.max FROM \"test_year_transform_date$partitions\"",
+                "VALUES " +
+                        "(-1, 2, DATE '1968-10-13', DATE '1969-01-01', 1, 2), " +
+                        "(0, 3, DATE '1969-03-15', DATE '1970-03-05', 3, 5), " +
+                        "(45, 3, DATE '2015-01-01', DATE '2015-07-28', 6, 8), " +
+                        "(46, 2, DATE '2016-05-15', DATE '2016-06-06', 9, 10), " +
+                        "(50, 2, DATE '2020-02-21', DATE '2020-11-10', 11, 12)");
+
+        dropTable("test_year_transform_date");
+    }
+
+    @Test
+    public void testYearTransformTimestamp()
+    {
+        assertUpdate("CREATE TABLE test_year_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
+
+        @Language("SQL") String values = "VALUES " +
+                "(TIMESTAMP '1968-03-15 15:13:12.876543', 1)," +
+                "(TIMESTAMP '1968-11-19 18:47:33.345678', 2)," +
+                "(TIMESTAMP '1969-01-01 00:00:00.000000', 3)," +
+                "(TIMESTAMP '1969-01-01 05:06:07.234567', 4)," +
+                "(TIMESTAMP '1970-01-18 12:03:08.456789', 5)," +
+                "(TIMESTAMP '1970-03-14 10:01:23.123456', 6)," +
+                "(TIMESTAMP '1970-08-19 11:10:02.987654', 7)," +
+                "(TIMESTAMP '1970-12-31 12:55:00.456789', 8)," +
+                "(TIMESTAMP '2015-05-15 13:05:01.234567', 9)," +
+                "(TIMESTAMP '2015-09-15 14:21:02.345678', 10)," +
+                "(TIMESTAMP '2020-02-21 15:11:11.876543', 11)," +
+                "(TIMESTAMP '2020-08-21 16:12:12.654321', 12)";
+        assertUpdate("INSERT INTO test_year_transform_timestamp " + values, 12);
+        assertQuery("SELECT * FROM test_year_transform_timestamp", values);
+
+        @Language("SQL") String expected = "VALUES " +
+                "(-1, 3, TIMESTAMP '1968-03-15 15:13:12.876543', TIMESTAMP '1969-01-01 00:00:00.000000', 1, 3), " +
+                "(0, 5, TIMESTAMP '1969-01-01 05:06:07.234567', TIMESTAMP '1970-12-31 12:55:00.456789', 4, 8), " +
+                "(45, 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-09-15 14:21:02.345678', 9, 10), " +
+                "(50, 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-08-21 16:12:12.654321', 11, 12)";
+        if (format == ORC) {
+            expected = "VALUES " +
+                    "(-1, 3, NULL, NULL, 1, 3), " +
+                    "(0, 5, NULL, NULL, 4, 8), " +
+                    "(45, 2, NULL, NULL, 9, 10), " +
+                    "(50, 2, NULL, NULL, 11, 12)";
+        }
+
+        assertQuery("SELECT d_year, row_count, d.min, d.max, b.min, b.max FROM \"test_year_transform_timestamp$partitions\"", expected);
+
+        dropTable("test_year_transform_timestamp");
     }
 
     @Test
@@ -740,7 +883,7 @@ public abstract class AbstractTestIcebergSmoke
 
         assertUpdate("CREATE TABLE test_truncate_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 2)'])");
 
-        String insertSql = "INSERT INTO test_truncate_transform VALUES" +
+        @Language("SQL") String insertSql = "INSERT INTO test_truncate_transform VALUES" +
                 "('abcd', 1)," +
                 "('abxy', 2)," +
                 "('ab598', 3)," +
@@ -770,7 +913,7 @@ public abstract class AbstractTestIcebergSmoke
         String select = "SELECT d_bucket, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_bucket_transform$partitions\"";
 
         assertUpdate("CREATE TABLE test_bucket_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['bucket(d, 2)'])");
-        String insertSql = "INSERT INTO test_bucket_transform VALUES" +
+        @Language("SQL") String insertSql = "INSERT INTO test_bucket_transform VALUES" +
                 "('abcd', 1)," +
                 "('abxy', 2)," +
                 "('ab598', 3)," +
@@ -860,7 +1003,7 @@ public abstract class AbstractTestIcebergSmoke
         assertUpdate("CREATE TABLE test_in_set (col1 INTEGER, col2 BIGINT)");
         assertUpdate(format("INSERT INTO test_in_set VALUES %s", values), inCount);
         // This proves that SELECTs with large IN phrases work correctly
-        MaterializedResult result = computeActual(format("SELECT col1 FROM test_in_set WHERE col1 IN (%s)", inList));
+        computeActual(format("SELECT col1 FROM test_in_set WHERE col1 IN (%s)", inList));
         dropTable("test_in_set");
     }
 
@@ -898,7 +1041,7 @@ public abstract class AbstractTestIcebergSmoke
 
     private Double columnSizeForFormat(double size)
     {
-        return format == FileFormat.PARQUET ? size : null;
+        return format == PARQUET ? size : null;
     }
 
     @Test
@@ -934,11 +1077,11 @@ public abstract class AbstractTestIcebergSmoke
 
         assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(21, 25)
                 .mapToObj(i -> format("(200, %d, DATE '2020-07-%d')", i, i))
-                .collect(Collectors.joining(", ")), 5);
+                .collect(joining(", ")), 5);
 
         assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(26, 30)
                 .mapToObj(i -> format("(NULL, %d, DATE '2020-06-%d')", i, i))
-                .collect(Collectors.joining(", ")), 5);
+                .collect(joining(", ")), 5);
 
         result = computeActual("SHOW STATS FOR " + tableName);
 
@@ -967,10 +1110,10 @@ public abstract class AbstractTestIcebergSmoke
         assertEquals(result.getRowCount(), 3);
 
         MaterializedRow row0 = result.getMaterializedRows().get(0);
-        org.testng.Assert.assertEquals(row0.getField(0), "col1");
-        org.testng.Assert.assertEquals(row0.getField(3), 0.0);
-        org.testng.Assert.assertEquals(row0.getField(5), "-10.0");
-        org.testng.Assert.assertEquals(row0.getField(6), "100.0");
+        assertEquals(row0.getField(0), "col1");
+        assertEquals(row0.getField(3), 0.0);
+        assertEquals(row0.getField(5), "-10.0");
+        assertEquals(row0.getField(6), "100.0");
 
         MaterializedRow row1 = result.getMaterializedRows().get(1);
         assertEquals(row1.getField(0), "col2");
@@ -983,11 +1126,11 @@ public abstract class AbstractTestIcebergSmoke
 
         assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(1, 5)
                 .mapToObj(i -> format("(%d, 10)", i + 100))
-                .collect(Collectors.joining(", ")), 5);
+                .collect(joining(", ")), 5);
 
         assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(6, 10)
                 .mapToObj(i -> "(NULL, 10)")
-                .collect(Collectors.joining(", ")), 5);
+                .collect(joining(", ")), 5);
 
         result = computeActual("SHOW STATS FOR iceberg.tpch.test_partitioned_table_statistics");
         assertEquals(result.getRowCount(), 3);
@@ -1008,7 +1151,7 @@ public abstract class AbstractTestIcebergSmoke
 
         assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(6, 10)
                 .mapToObj(i -> "(100, NULL)")
-                .collect(Collectors.joining(", ")), 5);
+                .collect(joining(", ")), 5);
 
         result = computeActual("SHOW STATS FOR iceberg.tpch.test_partitioned_table_statistics");
         row0 = result.getMaterializedRows().get(0);
@@ -1048,7 +1191,7 @@ public abstract class AbstractTestIcebergSmoke
         tableStatistics = getTableStatistics(tableName, constraint);
         assertEquals(tableStatistics.getRowCount().getValue(), 2.0);
         ColumnStatistics columnStatistics = getStatisticsForColumn(tableStatistics, "col1");
-        assertEquals(columnStatistics.getRange().get(), new DoubleRange(3, 4));
+        assertThat(columnStatistics.getRange()).hasValue(new DoubleRange(3, 4));
 
         // This shows that Predicate<ColumnHandle, NullableValue> only filters rows for partitioned columns.
         predicate = new TestRelationalNumberPredicate("col2", 102, i -> i >= 0);
@@ -1056,7 +1199,7 @@ public abstract class AbstractTestIcebergSmoke
         tableStatistics = getTableStatistics(tableName, new Constraint(TupleDomain.all(), Optional.of(predicate), Optional.empty()));
         assertEquals(tableStatistics.getRowCount().getValue(), 4.0);
         columnStatistics = getStatisticsForColumn(tableStatistics, "col2");
-        assertEquals(columnStatistics.getRange().get(), new DoubleRange(101, 104));
+        assertThat(columnStatistics.getRange()).hasValue(new DoubleRange(101, 104));
 
         dropTable(tableName);
     }
@@ -1085,7 +1228,7 @@ public abstract class AbstractTestIcebergSmoke
                     if (object instanceof Long) {
                         return comparePredicate.test(((Long) object).compareTo(comparand.longValue()));
                     }
-                    else if (object instanceof Double) {
+                    if (object instanceof Double) {
                         return comparePredicate.test(((Double) object).compareTo(comparand.doubleValue()));
                     }
                     throw new IllegalArgumentException(format("NullableValue is neither Long or Double, but %s", object));
@@ -1106,7 +1249,7 @@ public abstract class AbstractTestIcebergSmoke
         throw new IllegalArgumentException("TableStatistics did not contain column named " + columnName);
     }
 
-    private IcebergColumnHandle getColumnHandleFromStatistics(TableStatistics tableStatistics, String columnName)
+    private static IcebergColumnHandle getColumnHandleFromStatistics(TableStatistics tableStatistics, String columnName)
     {
         for (ColumnHandle columnHandle : tableStatistics.getColumnStatistics().keySet()) {
             IcebergColumnHandle handle = (IcebergColumnHandle) columnHandle;
@@ -1122,7 +1265,7 @@ public abstract class AbstractTestIcebergSmoke
         assertNotNull(statistics, "statistics is null");
         // Sadly, statistics.getDataSize().isUnknown() for columns in ORC files. See the TODO
         // in IcebergOrcFileWriter.
-        if (format != FileFormat.ORC) {
+        if (format != ORC) {
             assertFalse(statistics.getDataSize().isUnknown());
         }
         assertFalse(statistics.getNullsFraction().isUnknown(), "statistics nulls fraction is unknown");
@@ -1146,7 +1289,7 @@ public abstract class AbstractTestIcebergSmoke
     public void testCreateNestedPartitionedTable()
     {
         @Language("SQL") String createTable = "" +
-            "CREATE TABLE test_nested_table_1 (" +
+                "CREATE TABLE test_nested_table_1 (" +
                 " bool BOOLEAN" +
                 ", int INTEGER" +
                 ", arr ARRAY(VARCHAR)" +
@@ -1164,7 +1307,7 @@ public abstract class AbstractTestIcebergSmoke
 
         assertUpdate(createTable);
 
-        String insertSql = "INSERT INTO test_nested_table_1 " +
+        @Language("SQL") String insertSql = "INSERT INTO test_nested_table_1 " +
                 " select true, 1, array['uno', 'dos', 'tres'], BIGINT '1', REAL '1.0', DOUBLE '1.0', map(array[1,2,3,4], array['ek','don','teen','char'])," +
                 " CAST(1.0 as DECIMAL(5,2))," +
                 " 'one', VARBINARY 'binary0/1values',\n" +
@@ -1177,7 +1320,7 @@ public abstract class AbstractTestIcebergSmoke
         dropTable("test_nested_table_1");
 
         @Language("SQL") String createTable2 = "" +
-            "CREATE TABLE test_nested_table_2 (" +
+                "CREATE TABLE test_nested_table_2 (" +
                 " int INTEGER" +
                 ", arr ARRAY(ROW(id INTEGER, vc VARCHAR))" +
                 ", big BIGINT" +
@@ -1201,7 +1344,7 @@ public abstract class AbstractTestIcebergSmoke
         assertEquals(result.getRowCount(), 1);
 
         @Language("SQL") String createTable3 = "" +
-            "CREATE TABLE test_nested_table_3 WITH (partitioning = ARRAY['int']) AS SELECT * FROM test_nested_table_2";
+                "CREATE TABLE test_nested_table_3 WITH (partitioning = ARRAY['int']) AS SELECT * FROM test_nested_table_2";
 
         assertUpdate(createTable3, 1);
 

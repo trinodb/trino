@@ -53,6 +53,8 @@ Binary Functions
     negative starting position is interpreted as being relative to the end of
     the string.
 
+.. _function_reverse_varbinary:
+
 .. function:: reverse(binary) -> varbinary
     :noindex:
 
@@ -167,6 +169,10 @@ Hashing Functions
 .. function:: xxhash64(binary) -> varbinary
 
     Computes the xxHash64 hash of ``binary``.
+
+.. function:: murmur3(binary) -> varbinary
+
+    Computes the 128-bit murmur3 hash of ``binary``.
 
 HMAC Functions
 --------------

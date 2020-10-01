@@ -44,8 +44,9 @@ public final class TimeType
     public static final TimeType TIME_PICOS = createTimeType(12);
 
     /**
-     * @deprecated use {@link #TIME_MILLIS} instead
+     * @deprecated Use {@link #TIME_MILLIS} instead
      */
+    @Deprecated
     public static final TimeType TIME = new TimeType(DEFAULT_PRECISION);
 
     private final int precision;
@@ -59,7 +60,7 @@ public final class TimeType
     public static TimeType createTimeType(int precision)
     {
         if (precision < 0 || precision > MAX_PRECISION) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIME precision must be in range [0, %s]", MAX_PRECISION));
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIME precision must be in range [0, %s]: %s", MAX_PRECISION, precision));
         }
         return TYPES[precision];
     }

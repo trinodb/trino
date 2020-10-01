@@ -27,6 +27,9 @@ public abstract class TimeWithTimeZoneType
 
     public static final int DEFAULT_PRECISION = 3; // TODO: should be 6 per SQL spec
 
+    /**
+     * @deprecated Use {@link #createTimeWithTimeZoneType} instead.
+     */
     @Deprecated
     public static final TimeWithTimeZoneType TIME_WITH_TIME_ZONE = new ShortTimeWithTimeZoneType(DEFAULT_PRECISION);
 
@@ -40,7 +43,7 @@ public abstract class TimeWithTimeZoneType
         }
 
         if (precision < 0 || precision > MAX_PRECISION) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIME WITH TIME ZONE precision must be in range [0, %s]", MAX_PRECISION));
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIME WITH TIME ZONE precision must be in range [0, %s]: %s", MAX_PRECISION, precision));
         }
 
         if (precision <= MAX_SHORT_PRECISION) {

@@ -34,12 +34,6 @@ public class Suite8NonGeneric
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
         return ImmutableList.of(
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *    --environment singlenode-hdp3 \
-                 *     -- -g hdp3_only,hive_transactional \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeHdp3.class).withGroups("hdp3_only", "hive_transactional").build());
     }
 }

@@ -15,11 +15,13 @@ package io.prestosql.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.units.Duration;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.StatsAndCosts;
+import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.execution.MockRemoteTaskFactory;
 import io.prestosql.execution.MockRemoteTaskFactory.MockRemoteTask;
 import io.prestosql.execution.NodeTaskMap;
@@ -33,24 +35,30 @@ import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.server.DynamicFilterService;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitSource;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedSplitSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.split.ConnectorAwareSplitSource;
 import io.prestosql.split.SplitSource;
+import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.StageExecutionPlan;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
+import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.RemoteSourceNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
+import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import io.prestosql.testing.TestingSplit;
 import io.prestosql.util.FinalizerService;
@@ -75,13 +83,15 @@ import static io.prestosql.execution.buffer.OutputBuffers.BufferType.PARTITIONED
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.prestosql.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
 import static io.prestosql.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
@@ -98,6 +108,8 @@ public class TestSourcePartitionedScheduler
 {
     public static final OutputBufferId OUT = new OutputBufferId(0);
     private static final CatalogName CONNECTOR_ID = TEST_TABLE_HANDLE.getCatalogName();
+    private static final QueryId QUERY_ID = new QueryId("query");
+    private static final DynamicFilterId DYNAMIC_FILTER_ID = new DynamicFilterId("filter1");
 
     private final ExecutorService queryExecutor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%s"));
@@ -319,6 +331,7 @@ public class TestSourcePartitionedScheduler
                     Iterables.getOnlyElement(plan.getSplitSources().values()),
                     new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                     2,
+                    new DynamicFilterService(new DynamicFilterConfig()),
                     () -> false);
             scheduler.schedule();
         }).hasErrorCode(NO_NODES_AVAILABLE);
@@ -392,6 +405,7 @@ public class TestSourcePartitionedScheduler
                 Iterables.getOnlyElement(plan.getSplitSources().values()),
                 new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                 500,
+                new DynamicFilterService(new DynamicFilterConfig()),
                 () -> false);
 
         // the queues of 3 running nodes should be full
@@ -430,6 +444,7 @@ public class TestSourcePartitionedScheduler
                 Iterables.getOnlyElement(plan.getSplitSources().values()),
                 new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID)), stage::getAllTasks),
                 400,
+                new DynamicFilterService(new DynamicFilterConfig()),
                 () -> true);
 
         // the queues of 3 running nodes should be full
@@ -443,6 +458,46 @@ public class TestSourcePartitionedScheduler
         scheduleResult = scheduler.schedule();
         assertEquals(scheduleResult.getBlockedReason().get(), SPLIT_QUEUES_FULL);
         assertEquals(scheduleResult.getNewTasks().size(), 0);
+        assertEquals(scheduleResult.getSplitsScheduled(), 0);
+    }
+
+    @Test
+    public void testDynamicFiltersUnblockedOnBlockedBuildSource()
+    {
+        StageExecutionPlan plan = createPlan(createBlockedSplitSource());
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap));
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new DynamicFilterConfig());
+        dynamicFilterService.registerQuery(
+                QUERY_ID,
+                ImmutableSet.of(DYNAMIC_FILTER_ID),
+                ImmutableSet.of(DYNAMIC_FILTER_ID),
+                ImmutableSet.of(DYNAMIC_FILTER_ID));
+        StageScheduler scheduler = newSourcePartitionedSchedulerAsStageScheduler(
+                stage,
+                Iterables.getOnlyElement(plan.getSplitSources().keySet()),
+                Iterables.getOnlyElement(plan.getSplitSources().values()),
+                new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID)), stage::getAllTasks),
+                2,
+                dynamicFilterService,
+                () -> true);
+
+        SymbolReference symbolReference = new SymbolReference("DF_SYMBOL1");
+        DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
+                QUERY_ID,
+                ImmutableList.of(new DynamicFilters.Descriptor(DYNAMIC_FILTER_ID, symbolReference)),
+                ImmutableMap.of(Symbol.from(symbolReference), new TestingColumnHandle("probeColumnA")));
+
+        // make sure dynamic filter is initially blocked
+        assertFalse(dynamicFilter.isBlocked().isDone());
+
+        // make sure dynamic filter is unblocked due to build side source tasks being blocked
+        ScheduleResult scheduleResult = scheduler.schedule();
+        assertTrue(dynamicFilter.isBlocked().isDone());
+
+        // make sure that an extra task for collecting dynamic filters was created
+        assertEquals(scheduleResult.getNewTasks().size(), 1);
         assertEquals(scheduleResult.getSplitsScheduled(), 0);
     }
 
@@ -482,12 +537,20 @@ public class TestSourcePartitionedScheduler
         PlanNodeId sourceNode = Iterables.getOnlyElement(plan.getSplitSources().keySet());
         SplitSource splitSource = Iterables.getOnlyElement(plan.getSplitSources().values());
         SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(splitSource.getCatalogName())), stage::getAllTasks);
-        return newSourcePartitionedSchedulerAsStageScheduler(stage, sourceNode, splitSource, placementPolicy, splitBatchSize, () -> false);
+        return newSourcePartitionedSchedulerAsStageScheduler(
+                stage,
+                sourceNode,
+                splitSource,
+                placementPolicy,
+                splitBatchSize,
+                new DynamicFilterService(new DynamicFilterConfig()),
+                () -> false);
     }
 
     private static StageExecutionPlan createPlan(ConnectorSplitSource splitSource)
     {
         Symbol symbol = new Symbol("column");
+        Symbol buildSymbol = new Symbol("buildColumn");
 
         // table scan with splitCount splits
         PlanNodeId tableScanNodeId = new PlanNodeId("plan_id");
@@ -496,13 +559,17 @@ public class TestSourcePartitionedScheduler
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")));
+        FilterNode filterNode = new FilterNode(
+                new PlanNodeId("filter_node_id"),
+                tableScan,
+                createDynamicFilterExpression(createTestMetadataManager(), DYNAMIC_FILTER_ID, VARCHAR, symbol.toSymbolReference()));
 
-        RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId("plan_fragment_id"), ImmutableList.of(), Optional.empty(), GATHER);
+        RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId("plan_fragment_id"), ImmutableList.of(buildSymbol), Optional.empty(), REPLICATE);
         PlanFragment testFragment = new PlanFragment(
                 new PlanFragmentId("plan_id"),
                 new JoinNode(new PlanNodeId("join_id"),
                         INNER,
-                        tableScan,
+                        filterNode,
                         remote,
                         ImmutableList.of(),
                         tableScan.getOutputSymbols(),
@@ -512,7 +579,7 @@ public class TestSourcePartitionedScheduler
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        ImmutableMap.of(),
+                        ImmutableMap.of(DYNAMIC_FILTER_ID, buildSymbol),
                         Optional.empty()),
                 ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
@@ -529,6 +596,29 @@ public class TestSourcePartitionedScheduler
                 ImmutableMap.of(tableScanNodeId, new TableInfo(new QualifiedObjectName("test", "test", "test"), TupleDomain.all())));
     }
 
+    private static ConnectorSplitSource createBlockedSplitSource()
+    {
+        return new ConnectorSplitSource()
+        {
+            @Override
+            public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+            {
+                return new CompletableFuture<>();
+            }
+
+            @Override
+            public void close()
+            {
+            }
+
+            @Override
+            public boolean isFinished()
+            {
+                return false;
+            }
+        };
+    }
+
     private static ConnectorSplitSource createFixedSplitSource(int splitCount, Supplier<ConnectorSplit> splitFactory)
     {
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
@@ -541,7 +631,7 @@ public class TestSourcePartitionedScheduler
 
     private SqlStageExecution createSqlStageExecution(StageExecutionPlan tableScanPlan, NodeTaskMap nodeTaskMap)
     {
-        StageId stageId = new StageId(new QueryId("query"), 0);
+        StageId stageId = new StageId(QUERY_ID, 0);
         SqlStageExecution stage = SqlStageExecution.createSqlStageExecution(stageId,
                 tableScanPlan.getFragment(),
                 tableScanPlan.getTables(),
@@ -551,6 +641,7 @@ public class TestSourcePartitionedScheduler
                 nodeTaskMap,
                 queryExecutor,
                 new NoOpFailureDetector(),
+                new DynamicFilterService(new DynamicFilterConfig()),
                 new SplitSchedulerStats());
 
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(PARTITIONED)

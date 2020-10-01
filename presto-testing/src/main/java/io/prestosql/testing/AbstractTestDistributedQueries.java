@@ -33,6 +33,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -84,6 +85,11 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
+    protected boolean supportsDelete()
+    {
+        return true;
+    }
+
     protected boolean supportsViews()
     {
         return true;
@@ -94,9 +100,14 @@ public abstract class AbstractTestDistributedQueries
         return true;
     }
 
+    protected boolean supportsCommentOnTable()
+    {
+        return true;
+    }
+
     protected boolean supportsCommentOnColumn()
     {
-        return false;
+        return true;
     }
 
     /**
@@ -337,43 +348,101 @@ public abstract class AbstractTestDistributedQueries
     public void testCommentTable()
     {
         String tableName = "test_comment_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + "(id integer)");
+        if (!supportsCommentOnTable()) {
+            assertUpdate("CREATE TABLE " + tableName + "(a integer)");
+            assertQueryFails("COMMENT ON TABLE " + tableName + " IS 'new comment'", "This connector does not support setting table comments");
+            assertUpdate("DROP TABLE " + tableName);
+            return;
+        }
 
+        assertUpdate("CREATE TABLE " + tableName + "(a integer)");
+
+        // comment set
         assertUpdate("COMMENT ON TABLE " + tableName + " IS 'new comment'");
-        MaterializedResult materializedRows = computeActual("SHOW CREATE TABLE " + tableName);
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'new comment'"));
+        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).contains("COMMENT 'new comment'");
+        assertThat(getTableComment(tableName)).isEqualTo("new comment");
 
+        // comment updated
+        assertUpdate("COMMENT ON TABLE " + tableName + " IS 'updated comment'");
+        assertThat(getTableComment(tableName)).isEqualTo("updated comment");
+
+        // comment set to empty or deleted
         assertUpdate("COMMENT ON TABLE " + tableName + " IS ''");
-        materializedRows = computeActual("SHOW CREATE TABLE " + tableName);
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT ''"));
+        assertThat(getTableComment(tableName)).isIn("", null); // Some storages do not preserve empty comment
 
+        // comment deleted
+        assertUpdate("COMMENT ON TABLE " + tableName + " IS 'a comment'");
+        assertThat(getTableComment(tableName)).isEqualTo("a comment");
         assertUpdate("COMMENT ON TABLE " + tableName + " IS NULL");
-        materializedRows = computeActual("SHOW CREATE TABLE " + tableName);
-        assertFalse(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT"));
+        assertThat(getTableComment(tableName)).isEqualTo(null);
 
         assertUpdate("DROP TABLE " + tableName);
+
+        // comment set when creating a table
+        assertUpdate("CREATE TABLE " + tableName + "(key integer) COMMENT 'new table comment'");
+        assertThat(getTableComment(tableName)).isEqualTo("new table comment");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private String getTableComment(String tableName)
+    {
+        // TODO use information_schema.tables.table_comment
+        String result = (String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue();
+        Matcher matcher = Pattern.compile("COMMENT '([^']*)'").matcher(result);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
     }
 
     @Test
     public void testCommentColumn()
     {
-        skipTestUnless(supportsCommentOnColumn());
+        String tableName = "test_comment_column_" + randomTableSuffix();
+        if (!supportsCommentOnColumn()) {
+            assertUpdate("CREATE TABLE " + tableName + "(a integer)");
+            assertQueryFails("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'", "This connector does not support setting column comments");
+            assertUpdate("DROP TABLE " + tableName);
+            return;
+        }
 
-        assertUpdate("CREATE TABLE test_comment_column(id integer)");
+        assertUpdate("CREATE TABLE " + tableName + "(a integer)");
 
-        assertUpdate("COMMENT ON COLUMN test_comment_column.id IS 'new comment'");
-        MaterializedResult materializedRows = computeActual("SHOW CREATE TABLE test_comment_column");
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'new comment'"));
+        // comment set
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'");
+        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).contains("COMMENT 'new comment'");
+        assertThat(getColumnComment(tableName, "a")).isEqualTo("new comment");
 
-        assertUpdate("COMMENT ON COLUMN test_comment_column.id IS ''");
-        materializedRows = computeActual("SHOW CREATE TABLE test_comment_column");
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT ''"));
+        // comment updated
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'updated comment'");
+        assertThat(getColumnComment(tableName, "a")).isEqualTo("updated comment");
 
-        assertUpdate("COMMENT ON COLUMN test_comment_column.id IS NULL");
-        materializedRows = computeActual("SHOW CREATE TABLE test_comment_column");
-        assertFalse(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT"));
+        // comment set to empty or deleted
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS ''");
+        assertThat(getColumnComment(tableName, "a")).isIn("", null); // Some storages do not preserve empty comment
 
-        assertUpdate("DROP TABLE test_comment_column");
+        // comment deleted
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'a comment'");
+        assertThat(getColumnComment(tableName, "a")).isEqualTo("a comment");
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS NULL");
+        assertThat(getColumnComment(tableName, "a")).isEqualTo(null);
+
+        assertUpdate("DROP TABLE " + tableName);
+
+        // TODO: comment set when creating a table
+//        assertUpdate("CREATE TABLE " + tableName + "(a integer COMMENT 'new column comment')");
+//        assertThat(getColumnComment(tableName, "a")).isEqualTo("new column comment");
+//        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private String getColumnComment(String tableName, String columnName)
+    {
+        MaterializedResult materializedResult = computeActual(format(
+                "SELECT comment FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'",
+                getSession().getSchema().orElseThrow(),
+                tableName,
+                columnName));
+        return (String) materializedResult.getOnlyValue();
     }
 
     @Test
@@ -594,6 +663,13 @@ public abstract class AbstractTestDistributedQueries
         // delete half the table, then delete the rest
         String tableName = "test_delete_" + randomTableSuffix();
 
+        if (!supportsDelete()) {
+            assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders WITH NO DATA", 0);
+            assertQueryFails("DELETE FROM " + tableName, "This connector does not support updates or deletes");
+            assertUpdate("DROP TABLE " + tableName);
+            return;
+        }
+
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
 
         assertUpdate("DELETE FROM " + tableName + " WHERE orderkey % 2 = 0", "SELECT count(*) FROM orders WHERE orderkey % 2 = 0");
@@ -739,7 +815,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("CREATE OR REPLACE VIEW " + testViewWithComment + " COMMENT 'orders' AS " + query);
 
         MaterializedResult materializedRows = computeActual("SHOW CREATE VIEW " + testViewWithComment);
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'orders'"));
+        assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT 'orders'");
 
         assertQuery("SELECT * FROM " + testView, query);
         assertQuery("SELECT * FROM " + testViewWithComment, query);
@@ -1062,7 +1138,7 @@ public abstract class AbstractTestDistributedQueries
         // verify selecting from a view over a table requires the view owner to have special view creation privileges for the table
         assertAccessDenied(
                 "SELECT * FROM " + columnAccessViewName,
-                "View owner 'test_view_access_owner' cannot create view that selects from .*.orders.*",
+                "View owner does not have sufficient privileges: View owner 'test_view_access_owner' cannot create view that selects from \\w+.\\w+.orders\\w*",
                 privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify the view owner can select from the view even without special view creation privileges
@@ -1095,7 +1171,7 @@ public abstract class AbstractTestDistributedQueries
         // verify selecting from a view over a view requires the view owner of the outer view to have special view creation privileges for the inner view
         assertAccessDenied(
                 "SELECT * FROM " + nestedViewName,
-                "View owner 'test_nested_view_access_owner' cannot create view that selects from .*.test_view_column_access.*",
+                "View owner does not have sufficient privileges: View owner 'test_nested_view_access_owner' cannot create view that selects from \\w+.\\w+.test_view_column_access\\w*",
                 privilege(nestedViewOwnerSession.getUser(), columnAccessViewName, CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a view does not require the session user to have SELECT privileges for the inner view
@@ -1150,7 +1226,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertAccessDenied(
                 "SELECT * FROM " + functionAccessViewName,
-                "'test_view_access_owner' cannot grant 'abs' execution to user '\\w*'",
+                "View owner does not have sufficient privileges: 'test_view_access_owner' cannot grant 'abs' execution to user '\\w*'",
                 privilege(viewOwnerSession.getUser(), "abs", GRANT_EXECUTE_FUNCTION));
 
         // verify executing from a view over a function does not require the session user to have execute privileges on the underlying function

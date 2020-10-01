@@ -54,7 +54,8 @@ final class OrcTestingUtil
     public static OrcRecordReader createReader(OrcDataSource dataSource, List<Long> columnIds, List<Type> types)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(dataSource, READER_OPTIONS);
+        OrcReader orcReader = OrcReader.createOrcReader(dataSource, READER_OPTIONS)
+                .orElseThrow(() -> new RuntimeException("File is empty"));
 
         List<String> columnNames = orcReader.getColumnNames();
         assertEquals(columnNames.size(), columnIds.size());

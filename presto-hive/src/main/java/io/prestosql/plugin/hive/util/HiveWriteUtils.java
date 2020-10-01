@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import com.qubole.rubix.prestosql.CachingPrestoS3FileSystem;
-import io.airlift.log.Logger;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveReadOnlyException;
@@ -113,7 +112,6 @@ import static io.prestosql.plugin.hive.util.HiveUtil.isArrayType;
 import static io.prestosql.plugin.hive.util.HiveUtil.isMapType;
 import static io.prestosql.plugin.hive.util.HiveUtil.isRowType;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
@@ -157,8 +155,6 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getVarcharT
 
 public final class HiveWriteUtils
 {
-    private static final Logger log = Logger.get(HiveWriteUtils.class);
-
     private HiveWriteUtils()
     {
     }
@@ -526,7 +522,7 @@ public final class HiveWriteUtils
         }
     }
 
-    public static Path createTemporaryPath(ConnectorSession session, HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath, boolean hdfsImpersonationEnabled)
+    public static Path createTemporaryPath(ConnectorSession session, HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath)
     {
         // use a per-user temporary directory to avoid permission problems
         String temporaryPrefix = getTemporaryStagingDirectoryPath(session)
@@ -543,14 +539,14 @@ public final class HiveWriteUtils
 
         createDirectory(context, hdfsEnvironment, temporaryPath);
 
-        if (hdfsImpersonationEnabled) {
+        if (hdfsEnvironment.isNewFileInheritOwnership()) {
             setDirectoryOwner(context, hdfsEnvironment, temporaryPath, targetPath);
         }
 
         return temporaryPath;
     }
 
-    public static void setDirectoryOwner(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path, Path targetPath)
+    private static void setDirectoryOwner(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path, Path targetPath)
     {
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, path);
@@ -572,11 +568,7 @@ public final class HiveWriteUtils
             fileSystem.setOwner(path, owner, group);
         }
         catch (IOException e) {
-            // Since there may be nonstandard warehouse, a newly created table's location may not be a
-            // user-unique location, such as /user/hive/warehouse/xxx. In this case, it's not possible to
-            // set owner/group as the table location's parent. In other words, setOwner operation is complement
-            // for well-built warehouse.
-            log.warn(e, "Failed to set owner on %s based on %s", path, targetPath);
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Failed to set owner on %s based on %s", path, targetPath), e);
         }
     }
 
@@ -696,7 +688,7 @@ public final class HiveWriteUtils
             }
         }
 
-        if (isCharType(type)) {
+        if (type instanceof CharType) {
             CharType charType = (CharType) type;
             int charLength = charType.getLength();
             return getPrimitiveWritableObjectInspector(getCharTypeInfo(charLength));

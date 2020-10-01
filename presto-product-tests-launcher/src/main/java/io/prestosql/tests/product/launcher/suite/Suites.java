@@ -33,7 +33,7 @@ public class Suites
             return ClassPath.from(Environments.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
                     .map(ClassPath.ClassInfo::load)
                     .filter(clazz -> !isAbstract(clazz.getModifiers()))
-                    .filter(clazz -> Suite.class.isAssignableFrom(clazz))
+                    .filter(Suite.class::isAssignableFrom)
                     .map(clazz -> (Class<? extends Suite>) clazz.asSubclass(Suite.class))
                     .collect(toImmutableList());
         }

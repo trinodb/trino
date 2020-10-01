@@ -13,9 +13,9 @@
  */
 package io.prestosql.parquet.reader;
 
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.prestosql.parquet.ParquetDataSource;
 import org.apache.parquet.CorruptStatistics;
 import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.format.ColumnChunk;
@@ -40,8 +40,6 @@ import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Type.Repetition;
 import org.apache.parquet.schema.Types;
 
-import java.io.ByteArrayInputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -59,29 +57,22 @@ import java.util.Set;
 import static io.prestosql.parquet.ParquetValidationUtils.validateParquet;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
-import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static org.apache.parquet.format.Util.readFileMetaData;
 import static org.apache.parquet.format.converter.ParquetMetadataConverterUtil.getLogicalTypeAnnotation;
 
 public final class MetadataReader
 {
-    private static final int PARQUET_METADATA_LENGTH = 4;
-    private static final byte[] MAGIC = "PAR1".getBytes(US_ASCII);
+    private static final Slice MAGIC = Slices.utf8Slice("PAR1");
+    private static final int POST_SCRIPT_SIZE = Integer.BYTES + MAGIC.length();
+    private static final int EXPECTED_FOOTER_SIZE = 16 * 1024;
     private static final ParquetMetadataConverter PARQUET_METADATA_CONVERTER = new ParquetMetadataConverter();
 
     private MetadataReader() {}
 
-    public static ParquetMetadata readFooter(FileSystem fileSystem, Path file, long fileSize)
+    public static ParquetMetadata readFooter(ParquetDataSource dataSource)
             throws IOException
-    {
-        try (FSDataInputStream inputStream = fileSystem.open(file)) {
-            return readFooter(inputStream, file, fileSize);
-        }
-    }
-
-    public static ParquetMetadata readFooter(FSDataInputStream inputStream, Path file, long fileSize)
-            throws IOException
-
     {
         // Parquet File Layout:
         //
@@ -91,26 +82,34 @@ public final class MetadataReader
         // 4 bytes: MetadataLength
         // MAGIC
 
-        validateParquet(fileSize >= MAGIC.length + PARQUET_METADATA_LENGTH + MAGIC.length, "%s is not a valid Parquet File", file);
-        long metadataLengthIndex = fileSize - PARQUET_METADATA_LENGTH - MAGIC.length;
+        validateParquet(dataSource.getEstimatedSize() >= MAGIC.length() + POST_SCRIPT_SIZE, "%s is not a valid Parquet File", dataSource.getId());
 
-        InputStream footerStream = readFully(inputStream, metadataLengthIndex, PARQUET_METADATA_LENGTH + MAGIC.length);
-        int metadataLength = readIntLittleEndian(footerStream);
+        // Read the tail of the file
+        long estimatedFileSize = dataSource.getEstimatedSize();
+        long expectedReadSize = min(estimatedFileSize, EXPECTED_FOOTER_SIZE);
+        Slice buffer = dataSource.readTail(toIntExact(expectedReadSize));
 
-        byte[] magic = new byte[MAGIC.length];
-        footerStream.read(magic);
-        validateParquet(Arrays.equals(MAGIC, magic), "Not valid Parquet file: %s expected magic number: %s got: %s", file, Arrays.toString(MAGIC), Arrays.toString(magic));
+        Slice magic = buffer.slice(buffer.length() - MAGIC.length(), MAGIC.length());
+        validateParquet(MAGIC.equals(magic), "Not valid Parquet file: %s expected magic number: %s got: %s", dataSource.getId(), MAGIC.toStringUtf8(), magic.toStringUtf8());
 
-        long metadataIndex = metadataLengthIndex - metadataLength;
+        int metadataLength = buffer.getInt(buffer.length() - POST_SCRIPT_SIZE);
+        long metadataIndex = estimatedFileSize - POST_SCRIPT_SIZE - metadataLength;
         validateParquet(
-                metadataIndex >= MAGIC.length && metadataIndex < metadataLengthIndex,
+                metadataIndex >= MAGIC.length() && metadataIndex < estimatedFileSize - POST_SCRIPT_SIZE,
                 "Corrupted Parquet file: %s metadata index: %s out of range",
-                file,
+                dataSource.getId(),
                 metadataIndex);
-        InputStream metadataStream = readFully(inputStream, metadataIndex, metadataLength);
+
+        int completeFooterSize = metadataLength + POST_SCRIPT_SIZE;
+        if (completeFooterSize > buffer.length()) {
+            // initial read was not large enough, so just read again with the correct size
+            buffer = dataSource.readTail(completeFooterSize);
+        }
+        InputStream metadataStream = buffer.slice(buffer.length() - completeFooterSize, metadataLength).getInput();
+
         FileMetaData fileMetaData = readFileMetaData(metadataStream);
         List<SchemaElement> schema = fileMetaData.getSchema();
-        validateParquet(!schema.isEmpty(), "Empty Parquet schema in file: %s", file);
+        validateParquet(!schema.isEmpty(), "Empty Parquet schema in file: %s", dataSource.getId());
 
         MessageType messageType = readParquetSchema(schema);
         List<BlockMetaData> blocks = new ArrayList<>();
@@ -329,26 +328,5 @@ public final class MetadataReader
             default:
                 throw new IllegalArgumentException("Unknown type " + type);
         }
-    }
-
-    private static int readIntLittleEndian(InputStream in)
-            throws IOException
-    {
-        int ch1 = in.read();
-        int ch2 = in.read();
-        int ch3 = in.read();
-        int ch4 = in.read();
-        if ((ch1 | ch2 | ch3 | ch4) < 0) {
-            throw new EOFException();
-        }
-        return ((ch4 << 24) + (ch3 << 16) + (ch2 << 8) + (ch1));
-    }
-
-    private static InputStream readFully(FSDataInputStream from, long position, int length)
-            throws IOException
-    {
-        byte[] buffer = new byte[length];
-        from.readFully(position, buffer);
-        return new ByteArrayInputStream(buffer);
     }
 }

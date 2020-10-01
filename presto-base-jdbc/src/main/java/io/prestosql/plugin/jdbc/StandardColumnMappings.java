@@ -16,9 +16,12 @@ package io.prestosql.plugin.jdbc;
 import com.google.common.base.CharMatcher;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import io.airlift.slice.Slice;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
@@ -39,6 +42,8 @@ import java.time.LocalTime;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.io.BaseEncoding.base16;
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
@@ -55,9 +60,11 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
+import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_DAY;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
@@ -70,9 +77,10 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
-import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
@@ -195,12 +203,17 @@ public final class StandardColumnMappings
     public static ColumnMapping charColumnMapping(CharType charType)
     {
         requireNonNull(charType, "charType is null");
-        return ColumnMapping.sliceMapping(charType, charReadFunction(), charWriteFunction());
+        return ColumnMapping.sliceMapping(charType, charReadFunction(charType), charWriteFunction());
     }
 
-    public static SliceReadFunction charReadFunction()
+    public static SliceReadFunction charReadFunction(CharType charType)
     {
-        return (resultSet, columnIndex) -> utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet.getString(columnIndex)));
+        requireNonNull(charType, "charType is null");
+        return (resultSet, columnIndex) -> {
+            Slice slice = utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet.getString(columnIndex)));
+            checkLengthInCodePoints(slice, charType, charType.getLength());
+            return slice;
+        };
     }
 
     public static SliceWriteFunction charWriteFunction()
@@ -212,12 +225,37 @@ public final class StandardColumnMappings
 
     public static ColumnMapping varcharColumnMapping(VarcharType varcharType)
     {
-        return ColumnMapping.sliceMapping(varcharType, varcharReadFunction(), varcharWriteFunction());
+        return ColumnMapping.sliceMapping(varcharType, varcharReadFunction(varcharType), varcharWriteFunction());
     }
 
-    public static SliceReadFunction varcharReadFunction()
+    public static SliceReadFunction varcharReadFunction(VarcharType varcharType)
     {
-        return (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex));
+        requireNonNull(varcharType, "varcharType is null");
+        if (varcharType.isUnbounded()) {
+            return (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex));
+        }
+        return (resultSet, columnIndex) -> {
+            Slice slice = utf8Slice(resultSet.getString(columnIndex));
+            checkLengthInCodePoints(slice, varcharType, varcharType.getBoundedLength());
+            return slice;
+        };
+    }
+
+    private static void checkLengthInCodePoints(Slice value, Type characterDataType, int lengthLimit)
+    {
+        // Quick check in bytes
+        if (value.length() <= lengthLimit) {
+            return;
+        }
+        // Actual check
+        if (countCodePoints(value) <= lengthLimit) {
+            return;
+        }
+        throw new IllegalStateException(format(
+                "Illegal value for type %s: '%s' [%s]",
+                characterDataType,
+                value.toStringUtf8(),
+                base16().encode(value.getBytes())));
     }
 
     public static SliceWriteFunction varcharWriteFunction()
@@ -351,28 +389,38 @@ public final class StandardColumnMappings
      * {@link #timestampColumnMapping} instead.
      */
     @Deprecated
-    public static ColumnMapping timestampColumnMappingUsingSqlTimestamp()
+    public static ColumnMapping timestampColumnMappingUsingSqlTimestamp(TimestampType timestampType)
     {
+        // TODO support higher precision
+        checkArgument(timestampType.getPrecision() <= MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
         return ColumnMapping.longMapping(
-                TIMESTAMP_MILLIS,
+                timestampType,
                 (resultSet, columnIndex) -> {
                     Timestamp timestamp = resultSet.getTimestamp(columnIndex);
-                    return toPrestoTimestamp(timestamp.toLocalDateTime());
+                    return toPrestoTimestamp(timestampType, timestamp.toLocalDateTime());
                 },
-                timestampWriteFunctionUsingSqlTimestamp());
+                timestampWriteFunctionUsingSqlTimestamp(timestampType));
     }
 
+    @Deprecated
     public static ColumnMapping timestampColumnMapping()
     {
-        return ColumnMapping.longMapping(
-                TIMESTAMP_MILLIS,
-                timestampReadFunction(),
-                timestampWriteFunction());
+        return timestampColumnMapping(TIMESTAMP_MILLIS);
     }
 
-    public static LongReadFunction timestampReadFunction()
+    public static ColumnMapping timestampColumnMapping(TimestampType timestampType)
     {
-        return (resultSet, columnIndex) -> toPrestoTimestamp(resultSet.getObject(columnIndex, LocalDateTime.class));
+        checkArgument(timestampType.getPrecision() <= MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        return ColumnMapping.longMapping(
+                timestampType,
+                timestampReadFunction(timestampType),
+                timestampWriteFunction(timestampType));
+    }
+
+    public static LongReadFunction timestampReadFunction(TimestampType timestampType)
+    {
+        checkArgument(timestampType.getPrecision() <= MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        return (resultSet, columnIndex) -> toPrestoTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class));
     }
 
     /**
@@ -382,24 +430,32 @@ public final class StandardColumnMappings
      * {@link #timestampWriteFunction} instead.
      */
     @Deprecated
-    public static LongWriteFunction timestampWriteFunctionUsingSqlTimestamp()
+    public static LongWriteFunction timestampWriteFunctionUsingSqlTimestamp(TimestampType timestampType)
     {
+        checkArgument(timestampType.getPrecision() <= MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
         return (statement, index, value) -> statement.setTimestamp(index, Timestamp.valueOf(fromPrestoTimestamp(value)));
     }
 
-    public static LongWriteFunction timestampWriteFunction()
+    public static LongWriteFunction timestampWriteFunction(TimestampType timestampType)
     {
+        checkArgument(timestampType.getPrecision() <= MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
         return (statement, index, value) -> statement.setObject(index, fromPrestoTimestamp(value));
     }
 
-    public static long toPrestoTimestamp(LocalDateTime localDateTime)
+    public static long toPrestoTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
     {
-        return localDateTime.atZone(UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+        long precision = timestampType.getPrecision();
+        checkArgument(precision <= MAX_SHORT_PRECISION, "Precision is out of range: %s", precision);
+        Instant instant = localDateTime.atZone(UTC).toInstant();
+        return instant.getEpochSecond() * MICROSECONDS_PER_SECOND + roundDiv(instant.getNano(), NANOSECONDS_PER_MICROSECOND);
     }
 
-    public static LocalDateTime fromPrestoTimestamp(long value)
+    public static LocalDateTime fromPrestoTimestamp(long epochMicros)
     {
-        return Instant.ofEpochMilli(floorDiv(value, MICROSECONDS_PER_MILLISECOND)).atZone(UTC).toLocalDateTime();
+        long epochSecond = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+        int nanoFraction = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+        Instant instant = Instant.ofEpochSecond(epochSecond, nanoFraction);
+        return LocalDateTime.ofInstant(instant, UTC);
     }
 
     public static LocalTime fromPrestoTime(long value)
@@ -437,7 +493,7 @@ public final class StandardColumnMappings
 
             case Types.NUMERIC:
             case Types.DECIMAL:
-                int decimalDigits = type.getDecimalDigits();
+                int decimalDigits = type.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
                 int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision > Decimals.MAX_PRECISION) {
                     return Optional.empty();
@@ -446,9 +502,13 @@ public final class StandardColumnMappings
 
             case Types.CHAR:
             case Types.NCHAR:
-                // TODO this is wrong, we're going to construct malformed Slice representation if source > charLength
-                int charLength = min(columnSize, CharType.MAX_LENGTH);
-                return Optional.of(charColumnMapping(createCharType(charLength)));
+                if (columnSize > CharType.MAX_LENGTH) {
+                    if (columnSize > VarcharType.MAX_LENGTH) {
+                        return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
+                    }
+                    return Optional.of(varcharColumnMapping(createVarcharType(columnSize)));
+                }
+                return Optional.of(charColumnMapping(createCharType(columnSize)));
 
             case Types.VARCHAR:
             case Types.NVARCHAR:
@@ -473,7 +533,7 @@ public final class StandardColumnMappings
 
             case Types.TIMESTAMP:
                 // TODO default to `timestampColumnMapping`
-                return Optional.of(timestampColumnMappingUsingSqlTimestamp());
+                return Optional.of(timestampColumnMappingUsingSqlTimestamp(TIMESTAMP_MILLIS));
         }
         return Optional.empty();
     }

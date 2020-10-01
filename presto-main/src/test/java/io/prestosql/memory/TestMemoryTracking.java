@@ -109,6 +109,7 @@ public class TestMemoryTracking
         taskContext = queryContext.addTaskContext(
                 new TaskStateMachine(new TaskId("query", 0, 0), notificationExecutor),
                 testSessionBuilder().build(),
+                () -> {},
                 true,
                 true,
                 OptionalInt.empty());

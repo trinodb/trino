@@ -40,7 +40,7 @@ import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.metadata.InternalNode;
-import io.prestosql.server.DynamicFilterService.StageDynamicFilters;
+import io.prestosql.server.DynamicFilterService;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.split.SplitSource;
@@ -120,6 +120,7 @@ public class SqlQueryScheduler
     private final Map<StageId, StageLinkage> stageLinkages;
     private final SplitSchedulerStats schedulerStats;
     private final boolean summarizeTaskInfo;
+    private final DynamicFilterService dynamicFilterService;
     private final AtomicBoolean started = new AtomicBoolean();
 
     public static SqlQueryScheduler createSqlQueryScheduler(
@@ -137,7 +138,8 @@ public class SqlQueryScheduler
             OutputBuffers rootOutputBuffers,
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
-            SplitSchedulerStats schedulerStats)
+            SplitSchedulerStats schedulerStats,
+            DynamicFilterService dynamicFilterService)
     {
         SqlQueryScheduler sqlQueryScheduler = new SqlQueryScheduler(
                 queryStateMachine,
@@ -154,7 +156,8 @@ public class SqlQueryScheduler
                 rootOutputBuffers,
                 nodeTaskMap,
                 executionPolicy,
-                schedulerStats);
+                schedulerStats,
+                dynamicFilterService);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -174,12 +177,14 @@ public class SqlQueryScheduler
             OutputBuffers rootOutputBuffers,
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
-            SplitSchedulerStats schedulerStats)
+            SplitSchedulerStats schedulerStats,
+            DynamicFilterService dynamicFilterService)
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
 
         // todo come up with a better way to build this, or eliminate this map
         ImmutableMap.Builder<StageId, StageScheduler> stageSchedulers = ImmutableMap.builder();
@@ -304,6 +309,7 @@ public class SqlQueryScheduler
                 nodeTaskMap,
                 queryExecutor,
                 failureDetector,
+                dynamicFilterService,
                 schedulerStats);
         stages.add(stage);
 
@@ -356,6 +362,7 @@ public class SqlQueryScheduler
                     splitSource,
                     placementPolicy,
                     splitBatchSize,
+                    dynamicFilterService,
                     () -> childStages.stream().anyMatch(SqlStageExecution::isAnyTaskBlocked)));
         }
         else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
@@ -433,7 +440,8 @@ public class SqlQueryScheduler
                         splitBatchSize,
                         getConcurrentLifespansPerNode(session),
                         nodeScheduler.createNodeSelector(catalogName),
-                        connectorPartitionHandles));
+                        connectorPartitionHandles,
+                        dynamicFilterService));
             }
             else {
                 // all sources are remote
@@ -474,13 +482,6 @@ public class SqlQueryScheduler
                 .collect(toImmutableMap(StageInfo::getStageId, identity()));
 
         return buildStageInfo(rootStageId, stageInfos);
-    }
-
-    public List<StageDynamicFilters> getStageDynamicFilters()
-    {
-        return stages.values().stream()
-                .map(SqlStageExecution::getStageDynamicFilters)
-                .collect(toImmutableList());
     }
 
     private StageInfo buildStageInfo(StageId stageId, Map<StageId, StageInfo> stageInfos)

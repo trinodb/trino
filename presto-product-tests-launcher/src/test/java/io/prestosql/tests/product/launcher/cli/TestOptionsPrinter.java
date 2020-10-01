@@ -110,6 +110,9 @@ public class TestOptionsPrinter
         @Option(names = "--value", paramLabel = "<value>", description = "Test optional value")
         public Optional<String> value;
 
+        @Option(names = "--hidden", hidden = true)
+        public String hiddenOption = "hidden-value";
+
         public OptionalFields(String value)
         {
             this.value = Optional.ofNullable(value);

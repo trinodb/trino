@@ -13,17 +13,10 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.google.common.collect.MoreCollectors;
 import io.prestosql.Session;
+import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.operator.OperatorStats;
-import io.prestosql.spi.QueryId;
 import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.sql.planner.Plan;
-import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.AbstractTestJoinQueries;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
@@ -46,7 +39,7 @@ public class TestHiveDistributedJoinQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        verify(new FeaturesConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
+        verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
         return HiveQueryRunner.builder()
                 .setInitialTables(getTables())
                 .build();
@@ -76,31 +69,5 @@ public class TestHiveDistributedJoinQueries
         // Probe-side is not scanned at all, due to dynamic filtering:
         assertEquals(probeStats.getInputPositions(), 0L);
         assertEquals(probeStats.getDynamicFilterSplitsProcessed(), probeStats.getTotalDrivers());
-    }
-
-    private OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)
-    {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        Plan plan = runner.getQueryPlan(queryId);
-        PlanNodeId nodeId = PlanNodeSearcher.searchFrom(plan.getRoot())
-                .where(node -> {
-                    if (!(node instanceof ProjectNode)) {
-                        return false;
-                    }
-                    ProjectNode projectNode = (ProjectNode) node;
-                    FilterNode filterNode = (FilterNode) projectNode.getSource();
-                    TableScanNode tableScanNode = (TableScanNode) filterNode.getSource();
-                    return tableName.equals(tableScanNode.getTable().getConnectorHandle().toString());
-                })
-                .findOnlyElement()
-                .getId();
-        return runner.getCoordinator()
-                .getQueryManager()
-                .getFullQueryInfo(queryId)
-                .getQueryStats()
-                .getOperatorSummaries()
-                .stream()
-                .filter(summary -> nodeId.equals(summary.getPlanNodeId()))
-                .collect(MoreCollectors.onlyElement());
     }
 }

@@ -20,27 +20,29 @@ import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.docker.ContainerUtil;
+import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
-import io.prestosql.tests.product.launcher.env.Environments;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.Container;
-import org.testcontainers.containers.ContainerState;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.ExitCode;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
+import static io.prestosql.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Mixin;
 import static picocli.CommandLine.Option;
@@ -50,10 +52,9 @@ import static picocli.CommandLine.Option;
         description = "Start an environment",
         usageHelpAutoWidth = true)
 public final class EnvironmentUp
-        implements Runnable
+        implements Callable<Integer>
 {
     private static final Logger log = Logger.get(EnvironmentUp.class);
-    private static final String LOGS_DIR = "logs/";
 
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
     public boolean usageHelpRequested;
@@ -72,9 +73,9 @@ public final class EnvironmentUp
     }
 
     @Override
-    public void run()
+    public Integer call()
     {
-        runCommand(
+        return runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
                         .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
@@ -101,7 +102,7 @@ public final class EnvironmentUp
     }
 
     public static class Execution
-            implements Runnable
+            implements Callable<Integer>
     {
         private final EnvironmentFactory environmentFactory;
         private final boolean withoutPrestoMaster;
@@ -110,6 +111,7 @@ public final class EnvironmentUp
         private final boolean debug;
         private final EnvironmentConfig environmentConfig;
         private final Optional<Path> logsDirBase;
+        private final DockerContainer.OutputMode outputMode;
 
         @Inject
         public Execution(EnvironmentFactory environmentFactory, EnvironmentConfig environmentConfig, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions)
@@ -120,20 +122,21 @@ public final class EnvironmentUp
             this.background = environmentUpOptions.background;
             this.environment = environmentUpOptions.environment;
             this.debug = options.debug;
+            this.outputMode = requireNonNull(options.output, "options.output is null");
             this.logsDirBase = requireNonNull(environmentUpOptions.logsDirBase, "environmentUpOptions.logsDirBase is null");
         }
 
         @Override
-        public void run()
+        public Integer call()
         {
-            log.info("Pruning old environment(s)");
-            Environments.pruneEnvironment();
-
-            Environment.Builder builder = environmentFactory.get(environment)
-                    .removeContainer("tests");
+            Optional<Path> environmentLogPath = logsDirBase.map(dir -> dir.resolve(environment));
+            Environment.Builder builder = environmentFactory.get(environment, environmentConfig)
+                    .setContainerOutputMode(outputMode)
+                    .setLogsBaseDir(environmentLogPath)
+                    .removeContainer(TESTS);
 
             if (withoutPrestoMaster) {
-                builder.removeContainer("presto-master");
+                builder.removeContainers(container -> isPrestoContainer(container.getLogicalName()));
             }
 
             log.info("Creating environment '%s' with configuration %s", environment, environmentConfig);
@@ -141,24 +144,21 @@ public final class EnvironmentUp
                 builder.configureContainers(Standard::enablePrestoJavaDebugger);
             }
 
-            Optional<Path> environmentLogPath = logsDirBase.map(dir -> dir.resolve(environment));
-            environmentLogPath.ifPresent(builder::exposeLogsInHostPath);
-
-            Environment environment = builder.build();
-            log.info("Starting the environment '%s'", this.environment);
+            Environment environment = builder.build(getStandardListeners(environmentLogPath));
             environment.start();
-            log.info("Environment '%s' started", this.environment);
 
             if (background) {
                 killContainersReaperContainer();
-                return;
+                return ExitCode.OK;
             }
 
-            wait(environment.getContainers());
-            log.info("Exiting, the containers will exit too");
+            environment.awaitContainersStopped();
+            environment.stop();
+
+            return ExitCode.OK;
         }
 
-        private void killContainersReaperContainer()
+        private static void killContainersReaperContainer()
         {
             try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
                 log.info("Killing the testcontainers reaper container (Ryuk) so that environment can stay alive");
@@ -166,20 +166,6 @@ public final class EnvironmentUp
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
-            }
-        }
-
-        private void wait(Collection<Container<?>> containers)
-        {
-            try {
-                while (containers.stream().anyMatch(ContainerState::isRunning)) {
-                    Thread.sleep(1_000);
-                }
-                throw new RuntimeException("All containers have been stopped");
-            }
-            catch (InterruptedException e) {
-                log.info("Interrupted");
-                // It's OK not to restore interrupt flag here. When we return we're exiting the process.
             }
         }
     }

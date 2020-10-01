@@ -134,7 +134,7 @@ public class TestTimestamp
                 .isEqualTo(timestamp(12, 2020, 5, 1, 12, 34, 56, 123_456_789_012L));
 
         assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567890123'"))
-                .hasMessage("line 1:8: TIMESTAMP precision must be in range [0, 12]");
+                .hasMessage("line 1:8: TIMESTAMP precision must be in range [0, 12]: 13");
 
         assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-13-01'"))
                 .hasMessage("line 1:8: '2020-13-01' is not a valid timestamp literal");
@@ -1944,6 +1944,34 @@ public class TestTimestamp
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-10 12:34:56.55' AS TIMESTAMP(1))")).matches("TIMESTAMP '2020-05-10 12:34:56.6'");
 
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-10 12:34:56.5' AS TIMESTAMP(0))")).matches("TIMESTAMP '2020-05-10 12:34:57'");
+
+        // overflow to next second
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.5' AS timestamp(0))")).matches("TIMESTAMP '1970-01-01 00:00:01'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.95' AS timestamp(1))")).matches("TIMESTAMP '1970-01-01 00:00:01.0'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.995' AS timestamp(2))")).matches("TIMESTAMP '1970-01-01 00:00:01.00'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.9995' AS timestamp(3))")).matches("TIMESTAMP '1970-01-01 00:00:01.000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.99995' AS timestamp(4))")).matches("TIMESTAMP '1970-01-01 00:00:01.0000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999995' AS timestamp(5))")).matches("TIMESTAMP '1970-01-01 00:00:01.00000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.9999995' AS timestamp(6))")).matches("TIMESTAMP '1970-01-01 00:00:01.000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.99999995' AS timestamp(7))")).matches("TIMESTAMP '1970-01-01 00:00:01.0000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999995' AS timestamp(8))")).matches("TIMESTAMP '1970-01-01 00:00:01.00000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.9999999995' AS timestamp(9))")).matches("TIMESTAMP '1970-01-01 00:00:01.000000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.99999999995' AS timestamp(10))")).matches("TIMESTAMP '1970-01-01 00:00:01.0000000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999995' AS timestamp(11))")).matches("TIMESTAMP '1970-01-01 00:00:01.00000000000'");
+
+        // overflow to next second -- maximal precision
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(0))")).matches("TIMESTAMP '1970-01-01 00:00:01'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(1))")).matches("TIMESTAMP '1970-01-01 00:00:01.0'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(2))")).matches("TIMESTAMP '1970-01-01 00:00:01.00'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(3))")).matches("TIMESTAMP '1970-01-01 00:00:01.000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(4))")).matches("TIMESTAMP '1970-01-01 00:00:01.0000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(5))")).matches("TIMESTAMP '1970-01-01 00:00:01.00000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(6))")).matches("TIMESTAMP '1970-01-01 00:00:01.000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(7))")).matches("TIMESTAMP '1970-01-01 00:00:01.0000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(8))")).matches("TIMESTAMP '1970-01-01 00:00:01.00000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(9))")).matches("TIMESTAMP '1970-01-01 00:00:01.000000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(10))")).matches("TIMESTAMP '1970-01-01 00:00:01.0000000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1970-01-01 00:00:00.999999999999' AS timestamp(11))")).matches("TIMESTAMP '1970-01-01 00:00:01.00000000000'");
 
         // negative epoch
         assertThat(assertions.expression("CAST(TIMESTAMP '1500-05-10 12:34:56.555555555555' AS TIMESTAMP(0))")).matches("TIMESTAMP '1500-05-10 12:34:57'");

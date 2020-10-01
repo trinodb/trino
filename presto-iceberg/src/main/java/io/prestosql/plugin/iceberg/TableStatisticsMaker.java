@@ -293,7 +293,6 @@ public class TableStatisticsMaker
 
     public void updateColumnSizes(Partition summary, Map<Integer, Long> addedColumnSizes)
     {
-        log.info("In updateColumnSizes, addedSizes %s, summary sizes %s", addedColumnSizes, summary.getColumnSizes());
         Map<Integer, Long> columnSizes = summary.getColumnSizes();
         if (!summary.hasValidColumnMetrics() || columnSizes == null || addedColumnSizes == null) {
             return;
@@ -306,7 +305,6 @@ public class TableStatisticsMaker
                 columnSizes.put(id, addedSize + columnSizes.getOrDefault(id, 0L));
             }
         }
-        log.info("After updateColumnSizes, addedSizes %s", summary.getColumnSizes());
     }
 
     private void updateSummaryMin(Partition summary, List<PartitionField> partitionFields, Map<Integer, Object> lowerBounds, Map<Integer, Long> nullCounts, long recordCount)

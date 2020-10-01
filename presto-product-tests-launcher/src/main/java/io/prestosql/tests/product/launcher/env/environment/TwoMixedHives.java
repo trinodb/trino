@@ -18,17 +18,17 @@ import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
+import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Kerberos;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
-import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
-import java.time.Duration;
-
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.HADOOP;
+import static io.prestosql.tests.product.launcher.env.common.Hadoop.createHadoopContainer;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -40,7 +40,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
  */
 @TestsEnvironment
 public final class TwoMixedHives
-        extends AbstractEnvironmentProvider
+        extends EnvironmentProvider
 {
     private final DockerFiles dockerFiles;
 
@@ -62,9 +62,9 @@ public final class TwoMixedHives
     }
 
     @Override
-    protected void extendEnvironment(Environment.Builder builder)
+    public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer("presto-master", container -> {
+        builder.configureContainer(COORDINATOR, container -> {
             container.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hive1.properties")),
                     CONTAINER_PRESTO_ETC + "/catalog/hive1.properties");
@@ -79,13 +79,13 @@ public final class TwoMixedHives
                     CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties");
         });
 
-        builder.addContainer("hadoop-master-2", createHadoopMaster2());
+        builder.addContainer(createHadoopMaster2());
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createHadoopMaster2()
     {
-        DockerContainer container = new DockerContainer(hadoopBaseImage + ":" + hadoopImagesVersion)
+        return createHadoopContainer(dockerFiles, hadoopBaseImage + ":" + hadoopImagesVersion, HADOOP + "-2")
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hadoop-master-2/core-site.xml")),
                         "/etc/hadoop/conf/core-site.xml")
@@ -94,11 +94,6 @@ public final class TwoMixedHives
                         "/etc/hadoop/conf/mapred-site.xml")
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hadoop-master-2/yarn-site.xml")),
-                        "/etc/hadoop/conf/yarn-site.xml")
-                .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                // TODO .waitingFor(...)
-                .withStartupTimeout(Duration.ofMinutes(5));
-
-        return container;
+                        "/etc/hadoop/conf/yarn-site.xml");
     }
 }

@@ -17,15 +17,18 @@ import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
+import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
-import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import java.time.Duration;
 import java.util.List;
 
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.LDAP;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
@@ -34,7 +37,7 @@ import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public abstract class AbstractSinglenodeLdap
-        extends AbstractEnvironmentProvider
+        extends EnvironmentProvider
 {
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
@@ -51,11 +54,11 @@ public abstract class AbstractSinglenodeLdap
     }
 
     @Override
-    protected void extendEnvironment(Environment.Builder builder)
+    public void extendEnvironment(Environment.Builder builder)
     {
         String baseImage = format("prestodev/%s:%s", getBaseImage(), imagesVersion);
 
-        builder.configureContainer("presto-master", dockerContainer -> {
+        builder.configureContainer(COORDINATOR, dockerContainer -> {
             dockerContainer.setDockerImageName(baseImage);
 
             dockerContainer.withCopyFileToContainer(
@@ -69,35 +72,25 @@ public abstract class AbstractSinglenodeLdap
             portBinder.exposePort(dockerContainer, 8443);
         });
 
-        builder.configureContainer("tests", dockerContainer -> {
+        builder.configureContainer(TESTS, dockerContainer -> {
             dockerContainer.setDockerImageName(baseImage);
             dockerContainer.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-ldap.yaml")),
                     CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
 
-        DockerContainer container = new DockerContainer(baseImage)
+        DockerContainer container = new DockerContainer(baseImage, LDAP)
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(new SelectedPortWaitStrategy(LDAP_PORT))
+                .waitingFor(forSelectedPorts(LDAP_PORT))
                 .withStartupTimeout(Duration.ofMinutes(5));
         portBinder.exposePort(container, LDAP_PORT);
 
-        builder.addContainer("ldapserver", container);
+        builder.addContainer(container);
     }
 
     protected String getBaseImage()
     {
         return "centos6-oj8-openldap";
-    }
-
-    protected DockerFiles getDockerFiles()
-    {
-        return dockerFiles;
-    }
-
-    protected String getImagesVersion()
-    {
-        return imagesVersion;
     }
 
     protected abstract String getPasswordAuthenticatorConfigPath();

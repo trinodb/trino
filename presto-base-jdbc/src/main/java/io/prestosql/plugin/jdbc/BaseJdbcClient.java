@@ -100,7 +100,6 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -275,7 +274,7 @@ public abstract class BaseJdbcClient
                         resultSet.getInt("DATA_TYPE"),
                         Optional.ofNullable(resultSet.getString("TYPE_NAME")),
                         resultSet.getInt("COLUMN_SIZE"),
-                        resultSet.getInt("DECIMAL_DIGITS"),
+                        getInteger(resultSet, "DECIMAL_DIGITS"),
                         Optional.empty(),
                         Optional.empty());
                 Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
@@ -313,6 +312,16 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
+    }
+
+    protected static Optional<Integer> getInteger(ResultSet resultSet, String columnLabel)
+            throws SQLException
+    {
+        int value = resultSet.getInt(columnLabel);
+        if (resultSet.wasNull()) {
+            return Optional.empty();
+        }
+        return Optional.of(value);
     }
 
     protected ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
@@ -366,9 +375,10 @@ public abstract class BaseJdbcClient
 
     protected static Optional<ColumnMapping> mapToUnboundedVarchar(JdbcTypeHandle typeHandle)
     {
+        VarcharType unboundedVarcharType = createUnboundedVarcharType();
         return Optional.of(ColumnMapping.sliceMapping(
-                createUnboundedVarcharType(),
-                varcharReadFunction(),
+                unboundedVarcharType,
+                varcharReadFunction(unboundedVarcharType),
                 (statement, index, value) -> {
                     throw new PrestoException(
                             NOT_SUPPORTED,
@@ -464,7 +474,7 @@ public abstract class BaseJdbcClient
                 }
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
-                columnList.add(getColumnSql(session, column, columnName));
+                columnList.add(getColumnDefinitionSql(session, column, columnName));
             }
 
             RemoteTableName remoteTableName = new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), tableName);
@@ -487,7 +497,7 @@ public abstract class BaseJdbcClient
         return format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns));
     }
 
-    private String getColumnSql(ConnectorSession session, ColumnMetadata column, String columnName)
+    protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
     {
         StringBuilder sb = new StringBuilder()
                 .append(quoted(columnName))
@@ -631,7 +641,7 @@ public abstract class BaseJdbcClient
             String sql = format(
                     "ALTER TABLE %s ADD %s",
                     quoted(handle.getRemoteTableName()),
-                    getColumnSql(session, column, columnName));
+                    getColumnDefinitionSql(session, column, columnName));
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -871,7 +881,7 @@ public abstract class BaseJdbcClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;
             String dataType;
             if (varcharType.isUnbounded()) {

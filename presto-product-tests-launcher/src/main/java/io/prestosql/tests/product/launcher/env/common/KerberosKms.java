@@ -19,6 +19,9 @@ import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 
 import javax.inject.Inject;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.HADOOP;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -44,7 +47,7 @@ public class KerberosKms
         // TODO (https://github.com/prestosql/presto/issues/1652) create images with HDP and KMS
         String dockerImageName = "prestodev/cdh5.15-hive-kerberized-kms:" + hadoopImagesVersion;
 
-        builder.configureContainer("hadoop-master", container -> {
+        builder.configureContainer(HADOOP, container -> {
             container.setDockerImageName(dockerImageName);
             container
                     .withCopyFileToContainer(
@@ -52,9 +55,9 @@ public class KerberosKms
                             "/etc/hadoop-kms/conf/core-site.xml");
         });
 
-        builder.configureContainer("presto-master", container -> container.setDockerImageName(dockerImageName));
+        builder.configureContainer(COORDINATOR, container -> container.setDockerImageName(dockerImageName));
 
-        builder.configureContainer("tests", container -> {
+        builder.configureContainer(TESTS, container -> {
             container.setDockerImageName(dockerImageName);
             container.withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-kerberos-kms.yaml")), CONTAINER_TEMPTO_PROFILE_CONFIG);
         });

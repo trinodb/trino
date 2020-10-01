@@ -24,7 +24,6 @@ import io.prestosql.spi.connector.ConnectorSession;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.prestosql.spi.block.Int128ArrayBlock.INT128_BYTES;
-import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
 import static io.prestosql.spi.type.Decimals.decodeUnscaledValue;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.compare;
@@ -35,7 +34,8 @@ final class LongDecimalType
     LongDecimalType(int precision, int scale)
     {
         super(precision, scale, Slice.class);
-        validatePrecisionScale(precision, scale, MAX_PRECISION);
+        checkArgument(Decimals.MAX_SHORT_PRECISION < precision && precision <= Decimals.MAX_PRECISION, "Invalid precision: %s", precision);
+        checkArgument(0 <= scale && scale <= precision, "Invalid scale for precision %s: %s", precision, scale);
     }
 
     @Override

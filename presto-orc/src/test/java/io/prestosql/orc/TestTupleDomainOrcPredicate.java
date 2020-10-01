@@ -301,19 +301,19 @@ public class TestTupleDomainOrcPredicate
                 .isEqualTo(notNull(TIMESTAMP_MILLIS));
 
         assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(10L, 100L, 100L)))
-                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MILLIS, 100000L, true, 100999L, true)), false));
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MILLIS, 100000L, true, 101000L, true)), false));
 
         assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(10L, 13L, 100L)))
-                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MILLIS, 13000L, true, 100999L, true)), false));
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MILLIS, 13000L, true, 101000L, true)), false));
         assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(10L, null, 100L)))
-                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_MILLIS, 100999L)), false));
+                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_MILLIS, 101000L)), false));
         assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(10L, 13L, null)))
                 .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_MILLIS, 13000L)), false));
 
         assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(5L, 13L, 100L)))
-                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MILLIS, 13000L, true, 100999L, true)), true));
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MILLIS, 13000L, true, 101000L, true)), true));
         assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(5L, null, 100L)))
-                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_MILLIS, 100999L)), true));
+                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_MILLIS, 101000L)), true));
         assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(5L, 13L, null)))
                 .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_MILLIS, 13000L)), true));
     }
@@ -340,7 +340,7 @@ public class TestTupleDomainOrcPredicate
 
         long low13 = 13_000L;
         long low100 = 100_000L;
-        long high100 = 100_999L;
+        long high100 = 101_000L;
 
         assertThat(getDomain(TIMESTAMP_MICROS, 10, timeStampColumnStats(10L, 100L, 100L)))
                 .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MICROS, low100, true, high100, true)), false));
@@ -382,7 +382,7 @@ public class TestTupleDomainOrcPredicate
 
         LongTimestamp low13 = new LongTimestamp(13_000L, 0);
         LongTimestamp low100 = new LongTimestamp(100_000L, 0);
-        LongTimestamp high100 = new LongTimestamp(100_999L, 999_000);
+        LongTimestamp high100 = new LongTimestamp(101_000L, 0);
 
         assertThat(getDomain(TIMESTAMP_NANOS, 10, timeStampColumnStats(10L, 100L, 100L)))
                 .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_NANOS, low100, true, high100, true)), false));

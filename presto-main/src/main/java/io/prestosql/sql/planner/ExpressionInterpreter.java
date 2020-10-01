@@ -287,7 +287,6 @@ public class ExpressionInterpreter
         return visitor.process(expression, inputs);
     }
 
-    @SuppressWarnings("FloatingPointEquality")
     private class Visitor
             extends AstVisitor<Object, Object>
     {

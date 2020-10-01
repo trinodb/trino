@@ -25,6 +25,7 @@ import io.prestosql.orc.metadata.statistics.RangeStatistics;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.ValueSet;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.LongTimestamp;
@@ -44,7 +45,6 @@ import java.util.function.Function;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -66,7 +66,6 @@ import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLI
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
@@ -244,22 +243,28 @@ public class TupleDomainOrcPredicate
         else if (isLongDecimal(type) && columnStatistics.getDecimalStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> encodeUnscaledValue(rescale(value, (DecimalType) type).unscaledValue()));
         }
-        else if (isCharType(type) && columnStatistics.getStringStatistics() != null) {
+        else if (type instanceof CharType && columnStatistics.getStringStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getStringStatistics(), value -> truncateToLengthAndTrimSpaces(value, type));
         }
-        else if (isVarcharType(type) && columnStatistics.getStringStatistics() != null) {
+        else if (type instanceof VarcharType && columnStatistics.getStringStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getStringStatistics());
         }
         else if (type instanceof DateType && columnStatistics.getDateStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
         }
         else if ((type.equals(TIMESTAMP_MILLIS) || type.equals(TIMESTAMP_MICROS)) && columnStatistics.getTimestampStatistics() != null) {
+            // ORC timestamp statistics are truncated to millisecond precision, regardless of the precision of the actual data column.
+            // Since that can cause some column values to fall outside the stats range, here we are creating a tuple domain predicate
+            // that ensures inclusion of all values.  Note that we are adding a full millisecond to account for the fact that Presto rounds
+            // timestamps. For example, the stats for timestamp 2020-09-22 12:34:56.678910 are truncated to 2020-09-22 12:34:56.678.
+            // If Presto is using millisecond precision, the timestamp gets rounded to the next millisecond (2020-09-22 12:34:56.679), so the
+            // upper bound of the domain we create must be adjusted accordingly, to includes the rounded timestamp.
             return createDomain(
                     type,
                     hasNullValue,
                     columnStatistics.getTimestampStatistics(),
                     min -> min * MICROSECONDS_PER_MILLISECOND,
-                    max -> (max * MICROSECONDS_PER_MILLISECOND) + 999);
+                    max -> (max + 1) * MICROSECONDS_PER_MILLISECOND);
         }
         else if (type.equals(TIMESTAMP_NANOS) && columnStatistics.getTimestampStatistics() != null) {
             return createDomain(
@@ -267,7 +272,7 @@ public class TupleDomainOrcPredicate
                     hasNullValue,
                     columnStatistics.getTimestampStatistics(),
                     min -> new LongTimestamp(min * MICROSECONDS_PER_MILLISECOND, 0),
-                    max -> new LongTimestamp((max * MICROSECONDS_PER_MILLISECOND) + 999, 999_000));
+                    max -> new LongTimestamp((max + 1) * MICROSECONDS_PER_MILLISECOND, 0));
         }
         else if (type.equals(TIMESTAMP_TZ_MILLIS) && columnStatistics.getTimestampStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getTimestampStatistics(), value -> packDateTimeWithZone(value, UTC_KEY));

@@ -19,8 +19,10 @@ import io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping;
 import io.prestosql.plugin.hive.util.HiveUtil;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
@@ -44,7 +46,6 @@ import static io.prestosql.plugin.hive.util.HiveUtil.varcharPartitionKey;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
@@ -54,9 +55,8 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -132,10 +132,10 @@ public class HiveRecordCursor
                 else if (DOUBLE.equals(type)) {
                     doubles[columnIndex] = doublePartitionKey(columnValue, name);
                 }
-                else if (isVarcharType(type)) {
+                else if (type instanceof VarcharType) {
                     slices[columnIndex] = varcharPartitionKey(columnValue, name, type);
                 }
-                else if (isCharType(type)) {
+                else if (type instanceof CharType) {
                     slices[columnIndex] = charPartitionKey(columnValue, name, type);
                 }
                 else if (DATE.equals(type)) {
@@ -144,7 +144,7 @@ public class HiveRecordCursor
                 else if (TIMESTAMP_MILLIS.equals(type)) {
                     longs[columnIndex] = timestampPartitionKey(columnValue, name);
                 }
-                else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
                     // used for $file_modified_time
                     longs[columnIndex] = packDateTimeWithZone(timestampPartitionKey(columnValue, name), DateTimeZone.getDefault().getID());
                 }

@@ -75,7 +75,6 @@ import static io.prestosql.metadata.MetadataListing.listTables;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
@@ -86,7 +85,6 @@ import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.type.TypeUtils.getDisplayLabel;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -356,10 +354,10 @@ public class ColumnJdbcTable
         if (type instanceof DecimalType) {
             return Types.DECIMAL;
         }
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return Types.VARCHAR;
         }
-        if (isCharType(type)) {
+        if (type instanceof CharType) {
             return Types.CHAR;
         }
         if (type.equals(VARBINARY)) {
@@ -409,10 +407,10 @@ public class ColumnJdbcTable
         if (type.equals(DOUBLE)) {
             return 53; // IEEE 754
         }
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return ((VarcharType) type).getLength().orElse(VarcharType.UNBOUNDED_LENGTH);
         }
-        if (isCharType(type)) {
+        if (type instanceof CharType) {
             return ((CharType) type).getLength();
         }
         if (type.equals(VARBINARY)) {
@@ -470,10 +468,10 @@ public class ColumnJdbcTable
 
     private static Integer charOctetLength(Type type)
     {
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return ((VarcharType) type).getLength().orElse(VarcharType.UNBOUNDED_LENGTH);
         }
-        if (isCharType(type)) {
+        if (type instanceof CharType) {
             return ((CharType) type).getLength();
         }
         if (type.equals(VARBINARY)) {

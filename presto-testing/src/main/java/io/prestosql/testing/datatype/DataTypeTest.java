@@ -23,11 +23,13 @@ import io.prestosql.testing.sql.TestTable;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class DataTypeTest
@@ -122,9 +124,9 @@ public class DataTypeTest
 
     private void checkResults(List<Type> expectedTypes, List<Object> expectedResults, MaterializedResult materializedRows)
     {
-        assertEquals(materializedRows.getTypes(), expectedTypes);
+        assertThat(materializedRows.getTypes()).isEqualTo(expectedTypes);
         List<Object> actualResults = getOnlyElement(materializedRows).getFields();
-        assertEquals(actualResults.size(), expectedResults.size(), "lists don't have the same size");
+        verify(actualResults.size() == expectedResults.size(), "lists don't have the same size");
         for (int i = 0; i < expectedResults.size(); i++) {
             assertEquals(actualResults.get(i), expectedResults.get(i), "Element " + i);
         }

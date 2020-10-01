@@ -66,7 +66,7 @@ public enum BigQueryType
     RECORD(null, BigQueryType::simpleToStringConverter),
     STRING(createUnboundedVarcharType(), BigQueryType::stringToStringConverter),
     TIME(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE, BigQueryType::timeToStringConverter),
-    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE, BigQueryType::timestampToStringConverter);
+    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS, BigQueryType::timestampToStringConverter);
 
     private static final int[] NANO_FACTOR = {
             -1, // 0, no need to multiply

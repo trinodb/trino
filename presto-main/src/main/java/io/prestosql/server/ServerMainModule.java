@@ -38,6 +38,8 @@ import io.prestosql.connector.ConnectorManager;
 import io.prestosql.connector.system.SystemConnectorModule;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.event.SplitMonitor;
+import io.prestosql.execution.DynamicFilterConfig;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.ExplainAnalyzeContext;
 import io.prestosql.execution.LocationFactory;
@@ -96,6 +98,7 @@ import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spiller.FileSingleStreamSpillerFactory;
@@ -301,6 +304,7 @@ public class ServerMainModule
         binder.bind(LookupJoinOperators.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
+        jsonCodecBinder(binder).bindJsonCodec(VersionedDynamicFilterDomains.class);
         jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(OperatorStats.class);
@@ -409,6 +413,10 @@ public class ServerMainModule
         jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 
+        // range encoding
+        jsonBinder(binder).addSerializerBinding(Range.class).to(RangeJsonSerde.Serializer.class);
+        jsonBinder(binder).addDeserializerBinding(Range.class).to(RangeJsonSerde.Deserializer.class);
+
         // thread visualizer
         jaxrsBinder(binder).bind(ThreadResource.class);
 
@@ -429,6 +437,9 @@ public class ServerMainModule
         newExporter(binder).export(SpillerFactory.class).withGeneratedName();
         binder.bind(LocalSpillManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(NodeSpillConfig.class);
+
+        // Dynamic Filtering
+        configBinder(binder).bindConfig(DynamicFilterConfig.class);
 
         // dispatcher
         // TODO remove dispatcher fromm ServerMainModule, and bind dependent components only on coordinators

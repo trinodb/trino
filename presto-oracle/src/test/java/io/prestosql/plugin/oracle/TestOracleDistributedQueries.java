@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.oracle;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.testing.AbstractTestDistributedQueries;
@@ -46,9 +47,7 @@ public class TestOracleDistributedQueries
             throws Exception
     {
         this.oracleServer = new TestingOracleServer();
-        return OracleQueryRunner.createOracleQueryRunner(
-                oracleServer,
-                TpchTable.getTables());
+        return OracleQueryRunner.createOracleQueryRunner(oracleServer, ImmutableMap.of(), TpchTable.getTables(), false);
     }
 
     @AfterClass(alwaysRun = true)
@@ -57,6 +56,12 @@ public class TestOracleDistributedQueries
         if (oracleServer != null) {
             oracleServer.close();
         }
+    }
+
+    @Override
+    protected boolean supportsDelete()
+    {
+        return false;
     }
 
     @Override
@@ -72,15 +77,15 @@ public class TestOracleDistributedQueries
     }
 
     @Override
-    public void testCommentTable()
+    protected boolean supportsCommentOnTable()
     {
-        // table comment not supported
+        return false;
     }
 
     @Override
-    public void testDelete()
+    protected boolean supportsCommentOnColumn()
     {
-        // delete is not supported
+        return false;
     }
 
     @Override
