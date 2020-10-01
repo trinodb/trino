@@ -47,6 +47,7 @@ public class TestOracleParallelSubpartitionsIntegrationSmokeTest
                 .withTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
                 .withCreateUsers(TestOracleParallelSubpartitionsIntegrationSmokeTest::createUsers)
                 .withProvisionTables(TestOracleParallelSubpartitionsIntegrationSmokeTest::partitionTables)
+                .withUnlockEnterpriseFeatures(true) // parallelism is license protected
                 .build();
     }
 

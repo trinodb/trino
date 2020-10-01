@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Resources.getResource;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.expectThrows;
 
 public class TestOraclePlugin
@@ -47,5 +48,43 @@ public class TestOraclePlugin
                         .build(),
                 new TestingConnectorContext())
         ).getMessage().contains("Configuration property 'connection-user' was not used");
+    }
+
+    @Test
+    public void testParallelismRequiresLicense()
+    {
+        Plugin plugin = new OraclePlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+
+        // default configuration (no paralellism) works without license
+        factory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("connection-url", "test")
+                        .build(),
+                new TestingConnectorContext())
+                .shutdown();
+
+        // explicit no paralellism works without license
+        factory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("connection-url", "test")
+                        .put("oracle.parallelism-type", "no_parallelism")
+                        .build(),
+                new TestingConnectorContext())
+                .shutdown();
+
+        // partitions based parallelism requires license
+        assertThatThrownBy(() ->
+                factory.create(
+                        "test",
+                        ImmutableMap.<String, String>builder()
+                                .put("connection-url", "test")
+                                .put("oracle.parallelism-type", "partitions")
+                                .build(),
+                        new TestingConnectorContext())
+                        .shutdown())
+                .hasMessageContaining("Valid license required to use the feature: oracle-extensions");
     }
 }

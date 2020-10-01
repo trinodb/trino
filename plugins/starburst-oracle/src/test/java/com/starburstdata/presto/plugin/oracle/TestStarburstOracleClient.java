@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
+import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
@@ -66,11 +67,12 @@ public class TestStarburstOracleClient
             new OracleConfig(),
             identity -> { throw new UnsupportedOperationException(); });
 
+    public static final LicenseManager NOOP_LICENSE_MANAGER = feature -> {};
     public static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(ImmutableList.<PropertyMetadata<?>>builder()
                     .addAll(new TypeHandlingJdbcSessionProperties(new TypeHandlingJdbcConfig()).getSessionProperties())
                     .addAll(new OracleSessionProperties(new OracleConfig()).getSessionProperties())
-                    .addAll(new StarburstOracleSessionProperties(new StarburstOracleConfig()).getSessionProperties())
+                    .addAll(new StarburstOracleSessionProperties(NOOP_LICENSE_MANAGER, new StarburstOracleConfig()).getSessionProperties())
                     .build())
             .build();
 

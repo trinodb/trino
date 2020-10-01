@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multiset;
 import com.google.common.math.IntMath;
+import com.starburstdata.presto.license.LicenseManager;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
@@ -38,6 +39,7 @@ import java.util.Optional;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
+import static com.starburstdata.presto.license.StarburstPrestoFeature.ORACLE_EXTENSIONS;
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.NO_PARALLELISM;
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.PARTITIONS;
 import static com.starburstdata.presto.plugin.oracle.StarburstOracleSessionProperties.getMaxSplitsPerScan;
@@ -53,9 +55,15 @@ public class OracleSplitManager
     private final ConnectionFactory connectionFactory;
 
     @Inject
-    public OracleSplitManager(ConnectionFactory connectionFactory)
+    public OracleSplitManager(
+            ConnectionFactory connectionFactory,
+            StarburstOracleConfig starburstOracleConfig,
+            LicenseManager licenseManager)
     {
         this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
+        if (starburstOracleConfig.getParallelismType() != OracleParallelismType.NO_PARALLELISM) {
+            licenseManager.checkFeature(ORACLE_EXTENSIONS);
+        }
     }
 
     @Override

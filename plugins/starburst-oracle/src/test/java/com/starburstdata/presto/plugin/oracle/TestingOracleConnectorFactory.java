@@ -9,19 +9,19 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import com.starburstdata.presto.license.LicenseModule;
+import com.starburstdata.presto.license.TestingLicenseModule;
 import io.prestosql.plugin.jdbc.JdbcConnectorFactory;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
-public class OracleConnectorFactory
+public class TestingOracleConnectorFactory
         extends JdbcConnectorFactory
 {
-    public OracleConnectorFactory()
+    public TestingOracleConnectorFactory()
     {
         super("oracle", catalogName -> {
-            return combine(new LicenseModule(), new OracleClientModule(catalogName));
+            return combine(new TestingLicenseModule(), new OracleClientModule(catalogName));
         });
     }
 

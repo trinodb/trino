@@ -56,7 +56,8 @@ public final class OracleQueryRunner
             int nodesCount,
             Map<String, String> coordinatorProperties,
             Runnable createUsers,
-            Runnable provisionTables)
+            Runnable provisionTables,
+            boolean unlockEnterpriseFeatures)
             throws Exception
     {
         Logging logging = Logging.initialize();
@@ -74,7 +75,13 @@ public final class OracleQueryRunner
 
             createUsers.run();
 
-            queryRunner.installPlugin(new OraclePlugin());
+            if (unlockEnterpriseFeatures) {
+                queryRunner.installPlugin(new TestingOraclePlugin());
+            }
+            else {
+                queryRunner.installPlugin(new OraclePlugin());
+            }
+
             queryRunner.createCatalog(ORACLE_CATALOG, ORACLE_CATALOG, connectorProperties);
 
             queryRunner.installPlugin(new JmxPlugin());
@@ -130,6 +137,7 @@ public final class OracleQueryRunner
         private Map<String, String> coordinatorProperties = emptyMap();
         private Runnable createUsers = OracleTestUsers::createStandardUsers;
         private Runnable provisionTables = Runnables.doNothing();
+        private boolean unlockEnterpriseFeatures;
 
         private Builder() {}
 
@@ -176,9 +184,15 @@ public final class OracleQueryRunner
             return this;
         }
 
+        public Builder withUnlockEnterpriseFeatures(boolean unlockEnterpriseFeatures)
+        {
+            this.unlockEnterpriseFeatures = unlockEnterpriseFeatures;
+            return this;
+        }
+
         public QueryRunner build() throws Exception
         {
-            return createOracleQueryRunner(connectorProperties, sessionModifier, tables, nodesCount, coordinatorProperties, createUsers, provisionTables);
+            return createOracleQueryRunner(connectorProperties, sessionModifier, tables, nodesCount, coordinatorProperties, createUsers, provisionTables, unlockEnterpriseFeatures);
         }
     }
 

@@ -55,6 +55,7 @@ public class TestOracleParallelQueries
                         .put("oracle.number.default-scale", "3")
                         .build())
                 .withTables(ImmutableList.of())
+                .withUnlockEnterpriseFeatures(true)
                 .build();
     }
 
