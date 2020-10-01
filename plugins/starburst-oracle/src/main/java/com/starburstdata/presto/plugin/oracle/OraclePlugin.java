@@ -14,12 +14,14 @@ import com.starburstdata.presto.license.LicenceCheckingConnectorFactory;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
+import static com.starburstdata.presto.license.StarburstPrestoFeature.ORACLE;
+
 public class OraclePlugin
         implements Plugin
 {
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new LicenceCheckingConnectorFactory(new OracleConnectorFactory(), "oracle"));
+        return ImmutableList.of(new LicenceCheckingConnectorFactory(ORACLE, new OracleConnectorFactory()));
     }
 }
