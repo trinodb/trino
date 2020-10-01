@@ -18,6 +18,7 @@ import io.prestosql.Session;
 import io.prestosql.plugin.jdbc.JdbcPlugin;
 import io.prestosql.plugin.jdbc.TestingH2JdbcModule;
 import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
@@ -30,6 +31,7 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
 
+import static io.prestosql.plugin.jdbc.JdbcMetadataSessionProperties.ALLOW_AGGREGATION_PUSHDOWN;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.QueryAssertions.copyTpchTables;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -69,6 +71,12 @@ public abstract class AbstractQueryAssertionsTest
         }
 
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), List.of(NATION));
+
+        Map<String, String> jdbcWithAggregationPushdownDisabledConfigurationProperties = ImmutableMap.<String, String>builder()
+                .putAll(jdbcConfigurationProperties)
+                .put("allow-aggregation-pushdown", "false")
+                .build();
+        queryRunner.createCatalog("jdbc_with_aggregation_pushdown_disabled", "base-jdbc", jdbcWithAggregationPushdownDisabledConfigurationProperties);
     }
 
     @Test
@@ -101,6 +109,41 @@ public abstract class AbstractQueryAssertionsTest
                                 "] which resolves to [\n" +
                                 "\n" +
                                 "Output[name]\n");
+    }
+
+    @Test
+    public void testIsCorrectlyPushedDownWithSession()
+    {
+        Session baseSession = Session.builder(getSession())
+                .setCatalog("jdbc_with_aggregation_pushdown_disabled")
+                .build();
+
+        Session sessionWithAggregationPushdown = Session.builder(baseSession)
+                .setCatalogSessionProperty("jdbc_with_aggregation_pushdown_disabled", ALLOW_AGGREGATION_PUSHDOWN, "true")
+                .build();
+
+        assertThat(query("SELECT count(*) FROM nation")).isCorrectlyPushedDown();
+        assertThat(query(baseSession, "SELECT count(*) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+        assertThat(query(sessionWithAggregationPushdown, "SELECT count(*) FROM nation")).isCorrectlyPushedDown();
+
+        // Test that, in case of failure, there is no failure when rendering expected and actual plans
+        assertThatThrownBy(() -> assertThat(query(sessionWithAggregationPushdown, "SELECT count(*) FROM nation WHERE rand() = 42")).isCorrectlyPushedDown())
+                .hasMessageContaining(
+                        "Plan does not match, expected [\n" +
+                                "\n" +
+                                "- node(OutputNode)\n")
+                .hasMessageContaining(
+                        "\n" +
+                                "\n" +
+                                "] but found [\n" +
+                                "\n" +
+                                "Output[_col0]\n")
+                .hasMessageContaining(
+                        "\n" +
+                                "\n" +
+                                "] which resolves to [\n" +
+                                "\n" +
+                                "Output[_col0]\n");
     }
 
     @Test
