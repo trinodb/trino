@@ -83,7 +83,6 @@ public final class SystemSessionProperties
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
-    public static final String FAST_INEQUALITY_JOINS = "fast_inequality_joins";
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String SPILL_ORDER_BY = "spill_order_by";
@@ -324,11 +323,6 @@ public final class SystemSessionProperties
                             return intValue;
                         },
                         value -> value),
-                booleanProperty(
-                        FAST_INEQUALITY_JOINS,
-                        "Use faster handling of inequality join if it is possible",
-                        featuresConfig.isFastInequalityJoins(),
-                        false),
                 booleanProperty(
                         COLOCATED_JOIN,
                         "Experimental: Use a colocated join when possible",
@@ -703,11 +697,6 @@ public final class SystemSessionProperties
     public static boolean planWithTableNodePartitioning(Session session)
     {
         return session.getSystemProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, Boolean.class);
-    }
-
-    public static boolean isFastInequalityJoin(Session session)
-    {
-        return session.getSystemProperty(FAST_INEQUALITY_JOINS, Boolean.class);
     }
 
     public static JoinReorderingStrategy getJoinReorderingStrategy(Session session)
