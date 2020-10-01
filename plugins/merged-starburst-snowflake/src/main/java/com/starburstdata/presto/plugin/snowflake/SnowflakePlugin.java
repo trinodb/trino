@@ -18,6 +18,8 @@ import io.prestosql.plugin.jdbc.JdbcConnectorFactory.JdbcModuleProvider;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
+import static com.starburstdata.presto.license.StarburstPrestoFeature.SNOWFLAKE;
+
 public class SnowflakePlugin
         implements Plugin
 {
@@ -36,6 +38,6 @@ public class SnowflakePlugin
 
     private static LicenceCheckingConnectorFactory requireLicense(ConnectorFactory connectorFactory)
     {
-        return new LicenceCheckingConnectorFactory(connectorFactory, "snowflake");
+        return new LicenceCheckingConnectorFactory(SNOWFLAKE, connectorFactory);
     }
 }
