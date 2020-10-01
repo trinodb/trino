@@ -142,22 +142,13 @@ public class TupleDomainOrcPredicate
         return discreteValues.get().stream().anyMatch(value -> checkInBloomFilter(bloomFilter, value, stripeDomain.getType()));
     }
 
-    @VisibleForTesting
-    public static Optional<Collection<Object>> extractDiscreteValues(ValueSet valueSet)
+    private static Optional<Collection<Object>> extractDiscreteValues(ValueSet valueSet)
     {
-        return valueSet.getValuesProcessor().transform(
-                ranges -> {
-                    ImmutableList.Builder<Object> discreteValues = ImmutableList.builder();
-                    for (Range range : ranges.getOrderedRanges()) {
-                        if (!range.isSingleValue()) {
-                            return Optional.empty();
-                        }
-                        discreteValues.add(range.getSingleValue());
-                    }
-                    return Optional.of(discreteValues.build());
-                },
-                discreteValues -> Optional.of(discreteValues.getValues()),
-                allOrNone -> allOrNone.isAll() ? Optional.empty() : Optional.of(ImmutableList.of()));
+        if (!valueSet.isDiscreteSet()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(valueSet.getDiscreteSet());
     }
 
     // checks whether a value part of the effective predicate is likely to be part of this bloom filter
