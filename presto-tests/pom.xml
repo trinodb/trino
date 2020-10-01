@@ -154,6 +154,19 @@
         <!-- for testing -->
         <dependency>
             <groupId>io.prestosql</groupId>
+            <artifactId>presto-base-jdbc</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-base-jdbc</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-resource-group-managers</artifactId>
             <scope>test</scope>
         </dependency>
