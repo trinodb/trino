@@ -43,6 +43,7 @@ import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.prestosql.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.prestosql.sql.query.QueryAssertions.ExpressionAssert.newExpressionAssert;
@@ -300,6 +301,8 @@ public class QueryAssertions
          */
         public QueryAssert isCorrectlyPushedDown()
         {
+            checkState(!(runner instanceof LocalQueryRunner), "isCorrectlyPushedDown() currently does not work with LocalQueryRunner");
+
             // Compare the results with pushdown disabled, so that explicit matches() call is not needed
             verifyResultsWithPushdownDisabled();
 

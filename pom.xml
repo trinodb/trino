@@ -169,6 +169,13 @@
 
             <dependency>
                 <groupId>io.prestosql</groupId>
+                <artifactId>presto-base-jdbc</artifactId>
+                <type>test-jar</type>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
                 <artifactId>presto-benchmark</artifactId>
                 <version>${project.version}</version>
             </dependency>
