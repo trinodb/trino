@@ -51,7 +51,7 @@ public final class TypeCalculation
         @Override
         public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String message, RecognitionException e)
         {
-            throw new ParsingException(message, e, line, charPositionInLine);
+            throw new ParsingException(message, e, line, charPositionInLine + 1);
         }
     };
 

@@ -105,7 +105,7 @@ class ErrorHandler
             LOG.error(exception, "Unexpected failure when handling parsing error. This is likely a bug in the implementation");
         }
 
-        throw new ParsingException(message, e, line, charPositionInLine);
+        throw new ParsingException(message, e, line, charPositionInLine + 1);
     }
 
     private static class ParsingState
