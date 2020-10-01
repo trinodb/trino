@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.Session;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.QueryRunner;
 
@@ -46,6 +47,18 @@ public class TestLocalQueryAssertions
     public void testIsCorrectlyPushedDown()
     {
         assertThatThrownBy(() -> assertThat(query("SELECT name FROM nation")).isCorrectlyPushedDown())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("isCorrectlyPushedDown() currently does not work with LocalQueryRunner");
+    }
+
+    @Override
+    public void testIsCorrectlyPushedDownWithSession()
+    {
+        Session baseSession = Session.builder(getSession())
+                .setCatalog("jdbc_with_aggregation_pushdown_disabled")
+                .build();
+
+        assertThatThrownBy(() -> assertThat(query(baseSession, "SELECT name FROM nation")).isCorrectlyPushedDown())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("isCorrectlyPushedDown() currently does not work with LocalQueryRunner");
     }
