@@ -25,6 +25,7 @@ import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -60,6 +61,7 @@ public class DropStatsProcedure
             DropStatsProcedure.class,
             "dropStats",
             ConnectorSession.class,
+            ConnectorAccessControl.class,
             String.class,
             String.class,
             List.class);
@@ -87,20 +89,23 @@ public class DropStatsProcedure
                 DROP_STATS.bindTo(this));
     }
 
-    public void dropStats(ConnectorSession session, String schema, String table, List<?> partitionValues)
+    public void dropStats(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<?> partitionValues)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doDropStats(session, schema, table, partitionValues);
+            doDropStats(session, accessControl, schema, table, partitionValues);
         }
     }
 
-    private void doDropStats(ConnectorSession session, String schema, String table, List<?> partitionValues)
+    private void doDropStats(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<?> partitionValues)
     {
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.create();
         HiveTableHandle handle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schema, table));
         if (handle == null) {
             throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schema, table)));
         }
+
+        accessControl.checkCanInsertIntoTable(null, new SchemaTableName(schema, table));
+
         Map<String, ColumnHandle> columns = hiveMetadata.getColumnHandles(session, handle);
         List<String> partitionColumns = columns.values().stream()
                 .map(HiveColumnHandle.class::cast)
