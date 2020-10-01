@@ -27,6 +27,7 @@ import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
+import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -71,6 +72,7 @@ public class SyncPartitionMetadataProcedure
             SyncPartitionMetadataProcedure.class,
             "syncPartitionMetadata",
             ConnectorSession.class,
+            ConnectorAccessControl.class,
             String.class,
             String.class,
             String.class,
@@ -102,14 +104,14 @@ public class SyncPartitionMetadataProcedure
                 SYNC_PARTITION_METADATA.bindTo(this));
     }
 
-    public void syncPartitionMetadata(ConnectorSession session, String schemaName, String tableName, String mode, boolean caseSensitive)
+    public void syncPartitionMetadata(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, String mode, boolean caseSensitive)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doSyncPartitionMetadata(session, schemaName, tableName, mode, caseSensitive);
+            doSyncPartitionMetadata(session, accessControl, schemaName, tableName, mode, caseSensitive);
         }
     }
 
-    private void doSyncPartitionMetadata(ConnectorSession session, String schemaName, String tableName, String mode, boolean caseSensitive)
+    private void doSyncPartitionMetadata(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, String mode, boolean caseSensitive)
     {
         SyncMode syncMode = toSyncMode(mode);
         HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
@@ -122,6 +124,14 @@ public class SyncPartitionMetadataProcedure
         if (table.getPartitionColumns().isEmpty()) {
             throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Table is not partitioned: " + schemaTableName);
         }
+
+        if (syncMode == SyncMode.ADD || syncMode == SyncMode.FULL) {
+            accessControl.checkCanInsertIntoTable(null, new SchemaTableName(schemaName, tableName));
+        }
+        if (syncMode == SyncMode.DROP || syncMode == SyncMode.FULL) {
+            accessControl.checkCanDeleteFromTable(null, new SchemaTableName(schemaName, tableName));
+        }
+
         Path tableLocation = new Path(table.getStorage().getLocation());
 
         Set<String> partitionsToAdd;
