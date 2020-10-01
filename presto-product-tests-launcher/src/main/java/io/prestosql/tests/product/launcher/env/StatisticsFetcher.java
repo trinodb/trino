@@ -17,11 +17,11 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.model.MemoryStatsConfig;
 import com.github.dockerjava.api.model.StatisticNetworksConfig;
 import com.github.dockerjava.api.model.Statistics;
-import com.github.dockerjava.core.InvocationBuilder;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import net.jodah.failsafe.FailsafeExecutor;
 import org.testcontainers.DockerClientFactory;
+import org.testcontainers.shaded.com.github.dockerjava.core.InvocationBuilder;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
