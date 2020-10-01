@@ -21,7 +21,6 @@ import org.apache.kafka.clients.admin.KafkaAdminClient;
 import javax.inject.Inject;
 
 import java.util.Properties;
-import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -29,13 +28,13 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS
 
 public class KafkaAdminFactory
 {
-    private final Set<HostAddress> nodes;
+    private final KafkaConfig kafkaConfig;
 
     @Inject
     public KafkaAdminFactory(KafkaConfig kafkaConfig)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
-        nodes = kafkaConfig.getNodes();
+        this.kafkaConfig = kafkaConfig;
     }
 
     public AdminClient create()
@@ -46,9 +45,10 @@ public class KafkaAdminFactory
     public Properties configure()
     {
         Properties properties = new Properties();
-        properties.setProperty(BOOTSTRAP_SERVERS_CONFIG, nodes.stream()
+        properties.setProperty(BOOTSTRAP_SERVERS_CONFIG, kafkaConfig.getNodes().stream()
                 .map(HostAddress::toString)
                 .collect(joining(",")));
+        properties.putAll(kafkaConfig.getSecurityConfigProperties());
         return properties;
     }
 }
