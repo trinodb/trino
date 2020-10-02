@@ -38,7 +38,7 @@ import io.prestosql.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.FixedPageSource;
+import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
@@ -153,7 +153,7 @@ public class OrcPageSourceFactory
 
         // per HIVE-13040 and ORC-162, empty files are allowed
         if (estimatedFileSize == 0) {
-            ReaderPageSourceWithProjections context = noProjectionAdaptation(new FixedPageSource(ImmutableList.of()));
+            ReaderPageSourceWithProjections context = noProjectionAdaptation(new EmptyPageSource());
             return Optional.of(context);
         }
 
@@ -238,7 +238,7 @@ public class OrcPageSourceFactory
         try {
             Optional<OrcReader> optionalOrcReader = OrcReader.createOrcReader(orcDataSource, options);
             if (optionalOrcReader.isEmpty()) {
-                return new FixedPageSource(ImmutableList.of());
+                return new EmptyPageSource();
             }
             OrcReader reader = optionalOrcReader.get();
 

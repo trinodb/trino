@@ -22,7 +22,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.FixedPageSource;
+import io.prestosql.spi.connector.EmptyPageSource;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -211,7 +211,7 @@ public class OrcDeletedRows
                 FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
                 FileStatus fileStatus = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.getFileStatus(path));
 
-                try (ConnectorPageSource pageSource = pageSourceFactory.createPageSource(fileStatus.getPath(), fileStatus.getLen()).orElseGet(() -> new FixedPageSource(ImmutableSet.of()))) {
+                try (ConnectorPageSource pageSource = pageSourceFactory.createPageSource(fileStatus.getPath(), fileStatus.getLen()).orElseGet(() -> new EmptyPageSource())) {
                     while (!pageSource.isFinished()) {
                         Page page = pageSource.getNextPage();
                         if (page != null) {
