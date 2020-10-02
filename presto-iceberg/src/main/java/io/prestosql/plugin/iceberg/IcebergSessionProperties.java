@@ -34,9 +34,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
+import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static java.lang.String.format;
 
 public final class IcebergSessionProperties
@@ -123,24 +123,19 @@ public final class IcebergSessionProperties
                         "ORC: Maximum size of string statistics; drop if exceeding",
                         orcWriterConfig.getStringStatisticsLimit(),
                         false))
-                .add(new PropertyMetadata<>(
+                .add(doubleProperty(
                         ORC_WRITER_VALIDATE_PERCENTAGE,
                         "ORC: Percentage of written files to validate by re-reading them",
-                        DOUBLE,
-                        Double.class,
                         orcWriterConfig.getValidationPercentage(),
-                        false,
-                        value -> {
-                            double doubleValue = (double) value;
+                        doubleValue -> {
                             if (doubleValue < 0.0 || doubleValue > 100.0) {
                                 throw new PrestoException(INVALID_SESSION_PROPERTY, format(
                                         "%s must be between 0.0 and 100.0 inclusive: %s",
                                         ORC_WRITER_VALIDATE_PERCENTAGE,
                                         doubleValue));
                             }
-                            return doubleValue;
                         },
-                        value -> value))
+                        false))
                 .add(enumProperty(
                         ORC_WRITER_VALIDATE_MODE,
                         "ORC: Level of detail in ORC validation",
