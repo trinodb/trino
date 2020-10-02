@@ -33,6 +33,7 @@ import static io.prestosql.testing.datatype.DataType.realDataType;
 import static io.prestosql.testing.datatype.DataType.stringDataType;
 import static io.prestosql.testing.datatype.DataType.timeDataType;
 import static io.prestosql.testing.datatype.DataType.timestampDataType;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.function.Function.identity;
 
@@ -178,7 +179,7 @@ public final class SapHanaDataTypes
         return dataType(
                 "time",
                 createTimeType(0),
-                timeDataType()::toLiteral,
+                timeDataType(9)::toLiteral,
                 localTime -> localTime.withNano(0));
     }
 
@@ -187,7 +188,8 @@ public final class SapHanaDataTypes
         return dataType(
                 format("time(%s)", precision),
                 createTimeType(0),
-                timeDataType()::toLiteral,
+                // TODO remove min here, and update TestSapHanaTypeMapping#testPrestoTime not to exceed supported precision, leaving high precision test cases to TestSapHanaTypeMapping#testTimeCoercion
+                timeDataType(min(precision, 9))::toLiteral,
                 localTime -> {
                     if (localTime.getNano() >= 500_000_000) {
                         return localTime.withNano(0).plusSeconds(1);
