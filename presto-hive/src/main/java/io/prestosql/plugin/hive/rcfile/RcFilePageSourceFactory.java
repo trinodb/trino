@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.hive.rcfile;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -40,7 +39,7 @@ import io.prestosql.rcfile.text.TextRcFileEncoding;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.FixedPageSource;
+import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -175,7 +174,7 @@ public class RcFilePageSourceFactory
         length = min(dataSource.getSize() - start, length);
         // Split may be empty now that the correct file size is known
         if (length <= 0) {
-            return Optional.of(noProjectionAdaptation(new FixedPageSource(ImmutableList.of())));
+            return Optional.of(noProjectionAdaptation(new EmptyPageSource()));
         }
 
         try {
