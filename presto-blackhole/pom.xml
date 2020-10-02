@@ -18,6 +18,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-plugin-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
@@ -36,6 +41,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -80,12 +91,6 @@
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-tpch</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
             <scope>test</scope>
         </dependency>
 
