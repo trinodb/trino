@@ -23,7 +23,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.FixedPageSource;
+import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.connector.RecordSet;
@@ -95,7 +95,7 @@ public class SystemPageSourceProvider
 
         TupleDomain<ColumnHandle> constraint = systemSplit.getConstraint();
         if (constraint.isNone()) {
-            return new FixedPageSource(ImmutableList.of());
+            return new EmptyPageSource();
         }
         TupleDomain<Integer> newConstraint = systemSplit.getConstraint().transform(columnHandle ->
                 columnsByName.get(((SystemColumnHandle) columnHandle).getColumnName()));
