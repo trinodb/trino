@@ -58,7 +58,7 @@ public class TestHiveTransactionalTable
 {
     private static final Logger log = Logger.get(TestHiveTransactionalTable.class);
 
-    private static final int TEST_TIMEOUT = 10 * 60 * 1000;
+    private static final int TEST_TIMEOUT = 15 * 60 * 1000;
 
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testReadFullAcid()
@@ -138,7 +138,7 @@ public class TestHiveTransactionalTable
 
             assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE col=20")).containsExactly(row(20, 3));
 
-            compactTableAndWait(MINOR, tableName, hivePartitionString, Duration.valueOf("3m"));
+            compactTableAndWait(MINOR, tableName, hivePartitionString, Duration.valueOf("6m"));
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(21, 1), row(22, 2));
 
             // delete a row
@@ -155,7 +155,7 @@ public class TestHiveTransactionalTable
             assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE col=20")).containsExactly(row(20, 3));
 
             // test major compaction
-            compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("3m"));
+            compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("6m"));
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(23, 1));
         }
     }
@@ -190,7 +190,7 @@ public class TestHiveTransactionalTable
             assertThat(query("SELECT col FROM " + tableName + " WHERE col=2")).containsExactly(row(2));
 
             // test minor compacted data read
-            compactTableAndWait(MINOR, tableName, hivePartitionString, Duration.valueOf("3m"));
+            compactTableAndWait(MINOR, tableName, hivePartitionString, Duration.valueOf("6m"));
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(1), row(2));
             assertThat(query("SELECT col FROM " + tableName + " WHERE col=2")).containsExactly(row(2));
 
@@ -203,7 +203,7 @@ public class TestHiveTransactionalTable
 
                 // test major compaction
                 onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " SELECT 4");
-                compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("3m"));
+                compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("6m"));
                 assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(3), row(4));
             }
         }
@@ -403,7 +403,7 @@ public class TestHiveTransactionalTable
                     throw new IllegalStateException(format("Could not compact table %s in %d retries", tableName, event.getAttemptCount()), event.getFailure());
                 })
                 .onSuccess(event -> log.info("Finished %s compaction on %s in %s (%d tries)", compactMode, tableName, event.getElapsedTime(), event.getAttemptCount()))
-                .run(() -> tryCompactingTable(compactMode, tableName, partitionString, Duration.valueOf("60s")));
+                .run(() -> tryCompactingTable(compactMode, tableName, partitionString, Duration.valueOf("2m")));
     }
 
     private static void tryCompactingTable(CompactionMode compactMode, String tableName, String partitionString, Duration timeout)
