@@ -88,8 +88,6 @@ public class BenchmarkDecimalOperators
     private static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(10, 0);
     private static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(20, 0);
 
-    private static final SqlParser SQL_PARSER = new SqlParser();
-
     @State(Thread)
     public static class CastDoubleToDecimalBenchmarkState
             extends BaseState
