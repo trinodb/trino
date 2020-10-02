@@ -191,15 +191,12 @@ public final class SystemSessionProperties
                         "Prefer source table layouts that produce streaming operators",
                         false,
                         false),
-                new PropertyMetadata<>(
+                integerProperty(
                         TASK_WRITER_COUNT,
                         "Default number of local parallel table writer jobs per worker",
-                        INTEGER,
-                        Integer.class,
                         taskManagerConfig.getWriterCount(),
-                        false,
                         value -> validateValueIsPowerOfTwo(value, TASK_WRITER_COUNT),
-                        value -> value),
+                        false),
                 booleanProperty(
                         REDISTRIBUTE_WRITES,
                         "Force parallel distributed writes",
@@ -225,15 +222,12 @@ public final class SystemSessionProperties
                         "Parallelize writes when using UNION ALL in queries that write data",
                         featuresConfig.isPushTableWriteThroughUnion(),
                         false),
-                new PropertyMetadata<>(
+                integerProperty(
                         TASK_CONCURRENCY,
                         "Default number of local parallel jobs per worker",
-                        INTEGER,
-                        Integer.class,
                         taskManagerConfig.getTaskConcurrency(),
-                        false,
                         value -> validateValueIsPowerOfTwo(value, TASK_CONCURRENCY),
-                        value -> value),
+                        false),
                 booleanProperty(
                         TASK_SHARE_INDEX_LOADING,
                         "Share index join lookups and caching within a task",
@@ -894,7 +888,7 @@ public final class SystemSessionProperties
         return OptionalInt.of(value);
     }
 
-    private static int validateValueIsPowerOfTwo(Object value, String property)
+    private static void validateValueIsPowerOfTwo(Object value, String property)
     {
         int intValue = (int) value;
         if (Integer.bitCount(intValue) != 1) {
@@ -902,7 +896,6 @@ public final class SystemSessionProperties
                     INVALID_SESSION_PROPERTY,
                     format("%s must be a power of 2: %s", property, intValue));
         }
-        return intValue;
     }
 
     private static Integer validateNullablePositiveIntegerValue(Object value, String property)

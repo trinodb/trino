@@ -16,6 +16,7 @@ package io.prestosql.spi.session;
 import io.prestosql.spi.type.Type;
 
 import java.util.EnumSet;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -140,6 +141,11 @@ public final class PropertyMetadata<T>
 
     public static PropertyMetadata<Boolean> booleanProperty(String name, String description, Boolean defaultValue, boolean hidden)
     {
+        return booleanProperty(name, description, defaultValue, value -> {}, hidden);
+    }
+
+    public static PropertyMetadata<Boolean> booleanProperty(String name, String description, Boolean defaultValue, Consumer<Boolean> validation, boolean hidden)
+    {
         return new PropertyMetadata<>(
                 name,
                 description,
@@ -147,11 +153,20 @@ public final class PropertyMetadata<T>
                 Boolean.class,
                 defaultValue,
                 hidden,
-                Boolean.class::cast,
+                object -> {
+                    boolean value = (Boolean) object;
+                    validation.accept(value);
+                    return value;
+                },
                 object -> object);
     }
 
     public static PropertyMetadata<Integer> integerProperty(String name, String description, Integer defaultValue, boolean hidden)
+    {
+        return integerProperty(name, description, defaultValue, value -> {}, hidden);
+    }
+
+    public static PropertyMetadata<Integer> integerProperty(String name, String description, Integer defaultValue, Consumer<Integer> validation, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
@@ -160,11 +175,20 @@ public final class PropertyMetadata<T>
                 Integer.class,
                 defaultValue,
                 hidden,
-                Integer.class::cast,
+                object -> {
+                    int value = (Integer) object;
+                    validation.accept(value);
+                    return value;
+                },
                 object -> object);
     }
 
     public static PropertyMetadata<Long> longProperty(String name, String description, Long defaultValue, boolean hidden)
+    {
+        return longProperty(name, description, defaultValue, value -> {}, hidden);
+    }
+
+    public static PropertyMetadata<Long> longProperty(String name, String description, Long defaultValue, Consumer<Long> validation, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
@@ -173,11 +197,20 @@ public final class PropertyMetadata<T>
                 Long.class,
                 defaultValue,
                 hidden,
-                Long.class::cast,
+                object -> {
+                    long value = (Long) object;
+                    validation.accept(value);
+                    return value;
+                },
                 object -> object);
     }
 
     public static PropertyMetadata<Double> doubleProperty(String name, String description, Double defaultValue, boolean hidden)
+    {
+        return doubleProperty(name, description, defaultValue, value -> {}, hidden);
+    }
+
+    public static PropertyMetadata<Double> doubleProperty(String name, String description, Double defaultValue, Consumer<Double> validation, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
@@ -186,11 +219,20 @@ public final class PropertyMetadata<T>
                 Double.class,
                 defaultValue,
                 hidden,
-                Double.class::cast,
+                object -> {
+                    double value = (Double) object;
+                    validation.accept(value);
+                    return value;
+                },
                 object -> object);
     }
 
     public static PropertyMetadata<String> stringProperty(String name, String description, String defaultValue, boolean hidden)
+    {
+        return stringProperty(name, description, defaultValue, value -> {}, hidden);
+    }
+
+    public static PropertyMetadata<String> stringProperty(String name, String description, String defaultValue, Consumer<String> validation, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
@@ -199,11 +241,20 @@ public final class PropertyMetadata<T>
                 String.class,
                 defaultValue,
                 hidden,
-                String.class::cast,
+                object -> {
+                    String value = (String) object;
+                    validation.accept(value);
+                    return value;
+                },
                 object -> object);
     }
 
     public static <T extends Enum<T>> PropertyMetadata<T> enumProperty(String name, String descriptionPrefix, Class<T> type, T defaultValue, boolean hidden)
+    {
+        return enumProperty(name, descriptionPrefix, type, defaultValue, value -> {}, hidden);
+    }
+
+    public static <T extends Enum<T>> PropertyMetadata<T> enumProperty(String name, String descriptionPrefix, Class<T> type, T defaultValue, Consumer<T> validation, boolean hidden)
     {
         String allValues = EnumSet.allOf(type).stream()
                 .map(Enum::name)
@@ -216,12 +267,15 @@ public final class PropertyMetadata<T>
                 defaultValue,
                 hidden,
                 value -> {
+                    T enumValue;
                     try {
-                        return Enum.valueOf(type, ((String) value).toUpperCase(ENGLISH));
+                        enumValue = Enum.valueOf(type, ((String) value).toUpperCase(ENGLISH));
                     }
                     catch (IllegalArgumentException e) {
                         throw new IllegalArgumentException(format("Invalid value [%s]. Valid values: %s", value, allValues), e);
                     }
+                    validation.accept(enumValue);
+                    return enumValue;
                 },
                 Enum::name);
     }

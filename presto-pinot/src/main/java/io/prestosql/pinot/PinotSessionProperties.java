@@ -26,7 +26,6 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class PinotSessionProperties
@@ -108,19 +107,12 @@ public class PinotSessionProperties
                         false,
                         value -> Duration.valueOf((String) value),
                         Duration::toString),
-                new PropertyMetadata<>(
+                integerProperty(
                         SEGMENTS_PER_SPLIT,
                         "Number of segments of the same host per split",
-                        INTEGER,
-                        Integer.class,
                         pinotConfig.getSegmentsPerSplit(),
-                        false,
-                        value -> {
-                            int intValue = (int) value;
-                            checkArgument(intValue > 0, "Number of segments per split must be more than zero");
-                            return intValue;
-                        },
-                        object -> object));
+                        value -> checkArgument(value > 0, "Number of segments per split must be more than zero"),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
