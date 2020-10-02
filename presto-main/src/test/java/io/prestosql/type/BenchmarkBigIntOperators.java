@@ -13,9 +13,6 @@
  */
 package io.prestosql.type;
 
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -31,12 +28,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.concurrent.TimeUnit;
-
-import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.DIVIDE;
-import static io.prestosql.spi.function.OperatorType.MULTIPLY;
-import static io.prestosql.spi.function.OperatorType.NEGATION;
-import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 
 @State(Scope.Thread)
 @Fork(2)
@@ -363,37 +354,27 @@ public class BenchmarkBigIntOperators
         return result;
     }
 
-    @ScalarOperator(ADD)
-    @SqlType(StandardTypes.BIGINT)
-    private static long addBaseline(@SqlType(StandardTypes.BIGINT) long first, @SqlType(StandardTypes.BIGINT) long second)
+    private static long addBaseline(long first, long second)
     {
         return first + second;
     }
 
-    @ScalarOperator(SUBTRACT)
-    @SqlType(StandardTypes.BIGINT)
-    private static long subtractBaseline(@SqlType(StandardTypes.BIGINT) long first, @SqlType(StandardTypes.BIGINT) long second)
+    private static long subtractBaseline(long first, long second)
     {
         return first - second;
     }
 
-    @ScalarOperator(MULTIPLY)
-    @SqlType(StandardTypes.BIGINT)
-    private static long multiplyBaseline(@SqlType(StandardTypes.BIGINT) long first, @SqlType(StandardTypes.BIGINT) long second)
+    private static long multiplyBaseline(long first, long second)
     {
         return first * second;
     }
 
-    @ScalarOperator(DIVIDE)
-    @SqlType(StandardTypes.BIGINT)
-    private static long divideBaseline(@SqlType(StandardTypes.BIGINT) long first, @SqlType(StandardTypes.BIGINT) long second)
+    private static long divideBaseline(long first, long second)
     {
         return first / second;
     }
 
-    @ScalarOperator(NEGATION)
-    @SqlType(StandardTypes.BIGINT)
-    private static long negateBaseLine(@SqlType(StandardTypes.BIGINT) long x)
+    private static long negateBaseLine(long x)
     {
         return -x;
     }
