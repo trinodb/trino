@@ -83,6 +83,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NAMES;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static io.prestosql.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcMaxMergeDistance;
@@ -92,7 +93,6 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcTinyStripeThr
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
-import static io.prestosql.plugin.hive.ReaderColumns.projectBaseColumns;
 import static io.prestosql.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
 import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
@@ -103,6 +103,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.isFullAcidTable;
 
 public class OrcPageSourceFactory
@@ -158,7 +159,14 @@ public class OrcPageSourceFactory
             return Optional.of(context);
         }
 
-        Optional<ReaderColumns> projectedReaderColumns = projectBaseColumns(columns);
+        List<HiveColumnHandle> readerColumnHandles = columns;
+
+        Optional<ReaderColumns> readerColumns = projectBaseColumns(columns);
+        if (readerColumns.isPresent()) {
+            readerColumnHandles = readerColumns.get().get().stream()
+                    .map(HiveColumnHandle.class::cast)
+                    .collect(toUnmodifiableList());
+        }
 
         ConnectorPageSource orcPageSource = createOrcPageSource(
                 hdfsEnvironment,
@@ -168,9 +176,7 @@ public class OrcPageSourceFactory
                 start,
                 length,
                 estimatedFileSize,
-                projectedReaderColumns
-                        .map(ReaderColumns::get)
-                        .orElse(columns),
+                readerColumnHandles,
                 columns,
                 isUseOrcColumnNames(session),
                 isFullAcidTable(Maps.fromProperties(schema)),
@@ -191,7 +197,7 @@ public class OrcPageSourceFactory
                 transaction,
                 stats);
 
-        return Optional.of(new ReaderPageSource(orcPageSource, projectedReaderColumns));
+        return Optional.of(new ReaderPageSource(orcPageSource, readerColumns));
     }
 
     private static ConnectorPageSource createOrcPageSource(
