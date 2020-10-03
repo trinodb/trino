@@ -119,6 +119,14 @@ public class TestHashAggregationOperator
         spillerFactory = new DummySpillerFactory();
     }
 
+    @AfterMethod(alwaysRun = true)
+    public void tearDown()
+    {
+        spillerFactory = null;
+        executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
+    }
+
     @DataProvider(name = "hashEnabled")
     public static Object[][] hashEnabled()
     {
@@ -144,14 +152,6 @@ public class TestHashAggregationOperator
     public Object[][] dataType()
     {
         return new Object[][] {{VARCHAR}, {BIGINT}};
-    }
-
-    @AfterMethod(alwaysRun = true)
-    public void tearDown()
-    {
-        spillerFactory = null;
-        executor.shutdownNow();
-        scheduledExecutor.shutdownNow();
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
