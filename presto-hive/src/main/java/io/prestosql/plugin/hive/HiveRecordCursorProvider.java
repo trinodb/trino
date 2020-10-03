@@ -52,9 +52,9 @@ public interface HiveRecordCursorProvider
     class ReaderRecordCursorWithProjections
     {
         private final RecordCursor recordCursor;
-        private final Optional<ReaderProjections> projectedReaderColumns;
+        private final Optional<ReaderColumns> projectedReaderColumns;
 
-        public ReaderRecordCursorWithProjections(RecordCursor recordCursor, Optional<ReaderProjections> projectedReaderColumns)
+        public ReaderRecordCursorWithProjections(RecordCursor recordCursor, Optional<ReaderColumns> projectedReaderColumns)
         {
             this.recordCursor = requireNonNull(recordCursor, "recordCursor is null");
             this.projectedReaderColumns = requireNonNull(projectedReaderColumns, "projectedReaderColumns is null");
@@ -65,7 +65,7 @@ public interface HiveRecordCursorProvider
             return recordCursor;
         }
 
-        public Optional<ReaderProjections> getProjectedReaderColumns()
+        public Optional<ReaderColumns> getProjectedReaderColumns()
         {
             return projectedReaderColumns;
         }

@@ -35,7 +35,7 @@ import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
+import static io.prestosql.plugin.hive.ReaderColumns.projectBaseColumns;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -82,7 +82,7 @@ public class GenericHiveRecordCursorProvider
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + path, e);
         }
 
-        Optional<ReaderProjections> projectedReaderColumns = projectBaseColumns(columns);
+        Optional<ReaderColumns> projectedReaderColumns = projectBaseColumns(columns);
 
         RecordCursor cursor = hdfsEnvironment.doAs(session.getUser(), () -> {
             RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(
@@ -92,7 +92,7 @@ public class GenericHiveRecordCursorProvider
                     length,
                     schema,
                     projectedReaderColumns
-                            .map(ReaderProjections::getReaderColumns)
+                            .map(ReaderColumns::get)
                             .orElse(columns));
 
             return new GenericHiveRecordCursor<>(
@@ -102,7 +102,7 @@ public class GenericHiveRecordCursorProvider
                     length,
                     schema,
                     projectedReaderColumns
-                            .map(ReaderProjections::getReaderColumns)
+                            .map(ReaderColumns::get)
                             .orElse(columns));
         });
 

@@ -257,7 +257,7 @@ public class HivePageSourceProvider
             if (readerWithProjections.isPresent()) {
                 ConnectorPageSource pageSource = readerWithProjections.get().get();
 
-                Optional<ReaderProjections> readerProjections = readerWithProjections.get().getReaderColumns();
+                Optional<ReaderColumns> readerProjections = readerWithProjections.get().getReaderColumns();
                 Optional<ReaderProjectionsAdapter> adapter = Optional.empty();
                 if (readerProjections.isPresent()) {
                     adapter = Optional.of(new ReaderProjectionsAdapter(desiredColumns, readerProjections.get()));
@@ -292,7 +292,7 @@ public class HivePageSourceProvider
 
             if (readerWithProjections.isPresent()) {
                 RecordCursor delegate = readerWithProjections.get().getRecordCursor();
-                Optional<ReaderProjections> projections = readerWithProjections.get().getProjectedReaderColumns();
+                Optional<ReaderColumns> projections = readerWithProjections.get().getProjectedReaderColumns();
 
                 if (projections.isPresent()) {
                     ReaderProjectionsAdapter projectionsAdapter = new ReaderProjectionsAdapter(desiredColumns, projections.get());

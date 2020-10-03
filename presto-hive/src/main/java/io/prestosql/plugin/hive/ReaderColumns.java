@@ -32,14 +32,14 @@ import static java.util.Objects.requireNonNull;
  * Stores a mapping of the projected columns required by {@link HivePageSource} to the columns supplied by format-specific
  * page sources or record cursors.
  */
-public class ReaderProjections
+public class ReaderColumns
 {
     // columns to be read by the reader (ordered)
     private final List<HiveColumnHandle> readerColumns;
     // indices for mapping expected hive column handles to the reader's column handles
     private final List<Integer> readerBlockIndices;
 
-    private ReaderProjections(List<HiveColumnHandle> readerColumns, List<Integer> readerBlockIndices)
+    private ReaderColumns(List<HiveColumnHandle> readerColumns, List<Integer> readerBlockIndices)
     {
         this.readerColumns = ImmutableList.copyOf(requireNonNull(readerColumns, "readerColumns is null"));
 
@@ -50,7 +50,7 @@ public class ReaderProjections
     /**
      * For a column required by the {@link HivePageSource}, returns the column read by the delegate page source or record cursor.
      */
-    public HiveColumnHandle readerColumnForHiveColumnAt(int index)
+    public HiveColumnHandle getForColumnAt(int index)
     {
         checkArgument(index >= 0 && index < readerBlockIndices.size(), "index is not valid");
         int readerIndex = readerBlockIndices.get(index);
@@ -60,7 +60,7 @@ public class ReaderProjections
     /**
      * For a channel expected by {@link HivePageSource}, returns the channel index in the underlying page source or record cursor.
      */
-    public int readerColumnPositionForHiveColumnAt(int index)
+    public int getPositionForColumnAt(int index)
     {
         checkArgument(index >= 0 && index < readerBlockIndices.size(), "index is invalid");
         return readerBlockIndices.get(index);
@@ -69,7 +69,7 @@ public class ReaderProjections
     /**
      * returns the actual list of columns being read by underlying page source or record cursor in order.
      */
-    public List<HiveColumnHandle> getReaderColumns()
+    public List<HiveColumnHandle> get()
     {
         return readerColumns;
     }
@@ -77,7 +77,7 @@ public class ReaderProjections
     /**
      * Creates a mapping between the input {@param columns} and base columns if required.
      */
-    public static Optional<ReaderProjections> projectBaseColumns(List<HiveColumnHandle> columns)
+    public static Optional<ReaderColumns> projectBaseColumns(List<HiveColumnHandle> columns)
     {
         requireNonNull(columns, "columns is null");
 
@@ -106,14 +106,14 @@ public class ReaderProjections
             }
         }
 
-        return Optional.of(new ReaderProjections(projectedColumns.build(), outputColumnMapping.build()));
+        return Optional.of(new ReaderColumns(projectedColumns.build(), outputColumnMapping.build()));
     }
 
     /**
      * Creates a set of sufficient columns for the input projected columns and prepares a mapping between the two. For example,
      * if input {@param columns} include columns "a.b" and "a.b.c", then they will be projected from a single column "a.b".
      */
-    public static Optional<ReaderProjections> projectSufficientColumns(List<HiveColumnHandle> columns)
+    public static Optional<ReaderColumns> projectSufficientColumns(List<HiveColumnHandle> columns)
     {
         requireNonNull(columns, "columns is null");
 
@@ -170,7 +170,7 @@ public class ReaderProjections
             outputColumnMapping.add(inputBlockIndex);
         }
 
-        return Optional.of(new ReaderProjections(sufficientColumns, outputColumnMapping.build()));
+        return Optional.of(new ReaderColumns(sufficientColumns, outputColumnMapping.build()));
     }
 
     private static class DereferenceChain
