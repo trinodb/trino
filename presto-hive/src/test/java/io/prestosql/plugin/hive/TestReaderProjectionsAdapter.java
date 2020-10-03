@@ -33,7 +33,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.block.BlockAssertions.assertBlockEquals;
-import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
+import static io.prestosql.plugin.hive.ReaderColumns.projectBaseColumns;
 import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_ROW_AND_PRIMITIVES;
 import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
 import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.createTestFullColumns;
@@ -61,7 +61,7 @@ public class TestReaderProjectionsAdapter
                 createProjectedColumnHandle(TEST_FULL_COLUMNS.get("col"), ImmutableList.of(0, 0)),
                 createProjectedColumnHandle(TEST_FULL_COLUMNS.get("col"), ImmutableList.of(0)));
 
-        Optional<ReaderProjections> readerProjections = projectBaseColumns(columns);
+        Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
 
         List<Object> inputBlockData = new ArrayList<>();
         inputBlockData.add(rowData(rowData(11L, 12L, 13L), 1L));
@@ -85,7 +85,7 @@ public class TestReaderProjectionsAdapter
         inputBlockData.add(rowData(rowData(31L, 32L, 33L), 3L));
 
         // Produce an output page by applying adaptation
-        Optional<ReaderProjections> readerProjections = projectBaseColumns(columns);
+        Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
         ReaderProjectionsAdapter adapter = new ReaderProjectionsAdapter(columns, readerProjections.get());
         Page inputPage = createPage(ImmutableList.of(inputBlockData), adapter.getInputTypes());
         adapter.adaptPage(inputPage).getLoadedPage();

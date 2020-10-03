@@ -33,8 +33,8 @@ import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveColumnProjectionInfo;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.plugin.hive.ReaderColumns;
 import io.prestosql.plugin.hive.ReaderPageSource;
-import io.prestosql.plugin.hive.ReaderProjections;
 import io.prestosql.plugin.hive.acid.AcidSchema;
 import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
@@ -92,8 +92,8 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcTinyStripeThr
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
+import static io.prestosql.plugin.hive.ReaderColumns.projectBaseColumns;
 import static io.prestosql.plugin.hive.ReaderPageSource.noProjectionAdaptation;
-import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
 import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -158,7 +158,7 @@ public class OrcPageSourceFactory
             return Optional.of(context);
         }
 
-        Optional<ReaderProjections> projectedReaderColumns = projectBaseColumns(columns);
+        Optional<ReaderColumns> projectedReaderColumns = projectBaseColumns(columns);
 
         ConnectorPageSource orcPageSource = createOrcPageSource(
                 hdfsEnvironment,
@@ -169,7 +169,7 @@ public class OrcPageSourceFactory
                 length,
                 estimatedFileSize,
                 projectedReaderColumns
-                        .map(ReaderProjections::getReaderColumns)
+                        .map(ReaderColumns::get)
                         .orElse(columns),
                 columns,
                 isUseOrcColumnNames(session),
