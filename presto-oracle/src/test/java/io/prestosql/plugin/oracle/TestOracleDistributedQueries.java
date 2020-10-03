@@ -83,12 +83,6 @@ public class TestOracleDistributedQueries
     }
 
     @Override
-    protected boolean supportsCommentOnColumn()
-    {
-        return false;
-    }
-
-    @Override
     public void testCreateSchema()
     {
         // schema creation is not supported
