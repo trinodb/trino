@@ -186,12 +186,23 @@ public class DistributedQueryRunner
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.<String, String>builder()
                 .put("internal-communication.shared-secret", "test-secret")
                 .put("query.client.timeout", "10m")
+                // Use few threads in tests to preserve resources on CI
+                .put("discovery.http-client.min-threads", "1") // default 8
+                .put("exchange.http-client.min-threads", "1") // default 8
+                .put("node-manager.http-client.min-threads", "1") // default 8
+                .put("exchange.page-buffer-client.max-callback-threads", "5") // default 25
                 .put("exchange.http-client.idle-timeout", "1h")
                 .put("task.max-index-memory", "16kB") // causes index joins to fault load
                 .put("distributed-index-joins-enabled", "true");
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
             propertiesBuilder.put("join-distribution-type", "PARTITIONED");
+
+            // Use few threads in tests to preserve resources on CI
+            propertiesBuilder.put("failure-detector.http-client.min-threads", "1"); // default 8
+            propertiesBuilder.put("memoryManager.http-client.min-threads", "1"); // default 8
+            propertiesBuilder.put("scheduler.http-client.min-threads", "1"); // default 8
+            propertiesBuilder.put("workerInf.http-client.min-threads", "1"); // default 8
         }
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
         properties.putAll(extraProperties);
