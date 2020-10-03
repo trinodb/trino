@@ -144,6 +144,13 @@ public class TestApproximatePercentileAggregation
                 createLongsBlock(1L, null, 2L, 2L, null, 2L, 2L, null, 2L, 2L, null, 3L, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L),
                 createRLEBlock(ImmutableList.of(0.01, 0.5), 21));
 
+        // unsorted percentiles
+        assertAggregation(
+                LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
+                ImmutableList.of(3L, 1L, 2L),
+                createLongsBlock(null, 1L, 2L, 3L),
+                createRLEBlock(ImmutableList.of(0.8, 0.2, 0.5), 4));
+
         // weighted approx_percentile
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
@@ -294,6 +301,13 @@ public class TestApproximatePercentileAggregation
                 createBlockOfReals(1.0f, null, 2.0f, 2.0f, null, 2.0f, 2.0f, null, 2.0f, 2.0f, null, 3.0f, 3.0f, null, 3.0f, null, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f),
                 createRLEBlock(ImmutableList.of(0.01, 0.5), 21));
 
+        // unsorted percentiles
+        assertAggregation(
+                FLOAT_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
+                ImmutableList.of(3.0f, 1.0f, 2.0f),
+                createBlockOfReals(null, 1.0f, 2.0f, 3.0f),
+                createRLEBlock(ImmutableList.of(0.8, 0.2, 0.5), 4));
+
         // weighted approx_percentile
         assertAggregation(
                 FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
@@ -424,6 +438,13 @@ public class TestApproximatePercentileAggregation
                 ImmutableList.of(1.0, 3.0),
                 createDoublesBlock(1.0, null, 2.0, 2.0, null, 2.0, 2.0, null, 2.0, 2.0, null, 3.0, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0),
                 createRLEBlock(ImmutableList.of(0.01, 0.5), 21));
+
+        // unsorted percentiles
+        assertAggregation(
+                DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
+                ImmutableList.of(3.0, 1.0, 2.0),
+                createDoublesBlock(null, 1.0, 2.0, 3.0),
+                createRLEBlock(ImmutableList.of(0.8, 0.2, 0.5), 4));
 
         // weighted approx_percentile
         assertAggregation(

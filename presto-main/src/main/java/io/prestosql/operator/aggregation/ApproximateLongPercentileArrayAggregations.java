@@ -27,6 +27,7 @@ import io.prestosql.spi.type.StandardTypes;
 
 import java.util.List;
 
+import static io.prestosql.operator.aggregation.ApproximateDoublePercentileArrayAggregations.valuesAtPercentiles;
 import static io.prestosql.operator.aggregation.ApproximateLongPercentileAggregations.toDoubleExact;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 
@@ -66,9 +67,9 @@ public final class ApproximateLongPercentileArrayAggregations
 
         BlockBuilder blockBuilder = out.beginBlockEntry();
 
-        for (int i = 0; i < percentiles.size(); i++) {
-            Double percentile = percentiles.get(i);
-            BIGINT.writeLong(blockBuilder, Math.round(digest.valueAt(percentile)));
+        List<Double> valuesAtPercentiles = valuesAtPercentiles(digest, percentiles);
+        for (double value : valuesAtPercentiles) {
+            BIGINT.writeLong(blockBuilder, Math.round(value));
         }
 
         out.closeEntry();
