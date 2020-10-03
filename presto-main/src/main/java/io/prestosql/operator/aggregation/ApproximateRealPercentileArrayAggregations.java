@@ -27,6 +27,7 @@ import io.prestosql.spi.type.StandardTypes;
 
 import java.util.List;
 
+import static io.prestosql.operator.aggregation.ApproximateDoublePercentileArrayAggregations.valuesAtPercentiles;
 import static io.prestosql.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -67,9 +68,9 @@ public final class ApproximateRealPercentileArrayAggregations
 
         BlockBuilder blockBuilder = out.beginBlockEntry();
 
-        for (int i = 0; i < percentiles.size(); i++) {
-            Double percentile = percentiles.get(i);
-            REAL.writeLong(blockBuilder, floatToRawIntBits((float) digest.valueAt(percentile)));
+        List<Double> valuesAtPercentiles = valuesAtPercentiles(digest, percentiles);
+        for (double value : valuesAtPercentiles) {
+            REAL.writeLong(blockBuilder, floatToRawIntBits((float) value));
         }
 
         out.closeEntry();

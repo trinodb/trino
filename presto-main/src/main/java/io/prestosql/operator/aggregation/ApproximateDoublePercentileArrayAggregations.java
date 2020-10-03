@@ -14,6 +14,7 @@
 package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Doubles;
 import io.airlift.stats.TDigest;
 import io.prestosql.operator.aggregation.state.TDigestAndPercentileArrayState;
 import io.prestosql.spi.block.Block;
@@ -96,12 +97,40 @@ public final class ApproximateDoublePercentileArrayAggregations
 
         BlockBuilder blockBuilder = out.beginBlockEntry();
 
-        for (int i = 0; i < percentiles.size(); i++) {
-            Double percentile = percentiles.get(i);
-            DOUBLE.writeDouble(blockBuilder, digest.valueAt(percentile));
+        List<Double> valuesAtPercentiles = valuesAtPercentiles(digest, percentiles);
+        for (double value : valuesAtPercentiles) {
+            DOUBLE.writeDouble(blockBuilder, value);
         }
 
         out.closeEntry();
+    }
+
+    public static List<Double> valuesAtPercentiles(TDigest digest, List<Double> percentiles)
+    {
+        int[] indexes = new int[percentiles.size()];
+        double[] sortedPercentiles = new double[percentiles.size()];
+        for (int i = 0; i < indexes.length; i++) {
+            indexes[i] = i;
+            sortedPercentiles[i] = percentiles.get(i);
+        }
+
+        it.unimi.dsi.fastutil.Arrays.quickSort(0, percentiles.size(), (a, b) -> Doubles.compare(sortedPercentiles[a], sortedPercentiles[b]), (a, b) -> {
+            double tempPercentile = sortedPercentiles[a];
+            sortedPercentiles[a] = sortedPercentiles[b];
+            sortedPercentiles[b] = tempPercentile;
+
+            int tempIndex = indexes[a];
+            indexes[a] = indexes[b];
+            indexes[b] = tempIndex;
+        });
+
+        List<Double> valuesAtPercentiles = digest.valuesAt(Doubles.asList(sortedPercentiles));
+        double[] result = new double[valuesAtPercentiles.size()];
+        for (int i = 0; i < valuesAtPercentiles.size(); i++) {
+            result[indexes[i]] = valuesAtPercentiles.get(i);
+        }
+
+        return Doubles.asList(result);
     }
 
     private static void initializePercentilesArray(@AggregationState TDigestAndPercentileArrayState state, Block percentilesArrayBlock)
