@@ -20,6 +20,13 @@ properties in the file:
     connection-user=root
     connection-password=secret
 
+.. note::
+    Oracle does not expose metadata comment via ``REMARKS`` column by default
+    in JDBC driver. This can be enabled by appending ``remarksReporting=true``
+    to ``connection-url`` in properties. See `Additional Oracle Performance Extensions
+    <https://docs.oracle.com/en/database/oracle/oracle-database/19/jjdbc/performance-extensions.html#GUID-96A38C6D-A288-4E0B-9F03-E711C146632B>`_
+    for more details.
+
 By default, the Oracle connector uses connection pooling for performance
 improvement. The below configuration shows the typical default values. To update
 them, change the properties in the catalog configuration file:
