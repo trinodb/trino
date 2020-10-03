@@ -133,6 +133,7 @@ public class TestPrestoDriver
             throws Exception
     {
         executorService.shutdownNow();
+        executorService = null;
         server.close();
     }
 
