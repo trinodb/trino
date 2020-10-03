@@ -49,7 +49,6 @@ public final class MemoryQueryRunner
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setNodeCount(4)
                 .setExtraProperties(extraProperties)
                 .build();
 
