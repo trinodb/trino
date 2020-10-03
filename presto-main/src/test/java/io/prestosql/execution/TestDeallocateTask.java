@@ -48,7 +48,7 @@ import static org.testng.Assert.assertEquals;
 public class TestDeallocateTask
 {
     private final Metadata metadata = createTestMetadataManager();
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()

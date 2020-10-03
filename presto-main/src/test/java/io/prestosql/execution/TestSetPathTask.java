@@ -49,7 +49,7 @@ public class TestSetPathTask
     private final AccessControl accessControl;
     private final Metadata metadata;
 
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%s"));
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
     public TestSetPathTask()
     {

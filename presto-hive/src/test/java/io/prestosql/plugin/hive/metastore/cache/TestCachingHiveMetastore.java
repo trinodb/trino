@@ -83,7 +83,7 @@ public class TestCachingHiveMetastore
     {
         mockClient = new MockThriftMetastoreClient();
         ThriftHiveMetastore thriftHiveMetastore = createThriftHiveMetastore();
-        ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
+        ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s")));
         metastore = (CachingHiveMetastore) cachingHiveMetastore(
                 new BridgingHiveMetastore(thriftHiveMetastore),
                 executor,

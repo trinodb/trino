@@ -129,7 +129,7 @@ public class TestBackgroundHiveSplitLoader
     private static final Path RETURNED_PATH = new Path(SAMPLE_PATH);
     private static final Path FILTERED_PATH = new Path(SAMPLE_PATH_FILTERED);
 
-    private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+    private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("TestBackgroundHiveSplitLoader-%s"));
 
     private static final TupleDomain<HiveColumnHandle> RETURNED_PATH_DOMAIN = withColumnDomains(
             ImmutableMap.of(

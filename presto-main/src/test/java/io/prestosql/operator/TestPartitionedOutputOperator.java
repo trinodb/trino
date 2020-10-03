@@ -80,8 +80,8 @@ public class TestPartitionedOutputOperator
     @BeforeClass
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-EXECUTOR-%s"));
-        scheduledExecutor = newScheduledThreadPool(1, daemonThreadsNamed("test-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-executor-%s"));
+        scheduledExecutor = newScheduledThreadPool(1, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     }
 
     @AfterClass(alwaysRun = true)
