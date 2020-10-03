@@ -92,12 +92,13 @@ public class TestQueryStateMachine
     private static final List<String> RESET_SESSION_PROPERTIES = ImmutableList.of("candy");
     private static final Optional<QueryType> QUERY_TYPE = Optional.of(QueryType.SELECT);
 
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "=%s"));
+    private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "=%s"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
+        executor = null;
     }
 
     @Test
