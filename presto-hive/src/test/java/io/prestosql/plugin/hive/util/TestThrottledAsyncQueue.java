@@ -46,6 +46,7 @@ public class TestThrottledAsyncQueue
     public void tearDownClass()
     {
         executor.shutdownNow();
+        executor = null;
     }
 
     @Test(timeOut = 10_000)
