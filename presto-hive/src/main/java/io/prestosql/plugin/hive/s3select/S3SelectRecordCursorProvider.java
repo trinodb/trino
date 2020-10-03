@@ -37,9 +37,10 @@ import java.util.Properties;
 import java.util.Set;
 
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static io.prestosql.plugin.hive.ReaderColumns.projectBaseColumns;
+import static io.prestosql.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 public class S3SelectRecordCursorProvider
         implements HiveRecordCursorProvider
@@ -88,6 +89,7 @@ public class S3SelectRecordCursorProvider
         if (CSV_SERDES.contains(serdeName)) {
             List<HiveColumnHandle> readerColumns = projectedReaderColumns
                     .map(ReaderColumns::get)
+                    .map(readColumns -> readColumns.stream().map(HiveColumnHandle.class::cast).collect(toUnmodifiableList()))
                     .orElse(columns);
 
             IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);

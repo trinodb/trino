@@ -80,15 +80,16 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static io.prestosql.plugin.hive.HivePageSourceProvider.projectBaseColumns;
+import static io.prestosql.plugin.hive.HivePageSourceProvider.projectSufficientColumns;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isParquetIgnoreStatistics;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
-import static io.prestosql.plugin.hive.ReaderColumns.projectBaseColumns;
-import static io.prestosql.plugin.hive.ReaderColumns.projectSufficientColumns;
 import static io.prestosql.plugin.hive.parquet.ParquetColumnIOConverter.constructField;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
 
 public class ParquetPageSourceFactory
@@ -190,7 +191,9 @@ public class ParquetPageSourceFactory
             fileSchema = fileMetaData.getSchema();
 
             Optional<MessageType> message = projectSufficientColumns(columns)
-                    .map(ReaderColumns::get)
+                    .map(projection -> projection.get().stream()
+                            .map(HiveColumnHandle.class::cast)
+                            .collect(toUnmodifiableList()))
                     .orElse(columns).stream()
                     .filter(column -> column.getColumnType() == REGULAR)
                     .map(column -> getColumnType(column, fileSchema, useColumnNames))
@@ -257,7 +260,12 @@ public class ParquetPageSourceFactory
         }
 
         Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
-        List<HiveColumnHandle> baseColumns = readerProjections.map(ReaderColumns::get).orElse(columns);
+        List<HiveColumnHandle> baseColumns = readerProjections.map(projection ->
+                projection.get().stream()
+                        .map(HiveColumnHandle.class::cast)
+                        .collect(toUnmodifiableList()))
+                .orElse(columns);
+
         for (HiveColumnHandle column : baseColumns) {
             checkArgument(column.getColumnType() == REGULAR, "column type must be REGULAR: %s", column);
         }
