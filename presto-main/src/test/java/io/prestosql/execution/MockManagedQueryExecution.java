@@ -236,6 +236,7 @@ public class MockManagedQueryExecution
                 Optional.empty(),
                 false,
                 Optional.empty(),
+                false,
                 "",
                 Optional.empty(),
                 null,

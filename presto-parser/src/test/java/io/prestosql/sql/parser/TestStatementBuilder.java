@@ -291,6 +291,8 @@ public class TestStatementBuilder
         printStatement("SELECT * FROM table1 WHERE a >= ALL (VALUES 2, 3, 4)");
         printStatement("SELECT * FROM table1 WHERE a <> ANY (SELECT 2, 3, 4)");
         printStatement("SELECT * FROM table1 WHERE a = SOME (SELECT id FROM table2)");
+
+        printStatement("RESET SESSION AUTHORIZATION");
     }
 
     @Test

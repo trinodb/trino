@@ -340,6 +340,12 @@ public class ClientSession
             return this;
         }
 
+        public Builder withoutAuthorizationUser()
+        {
+            this.authorizationUser = null;
+            return this;
+        }
+
         public Builder withSource(String source)
         {
             this.source = source;

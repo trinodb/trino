@@ -134,6 +134,7 @@ import io.prestosql.sql.tree.RenameSchema;
 import io.prestosql.sql.tree.RenameTable;
 import io.prestosql.sql.tree.RenameView;
 import io.prestosql.sql.tree.ResetSession;
+import io.prestosql.sql.tree.ResetSessionAuthorization;
 import io.prestosql.sql.tree.Revoke;
 import io.prestosql.sql.tree.Rollback;
 import io.prestosql.sql.tree.Rollup;
@@ -989,6 +990,12 @@ class StatementAnalyzer
 
         @Override
         protected Scope visitSetSessionAuthorization(SetSessionAuthorization node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitResetSessionAuthorization(ResetSessionAuthorization node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
         }

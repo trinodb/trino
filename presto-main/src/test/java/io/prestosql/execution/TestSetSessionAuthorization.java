@@ -166,6 +166,27 @@ public class TestSetSessionAuthorization
         Assert.assertEquals(error.getMessage(), errorMessage);
     }
 
+    @Test
+    public void testResetSessionAuthorization()
+    {
+        StatementClient client;
+        client = submitQuery("RESET SESSION AUTHORIZATION", null, "user", null);
+        Assert.assertEquals(client.isResetAuthorizationUser(), true);
+        Assert.assertEquals(client.getSetAuthorizationUser().isEmpty(), true);
+
+        client = submitQuery("SET SESSION AUTHORIZATION alice", null, "user", null);
+        Assert.assertEquals(client.getSetAuthorizationUser().get(), "alice");
+        client = submitQuery("RESET SESSION AUTHORIZATION", client.getSetAuthorizationUser().orElse(null), "user", null);
+        Assert.assertEquals(client.isResetAuthorizationUser(), true);
+        Assert.assertEquals(client.getSetAuthorizationUser().isEmpty(), true);
+
+        client = submitQuery("START TRANSACTION", null, "user", null);
+        String transactionId = client.getStartedTransactionId();
+        client = submitQuery("RESET SESSION AUTHORIZATION", null, "user", transactionId);
+        QueryError error = client.currentStatusInfo().getError();
+        Assert.assertEquals(error.getMessage(), "Can't reset authorization user in the middle of a transaction");
+    }
+
     private StatementClient submitQuery(String query, String authorizationUser, String user, String transactionId)
     {
         ClientSession.Builder clientSessionBuilder = ClientSession.builder()

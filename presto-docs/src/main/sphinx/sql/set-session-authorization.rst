@@ -42,3 +42,7 @@ Changing the session authorization without quotes::
 
     SET SESSION AUTHORIZATION John;
 
+See Also
+--------
+
+:doc:`reset-session-authorization`

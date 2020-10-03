@@ -150,6 +150,7 @@ public class QueryStateMachine
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
 
     private final AtomicReference<String> setAuthorizationUser = new AtomicReference<>();
+    private final AtomicBoolean resetAuthorizationUser = new AtomicBoolean();
 
     private final AtomicReference<String> updateType = new AtomicReference<>();
 
@@ -447,6 +448,7 @@ public class QueryStateMachine
                 Optional.ofNullable(startedTransactionId.get()),
                 clearTransactionId.get(),
                 Optional.ofNullable(setAuthorizationUser.get()),
+                resetAuthorizationUser.get(),
                 updateType.get(),
                 rootStage,
                 failureCause,
@@ -731,7 +733,14 @@ public class QueryStateMachine
     public void addSetAuthorizationUser(String authorizationUser)
     {
         checkArgument(!isNullOrEmpty(authorizationUser), "Authorization user cannot be null or empty");
+        checkArgument(!resetAuthorizationUser.get(), "Cannot set and reset the authorization user in the same request");
         this.setAuthorizationUser.set(authorizationUser);
+    }
+
+    public void resetAuthorizationUser()
+    {
+        checkArgument(setAuthorizationUser.get() == null, "Cannot set and reset the authorization user in the same request");
+        this.resetAuthorizationUser.set(true);
     }
 
     public Set<String> getResetSessionProperties()
@@ -1102,6 +1111,7 @@ public class QueryStateMachine
                 queryInfo.getStartedTransactionId(),
                 queryInfo.isClearTransactionId(),
                 queryInfo.getSetAuthorizationUser(),
+                queryInfo.isResetAuthorizationUser(),
                 queryInfo.getUpdateType(),
                 prunedOutputStage,
                 queryInfo.getFailureInfo(),

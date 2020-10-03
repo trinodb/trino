@@ -739,6 +739,9 @@ public class PrestoConnection
     void updateSession(StatementClient client)
     {
         client.getSetAuthorizationUser().ifPresent(authorizationUser::set);
+        if (client.isResetAuthorizationUser()) {
+            authorizationUser.set(null);
+        }
 
         client.getSetSessionProperties().forEach(sessionProperties::put);
         client.getResetSessionProperties().forEach(sessionProperties::remove);

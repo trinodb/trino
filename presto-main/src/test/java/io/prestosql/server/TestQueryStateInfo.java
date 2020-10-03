@@ -169,6 +169,7 @@ public class TestQueryStateInfo
                 Optional.empty(),
                 false,
                 Optional.empty(),
+                false,
                 "33",
                 Optional.empty(),
                 null,

@@ -69,6 +69,7 @@ public class QueryInfo
     private final Optional<TransactionId> startedTransactionId;
     private final boolean clearTransactionId;
     private final Optional<String> setAuthorizationUser;
+    private final boolean resetAuthorizationUser;
     private final String updateType;
     private final Optional<StageInfo> outputStage;
     private final List<TableInfo> referencedTables;
@@ -106,6 +107,7 @@ public class QueryInfo
             @JsonProperty("startedTransactionId") Optional<TransactionId> startedTransactionId,
             @JsonProperty("clearTransactionId") boolean clearTransactionId,
             @JsonProperty("setAuthorizationUser") Optional<String> setAuthorizationUser,
+            @JsonProperty("resetAuthorizationUser") boolean resetAuthorizationUser,
             @JsonProperty("updateType") String updateType,
             @JsonProperty("outputStage") Optional<StageInfo> outputStage,
             @JsonProperty("failureInfo") ExecutionFailureInfo failureInfo,
@@ -166,6 +168,7 @@ public class QueryInfo
         this.startedTransactionId = startedTransactionId;
         this.clearTransactionId = clearTransactionId;
         this.setAuthorizationUser = setAuthorizationUser;
+        this.resetAuthorizationUser = resetAuthorizationUser;
         this.updateType = updateType;
         this.outputStage = outputStage;
         this.failureInfo = failureInfo;
@@ -345,6 +348,12 @@ public class QueryInfo
     public Optional<String> getSetAuthorizationUser()
     {
         return setAuthorizationUser;
+    }
+
+    @JsonProperty
+    public boolean isResetAuthorizationUser()
+    {
+        return resetAuthorizationUser;
     }
 
     @JsonProperty

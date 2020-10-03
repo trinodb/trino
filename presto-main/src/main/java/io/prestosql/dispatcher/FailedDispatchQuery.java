@@ -226,6 +226,7 @@ public class FailedDispatchQuery
                 Optional.empty(),
                 false,
                 Optional.empty(),
+                false,
                 null,
                 Optional.empty(),
                 failureCause,
