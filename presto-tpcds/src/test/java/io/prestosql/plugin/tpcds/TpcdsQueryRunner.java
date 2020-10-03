@@ -49,7 +49,6 @@ public final class TpcdsQueryRunner
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setNodeCount(4)
                 .setExtraProperties(extraProperties)
                 .setCoordinatorProperties(coordinatorProperties)
                 .build();

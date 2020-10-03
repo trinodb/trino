@@ -288,7 +288,6 @@ public final class HiveQueryRunner
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setHiveProperties(ImmutableMap.of())
                 .setInitialTables(TpchTable.getTables())
-                .setNodeCount(4)
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .setBaseDataDir(baseDataDir)
                 .build();
