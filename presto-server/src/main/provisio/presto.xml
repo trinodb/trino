@@ -241,6 +241,7 @@
             <unpack />
         </artifact>
     </artifactSet>
+
     <artifactSet to="plugin/presto-pinot">
         <artifact id="${project.groupId}:presto-pinot:zip:${project.version}">
             <unpack />
