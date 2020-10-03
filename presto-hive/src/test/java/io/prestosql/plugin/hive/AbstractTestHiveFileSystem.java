@@ -177,7 +177,7 @@ public abstract class AbstractTestHiveFileSystem
 
         MetastoreLocator metastoreLocator = new TestingMetastoreLocator(proxy, HostAndPort.fromParts(host, port));
 
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("AbstractTestHiveFileSystem-%s"));
         HivePartitionManager hivePartitionManager = new HivePartitionManager(config);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());

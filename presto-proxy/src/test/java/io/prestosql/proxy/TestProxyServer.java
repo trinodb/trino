@@ -104,7 +104,7 @@ public class TestProxyServer
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
         httpServerInfo = injector.getInstance(HttpServerInfo.class);
 
-        executorService = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executorService = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
         setupTestTable();
     }

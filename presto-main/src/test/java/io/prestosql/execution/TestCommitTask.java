@@ -52,7 +52,7 @@ import static org.testng.Assert.assertTrue;
 public class TestCommitTask
 {
     private final Metadata metadata = createTestMetadataManager();
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%s"));
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("TestCommitTask-%s"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()

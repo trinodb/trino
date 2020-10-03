@@ -15,6 +15,7 @@ package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.concurrent.Threads;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.execution.scheduler.SplitSchedulerStats;
 import io.prestosql.sql.planner.Partitioning;
@@ -34,6 +35,7 @@ import java.sql.SQLException;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -58,7 +60,7 @@ public class TestStageStateMachine
         FAILED_CAUSE.setStackTrace(new StackTraceElement[0]);
     }
 
-    private final ExecutorService executor = newCachedThreadPool();
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
