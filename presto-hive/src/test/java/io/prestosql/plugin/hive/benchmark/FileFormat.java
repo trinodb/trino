@@ -33,7 +33,6 @@ import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveCompressionCodec;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
-import io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjections;
 import io.prestosql.plugin.hive.HivePageSourceProvider;
 import io.prestosql.plugin.hive.HiveRecordCursorProvider;
 import io.prestosql.plugin.hive.HiveRecordCursorProvider.ReaderRecordCursorWithProjections;
@@ -42,6 +41,7 @@ import io.prestosql.plugin.hive.HiveStorageFormat;
 import io.prestosql.plugin.hive.HiveTableHandle;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.HiveTypeName;
+import io.prestosql.plugin.hive.ReaderPageSource;
 import io.prestosql.plugin.hive.RecordFileWriter;
 import io.prestosql.plugin.hive.TableToPartitionMapping;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
@@ -462,7 +462,7 @@ public enum FileFormat
         List<HiveColumnHandle> readColumns = getBaseColumns(columnNames, columnTypes);
 
         Properties schema = createSchema(format, columnNames, columnTypes);
-        Optional<ReaderPageSourceWithProjections> readerPageSourceWithProjections = pageSourceFactory
+        Optional<ReaderPageSource> readerPageSourceWithProjections = pageSourceFactory
                 .createPageSource(
                         conf,
                         session,
@@ -479,8 +479,8 @@ public enum FileFormat
                         NO_ACID_TRANSACTION);
 
         checkState(readerPageSourceWithProjections.isPresent(), "readerPageSourceWithProjections is not present");
-        checkState(!readerPageSourceWithProjections.get().getProjectedReaderColumns().isPresent(), "projection should not be required");
-        return readerPageSourceWithProjections.get().getConnectorPageSource();
+        checkState(!readerPageSourceWithProjections.get().getReaderColumns().isPresent(), "projection should not be required");
+        return readerPageSourceWithProjections.get().get();
     }
 
     private static List<HiveColumnHandle> getBaseColumns(List<String> columnNames, List<Type> columnTypes)
