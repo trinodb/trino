@@ -38,16 +38,16 @@ public class ReaderProjectionsAdapter
     private final List<Type> outputTypes;
     private final List<Type> inputTypes;
 
-    public ReaderProjectionsAdapter(List<HiveColumnHandle> expectedHiveColumns, ReaderProjections readerProjections)
+    public ReaderProjectionsAdapter(List<HiveColumnHandle> expectedHiveColumns, ReaderColumns readerColumns)
     {
         requireNonNull(expectedHiveColumns, "expectedHiveColumns is null");
-        requireNonNull(readerProjections, "readerProjections is null");
+        requireNonNull(readerColumns, "readerProjections is null");
 
         ImmutableList.Builder<ChannelMapping> mappingBuilder = ImmutableList.builder();
 
         for (int i = 0; i < expectedHiveColumns.size(); i++) {
-            HiveColumnHandle projectedColumnHandle = readerProjections.readerColumnForHiveColumnAt(i);
-            int inputChannel = readerProjections.readerColumnPositionForHiveColumnAt(i);
+            HiveColumnHandle projectedColumnHandle = readerColumns.getForColumnAt(i);
+            int inputChannel = readerColumns.getPositionForColumnAt(i);
             ChannelMapping mapping = createChannelMapping(expectedHiveColumns.get(i), projectedColumnHandle, inputChannel);
             mappingBuilder.add(mapping);
         }
@@ -58,7 +58,7 @@ public class ReaderProjectionsAdapter
                 .map(HiveColumnHandle::getType)
                 .collect(toImmutableList());
 
-        inputTypes = readerProjections.getReaderColumns().stream()
+        inputTypes = readerColumns.get().stream()
                 .map(HiveColumnHandle::getType)
                 .collect(toImmutableList());
     }

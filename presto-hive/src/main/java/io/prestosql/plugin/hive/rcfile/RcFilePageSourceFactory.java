@@ -25,8 +25,8 @@ import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
 import io.prestosql.plugin.hive.HiveTimestampPrecision;
+import io.prestosql.plugin.hive.ReaderColumns;
 import io.prestosql.plugin.hive.ReaderPageSource;
-import io.prestosql.plugin.hive.ReaderProjections;
 import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.util.FSDataInputStreamTail;
 import io.prestosql.rcfile.AircompressorCodecFactory;
@@ -71,8 +71,8 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getTimestampPrecision;
+import static io.prestosql.plugin.hive.ReaderColumns.projectBaseColumns;
 import static io.prestosql.plugin.hive.ReaderPageSource.noProjectionAdaptation;
-import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.prestosql.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
 import static io.prestosql.rcfile.text.TextRcFileEncoding.DEFAULT_SEPARATORS;
@@ -145,10 +145,10 @@ public class RcFilePageSourceFactory
             throw new PrestoException(HIVE_BAD_DATA, "RCFile is empty: " + path);
         }
 
-        Optional<ReaderProjections> readerProjections = projectBaseColumns(columns);
+        Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
 
         List<HiveColumnHandle> projectedReaderColumns = readerProjections
-                .map(ReaderProjections::getReaderColumns)
+                .map(ReaderColumns::get)
                 .orElse(columns);
 
         RcFileDataSource dataSource;

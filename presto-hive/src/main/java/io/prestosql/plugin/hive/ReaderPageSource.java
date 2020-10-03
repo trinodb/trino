@@ -28,9 +28,9 @@ import static java.util.Objects.requireNonNull;
 public class ReaderPageSource
 {
     private final ConnectorPageSource connectorPageSource;
-    private final Optional<ReaderProjections> columns;
+    private final Optional<ReaderColumns> columns;
 
-    public ReaderPageSource(ConnectorPageSource connectorPageSource, Optional<ReaderProjections> columns)
+    public ReaderPageSource(ConnectorPageSource connectorPageSource, Optional<ReaderColumns> columns)
     {
         this.connectorPageSource = requireNonNull(connectorPageSource, "connectorPageSource is null");
         this.columns = requireNonNull(columns, "columns is null");
@@ -41,7 +41,7 @@ public class ReaderPageSource
         return connectorPageSource;
     }
 
-    public Optional<ReaderProjections> getReaderColumns()
+    public Optional<ReaderColumns> getReaderColumns()
     {
         return columns;
     }

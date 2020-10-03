@@ -23,8 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
-import static io.prestosql.plugin.hive.ReaderProjections.projectSufficientColumns;
+import static io.prestosql.plugin.hive.ReaderColumns.projectBaseColumns;
+import static io.prestosql.plugin.hive.ReaderColumns.projectSufficientColumns;
 import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_PRIMITIVES;
 import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_ROW_AND_PRIMITIVES;
 import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
@@ -33,7 +33,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestReaderProjections
+public class TestReaderColumns
 {
     private static final List<String> TEST_COLUMN_NAMES = ImmutableList.of(
             "col_bigint",
@@ -56,7 +56,7 @@ public class TestReaderProjections
     public void testNoProjections()
     {
         List<HiveColumnHandle> columns = new ArrayList<>(TEST_FULL_COLUMNS.values());
-        Optional<ReaderProjections> mapping;
+        Optional<ReaderColumns> mapping;
 
         mapping = projectBaseColumns(columns);
         assertTrue(mapping.isEmpty(), "Full columns should not require any adaptation");
@@ -75,15 +75,15 @@ public class TestReaderProjections
                 createProjectedColumnHandle(TEST_FULL_COLUMNS.get("col_struct_of_non_primitives"), ImmutableList.of(0, 1)),
                 createProjectedColumnHandle(TEST_FULL_COLUMNS.get("col_struct_of_non_primitives"), ImmutableList.of(0)));
 
-        Optional<ReaderProjections> mapping = projectBaseColumns(columns);
+        Optional<ReaderColumns> mapping = projectBaseColumns(columns);
         assertTrue(mapping.isPresent(), "Full columns should be created for corresponding projected columns");
 
-        List<HiveColumnHandle> readerColumns = mapping.get().getReaderColumns();
+        List<HiveColumnHandle> readerColumns = mapping.get().get();
 
         for (int i = 0; i < columns.size(); i++) {
             HiveColumnHandle column = columns.get(i);
-            int readerIndex = mapping.get().readerColumnPositionForHiveColumnAt(i);
-            HiveColumnHandle readerColumn = mapping.get().readerColumnForHiveColumnAt(i);
+            int readerIndex = mapping.get().getPositionForColumnAt(i);
+            HiveColumnHandle readerColumn = mapping.get().getForColumnAt(i);
             assertEquals(column.getBaseColumn(), readerColumn);
             assertEquals(readerColumns.get(readerIndex), readerColumn);
         }
@@ -99,22 +99,22 @@ public class TestReaderProjections
                 createProjectedColumnHandle(TEST_FULL_COLUMNS.get("col_struct_of_non_primitives"), ImmutableList.of(0, 1)),
                 createProjectedColumnHandle(TEST_FULL_COLUMNS.get("col_struct_of_non_primitives"), ImmutableList.of(0)));
 
-        Optional<ReaderProjections> readerProjections = projectSufficientColumns(columns);
+        Optional<ReaderColumns> readerProjections = projectSufficientColumns(columns);
         assertTrue(readerProjections.isPresent(), "expected readerProjections to be present");
 
-        assertEquals(readerProjections.get().readerColumnForHiveColumnAt(0), columns.get(0));
-        assertEquals(readerProjections.get().readerColumnForHiveColumnAt(1), columns.get(1));
-        assertEquals(readerProjections.get().readerColumnForHiveColumnAt(2), columns.get(2));
-        assertEquals(readerProjections.get().readerColumnForHiveColumnAt(3), columns.get(4));
-        assertEquals(readerProjections.get().readerColumnForHiveColumnAt(4), columns.get(4));
+        assertEquals(readerProjections.get().getForColumnAt(0), columns.get(0));
+        assertEquals(readerProjections.get().getForColumnAt(1), columns.get(1));
+        assertEquals(readerProjections.get().getForColumnAt(2), columns.get(2));
+        assertEquals(readerProjections.get().getForColumnAt(3), columns.get(4));
+        assertEquals(readerProjections.get().getForColumnAt(4), columns.get(4));
 
-        assertEquals(readerProjections.get().readerColumnPositionForHiveColumnAt(0), 0);
-        assertEquals(readerProjections.get().readerColumnPositionForHiveColumnAt(1), 1);
-        assertEquals(readerProjections.get().readerColumnPositionForHiveColumnAt(2), 2);
-        assertEquals(readerProjections.get().readerColumnPositionForHiveColumnAt(3), 3);
-        assertEquals(readerProjections.get().readerColumnPositionForHiveColumnAt(4), 3);
+        assertEquals(readerProjections.get().getPositionForColumnAt(0), 0);
+        assertEquals(readerProjections.get().getPositionForColumnAt(1), 1);
+        assertEquals(readerProjections.get().getPositionForColumnAt(2), 2);
+        assertEquals(readerProjections.get().getPositionForColumnAt(3), 3);
+        assertEquals(readerProjections.get().getPositionForColumnAt(4), 3);
 
-        List<HiveColumnHandle> readerColumns = readerProjections.get().getReaderColumns();
+        List<HiveColumnHandle> readerColumns = readerProjections.get().get();
         assertEquals(readerColumns.get(0), columns.get(0));
         assertEquals(readerColumns.get(1), columns.get(1));
         assertEquals(readerColumns.get(2), columns.get(2));
