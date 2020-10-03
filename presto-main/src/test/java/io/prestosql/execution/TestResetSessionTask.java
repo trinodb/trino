@@ -49,7 +49,7 @@ import static org.testng.Assert.assertEquals;
 public class TestResetSessionTask
 {
     private static final String CATALOG_NAME = "catalog";
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%s"));
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;

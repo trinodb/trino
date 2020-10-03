@@ -87,8 +87,8 @@ public class BenchmarkTopNOperator
         @Setup
         public void setup()
         {
-            executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+            executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
 
             List<Type> types = ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE);
             pages = createInputPages(Integer.valueOf(positionsPerPage), types);

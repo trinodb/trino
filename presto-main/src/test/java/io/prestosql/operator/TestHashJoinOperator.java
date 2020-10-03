@@ -134,7 +134,7 @@ public class TestHashJoinOperator
                 new SynchronousQueue<>(),
                 daemonThreadsNamed("test-executor-%s"),
                 new ThreadPoolExecutor.DiscardPolicy());
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     }
 
     @AfterMethod(alwaysRun = true)

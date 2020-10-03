@@ -76,7 +76,7 @@ public class TestExchangeClient
     @BeforeClass
     public void setUp()
     {
-        scheduler = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
+        scheduler = newScheduledThreadPool(4, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
     }
 
@@ -155,7 +155,7 @@ public class TestExchangeClient
                 1,
                 new Duration(1, TimeUnit.MINUTES),
                 true,
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
+                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-testAddLocation-%s"))),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
@@ -229,7 +229,7 @@ public class TestExchangeClient
                 1,
                 new Duration(1, TimeUnit.MINUTES),
                 true,
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
+                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-testBufferLimit-%s"))),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
@@ -416,7 +416,7 @@ public class TestExchangeClient
                 1,
                 new Duration(1, TimeUnit.MINUTES),
                 true,
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
+                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-testClose-%s"))),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);

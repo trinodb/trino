@@ -39,7 +39,7 @@ public class TestThrottledAsyncQueue
     @BeforeClass
     public void setUpClass()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-async-queue-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("TestThrottledAsyncQueue-%s"));
     }
 
     @AfterClass(alwaysRun = true)

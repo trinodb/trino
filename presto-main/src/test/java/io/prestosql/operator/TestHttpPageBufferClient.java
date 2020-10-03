@@ -78,7 +78,7 @@ public class TestHttpPageBufferClient
     @BeforeClass
     public void setUp()
     {
-        scheduler = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
+        scheduler = newScheduledThreadPool(4, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
     }
 

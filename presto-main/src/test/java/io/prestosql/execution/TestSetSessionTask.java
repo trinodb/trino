@@ -109,7 +109,7 @@ public class TestSetSessionTask
         }
     }
 
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%s"));
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()

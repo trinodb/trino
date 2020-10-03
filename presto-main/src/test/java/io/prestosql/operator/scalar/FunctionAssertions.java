@@ -141,8 +141,8 @@ import static org.testng.Assert.fail;
 public final class FunctionAssertions
         implements Closeable
 {
-    private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-%s"));
-    private static final ScheduledExecutorService SCHEDULED_EXECUTOR = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+    private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("FunctionAssertions-%s"));
+    private static final ScheduledExecutorService SCHEDULED_EXECUTOR = newScheduledThreadPool(2, daemonThreadsNamed("FunctionAssertions-scheduledExecutor-%s"));
 
     // Increase the number of fields to generate a wide column
     private static final int TEST_ROW_NUMBER_OF_FIELDS = 2500;
