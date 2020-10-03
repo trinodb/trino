@@ -19,7 +19,6 @@ import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjections;
 import io.prestosql.plugin.hive.HiveRecordCursorProvider.ReaderRecordCursorWithProjections;
 import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
 import io.prestosql.plugin.hive.acid.AcidTransaction;
@@ -240,7 +239,7 @@ public class HivePageSourceProvider
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
             List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, true, typeManager);
 
-            Optional<ReaderPageSourceWithProjections> readerWithProjections = pageSourceFactory.createPageSource(
+            Optional<ReaderPageSource> readerWithProjections = pageSourceFactory.createPageSource(
                     configuration,
                     session,
                     path,
@@ -256,9 +255,9 @@ public class HivePageSourceProvider
                     transaction);
 
             if (readerWithProjections.isPresent()) {
-                ConnectorPageSource pageSource = readerWithProjections.get().getConnectorPageSource();
+                ConnectorPageSource pageSource = readerWithProjections.get().get();
 
-                Optional<ReaderProjections> readerProjections = readerWithProjections.get().getProjectedReaderColumns();
+                Optional<ReaderProjections> readerProjections = readerWithProjections.get().getReaderColumns();
                 Optional<ReaderProjectionsAdapter> adapter = Optional.empty();
                 if (readerProjections.isPresent()) {
                     adapter = Optional.of(new ReaderProjectionsAdapter(desiredColumns, readerProjections.get()));

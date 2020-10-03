@@ -33,6 +33,7 @@ import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveColumnProjectionInfo;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.plugin.hive.ReaderPageSource;
 import io.prestosql.plugin.hive.ReaderProjections;
 import io.prestosql.plugin.hive.acid.AcidSchema;
 import io.prestosql.plugin.hive.acid.AcidTransaction;
@@ -82,7 +83,6 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NAMES;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
-import static io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjections.noProjectionAdaptation;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcMaxMergeDistance;
@@ -92,6 +92,7 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcTinyStripeThr
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
+import static io.prestosql.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
 import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
@@ -132,7 +133,7 @@ public class OrcPageSourceFactory
     }
 
     @Override
-    public Optional<ReaderPageSourceWithProjections> createPageSource(
+    public Optional<ReaderPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
             Path path,
@@ -153,7 +154,7 @@ public class OrcPageSourceFactory
 
         // per HIVE-13040 and ORC-162, empty files are allowed
         if (estimatedFileSize == 0) {
-            ReaderPageSourceWithProjections context = noProjectionAdaptation(new EmptyPageSource());
+            ReaderPageSource context = noProjectionAdaptation(new EmptyPageSource());
             return Optional.of(context);
         }
 
@@ -190,7 +191,7 @@ public class OrcPageSourceFactory
                 transaction,
                 stats);
 
-        return Optional.of(new ReaderPageSourceWithProjections(orcPageSource, projectedReaderColumns));
+        return Optional.of(new ReaderPageSource(orcPageSource, projectedReaderColumns));
     }
 
     private static ConnectorPageSource createOrcPageSource(
