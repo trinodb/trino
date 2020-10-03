@@ -21,6 +21,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.ColumnarRow;
 import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.block.RowBlock;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
@@ -32,8 +33,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.block.BlockAssertions.assertBlockEquals;
-import static io.prestosql.plugin.hive.ReaderColumns.projectBaseColumns;
+import static io.prestosql.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_ROW_AND_PRIMITIVES;
 import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
 import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.createTestFullColumns;
@@ -69,7 +71,11 @@ public class TestReaderProjectionsAdapter
         inputBlockData.add(null);
         inputBlockData.add(rowData(rowData(31L, 32L, 33L), 3L));
 
-        ReaderProjectionsAdapter adapter = new ReaderProjectionsAdapter(columns, readerProjections.get());
+        ReaderProjectionsAdapter adapter = new ReaderProjectionsAdapter(
+                columns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
+                readerProjections.get(),
+                column -> ((HiveColumnHandle) column).getType(),
+                HivePageSourceProvider::getProjection);
         verifyPageAdaptation(adapter, ImmutableList.of(inputBlockData));
     }
 
@@ -86,7 +92,11 @@ public class TestReaderProjectionsAdapter
 
         // Produce an output page by applying adaptation
         Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
-        ReaderProjectionsAdapter adapter = new ReaderProjectionsAdapter(columns, readerProjections.get());
+        ReaderProjectionsAdapter adapter = new ReaderProjectionsAdapter(
+                columns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
+                readerProjections.get(),
+                column -> ((HiveColumnHandle) column).getType(),
+                HivePageSourceProvider::getProjection);
         Page inputPage = createPage(ImmutableList.of(inputBlockData), adapter.getInputTypes());
         adapter.adaptPage(inputPage).getLoadedPage();
 

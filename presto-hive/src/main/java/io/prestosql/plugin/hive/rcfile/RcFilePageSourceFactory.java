@@ -67,11 +67,12 @@ import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static io.prestosql.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getTimestampPrecision;
-import static io.prestosql.plugin.hive.ReaderColumns.projectBaseColumns;
 import static io.prestosql.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.prestosql.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
@@ -145,11 +146,14 @@ public class RcFilePageSourceFactory
             throw new PrestoException(HIVE_BAD_DATA, "RCFile is empty: " + path);
         }
 
+        List<HiveColumnHandle> projectedReaderColumns = columns;
         Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
 
-        List<HiveColumnHandle> projectedReaderColumns = readerProjections
-                .map(ReaderColumns::get)
-                .orElse(columns);
+        if (readerProjections.isPresent()) {
+            projectedReaderColumns = readerProjections.get().get().stream()
+                    .map(HiveColumnHandle.class::cast)
+                    .collect(toImmutableList());
+        }
 
         RcFileDataSource dataSource;
         try {

@@ -23,8 +23,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.plugin.hive.ReaderColumns.projectBaseColumns;
-import static io.prestosql.plugin.hive.ReaderColumns.projectSufficientColumns;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.hive.HivePageSourceProvider.projectBaseColumns;
+import static io.prestosql.plugin.hive.HivePageSourceProvider.projectSufficientColumns;
 import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_PRIMITIVES;
 import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_ROW_AND_PRIMITIVES;
 import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
@@ -78,12 +79,14 @@ public class TestReaderColumns
         Optional<ReaderColumns> mapping = projectBaseColumns(columns);
         assertTrue(mapping.isPresent(), "Full columns should be created for corresponding projected columns");
 
-        List<HiveColumnHandle> readerColumns = mapping.get().get();
+        List<HiveColumnHandle> readerColumns = mapping.get().get().stream()
+                .map(HiveColumnHandle.class::cast)
+                .collect(toImmutableList());
 
         for (int i = 0; i < columns.size(); i++) {
             HiveColumnHandle column = columns.get(i);
             int readerIndex = mapping.get().getPositionForColumnAt(i);
-            HiveColumnHandle readerColumn = mapping.get().getForColumnAt(i);
+            HiveColumnHandle readerColumn = (HiveColumnHandle) mapping.get().getForColumnAt(i);
             assertEquals(column.getBaseColumn(), readerColumn);
             assertEquals(readerColumns.get(readerIndex), readerColumn);
         }
@@ -114,7 +117,9 @@ public class TestReaderColumns
         assertEquals(readerProjections.get().getPositionForColumnAt(3), 3);
         assertEquals(readerProjections.get().getPositionForColumnAt(4), 3);
 
-        List<HiveColumnHandle> readerColumns = readerProjections.get().get();
+        List<HiveColumnHandle> readerColumns = readerProjections.get().get().stream()
+                .map(HiveColumnHandle.class::cast)
+                .collect(toImmutableList());
         assertEquals(readerColumns.get(0), columns.get(0));
         assertEquals(readerColumns.get(1), columns.get(1));
         assertEquals(readerColumns.get(2), columns.get(2));
