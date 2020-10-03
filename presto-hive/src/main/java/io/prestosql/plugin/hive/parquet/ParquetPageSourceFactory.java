@@ -31,6 +31,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.plugin.hive.ReaderPageSource;
 import io.prestosql.plugin.hive.ReaderProjections;
 import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.spi.PrestoException;
@@ -115,7 +116,7 @@ public class ParquetPageSourceFactory
     }
 
     @Override
-    public Optional<ReaderPageSourceWithProjections> createPageSource(
+    public Optional<ReaderPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
             Path path,
@@ -156,7 +157,7 @@ public class ParquetPageSourceFactory
     /**
      * This method is available for other callers to use directly.
      */
-    public static ReaderPageSourceWithProjections createPageSource(
+    public static ReaderPageSource createPageSource(
             Path path,
             long start,
             long length,
@@ -280,7 +281,7 @@ public class ParquetPageSourceFactory
         }
 
         ConnectorPageSource parquetPageSource = new ParquetPageSource(parquetReader, prestoTypes.build(), internalFields.build());
-        return new ReaderPageSourceWithProjections(parquetPageSource, readerProjections);
+        return new ReaderPageSource(parquetPageSource, readerProjections);
     }
 
     public static Optional<org.apache.parquet.schema.Type> getParquetType(GroupType groupType, boolean useParquetColumnNames, HiveColumnHandle column)

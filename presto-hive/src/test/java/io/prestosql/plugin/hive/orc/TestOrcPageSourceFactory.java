@@ -21,7 +21,7 @@ import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
-import io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjections;
+import io.prestosql.plugin.hive.ReaderPageSource;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.predicate.Domain;
@@ -188,7 +188,7 @@ public class TestOrcPageSourceFactory
                 .map(HiveColumnHandle::getName)
                 .collect(toImmutableList());
 
-        Optional<ReaderPageSourceWithProjections> pageSourceWithProjections = PAGE_SOURCE_FACTORY.createPageSource(
+        Optional<ReaderPageSource> pageSourceWithProjections = PAGE_SOURCE_FACTORY.createPageSource(
                 new JobConf(new Configuration(false)),
                 SESSION,
                 new Path(filePath),
@@ -204,10 +204,10 @@ public class TestOrcPageSourceFactory
                 NO_ACID_TRANSACTION);
 
         checkArgument(pageSourceWithProjections.isPresent());
-        checkArgument(pageSourceWithProjections.get().getProjectedReaderColumns().isEmpty(),
+        checkArgument(pageSourceWithProjections.get().getReaderColumns().isEmpty(),
                 "projected columns not expected here");
 
-        ConnectorPageSource pageSource = pageSourceWithProjections.get().getConnectorPageSource();
+        ConnectorPageSource pageSource = pageSourceWithProjections.get().get();
 
         int nationKeyColumn = columnNames.indexOf("n_nationkey");
         int nameColumn = columnNames.indexOf("n_name");
