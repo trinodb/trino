@@ -39,7 +39,7 @@ public final class KuduQueryRunnerFactory
     {
         QueryRunner runner = null;
         try {
-            runner = DistributedQueryRunner.builder(session).setNodeCount(3).build();
+            runner = DistributedQueryRunner.builder(session).build();
 
             installKuduConnector(kuduServer.getMasterAddress(), runner, session.getSchema().orElse("kudu_smoke_test"), Optional.of(""));
 
@@ -56,7 +56,7 @@ public final class KuduQueryRunnerFactory
     {
         QueryRunner runner = null;
         try {
-            runner = DistributedQueryRunner.builder(createSession(kuduSchema)).setNodeCount(3).build();
+            runner = DistributedQueryRunner.builder(createSession(kuduSchema)).build();
 
             installKuduConnector(kuduServer.getMasterAddress(), runner, kuduSchema, Optional.of(""));
 
@@ -80,7 +80,7 @@ public final class KuduQueryRunnerFactory
         DistributedQueryRunner runner = null;
         try {
             String kuduSchema = kuduSchemaEmulationPrefix.isPresent() ? "tpch" : "default";
-            runner = DistributedQueryRunner.builder(createSession(kuduSchema)).setNodeCount(3).build();
+            runner = DistributedQueryRunner.builder(createSession(kuduSchema)).build();
 
             runner.installPlugin(new TpchPlugin());
             runner.createCatalog("tpch", "tpch");

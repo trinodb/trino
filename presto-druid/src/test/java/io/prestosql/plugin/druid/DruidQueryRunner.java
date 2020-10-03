@@ -41,7 +41,7 @@ public class DruidQueryRunner
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = DistributedQueryRunner.builder(createSession()).setNodeCount(3).build();
+            queryRunner = DistributedQueryRunner.builder(createSession()).build();
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
