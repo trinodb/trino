@@ -21,11 +21,11 @@ import io.airlift.http.server.HttpServer.ClientCertificate;
 import io.prestosql.server.security.Authenticator;
 import io.prestosql.server.security.CertificateAuthenticator;
 import io.prestosql.server.security.CertificateConfig;
-import io.prestosql.server.security.JsonWebTokenAuthenticator;
-import io.prestosql.server.security.JsonWebTokenConfig;
 import io.prestosql.server.security.KerberosAuthenticator;
 import io.prestosql.server.security.KerberosConfig;
 import io.prestosql.server.security.SecurityConfig;
+import io.prestosql.server.security.jwt.JwtAuthenticator;
+import io.prestosql.server.security.jwt.JwtAuthenticatorConfig;
 
 import java.util.List;
 
@@ -56,7 +56,7 @@ public class WebUiAuthenticationModule
             configBinder(certificateBinder).bindConfig(CertificateConfig.class);
         }));
         installWebUiAuthenticator("kerberos", KerberosAuthenticator.class, KerberosConfig.class);
-        installWebUiAuthenticator("jwt", JsonWebTokenAuthenticator.class, JsonWebTokenConfig.class);
+        installWebUiAuthenticator("jwt", JwtAuthenticator.class, JwtAuthenticatorConfig.class);
     }
 
     private void installWebUiAuthenticator(String type, Module module)

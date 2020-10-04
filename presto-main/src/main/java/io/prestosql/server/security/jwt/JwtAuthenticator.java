@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.server.security;
+package io.prestosql.server.security.jwt;
 
 import com.google.common.base.CharMatcher;
 import io.airlift.security.pem.PemReader;
@@ -25,6 +25,10 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.jsonwebtoken.UnsupportedJwtException;
+import io.prestosql.server.security.AuthenticationException;
+import io.prestosql.server.security.Authenticator;
+import io.prestosql.server.security.UserMapping;
+import io.prestosql.server.security.UserMappingException;
 import io.prestosql.spi.security.BasicPrincipal;
 import io.prestosql.spi.security.Identity;
 
@@ -51,7 +55,7 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Base64.getMimeDecoder;
 import static java.util.Objects.requireNonNull;
 
-public class JsonWebTokenAuthenticator
+public class JwtAuthenticator
         implements Authenticator
 {
     private static final String DEFAULT_KEY = "default-key";
@@ -63,7 +67,7 @@ public class JsonWebTokenAuthenticator
     private final UserMapping userMapping;
 
     @Inject
-    public JsonWebTokenAuthenticator(JsonWebTokenConfig config)
+    public JwtAuthenticator(JwtAuthenticatorConfig config)
     {
         requireNonNull(config, "config is null");
         this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
