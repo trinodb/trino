@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.server.security;
+package io.prestosql.server.security.jwt;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.LegacyConfig;
@@ -22,7 +22,7 @@ import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.util.Optional;
 
-public class JsonWebTokenConfig
+public class JwtAuthenticatorConfig
 {
     private String keyFile;
     private String requiredIssuer;
@@ -38,7 +38,7 @@ public class JsonWebTokenConfig
 
     @Config("http-server.authentication.jwt.key-file")
     @LegacyConfig("http.authentication.jwt.key-file")
-    public JsonWebTokenConfig setKeyFile(String keyFile)
+    public JwtAuthenticatorConfig setKeyFile(String keyFile)
     {
         this.keyFile = keyFile;
         return this;
@@ -51,7 +51,7 @@ public class JsonWebTokenConfig
 
     @Config("http-server.authentication.jwt.required-issuer")
     @LegacyConfig("http.authentication.jwt.required-issuer")
-    public JsonWebTokenConfig setRequiredIssuer(String requiredIssuer)
+    public JwtAuthenticatorConfig setRequiredIssuer(String requiredIssuer)
     {
         this.requiredIssuer = requiredIssuer;
         return this;
@@ -64,7 +64,7 @@ public class JsonWebTokenConfig
 
     @Config("http-server.authentication.jwt.required-audience")
     @LegacyConfig("http.authentication.jwt.required-audience")
-    public JsonWebTokenConfig setRequiredAudience(String requiredAudience)
+    public JwtAuthenticatorConfig setRequiredAudience(String requiredAudience)
     {
         this.requiredAudience = requiredAudience;
         return this;
@@ -76,7 +76,7 @@ public class JsonWebTokenConfig
     }
 
     @Config("http-server.authentication.jwt.user-mapping.pattern")
-    public JsonWebTokenConfig setUserMappingPattern(String userMappingPattern)
+    public JwtAuthenticatorConfig setUserMappingPattern(String userMappingPattern)
     {
         this.userMappingPattern = Optional.ofNullable(userMappingPattern);
         return this;
@@ -88,7 +88,7 @@ public class JsonWebTokenConfig
     }
 
     @Config("http-server.authentication.jwt.user-mapping.file")
-    public JsonWebTokenConfig setUserMappingFile(File userMappingFile)
+    public JwtAuthenticatorConfig setUserMappingFile(File userMappingFile)
     {
         this.userMappingFile = Optional.ofNullable(userMappingFile);
         return this;
