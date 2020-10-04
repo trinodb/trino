@@ -25,7 +25,7 @@ import io.prestosql.server.security.KerberosAuthenticator;
 import io.prestosql.server.security.KerberosConfig;
 import io.prestosql.server.security.SecurityConfig;
 import io.prestosql.server.security.jwt.JwtAuthenticator;
-import io.prestosql.server.security.jwt.JwtAuthenticatorConfig;
+import io.prestosql.server.security.jwt.JwtAuthenticatorSupportModule;
 
 import java.util.List;
 
@@ -56,7 +56,7 @@ public class WebUiAuthenticationModule
             configBinder(certificateBinder).bindConfig(CertificateConfig.class);
         }));
         installWebUiAuthenticator("kerberos", KerberosAuthenticator.class, KerberosConfig.class);
-        installWebUiAuthenticator("jwt", JwtAuthenticator.class, JwtAuthenticatorConfig.class);
+        install(webUiAuthenticator("jwt", JwtAuthenticator.class, new JwtAuthenticatorSupportModule()));
     }
 
     private void installWebUiAuthenticator(String type, Module module)
