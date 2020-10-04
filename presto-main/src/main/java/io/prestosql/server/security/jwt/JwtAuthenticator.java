@@ -18,6 +18,7 @@ import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SigningKeyResolver;
 import io.prestosql.server.security.AuthenticationException;
 import io.prestosql.server.security.Authenticator;
 import io.prestosql.server.security.UserMapping;
@@ -40,13 +41,13 @@ public class JwtAuthenticator
     private final UserMapping userMapping;
 
     @Inject
-    public JwtAuthenticator(JwtAuthenticatorConfig config)
+    public JwtAuthenticator(JwtAuthenticatorConfig config, SigningKeyResolver signingKeyResolver)
     {
         requireNonNull(config, "config is null");
         this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
 
         JwtParser jwtParser = Jwts.parser()
-                .setSigningKeyResolver(new FileSigningKeyResolver(config.getKeyFile()));
+                .setSigningKeyResolver(signingKeyResolver);
 
         if (config.getRequiredIssuer() != null) {
             jwtParser.requireIssuer(config.getRequiredIssuer());

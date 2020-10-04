@@ -27,7 +27,7 @@ import io.airlift.http.server.HttpServer.ClientCertificate;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.jmx.MBeanResource;
 import io.prestosql.server.security.jwt.JwtAuthenticator;
-import io.prestosql.server.security.jwt.JwtAuthenticatorConfig;
+import io.prestosql.server.security.jwt.JwtAuthenticatorSupportModule;
 
 import java.util.List;
 import java.util.Map;
@@ -72,7 +72,7 @@ public class ServerSecurityModule
         }));
         installAuthenticator("kerberos", KerberosAuthenticator.class, KerberosConfig.class);
         installAuthenticator("password", PasswordAuthenticator.class, PasswordAuthenticatorConfig.class);
-        installAuthenticator("jwt", JwtAuthenticator.class, JwtAuthenticatorConfig.class);
+        install(authenticatorModule("jwt", JwtAuthenticator.class, new JwtAuthenticatorSupportModule()));
 
         configBinder(binder).bindConfig(InsecureAuthenticatorConfig.class);
         binder.bind(InsecureAuthenticator.class).in(Scopes.SINGLETON);
