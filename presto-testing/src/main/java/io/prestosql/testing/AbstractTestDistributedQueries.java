@@ -26,6 +26,7 @@ import io.prestosql.execution.QueryManager;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.sql.TestTable;
+import io.prestosql.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -1254,6 +1255,7 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/5172", match = "AssertionError: expected \\[.*\\] but found \\[.*\\]")
     public void testWrittenStats()
     {
         String tableName = "test_written_stats_" + randomTableSuffix();
