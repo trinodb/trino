@@ -30,6 +30,7 @@ import io.prestosql.spi.type.StandardTypes;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
 import static io.prestosql.operator.aggregation.FloatingPointBitsConverterUtil.sortableLongToDouble;
+import static io.prestosql.operator.scalar.TDigestFunctions.verifyWeight;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.util.Failures.checkCondition;
@@ -61,7 +62,7 @@ public final class ApproximateDoublePercentileAggregations
     @InputFunction
     public static void weightedInput(@AggregationState TDigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType(StandardTypes.DOUBLE) double percentile)
     {
-        checkCondition(weight >= 1, INVALID_FUNCTION_ARGUMENT, "percentile weight must be >= 1");
+        verifyWeight(weight);
 
         TDigest digest = state.getDigest();
 
