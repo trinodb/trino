@@ -38,6 +38,7 @@ import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@Test(singleThreaded = true) // see @BeforeMethod
 public class TestHiveHadoop2Plugin
 {
     private Path tempDirectory;

@@ -27,6 +27,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true) // see @BeforeMethod
 public class TestPrometheusQueryScalarResponseParse
 {
     private InputStream promVectorResponse;
