@@ -16,7 +16,12 @@ package io.prestosql.server.security;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.inject.Key;
+import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
+import io.airlift.http.server.testing.TestingHttpServer;
+import io.airlift.node.NodeInfo;
+import io.airlift.security.pem.PemReader;
+import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
@@ -33,11 +38,17 @@ import okhttp3.Response;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.Principal;
+import java.security.PrivateKey;
 import java.time.ZonedDateTime;
 import java.util.Date;
 import java.util.Optional;
@@ -49,6 +60,7 @@ import static io.prestosql.client.OkHttpUtil.setupSsl;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static io.prestosql.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static javax.servlet.http.HttpServletResponse.SC_FORBIDDEN;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
@@ -72,6 +84,16 @@ public class TestResourceSecurity
     private static final String MANAGEMENT_USER_LOGIN = MANAGEMENT_USER + "@allowed";
     private static final String MANAGEMENT_PASSWORD = "management-password";
     private static final String HMAC_KEY = Resources.getResource("hmac_key.txt").getPath();
+    private static final PrivateKey JWK_PRIVATE_KEY;
+
+    static {
+        try {
+            JWK_PRIVATE_KEY = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/jwk-rsa-private.pem").getPath()), Optional.empty());
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     private OkHttpClient client;
 
@@ -309,6 +331,43 @@ public class TestResourceSecurity
         }
     }
 
+    @Test
+    public void testJwtWithJwkAuthenticator()
+            throws Exception
+    {
+        TestingHttpServer jwkServer = createTestingJwkServer();
+        jwkServer.start();
+        try (TestingPrestoServer server = TestingPrestoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("http-server.authentication.type", "jwt")
+                        .put("http-server.authentication.jwt.key-file", jwkServer.getBaseUrl().toString())
+                        .build())
+                .build()) {
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+
+            assertAuthenticationDisabled(httpServerInfo.getHttpUri());
+
+            String token = Jwts.builder()
+                    .signWith(SignatureAlgorithm.RS256, JWK_PRIVATE_KEY)
+                    .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
+                    .setSubject("test-user")
+                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .compact();
+
+            OkHttpClient clientWithJwt = client.newBuilder()
+                    .authenticator((route, response) -> response.request().newBuilder()
+                            .header(AUTHORIZATION, "Bearer " + token)
+                            .build())
+                    .build();
+            assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithJwt);
+        }
+        finally {
+            jwkServer.stop();
+        }
+    }
+
     private void assertInsecureAuthentication(URI baseUri)
             throws IOException
     {
@@ -487,6 +546,28 @@ public class TestResourceSecurity
             if (!context.getIdentity().getUser().equals(MANAGEMENT_USER)) {
                 denyReadSystemInformationAccess();
             }
+        }
+    }
+
+    private static TestingHttpServer createTestingJwkServer()
+            throws IOException
+    {
+        NodeInfo nodeInfo = new NodeInfo("test");
+        HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
+        HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
+
+        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new JwkServlet(), ImmutableMap.of());
+    }
+
+    private static class JwkServlet
+            extends HttpServlet
+    {
+        @Override
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws IOException
+        {
+            String jwkKeys = Resources.toString(Resources.getResource("jwk/jwk-public.json"), UTF_8);
+            response.getWriter().println(jwkKeys);
         }
     }
 }
