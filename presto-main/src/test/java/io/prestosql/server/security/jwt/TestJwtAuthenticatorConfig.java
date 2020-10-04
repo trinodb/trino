@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.server.security;
+package io.prestosql.server.security.jwt;
 
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -25,12 +25,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestJsonWebTokenConfig
+public class TestJwtAuthenticatorConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(JsonWebTokenConfig.class)
+        assertRecordedDefaults(recordDefaults(JwtAuthenticatorConfig.class)
                 .setKeyFile(null)
                 .setRequiredAudience(null)
                 .setRequiredIssuer(null)
@@ -53,7 +53,7 @@ public class TestJsonWebTokenConfig
                 .put("http-server.authentication.jwt.user-mapping.file", userMappingFile.toString())
                 .build();
 
-        JsonWebTokenConfig expected = new JsonWebTokenConfig()
+        JwtAuthenticatorConfig expected = new JwtAuthenticatorConfig()
                 .setKeyFile(jwtKeyFile.toString())
                 .setRequiredAudience("some-audience")
                 .setRequiredIssuer("some-issuer")
