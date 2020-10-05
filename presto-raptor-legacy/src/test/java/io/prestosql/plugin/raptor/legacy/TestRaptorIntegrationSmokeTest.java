@@ -22,6 +22,7 @@ import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -421,6 +422,8 @@ public class TestRaptorIntegrationSmokeTest
     }
 
     @Test
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/1977",
+            match = "(?s)AssertionError.*query.*SELECT count(DISTINCT \"\\$shard_uuid\") FROM orders_bucketed.*Actual rows.*\\[\\d\\d\\].*Expected rows.*\\[100\\]")
     public void testCreateBucketedTable()
     {
         assertUpdate("" +
