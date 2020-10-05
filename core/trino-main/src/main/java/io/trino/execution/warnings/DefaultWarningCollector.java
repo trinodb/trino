@@ -15,14 +15,13 @@ package io.trino.execution.warnings;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoWarning;
-import io.trino.spi.WarningCode;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,7 +30,7 @@ public class DefaultWarningCollector
         implements WarningCollector
 {
     @GuardedBy("this")
-    private final Map<WarningCode, TrinoWarning> warnings = new LinkedHashMap<>();
+    private final Set<TrinoWarning> warnings = new LinkedHashSet<>();
     private final WarningCollectorConfig config;
 
     public DefaultWarningCollector(WarningCollectorConfig config)
@@ -44,13 +43,13 @@ public class DefaultWarningCollector
     {
         requireNonNull(warning, "warning is null");
         if (warnings.size() < config.getMaxWarnings()) {
-            warnings.putIfAbsent(warning.getWarningCode(), warning);
+            warnings.add(warning);
         }
     }
 
     @Override
     public synchronized List<TrinoWarning> getWarnings()
     {
-        return ImmutableList.copyOf(warnings.values());
+        return ImmutableList.copyOf(warnings);
     }
 }
