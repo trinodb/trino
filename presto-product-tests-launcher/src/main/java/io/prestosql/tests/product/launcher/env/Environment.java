@@ -383,10 +383,10 @@ public final class Environment
         private static List<Ulimit> standardUlimits()
         {
             return ImmutableList.of(
-                // Number of open file descriptors
-                new Ulimit("nofile", 65535L, 65535L),
-                // Number of processes
-                new Ulimit("nproc", 8096L, 8096L));
+                    // Number of open file descriptors
+                    new Ulimit("nofile", 65535L, 65535L),
+                    // Number of processes
+                    new Ulimit("nproc", 8096L, 8096L));
         }
 
         public Builder configureContainer(String logicalName, Consumer<DockerContainer> configurer)
