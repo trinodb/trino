@@ -26,6 +26,7 @@ public class TestOracleDynamicFiltering
     {
         return OracleQueryRunner.builder()
                 .withTables(Set.of(ORDERS))
+                .withUnlockEnterpriseFeatures(true)
                 .withConnectorProperties(connectionProperties())
                 .build();
     }
