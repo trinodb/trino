@@ -289,6 +289,8 @@ public final class TestRun
                                 .withStartupTimeout(ofMinutes(15)));
             });
 
+            builder.setAttached(attach);
+
             return builder.build(getStandardListeners(logsDirBase));
         }
 
