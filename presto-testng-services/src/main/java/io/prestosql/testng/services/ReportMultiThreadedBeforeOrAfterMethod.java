@@ -19,6 +19,8 @@ import org.testng.ITestClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import org.testng.xml.XmlSuite.ParallelMode;
+import org.testng.xml.XmlTest;
 
 import java.lang.reflect.Method;
 
@@ -33,6 +35,10 @@ public class ReportMultiThreadedBeforeOrAfterMethod
     public void onBeforeClass(ITestClass testClass)
     {
         try {
+            if (!isParallel(testClass.getXmlTest())) {
+                return;
+            }
+
             reportMultiThreadedBeforeOrAfterMethod(testClass.getRealClass());
         }
         catch (RuntimeException | Error e) {
@@ -42,6 +48,16 @@ public class ReportMultiThreadedBeforeOrAfterMethod
                     testClass,
                     getStackTraceAsString(e));
         }
+    }
+
+    private boolean isParallel(XmlTest xmlTest)
+    {
+        if (xmlTest.getThreadCount() == 1) {
+            return false;
+        }
+
+        ParallelMode parallel = xmlTest.getParallel();
+        return parallel.isParallel();
     }
 
     @VisibleForTesting
