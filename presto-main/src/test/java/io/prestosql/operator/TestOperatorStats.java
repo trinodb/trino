@@ -47,7 +47,6 @@ public class TestOperatorStats
             511,
             DataSize.ofBytes(52),
             522,
-            DataSize.ofBytes(5),
             DataSize.ofBytes(6),
             7,
             8d,
@@ -94,7 +93,6 @@ public class TestOperatorStats
             511,
             DataSize.ofBytes(52),
             522,
-            DataSize.ofBytes(5),
             DataSize.ofBytes(6),
             7,
             8d,
@@ -150,7 +148,6 @@ public class TestOperatorStats
         assertEquals(actual.getPhysicalInputPositions(), 511);
         assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(52));
         assertEquals(actual.getInternalNetworkInputPositions(), 522);
-        assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(5));
         assertEquals(actual.getInputDataSize(), DataSize.ofBytes(6));
         assertEquals(actual.getInputPositions(), 7);
         assertEquals(actual.getSumSquaredInputPositions(), 8.0);
@@ -200,7 +197,6 @@ public class TestOperatorStats
         assertEquals(actual.getPhysicalInputPositions(), 3 * 511);
         assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(3 * 52));
         assertEquals(actual.getInternalNetworkInputPositions(), 3 * 522);
-        assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(3 * 5));
         assertEquals(actual.getInputDataSize(), DataSize.ofBytes(3 * 6));
         assertEquals(actual.getInputPositions(), 3 * 7);
         assertEquals(actual.getSumSquaredInputPositions(), 3 * 8.0);
@@ -248,7 +244,6 @@ public class TestOperatorStats
         assertEquals(actual.getPhysicalInputPositions(), 3 * 511);
         assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(3 * 52));
         assertEquals(actual.getInternalNetworkInputPositions(), 3 * 522);
-        assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(3 * 5));
         assertEquals(actual.getInputDataSize(), DataSize.ofBytes(3 * 6));
         assertEquals(actual.getInputPositions(), 3 * 7);
         assertEquals(actual.getSumSquaredInputPositions(), 3 * 8.0);

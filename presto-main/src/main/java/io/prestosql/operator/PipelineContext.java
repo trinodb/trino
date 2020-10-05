@@ -89,9 +89,6 @@ public class PipelineContext
     private final CounterStat internalNetworkInputDataSize = new CounterStat();
     private final CounterStat internalNetworkInputPositions = new CounterStat();
 
-    private final CounterStat rawInputDataSize = new CounterStat();
-    private final CounterStat rawInputPositions = new CounterStat();
-
     private final CounterStat processedInputDataSize = new CounterStat();
     private final CounterStat processedInputPositions = new CounterStat();
 
@@ -206,9 +203,6 @@ public class PipelineContext
 
         internalNetworkInputDataSize.update(driverStats.getInternalNetworkInputDataSize().toBytes());
         internalNetworkInputPositions.update(driverStats.getInternalNetworkInputPositions());
-
-        rawInputDataSize.update(driverStats.getRawInputDataSize().toBytes());
-        rawInputPositions.update(driverStats.getRawInputPositions());
 
         processedInputDataSize.update(driverStats.getProcessedInputDataSize().toBytes());
         processedInputPositions.update(driverStats.getProcessedInputPositions());
@@ -352,9 +346,6 @@ public class PipelineContext
         long internalNetworkInputDataSize = this.internalNetworkInputDataSize.getTotalCount();
         long internalNetworkInputPositions = this.internalNetworkInputPositions.getTotalCount();
 
-        long rawInputDataSize = this.rawInputDataSize.getTotalCount();
-        long rawInputPositions = this.rawInputPositions.getTotalCount();
-
         long processedInputDataSize = this.processedInputDataSize.getTotalCount();
         long processedInputPositions = this.processedInputPositions.getTotalCount();
         long physicalInputReadTime = this.physicalInputReadTime.get();
@@ -390,9 +381,6 @@ public class PipelineContext
 
             internalNetworkInputDataSize += driverStats.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += driverStats.getInternalNetworkInputPositions();
-
-            rawInputDataSize += driverStats.getRawInputDataSize().toBytes();
-            rawInputPositions += driverStats.getRawInputPositions();
 
             processedInputDataSize += driverStats.getProcessedInputDataSize().toBytes();
             processedInputPositions += driverStats.getProcessedInputPositions();
@@ -461,9 +449,6 @@ public class PipelineContext
 
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
-
-                succinctBytes(rawInputDataSize),
-                rawInputPositions,
 
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,

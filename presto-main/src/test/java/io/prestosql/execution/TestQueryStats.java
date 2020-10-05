@@ -52,7 +52,6 @@ public class TestQueryStats
                     1811,
                     succinctBytes(182L),
                     1822,
-                    succinctBytes(18L),
                     succinctBytes(19L),
                     110L,
                     111.0,
@@ -91,7 +90,6 @@ public class TestQueryStats
                     2811,
                     succinctBytes(282L),
                     2822,
-                    succinctBytes(28L),
                     succinctBytes(29L),
                     210L,
                     211.0,
@@ -130,7 +128,6 @@ public class TestQueryStats
                     3811,
                     succinctBytes(382L),
                     3822,
-                    succinctBytes(38L),
                     succinctBytes(39L),
                     310L,
                     311.0,
@@ -206,9 +203,6 @@ public class TestQueryStats
 
             DataSize.ofBytes(242),
             252,
-
-            DataSize.ofBytes(24),
-            25,
 
             DataSize.ofBytes(26),
             27,
@@ -290,9 +284,6 @@ public class TestQueryStats
 
         assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(242));
         assertEquals(actual.getInternalNetworkInputPositions(), 252);
-
-        assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(24));
-        assertEquals(actual.getRawInputPositions(), 25);
 
         assertEquals(actual.getProcessedInputDataSize(), DataSize.ofBytes(26));
         assertEquals(actual.getProcessedInputPositions(), 27);

@@ -44,9 +44,6 @@ public class BasicStageStats
             DataSize.ofBytes(0),
             0,
 
-            DataSize.ofBytes(0),
-            0,
-
             0,
             DataSize.ofBytes(0),
             DataSize.ofBytes(0),
@@ -69,8 +66,6 @@ public class BasicStageStats
     private final Duration physicalInputReadTime;
     private final DataSize internalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
-    private final DataSize rawInputDataSize;
-    private final long rawInputPositions;
     private final long cumulativeUserMemory;
     private final DataSize userMemoryReservation;
     private final DataSize totalMemoryReservation;
@@ -95,9 +90,6 @@ public class BasicStageStats
             DataSize internalNetworkInputDataSize,
             long internalNetworkInputPositions,
 
-            DataSize rawInputDataSize,
-            long rawInputPositions,
-
             long cumulativeUserMemory,
             DataSize userMemoryReservation,
             DataSize totalMemoryReservation,
@@ -120,8 +112,6 @@ public class BasicStageStats
         this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
         this.internalNetworkInputPositions = internalNetworkInputPositions;
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
-        this.rawInputPositions = rawInputPositions;
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
@@ -175,16 +165,6 @@ public class BasicStageStats
     public long getInternalNetworkInputPositions()
     {
         return internalNetworkInputPositions;
-    }
-
-    public DataSize getRawInputDataSize()
-    {
-        return rawInputDataSize;
-    }
-
-    public long getRawInputPositions()
-    {
-        return rawInputPositions;
     }
 
     public Duration getPhysicalInputReadTime()
@@ -253,9 +233,6 @@ public class BasicStageStats
         long internalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
 
-        long rawInputDataSize = 0;
-        long rawInputPositions = 0;
-
         boolean isScheduled = true;
 
         boolean fullyBlocked = true;
@@ -285,9 +262,6 @@ public class BasicStageStats
 
             internalNetworkInputDataSize += stageStats.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += stageStats.getInternalNetworkInputPositions();
-
-            rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
-            rawInputPositions += stageStats.getRawInputPositions();
         }
 
         OptionalDouble progressPercentage = OptionalDouble.empty();
@@ -309,9 +283,6 @@ public class BasicStageStats
 
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
-
-                succinctBytes(rawInputDataSize),
-                rawInputPositions,
 
                 cumulativeUserMemory,
                 succinctBytes(userMemoryReservation),

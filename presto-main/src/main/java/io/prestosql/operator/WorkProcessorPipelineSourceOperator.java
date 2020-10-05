@@ -293,8 +293,6 @@ public class WorkProcessorPipelineSourceOperator
                         succinctBytes(context.internalNetworkInputDataSize.get()),
                         context.internalNetworkInputPositions.get(),
 
-                        succinctBytes(context.physicalInputDataSize.get() + context.internalNetworkInputDataSize.get()),
-
                         succinctBytes(context.inputDataSize.get()),
                         context.inputPositions.get(),
                         context.inputPositions.get() * context.inputPositions.get(),

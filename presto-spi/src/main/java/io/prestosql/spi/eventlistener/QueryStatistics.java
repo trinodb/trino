@@ -37,8 +37,6 @@ public class QueryStatistics
     private final long physicalInputRows;
     private final long internalNetworkBytes;
     private final long internalNetworkRows;
-    private final long totalBytes;
-    private final long totalRows;
     private final long outputBytes;
     private final long outputRows;
     private final long writtenBytes;
@@ -79,8 +77,6 @@ public class QueryStatistics
             long physicalInputRows,
             long internalNetworkBytes,
             long internalNetworkRows,
-            long totalBytes,
-            long totalRows,
             long outputBytes,
             long outputRows,
             long writtenBytes,
@@ -107,8 +103,6 @@ public class QueryStatistics
         this.physicalInputRows = physicalInputRows;
         this.internalNetworkBytes = internalNetworkBytes;
         this.internalNetworkRows = internalNetworkRows;
-        this.totalBytes = totalBytes;
-        this.totalRows = totalRows;
         this.outputBytes = outputBytes;
         this.outputRows = outputRows;
         this.writtenBytes = writtenBytes;
@@ -190,16 +184,6 @@ public class QueryStatistics
     public long getInternalNetworkRows()
     {
         return internalNetworkRows;
-    }
-
-    public long getTotalBytes()
-    {
-        return totalBytes;
-    }
-
-    public long getTotalRows()
-    {
-        return totalRows;
     }
 
     public long getOutputBytes()

@@ -90,8 +90,8 @@ public class ClusterStatsResource
             }
 
             if (!query.getState().isDone()) {
-                totalInputBytes += query.getQueryStats().getRawInputDataSize().toBytes();
-                totalInputRows += query.getQueryStats().getRawInputPositions();
+                totalInputBytes += query.getQueryStats().getPhysicalInputDataSize().toBytes() + query.getQueryStats().getInternalNetworkInputDataSize().toBytes();
+                totalInputRows += query.getQueryStats().getPhysicalInputPositions() + query.getQueryStats().getInternalNetworkInputPositions();
                 totalCpuTimeSecs += query.getQueryStats().getTotalCpuTime().getValue(SECONDS);
 
                 memoryReservation += query.getQueryStats().getUserMemoryReservation().toBytes();

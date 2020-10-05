@@ -19,11 +19,13 @@ import * as dagreD3 from "dagre-d3";
 import * as d3 from "d3";
 
 import {
+    formatDataSize,
     formatRows,
     getStageStateColor,
     initializeGraph,
     initializeSvg,
     parseAndFormatDataSize,
+    parseDataSize,
     truncateString
 } from "../utils";
 import {QueryHeader} from "./QueryHeader";
@@ -86,6 +88,9 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
     render() {
         const stage = this.props.stage;
         const stats = this.props.stage.stageStats;
+        let rawInputDataSize = parseDataSize(stats.physicalInputDataSize) + parseDataSize(stats.internalNetworkInputDataSize);
+        let rawInputPositions = stats.physicalInputPositions + stats.internalNetworkInputPositions;
+
         return (
             <div>
                 <div>
@@ -102,7 +107,7 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
                     <br/>
                     Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers}
                     <hr/>
-                    Input: {parseAndFormatDataSize(stats.rawInputDataSize) + " / " + formatRows(stats.rawInputPositions)}
+                    Input: {formatDataSize(rawInputDataSize) + " / " + formatRows(rawInputPositions)}
                 </div>
             </div>
         );

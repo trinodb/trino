@@ -28,7 +28,6 @@ import io.prestosql.operator.TaskStats;
 import io.prestosql.spi.eventlistener.StageGcStatistics;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.util.Failures;
 import org.joda.time.DateTime;
 
@@ -282,9 +281,6 @@ public class StageStateMachine
         long internalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
 
-        long rawInputDataSize = 0;
-        long rawInputPositions = 0;
-
         boolean fullyBlocked = true;
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
@@ -318,11 +314,6 @@ public class StageStateMachine
 
             internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
-
-            if (fragment.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
-                rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
-                rawInputPositions += taskStats.getRawInputPositions();
-            }
         }
 
         OptionalDouble progressPercentage = OptionalDouble.empty();
@@ -344,9 +335,6 @@ public class StageStateMachine
 
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
-
-                succinctBytes(rawInputDataSize),
-                rawInputPositions,
 
                 cumulativeUserMemory,
                 succinctBytes(userMemoryReservation),
@@ -403,9 +391,6 @@ public class StageStateMachine
 
         long internalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
-
-        long rawInputDataSize = 0;
-        long rawInputPositions = 0;
 
         long processedInputDataSize = 0;
         long processedInputPositions = 0;
@@ -467,9 +452,6 @@ public class StageStateMachine
             internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
 
-            rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
-            rawInputPositions += taskStats.getRawInputPositions();
-
             processedInputDataSize += taskStats.getProcessedInputDataSize().toBytes();
             processedInputPositions += taskStats.getProcessedInputPositions();
 
@@ -527,9 +509,6 @@ public class StageStateMachine
 
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
-
-                succinctBytes(rawInputDataSize),
-                rawInputPositions,
 
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,

@@ -64,9 +64,6 @@ public class TestStageStats
             DataSize.ofBytes(192),
             202,
 
-            DataSize.ofBytes(19),
-            20,
-
             DataSize.ofBytes(21),
             22,
 
@@ -131,9 +128,6 @@ public class TestStageStats
 
         assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(192));
         assertEquals(actual.getInternalNetworkInputPositions(), 202);
-
-        assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(19));
-        assertEquals(actual.getRawInputPositions(), 20);
 
         assertEquals(actual.getProcessedInputDataSize(), DataSize.ofBytes(21));
         assertEquals(actual.getProcessedInputPositions(), 22);

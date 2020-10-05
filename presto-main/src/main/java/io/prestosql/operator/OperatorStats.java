@@ -50,7 +50,6 @@ public class OperatorStats
     private final long physicalInputPositions;
     private final DataSize internalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
-    private final DataSize rawInputDataSize;
     private final DataSize inputDataSize;
     private final long inputPositions;
     private final double sumSquaredInputPositions;
@@ -102,7 +101,6 @@ public class OperatorStats
             @JsonProperty("physicalInputPositions") long physicalInputPositions,
             @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("inputDataSize") DataSize inputDataSize,
             @JsonProperty("inputPositions") long inputPositions,
             @JsonProperty("sumSquaredInputPositions") double sumSquaredInputPositions,
@@ -154,7 +152,6 @@ public class OperatorStats
         this.physicalInputPositions = physicalInputPositions;
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
         this.internalNetworkInputPositions = internalNetworkInputPositions;
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
         checkArgument(inputPositions >= 0, "inputPositions is negative");
         this.inputPositions = inputPositions;
@@ -269,12 +266,6 @@ public class OperatorStats
     public long getInternalNetworkInputPositions()
     {
         return internalNetworkInputPositions;
-    }
-
-    @JsonProperty
-    public DataSize getRawInputDataSize()
-    {
-        return rawInputDataSize;
     }
 
     @JsonProperty
@@ -438,7 +429,6 @@ public class OperatorStats
         long physicalInputPositions = this.physicalInputPositions;
         long internalNetworkInputDataSize = this.internalNetworkInputDataSize.toBytes();
         long internalNetworkInputPositions = this.internalNetworkInputPositions;
-        long rawInputDataSize = this.rawInputDataSize.toBytes();
         long inputDataSize = this.inputDataSize.toBytes();
         long inputPositions = this.inputPositions;
         double sumSquaredInputPositions = this.sumSquaredInputPositions;
@@ -484,7 +474,6 @@ public class OperatorStats
             physicalInputPositions += operator.getPhysicalInputPositions();
             internalNetworkInputDataSize += operator.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += operator.getInternalNetworkInputPositions();
-            rawInputDataSize += operator.getRawInputDataSize().toBytes();
             inputDataSize += operator.getInputDataSize().toBytes();
             inputPositions += operator.getInputPositions();
             sumSquaredInputPositions += operator.getSumSquaredInputPositions();
@@ -542,7 +531,6 @@ public class OperatorStats
                 physicalInputPositions,
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
-                succinctBytes(rawInputDataSize),
                 succinctBytes(inputDataSize),
                 inputPositions,
                 sumSquaredInputPositions,
@@ -610,7 +598,6 @@ public class OperatorStats
                 physicalInputPositions,
                 internalNetworkInputDataSize,
                 internalNetworkInputPositions,
-                rawInputDataSize,
                 inputDataSize,
                 inputPositions,
                 sumSquaredInputPositions,
