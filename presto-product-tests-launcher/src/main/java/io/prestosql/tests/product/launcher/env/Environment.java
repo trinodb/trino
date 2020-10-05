@@ -83,13 +83,20 @@ public final class Environment
     private final int startupRetries;
     private final Map<String, DockerContainer> containers;
     private final Optional<EnvironmentListener> listener;
+    private final boolean attached;
 
-    private Environment(String name, int startupRetries, Map<String, DockerContainer> containers, Optional<EnvironmentListener> listener)
+    private Environment(
+            String name,
+            int startupRetries,
+            Map<String, DockerContainer> containers,
+            Optional<EnvironmentListener> listener,
+            boolean attached)
     {
         this.name = requireNonNull(name, "name is null");
         this.startupRetries = startupRetries;
         this.containers = requireNonNull(containers, "containers is null");
         this.listener = requireNonNull(listener, "listener is null");
+        this.attached = attached;
     }
 
     public Environment start()
@@ -150,6 +157,7 @@ public final class Environment
 
     public void stop()
     {
+        checkState(!attached, "Cannot stop environment that is attached");
         this.listener.ifPresent(listener -> listener.environmentStopping(this));
 
         // Allow containers to take up to 5 minutes to stop
@@ -256,6 +264,11 @@ public final class Environment
     @Override
     public void close()
     {
+        if (attached) {
+            // do not stop attached, externally controlled environment
+            return;
+        }
+
         try {
             stop();
         }
@@ -311,6 +324,7 @@ public final class Environment
         private int startupRetries = 1;
         private Map<String, DockerContainer> containers = new HashMap<>();
         private Optional<Path> logsBaseDir = Optional.empty();
+        private boolean attached;
 
         public Builder(String name)
         {
@@ -491,7 +505,7 @@ public final class Environment
                         });
             });
 
-            return new Environment(name, startupRetries, containers, listener);
+            return new Environment(name, startupRetries, containers, listener, attached);
         }
 
         private static Consumer<OutputFrame> writeContainerLogs(DockerContainer container, Path path)
@@ -540,6 +554,12 @@ public final class Environment
         public Builder setLogsBaseDir(Optional<Path> baseDir)
         {
             this.logsBaseDir = baseDir;
+            return this;
+        }
+
+        public Builder setAttached(boolean attached)
+        {
+            this.attached = attached;
             return this;
         }
     }
