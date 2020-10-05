@@ -30,8 +30,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class KerberosUtil
 {
-    public static final String CNAME = "CNAME";
-    public static final String A_RECORD = "A";
+    private static final String CNAME = "CNAME";
+    private static final String A_RECORD = "A";
     private static final String FILE_PREFIX = "FILE:";
 
     private KerberosUtil() {}
