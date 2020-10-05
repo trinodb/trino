@@ -54,11 +54,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.hadoop</groupId>
-            <artifactId>hadoop-apache</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.prestosql.hive</groupId>
             <artifactId>hive-apache</artifactId>
         </dependency>

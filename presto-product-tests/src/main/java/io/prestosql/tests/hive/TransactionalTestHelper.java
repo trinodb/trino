@@ -20,21 +20,16 @@ import io.prestosql.plugin.hive.metastore.thrift.NoHiveMetastoreAuthentication;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient;
 import io.prestosql.plugin.hive.metastore.thrift.Transport;
 import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.LockComponentBuilder;
 import org.apache.hadoop.hive.metastore.LockRequestBuilder;
 import org.apache.hadoop.hive.metastore.api.AllocateTableWriteIdsRequest;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
 import org.apache.hadoop.hive.metastore.api.LockRequest;
 import org.apache.hadoop.hive.metastore.api.LockResponse;
-import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
-import org.apache.orc.OrcFile;
-import org.apache.orc.Reader;
-import org.apache.orc.RecordReader;
-import org.apache.orc.Writer;
 import org.apache.thrift.TException;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
@@ -82,26 +77,14 @@ public final class TransactionalTestHelper
             hdfsClient.delete(deltaB);
             hdfsClient.delete(deltaC);
 
-            Configuration conf = new Configuration(false);
-            Reader reader = OrcFile.createReader(new Path(DEFAULT_FS + deltaA), OrcFile.readerOptions(conf));
-            RecordReader rows = reader.rows();
-            VectorizedRowBatch batch = reader.getSchema().createRowBatch();
-
-            OrcFile.WriterOptions writerOptions = OrcFile.writerOptions(conf).setSchema(reader.getSchema());
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            hdfsClient.loadFile(deltaA, byteArrayOutputStream);
 
             // Copy content of delta A to delta B
-            try (Writer orcWriter = OrcFile.createWriter(new Path(DEFAULT_FS + deltaB), writerOptions)) {
-                while (rows.nextBatch(batch)) {
-                    orcWriter.addRowBatch(batch);
-                }
-            }
+            hdfsClient.saveFile(deltaB, new ByteArrayInputStream(byteArrayOutputStream.toByteArray()));
 
             // Copy content of delta A to delta C (which is an aborted transaction)
-            try (Writer orcWriter = OrcFile.createWriter(new Path(DEFAULT_FS + deltaC), writerOptions)) {
-                while (rows.nextBatch(batch)) {
-                    orcWriter.addRowBatch(batch);
-                }
-            }
+            hdfsClient.saveFile(deltaC, new ByteArrayInputStream(byteArrayOutputStream.toByteArray()));
         }
         finally {
             client.close();
