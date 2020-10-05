@@ -271,6 +271,10 @@ public class DockerContainer
             execCommand("tar", "-cf", containerLogsArchive, "-T", containerLogsListingFile);
             copyFileFromContainer(containerLogsArchive, hostPath.resolve(format("%s/logs.tar.gz", logicalName)));
         }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
         catch (Exception e) {
             log.warn("Could not copy logs archive from %s: %s", logicalName, getStackTraceAsString(e));
         }
@@ -301,6 +305,10 @@ public class DockerContainer
                 copyFileFromContainer(filename, targetPath.toString());
                 log.info("Copied file %s to %s (size: %s bytes)", filename, targetPath, ofBytes(size(targetPath)).succinct());
             }).get();
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
         }
         catch (Exception e) {
             log.warn("Could not copy file from %s to %s: %s", filename, targetPath, getStackTraceAsString(e));
@@ -388,6 +396,10 @@ public class DockerContainer
 
         try {
             executor.runAsync(this::stop).get();
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
         }
         catch (Exception e) {
             log.warn("Could not stop container correctly: %s", getStackTraceAsString(e));
