@@ -159,6 +159,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.prestosql.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
+import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.prestosql.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
@@ -942,6 +943,10 @@ public class ExpressionAnalyzer
                 }
 
                 windowFunctions.add(NodeRef.of(node));
+            }
+
+            if (node.isDistinct() && extractAggregateFunctions(List.of(node), metadata).isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, node, "DISTINCT is not supported for non-aggregation functions");
             }
 
             if (node.getFilter().isPresent()) {
