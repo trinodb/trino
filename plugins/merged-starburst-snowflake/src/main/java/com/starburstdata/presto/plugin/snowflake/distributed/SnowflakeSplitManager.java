@@ -10,11 +10,9 @@
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.inject.Provider;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
-import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
@@ -27,13 +25,11 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 class SnowflakeSplitManager
         implements ConnectorSplitManager
 {
-    private final Provider<Connector> connectorProvider;
     private final JdbcClient client;
     private final ListeningExecutorService executorService;
     private final TypeManager typeManager;
@@ -43,7 +39,6 @@ class SnowflakeSplitManager
 
     @Inject
     public SnowflakeSplitManager(
-            Provider<Connector> connectorProvider,
             JdbcClient client,
             ListeningExecutorService executorService,
             TypeManager typeManager,
@@ -51,7 +46,6 @@ class SnowflakeSplitManager
             SnowflakeDistributedConfig config,
             SnowflakeExportStats exportStats)
     {
-        this.connectorProvider = requireNonNull(connectorProvider, "connectorProvider is null");
         this.client = requireNonNull(client, "client is null");
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -70,9 +64,7 @@ class SnowflakeSplitManager
     {
         JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) table;
         List<JdbcColumnHandle> columns = jdbcTableHandle.getColumns()
-                .orElseGet(() -> connectorProvider.get().getMetadata(transaction).getColumnHandles(session, table).values().stream()
-                        .map(JdbcColumnHandle.class::cast)
-                        .collect(toImmutableList()));
+                .orElseGet(() -> client.getColumns(session, jdbcTableHandle));
         return new SnowflakeSplitSource(
                 executorService,
                 typeManager,
