@@ -217,7 +217,7 @@ public final class Environment
             while (testContainer.isRunning()) {
                 Thread.sleep(10000); // check every 10 seconds
 
-                if (!allContainersHealthy(containers)) {
+                if (!attached && !allContainersHealthy(containers)) {
                     log.warn("Environment %s is not healthy, interrupting tests", name);
                     return ENVIRONMENT_FAILED_EXIT_CODE;
                 }
@@ -277,7 +277,7 @@ public final class Environment
         }
     }
 
-    public static boolean allContainersHealthy(Iterable<DockerContainer> containers)
+    private static boolean allContainersHealthy(Iterable<DockerContainer> containers)
     {
         return Streams.stream(containers)
                 .allMatch(Environment::containerIsHealthy);
