@@ -18,10 +18,14 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.OperatorNotFoundException;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.DynamicFilters;
+import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
@@ -32,11 +36,14 @@ import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
+import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
+import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.SymbolReference;
+import io.prestosql.type.TypeCoercion;
 
 import java.util.HashSet;
 import java.util.List;
@@ -47,6 +54,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 import static io.prestosql.sql.DynamicFilters.getDescriptor;
 import static io.prestosql.sql.DynamicFilters.isDynamicFilter;
@@ -68,22 +76,35 @@ public class RemoveUnsupportedDynamicFilters
         implements PlanOptimizer
 {
     private final Metadata metadata;
+    private final TypeAnalyzer typeAnalyzer;
 
     public RemoveUnsupportedDynamicFilters(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeAnalyzer = new TypeAnalyzer(new SqlParser(), metadata);
     }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        PlanWithConsumedDynamicFilters result = plan.accept(new RemoveUnsupportedDynamicFilters.Rewriter(), ImmutableSet.of());
+        PlanWithConsumedDynamicFilters result = plan.accept(new RemoveUnsupportedDynamicFilters.Rewriter(session, types), ImmutableSet.of());
         return result.getNode();
     }
 
     private class Rewriter
             extends PlanVisitor<PlanWithConsumedDynamicFilters, Set<DynamicFilterId>>
     {
+        private final Session session;
+        private final TypeProvider types;
+        private final TypeCoercion typeCoercion;
+
+        public Rewriter(Session session, TypeProvider types)
+        {
+            this.session = requireNonNull(session, "session is null");
+            this.types = requireNonNull(types, "types is null");
+            this.typeCoercion = new TypeCoercion(metadata::getType);
+        }
+
         @Override
         protected PlanWithConsumedDynamicFilters visitPlan(PlanNode node, Set<DynamicFilterId> allowedDynamicFilterIds)
         {
@@ -275,14 +296,47 @@ public class RemoveUnsupportedDynamicFilters
                     .filter(conjunct ->
                             getDescriptor(conjunct)
                                     .map(descriptor -> {
-                                        if (descriptor.getInput() instanceof SymbolReference &&
-                                                allowedDynamicFilterIds.contains(descriptor.getId())) {
+                                        if (allowedDynamicFilterIds.contains(descriptor.getId()) &&
+                                                isSupportedDynamicFilterExpression(descriptor.getInput())) {
                                             consumedDynamicFilterIds.add(descriptor.getId());
                                             return true;
                                         }
                                         return false;
                                     }).orElse(true))
                     .collect(toImmutableList()));
+        }
+
+        private boolean isSupportedDynamicFilterExpression(Expression expression)
+        {
+            if (expression instanceof SymbolReference) {
+                return true;
+            }
+            if (!(expression instanceof Cast)) {
+                return false;
+            }
+            Cast castExpression = (Cast) expression;
+            if (!(castExpression.getExpression() instanceof SymbolReference)) {
+                return false;
+            }
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
+            Type castSourceType = expressionTypes.get(NodeRef.of(castExpression.getExpression()));
+            Type castTargetType = expressionTypes.get(NodeRef.<Expression>of(castExpression));
+            // CAST must be an implicit coercion
+            if (!typeCoercion.canCoerce(castSourceType, castTargetType)) {
+                return false;
+            }
+            return doesSaturatedFloorCastOperatorExist(castTargetType, castSourceType);
+        }
+
+        private boolean doesSaturatedFloorCastOperatorExist(Type fromType, Type toType)
+        {
+            try {
+                metadata.getCoercion(SATURATED_FLOOR_CAST, fromType, toType);
+            }
+            catch (OperatorNotFoundException e) {
+                return false;
+            }
+            return true;
         }
 
         private Expression removeAllDynamicFilters(Expression expression)

@@ -22,6 +22,7 @@ import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
+import io.prestosql.sql.tree.SymbolReference;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -80,6 +81,7 @@ class LocalDynamicFiltersCollector
     public DynamicFilter createDynamicFilter(List<Descriptor> descriptors, Map<Symbol, ColumnHandle> columnsMap)
     {
         Multimap<DynamicFilterId, Symbol> symbolsMap = descriptors.stream()
+                .filter(descriptor -> descriptor.getInput() instanceof SymbolReference)
                 .collect(toImmutableSetMultimap(Descriptor::getId, descriptor -> Symbol.from(descriptor.getInput())));
 
         // Iterate over dynamic filters that are collected (correspond to one of the futures), and required for filtering (correspond to one of the descriptors).

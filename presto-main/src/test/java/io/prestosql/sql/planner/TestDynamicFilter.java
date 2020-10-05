@@ -27,7 +27,6 @@ import io.prestosql.sql.planner.assertions.Matcher;
 import io.prestosql.sql.planner.assertions.SymbolAliases;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import org.testng.annotations.Test;
 
@@ -163,13 +162,53 @@ public class TestDynamicFilter
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE cast(l.orderkey as int) = cast(o.orderkey as int)",
                 anyTree(
-                        node(
-                                JoinNode.class,
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("expr_orders", "expr_lineitem")),
+                                ImmutableMap.of(),
                                 anyTree(
                                         project(
+                                                ImmutableMap.of("expr_orders", expression("CAST(ORDERS_OK AS int)")),
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))),
                                 anyTree(
-                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+                                        project(
+                                                ImmutableMap.of("expr_lineitem", expression("CAST(LINEITEM_OK AS int)")),
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+
+        // Dynamic filter is removed due to double cast on orders.orderkey
+        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = cast(o.orderkey as int)",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("expr_orders", "LINEITEM_OK")),
+                                ImmutableMap.of(),
+                                anyTree(
+                                        project(
+                                                ImmutableMap.of("expr_orders", expression("CAST(CAST(ORDERS_OK AS int) AS bigint)")),
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))),
+                                anyTree(
+                                        project(
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+    }
+
+    @Test
+    public void testJoinImplicitCoercions()
+    {
+        // linenumber is integer and orderkey is bigint
+        assertPlan("SELECT o.orderkey FROM lineitem l, orders o WHERE l.linenumber = o.orderkey",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("expr_linenumber", "ORDERS_OK")),
+                                anyTree(
+                                        project(
+                                                ImmutableMap.of("expr_linenumber", expression("CAST(LINEITEM_LN AS bigint)")),
+                                                node(FilterNode.class,
+                                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_LN", "linenumber")))
+                                                        .with(numberOfDynamicFilters(1)))),
+                                exchange(
+                                        project(
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))))));
     }
 
     @Test
