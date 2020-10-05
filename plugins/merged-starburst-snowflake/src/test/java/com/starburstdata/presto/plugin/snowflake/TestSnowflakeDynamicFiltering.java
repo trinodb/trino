@@ -29,7 +29,7 @@ public class TestSnowflakeDynamicFiltering
     }
 
     @Override
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/5172", match = "java.lang.AssertionError: expected:<2> to be greater than <2>")
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/5172", match = "java.lang.AssertionError: .*expected:<2> to be greater than <2>")
     public void testDynamicFiltering()
     {
         super.testDynamicFiltering();
