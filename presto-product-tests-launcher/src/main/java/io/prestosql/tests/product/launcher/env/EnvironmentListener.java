@@ -199,7 +199,8 @@ public interface EnvironmentListener
     static EnvironmentListener logCopyingListener(Path logBaseDir)
     {
         requireNonNull(logBaseDir, "logBaseDir is null");
-        return new EnvironmentListener() {
+        return new EnvironmentListener()
+        {
             @Override
             public void containerStopping(DockerContainer container, InspectContainerResponse response)
             {
