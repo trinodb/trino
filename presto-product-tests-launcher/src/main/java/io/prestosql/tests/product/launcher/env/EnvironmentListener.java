@@ -78,6 +78,10 @@ public interface EnvironmentListener
             try {
                 executor.runAsync(() -> call.accept(listener)).get();
             }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
             catch (Exception e) {
                 log.error("Could not invoke listener %s due to %s", listener.getClass().getSimpleName(), getStackTraceAsString(e));
             }
