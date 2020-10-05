@@ -29,12 +29,14 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS
 public class KafkaAdminFactory
 {
     private final KafkaConfig kafkaConfig;
+    private final KafkaSecurityConfigProvider kafkaSecurityConfigProvider;
 
     @Inject
-    public KafkaAdminFactory(KafkaConfig kafkaConfig)
+    public KafkaAdminFactory(KafkaConfig kafkaConfig, KafkaSecurityConfigProvider kafkaSecurityConfigProvider)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
         this.kafkaConfig = kafkaConfig;
+        this.kafkaSecurityConfigProvider = kafkaSecurityConfigProvider;
     }
 
     public AdminClient create()
@@ -48,7 +50,7 @@ public class KafkaAdminFactory
         properties.setProperty(BOOTSTRAP_SERVERS_CONFIG, kafkaConfig.getNodes().stream()
                 .map(HostAddress::toString)
                 .collect(joining(",")));
-        properties.putAll(kafkaConfig.getSecurityConfigProperties());
+        properties.putAll(kafkaSecurityConfigProvider.getSecurityProperties());
         return properties;
     }
 }

@@ -23,6 +23,6 @@ public class KafkaConsumerModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(KafkaConsumerFactory.class).to(PlainTextKafkaConsumerFactory.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaConsumerFactory.class).to(KafkaClientConsumerFactory.class).in(Scopes.SINGLETON);
     }
 }

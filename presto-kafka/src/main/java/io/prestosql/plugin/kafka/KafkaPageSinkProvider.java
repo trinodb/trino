@@ -40,10 +40,10 @@ public class KafkaPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final DispatchingRowEncoderFactory encoderFactory;
-    private final PlainTextKafkaProducerFactory producerFactory;
+    private final KafkaClientProducerFactory producerFactory;
 
     @Inject
-    public KafkaPageSinkProvider(DispatchingRowEncoderFactory encoderFactory, PlainTextKafkaProducerFactory producerFactory)
+    public KafkaPageSinkProvider(DispatchingRowEncoderFactory encoderFactory, KafkaClientProducerFactory producerFactory)
     {
         this.encoderFactory = requireNonNull(encoderFactory, "encoderFactory is null");
         this.producerFactory = requireNonNull(producerFactory, "producerFactory is null");

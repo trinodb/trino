@@ -38,16 +38,7 @@ public class TestKafkaConfig
                 .setHideInternalColumns(true)
                 .setMessagesPerSplit(100_000)
                 .setTimestampUpperBoundPushDownEnabled(false)
-                .setSecurityProtocol(null)
-                .setSslEndpointIdentificationAlgorithm(null)
-                .setSslTruststoreLocation(null)
-                .setSslTruststorePassword(null)
-                .setSslTruststoreType(null)
-                .setSslKeystoreLocation(null)
-                .setSslKeystorePassword(null)
-                .setSslKeystoreType(null)
-                .setSslKeyPassword(null)
-                .setSslProvider(null));
+                .setSecurityProtocol(null));
     }
 
     @Test
@@ -63,15 +54,6 @@ public class TestKafkaConfig
                 .put("kafka.messages-per-split", "1")
                 .put("kafka.timestamp-upper-bound-force-push-down-enabled", "true")
                 .put("kafka.security.protocol", "SSL")
-                .put("kafka.ssl.endpoint.identification.algorithm", "https")
-                .put("kafka.ssl.truststore.location", "/some/path")
-                .put("kafka.ssl.truststore.password", "password")
-                .put("kafka.ssl.truststore.type", "JKS")
-                .put("kafka.ssl.keystore.location", "/another/path")
-                .put("kafka.ssl.keystore.password", "anotherPassword")
-                .put("kafka.ssl.keystore.type", "JKS")
-                .put("kafka.ssl.key.password", "keyPassword")
-                .put("kafka.ssl.provider", "sslProviderName")
                 .build();
         KafkaConfig expected = new KafkaConfig()
                 .setTableDescriptionDir(new File("/var/lib/kafka"))
@@ -82,16 +64,7 @@ public class TestKafkaConfig
                 .setHideInternalColumns(false)
                 .setMessagesPerSplit(1)
                 .setTimestampUpperBoundPushDownEnabled(true)
-                .setSecurityProtocol("SSL")
-                .setSslEndpointIdentificationAlgorithm("https")
-                .setSslTruststoreLocation("/some/path")
-                .setSslTruststorePassword("password")
-                .setSslTruststoreType("JKS")
-                .setSslKeystoreLocation("/another/path")
-                .setSslKeystorePassword("anotherPassword")
-                .setSslKeystoreType("JKS")
-                .setSslKeyPassword("keyPassword")
-                .setSslProvider("sslProviderName");
+                .setSecurityProtocol("SSL");
 
         assertFullMapping(properties, expected);
     }

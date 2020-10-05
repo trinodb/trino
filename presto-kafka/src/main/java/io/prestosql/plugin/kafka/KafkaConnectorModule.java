@@ -60,6 +60,7 @@ public class KafkaConnectorModule
         binder.bind(KafkaFilterManager.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(KafkaConfig.class);
+        configBinder(binder).bindConfig(KafkaSecurityConfigProvider.class);
         newSetBinder(binder, TableDescriptionSupplier.class).addBinding().toProvider(KafkaTableDescriptionSupplier.class).in(Scopes.SINGLETON);
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);

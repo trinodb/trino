@@ -31,12 +31,12 @@ import static org.apache.kafka.clients.producer.ProducerConfig.ACKS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.LINGER_MS_CONFIG;
 
-public class PlainTextKafkaProducerFactory
+public class KafkaClientProducerFactory
 {
     private final Map<String, Object> properties;
 
     @Inject
-    public PlainTextKafkaProducerFactory(KafkaConfig kafkaConfig)
+    public KafkaClientProducerFactory(KafkaConfig kafkaConfig, KafkaSecurityConfigProvider securityConfigProvider)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
         Set<HostAddress> nodes = ImmutableSet.copyOf(kafkaConfig.getNodes());
@@ -46,7 +46,7 @@ public class PlainTextKafkaProducerFactory
                         .collect(joining(",")))
                 .put(ACKS_CONFIG, "all")
                 .put(LINGER_MS_CONFIG, 5)
-                .putAll(fromProperties(kafkaConfig.getSecurityConfigProperties()))
+                .putAll(fromProperties(securityConfigProvider.getSecurityProperties()))
                 .build();
     }
 
