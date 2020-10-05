@@ -25,6 +25,7 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     Conditional         <functions/conditional>
     Conversion          <functions/conversion>
     Date and time       <functions/datetime>
+    Datasketches        <functions/datasketches>
     Decimal             <functions/decimal>
     Geospatial          <functions/geospatial>
     HyperLogLog         <functions/hyperloglog>

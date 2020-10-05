@@ -178,6 +178,14 @@ For more details, see :doc:`conversion`
 * :func:`try_cast`
 * :func:`typeof`
 
+DataSketches
+------------
+
+For more details, see :doc:`datasketches`
+
+* :func:`theta_sketch_estimate`
+* :func:`theta_sketch_union`
+
 Date and time
 -------------
 
