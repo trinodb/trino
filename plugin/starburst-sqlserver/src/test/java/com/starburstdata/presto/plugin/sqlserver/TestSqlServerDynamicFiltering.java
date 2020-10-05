@@ -31,7 +31,7 @@ public class TestSqlServerDynamicFiltering
     {
         sqlServer = new TestingSqlServer();
         sqlServer.start();
-        return createStarburstSqlServerQueryRunner(sqlServer, false, Map.of(), List.of(ORDERS));
+        return createStarburstSqlServerQueryRunner(sqlServer, true, Map.of(), List.of(ORDERS));
     }
 
     @AfterClass(alwaysRun = true)
