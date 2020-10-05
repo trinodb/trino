@@ -164,6 +164,18 @@ public class TestMemorySmoke
     }
 
     @Test
+    public void testJoinDynamicFilteringImplicitCoercion()
+    {
+        assertUpdate("CREATE TABLE coerce_test AS SELECT CAST(orderkey as INT) orderkey_int FROM tpch.tiny.lineitem", "SELECT count(*) FROM lineitem");
+        // Probe-side is fully scanned, because dynamic filtering does not work when there is a CAST on the probe side
+        assertDynamicFiltering(
+                "SELECT * FROM coerce_test l JOIN orders o ON l.orderkey_int = o.orderkey AND o.comment = 'nstructions sleep furiously among '",
+                withBroadcastJoin(),
+                6,
+                ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
+    }
+
+    @Test
     public void testJoinDynamicFilteringBlockProbeSide()
     {
         // Wait for both build sides to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).

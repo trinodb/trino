@@ -31,6 +31,7 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
+import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SymbolReference;
 
@@ -137,13 +138,25 @@ public class DynamicFiltersChecker
                 }
                 ImmutableSet.Builder<DynamicFilterId> consumed = ImmutableSet.builder();
                 dynamicFilters.forEach(descriptor -> {
-                    verify(descriptor.getInput() instanceof SymbolReference, "Dynamic filter expression must be a SymbolReference");
+                    validateDynamicFilterExpression(descriptor.getInput());
                     consumed.add(descriptor.getId());
                 });
                 consumed.addAll(node.getSource().accept(this, context));
                 return consumed.build();
             }
         }, null);
+    }
+
+    private static void validateDynamicFilterExpression(Expression expression)
+    {
+        if (expression instanceof SymbolReference) {
+            return;
+        }
+        verify(expression instanceof Cast,
+                "Dynamic filter expression %s must be a SymbolReference or a CAST of SymbolReference.", expression);
+        Cast castExpression = (Cast) expression;
+        verify(castExpression.getExpression() instanceof SymbolReference,
+                "The expression %s within in a CAST in dynamic filter must be a SymbolReference.", castExpression.getExpression());
     }
 
     private static List<DynamicFilters.Descriptor> extractDynamicPredicates(Expression expression)

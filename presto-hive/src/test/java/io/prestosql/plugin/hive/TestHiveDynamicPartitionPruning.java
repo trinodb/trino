@@ -231,6 +231,34 @@ public class TestHiveDynamicPartitionPruning
     }
 
     @Test(timeOut = 30_000)
+    public void testJoinWithImplicitCoercion()
+    {
+        // setup partitioned fact table with integer suppkey
+        assertUpdate(
+                "CREATE TABLE partitioned_lineitem_int " +
+                        "WITH (format = 'TEXTFILE', partitioned_by=array['suppkey_int']) AS " +
+                        "SELECT orderkey, CAST(suppkey as int) suppkey_int FROM tpch.tiny.lineitem",
+                LINEITEM_COUNT);
+
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                getSession(),
+                "SELECT * FROM partitioned_lineitem_int l JOIN supplier s ON l.suppkey_int = s.suppkey AND s.name = 'Supplier#000000001'");
+        assertGreaterThan(result.getResult().getRowCount(), 0);
+
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
+        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
+        // Dynamic filter is collected from build side but not used for such cases
+        assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
+        assertEquals(domainStats.getDiscreteValuesCount(), 0);
+        assertEquals(domainStats.getRangeCount(), 1);
+    }
+
+    @Test(timeOut = 30_000)
     public void testSemiJoinWithEmptyBuildSide()
     {
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();

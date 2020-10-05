@@ -45,6 +45,7 @@ import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
+import io.prestosql.sql.tree.SymbolReference;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -228,9 +229,7 @@ public class DynamicFilterService
     public DynamicFilter createDynamicFilter(QueryId queryId, List<DynamicFilters.Descriptor> dynamicFilterDescriptors, Map<Symbol, ColumnHandle> columnHandles)
     {
         Multimap<DynamicFilterId, ColumnHandle> sourceColumnHandles = extractSourceColumnHandles(dynamicFilterDescriptors, columnHandles);
-        Set<DynamicFilterId> dynamicFilters = dynamicFilterDescriptors.stream()
-                .map(DynamicFilters.Descriptor::getId)
-                .collect(toImmutableSet());
+        Set<DynamicFilterId> dynamicFilters = ImmutableSet.copyOf(sourceColumnHandles.keySet());
         DynamicFilterContext context = dynamicFilterContexts.get(queryId);
         if (context == null) {
             // query has been removed
@@ -374,6 +373,7 @@ public class DynamicFilterService
     private static Multimap<DynamicFilterId, ColumnHandle> extractSourceColumnHandles(List<DynamicFilters.Descriptor> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
     {
         return dynamicFilters.stream()
+                .filter(descriptor -> descriptor.getInput() instanceof SymbolReference)
                 .collect(toImmutableListMultimap(
                         DynamicFilters.Descriptor::getId,
                         descriptor -> columnHandles.get(Symbol.from(descriptor.getInput()))));
