@@ -63,6 +63,7 @@ public class BenchmarkResultsPrinter
         // print header row
         printRow(ImmutableList.builder()
                 .add("suite")
+                .add("schema")
                 .add("query")
                 .addAll(tagNames)
                 .add("wallTimeP50")
@@ -91,6 +92,7 @@ public class BenchmarkResultsPrinter
 
         printRow(ImmutableList.builder()
                 .add(result.getSuite().getName())
+                .add(benchmarkSchema.getName())
                 .add(result.getBenchmarkQuery().getName())
                 .addAll(tagNames.stream().map(forMap(tags, "")).iterator())
                 .add(NANOSECONDS.toMillis((long) result.getWallTimeNanos().getMedian()))
