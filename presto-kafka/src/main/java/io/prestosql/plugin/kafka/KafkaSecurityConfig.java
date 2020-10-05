@@ -25,7 +25,7 @@ import java.util.Properties;
  *  'SSL' is being used. If so, additional properties might be supplied, i.e. location and password of the truststore
  *  and keystore to be used.
  */
-public class KafkaSecurityConfigProvider
+public class KafkaSecurityConfig
 {
     private Properties props;
 
@@ -45,7 +45,7 @@ public class KafkaSecurityConfigProvider
     private String sslEndpointIdentificationAlgorithm;
     private String sslSecureRandomImplementation;
 
-    public KafkaSecurityConfigProvider()
+    public KafkaSecurityConfig()
     {
         // no-args constructor
     }
@@ -62,7 +62,7 @@ public class KafkaSecurityConfigProvider
         return sslProtocol;
     }
 
-    @Config("kafka." + SslConfigs.SSL_PROVIDER_CONFIG)
+    @Config("kafka.ssl.provider")
     @ConfigDescription(SslConfigs.SSL_PROVIDER_DOC)
     public void setSslProvider(String sslProvider)
     {
@@ -74,7 +74,7 @@ public class KafkaSecurityConfigProvider
         return sslProvider;
     }
 
-    @Config("kafka." + SslConfigs.SSL_CIPHER_SUITES_CONFIG)
+    @Config("kafka.ssl.cipher.suites")
     @ConfigDescription(SslConfigs.SSL_CIPHER_SUITES_DOC)
     public void setSslCipherSuites(String sslCipherSuites)
     {
@@ -86,7 +86,7 @@ public class KafkaSecurityConfigProvider
         return sslCipherSuites;
     }
 
-    @Config("kafka." + SslConfigs.SSL_ENABLED_PROTOCOLS_CONFIG)
+    @Config("kafka.ssl.enabled.protocols")
     @ConfigDescription(SslConfigs.SSL_ENABLED_PROTOCOLS_DOC)
     public void setSslEnabledProtocols(String sslEnabledProtocols)
     {
@@ -98,7 +98,7 @@ public class KafkaSecurityConfigProvider
         return sslEnabledProtocols;
     }
 
-    @Config("kafka." + SslConfigs.SSL_KEYSTORE_TYPE_CONFIG)
+    @Config("kafka.ssl.keystore.type")
     @ConfigDescription(SslConfigs.SSL_KEYSTORE_TYPE_DOC)
     public void setSslKeystoreType(String sslKeystoreType)
     {
@@ -110,7 +110,7 @@ public class KafkaSecurityConfigProvider
         return sslKeystoreType;
     }
 
-    @Config("kafka." + SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG)
+    @Config("kafka.ssl.keystore.location")
     @ConfigDescription(SslConfigs.SSL_KEYSTORE_LOCATION_DOC)
     public void setSslKeystoreLocation(String sslKeystoreLocation)
     {
@@ -122,7 +122,7 @@ public class KafkaSecurityConfigProvider
         return sslKeystoreLocation;
     }
 
-    @Config("kafka." + SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG)
+    @Config("kafka.ssl.keystore.password")
     @ConfigDescription(SslConfigs.SSL_KEYSTORE_PASSWORD_DOC)
     @ConfigSecuritySensitive
     public void setSslKeystorePassword(String sslKeystorePassword)
@@ -135,7 +135,7 @@ public class KafkaSecurityConfigProvider
         return sslKeystorePassword;
     }
 
-    @Config("kafka." + SslConfigs.SSL_KEY_PASSWORD_CONFIG)
+    @Config("kafka.ssl.key.password")
     @ConfigDescription(SslConfigs.SSL_KEY_PASSWORD_DOC)
     @ConfigSecuritySensitive
     public void setSslKeyPassword(String sslKeyPassword)
@@ -148,7 +148,7 @@ public class KafkaSecurityConfigProvider
         return sslKeyPassword;
     }
 
-    @Config("kafka." + SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG)
+    @Config("kafka.ssl.truststore.type")
     @ConfigDescription(SslConfigs.SSL_TRUSTSTORE_TYPE_DOC)
     public void setSslTruststoreType(String sslTruststoreType)
     {
@@ -160,7 +160,7 @@ public class KafkaSecurityConfigProvider
         return sslTruststoreType;
     }
 
-    @Config("kafka." + SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG)
+    @Config("kafka.ssl.truststore.location")
     @ConfigDescription(SslConfigs.SSL_TRUSTSTORE_LOCATION_DOC)
     public void setSslTruststoreLocation(String sslTruststoreLocation)
     {
@@ -172,7 +172,7 @@ public class KafkaSecurityConfigProvider
         return sslTruststoreLocation;
     }
 
-    @Config("kafka." + SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG)
+    @Config("kafka.ssl.truststore.password")
     @ConfigDescription(SslConfigs.SSL_TRUSTSTORE_PASSWORD_DOC)
     @ConfigSecuritySensitive
     public void setSslTruststorePassword(String sslTruststorePassword)
@@ -185,7 +185,7 @@ public class KafkaSecurityConfigProvider
         return sslTruststorePassword;
     }
 
-    @Config("kafka." + SslConfigs.SSL_KEYMANAGER_ALGORITHM_CONFIG)
+    @Config("kafka.ssl.keymanager.algorithm")
     @ConfigDescription(SslConfigs.SSL_KEYMANAGER_ALGORITHM_DOC)
     public void setSslKeymanagerAlgorithm(String sslKeymanagerAlgorithm)
     {
@@ -197,7 +197,7 @@ public class KafkaSecurityConfigProvider
         return sslKeymanagerAlgorithm;
     }
 
-    @Config("kafka." + SslConfigs.SSL_TRUSTMANAGER_ALGORITHM_CONFIG)
+    @Config("kafka.ssl.trustmanager.algorithm")
     @ConfigDescription(SslConfigs.SSL_TRUSTMANAGER_ALGORITHM_DOC)
     public void setSslTrustmanagerAlgorithm(String sslTrustmanagerAlgorithm)
     {
@@ -209,7 +209,7 @@ public class KafkaSecurityConfigProvider
         return sslTrustmanagerAlgorithm;
     }
 
-    @Config("kafka." + SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG)
+    @Config("kafka.ssl.endpoint.identification.algorithm")
     @ConfigDescription(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_DOC)
     public void setSslEndpointIdentificationAlgorithm(String sslEndpointIdentificationAlgorithm)
     {
@@ -221,7 +221,7 @@ public class KafkaSecurityConfigProvider
         return sslEndpointIdentificationAlgorithm;
     }
 
-    @Config("kafka." + SslConfigs.SSL_SECURE_RANDOM_IMPLEMENTATION_CONFIG)
+    @Config("kafka.ssl.secure.random.implementation")
     @ConfigDescription(SslConfigs.SSL_SECURE_RANDOM_IMPLEMENTATION_DOC)
     public void setSslSecureRandomImplementation(String sslSecureRandomImplementation)
     {
@@ -233,7 +233,7 @@ public class KafkaSecurityConfigProvider
         return sslSecureRandomImplementation;
     }
 
-    public Properties getSecurityProperties()
+    public Properties getKafkaClientProperties()
     {
         props = new Properties();
         addNotNull(SslConfigs.SSL_PROTOCOL_CONFIG, sslProtocol);

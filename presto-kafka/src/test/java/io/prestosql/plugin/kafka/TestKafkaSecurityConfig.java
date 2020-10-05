@@ -18,19 +18,19 @@ import org.junit.Test;
 
 import java.util.Properties;
 
-public class TestKafkaSecurityConfigProvider
+public class TestKafkaSecurityConfig
 {
     @Test
     public void verifyEmptyPropertiesAreReturned()
     {
-        KafkaSecurityConfigProvider sut = new KafkaSecurityConfigProvider();
+        KafkaSecurityConfig sut = new KafkaSecurityConfig();
         Assert.assertEquals(sut.getSecurityProperties().isEmpty(), true);
     }
 
     @Test
     public void verifyAllConfigPropertiesAreContained()
     {
-        KafkaSecurityConfigProvider sut = new KafkaSecurityConfigProvider();
+        KafkaSecurityConfig sut = new KafkaSecurityConfig();
         sut.setSslProtocol("TLS");
         sut.setSslProvider("sslProvider");
         sut.setSslCipherSuites("cipherSuitesList");
