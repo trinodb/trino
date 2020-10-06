@@ -216,7 +216,9 @@ public class TestAnalyzer
     public void testNonAggregationDistinct()
     {
         assertFails("SELECT lower(DISTINCT a) FROM (VALUES('foo')) AS t1(a)")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(FUNCTION_NOT_AGGREGATE);
+        assertFails("SELECT lower(DISTINCT max(a)) FROM (VALUES('foo')) AS t1(a)")
+                .hasErrorCode(FUNCTION_NOT_AGGREGATE);
     }
 
     @Test

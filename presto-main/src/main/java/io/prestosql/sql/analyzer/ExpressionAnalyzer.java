@@ -130,6 +130,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
+import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_AGGREGATE;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
@@ -943,10 +944,10 @@ public class ExpressionAnalyzer
                 }
 
                 windowFunctions.add(NodeRef.of(node));
-            }
-
-            if (node.isDistinct() && extractAggregateFunctions(List.of(node), metadata).isEmpty()) {
-                throw semanticException(NOT_SUPPORTED, node, "DISTINCT is not supported for non-aggregation functions");
+            } else {
+                if (node.isDistinct() && !metadata.isAggregationFunction(node.getName())) {
+                    throw semanticException(FUNCTION_NOT_AGGREGATE, node, "DISTINCT is not supported for non-aggregation functions");
+                }
             }
 
             if (node.getFilter().isPresent()) {
