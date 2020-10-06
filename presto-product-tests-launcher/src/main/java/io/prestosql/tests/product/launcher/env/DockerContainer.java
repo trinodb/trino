@@ -202,11 +202,6 @@ public class DockerContainer
         }
     }
 
-    public void clearDependencies()
-    {
-        dependencies.clear();
-    }
-
     public String execCommand(String... command)
     {
         String fullCommand = Joiner.on(" ").join(command);
