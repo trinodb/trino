@@ -124,7 +124,8 @@ by the coordinator can be found in the ``dynamicFiltersStats`` structure.
             "dynamicFilterId" : "df_370",
             "simplifiedDomain" : "[ [[2451546, 2451905]] ]",
             "rangeCount" : 3,
-            "discreteValuesCount" : 0
+            "discreteValuesCount" : 0,
+            "collectionDuration" : "2.34s"
           } ],
           "lazyDynamicFilters" : 1,
           "replicatedDynamicFilters" : 1,

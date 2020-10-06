@@ -22,6 +22,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
+import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.execution.SqlQueryExecution;
@@ -73,6 +74,7 @@ import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.Duration.succinctNanos;
 import static io.prestosql.spi.connector.DynamicFilter.EMPTY;
 import static io.prestosql.spi.predicate.Domain.union;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
@@ -167,7 +169,12 @@ public class DynamicFilterService
                             ranges -> 0,
                             DiscreteValues::getValuesCount,
                             allOrNone -> 0);
-                    return new DynamicFilterDomainStats(dynamicFilterId, simplifiedDomain, rangeCount, discreteValuesCount);
+                    return new DynamicFilterDomainStats(
+                            dynamicFilterId,
+                            simplifiedDomain,
+                            rangeCount,
+                            discreteValuesCount,
+                            context.getDynamicFilterCollectionDuration(dynamicFilterId));
                 })
                 .collect(toImmutableList());
         return new DynamicFiltersStats(
@@ -521,18 +528,31 @@ public class DynamicFilterService
         private final String simplifiedDomain;
         private final int rangeCount;
         private final int discreteValuesCount;
+        private final Optional<Duration> collectionDuration;
+
+        @VisibleForTesting
+        DynamicFilterDomainStats(
+                DynamicFilterId dynamicFilterId,
+                String simplifiedDomain,
+                int rangeCount,
+                int discreteValuesCount)
+        {
+            this(dynamicFilterId, simplifiedDomain, rangeCount, discreteValuesCount, Optional.empty());
+        }
 
         @JsonCreator
         public DynamicFilterDomainStats(
                 @JsonProperty("dynamicFilterId") DynamicFilterId dynamicFilterId,
                 @JsonProperty("simplifiedDomain") String simplifiedDomain,
                 @JsonProperty("rangeCount") int rangeCount,
-                @JsonProperty("discreteValuesCount") int discreteValuesCount)
+                @JsonProperty("discreteValuesCount") int discreteValuesCount,
+                @JsonProperty("collectionDuration") Optional<Duration> collectionDuration)
         {
             this.dynamicFilterId = dynamicFilterId;
             this.simplifiedDomain = simplifiedDomain;
             this.rangeCount = rangeCount;
             this.discreteValuesCount = discreteValuesCount;
+            this.collectionDuration = collectionDuration;
         }
 
         @JsonProperty
@@ -557,6 +577,12 @@ public class DynamicFilterService
         public int getDiscreteValuesCount()
         {
             return discreteValuesCount;
+        }
+
+        @JsonProperty
+        public Optional<Duration> getCollectionDuration()
+        {
+            return collectionDuration;
         }
 
         @Override
@@ -591,6 +617,7 @@ public class DynamicFilterService
     private static class DynamicFilterContext
     {
         private final Map<DynamicFilterId, Domain> dynamicFilterSummaries = new ConcurrentHashMap<>();
+        private final Map<DynamicFilterId, Long> dynamicFilterCollectionTime = new ConcurrentHashMap<>();
         private final Set<DynamicFilterId> dynamicFilters;
         private final Map<DynamicFilterId, SettableFuture<?>> lazyDynamicFilters;
         private final Set<DynamicFilterId> replicatedDynamicFilters;
@@ -599,6 +626,7 @@ public class DynamicFilterService
         // when map value for given filter id is empty it means that dynamic filter has already been collected
         // and no partial task domains are required
         private final Map<DynamicFilterId, Map<TaskId, Domain>> taskDynamicFilters = new ConcurrentHashMap<>();
+        private final long queryStartTime = System.nanoTime();
 
         private DynamicFilterContext(
                 Set<DynamicFilterId> dynamicFilters,
@@ -643,6 +671,7 @@ public class DynamicFilterService
                 }
                 dynamicFilterSummaries.put(filter, union(domain));
                 Optional.ofNullable(lazyDynamicFilters.get(filter)).ifPresent(future -> future.set(null));
+                dynamicFilterCollectionTime.put(filter, System.nanoTime());
             });
         }
 
@@ -682,6 +711,16 @@ public class DynamicFilterService
         private Set<DynamicFilterId> getReplicatedDynamicFilters()
         {
             return replicatedDynamicFilters;
+        }
+
+        private Optional<Duration> getDynamicFilterCollectionDuration(DynamicFilterId filterId)
+        {
+            Long filterCollectionTime = dynamicFilterCollectionTime.get(filterId);
+            if (filterCollectionTime == null) {
+                return Optional.empty();
+            }
+
+            return Optional.of(succinctNanos(filterCollectionTime - queryStartTime));
         }
     }
 
