@@ -144,24 +144,23 @@ public class FileHiveMetastore
     public static FileHiveMetastore createTestingFileHiveMetastore(File catalogDirectory)
     {
         HdfsConfig hdfsConfig = new HdfsConfig();
-        FileHiveMetastoreConfig metastoreConfig = new FileHiveMetastoreConfig();
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
-        return new FileHiveMetastore(hdfsEnvironment, catalogDirectory.toURI().toString(), "test", metastoreConfig.isAssumeCanonicalPartitionKeys());
+        return new FileHiveMetastore(
+                hdfsEnvironment,
+                new FileHiveMetastoreConfig()
+                        .setCatalogDirectory(catalogDirectory.toURI().toString())
+                        .setMetastoreUser("test"));
     }
 
     @Inject
     public FileHiveMetastore(HdfsEnvironment hdfsEnvironment, FileHiveMetastoreConfig config)
     {
-        this(hdfsEnvironment, config.getCatalogDirectory(), config.getMetastoreUser(), config.isAssumeCanonicalPartitionKeys());
-    }
-
-    public FileHiveMetastore(HdfsEnvironment hdfsEnvironment, String catalogDirectory, String metastoreUser, boolean assumeCanonicalPartitionKeys)
-    {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.catalogDirectory = new Path(requireNonNull(catalogDirectory, "baseDirectory is null"));
-        this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(metastoreUser));
-        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        requireNonNull(config, "config is null");
+        this.catalogDirectory = new Path(requireNonNull(config.getCatalogDirectory(), "catalogDirectory is null"));
+        this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(config.getMetastoreUser()));
+        this.assumeCanonicalPartitionKeys = config.isAssumeCanonicalPartitionKeys();
         try {
             metadataFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, this.catalogDirectory);
         }

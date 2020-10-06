@@ -29,8 +29,11 @@ public class TestHiveFileMetastore
     protected HiveMetastore createMetastore(File tempDir)
     {
         File baseDir = new File(tempDir, "metastore");
-        FileHiveMetastoreConfig metastoreConfig = new FileHiveMetastoreConfig();
-        return new FileHiveMetastore(HDFS_ENVIRONMENT, baseDir.toURI().toString(), "test", metastoreConfig.isAssumeCanonicalPartitionKeys());
+        return new FileHiveMetastore(
+                HDFS_ENVIRONMENT,
+                new FileHiveMetastoreConfig()
+                        .setCatalogDirectory(baseDir.toURI().toString())
+                        .setMetastoreUser("test"));
     }
 
     @Override
