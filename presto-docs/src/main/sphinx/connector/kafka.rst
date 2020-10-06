@@ -67,22 +67,13 @@ Property Name                                              Description
 ``kafka.timestamp-upper-bound-force-push-down-enabled``    Controls if upper bound timestamp push down is enabled for topics using ``CreateTime`` mode
 ``kafka.hide-internal-columns``                            Controls whether internal columns are part of the table schema or not
 ``kafka.messages-per-split``                               Number of messages that are processed by each Presto split, defaults to 100000
-``kafka.security.protocol``                                Security protocol for connection to Kafka cluster, defaults to ``PLAINTEXT``
-``kafka.ssl.protocol``                                     The SSL protocol used to generate the SSLContext.
-``kafka.ssl.provider``                                     The name of the security provider used for SSL connections, default is the default security provider of the JVM
-``kafka.ssl.cipher.suites``                                A list of cipher suites used to negotiate the security settings for a network connection using TLS or SSL network protocol, by default all available suites are supported
-``kafka.ssl.enabled.protocols``                            The list of protocols enabled for SSL connections, defaults to ``TLSv1.2,TLSv1.1,TLSv1``
-``kafka.ssl.keystore.type``                                File format for the keystore file, defaults to ``JKS``
-``kafka.ssl.keystore.location``                            Location of the keystore file
-``kafka.ssl.keystore.password``                            Password for the keystore file
-``kafka.ssl.key.password``                                 Password for the private key in the keystore file
-``kafka.ssl.truststore.type``                              File format for the truststore file, defaults to ``JKS``
-``kafka.ssl.truststore.location``                          Location of the truststore file
-``kafka.ssl.truststore.password``                          Password for the truststore file
-``kafka.ssl.keymanager.algorithm``                         The algorithm used by key manager factory for SSL connections, defaults to key manager factory algorithm configured for the JVM
-``kafka.ssl.trustmanager.algorithm``                       The algorithm used by trust manager factory for SSL connections, defaults to trust manager factory algorithm configured for the JVM
-``kafka.ssl.endpoint.identification.algorithm``            The endpoint identification algorithm used by clients to validate server host name
-``kafka.ssl.secure.random.implementation``                 The SecureRandom PRNG implementation to use for SSL cryptography operations
+``kafka.security-protocol``                                Security protocol for connection to Kafka cluster, defaults to ``PLAINTEXT``
+``kafka.keystore-location``                                Location of the keystore file
+``kafka.keystore-password``                                Password for the keystore file
+``kafka.key-password``                                     Password for the private key in the keystore file
+``kafka.truststore-location``                              Location of the truststore file
+``kafka.truststore-password``                              Password for the truststore file
+``kafka.endpoint-identification-algorithm``                The endpoint identification algorithm used by clients to validate server host name
 ========================================================== ==============================================================
 
 ``kafka.table-names``
@@ -160,13 +151,54 @@ show up in ``DESCRIBE <table-name>`` or ``SELECT *``.
 
 This property is optional; the default is ``true``.
 
-``kafka.security.protocol``
+``kafka.security-protocol``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To enable ``SSL`` for the Kafka connection, set this property to ``SSL``. When using
-```SSL`` the optional configuration properties with prefix ``kafka.ssl`` can be used.
+To enable ``SSL`` for the Kafka connection, set this property to ``SSL``.
 
 This property is optional; the default ist ``PLAINTEXT``.
+
+``kafka.keystore-location``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Location of the keystore file used for connection to Kafka cluster.
+
+This property is optional.
+
+``kafka.keystore-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Password for the keystore file used for connection to Kafka cluster.
+
+This property is optional.
+
+``kafka.key-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Password for the private key in the keystore file used for connection to Kafka cluster.
+
+This property is optional.
+
+``kafka.truststore-location``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Location of the truststore file used for connection to Kafka cluster.
+
+This property is optional.
+
+``kafka.truststore-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Password for the truststore file used for connection to Kafka cluster.
+
+This property is optional.
+
+``kafka.endpoint-identification-algorithm``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The endpoint identification algorithm used by clients to validate server host name for connection to Kafka cluster.
+
+This property is optional.
 
 Internal Columns
 ----------------

@@ -21,7 +21,6 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.prestosql.spi.HostAddress;
-import org.apache.kafka.common.security.auth.SecurityProtocol;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -46,7 +45,7 @@ public class KafkaConfig
     private boolean hideInternalColumns = true;
     private int messagesPerSplit = 100_000;
     private boolean timestampUpperBoundPushDownEnabled;
-    private SecurityProtocol securityProtocol = SecurityProtocol.PLAINTEXT;
+    private KafkaClientSecurityProtocol securityProtocol = KafkaClientSecurityProtocol.PLAINTEXT;
 
     @Size(min = 1)
     public Set<HostAddress> getNodes()
@@ -170,14 +169,14 @@ public class KafkaConfig
         return this;
     }
 
-    @Config("kafka.security.protocol")
+    @Config("kafka.security-protocol")
     @ConfigDescription("Security protocol used for Kafka connection.")
     public KafkaConfig setSecurityProtocol(String securityProtocol)
     {
         if (securityProtocol == null) {
             return this;
         }
-        this.securityProtocol = SecurityProtocol.forName(securityProtocol);
+        this.securityProtocol = KafkaClientSecurityProtocol.forName(securityProtocol);
         return this;
     }
 

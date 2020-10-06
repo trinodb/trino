@@ -36,10 +36,10 @@ public class KafkaClientConsumerFactory
     private final KafkaConfig kafkaConfig;
     private final Set<HostAddress> nodes;
     private final DataSize kafkaBufferSize;
-    private final KafkaSecurityConfigProvider securityConfigProvider;
+    private final KafkaSecurityConfig securityConfigProvider;
 
     @Inject
-    public KafkaClientConsumerFactory(KafkaConfig kafkaConfig, KafkaSecurityConfigProvider securityConfigProvider)
+    public KafkaClientConsumerFactory(KafkaConfig kafkaConfig, KafkaSecurityConfig securityConfigProvider)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
         this.securityConfigProvider = securityConfigProvider;
@@ -60,7 +60,7 @@ public class KafkaClientConsumerFactory
         properties.setProperty(RECEIVE_BUFFER_CONFIG, Long.toString(kafkaBufferSize.toBytes()));
         properties.setProperty(ENABLE_AUTO_COMMIT_CONFIG, Boolean.toString(false));
         properties.setProperty("security.protocol", kafkaConfig.getSecurityProtocol());
-        properties.putAll(securityConfigProvider.getSecurityProperties());
+        properties.putAll(securityConfigProvider.getKafkaClientProperties());
         return properties;
     }
 }

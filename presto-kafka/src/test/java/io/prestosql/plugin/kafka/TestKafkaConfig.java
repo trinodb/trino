@@ -28,7 +28,6 @@ public class TestKafkaConfig
     @Test
     public void testDefaults()
     {
-        // SSL related configurations don't have any defaults, they are only use if security.protocol 'SSL' is used.
         assertRecordedDefaults(recordDefaults(KafkaConfig.class)
                 .setNodes("")
                 .setKafkaBufferSize("64kB")
@@ -53,7 +52,7 @@ public class TestKafkaConfig
                 .put("kafka.hide-internal-columns", "false")
                 .put("kafka.messages-per-split", "1")
                 .put("kafka.timestamp-upper-bound-force-push-down-enabled", "true")
-                .put("kafka.security.protocol", "SSL")
+                .put("kafka.security-protocol", "SSL")
                 .build();
         KafkaConfig expected = new KafkaConfig()
                 .setTableDescriptionDir(new File("/var/lib/kafka"))

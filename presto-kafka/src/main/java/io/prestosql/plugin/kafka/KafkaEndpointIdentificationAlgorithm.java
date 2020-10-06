@@ -13,24 +13,21 @@
  */
 package io.prestosql.plugin.kafka;
 
-import java.util.Locale;
-
-public enum KafkaClientSecurityProtocol
+public enum KafkaEndpointIdentificationAlgorithm
 {
-    PLAINTEXT(0, "PLAINTEXT"),
-    SSL(1, "SSL");
+    HTTPS("https"),
+    DEACTIVATED("");
 
-    public final short id;
     public final String name;
 
-    KafkaClientSecurityProtocol(int id, String name)
+    @Override
+    public String toString()
     {
-        this.id = (short) id;
-        this.name = name;
+        return name;
     }
 
-    public static KafkaClientSecurityProtocol forName(String name)
+    KafkaEndpointIdentificationAlgorithm(String name)
     {
-        return KafkaClientSecurityProtocol.valueOf(name.toUpperCase(Locale.ROOT));
+        this.name = name;
     }
 }

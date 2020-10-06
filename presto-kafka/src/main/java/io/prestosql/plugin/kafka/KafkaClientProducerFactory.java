@@ -36,7 +36,7 @@ public class KafkaClientProducerFactory
     private final Map<String, Object> properties;
 
     @Inject
-    public KafkaClientProducerFactory(KafkaConfig kafkaConfig, KafkaSecurityConfigProvider securityConfigProvider)
+    public KafkaClientProducerFactory(KafkaConfig kafkaConfig, KafkaSecurityConfig securityConfigProvider)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
         Set<HostAddress> nodes = ImmutableSet.copyOf(kafkaConfig.getNodes());
@@ -46,7 +46,7 @@ public class KafkaClientProducerFactory
                         .collect(joining(",")))
                 .put(ACKS_CONFIG, "all")
                 .put(LINGER_MS_CONFIG, 5)
-                .putAll(fromProperties(securityConfigProvider.getSecurityProperties()))
+                .putAll(fromProperties(securityConfigProvider.getKafkaClientProperties()))
                 .build();
     }
 

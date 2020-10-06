@@ -14,9 +14,11 @@
 package io.prestosql.plugin.kafka;
 
 import io.prestosql.testing.assertions.Assert;
-import org.junit.Test;
+import org.testng.annotations.Test;
 
 import java.util.Properties;
+
+import static org.testng.Assert.assertTrue;
 
 public class TestKafkaSecurityConfig
 {
@@ -24,30 +26,29 @@ public class TestKafkaSecurityConfig
     public void verifyEmptyPropertiesAreReturned()
     {
         KafkaSecurityConfig sut = new KafkaSecurityConfig();
-        Assert.assertEquals(sut.getSecurityProperties().isEmpty(), true);
+        Assert.assertEquals(sut.getKafkaClientProperties().isEmpty(), true);
     }
 
     @Test
     public void verifyAllConfigPropertiesAreContained()
     {
         KafkaSecurityConfig sut = new KafkaSecurityConfig();
-        sut.setSslProtocol("TLS");
-        sut.setSslProvider("sslProvider");
-        sut.setSslCipherSuites("cipherSuitesList");
-        sut.setSslEnabledProtocols("TLSv1;TLSv3");
-        sut.setSslKeystoreType("JKS");
-        sut.setSslKeystoreLocation("/some/path/to/keystore");
+        sut.setSslKeystoreFile("/some/path/to/keystore");
         sut.setSslKeystorePassword("superSavePasswordForKeystore");
         sut.setSslKeyPassword("aSslKeyPassword");
-        sut.setSslTruststoreType("JKS");
-        sut.setSslTruststoreLocation("/some/path/to/truststore");
+        sut.setSslTruststoreFile("/some/path/to/truststore");
         sut.setSslTruststorePassword("superSavePasswordForTruststore");
-        sut.setSslKeymanagerAlgorithm("key manager algorithm");
-        sut.setSslTrustmanagerAlgorithm("trust manager algorithm");
         sut.setSslEndpointIdentificationAlgorithm("https");
-        sut.setSslSecureRandomImplementation("SecureRandom PRNG implementation");
-        Properties securityProperties = sut.getSecurityProperties();
+        Properties securityProperties = sut.getKafkaClientProperties();
         Assert.assertEquals(securityProperties.isEmpty(), false);
-        Assert.assertEquals(securityProperties.keySet().size(), 15);
+        Assert.assertEquals(securityProperties.keySet().size(), 6);
+        // Since security related properties are all passed to the underlying kafka-clients library,
+        // the property names must match those expected by kafka-clients
+        assertTrue(securityProperties.containsKey("ssl.keystore.location"));
+        assertTrue(securityProperties.containsKey("ssl.keystore.password"));
+        assertTrue(securityProperties.containsKey("ssl.truststore.location"));
+        assertTrue(securityProperties.containsKey("ssl.truststore.password"));
+        assertTrue(securityProperties.containsKey("ssl.key.password"));
+        assertTrue(securityProperties.containsKey("ssl.endpoint.identification.algorithm"));
     }
 }
