@@ -659,7 +659,8 @@ public class DynamicFilterService
                 // Narrowing down of task dynamic filter is not supported.
                 // Currently, task dynamic filters are derived from join and semi-join,
                 // which produce just a single version of dynamic filter.
-                checkState(taskDomains.put(taskId, domain) == null, "Task dynamic filter is set twice");
+                Domain previousDomain = taskDomains.put(taskId, domain);
+                checkState(previousDomain == null || domain.equals(previousDomain), "Different task domains were set");
             });
         }
 
