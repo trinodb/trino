@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.kafka;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.decoder.DispatchingRowDecoderFactory;
 import io.prestosql.decoder.RowDecoder;
@@ -31,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.kafka.KafkaHandleResolver.convertSplit;
 import static java.util.Objects.requireNonNull;
@@ -55,7 +55,7 @@ public class KafkaRecordSetProvider
 
         List<KafkaColumnHandle> kafkaColumns = columns.stream()
                 .map(KafkaHandleResolver::convertColumnHandle)
-                .collect(ImmutableList.toImmutableList());
+                .collect(toImmutableList());
 
         RowDecoder keyDecoder = decoderFactory.create(
                 kafkaSplit.getKeyDataFormat(),

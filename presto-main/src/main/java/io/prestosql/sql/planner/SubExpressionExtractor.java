@@ -13,11 +13,12 @@
  */
 package io.prestosql.sql.planner;
 
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.util.AstUtils;
 
 import java.util.Set;
+
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 /**
  * Extracts and returns the set of all expression subtrees within an Expression, including Expression itself
@@ -31,6 +32,6 @@ public final class SubExpressionExtractor
         return AstUtils.preOrder(expression)
                 .filter(Expression.class::isInstance)
                 .map(Expression.class::cast)
-                .collect(ImmutableSet.toImmutableSet());
+                .collect(toImmutableSet());
     }
 }

@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
 import io.prestosql.plugin.hive.HiveConfig;
@@ -47,6 +46,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.hive.metastore.HivePartitionName.hivePartitionName;
 import static io.prestosql.plugin.hive.metastore.HiveTableName.hiveTableName;
@@ -184,7 +184,7 @@ public class RecordingHiveMetastore
     private static <K, V> Map<K, V> toMap(List<Pair<K, V>> pairs)
     {
         return pairs.stream()
-                .collect(ImmutableMap.toImmutableMap(Pair::getKey, Pair::getValue));
+                .collect(toImmutableMap(Pair::getKey, Pair::getValue));
     }
 
     private static <K, V> List<Pair<K, V>> toPairs(Cache<K, V> cache)
