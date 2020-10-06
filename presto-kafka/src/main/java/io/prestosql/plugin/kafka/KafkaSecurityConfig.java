@@ -16,6 +16,7 @@ package io.prestosql.plugin.kafka;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import org.apache.kafka.common.config.SslConfigs;
 
@@ -38,6 +39,7 @@ public class KafkaSecurityConfig
     private KafkaEndpointIdentificationAlgorithm sslEndpointIdentificationAlgorithm;
 
     @Config("kafka.keystore-file")
+    @LegacyConfig("kafka.ssl.keystore.location")
     @ConfigDescription(SslConfigs.SSL_KEYSTORE_LOCATION_DOC)
     public void setSslKeystoreFile(String sslKeystoreFile)
     {
@@ -51,6 +53,7 @@ public class KafkaSecurityConfig
     }
 
     @Config("kafka.keystore-password")
+    @LegacyConfig("kafka.ssl.keystore.password")
     @ConfigDescription(SslConfigs.SSL_KEYSTORE_PASSWORD_DOC)
     @ConfigSecuritySensitive
     public void setSslKeystorePassword(String sslKeystorePassword)
@@ -64,6 +67,7 @@ public class KafkaSecurityConfig
     }
 
     @Config("kafka.key-password")
+    @LegacyConfig("kafka.ssl.key.password")
     @ConfigDescription(SslConfigs.SSL_KEY_PASSWORD_DOC)
     @ConfigSecuritySensitive
     public void setSslKeyPassword(String sslKeyPassword)
@@ -77,6 +81,7 @@ public class KafkaSecurityConfig
     }
 
     @Config("kafka.truststore-file")
+    @LegacyConfig("kafka.ssl.truststore.location")
     @ConfigDescription(SslConfigs.SSL_TRUSTSTORE_LOCATION_DOC)
     public void setSslTruststoreFile(String sslTruststoreFile)
     {
@@ -90,6 +95,7 @@ public class KafkaSecurityConfig
     }
 
     @Config("kafka.truststore-password")
+    @LegacyConfig("kafka.ssl.truststore.password")
     @ConfigDescription(SslConfigs.SSL_TRUSTSTORE_PASSWORD_DOC)
     @ConfigSecuritySensitive
     public void setSslTruststorePassword(String sslTruststorePassword)
