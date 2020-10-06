@@ -9,10 +9,15 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Module;
+import com.starburstdata.presto.license.LicenseModule;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteringJdbcConnectorFactory;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
+
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
 public class StarburstSqlServerPlugin
         implements Plugin
@@ -20,8 +25,14 @@ public class StarburstSqlServerPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new DynamicFilteringJdbcConnectorFactory(
+        return ImmutableList.of(getConnectoryFactory(new LicenseModule()));
+    }
+
+    @VisibleForTesting
+    DynamicFilteringJdbcConnectorFactory getConnectoryFactory(Module licenseModule)
+    {
+        return new DynamicFilteringJdbcConnectorFactory(
                 "sqlserver",
-                StarburstSqlServerClientModule::new));
+                (String catalog) -> combine(licenseModule, new StarburstSqlServerClientModule(catalog)));
     }
 }

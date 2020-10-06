@@ -11,14 +11,18 @@ package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.starburstdata.presto.license.TestingLicenseModule;
 import io.prestosql.Session;
 import io.prestosql.plugin.sqlserver.TestingSqlServer;
 import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.tpch.TpchTable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -43,17 +47,27 @@ public final class StarburstSqlServerQueryRunner
     public static DistributedQueryRunner createStarburstSqlServerQueryRunner(TestingSqlServer testingSqlServer, TpchTable<?>... tables)
             throws Exception
     {
-        return createStarburstSqlServerQueryRunner(testingSqlServer, ImmutableMap.of(), ImmutableList.copyOf(tables));
+        return createStarburstSqlServerQueryRunner(testingSqlServer, false, ImmutableMap.of(), ImmutableList.copyOf(tables));
     }
 
-    public static DistributedQueryRunner createStarburstSqlServerQueryRunner(TestingSqlServer testingSqlServer, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createStarburstSqlServerQueryRunner(
+            TestingSqlServer testingSqlServer,
+            boolean unlockEnterpriseFeatures,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        return createStarburstSqlServerQueryRunner(testingSqlServer, Function.identity(), connectorProperties, tables);
+        return createStarburstSqlServerQueryRunner(
+                testingSqlServer,
+                unlockEnterpriseFeatures,
+                Function.identity(),
+                connectorProperties,
+                tables);
     }
 
     public static DistributedQueryRunner createStarburstSqlServerQueryRunner(
             TestingSqlServer sqlServer,
+            boolean unlockEnterpriseFeatures,
             Function<Session, Session> sessionModifier,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
@@ -87,7 +101,9 @@ public final class StarburstSqlServerQueryRunner
             sqlServer.execute(format("GRANT SELECT ON %s.user_context to %s", TEST_SCHEMA, ALICE_USER));
             sqlServer.execute(format("GRANT SELECT ON %s.user_context to %s", TEST_SCHEMA, BOB_USER));
 
-            queryRunner.installPlugin(new StarburstSqlServerPlugin());
+            queryRunner.installPlugin(unlockEnterpriseFeatures
+                    ? getPluginWithLicense()
+                    : new StarburstSqlServerPlugin());
             queryRunner.createCatalog(CATALOG, "sqlserver", connectorProperties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, modifiedSession, tables);
@@ -98,6 +114,17 @@ public final class StarburstSqlServerQueryRunner
             closeAllSuppress(e, queryRunner);
             throw e;
         }
+    }
+
+    private static Plugin getPluginWithLicense()
+    {
+        return new StarburstSqlServerPlugin() {
+            @Override
+            public Iterable<ConnectorFactory> getConnectorFactories()
+            {
+                return List.of(getConnectoryFactory(new TestingLicenseModule()));
+            }
+        };
     }
 
     private static void createUser(TestingSqlServer sqlServer, String user)

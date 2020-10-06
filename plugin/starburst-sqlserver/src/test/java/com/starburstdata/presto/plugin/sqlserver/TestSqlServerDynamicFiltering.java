@@ -14,6 +14,9 @@ import io.prestosql.plugin.sqlserver.TestingSqlServer;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 
+import java.util.List;
+import java.util.Map;
+
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 
@@ -28,7 +31,7 @@ public class TestSqlServerDynamicFiltering
     {
         sqlServer = new TestingSqlServer();
         sqlServer.start();
-        return createStarburstSqlServerQueryRunner(sqlServer, ORDERS);
+        return createStarburstSqlServerQueryRunner(sqlServer, false, Map.of(), List.of(ORDERS));
     }
 
     @AfterClass(alwaysRun = true)

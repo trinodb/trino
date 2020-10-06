@@ -43,6 +43,7 @@ public class TestSqlServerTableStatistics
         try {
             return createStarburstSqlServerQueryRunner(
                     sqlServer,
+                    false,
                     ImmutableMap.of("case-insensitive-name-matching", "true"),
                     ImmutableList.of(ORDERS));
         }

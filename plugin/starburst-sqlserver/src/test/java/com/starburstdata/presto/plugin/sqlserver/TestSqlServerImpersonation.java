@@ -38,6 +38,7 @@ public class TestSqlServerImpersonation
         sqlServer.start();
         return createStarburstSqlServerQueryRunner(
                 sqlServer,
+                false,
                 session -> createSession(ALICE_USER),
                 ImmutableMap.of("sqlserver.impersonation.enabled", "true"),
                 ImmutableList.of());
