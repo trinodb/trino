@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -82,7 +83,7 @@ public interface EnvironmentListener
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
             }
-            catch (Exception e) {
+            catch (ExecutionException | RuntimeException e) {
                 log.error("Could not invoke listener %s due to %s", listener.getClass().getSimpleName(), getStackTraceAsString(e));
             }
         });

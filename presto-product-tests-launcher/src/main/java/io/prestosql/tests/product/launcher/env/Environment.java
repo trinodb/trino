@@ -150,7 +150,7 @@ public final class Environment
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
-        catch (ExecutionException e) {
+        catch (ExecutionException | RuntimeException e) {
             throw new RuntimeException(e);
         }
     }
@@ -198,7 +198,7 @@ public final class Environment
             log.info("Interrupted");
             // It's OK not to restore interrupt flag here. When we return we're exiting the process.
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Could not query for containers state: %s", getStackTraceAsString(e));
         }
     }
@@ -272,7 +272,7 @@ public final class Environment
         try {
             stop();
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Exception occurred while closing environment: %s", getStackTraceAsString(e));
         }
     }

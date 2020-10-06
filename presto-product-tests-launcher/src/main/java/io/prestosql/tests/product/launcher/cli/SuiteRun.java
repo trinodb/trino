@@ -233,7 +233,7 @@ public class SuiteRun
 
                 return Optional.empty();
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 return Optional.of(e);
             }
         }

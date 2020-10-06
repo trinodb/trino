@@ -246,7 +246,7 @@ public class DockerContainer
             try {
                 files.addAll(listFilesInContainer(containerLogPath));
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 log.warn("Could not list files in container %s path %s", logicalName, containerLogPath);
             }
         }
@@ -275,7 +275,7 @@ public class DockerContainer
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
-        catch (Exception e) {
+        catch (ExecutionException | RuntimeException e) {
             log.warn("Could not copy logs archive from %s: %s", logicalName, getStackTraceAsString(e));
         }
     }
@@ -310,7 +310,7 @@ public class DockerContainer
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
-        catch (Exception e) {
+        catch (ExecutionException | RuntimeException e) {
             log.warn("Could not copy file from %s to %s: %s", filename, targetPath, getStackTraceAsString(e));
         }
     }
@@ -322,7 +322,7 @@ public class DockerContainer
                     .omitEmptyStrings()
                     .splitToList(execCommand("/usr/bin/find", path, "-type", "f", "-print"));
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Could not list files in container '%s' path %s: %s", logicalName, path, e);
         }
 
@@ -401,7 +401,7 @@ public class DockerContainer
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
-        catch (Exception e) {
+        catch (ExecutionException | RuntimeException e) {
             log.warn("Could not stop container correctly: %s", getStackTraceAsString(e));
         }
 
