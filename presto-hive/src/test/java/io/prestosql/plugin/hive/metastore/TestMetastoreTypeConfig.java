@@ -22,12 +22,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestMetastoreConfig
+public class TestMetastoreTypeConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(MetastoreConfig.class)
+        assertRecordedDefaults(recordDefaults(MetastoreTypeConfig.class)
                 .setMetastoreType("thrift"));
     }
 
@@ -38,7 +38,7 @@ public class TestMetastoreConfig
                 .put("hive.metastore", "foo")
                 .build();
 
-        MetastoreConfig expected = new MetastoreConfig()
+        MetastoreTypeConfig expected = new MetastoreTypeConfig()
                 .setMetastoreType("foo");
 
         assertFullMapping(properties, expected);

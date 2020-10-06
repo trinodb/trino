@@ -17,7 +17,7 @@ import io.airlift.configuration.Config;
 
 import javax.validation.constraints.NotNull;
 
-public class MetastoreConfig
+public class MetastoreTypeConfig
 {
     private String metastoreType = "thrift";
 
@@ -28,7 +28,7 @@ public class MetastoreConfig
     }
 
     @Config("hive.metastore")
-    public MetastoreConfig setMetastoreType(String metastoreType)
+    public MetastoreTypeConfig setMetastoreType(String metastoreType)
     {
         this.metastoreType = metastoreType;
         return this;
