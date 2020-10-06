@@ -273,7 +273,7 @@ public final class Environment
             stop();
         }
         catch (Exception e) {
-            log.warn("Exception occured while closing environment: %s", getStackTraceAsString(e));
+            log.warn("Exception occurred while closing environment: %s", getStackTraceAsString(e));
         }
     }
 
