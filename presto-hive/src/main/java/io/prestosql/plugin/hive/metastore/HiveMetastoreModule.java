@@ -26,6 +26,10 @@ import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreModule;
 import java.util.Optional;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.prestosql.plugin.hive.metastore.MetastoreType.ALLUXIO;
+import static io.prestosql.plugin.hive.metastore.MetastoreType.FILE;
+import static io.prestosql.plugin.hive.metastore.MetastoreType.GLUE;
+import static io.prestosql.plugin.hive.metastore.MetastoreType.THRIFT;
 
 public class HiveMetastoreModule
         extends AbstractConfigurationAwareModule
@@ -45,18 +49,18 @@ public class HiveMetastoreModule
             install(new CachingHiveMetastoreModule());
         }
         else {
-            bindMetastoreModule("thrift", new ThriftMetastoreModule());
-            bindMetastoreModule("file", new FileMetastoreModule());
-            bindMetastoreModule("glue", new GlueMetastoreModule());
-            bindMetastoreModule("alluxio", new AlluxioMetastoreModule());
+            bindMetastoreModule(THRIFT, new ThriftMetastoreModule());
+            bindMetastoreModule(FILE, new FileMetastoreModule());
+            bindMetastoreModule(GLUE, new GlueMetastoreModule());
+            bindMetastoreModule(ALLUXIO, new AlluxioMetastoreModule());
         }
     }
 
-    private void bindMetastoreModule(String name, Module module)
+    private void bindMetastoreModule(MetastoreType metastoreType, Module module)
     {
         install(installModuleIf(
                 MetastoreConfig.class,
-                metastore -> name.equalsIgnoreCase(metastore.getMetastoreType()),
+                config -> metastoreType == config.getMetastoreType(),
                 module));
     }
 }

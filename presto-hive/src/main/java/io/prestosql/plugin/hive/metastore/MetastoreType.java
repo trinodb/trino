@@ -13,26 +13,10 @@
  */
 package io.prestosql.plugin.hive.metastore;
 
-import io.airlift.configuration.Config;
-
-import javax.validation.constraints.NotNull;
-
-import static io.prestosql.plugin.hive.metastore.MetastoreType.THRIFT;
-
-public class MetastoreConfig
+public enum MetastoreType
 {
-    private MetastoreType metastoreType = THRIFT;
-
-    @NotNull
-    public MetastoreType getMetastoreType()
-    {
-        return metastoreType;
-    }
-
-    @Config("hive.metastore")
-    public MetastoreConfig setMetastoreType(MetastoreType metastoreType)
-    {
-        this.metastoreType = metastoreType;
-        return this;
-    }
+    THRIFT,
+    FILE,
+    GLUE,
+    ALLUXIO
 }

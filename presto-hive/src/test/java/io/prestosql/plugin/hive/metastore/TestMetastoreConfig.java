@@ -21,6 +21,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.prestosql.plugin.hive.metastore.MetastoreType.FILE;
+import static io.prestosql.plugin.hive.metastore.MetastoreType.THRIFT;
 
 public class TestMetastoreConfig
 {
@@ -28,18 +30,18 @@ public class TestMetastoreConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(MetastoreConfig.class)
-                .setMetastoreType("thrift"));
+                .setMetastoreType(THRIFT));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("hive.metastore", "foo")
+                .put("hive.metastore", "file")
                 .build();
 
         MetastoreConfig expected = new MetastoreConfig()
-                .setMetastoreType("foo");
+                .setMetastoreType(FILE);
 
         assertFullMapping(properties, expected);
     }
