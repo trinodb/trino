@@ -33,6 +33,7 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     Array               <functions/array>
     Map                 <functions/map>
     URL                 <functions/url>
+    IP Address          <functions/url>
     Geospatial          <functions/geospatial>
     HyperLogLog         <functions/hyperloglog>
     Quantile Digest     <functions/qdigest>
