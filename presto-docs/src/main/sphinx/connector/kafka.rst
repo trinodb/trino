@@ -173,28 +173,28 @@ Password for the keystore file used for connection to Kafka cluster.
 This property is optional.
 
 ``kafka.key-password``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 Password for the private key in the keystore file used for connection to Kafka cluster.
 
 This property is optional.
 
 ``kafka.truststore-location``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Location of the truststore file used for connection to Kafka cluster.
 
 This property is optional.
 
 ``kafka.truststore-password``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Password for the truststore file used for connection to Kafka cluster.
 
 This property is optional.
 
 ``kafka.endpoint-identification-algorithm``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The endpoint identification algorithm used by clients to validate server host name for connection to Kafka cluster.
 
