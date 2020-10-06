@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.security;
+package io.prestosql.plugin.base.security;
 
-import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemAccessControlFactory;
 import io.prestosql.spi.security.SystemSecurityContext;
