@@ -23,6 +23,7 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
+import io.prestosql.plugin.base.security.DefaultSystemAccessControl;
 import io.prestosql.plugin.base.security.FileBasedSystemAccessControl;
 import io.prestosql.plugin.base.security.ForwardingSystemAccessControl;
 import io.prestosql.plugin.base.security.ReadOnlySystemAccessControl;
