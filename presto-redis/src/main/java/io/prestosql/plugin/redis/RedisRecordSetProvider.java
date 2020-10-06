@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.redis;
 
-import com.google.common.collect.ImmutableList;
 import io.prestosql.decoder.DispatchingRowDecoderFactory;
 import io.prestosql.decoder.RowDecoder;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -28,6 +27,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.redis.RedisHandleResolver.convertSplit;
 import static java.util.Collections.emptyMap;
@@ -56,7 +56,7 @@ public class RedisRecordSetProvider
 
         List<RedisColumnHandle> redisColumns = columns.stream()
                 .map(RedisHandleResolver::convertColumnHandle)
-                .collect(ImmutableList.toImmutableList());
+                .collect(toImmutableList());
 
         RowDecoder keyDecoder = decoderFactory.create(
                 redisSplit.getKeyDataFormat(),

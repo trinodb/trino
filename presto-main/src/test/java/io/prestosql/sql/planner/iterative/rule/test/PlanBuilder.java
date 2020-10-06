@@ -107,6 +107,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -316,7 +317,7 @@ public class PlanBuilder
         Map<Symbol, Symbol> groupingColumns = groupingSets.stream()
                 .flatMap(Collection::stream)
                 .distinct()
-                .collect(ImmutableMap.toImmutableMap(identity(), identity()));
+                .collect(toImmutableMap(identity(), identity()));
 
         return new GroupIdNode(
                 idAllocator.getNextId(),
