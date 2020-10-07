@@ -373,7 +373,7 @@ public class FileBasedSystemAccessControl
     public void checkCanDropSchema(SystemSecurityContext context, CatalogSchemaName schema)
     {
         if (!isSchemaOwner(context, schema)) {
-            denyDropSchema(schema.getSchemaName());
+            denyDropSchema(schema.toString());
         }
     }
 
@@ -381,7 +381,7 @@ public class FileBasedSystemAccessControl
     public void checkCanRenameSchema(SystemSecurityContext context, CatalogSchemaName schema, String newSchemaName)
     {
         if (!isSchemaOwner(context, schema) || !isSchemaOwner(context, new CatalogSchemaName(schema.getCatalogName(), newSchemaName))) {
-            denyRenameSchema(schema.getSchemaName(), newSchemaName);
+            denyRenameSchema(schema.toString(), newSchemaName);
         }
     }
 
@@ -412,7 +412,7 @@ public class FileBasedSystemAccessControl
     public void checkCanShowCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
-            denyShowCreateTable(table.getSchemaTableName().getTableName());
+            denyShowCreateTable(table.toString());
         }
     }
 
@@ -420,7 +420,7 @@ public class FileBasedSystemAccessControl
     public void checkCanShowCreateSchema(SystemSecurityContext context, CatalogSchemaName schemaName)
     {
         if (!isSchemaOwner(context, schemaName)) {
-            denyShowCreateSchema(schemaName.getSchemaName());
+            denyShowCreateSchema(schemaName.toString());
         }
     }
 
@@ -436,7 +436,7 @@ public class FileBasedSystemAccessControl
     public void checkCanDropTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
-            denyDropTable(table.getSchemaTableName().getTableName());
+            denyDropTable(table.toString());
         }
     }
 
@@ -444,7 +444,7 @@ public class FileBasedSystemAccessControl
     public void checkCanRenameTable(SystemSecurityContext context, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
     {
         if (!checkTablePermission(context, table, OWNERSHIP) || !checkTablePermission(context, newTable, OWNERSHIP)) {
-            denyRenameTable(table.getSchemaTableName().getTableName(), newTable.getSchemaTableName().getTableName());
+            denyRenameTable(table.toString(), newTable.toString());
         }
     }
 
@@ -452,7 +452,7 @@ public class FileBasedSystemAccessControl
     public void checkCanSetTableComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
-            denyCommentTable(table.getSchemaTableName().getTableName());
+            denyCommentTable(table.toString());
         }
     }
 
@@ -483,7 +483,7 @@ public class FileBasedSystemAccessControl
     public void checkCanShowColumns(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         if (!checkAnyTablePermission(context, table)) {
-            denyShowColumns(table.getSchemaTableName().getTableName());
+            denyShowColumns(table.toString());
         }
     }
 
@@ -501,7 +501,7 @@ public class FileBasedSystemAccessControl
     public void checkCanAddColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
-            denyAddColumn(table.getSchemaTableName().getTableName());
+            denyAddColumn(table.toString());
         }
     }
 
@@ -509,7 +509,7 @@ public class FileBasedSystemAccessControl
     public void checkCanDropColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
-            denyDropColumn(table.getSchemaTableName().getTableName());
+            denyDropColumn(table.toString());
         }
     }
 
@@ -517,7 +517,7 @@ public class FileBasedSystemAccessControl
     public void checkCanRenameColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
-            denyRenameColumn(table.getSchemaTableName().getTableName());
+            denyRenameColumn(table.toString());
         }
     }
 
@@ -525,7 +525,7 @@ public class FileBasedSystemAccessControl
     public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         if (!checkTablePermission(context, table, SELECT)) {
-            denySelectTable(table.getSchemaTableName().getTableName());
+            denySelectTable(table.toString());
         }
     }
 
@@ -533,7 +533,7 @@ public class FileBasedSystemAccessControl
     public void checkCanInsertIntoTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         if (!checkTablePermission(context, table, INSERT)) {
-            denyInsertTable(table.getSchemaTableName().getTableName());
+            denyInsertTable(table.toString());
         }
     }
 
@@ -541,7 +541,7 @@ public class FileBasedSystemAccessControl
     public void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         if (!checkTablePermission(context, table, DELETE)) {
-            denyDeleteTable(table.getSchemaTableName().getTableName());
+            denyDeleteTable(table.toString());
         }
     }
 
@@ -591,7 +591,7 @@ public class FileBasedSystemAccessControl
     public void checkCanGrantTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal grantee, boolean grantOption)
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
-            denyGrantTablePrivilege(privilege.name(), table.getSchemaTableName().getTableName());
+            denyGrantTablePrivilege(privilege.name(), table.toString());
         }
     }
 
@@ -599,7 +599,7 @@ public class FileBasedSystemAccessControl
     public void checkCanRevokeTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOption)
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
-            denyRevokeTablePrivilege(privilege.name(), table.getSchemaTableName().getTableName());
+            denyRevokeTablePrivilege(privilege.name(), table.toString());
         }
     }
 
