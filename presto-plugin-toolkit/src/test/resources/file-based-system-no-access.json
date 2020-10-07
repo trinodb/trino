@@ -4,6 +4,8 @@
       "allow": true
     }
   ],
+  "schemas": [
+  ],
   "tables": [
   ]
 }

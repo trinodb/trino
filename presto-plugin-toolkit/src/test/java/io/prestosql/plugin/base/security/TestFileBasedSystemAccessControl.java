@@ -20,6 +20,7 @@ import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -234,6 +235,51 @@ public class TestFileBasedSystemAccessControl
         assertEquals(
                 accessControl.filterColumns(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableList.of(column("a"))),
                 ImmutableList.of(column("a")));
+    }
+
+    @Test
+    public void testTableFilter()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table-filter.json");
+        Set<SchemaTableName> tables = ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("restricted", "any"))
+                .add(new SchemaTableName("secret", "any"))
+                .add(new SchemaTableName("aliceschema", "any"))
+                .add(new SchemaTableName("aliceschema", "bobtable"))
+                .add(new SchemaTableName("bobschema", "bob_any"))
+                .add(new SchemaTableName("bobschema", "any"))
+                .add(new SchemaTableName("any", "any"))
+                .build();
+        assertEquals(accessControl.filterTables(ALICE, "any", tables), ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("aliceschema", "any"))
+                .add(new SchemaTableName("aliceschema", "bobtable"))
+                .build());
+        assertEquals(accessControl.filterTables(BOB, "any", tables), ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("aliceschema", "bobtable"))
+                .add(new SchemaTableName("bobschema", "bob_any"))
+                .build());
+        assertEquals(accessControl.filterTables(ADMIN, "any", tables), ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("secret", "any"))
+                .add(new SchemaTableName("aliceschema", "any"))
+                .add(new SchemaTableName("aliceschema", "bobtable"))
+                .add(new SchemaTableName("bobschema", "bob_any"))
+                .add(new SchemaTableName("bobschema", "any"))
+                .add(new SchemaTableName("any", "any"))
+                .build());
+    }
+
+    @Test
+    public void testTableFilterNoAccess()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-no-access.json");
+
+        Set<SchemaTableName> tables = ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("restricted", "any"))
+                .add(new SchemaTableName("secret", "any"))
+                .add(new SchemaTableName("any", "any"))
+                .build();
+        assertEquals(accessControl.filterTables(ALICE, "any", tables), ImmutableSet.of());
+        assertEquals(accessControl.filterTables(BOB, "any", tables), ImmutableSet.of());
     }
 
     @Test

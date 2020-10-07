@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.INSERT;
@@ -169,7 +170,9 @@ public class FileBasedAccessControl
     @Override
     public Set<SchemaTableName> filterTables(ConnectorSecurityContext context, Set<SchemaTableName> tableNames)
     {
-        return tableNames;
+        return tableNames.stream()
+                .filter(tableName -> isSchemaOwner(context, tableName.getSchemaName()) || checkAnyTablePermission(context, tableName))
+                .collect(toImmutableSet());
     }
 
     @Override

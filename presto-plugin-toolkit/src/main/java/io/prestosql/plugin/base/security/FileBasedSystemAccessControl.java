@@ -474,11 +474,10 @@ public class FileBasedSystemAccessControl
     @Override
     public Set<SchemaTableName> filterTables(SystemSecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
-        if (!canAccessCatalog(context, catalogName, READ_ONLY)) {
-            return ImmutableSet.of();
-        }
-
-        return tableNames;
+        return tableNames.stream()
+                .filter(tableName -> isSchemaOwner(context, new CatalogSchemaName(catalogName, tableName.getSchemaName())) ||
+                        checkAnyTablePermission(context, new CatalogSchemaTableName(catalogName, tableName)))
+                .collect(toImmutableSet());
     }
 
     @Override
