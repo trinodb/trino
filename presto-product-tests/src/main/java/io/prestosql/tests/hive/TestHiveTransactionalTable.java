@@ -394,7 +394,7 @@ public class TestHiveTransactionalTable
             QueryResult onePartitionQueryResult = query(selectFromOnePartitionsSql);
             assertThat(onePartitionQueryResult).containsExactly(row(1), row(2));
 
-            String tableLocation = getTablePath(tableName, 1); // pass 1 to trim /delta_... suffix
+            String tableLocation = getTablePath(tableName);
 
             // Insert data to create a valid delta, which creates `delta-B`
             onHive().executeQuery("INSERT INTO TABLE " + tableName + " SELECT 3");
