@@ -126,8 +126,7 @@ public class TestDynamicFilterService
         assertEquals(stats.getReplicatedDynamicFilters(), 0);
         assertEquals(
                 stats.getDynamicFilterDomainStats(),
-                ImmutableList.of(new DynamicFilterDomainStats(
-                        filterId, getExpectedDomainString(1L, 3L), 3, 0)));
+                ImmutableList.of(new DynamicFilterDomainStats(filterId, getExpectedDomainString(1L, 3L), 3, 0)));
     }
 
     @Test
@@ -291,12 +290,9 @@ public class TestDynamicFilterService
         assertEquals(stats.getLazyDynamicFilters(), 3);
         assertEquals(stats.getReplicatedDynamicFilters(), 0);
         assertEquals(ImmutableSet.copyOf(stats.getDynamicFilterDomainStats()), ImmutableSet.of(
-                new DynamicFilterDomainStats(
-                        filterId1, getExpectedDomainString(1L, 2L), 2, 0),
-                new DynamicFilterDomainStats(
-                        filterId2, getExpectedDomainString(2L, 3L), 2, 0),
-                new DynamicFilterDomainStats(
-                        filterId3, Domain.none(INTEGER).toString(session.toConnectorSession()), 0, 0)));
+                new DynamicFilterDomainStats(filterId1, getExpectedDomainString(1L, 2L), 2, 0),
+                new DynamicFilterDomainStats(filterId2, getExpectedDomainString(2L, 3L), 2, 0),
+                new DynamicFilterDomainStats(filterId3, Domain.none(INTEGER).toString(session.toConnectorSession()), 0, 0)));
 
         // all dynamic filters have been collected, no need for more requests
         assertTrue(dynamicFilter.isComplete());
