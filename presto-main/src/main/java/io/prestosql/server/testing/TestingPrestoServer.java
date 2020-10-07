@@ -390,6 +390,11 @@ public class TestingPrestoServer
         return server.getBaseUrl();
     }
 
+    public URI getHttpsBaseUrl()
+    {
+        return server.getHttpServerInfo().getHttpsUri();
+    }
+
     public URI resolve(String path)
     {
         return server.getBaseUrl().resolve(path);
