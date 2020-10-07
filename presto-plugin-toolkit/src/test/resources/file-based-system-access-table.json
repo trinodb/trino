@@ -6,27 +6,34 @@
     ],
   "tables": [
     {
+      "catalog": "unknown",
+      "privileges": []
+    },
+    {
+      "catalog": "secret",
       "schema": "secret",
       "privileges": []
     },
     {
       "user": "admin",
-      "schema": ".*",
       "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
     },
     {
       "user": "alice",
+      "catalog": "some-catalog",
       "schema": "aliceschema",
       "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
     },
     {
       "user": "bob",
+      "catalog": "some-catalog",
       "schema": "bobschema",
       "table": "bob.*",
       "privileges": ["SELECT", "INSERT", "DELETE", "GRANT_SELECT"]
     },
     {
       "group": "guests",
+      "catalog": "some-catalog",
       "schema": "bobschema",
       "table": "bobtable",
       "privileges": ["SELECT", "INSERT"]

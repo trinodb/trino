@@ -115,13 +115,14 @@ the following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
+* ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
 * ``schema`` (optional): regex to match against schema name. Defaults to ``.*``.
 * ``owner`` (required): boolean indicating whether the user is to be considered
   an owner of the schema. Defaults to ``false``.
 
 For example, to provide ownership of all schemas to user ``admin``, treat all
-users as owners of ``default`` schema and prevent user ``guest`` from ownership
-of any schema, you can use the following rules:
+users as owners of the ``default.default`` schema and prevent user ``guest`` from
+ownership of any schema, you can use the following rules:
 
 .. code-block:: json
 
@@ -142,6 +143,7 @@ of any schema, you can use the following rules:
           "owner": false
         },
         {
+          "catalog": "default",
           "schema": "default",
           "owner": true
         }
@@ -158,6 +160,7 @@ bottom. Each rule is composed of the following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
+* ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
 * ``schema`` (optional): regex to match against schema name. Defaults to ``.*``.
 * ``table`` (optional): regex to match against table names. Defaults to ``.*``.
 * ``privileges`` (required): zero or more of ``SELECT``, ``INSERT``,
@@ -171,7 +174,7 @@ The example below defines the following table access policy:
 
 * User ``admin`` has all privileges across all tables and schemas
 * User ``banned_user`` has no privileges
-* All users have ``SELECT`` privileges on all tables in ``default`` schema
+* All users have ``SELECT`` privileges on all tables in the ``default.default`` schema
 
 .. code-block:: json
 
@@ -191,6 +194,7 @@ The example below defines the following table access policy:
           "privileges": []
         },
         {
+          "catalog": "default",
           "schema": "default",
           "table": ".*",
           "privileges": ["SELECT"]

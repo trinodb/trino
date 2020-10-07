@@ -27,8 +27,8 @@ public class FileBasedSystemAccessControlRules
     private final Optional<List<ImpersonationRule>> impersonationRules;
     private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
     private final Optional<List<SystemInformationRule>> systemInformationRules;
-    private final Optional<List<SchemaAccessControlRule>> schemaRules;
-    private final Optional<List<TableAccessControlRule>> tableRules;
+    private final Optional<List<CatalogSchemaAccessControlRule>> schemaRules;
+    private final Optional<List<CatalogTableAccessControlRule>> tableRules;
 
     @JsonCreator
     public FileBasedSystemAccessControlRules(
@@ -37,8 +37,8 @@ public class FileBasedSystemAccessControlRules
             @JsonProperty("impersonation") Optional<List<ImpersonationRule>> impersonationRules,
             @JsonProperty("principals") Optional<List<PrincipalUserMatchRule>> principalUserMatchRules,
             @JsonProperty("system_information") Optional<List<SystemInformationRule>> systemInformationRules,
-            @JsonProperty("schemas") Optional<List<SchemaAccessControlRule>> schemaAccessControlRules,
-            @JsonProperty("tables") Optional<List<TableAccessControlRule>> tableAccessControlRules)
+            @JsonProperty("schemas") Optional<List<CatalogSchemaAccessControlRule>> schemaAccessControlRules,
+            @JsonProperty("tables") Optional<List<CatalogTableAccessControlRule>> tableAccessControlRules)
     {
         this.catalogRules = catalogRules.map(ImmutableList::copyOf).orElse(ImmutableList.of());
         this.queryAccessRules = queryAccessRules.map(ImmutableList::copyOf);
@@ -74,12 +74,12 @@ public class FileBasedSystemAccessControlRules
         return systemInformationRules;
     }
 
-    public Optional<List<SchemaAccessControlRule>> getSchemaRules()
+    public Optional<List<CatalogSchemaAccessControlRule>> getSchemaRules()
     {
         return schemaRules;
     }
 
-    public Optional<List<TableAccessControlRule>> getTableRules()
+    public Optional<List<CatalogTableAccessControlRule>> getTableRules()
     {
         return tableRules;
     }
