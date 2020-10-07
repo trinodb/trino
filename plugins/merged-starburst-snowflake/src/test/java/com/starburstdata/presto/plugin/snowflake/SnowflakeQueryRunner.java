@@ -22,7 +22,6 @@ import io.prestosql.tpch.TpchTable;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.starburstdata.presto.license.LicenseTesting.unlicensed;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakePlugin.SNOWFLAKE_DISTRIBUTED;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakePlugin.SNOWFLAKE_JDBC;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.ACCOUNT_NAME;
@@ -138,7 +137,7 @@ class SnowflakeQueryRunner
             warehouse.ifPresent(warehouseName -> properties.put("snowflake.warehouse", warehouseName));
             database.ifPresent(databaseName -> properties.put("snowflake.database", databaseName));
 
-            queryRunner.installPlugin(unlicensed(new SnowflakePlugin()));
+            queryRunner.installPlugin(new TestingSnowflakePlugin());
             queryRunner.createCatalog(SNOWFLAKE_CATALOG, connectorName, properties.build());
             queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx", ImmutableMap.of());

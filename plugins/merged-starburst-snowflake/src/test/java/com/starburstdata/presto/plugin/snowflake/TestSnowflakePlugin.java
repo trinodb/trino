@@ -18,19 +18,35 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.starburstdata.presto.license.LicenseTesting.unlicensed;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestSnowflakePlugin
 {
     @Test
-    public void testCreateConnector()
+    public void testLicenseRequired()
     {
         Plugin plugin = new SnowflakePlugin();
+
+        List<ConnectorFactory> connectorFactories = ImmutableList.copyOf(plugin.getConnectorFactories());
+        assertThat(connectorFactories).isNotEmpty();
+
+        for (ConnectorFactory factory : connectorFactories) {
+            assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext()))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasToString("com.starburstdata.presto.license.PrestoLicenseException: Valid license required to use the feature: snowflake");
+        }
+    }
+
+    @Test
+    public void testCreateConnector()
+    {
+        Plugin plugin = new TestingSnowflakePlugin();
         List<ConnectorFactory> connectorFactories = ImmutableList.copyOf(plugin.getConnectorFactories());
         assertEquals(connectorFactories.size(), 2);
 
-        unlicensed(connectorFactories.get(0)).create(
+        connectorFactories.get(0).create(
                 "test",
                 ImmutableMap.of(
                         "connection-url", "test",
@@ -39,7 +55,7 @@ public class TestSnowflakePlugin
                         "snowflake.warehouse", "test"),
                 new TestingConnectorContext())
                 .shutdown();
-        unlicensed(connectorFactories.get(1)).create(
+        connectorFactories.get(1).create(
                 "test",
                 ImmutableMap.of(
                         "connection-url", "test",
