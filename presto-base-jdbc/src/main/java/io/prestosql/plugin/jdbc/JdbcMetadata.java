@@ -400,18 +400,12 @@ public class JdbcMetadata
     {
         JdbcOutputTableHandle handle = (JdbcOutputTableHandle) tableHandle;
         jdbcClient.commitCreateTable(JdbcIdentity.from(session), handle);
-        clearRollback();
         return Optional.empty();
     }
 
     private void setRollback(Runnable action)
     {
         checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
-    }
-
-    private void clearRollback()
-    {
-        rollbackAction.set(null);
     }
 
     public void rollback()
