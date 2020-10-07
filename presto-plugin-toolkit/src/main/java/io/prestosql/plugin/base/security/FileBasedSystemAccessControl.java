@@ -427,7 +427,8 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        if (!canAccessCatalog(context, table.getCatalogName(), ALL)) {
+        // check if user will be an owner of the table after creation
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
             denyCreateTable(table.toString());
         }
     }
@@ -443,6 +444,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanRenameTable(SystemSecurityContext context, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
     {
+        // check if user is an owner current table and will be an owner of the renamed table
         if (!checkTablePermission(context, table, OWNERSHIP) || !checkTablePermission(context, newTable, OWNERSHIP)) {
             denyRenameTable(table.toString(), newTable.toString());
         }
@@ -548,7 +550,8 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
-        if (!canAccessCatalog(context, view.getCatalogName(), ALL)) {
+        // check if user will be an owner of the view after creation
+        if (!checkTablePermission(context, view, OWNERSHIP)) {
             denyCreateView(view.toString());
         }
     }
@@ -556,7 +559,8 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanRenameView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
     {
-        if (!canAccessCatalog(context, view.getCatalogName(), ALL)) {
+        // check if user owns the existing view, and if they will be an owner of the view after the rename
+        if (!checkTablePermission(context, view, OWNERSHIP) || !checkTablePermission(context, newView, OWNERSHIP)) {
             denyRenameView(view.toString(), newView.toString());
         }
     }

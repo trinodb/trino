@@ -3,14 +3,14 @@
     {
       "user": "hive",
       "privileges": [
-        "SELECT"
+        "SELECT",
+        "OWNERSHIP"
       ]
     }
   ],
   "schemas": [
     {
-      "user": "hive",
-      "owner": true
+      "owner": false
     }
   ]
 }
