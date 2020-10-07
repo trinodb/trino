@@ -97,6 +97,9 @@ public class TestFileBasedSystemAccessControl
     private static final String GRANT_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot grant privilege DELETE on table .*";
     private static final String REVOKE_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot revoke privilege DELETE on table .*";
 
+    private static final String SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set system session property .*";
+    private static final String SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set catalog session property .*";
+
     @Test
     public void testEmptyFile()
     {
@@ -612,6 +615,65 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
+    public void testSessionPropertyRules()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-session-property.json");
+
+        accessControl.checkCanSetSystemSessionProperty(ADMIN, "dangerous");
+        accessControl.checkCanSetSystemSessionProperty(ADMIN, "any");
+        accessControl.checkCanSetSystemSessionProperty(ALICE, "safe");
+        accessControl.checkCanSetSystemSessionProperty(ALICE, "unsafe");
+        accessControl.checkCanSetSystemSessionProperty(ALICE, "staff");
+        accessControl.checkCanSetSystemSessionProperty(BOB, "safe");
+        accessControl.checkCanSetSystemSessionProperty(BOB, "staff");
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(BOB, "unsafe"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(ALICE, "dangerous"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(CHARLIE, "safe"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(CHARLIE, "staff"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(JOE, "staff"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+
+        accessControl.checkCanSetCatalogSessionProperty(ADMIN, "any", "dangerous");
+        accessControl.checkCanSetCatalogSessionProperty(ADMIN, "alice-catalog", "dangerous");
+        accessControl.checkCanSetCatalogSessionProperty(ADMIN, "any", "any");
+        accessControl.checkCanSetCatalogSessionProperty(ALICE, "alice-catalog", "safe");
+        accessControl.checkCanSetCatalogSessionProperty(ALICE, "alice-catalog", "unsafe");
+        accessControl.checkCanSetCatalogSessionProperty(ALICE, "staff-catalog", "staff");
+        accessControl.checkCanSetCatalogSessionProperty(BOB, "bob-catalog", "safe");
+        accessControl.checkCanSetCatalogSessionProperty(BOB, "staff-catalog", "staff");
+        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(BOB, "bob-catalog", "any"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(BOB, "alice-catalog", "any"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(BOB, "staff-catalog", "any"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(ALICE, "alice-catalog", "dangerous"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(CHARLIE, "bob-catalog", "safe"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(CHARLIE, "staff-catalog", "staff"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(JOE, "staff-catalog", "staff"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testSessionPropertyDocsExample()
+    {
+        String rulesFile = new File("../presto-docs/src/main/sphinx/security/session-property-access.json").getAbsolutePath();
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl(ImmutableMap.of("security.config-file", rulesFile));
+        SystemSecurityContext bannedUser = new SystemSecurityContext(Identity.ofUser("banned_user"), queryId);
+
+        accessControl.checkCanSetSystemSessionProperty(ADMIN, "any");
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(ALICE, "any"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bannedUser, "any"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+
+        accessControl.checkCanSetSystemSessionProperty(ADMIN, "resource_overcommit");
+        accessControl.checkCanSetSystemSessionProperty(ALICE, "resource_overcommit");
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bannedUser, "resource_overcommit"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+
+        accessControl.checkCanSetCatalogSessionProperty(ADMIN, "hive", "any");
+        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(ALICE, "hive", "any"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(bannedUser, "hive", "any"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+
+        accessControl.checkCanSetCatalogSessionProperty(ADMIN, "hive", "bucket_execution_enabled");
+        accessControl.checkCanSetCatalogSessionProperty(ALICE, "hive", "bucket_execution_enabled");
+        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(bannedUser, "hive", "bucket_execution_enabled"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
     public void testFilterCatalogs()
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-visibility.json");
@@ -640,6 +702,7 @@ public class TestFileBasedSystemAccessControl
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-visibility.json");
 
         accessControl.checkCanShowSchemas(ADMIN, "specific-catalog");
+        accessControl.checkCanShowSchemas(ADMIN, "session-catalog");
         accessControl.checkCanShowSchemas(ADMIN, "secret");
         accessControl.checkCanShowSchemas(ADMIN, "hidden");
         accessControl.checkCanShowSchemas(ADMIN, "open-to-all");
@@ -647,8 +710,11 @@ public class TestFileBasedSystemAccessControl
         accessControl.checkCanShowSchemas(ADMIN, "unknown");
 
         accessControl.checkCanShowSchemas(ALICE, "specific-catalog");
+        accessControl.checkCanShowSchemas(ALICE, "session-catalog");
         accessControl.checkCanShowSchemas(ALICE, "alice-catalog");
+        accessControl.checkCanShowSchemas(ALICE, "alice-catalog-session");
         assertAccessDenied(() -> accessControl.checkCanShowSchemas(ALICE, "bob-catalog"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(ALICE, "bob-catalog-session"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanShowSchemas(ALICE, "secret"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanShowSchemas(ALICE, "hidden"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanShowSchemas(ALICE, "open-to-all"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
@@ -656,16 +722,22 @@ public class TestFileBasedSystemAccessControl
         assertAccessDenied(() -> accessControl.checkCanShowSchemas(ALICE, "unknown"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
 
         accessControl.checkCanShowSchemas(BOB, "specific-catalog");
+        accessControl.checkCanShowSchemas(BOB, "session-catalog");
         accessControl.checkCanShowSchemas(BOB, "bob-catalog");
+        accessControl.checkCanShowSchemas(BOB, "bob-catalog-session");
         accessControl.checkCanShowSchemas(BOB, "alice-catalog");
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(BOB, "alice-catalog-session"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanShowSchemas(BOB, "secret"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanShowSchemas(BOB, "hidden"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanShowSchemas(BOB, "open-to-all"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanShowSchemas(BOB, "blocked-catalog"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanShowSchemas(BOB, "unknown"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
 
+        accessControl.checkCanShowSchemas(CHARLIE, "session-catalog");
         accessControl.checkCanShowSchemas(CHARLIE, "specific-catalog");
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(CHARLIE, "alice-catalog-session"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanShowSchemas(CHARLIE, "alice-catalog"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(CHARLIE, "bob-catalog-session"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanShowSchemas(CHARLIE, "bob-catalog"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanShowSchemas(CHARLIE, "secret"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanShowSchemas(CHARLIE, "hidden"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
@@ -718,6 +790,11 @@ public class TestFileBasedSystemAccessControl
         assertEquals(accessControl.filterSchemas(ALICE, "unknown", ImmutableSet.of("unknown")), ImmutableSet.of());
         assertEquals(accessControl.filterSchemas(BOB, "unknown", ImmutableSet.of("unknown")), ImmutableSet.of());
         assertEquals(accessControl.filterSchemas(CHARLIE, "unknown", ImmutableSet.of("unknown")), ImmutableSet.of());
+
+        assertEquals(accessControl.filterSchemas(ADMIN, "session-catalog", ImmutableSet.of("session-schema", "unknown")), ImmutableSet.of("session-schema", "unknown"));
+        assertEquals(accessControl.filterSchemas(ALICE, "session-catalog", ImmutableSet.of("session-schema", "unknown")), ImmutableSet.of());
+        assertEquals(accessControl.filterSchemas(BOB, "session-catalog", ImmutableSet.of("session-schema", "unknown")), ImmutableSet.of());
+        assertEquals(accessControl.filterSchemas(CHARLIE, "session-catalog", ImmutableSet.of("session-schema", "unknown")), ImmutableSet.of());
     }
 
     @Test
