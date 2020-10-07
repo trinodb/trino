@@ -34,13 +34,67 @@ Presto restart. The refresh period is specified in the ``etc/access-control.prop
 
    security.refresh-period=1s
 
-Catalog Rules
--------------
+Catalog, Schema, and Table Access
+---------------------------------
 
-These rules govern the catalogs particular users can access. The user is
-granted access to a catalog, based on the first matching rule read from top to
-bottom. If no rule matches, access is denied. Each rule is composed of the
-following fields:
+Access to catalogs, schemas, tables, and views is controlled by the catalog, schema, and table
+rules.  The catalog rules are course grained rules used to restrict all access or write
+access to catalogs. They do not explicitly grant any specific schema or table permissions.
+The table and schema rules are used to specify who can can create, drop, alter, select, insert,
+delete, etc. for schemas and tables.
+
+For each rule set, permission is based on the first matching rule read from top to bottom.  If
+no rule matches, access is denied. If no rules are provided at all, then access is granted.
+
+The following table summarizes the permissions required for each SQL command:
+
+==================================== ========== ======= ==================== ===================================================
+SQL Command                          Catalog    Schema  Table                Note
+==================================== ========== ======= ==================== ===================================================
+SHOW CATALOGS                                                                Always allowed
+SHOW SCHEMAS                         read-only  any*    any*                 Allowed if catalog is :ref:`visible<visibility>`
+SHOW TABLES                          read-only  any*    any*                 Allowed if schema :ref:`visible<visibility>`
+CREATE SCHEMA                        read-only  owner
+DROP SCHEMA                          all        owner
+SHOW CREATE SCHEMA                   all        owner
+ALTER SCHEMA ... RENAME TO           all        owner*                       Ownership is required on both old and new schemas
+ALTER SCHEMA ... SET AUTHORIZATION   all        owner
+CREATE TABLE                         all                owner
+DROP TABLE                           all                owner
+ALTER TABLE ... RENAME TO            all                owner*               Ownership is required on both old and new tables
+CREATE VIEW                          all                owner
+DROP VIEW                            all                owner
+ALTER VIEW ... RENAME TO             all                owner*               Ownership is required on both old and new views
+COMMENT ON TABLE                     all                owner
+COMMENT ON COLUMN                    all                owner
+ALTER TABLE ... ADD COLUMN           all                owner
+ALTER TABLE ... DROP COLUMN          all                owner
+ALTER TABLE ... RENAME COLUMN        all                owner
+SHOW COLUMNS                         all                any
+SELECT FROM table                    read-only          select
+SELECT FROM view                     read-only          select, grant_select
+INSERT INTO                          all                insert
+DELETE FROM                          all                delete
+==================================== ========== ======= ==================== ===================================================
+
+.. _visibility:
+
+Visibility
+^^^^^^^^^^
+
+For a catalog, schema, or table to be visible in a ``SHOW`` command, the user must have
+at least one permission on the item or any nested item. The nested items do not
+need to already exist as any potential permission makes the item visible. Specifically:
+
+* catalog: Visible if user is the owner of any nested schema, has permissions on any nested
+  table, or has permissions to set session properties in the catalog.
+* schema: Visible if the user is the owner of the schema, or has permissions on any nested table.
+* table: Visible if the user has any permissions on the table.
+
+Catalog Rules
+^^^^^^^^^^^^^
+
+Each catalog rule is composed of the following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
@@ -55,6 +109,9 @@ specified in ``user`` attribute.
 
 For group names, a rule can be applied if at least one group name of this user
 matches the ``group`` regular expression.
+
+The ``all`` value for ``allow`` means these rules do not restrict access in any way,
+but the schema and table rules can restrict access.
 
 .. note::
 
@@ -104,14 +161,9 @@ For group-based rules to match, users need to be assigned to groups by a
 :doc:`/develop/group-provider`.
 
 Schema Rules
-------------
+^^^^^^^^^^^^
 
-These rules allow you to grant ownership of a schema. Having ownership of an
-schema allows users to execute ``DROP SCHEMA``, ``ALTER SCHEMA`` (both renaming
-and setting authorization) and ``SHOW CREATE SCHEMA``. The user is granted
-ownership of a schema, based on the first matching rule read from top to
-bottom. If no rule matches, ownership is not granted. Each rule is composed of
-the following fields:
+Each schema rule is composed of the following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
@@ -146,12 +198,9 @@ ownership of any schema, you can use the following rules:
     }
 
 Table Rules
------------
+^^^^^^^^^^^
 
-These rules define the privileges for table access for users. If no table rules
-are specified, all users are treated as having all privileges by default. The
-user is granted privileges based on the first matching rule read from top to
-bottom. Each rule is composed of the following fields:
+Each table rule is composed of the following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
@@ -198,7 +247,7 @@ Session Property Rules
 ----------------------
 
 These rules control the ability of a user to set system and catalog session properties. The
-user is granted or denied access, based on the first matching rule read from top to bottom.
+user is granted or denied access, based on the first matching rule, read from top to bottom.
 If no rules are specified, all users are allowed set any session property. If no rule matches,
 setting the session property is denied. System session property rules are composed of the
 following fields:
