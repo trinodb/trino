@@ -41,6 +41,8 @@ import static java.util.Objects.requireNonNull;
  */
 public final class Domain
 {
+    public static final int DEFAULT_COMPACTION_THRESHOLD = 32;
+
     private final ValueSet values;
     private final boolean nullAllowed;
 
@@ -278,7 +280,7 @@ public final class Domain
      */
     public Domain simplify()
     {
-        return simplify(32);
+        return simplify(DEFAULT_COMPACTION_THRESHOLD);
     }
 
     public Domain simplify(int threshold)
