@@ -174,6 +174,37 @@ public class TestFileBasedAccessControl
     }
 
     @Test
+    public void testTableFilter()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("table-filter.json");
+        Set<SchemaTableName> tables = ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("restricted", "any"))
+                .add(new SchemaTableName("secret", "any"))
+                .add(new SchemaTableName("aliceschema", "any"))
+                .add(new SchemaTableName("aliceschema", "bobtable"))
+                .add(new SchemaTableName("bobschema", "bob_any"))
+                .add(new SchemaTableName("bobschema", "any"))
+                .add(new SchemaTableName("any", "any"))
+                .build();
+        assertEquals(accessControl.filterTables(ALICE, tables), ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("aliceschema", "any"))
+                .add(new SchemaTableName("aliceschema", "bobtable"))
+                .build());
+        assertEquals(accessControl.filterTables(BOB, tables), ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("aliceschema", "bobtable"))
+                .add(new SchemaTableName("bobschema", "bob_any"))
+                .build());
+        assertEquals(accessControl.filterTables(ADMIN, tables), ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("secret", "any"))
+                .add(new SchemaTableName("aliceschema", "any"))
+                .add(new SchemaTableName("aliceschema", "bobtable"))
+                .add(new SchemaTableName("bobschema", "bob_any"))
+                .add(new SchemaTableName("bobschema", "any"))
+                .add(new SchemaTableName("any", "any"))
+                .build());
+    }
+
+    @Test
     public void testNoTableRules()
     {
         ConnectorAccessControl accessControl = createAccessControl("no-access.json");
@@ -182,6 +213,14 @@ public class TestFileBasedAccessControl
         assertEquals(
                 accessControl.filterColumns(BOB, new SchemaTableName("bobschema", "bobtable"), ImmutableList.of(column("a"))),
                 ImmutableList.of());
+
+        Set<SchemaTableName> tables = ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("restricted", "any"))
+                .add(new SchemaTableName("secret", "any"))
+                .add(new SchemaTableName("any", "any"))
+                .build();
+        assertEquals(accessControl.filterTables(ALICE, tables), ImmutableSet.of());
+        assertEquals(accessControl.filterTables(BOB, tables), ImmutableSet.of());
     }
 
     @Test
