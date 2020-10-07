@@ -312,6 +312,7 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanCreateTable(aliceContext, aliceTable);
                     accessControlManager.checkCanDropTable(aliceContext, aliceTable);
                     accessControlManager.checkCanSelectFromColumns(aliceContext, aliceTable, ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, aliceTable, ImmutableSet.of());
                     accessControlManager.checkCanInsertIntoTable(aliceContext, aliceTable);
                     accessControlManager.checkCanDeleteFromTable(aliceContext, aliceTable);
                     accessControlManager.checkCanAddColumns(aliceContext, aliceTable);
@@ -320,6 +321,7 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanCreateTable(aliceContext, staffTable);
                     accessControlManager.checkCanDropTable(aliceContext, staffTable);
                     accessControlManager.checkCanSelectFromColumns(aliceContext, staffTable, ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, staffTable, ImmutableSet.of());
                     accessControlManager.checkCanInsertIntoTable(aliceContext, staffTable);
                     accessControlManager.checkCanDeleteFromTable(aliceContext, staffTable);
                     accessControlManager.checkCanAddColumns(aliceContext, staffTable);
@@ -328,6 +330,7 @@ public class TestFileBasedSystemAccessControl
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateTable(bobContext, aliceTable));
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanDropTable(bobContext, aliceTable));
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanSelectFromColumns(bobContext, aliceTable, ImmutableSet.of()));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, aliceTable, ImmutableSet.of()));
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanInsertIntoTable(bobContext, aliceTable));
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanDeleteFromTable(bobContext, aliceTable));
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanAddColumns(bobContext, aliceTable));
@@ -336,6 +339,7 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanCreateTable(bobContext, staffTable);
                     accessControlManager.checkCanDropTable(bobContext, staffTable);
                     accessControlManager.checkCanSelectFromColumns(bobContext, staffTable, ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, staffTable, ImmutableSet.of());
                     accessControlManager.checkCanInsertIntoTable(bobContext, staffTable);
                     accessControlManager.checkCanDeleteFromTable(bobContext, staffTable);
                     accessControlManager.checkCanAddColumns(bobContext, staffTable);
@@ -344,6 +348,7 @@ public class TestFileBasedSystemAccessControl
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateTable(nonAsciiContext, aliceTable));
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanDropTable(nonAsciiContext, aliceTable));
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanSelectFromColumns(nonAsciiContext, aliceTable, ImmutableSet.of()));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, aliceTable, ImmutableSet.of()));
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanInsertIntoTable(nonAsciiContext, aliceTable));
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanDeleteFromTable(nonAsciiContext, aliceTable));
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanAddColumns(nonAsciiContext, aliceTable));
@@ -352,6 +357,7 @@ public class TestFileBasedSystemAccessControl
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateTable(nonAsciiContext, staffTable));
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanDropTable(nonAsciiContext, staffTable));
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanSelectFromColumns(nonAsciiContext, staffTable, ImmutableSet.of()));
+                    assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, staffTable, ImmutableSet.of()));
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanInsertIntoTable(nonAsciiContext, staffTable));
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanDeleteFromTable(nonAsciiContext, staffTable));
                     assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanAddColumns(nonAsciiContext, staffTable));
@@ -490,14 +496,6 @@ public class TestFileBasedSystemAccessControl
 
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
             accessControlManager.checkCanDropView(new SecurityContext(transactionId, alice, queryId), aliceView);
-        }));
-
-        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanCreateViewWithSelectFromColumns(new SecurityContext(transactionId, alice, queryId), aliceTable, ImmutableSet.of());
-        }));
-
-        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanCreateViewWithSelectFromColumns(new SecurityContext(transactionId, alice, queryId), aliceView, ImmutableSet.of());
         }));
 
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
