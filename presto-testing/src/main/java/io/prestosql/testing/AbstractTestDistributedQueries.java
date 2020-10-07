@@ -1362,28 +1362,43 @@ public abstract class AbstractTestDistributedQueries
     @DataProvider
     public Object[][] testColumnNameDataProvider()
     {
-        return new Object[][] {
-                {"lowercase"},
-                {"UPPERCASE"},
-                {"MixedCase"},
-                {"an_underscore"},
-                {"a-hyphen-minus"}, // ASCII '-' is HYPHEN-MINUS in Unicode
-                {"a space"},
-                {"atrailingspace "},
-                {" aleadingspace"},
-                {"a.dot"},
-                {"a,comma"},
-                {"a:colon"},
-                {"a;semicolon"},
-                {"an@at"},
-                {"a\"quote"},
-                {"an'apostrophe"},
-                {"a`backtick`"},
-                {"a/slash`"},
-                {"a\\backslash`"},
-                {"adigit0"},
-                {"0startwithdigit"},
-        };
+        return testColumnNameTestData().stream()
+                .map(this::filterColumnNameTestData)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(columnName -> new Object[] {columnName})
+                .toArray(Object[][]::new);
+    }
+
+    private List<String> testColumnNameTestData()
+    {
+        return ImmutableList.<String>builder()
+                .add("lowercase")
+                .add("UPPERCASE")
+                .add("MixedCase")
+                .add("an_underscore")
+                .add("a-hyphen-minus") // ASCII '-' is HYPHEN-MINUS in Unicode
+                .add("a space")
+                .add("atrailingspace ")
+                .add(" aleadingspace")
+                .add("a.dot")
+                .add("a,comma")
+                .add("a:colon")
+                .add("a;semicolon")
+                .add("an@at")
+                .add("a\"quote")
+                .add("an'apostrophe")
+                .add("a`backtick`")
+                .add("a/slash`")
+                .add("a\\backslash`")
+                .add("adigit0")
+                .add("0startwithdigit")
+                .build();
+    }
+
+    protected Optional<String> filterColumnNameTestData(String columnName)
+    {
+        return Optional.of(columnName);
     }
 
     protected String dataMappingTableName(String prestoTypeName)
