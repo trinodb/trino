@@ -147,7 +147,8 @@ public class FileBasedAccessControl
     @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        if (!isSchemaOwner(context, tableName.getSchemaName())) {
+        // check if user will be an owner of the table after creation
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
             denyCreateTable(tableName.toString());
         }
     }
@@ -191,6 +192,7 @@ public class FileBasedAccessControl
     @Override
     public void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName)
     {
+        // check if user owns the existing table, and if they will be an owner of the table after the rename
         if (!checkTablePermission(context, tableName, OWNERSHIP) || !checkTablePermission(context, newTableName, OWNERSHIP)) {
             denyRenameTable(tableName.toString(), newTableName.toString());
         }
@@ -264,7 +266,8 @@ public class FileBasedAccessControl
     @Override
     public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
-        if (!isSchemaOwner(context, viewName.getSchemaName())) {
+        // check if user will be an owner of the view after creation
+        if (!checkTablePermission(context, viewName, OWNERSHIP)) {
             denyCreateView(viewName.toString());
         }
     }
@@ -272,6 +275,7 @@ public class FileBasedAccessControl
     @Override
     public void checkCanRenameView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
     {
+        // check if user owns the existing view, and if they will be an owner of the view after the rename
         if (!checkTablePermission(context, viewName, OWNERSHIP) || !checkTablePermission(context, newViewName, OWNERSHIP)) {
             denyRenameView(viewName.toString(), newViewName.toString());
         }

@@ -95,21 +95,6 @@ public class TestFileBasedAccessControl
         accessControl.checkCanRenameSchema(CHARLIE, "authenticated", "authenticated");
         assertDenied(() -> accessControl.checkCanRenameSchema(CHARLIE, "test", "new_schema"));
 
-        accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("bob", "test"));
-        accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("test", "test"));
-        accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("authenticated", "test"));
-        assertDenied(() -> accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("secret", "test")));
-
-        accessControl.checkCanCreateTable(BOB, new SchemaTableName("bob", "test"));
-        assertDenied(() -> accessControl.checkCanCreateTable(BOB, new SchemaTableName("test", "test")));
-        accessControl.checkCanCreateTable(BOB, new SchemaTableName("authenticated", "test"));
-        assertDenied(() -> accessControl.checkCanCreateTable(BOB, new SchemaTableName("secret", "test")));
-
-        assertDenied(() -> accessControl.checkCanCreateTable(CHARLIE, new SchemaTableName("bob", "test")));
-        assertDenied(() -> accessControl.checkCanCreateTable(CHARLIE, new SchemaTableName("test", "test")));
-        accessControl.checkCanCreateTable(CHARLIE, new SchemaTableName("authenticated", "test"));
-        assertDenied(() -> accessControl.checkCanCreateTable(CHARLIE, new SchemaTableName("secret", "test")));
-
         accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
         accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new PrestoPrincipal(PrincipalType.USER, "some_user"));
         accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
@@ -140,6 +125,7 @@ public class TestFileBasedAccessControl
         accessControl.checkCanSelectFromColumns(ALICE, new SchemaTableName("test", "test"), ImmutableSet.of());
         accessControl.checkCanSelectFromColumns(ALICE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanSelectFromColumns(ALICE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of("bobcolumn"));
+
         accessControl.checkCanShowColumns(ALICE, new SchemaTableName("bobschema", "bobtable"));
         assertEquals(
                 accessControl.filterColumns(ALICE, new SchemaTableName("bobschema", "bobtable"), ImmutableList.of(column("a"))),
@@ -149,18 +135,32 @@ public class TestFileBasedAccessControl
         assertEquals(
                 accessControl.filterColumns(BOB, new SchemaTableName("bobschema", "bobtable"), ImmutableList.of(column("a"))),
                 ImmutableList.of(column("a")));
+
         accessControl.checkCanInsertIntoTable(BOB, new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanDeleteFromTable(BOB, new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanSelectFromColumns(CHARLIE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanSelectFromColumns(CHARLIE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of("bobcolumn"));
         accessControl.checkCanInsertIntoTable(CHARLIE, new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanSelectFromColumns(JOE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
+
+        accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("bob", "test"));
+        accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("test", "test"));
+        accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("authenticated", "test"));
+        assertDenied(() -> accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("secret", "test")));
+
+        accessControl.checkCanCreateTable(ALICE, new SchemaTableName("aliceschema", "test"));
+        assertDenied(() -> accessControl.checkCanCreateTable(ALICE, new SchemaTableName("test", "test")));
+        assertDenied(() -> accessControl.checkCanCreateTable(CHARLIE, new SchemaTableName("aliceschema", "test")));
+        assertDenied(() -> accessControl.checkCanCreateTable(CHARLIE, new SchemaTableName("test", "test")));
+
         accessControl.checkCanCreateViewWithSelectFromColumns(BOB, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanDropTable(ADMIN, new SchemaTableName("bobschema", "bobtable"));
+
         accessControl.checkCanRenameTable(ADMIN, new SchemaTableName("bobschema", "bobtable"), new SchemaTableName("aliceschema", "newbobtable"));
         accessControl.checkCanRenameTable(ALICE, new SchemaTableName("aliceschema", "alicetable"), new SchemaTableName("aliceschema", "newalicetable"));
         accessControl.checkCanRenameView(ADMIN, new SchemaTableName("bobschema", "bobview"), new SchemaTableName("aliceschema", "newbobview"));
         accessControl.checkCanRenameView(ALICE, new SchemaTableName("aliceschema", "aliceview"), new SchemaTableName("aliceschema", "newaliceview"));
+
         assertDenied(() -> accessControl.checkCanInsertIntoTable(ALICE, new SchemaTableName("bobschema", "bobtable")));
         assertDenied(() -> accessControl.checkCanDropTable(BOB, new SchemaTableName("bobschema", "bobtable")));
         assertDenied(() -> accessControl.checkCanRenameTable(BOB, new SchemaTableName("bobschema", "bobtable"), new SchemaTableName("bobschema", "newbobtable")));
