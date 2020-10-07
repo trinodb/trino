@@ -21,12 +21,12 @@ import static com.google.common.io.Resources.getResource;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.expectThrows;
 
-public class TestOraclePlugin
+public class TestStarburstOraclePlugin
 {
     @Test
     public void testCreateConnector()
     {
-        Plugin plugin = new OraclePlugin();
+        Plugin plugin = new StarburstOraclePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext());
     }
@@ -34,7 +34,7 @@ public class TestOraclePlugin
     @Test
     public void testUserNotUsedWithKerberos()
     {
-        Plugin plugin = new OraclePlugin();
+        Plugin plugin = new StarburstOraclePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         expectThrows(ApplicationConfigurationException.class, () -> factory.create(
                 "test",
@@ -53,7 +53,7 @@ public class TestOraclePlugin
     @Test
     public void testParallelismRequiresLicense()
     {
-        Plugin plugin = new OraclePlugin();
+        Plugin plugin = new StarburstOraclePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
 
         // default configuration (no paralellism) works without license

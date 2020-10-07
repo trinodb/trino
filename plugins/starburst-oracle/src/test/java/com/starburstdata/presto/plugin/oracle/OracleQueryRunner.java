@@ -76,10 +76,10 @@ public final class OracleQueryRunner
             createUsers.run();
 
             if (unlockEnterpriseFeatures) {
-                queryRunner.installPlugin(new TestingOraclePlugin());
+                queryRunner.installPlugin(new TestingStarburstOraclePlugin());
             }
             else {
-                queryRunner.installPlugin(new OraclePlugin());
+                queryRunner.installPlugin(new StarburstOraclePlugin());
             }
 
             queryRunner.createCatalog(ORACLE_CATALOG, ORACLE_CATALOG, connectorProperties);
