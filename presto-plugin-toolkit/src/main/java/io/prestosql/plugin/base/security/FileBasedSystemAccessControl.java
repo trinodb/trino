@@ -87,6 +87,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
 import static java.lang.String.format;
@@ -108,6 +109,7 @@ public class FileBasedSystemAccessControl
     private final Optional<List<SystemInformationRule>> systemInformationRules;
     private final List<CatalogSchemaAccessControlRule> schemaRules;
     private final List<CatalogTableAccessControlRule> tableRules;
+    private final Set<AnyCatalogPermissionsRule> anyCatalogPermissionsRules;
 
     private FileBasedSystemAccessControl(
             List<CatalogAccessControlRule> catalogRules,
@@ -125,6 +127,19 @@ public class FileBasedSystemAccessControl
         this.systemInformationRules = systemInformationRules;
         this.schemaRules = schemaRules;
         this.tableRules = tableRules;
+
+        ImmutableSet.Builder<AnyCatalogPermissionsRule> anyCatalogPermissionsRules = ImmutableSet.builder();
+        schemaRules.stream()
+                .map(CatalogSchemaAccessControlRule::toAnyCatalogPermissionsRule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(anyCatalogPermissionsRules::add);
+        tableRules.stream()
+                .map(CatalogTableAccessControlRule::toAnyCatalogPermissionsRule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(anyCatalogPermissionsRules::add);
+        this.anyCatalogPermissionsRules = anyCatalogPermissionsRules.build();
     }
 
     public static class Factory
@@ -360,7 +375,7 @@ public class FileBasedSystemAccessControl
     {
         ImmutableSet.Builder<String> filteredCatalogs = ImmutableSet.builder();
         for (String catalog : catalogs) {
-            if (canAccessCatalog(context, catalog, READ_ONLY)) {
+            if (checkAnyCatalogAccess(context, catalog)) {
                 filteredCatalogs.add(catalog);
             }
         }
@@ -402,6 +417,9 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanShowSchemas(SystemSecurityContext context, String catalogName)
     {
+        if (!checkAnyCatalogAccess(context, catalogName)) {
+            denyShowSchemas();
+        }
     }
 
     @Override
@@ -647,6 +665,13 @@ public class FileBasedSystemAccessControl
     public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
         return Optional.empty();
+    }
+
+    private boolean checkAnyCatalogAccess(SystemSecurityContext context, String catalogName)
+    {
+        Identity identity = context.getIdentity();
+        return canAccessCatalog(context, catalogName, READ_ONLY) &&
+                anyCatalogPermissionsRules.stream().anyMatch(rule -> rule.match(identity.getUser(), identity.getGroups(), catalogName));
     }
 
     private boolean canAccessCatalog(SystemSecurityContext context, String catalogName, AccessMode requiredAccess)
