@@ -1,0 +1,56 @@
+{
+    "system_session_properties": [
+        {
+            "user": "admin",
+            "allow": true
+        },
+        {
+            "user": "alice",
+            "property": "dangerous",
+            "allow": false
+        },
+        {
+            "user": "alice",
+            "allow": true
+        },
+        {
+            "user": "bob",
+            "property": "safe",
+            "allow": true
+        },
+        {
+            "group": "staff",
+            "property": "staff",
+            "allow": true
+        }
+    ],
+    "catalog_session_properties": [
+        {
+            "user": "admin",
+            "allow": true
+        },
+        {
+            "user": "alice",
+            "catalog": "alice-catalog",
+            "property": "dangerous",
+            "allow": false
+        },
+        {
+            "user": "alice",
+            "catalog": "alice-catalog",
+            "allow": true
+        },
+        {
+            "user": "bob",
+            "catalog": "bob-catalog",
+            "property": "safe",
+            "allow": true
+        },
+        {
+            "group": "staff",
+            "catalog": "staff-catalog",
+            "property": "staff",
+            "allow": true
+        }
+    ]
+}

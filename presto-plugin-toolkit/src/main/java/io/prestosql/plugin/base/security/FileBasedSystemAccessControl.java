@@ -82,7 +82,9 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
+import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
+import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -110,6 +112,8 @@ public class FileBasedSystemAccessControl
     private final Optional<List<SystemInformationRule>> systemInformationRules;
     private final List<CatalogSchemaAccessControlRule> schemaRules;
     private final List<CatalogTableAccessControlRule> tableRules;
+    private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
+    private final List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules;
     private final Set<AnyCatalogPermissionsRule> anyCatalogPermissionsRules;
     private final Set<AnyCatalogSchemaPermissionsRule> anyCatalogSchemaPermissionsRules;
 
@@ -120,7 +124,9 @@ public class FileBasedSystemAccessControl
             Optional<List<PrincipalUserMatchRule>> principalUserMatchRules,
             Optional<List<SystemInformationRule>> systemInformationRules,
             List<CatalogSchemaAccessControlRule> schemaRules,
-            List<CatalogTableAccessControlRule> tableRules)
+            List<CatalogTableAccessControlRule> tableRules,
+            List<SessionPropertyAccessControlRule> sessionPropertyRules,
+            List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules)
     {
         this.catalogRules = catalogRules;
         this.queryAccessRules = queryAccessRules;
@@ -129,6 +135,8 @@ public class FileBasedSystemAccessControl
         this.systemInformationRules = systemInformationRules;
         this.schemaRules = schemaRules;
         this.tableRules = tableRules;
+        this.sessionPropertyRules = sessionPropertyRules;
+        this.catalogSessionPropertyRules = catalogSessionPropertyRules;
 
         ImmutableSet.Builder<AnyCatalogPermissionsRule> anyCatalogPermissionsRules = ImmutableSet.builder();
         schemaRules.stream()
@@ -138,6 +146,11 @@ public class FileBasedSystemAccessControl
                 .forEach(anyCatalogPermissionsRules::add);
         tableRules.stream()
                 .map(CatalogTableAccessControlRule::toAnyCatalogPermissionsRule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(anyCatalogPermissionsRules::add);
+        catalogSessionPropertyRules.stream()
+                .map(CatalogSessionPropertyAccessControlRule::toAnyCatalogPermissionsRule)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .forEach(anyCatalogPermissionsRules::add);
@@ -237,7 +250,9 @@ public class FileBasedSystemAccessControl
                     rules.getPrincipalUserMatchRules(),
                     rules.getSystemInformationRules(),
                     rules.getSchemaRules().orElse(ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL)),
-                    rules.getTableRules().orElse(ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL)));
+                    rules.getTableRules().orElse(ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL)),
+                    rules.getSessionPropertyRules().orElse(ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL)),
+                    rules.getCatalogSessionPropertyRules().orElse(ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL)));
         }
     }
 
@@ -375,6 +390,16 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
     {
+        Identity identity = context.getIdentity();
+        boolean allowed = sessionPropertyRules.stream()
+                .map(rule -> rule.match(identity.getUser(), identity.getGroups(), propertyName))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findFirst()
+                .orElse(false);
+        if (!allowed) {
+            denySetSystemSessionProperty(propertyName);
+        }
     }
 
     @Override
@@ -632,6 +657,16 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName)
     {
+        Identity identity = context.getIdentity();
+        boolean allowed = canAccessCatalog(context, catalogName, READ_ONLY) && catalogSessionPropertyRules.stream()
+                .map(rule -> rule.match(identity.getUser(), identity.getGroups(), catalogName, propertyName))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findFirst()
+                .orElse(false);
+        if (!allowed) {
+            denySetCatalogSessionProperty(propertyName);
+        }
     }
 
     @Override

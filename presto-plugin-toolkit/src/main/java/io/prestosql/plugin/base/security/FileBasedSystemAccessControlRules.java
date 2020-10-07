@@ -29,6 +29,8 @@ public class FileBasedSystemAccessControlRules
     private final Optional<List<SystemInformationRule>> systemInformationRules;
     private final Optional<List<CatalogSchemaAccessControlRule>> schemaRules;
     private final Optional<List<CatalogTableAccessControlRule>> tableRules;
+    private final Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules;
+    private final Optional<List<CatalogSessionPropertyAccessControlRule>> catalogSessionPropertyRules;
 
     @JsonCreator
     public FileBasedSystemAccessControlRules(
@@ -38,7 +40,9 @@ public class FileBasedSystemAccessControlRules
             @JsonProperty("principals") Optional<List<PrincipalUserMatchRule>> principalUserMatchRules,
             @JsonProperty("system_information") Optional<List<SystemInformationRule>> systemInformationRules,
             @JsonProperty("schemas") Optional<List<CatalogSchemaAccessControlRule>> schemaAccessControlRules,
-            @JsonProperty("tables") Optional<List<CatalogTableAccessControlRule>> tableAccessControlRules)
+            @JsonProperty("tables") Optional<List<CatalogTableAccessControlRule>> tableAccessControlRules,
+            @JsonProperty("system_session_properties") Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules,
+            @JsonProperty("catalog_session_properties") Optional<List<CatalogSessionPropertyAccessControlRule>> catalogSessionPropertyRules)
     {
         this.catalogRules = catalogRules.map(ImmutableList::copyOf);
         this.queryAccessRules = queryAccessRules.map(ImmutableList::copyOf);
@@ -47,6 +51,8 @@ public class FileBasedSystemAccessControlRules
         this.systemInformationRules = systemInformationRules.map(ImmutableList::copyOf);
         this.schemaRules = schemaAccessControlRules.map(ImmutableList::copyOf);
         this.tableRules = tableAccessControlRules.map(ImmutableList::copyOf);
+        this.sessionPropertyRules = sessionPropertyRules;
+        this.catalogSessionPropertyRules = catalogSessionPropertyRules;
     }
 
     public Optional<List<CatalogAccessControlRule>> getCatalogRules()
@@ -82,5 +88,15 @@ public class FileBasedSystemAccessControlRules
     public Optional<List<CatalogTableAccessControlRule>> getTableRules()
     {
         return tableRules;
+    }
+
+    public Optional<List<SessionPropertyAccessControlRule>> getSessionPropertyRules()
+    {
+        return sessionPropertyRules;
+    }
+
+    public Optional<List<CatalogSessionPropertyAccessControlRule>> getCatalogSessionPropertyRules()
+    {
+        return catalogSessionPropertyRules;
     }
 }

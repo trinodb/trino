@@ -48,6 +48,21 @@ public class SessionPropertyAccessControlRule
         this.propertyRegex = requireNonNull(propertyRegex, "propertyRegex is null");
     }
 
+    boolean isAllow()
+    {
+        return allow;
+    }
+
+    Optional<Pattern> getUserRegex()
+    {
+        return userRegex;
+    }
+
+    Optional<Pattern> getGroupRegex()
+    {
+        return groupRegex;
+    }
+
     public Optional<Boolean> match(String user, Set<String> groups, String property)
     {
         if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&

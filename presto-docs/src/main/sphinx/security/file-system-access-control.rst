@@ -192,6 +192,36 @@ The example below defines the following table access policy:
       ]
     }
 
+.. _session_property_rules:
+
+Session Property Rules
+----------------------
+
+These rules control the ability of a user to set system and catalog session properties. The
+user is granted or denied access, based on the first matching rule read from top to bottom.
+If no rules are specified, all users are allowed set any session property. If no rule matches,
+setting the session property is denied. System session property rules are composed of the
+following fields:
+
+* ``user`` (optional): regex to match against user name. Defaults to ``.*``.
+* ``group`` (optional): regex to match against group names. Defaults to ``.*``.
+* ``property`` (optional): regex to match against the property name. Defaults to ``.*``.
+* ``allow`` (required): boolean indicating if the setting the session property should be allowed.
+
+The catalog session property rules have the additional field:
+
+* ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
+
+The example below defines the following table access policy:
+
+* User ``admin`` can set all session property
+* User ``banned_user`` can not set any session properties
+* All users can set the ``resource_overcommit`` system session property, and the
+  ``bucket_execution_enabled`` session property in the ``hive`` catalog.
+
+.. literalinclude:: session-property-access.json
+    :language: json
+
 .. _query_rules:
 
 Query Rules
