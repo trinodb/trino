@@ -21,14 +21,17 @@ import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
+import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.Properties;
 
-import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_SCHEMA;
+import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_PASS;
+import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_USER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
@@ -92,6 +95,7 @@ public class TestOracleDistributedQueries
     public void testCreateSchema()
     {
         // schema creation is not supported
+        assertQueryFails("CREATE SCHEMA test_schema_create", "This connector does not support creating schemas");
     }
 
     @Override
@@ -118,8 +122,8 @@ public class TestOracleDistributedQueries
     protected TestTable createTableWithDefaultColumns()
     {
         return new TestTable(
-                oracleServer::execute,
-                format("%s.table", TEST_SCHEMA),
+                createJdbcSqlExecutor(),
+                "test_default_columns",
                 "(col_required decimal(20,0) NOT NULL," +
                         "col_nullable decimal(20,0)," +
                         "col_default decimal(20,0) DEFAULT 43," +
@@ -391,8 +395,17 @@ public class TestOracleDistributedQueries
     }
 
     @Override
-    public void testColumnName(String columnName)
+    protected Optional<String> filterColumnNameTestData(String columnName)
     {
         // table names generated has more than 30chars, max size naming on oracle.
+        return Optional.empty();
+    }
+
+    protected JdbcSqlExecutor createJdbcSqlExecutor()
+    {
+        Properties properties = new Properties();
+        properties.setProperty("user", TEST_USER);
+        properties.setProperty("password", TEST_PASS);
+        return new JdbcSqlExecutor(oracleServer.getJdbcUrl(), properties);
     }
 }
