@@ -25,6 +25,8 @@ import static java.util.Objects.requireNonNull;
 
 public class CatalogSchemaAccessControlRule
 {
+    public static final CatalogSchemaAccessControlRule ALLOW_ALL = new CatalogSchemaAccessControlRule(SchemaAccessControlRule.ALLOW_ALL, Optional.empty());
+
     private final SchemaAccessControlRule schemaAccessControlRule;
     private final Optional<Pattern> catalogRegex;
 
@@ -38,6 +40,12 @@ public class CatalogSchemaAccessControlRule
     {
         this.schemaAccessControlRule = new SchemaAccessControlRule(owner, userRegex, groupRegex, schemaRegex);
         this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
+    }
+
+    private CatalogSchemaAccessControlRule(SchemaAccessControlRule schemaAccessControlRule, Optional<Pattern> catalogRegex)
+    {
+        this.schemaAccessControlRule = schemaAccessControlRule;
+        this.catalogRegex = catalogRegex;
     }
 
     public Optional<Boolean> match(String user, Set<String> groups, CatalogSchemaName schema)

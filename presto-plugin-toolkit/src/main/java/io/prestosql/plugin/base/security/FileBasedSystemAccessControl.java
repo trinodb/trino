@@ -106,8 +106,8 @@ public class FileBasedSystemAccessControl
     private final Optional<List<ImpersonationRule>> impersonationRules;
     private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
     private final Optional<List<SystemInformationRule>> systemInformationRules;
-    private final Optional<List<CatalogSchemaAccessControlRule>> schemaRules;
-    private final Optional<List<CatalogTableAccessControlRule>> tableRules;
+    private final List<CatalogSchemaAccessControlRule> schemaRules;
+    private final List<CatalogTableAccessControlRule> tableRules;
 
     private FileBasedSystemAccessControl(
             List<CatalogAccessControlRule> catalogRules,
@@ -115,8 +115,8 @@ public class FileBasedSystemAccessControl
             Optional<List<ImpersonationRule>> impersonationRules,
             Optional<List<PrincipalUserMatchRule>> principalUserMatchRules,
             Optional<List<SystemInformationRule>> systemInformationRules,
-            Optional<List<CatalogSchemaAccessControlRule>> schemaRules,
-            Optional<List<CatalogTableAccessControlRule>> tableRules)
+            List<CatalogSchemaAccessControlRule> schemaRules,
+            List<CatalogTableAccessControlRule> tableRules)
     {
         this.catalogRules = catalogRules;
         this.queryAccessRules = queryAccessRules;
@@ -206,8 +206,8 @@ public class FileBasedSystemAccessControl
                     rules.getImpersonationRules(),
                     rules.getPrincipalUserMatchRules(),
                     rules.getSystemInformationRules(),
-                    rules.getSchemaRules(),
-                    rules.getTableRules());
+                    rules.getSchemaRules().orElse(ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL)),
+                    rules.getTableRules().orElse(ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL)));
         }
     }
 
@@ -667,12 +667,8 @@ public class FileBasedSystemAccessControl
             return false;
         }
 
-        if (schemaRules.isEmpty()) {
-            return true;
-        }
-
         Identity identity = context.getIdentity();
-        for (CatalogSchemaAccessControlRule rule : schemaRules.get()) {
+        for (CatalogSchemaAccessControlRule rule : schemaRules) {
             Optional<Boolean> owner = rule.match(identity.getUser(), identity.getGroups(), schema);
             if (owner.isPresent()) {
                 return owner.get();
@@ -702,16 +698,12 @@ public class FileBasedSystemAccessControl
             return false;
         }
 
-        if (tableRules.isEmpty()) {
-            return true;
-        }
-
         if (INFORMATION_SCHEMA_NAME.equals(table.getSchemaTableName().getSchemaName())) {
             return true;
         }
 
         Identity identity = context.getIdentity();
-        for (CatalogTableAccessControlRule rule : tableRules.get()) {
+        for (CatalogTableAccessControlRule rule : tableRules) {
             Optional<Set<TableAccessControlRule.TablePrivilege>> tablePrivileges = rule.match(identity.getUser(), identity.getGroups(), table);
             if (tablePrivileges.isPresent()) {
                 return checkPrivileges.test(tablePrivileges.get());
