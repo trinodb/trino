@@ -65,6 +65,14 @@ public class TableAccessControlRule
         return Optional.empty();
     }
 
+    Optional<AnySchemaPermissionsRule> toAnySchemaPermissionsRule()
+    {
+        if (privileges.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new AnySchemaPermissionsRule(userRegex, groupRegex, schemaRegex));
+    }
+
     Set<TablePrivilege> getPrivileges()
     {
         return privileges;
@@ -78,6 +86,11 @@ public class TableAccessControlRule
     Optional<Pattern> getGroupRegex()
     {
         return groupRegex;
+    }
+
+    Optional<Pattern> getSchemaRegex()
+    {
+        return schemaRegex;
     }
 
     public enum TablePrivilege
