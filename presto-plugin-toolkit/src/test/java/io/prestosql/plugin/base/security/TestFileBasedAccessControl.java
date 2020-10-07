@@ -43,6 +43,38 @@ public class TestFileBasedAccessControl
     private static final ConnectorSecurityContext BOB = user("bob", ImmutableSet.of("staff"));
     private static final ConnectorSecurityContext CHARLIE = user("charlie", ImmutableSet.of("guests"));
     private static final ConnectorSecurityContext JOE = user("joe", ImmutableSet.of());
+    private static final ConnectorSecurityContext UNKNOWN = user("unknown", ImmutableSet.of());
+
+    @Test
+    public void testEmptyFile()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("empty.json");
+
+        accessControl.checkCanCreateSchema(UNKNOWN, "unknown");
+        accessControl.checkCanDropSchema(UNKNOWN, "unknown");
+        accessControl.checkCanRenameSchema(UNKNOWN, "unknown", "new_unknown");
+        accessControl.checkCanSetSchemaAuthorization(UNKNOWN, "unknown", new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanShowCreateSchema(UNKNOWN, "unknown");
+
+        accessControl.checkCanSelectFromColumns(UNKNOWN, new SchemaTableName("unknown", "unknown"), ImmutableSet.of());
+        accessControl.checkCanShowColumns(UNKNOWN, new SchemaTableName("unknown", "unknown"));
+        accessControl.checkCanInsertIntoTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
+        accessControl.checkCanDeleteFromTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
+
+        accessControl.checkCanCreateTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
+        accessControl.checkCanDropTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
+        accessControl.checkCanRenameTable(UNKNOWN,
+                new SchemaTableName("unknown", "unknown"),
+                new SchemaTableName("unknown", "new_unknown"));
+
+        accessControl.checkCanSetCatalogSessionProperty(UNKNOWN, "anything");
+
+        Set<SchemaTableName> tables = ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("secret", "any"))
+                .add(new SchemaTableName("any", "any"))
+                .build();
+        assertEquals(accessControl.filterTables(UNKNOWN, tables), tables);
+    }
 
     @Test
     public void testSchemaRules()
