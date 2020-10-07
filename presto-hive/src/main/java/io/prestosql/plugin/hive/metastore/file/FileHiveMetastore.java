@@ -40,6 +40,7 @@ import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
@@ -85,6 +86,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -93,6 +95,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static io.prestosql.plugin.hive.HiveMetadata.DELTA_LAKE_PROVIDER;
+import static io.prestosql.plugin.hive.HiveMetadata.SPARK_TABLE_PROVIDER_KEY;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
@@ -132,6 +136,7 @@ public class FileHiveMetastore
     private final Path catalogDirectory;
     private final HdfsContext hdfsContext;
     private final boolean assumeCanonicalPartitionKeys;
+    private final boolean hideDeltaLakeTables;
     private final FileSystem metadataFileSystem;
 
     private final JsonCodec<DatabaseMetadata> databaseCodec = JsonCodec.jsonCodec(DatabaseMetadata.class);
@@ -149,19 +154,22 @@ public class FileHiveMetastore
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(
                 hdfsEnvironment,
+                new MetastoreConfig(),
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(catalogDirectory.toURI().toString())
                         .setMetastoreUser("test"));
     }
 
     @Inject
-    public FileHiveMetastore(HdfsEnvironment hdfsEnvironment, FileHiveMetastoreConfig config)
+    public FileHiveMetastore(HdfsEnvironment hdfsEnvironment, MetastoreConfig metastoreConfig, FileHiveMetastoreConfig config)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        requireNonNull(metastoreConfig, "metastoreConfig is null");
         requireNonNull(config, "config is null");
         this.catalogDirectory = new Path(requireNonNull(config.getCatalogDirectory(), "catalogDirectory is null"));
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(config.getMetastoreUser()));
         this.assumeCanonicalPartitionKeys = config.isAssumeCanonicalPartitionKeys();
+        this.hideDeltaLakeTables = metastoreConfig.isHideDeltaLakeTables();
         try {
             metadataFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, this.catalogDirectory);
         }
@@ -409,7 +417,11 @@ public class FileHiveMetastore
     @Override
     public synchronized List<String> getAllTables(String databaseName)
     {
-        return listAllTables(databaseName);
+        return listAllTables(databaseName).stream()
+                .filter(hideDeltaLakeTables
+                        ? Predicate.not(ImmutableSet.copyOf(getTablesWithParameter(databaseName, SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER))::contains)
+                        : tableName -> true)
+                .collect(toImmutableList());
     }
 
     @Override

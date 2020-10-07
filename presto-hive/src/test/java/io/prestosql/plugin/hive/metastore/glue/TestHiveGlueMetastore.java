@@ -21,6 +21,7 @@ import io.prestosql.plugin.hive.HiveTestUtils;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -132,7 +133,14 @@ public class TestHiveGlueMetastore
         glueConfig.setAssumeCanonicalPartitionKeys(true);
 
         Executor executor = new BoundedExecutor(this.executor, 10);
-        return new GlueHiveMetastore(HDFS_ENVIRONMENT, glueConfig, new DisabledGlueColumnStatisticsProvider(), executor, Optional.empty());
+        return new GlueHiveMetastore(
+                HDFS_ENVIRONMENT,
+                new MetastoreConfig()
+                        .setHideDeltaLakeTables(true),
+                glueConfig,
+                new DisabledGlueColumnStatisticsProvider(),
+                executor,
+                Optional.empty());
     }
 
     @Override

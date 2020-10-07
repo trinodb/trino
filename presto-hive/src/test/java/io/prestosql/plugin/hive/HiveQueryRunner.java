@@ -23,6 +23,7 @@ import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.prestosql.plugin.hive.testing.TestingHivePlugin;
@@ -93,6 +94,7 @@ public final class HiveQueryRunner
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
             return new FileHiveMetastore(
                     HDFS_ENVIRONMENT,
+                    new MetastoreConfig(),
                     new FileHiveMetastoreConfig()
                             .setCatalogDirectory(baseDir.toURI().toString())
                             .setMetastoreUser("test")

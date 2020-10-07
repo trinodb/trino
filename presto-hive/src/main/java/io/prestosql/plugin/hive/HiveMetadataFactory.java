@@ -18,6 +18,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.security.AccessControlMetadataFactory;
 import io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
@@ -41,6 +42,7 @@ public class HiveMetadataFactory
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
     private final boolean translateHiveViews;
+    private final boolean hideDeltaLakeTables;
     private final long perTransactionCacheMaximumSize;
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
@@ -60,6 +62,7 @@ public class HiveMetadataFactory
     public HiveMetadataFactory(
             CatalogName catalogName,
             HiveConfig hiveConfig,
+            MetastoreConfig metastoreConfig,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
@@ -85,6 +88,7 @@ public class HiveMetadataFactory
                 hiveConfig.isTranslateHiveViews(),
                 hiveConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 hiveConfig.getHiveTransactionHeartbeatInterval(),
+                metastoreConfig.isHideDeltaLakeTables(),
                 typeManager,
                 locationService,
                 partitionUpdateCodec,
@@ -108,6 +112,7 @@ public class HiveMetadataFactory
             boolean translateHiveViews,
             long perTransactionCacheMaximumSize,
             Optional<Duration> hiveTransactionHeartbeatInterval,
+            boolean hideDeltaLakeTables,
             TypeManager typeManager,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
@@ -122,6 +127,7 @@ public class HiveMetadataFactory
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.translateHiveViews = translateHiveViews;
+        this.hideDeltaLakeTables = hideDeltaLakeTables;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
 
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -160,6 +166,7 @@ public class HiveMetadataFactory
                 writesToNonManagedTablesEnabled,
                 createsOfNonManagedTablesEnabled,
                 translateHiveViews,
+                hideDeltaLakeTables,
                 typeManager,
                 locationService,
                 partitionUpdateCodec,
