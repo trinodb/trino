@@ -45,24 +45,29 @@ import static io.prestosql.plugin.base.util.JsonUtils.parseJson;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyCreateRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateView;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static io.prestosql.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
+import static io.prestosql.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -335,62 +340,69 @@ public class FileBasedAccessControl
     @Override
     public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
-        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
-            denyGrantTablePrivilege(privilege.name(), tableName.toString());
-        }
+        // file based rules are immutable
+        denyGrantTablePrivilege(privilege.toString(), tableName.toString());
     }
 
     @Override
     public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
     {
-        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
-            denyRevokeTablePrivilege(privilege.name(), tableName.toString());
-        }
+        // file based rules are immutable
+        denyRevokeTablePrivilege(privilege.toString(), tableName.toString());
     }
 
     @Override
     public void checkCanCreateRole(ConnectorSecurityContext context, String role, Optional<PrestoPrincipal> grantor)
     {
+        denyCreateRole(role);
     }
 
     @Override
     public void checkCanDropRole(ConnectorSecurityContext context, String role)
     {
+        denyDropRole(role);
     }
 
     @Override
     public void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
+        denyGrantRoles(roles, grantees);
     }
 
     @Override
     public void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
+        denyRevokeRoles(roles, grantees);
     }
 
     @Override
     public void checkCanSetRole(ConnectorSecurityContext context, String role, String catalogName)
     {
+        denySetRole(role);
     }
 
     @Override
     public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
     {
+        // allow, no roles are supported so show will always be empty
     }
 
     @Override
     public void checkCanShowRoles(ConnectorSecurityContext context, String catalogName)
     {
+        // allow, no roles are supported so show will always be empty
     }
 
     @Override
     public void checkCanShowCurrentRoles(ConnectorSecurityContext context, String catalogName)
     {
+        // allow, no roles are supported so show will always be empty
     }
 
     @Override
     public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
     {
+        // allow, no roles are supported so show will always be empty
     }
 
     @Override

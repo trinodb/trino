@@ -25,10 +25,12 @@ import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.PrincipalType;
+import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.type.VarcharType;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
@@ -74,6 +76,34 @@ public class TestFileBasedAccessControl
                 .add(new SchemaTableName("any", "any"))
                 .build();
         assertEquals(accessControl.filterTables(UNKNOWN, tables), tables);
+
+        // permissions management APIs are hard coded to deny
+        PrestoPrincipal someUser = new PrestoPrincipal(PrincipalType.USER, "some_user");
+        assertDenied(() -> accessControl.checkCanGrantTablePrivilege(ADMIN, Privilege.SELECT, new SchemaTableName("any", "any"), someUser, false));
+        assertDenied(() -> accessControl.checkCanRevokeTablePrivilege(ADMIN, Privilege.SELECT, new SchemaTableName("any", "any"), someUser, false));
+        assertDenied(() -> accessControl.checkCanCreateRole(ADMIN, "role", Optional.empty()));
+        assertDenied(() -> accessControl.checkCanDropRole(ADMIN, "role"));
+        assertDenied(() -> accessControl.checkCanGrantRoles(
+                ADMIN,
+                ImmutableSet.of("test"),
+                ImmutableSet.of(someUser),
+                false,
+                Optional.empty(),
+                "any"));
+        assertDenied(() -> accessControl.checkCanRevokeRoles(
+                ADMIN,
+                ImmutableSet.of("test"),
+                ImmutableSet.of(someUser),
+                false,
+                Optional.empty(),
+                "any"));
+        assertDenied(() -> accessControl.checkCanSetRole(ADMIN, "role", "any"));
+
+        // showing roles and permissions is hard coded to allow
+        accessControl.checkCanShowRoleAuthorizationDescriptors(UNKNOWN, "any");
+        accessControl.checkCanShowRoles(UNKNOWN, "any");
+        accessControl.checkCanShowCurrentRoles(UNKNOWN, "any");
+        accessControl.checkCanShowRoleGrants(UNKNOWN, "any");
     }
 
     @Test
