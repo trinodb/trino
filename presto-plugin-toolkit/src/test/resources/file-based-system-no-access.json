@@ -1,4 +1,9 @@
 {
+  "catalogs": [
+    {
+      "allow": true
+    }
+  ],
   "tables": [
   ]
 }
