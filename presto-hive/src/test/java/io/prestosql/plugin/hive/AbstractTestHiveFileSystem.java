@@ -30,6 +30,7 @@ import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore;
@@ -182,8 +183,15 @@ public abstract class AbstractTestHiveFileSystem
         HivePartitionManager hivePartitionManager = new HivePartitionManager(config);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());
+        MetastoreConfig metastoreConfig = new MetastoreConfig();
         metastoreClient = new TestingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), hdfsEnvironment, false)),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(
+                        metastoreLocator,
+                        new HiveConfig(),
+                        metastoreConfig,
+                        new ThriftMetastoreConfig(),
+                        hdfsEnvironment,
+                        false)),
                 executor,
                 getBasePath(),
                 hdfsEnvironment);
@@ -192,6 +200,7 @@ public abstract class AbstractTestHiveFileSystem
         metadataFactory = new HiveMetadataFactory(
                 new CatalogName("hive"),
                 config,
+                metastoreConfig,
                 metastoreClient,
                 hdfsEnvironment,
                 hivePartitionManager,

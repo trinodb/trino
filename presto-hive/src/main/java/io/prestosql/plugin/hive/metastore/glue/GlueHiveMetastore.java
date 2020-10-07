@@ -75,6 +75,7 @@ import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.MetastoreUtil;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
@@ -121,6 +122,8 @@ import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static io.prestosql.plugin.hive.HiveMetadata.DELTA_LAKE_PROVIDER;
+import static io.prestosql.plugin.hive.HiveMetadata.SPARK_TABLE_PROVIDER_KEY;
 import static io.prestosql.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
@@ -162,15 +165,18 @@ public class GlueHiveMetastore
     private final GlueMetastoreStats stats = new GlueMetastoreStats();
     private final GlueColumnStatisticsProvider columnStatisticsProvider;
     private final boolean assumeCanonicalPartitionKeys;
+    private final boolean hideDeltaLakeTables;
 
     @Inject
     public GlueHiveMetastore(
             HdfsEnvironment hdfsEnvironment,
+            MetastoreConfig metastoreConfig,
             GlueHiveMetastoreConfig glueConfig,
             GlueColumnStatisticsProvider columnStatisticsProvider,
             @ForGlueHiveMetastore Executor executor,
             @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler)
     {
+        requireNonNull(metastoreConfig, "metastoreConfig is null");
         requireNonNull(glueConfig, "glueConfig is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
@@ -181,6 +187,7 @@ public class GlueHiveMetastore
         this.executor = requireNonNull(executor, "executor is null");
         this.columnStatisticsProvider = requireNonNull(columnStatisticsProvider, "columnStatisticsProvider is null");
         this.assumeCanonicalPartitionKeys = glueConfig.isAssumeCanonicalPartitionKeys();
+        this.hideDeltaLakeTables = metastoreConfig.isHideDeltaLakeTables();
     }
 
     private static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config, Optional<RequestHandler2> requestHandler)
@@ -403,7 +410,12 @@ public class GlueHiveMetastore
                             .withCatalogId(catalogId)
                             .withDatabaseName(databaseName)
                             .withNextToken(nextToken));
-                    result.getTableList().forEach(table -> tableNames.add(table.getName()));
+                    result.getTableList().stream()
+                            .filter(hideDeltaLakeTables
+                                    ? table -> !table.getParameters().getOrDefault(SPARK_TABLE_PROVIDER_KEY, "").equalsIgnoreCase(DELTA_LAKE_PROVIDER)
+                                    : table -> true)
+                            .map(com.amazonaws.services.glue.model.Table::getName)
+                            .forEach(tableNames::add);
                     nextToken = result.getNextToken();
                 }
                 while (nextToken != null);

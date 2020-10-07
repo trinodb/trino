@@ -20,6 +20,7 @@ import com.google.inject.multibindings.Multibinder;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HiveHdfsModule;
 import io.prestosql.plugin.hive.HiveNodePartitioningProvider;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
@@ -46,6 +47,7 @@ public class IcebergModule
         binder.bind(IcebergTransactionManager.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(IcebergConfig.class);
+        configBinder(binder).bindConfig(MetastoreConfig.class);
 
         binder.bind(IcebergSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTableProperties.class).in(Scopes.SINGLETON);
