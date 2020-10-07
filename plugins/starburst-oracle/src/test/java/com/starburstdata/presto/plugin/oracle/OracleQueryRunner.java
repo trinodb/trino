@@ -50,14 +50,14 @@ public final class OracleQueryRunner
     private OracleQueryRunner() {}
 
     private static QueryRunner createOracleQueryRunner(
+            boolean unlockEnterpriseFeatures,
             Map<String, String> connectorProperties,
             Function<Session, Session> sessionModifier,
             Iterable<TpchTable<?>> tables,
             int nodesCount,
             Map<String, String> coordinatorProperties,
             Runnable createUsers,
-            Runnable provisionTables,
-            boolean unlockEnterpriseFeatures)
+            Runnable provisionTables)
             throws Exception
     {
         Logging logging = Logging.initialize();
@@ -130,6 +130,7 @@ public final class OracleQueryRunner
 
     public static class Builder
     {
+        private boolean unlockEnterpriseFeatures;
         private Map<String, String> connectorProperties = emptyMap();
         private Function<Session, Session> sessionModifier = Function.identity();
         private Iterable<TpchTable<?>> tables = TpchTable.getTables();
@@ -137,9 +138,14 @@ public final class OracleQueryRunner
         private Map<String, String> coordinatorProperties = emptyMap();
         private Runnable createUsers = OracleTestUsers::createStandardUsers;
         private Runnable provisionTables = Runnables.doNothing();
-        private boolean unlockEnterpriseFeatures;
 
         private Builder() {}
+
+        public Builder withUnlockEnterpriseFeatures(boolean unlockEnterpriseFeatures)
+        {
+            this.unlockEnterpriseFeatures = unlockEnterpriseFeatures;
+            return this;
+        }
 
         public Builder withConnectorProperties(Map<String, String> connectorProperties)
         {
@@ -184,15 +190,10 @@ public final class OracleQueryRunner
             return this;
         }
 
-        public Builder withUnlockEnterpriseFeatures(boolean unlockEnterpriseFeatures)
+        public QueryRunner build()
+                throws Exception
         {
-            this.unlockEnterpriseFeatures = unlockEnterpriseFeatures;
-            return this;
-        }
-
-        public QueryRunner build() throws Exception
-        {
-            return createOracleQueryRunner(connectorProperties, sessionModifier, tables, nodesCount, coordinatorProperties, createUsers, provisionTables, unlockEnterpriseFeatures);
+            return createOracleQueryRunner(unlockEnterpriseFeatures, connectorProperties, sessionModifier, tables, nodesCount, coordinatorProperties, createUsers, provisionTables);
         }
     }
 
