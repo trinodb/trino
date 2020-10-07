@@ -461,7 +461,7 @@ public class DynamicFilterService
                 @JsonProperty("totalDynamicFilters") int totalDynamicFilters,
                 @JsonProperty("dynamicFiltersCompleted") int dynamicFiltersCompleted)
         {
-            this.dynamicFilterDomainStats = dynamicFilterDomainStats;
+            this.dynamicFilterDomainStats = requireNonNull(dynamicFilterDomainStats, "dynamicFilterDomainStats is null");
             this.lazyDynamicFilters = lazyDynamicFilters;
             this.replicatedDynamicFilters = replicatedDynamicFilters;
             this.totalDynamicFilters = totalDynamicFilters;
@@ -548,11 +548,11 @@ public class DynamicFilterService
                 @JsonProperty("discreteValuesCount") int discreteValuesCount,
                 @JsonProperty("collectionDuration") Optional<Duration> collectionDuration)
         {
-            this.dynamicFilterId = dynamicFilterId;
-            this.simplifiedDomain = simplifiedDomain;
+            this.dynamicFilterId = requireNonNull(dynamicFilterId, "dynamicFilterId is null");
+            this.simplifiedDomain = requireNonNull(simplifiedDomain, "simplifiedDomain is null");
             this.rangeCount = rangeCount;
             this.discreteValuesCount = discreteValuesCount;
-            this.collectionDuration = collectionDuration;
+            this.collectionDuration = requireNonNull(collectionDuration, "collectionDuration is null");
         }
 
         @JsonProperty
