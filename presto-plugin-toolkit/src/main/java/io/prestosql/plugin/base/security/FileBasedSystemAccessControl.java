@@ -262,9 +262,6 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanExecuteQuery(SystemSecurityContext context)
     {
-        if (queryAccessRules.isEmpty()) {
-            return;
-        }
         if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.EXECUTE)) {
             denyViewQuery();
         }
@@ -273,9 +270,6 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
-        if (queryAccessRules.isEmpty()) {
-            return;
-        }
         if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.VIEW)) {
             denyViewQuery();
         }
@@ -296,9 +290,6 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
-        if (queryAccessRules.isEmpty()) {
-            return;
-        }
         if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.KILL)) {
             denyViewQuery();
         }
@@ -306,12 +297,13 @@ public class FileBasedSystemAccessControl
 
     private boolean canAccessQuery(Identity identity, QueryAccessRule.AccessMode requiredAccess)
     {
-        if (queryAccessRules.isPresent()) {
-            for (QueryAccessRule rule : queryAccessRules.get()) {
-                Optional<Set<QueryAccessRule.AccessMode>> accessMode = rule.match(identity.getUser());
-                if (accessMode.isPresent()) {
-                    return accessMode.get().contains(requiredAccess);
-                }
+        if (queryAccessRules.isEmpty()) {
+            return true;
+        }
+        for (QueryAccessRule rule : queryAccessRules.get()) {
+            Optional<Set<QueryAccessRule.AccessMode>> accessMode = rule.match(identity.getUser());
+            if (accessMode.isPresent()) {
+                return accessMode.get().contains(requiredAccess);
             }
         }
         return false;
