@@ -92,7 +92,7 @@ public class ParquetFileWriterFactory
 
         List<String> fileColumnNames = getColumnNames(schema);
         List<Type> fileColumnTypes = getColumnTypes(schema).stream()
-                .map(hiveType -> hiveType.getType(typeManager, getTimestampPrecision(session).getPrecision()))
+                .map(hiveType -> hiveType.getType(typeManager, getTimestampPrecision(session)))
                 .collect(toList());
 
         int[] fileInputColumnIndexes = fileColumnNames.stream()

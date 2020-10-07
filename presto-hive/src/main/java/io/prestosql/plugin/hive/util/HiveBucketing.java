@@ -22,6 +22,7 @@ import io.prestosql.plugin.hive.HiveBucketHandle;
 import io.prestosql.plugin.hive.HiveBucketProperty;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveTableHandle;
+import io.prestosql.plugin.hive.HiveTimestampPrecision;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Table;
@@ -184,7 +185,7 @@ public final class HiveBucketing
             return Optional.empty();
         }
 
-        int timestampPrecision = getTimestampPrecision(session).getPrecision();
+        HiveTimestampPrecision timestampPrecision = getTimestampPrecision(session);
         Map<String, HiveColumnHandle> map = getRegularColumnHandles(table, typeManager, timestampPrecision).stream()
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
 

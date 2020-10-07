@@ -123,7 +123,6 @@ import static org.testng.Assert.fail;
 public class TestBackgroundHiveSplitLoader
 {
     private static final int BUCKET_COUNT = 2;
-    private static final int TIMESTAMP_PRECISION = 3;
 
     private static final String SAMPLE_PATH = "hdfs://VOL1:9000/db_name/table_name/000000_0";
     private static final String SAMPLE_PATH_FILTERED = "hdfs://VOL1:9000/db_name/table_name/000000_1";
@@ -322,7 +321,7 @@ public class TestBackgroundHiveSplitLoader
                 PARTITIONED_TABLE,
                 Optional.of(
                         new HiveBucketHandle(
-                                getRegularColumnHandles(PARTITIONED_TABLE, TYPE_MANAGER, TIMESTAMP_PRECISION),
+                                getRegularColumnHandles(PARTITIONED_TABLE, TYPE_MANAGER, HiveTimestampPrecision.MILLISECONDS),
                                 BUCKETING_V1,
                                 BUCKET_COUNT,
                                 BUCKET_COUNT)));

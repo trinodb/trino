@@ -545,7 +545,7 @@ public class HiveWriterFactory
             }
 
             List<Type> types = dataColumns.stream()
-                    .map(column -> column.getHiveType().getType(typeManager, getTimestampPrecision(session).getPrecision()))
+                    .map(column -> column.getHiveType().getType(typeManager, getTimestampPrecision(session)))
                     .collect(toImmutableList());
 
             Map<String, Integer> columnIndexes = new HashMap<>();
