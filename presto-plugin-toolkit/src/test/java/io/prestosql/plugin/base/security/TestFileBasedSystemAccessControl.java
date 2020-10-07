@@ -73,6 +73,7 @@ public class TestFileBasedSystemAccessControl
     private static final SystemSecurityContext CHARLIE = new SystemSecurityContext(charlie, queryId);
     private static final SystemSecurityContext ALICE = new SystemSecurityContext(alice, queryId);
     private static final SystemSecurityContext JOE = new SystemSecurityContext(joe, queryId);
+    private static final SystemSecurityContext UNKNOWN = new SystemSecurityContext(Identity.ofUser("some-unknown-user-id"), queryId);
 
     private static final String CREATE_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot create schema .*";
     private static final String DROP_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop schema .*";
@@ -93,6 +94,45 @@ public class TestFileBasedSystemAccessControl
     private static final String RENAME_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename table .*";
     private static final String GRANT_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot grant privilege DELETE on table .*";
     private static final String REVOKE_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot revoke privilege DELETE on table .*";
+
+    @Test
+    public void testEmptyFile()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("empty.json");
+
+        accessControl.checkCanCreateSchema(UNKNOWN, new CatalogSchemaName("some-catalog", "unknown"));
+        accessControl.checkCanDropSchema(UNKNOWN, new CatalogSchemaName("some-catalog", "unknown"));
+        accessControl.checkCanRenameSchema(UNKNOWN, new CatalogSchemaName("some-catalog", "unknown"), "new_unknown");
+        accessControl.checkCanSetSchemaAuthorization(UNKNOWN,
+                new CatalogSchemaName("some-catalog", "unknown"),
+                new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanShowCreateSchema(UNKNOWN, new CatalogSchemaName("some-catalog", "unknown"));
+
+        accessControl.checkCanSelectFromColumns(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"), ImmutableSet.of());
+        accessControl.checkCanShowColumns(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
+        accessControl.checkCanInsertIntoTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
+        accessControl.checkCanDeleteFromTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
+
+        accessControl.checkCanCreateTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
+        accessControl.checkCanDropTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
+        accessControl.checkCanRenameTable(UNKNOWN,
+                new CatalogSchemaTableName("some-catalog", "unknown", "unknown"),
+                new CatalogSchemaTableName("some-catalog", "unknown", "new_unknown"));
+
+        accessControl.checkCanSetUser(Optional.empty(), "unknown");
+        accessControl.checkCanSetUser(Optional.of(new KerberosPrincipal("stuff@example.com")), "unknown");
+
+        accessControl.checkCanSetSystemSessionProperty(UNKNOWN, "anything");
+        accessControl.checkCanSetCatalogSessionProperty(UNKNOWN, "unknown", "anything");
+
+        accessControl.checkCanExecuteQuery(UNKNOWN);
+        accessControl.checkCanViewQueryOwnedBy(UNKNOWN, "anyone");
+        accessControl.checkCanKillQueryOwnedBy(UNKNOWN, "anyone");
+
+        // system information access is denied by default
+        assertThrows(AccessDeniedException.class, () -> accessControl.checkCanReadSystemInformation(UNKNOWN));
+        assertThrows(AccessDeniedException.class, () -> accessControl.checkCanWriteSystemInformation(UNKNOWN));
+    }
 
     @Test
     public void testSchemaRulesForCheckCanCreateSchema()

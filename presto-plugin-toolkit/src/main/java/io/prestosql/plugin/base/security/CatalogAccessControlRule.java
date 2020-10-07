@@ -25,10 +25,17 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import static io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode.ALL;
 import static java.util.Objects.requireNonNull;
 
 public class CatalogAccessControlRule
 {
+    public static final CatalogAccessControlRule ALLOW_ALL = new CatalogAccessControlRule(
+            ALL,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+
     private final AccessMode accessMode;
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> groupRegex;
