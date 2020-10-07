@@ -73,6 +73,7 @@ public class TestFileBasedSystemAccessControl
     private static final SystemSecurityContext ALICE = new SystemSecurityContext(alice, queryId);
     private static final SystemSecurityContext JOE = new SystemSecurityContext(joe, queryId);
 
+    private static final String CREATE_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot create schema .*";
     private static final String DROP_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop schema .*";
     private static final String RENAME_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename schema from .* to .*";
     private static final String AUTH_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set authorization for schema .* to .*";
@@ -91,6 +92,27 @@ public class TestFileBasedSystemAccessControl
     private static final String RENAME_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename table .*";
     private static final String GRANT_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot grant privilege DELETE on table .*";
     private static final String REVOKE_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot revoke privilege DELETE on table .*";
+
+    @Test
+    public void testSchemaRulesForCheckCanCreateSchema()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-schema.json");
+
+        accessControl.checkCanCreateSchema(ADMIN, new CatalogSchemaName("some-catalog", "bob"));
+        accessControl.checkCanCreateSchema(ADMIN, new CatalogSchemaName("some-catalog", "staff"));
+        accessControl.checkCanCreateSchema(ADMIN, new CatalogSchemaName("some-catalog", "authenticated"));
+        accessControl.checkCanCreateSchema(ADMIN, new CatalogSchemaName("some-catalog", "test"));
+
+        accessControl.checkCanCreateSchema(BOB, new CatalogSchemaName("some-catalog", "bob"));
+        accessControl.checkCanCreateSchema(BOB, new CatalogSchemaName("some-catalog", "staff"));
+        accessControl.checkCanCreateSchema(BOB, new CatalogSchemaName("some-catalog", "authenticated"));
+        assertAccessDenied(() -> accessControl.checkCanCreateSchema(BOB, new CatalogSchemaName("some-catalog", "test")), CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
+
+        accessControl.checkCanCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "authenticated"));
+        assertAccessDenied(() -> accessControl.checkCanCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "bob")), CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "staff")), CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "test")), CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
+    }
 
     @Test
     public void testSchemaRulesForCheckCanDropSchema()

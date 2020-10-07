@@ -364,7 +364,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema)
     {
-        if (!canAccessCatalog(context, schema.getCatalogName(), ALL)) {
+        if (!isSchemaOwner(context, schema)) {
             denyCreateSchema(schema.toString());
         }
     }
