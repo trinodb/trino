@@ -88,6 +88,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
 import static java.lang.String.format;
@@ -110,6 +111,7 @@ public class FileBasedSystemAccessControl
     private final List<CatalogSchemaAccessControlRule> schemaRules;
     private final List<CatalogTableAccessControlRule> tableRules;
     private final Set<AnyCatalogPermissionsRule> anyCatalogPermissionsRules;
+    private final Set<AnyCatalogSchemaPermissionsRule> anyCatalogSchemaPermissionsRules;
 
     private FileBasedSystemAccessControl(
             List<CatalogAccessControlRule> catalogRules,
@@ -140,6 +142,19 @@ public class FileBasedSystemAccessControl
                 .map(Optional::get)
                 .forEach(anyCatalogPermissionsRules::add);
         this.anyCatalogPermissionsRules = anyCatalogPermissionsRules.build();
+
+        ImmutableSet.Builder<AnyCatalogSchemaPermissionsRule> anyCatalogSchemaPermissionsRules = ImmutableSet.builder();
+        schemaRules.stream()
+                .map(CatalogSchemaAccessControlRule::toAnyCatalogSchemaPermissionsRule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(anyCatalogSchemaPermissionsRules::add);
+        tableRules.stream()
+                .map(CatalogTableAccessControlRule::toAnyCatalogSchemaPermissionsRule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(anyCatalogSchemaPermissionsRules::add);
+        this.anyCatalogSchemaPermissionsRules = anyCatalogSchemaPermissionsRules.build();
     }
 
     public static class Factory
@@ -425,11 +440,9 @@ public class FileBasedSystemAccessControl
     @Override
     public Set<String> filterSchemas(SystemSecurityContext context, String catalogName, Set<String> schemaNames)
     {
-        if (!canAccessCatalog(context, catalogName, READ_ONLY)) {
-            return ImmutableSet.of();
-        }
-
-        return schemaNames;
+        return schemaNames.stream()
+                .filter(schemaName -> checkAnySchemaAccess(context, catalogName, schemaName))
+                .collect(toImmutableSet());
     }
 
     @Override
@@ -493,6 +506,9 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanShowTables(SystemSecurityContext context, CatalogSchemaName schema)
     {
+        if (!checkAnySchemaAccess(context, schema.getCatalogName(), schema.getSchemaName())) {
+            denyShowTables(schema.toString());
+        }
     }
 
     @Override
@@ -684,6 +700,13 @@ public class FileBasedSystemAccessControl
             }
         }
         return false;
+    }
+
+    private boolean checkAnySchemaAccess(SystemSecurityContext context, String catalogName, String schemaName)
+    {
+        Identity identity = context.getIdentity();
+        return canAccessCatalog(context, catalogName, READ_ONLY) &&
+                anyCatalogSchemaPermissionsRules.stream().anyMatch(rule -> rule.match(identity.getUser(), identity.getGroups(), catalogName, schemaName));
     }
 
     private boolean isSchemaOwner(SystemSecurityContext context, CatalogSchemaName schema)

@@ -241,7 +241,7 @@ public class TestFileBasedAccessControl
     {
         ConnectorAccessControl accessControl = createAccessControl("no-access.json");
         assertDenied(() -> accessControl.checkCanShowColumns(BOB, new SchemaTableName("bobschema", "bobtable")));
-        accessControl.checkCanShowTables(BOB, "bobschema");
+        assertDenied(() -> accessControl.checkCanShowTables(BOB, "bobschema"));
         assertEquals(
                 accessControl.filterColumns(BOB, new SchemaTableName("bobschema", "bobtable"), ImmutableList.of(column("a"))),
                 ImmutableList.of());
@@ -277,6 +277,44 @@ public class TestFileBasedAccessControl
     {
         assertThatThrownBy(() -> createAccessControl("invalid.json"))
                 .hasMessageContaining("Invalid JSON");
+    }
+
+    @Test
+    public void testFilterSchemas()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("visibility.json");
+
+        ImmutableSet<String> allSchemas = ImmutableSet.of("specific-schema", "alice-schema", "bob-schema", "unknown");
+        assertEquals(accessControl.filterSchemas(ADMIN, allSchemas), allSchemas);
+        assertEquals(accessControl.filterSchemas(ALICE, allSchemas), ImmutableSet.of("specific-schema", "alice-schema"));
+        assertEquals(accessControl.filterSchemas(BOB, allSchemas), ImmutableSet.of("specific-schema", "bob-schema"));
+        assertEquals(accessControl.filterSchemas(CHARLIE, allSchemas), ImmutableSet.of("specific-schema"));
+    }
+
+    @Test
+    public void testSchemaRulesForCheckCanShowTables()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("visibility.json");
+        accessControl.checkCanShowTables(ADMIN, "specific-schema");
+        accessControl.checkCanShowTables(ADMIN, "bob-schema");
+        accessControl.checkCanShowTables(ADMIN, "alice-schema");
+        accessControl.checkCanShowTables(ADMIN, "secret");
+        accessControl.checkCanShowTables(ADMIN, "any");
+        accessControl.checkCanShowTables(ALICE, "specific-schema");
+        accessControl.checkCanShowTables(ALICE, "alice-schema");
+        assertDenied(() -> accessControl.checkCanShowTables(ALICE, "bob-schema"));
+        assertDenied(() -> accessControl.checkCanShowTables(ALICE, "secret"));
+        assertDenied(() -> accessControl.checkCanShowTables(ALICE, "any"));
+        accessControl.checkCanShowTables(BOB, "specific-schema");
+        accessControl.checkCanShowTables(BOB, "bob-schema");
+        assertDenied(() -> accessControl.checkCanShowTables(BOB, "alice-schema"));
+        assertDenied(() -> accessControl.checkCanShowTables(BOB, "secret"));
+        assertDenied(() -> accessControl.checkCanShowTables(BOB, "any"));
+        accessControl.checkCanShowTables(CHARLIE, "specific-schema");
+        assertDenied(() -> accessControl.checkCanShowTables(CHARLIE, "bob-schema"));
+        assertDenied(() -> accessControl.checkCanShowTables(CHARLIE, "alice-schema"));
+        assertDenied(() -> accessControl.checkCanShowTables(CHARLIE, "secret"));
+        assertDenied(() -> accessControl.checkCanShowTables(CHARLIE, "any"));
     }
 
     @Test

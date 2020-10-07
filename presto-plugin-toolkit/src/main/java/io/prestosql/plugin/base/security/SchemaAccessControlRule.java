@@ -58,6 +58,14 @@ public class SchemaAccessControlRule
         return Optional.empty();
     }
 
+    Optional<AnySchemaPermissionsRule> toAnySchemaPermissionsRule()
+    {
+        if (!owner) {
+            return Optional.empty();
+        }
+        return Optional.of(new AnySchemaPermissionsRule(userRegex, groupRegex, schemaRegex));
+    }
+
     boolean isOwner()
     {
         return owner;
@@ -71,5 +79,10 @@ public class SchemaAccessControlRule
     Optional<Pattern> getGroupRegex()
     {
         return groupRegex;
+    }
+
+    Optional<Pattern> getSchemaRegex()
+    {
+        return schemaRegex;
     }
 }
