@@ -170,14 +170,14 @@ public class FileBasedSystemAccessControl
             return create(configFileName);
         }
 
-        private PrestoException invalidRefreshPeriodException(Map<String, String> config, String configFileName)
+        private static PrestoException invalidRefreshPeriodException(Map<String, String> config, String configFileName)
         {
             return new PrestoException(
                     CONFIGURATION_INVALID,
                     format("Invalid duration value '%s' for property '%s' in '%s'", config.get(SECURITY_REFRESH_PERIOD), SECURITY_REFRESH_PERIOD, configFileName));
         }
 
-        private SystemAccessControl create(String configFileName)
+        private static SystemAccessControl create(String configFileName)
         {
             FileBasedSystemAccessControlRules rules = parseJson(Paths.get(configFileName), FileBasedSystemAccessControlRules.class);
 
