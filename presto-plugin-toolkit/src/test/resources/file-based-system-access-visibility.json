@@ -33,6 +33,10 @@
             "user": "bob",
             "catalog": "(bob-catalog|alice-catalog)",
             "allow": "all"
+        },
+        {
+            "catalog": ".*session.*",
+            "allow": "read-only"
         }
     ],
     "schemas": [
@@ -86,6 +90,34 @@
             "privileges": [
                 "SELECT"
             ]
+        }
+    ],
+    "catalog_session_properties": [
+        {
+            "catalog": "secret",
+            "allow": false
+        },
+        {
+            "catalog": "session-catalog",
+            "property": "something",
+            "allow": true
+        },
+        {
+            "user": "alice",
+            "catalog": "alice-catalog-session",
+            "property": "dangerous",
+            "allow": false
+        },
+        {
+            "user": "alice",
+            "catalog": "alice-catalog-session",
+            "allow": true
+        },
+        {
+            "user": "bob",
+            "catalog": "bob-catalog-session",
+            "property": "safe",
+            "allow": true
         }
     ]
 }
