@@ -57,4 +57,19 @@ public class SchemaAccessControlRule
         }
         return Optional.empty();
     }
+
+    boolean isOwner()
+    {
+        return owner;
+    }
+
+    Optional<Pattern> getUserRegex()
+    {
+        return userRegex;
+    }
+
+    Optional<Pattern> getGroupRegex()
+    {
+        return groupRegex;
+    }
 }
