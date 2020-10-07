@@ -91,7 +91,7 @@ public class RecordFileWriter
         // existing tables may have columns in a different order
         List<String> fileColumnNames = getColumnNames(schema);
         List<Type> fileColumnTypes = getColumnTypes(schema).stream()
-                .map(hiveType -> hiveType.getType(typeManager, getTimestampPrecision(session).getPrecision()))
+                .map(hiveType -> hiveType.getType(typeManager, getTimestampPrecision(session)))
                 .collect(toList());
 
         fieldCount = fileColumnNames.size();

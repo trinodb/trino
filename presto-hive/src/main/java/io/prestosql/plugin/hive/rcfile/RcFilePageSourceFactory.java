@@ -24,6 +24,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.plugin.hive.HiveTimestampPrecision;
 import io.prestosql.plugin.hive.ReaderProjections;
 import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.util.FSDataInputStreamTail;
@@ -184,7 +185,7 @@ public class RcFilePageSourceFactory
 
         try {
             ImmutableMap.Builder<Integer, Type> readColumns = ImmutableMap.builder();
-            int timestampPrecision = getTimestampPrecision(session).getPrecision();
+            HiveTimestampPrecision timestampPrecision = getTimestampPrecision(session);
             for (HiveColumnHandle column : projectedReaderColumns) {
                 readColumns.put(column.getBaseHiveColumnIndex(), column.getHiveType().getType(typeManager, timestampPrecision));
             }

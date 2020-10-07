@@ -390,7 +390,7 @@ public class HiveMetadata
                 tableName.getTableName(),
                 table.get().getParameters(),
                 getPartitionKeyColumnHandles(table.get(), typeManager),
-                getRegularColumnHandles(table.get(), typeManager, getTimestampPrecision(session).getPrecision()),
+                getRegularColumnHandles(table.get(), typeManager, getTimestampPrecision(session)),
                 getHiveBucketHandle(session, table.get(), typeManager));
     }
 
@@ -566,7 +566,7 @@ public class HiveMetadata
 
         Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table);
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(table, typeManager, getTimestampPrecision(session).getPrecision())) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(table, typeManager, getTimestampPrecision(session))) {
             columns.add(metadataGetter.apply(columnHandle));
         }
 
@@ -710,7 +710,7 @@ public class HiveMetadata
         SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
         Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
-        return hiveColumnHandles(table, typeManager, getTimestampPrecision(session).getPrecision()).stream()
+        return hiveColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
                 .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
     }
 
@@ -1236,7 +1236,7 @@ public class HiveMetadata
         List<String> partitionColumnNames = partitionColumns.stream()
                 .map(Column::getName)
                 .collect(toImmutableList());
-        int timestampPrecision = getTimestampPrecision(session).getPrecision();
+        HiveTimestampPrecision timestampPrecision = getTimestampPrecision(session);
         List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table, typeManager, timestampPrecision);
         Map<String, Type> columnTypes = hiveColumnHandles.stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
@@ -1568,7 +1568,7 @@ public class HiveMetadata
             }
         }
 
-        List<HiveColumnHandle> handles = hiveColumnHandles(table, typeManager, getTimestampPrecision(session).getPrecision()).stream()
+        List<HiveColumnHandle> handles = hiveColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toList());
 
