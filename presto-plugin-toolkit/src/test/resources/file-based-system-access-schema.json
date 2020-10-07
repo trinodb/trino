@@ -6,26 +6,33 @@
     ],
     "schemas": [
         {
+            "catalog": "unknown",
+            "owner": false
+        },
+        {
+            "catalog": "secret",
             "schema": "secret",
             "owner": false
         },
         {
             "user": "admin",
-            "schema": ".*",
             "owner": true
         },
         {
             "group": "staff",
+            "catalog": "some-catalog",
             "schema": "staff",
             "owner": true
         },
         {
             "group": "staff|guests",
+            "catalog": "some-catalog",
             "schema": "authenticated",
             "owner": true
         },
         {
             "user": "bob",
+            "catalog": "some-catalog",
             "schema": "bob",
             "owner": true
         }
