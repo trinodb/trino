@@ -33,6 +33,7 @@ import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.prestosql.plugin.hive.testing.TestingHiveConnectorFactory;
@@ -103,6 +104,7 @@ public class TestConnectorPushdownRulesWithHive
 
         metastore = new FileHiveMetastore(
                 environment,
+                new MetastoreConfig(),
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));

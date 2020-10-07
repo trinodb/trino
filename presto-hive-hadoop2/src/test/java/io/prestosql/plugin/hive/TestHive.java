@@ -20,6 +20,7 @@ import org.testng.annotations.Parameters;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHive
         extends AbstractTestHive
@@ -64,5 +65,19 @@ public class TestHive
         }
 
         super.testGetPartitionSplitsTableOfflinePartition();
+    }
+
+    @Override
+    public void testHideDeltaLakeTables()
+    {
+        assertThatThrownBy(super::testHideDeltaLakeTables)
+                .hasMessageMatching("(?s)\n" +
+                        "Expecting\n" +
+                        " <\\[.*\\b(\\w+.tmp_presto_test_presto_delta_lake_table_\\w+)\\b.*]>\n" +
+                        "not to contain\n" +
+                        " <\\[\\1]>\n" +
+                        "but found.*");
+
+        throw new SkipException("not supported");
     }
 }

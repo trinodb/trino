@@ -23,6 +23,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.prestosql.plugin.hive.testing.TestingHivePlugin;
@@ -65,6 +66,7 @@ public class TestIcebergMetadataListing
 
         metastore = new FileHiveMetastore(
                 hdfsEnvironment,
+                new MetastoreConfig(),
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));

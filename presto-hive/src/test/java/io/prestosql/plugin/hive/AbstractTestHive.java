@@ -39,6 +39,7 @@ import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
@@ -244,6 +245,7 @@ import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKE
 import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.createDirectory;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -281,7 +283,9 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
+import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -732,7 +736,13 @@ public abstract class AbstractTestHive
 
         hdfsEnvironment = new HdfsEnvironment(createTestHdfsConfiguration(), new HdfsConfig(), new NoHdfsAuthentication());
         HiveMetastore metastore = cachingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, hiveConfig, new ThriftMetastoreConfig(), hdfsEnvironment, false)),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(
+                        metastoreLocator,
+                        hiveConfig,
+                        new MetastoreConfig(),
+                        new ThriftMetastoreConfig(),
+                        hdfsEnvironment,
+                        false)),
                 executor,
                 Duration.valueOf("1m"),
                 Optional.of(Duration.valueOf("15s")),
@@ -764,6 +774,7 @@ public abstract class AbstractTestHive
                 false,
                 1000,
                 Optional.empty(),
+                true,
                 TYPE_MANAGER,
                 locationService,
                 partitionUpdateCodec,
@@ -2574,6 +2585,74 @@ public abstract class AbstractTestHive
             catch (PrestoException e) {
                 assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
             }
+        }
+    }
+
+    @Test
+    public void testHideDeltaLakeTables()
+    {
+        ConnectorSession session = newSession();
+        HiveIdentity identity = new HiveIdentity(session);
+        SchemaTableName tableName = temporaryTable("presto_delta_lake_table");
+
+        Table.Builder table = Table.builder()
+                .setDatabaseName(tableName.getSchemaName())
+                .setTableName(tableName.getTableName())
+                .setOwner(session.getUser())
+                .setTableType(MANAGED_TABLE.name())
+                .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty())))
+                .setParameter(HiveMetadata.SPARK_TABLE_PROVIDER_KEY, HiveMetadata.DELTA_LAKE_PROVIDER);
+        table.getStorageBuilder()
+                .setStorageFormat(fromHiveStorageFormat(PARQUET))
+                .setLocation(getTableDefaultLocation(
+                        metastoreClient.getDatabase(tableName.getSchemaName()).orElseThrow(),
+                        new HdfsContext(session.getIdentity()),
+                        hdfsEnvironment,
+                        tableName.getSchemaName(),
+                        tableName.getTableName()).toString());
+        PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
+        metastoreClient.createTable(identity, table.build(), principalPrivileges);
+
+        try {
+            // Verify the table was created as a Delta Lake table
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                metadata.beginQuery(session);
+                assertThatThrownBy(() -> getTableHandle(metadata, tableName))
+                        .hasMessage("Cannot query Delta Lake table");
+            }
+
+            // Assert that table is hidden
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+
+                // TODO (https://github.com/prestosql/presto/issues/5426) these assertions should use information_schema instead of metadata directly,
+                //  as information_schema or MetadataManager may apply additional logic
+
+                // list all tables
+                assertThat(metadata.listTables(session, Optional.empty()))
+                        .doesNotContain(tableName);
+
+                // list all tables in a schema
+                assertThat(metadata.listTables(session, Optional.of(tableName.getSchemaName())))
+                        .doesNotContain(tableName);
+
+                // list all columns
+                assertThat(metadata.listTableColumns(session, new SchemaTablePrefix()).keySet())
+                        .doesNotContain(tableName);
+
+                // list all columns in a schema
+                assertThat(metadata.listTableColumns(session, new SchemaTablePrefix(tableName.getSchemaName())).keySet())
+                        .doesNotContain(tableName);
+
+                // list all columns in a table
+                assertThat(metadata.listTableColumns(session, new SchemaTablePrefix(tableName.getSchemaName(), tableName.getTableName())).keySet())
+                        .doesNotContain(tableName);
+            }
+        }
+        finally {
+            // Clean up
+            metastoreClient.dropTable(identity, tableName.getSchemaName(), tableName.getTableName(), true);
         }
     }
 
