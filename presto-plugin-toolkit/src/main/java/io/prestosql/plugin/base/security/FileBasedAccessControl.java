@@ -14,6 +14,7 @@
 package io.prestosql.plugin.base.security;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
@@ -66,6 +67,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAutho
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -75,6 +77,7 @@ public class FileBasedAccessControl
     private final List<SchemaAccessControlRule> schemaRules;
     private final List<TableAccessControlRule> tableRules;
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
+    private final Set<AnySchemaPermissionsRule> anySchemaPermissionsRules;
 
     @Inject
     public FileBasedAccessControl(FileBasedAccessControlConfig config)
@@ -84,6 +87,18 @@ public class FileBasedAccessControl
         this.schemaRules = rules.getSchemaRules();
         this.tableRules = rules.getTableRules();
         this.sessionPropertyRules = rules.getSessionPropertyRules();
+        ImmutableSet.Builder<AnySchemaPermissionsRule> anySchemaPermissionsRules = ImmutableSet.builder();
+        schemaRules.stream()
+                .map(SchemaAccessControlRule::toAnySchemaPermissionsRule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(anySchemaPermissionsRules::add);
+        tableRules.stream()
+                .map(TableAccessControlRule::toAnySchemaPermissionsRule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(anySchemaPermissionsRules::add);
+        this.anySchemaPermissionsRules = anySchemaPermissionsRules.build();
     }
 
     @Override
@@ -126,7 +141,9 @@ public class FileBasedAccessControl
     @Override
     public Set<String> filterSchemas(ConnectorSecurityContext context, Set<String> schemaNames)
     {
-        return schemaNames;
+        return schemaNames.stream()
+                .filter(schemaName -> checkAnySchemaAccess(context, schemaName))
+                .collect(toImmutableSet());
     }
 
     @Override
@@ -165,6 +182,9 @@ public class FileBasedAccessControl
     @Override
     public void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
     {
+        if (!checkAnySchemaAccess(context, schemaName)) {
+            denyShowTables(schemaName);
+        }
     }
 
     @Override
@@ -426,6 +446,12 @@ public class FileBasedAccessControl
             }
         }
         return false;
+    }
+
+    private boolean checkAnySchemaAccess(ConnectorSecurityContext context, String schemaName)
+    {
+        ConnectorIdentity identity = context.getIdentity();
+        return anySchemaPermissionsRules.stream().anyMatch(rule -> rule.match(identity.getUser(), identity.getGroups(), schemaName));
     }
 
     private boolean isSchemaOwner(ConnectorSecurityContext context, String schemaName)
