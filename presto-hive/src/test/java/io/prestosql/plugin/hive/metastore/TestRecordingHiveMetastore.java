@@ -157,15 +157,15 @@ public class TestRecordingHiveMetastore
 
     private void validateMetadata(HiveMetastore hiveMetastore)
     {
-        assertEquals(hiveMetastore.getDatabase("database"), Optional.of(DATABASE));
+        assertEquals(hiveMetastore.getDatabase(HIVE_CONTEXT, "database"), Optional.of(DATABASE));
         assertEquals(hiveMetastore.getAllDatabases(), ImmutableList.of("database"));
         assertEquals(hiveMetastore.getTable(HIVE_CONTEXT, "database", "table"), Optional.of(TABLE));
         assertEquals(hiveMetastore.getSupportedColumnStatistics(createVarcharType(123)), ImmutableSet.of(MIN_VALUE, MAX_VALUE));
         assertEquals(hiveMetastore.getTableStatistics(HIVE_CONTEXT, TABLE), PARTITION_STATISTICS);
         assertEquals(hiveMetastore.getPartitionStatistics(HIVE_CONTEXT, TABLE, ImmutableList.of(PARTITION)), ImmutableMap.of("value", PARTITION_STATISTICS));
-        assertEquals(hiveMetastore.getAllTables("database"), ImmutableList.of("table"));
-        assertEquals(hiveMetastore.getTablesWithParameter("database", "param", "value3"), ImmutableList.of("table"));
-        assertEquals(hiveMetastore.getAllViews("database"), ImmutableList.of());
+        assertEquals(hiveMetastore.getAllTables(HIVE_CONTEXT, "database"), ImmutableList.of("table"));
+        assertEquals(hiveMetastore.getTablesWithParameter(HIVE_CONTEXT, "database", "param", "value3"), ImmutableList.of("table"));
+        assertEquals(hiveMetastore.getAllViews(HIVE_CONTEXT, "database"), ImmutableList.of());
         assertEquals(hiveMetastore.getPartition(HIVE_CONTEXT, TABLE, ImmutableList.of("value")), Optional.of(PARTITION));
         assertEquals(hiveMetastore.getPartitionNamesByFilter(HIVE_CONTEXT, "database", "table", PARTITION_COLUMN_NAMES, TupleDomain.all()), Optional.of(ImmutableList.of("value")));
         assertEquals(hiveMetastore.getPartitionNamesByFilter(HIVE_CONTEXT, "database", "table", PARTITION_COLUMN_NAMES, TUPLE_DOMAIN), Optional.of(ImmutableList.of("value")));
@@ -180,7 +180,7 @@ public class TestRecordingHiveMetastore
             extends UnimplementedHiveMetastore
     {
         @Override
-        public Optional<Database> getDatabase(String databaseName)
+        public Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
         {
             if (databaseName.equals("database")) {
                 return Optional.of(DATABASE);
@@ -238,7 +238,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public List<String> getAllTables(String databaseName)
+        public List<String> getAllTables(HiveIdentity identity, String databaseName)
         {
             if (databaseName.equals("database")) {
                 return ImmutableList.of("table");
@@ -248,7 +248,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+        public List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue)
         {
             if (databaseName.equals("database") && parameterKey.equals("param") && parameterValue.equals("value3")) {
                 return ImmutableList.of("table");
@@ -257,7 +257,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public List<String> getAllViews(String databaseName)
+        public List<String> getAllViews(HiveIdentity identity, String databaseName)
         {
             return ImmutableList.of();
         }

@@ -469,7 +469,7 @@ public class SqlStandardAccessControl
         }
 
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle()));
-        Optional<Database> databaseMetadata = metastore.getDatabase(databaseName);
+        Optional<Database> databaseMetadata = metastore.getDatabase(new HiveIdentity(context.getIdentity()), databaseName);
         if (databaseMetadata.isEmpty()) {
             return false;
         }
