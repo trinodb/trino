@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.base.security;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -30,7 +31,7 @@ public class AccessControlRules
     public AccessControlRules(
             @JsonProperty("schemas") Optional<List<SchemaAccessControlRule>> schemaRules,
             @JsonProperty("tables") Optional<List<TableAccessControlRule>> tableRules,
-            @JsonProperty("sessionProperties") Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules)
+            @JsonProperty("session_properties") @JsonAlias("sessionProperties") Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules)
     {
         this.schemaRules = schemaRules.orElse(ImmutableList.of());
         this.tableRules = tableRules.orElse(ImmutableList.of());

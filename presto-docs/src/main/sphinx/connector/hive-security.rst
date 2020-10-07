@@ -563,7 +563,7 @@ See below for an example.
           "privileges": ["SELECT"]
         }
       ],
-      "sessionProperties": [
+      "session_properties": [
         {
           "property": "force_local_scheduling",
           "allow": true

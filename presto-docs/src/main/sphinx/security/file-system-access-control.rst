@@ -245,8 +245,8 @@ defined, impersonation is not allowed.
 
 Each impersonation rule is composed of the following fields:
 
-* ``originalUser`` (required): regex to match against the user requesting the impersonation.
-* ``newUser`` (required): regex to match against the user that will be impersonated.
+* ``original_user`` (required): regex to match against the user requesting the impersonation.
+* ``new_user`` (required): regex to match against the user that will be impersonated.
 * ``allow`` (optional): boolean indicating if the authentication should be allowed.
 
 The following example allows the two admins, ``alice`` and ``bob``, to impersonate
