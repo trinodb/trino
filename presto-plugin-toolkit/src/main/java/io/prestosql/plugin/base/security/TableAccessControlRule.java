@@ -65,6 +65,21 @@ public class TableAccessControlRule
         return Optional.empty();
     }
 
+    Set<TablePrivilege> getPrivileges()
+    {
+        return privileges;
+    }
+
+    Optional<Pattern> getUserRegex()
+    {
+        return userRegex;
+    }
+
+    Optional<Pattern> getGroupRegex()
+    {
+        return groupRegex;
+    }
+
     public enum TablePrivilege
     {
         SELECT, INSERT, DELETE, OWNERSHIP, GRANT_SELECT

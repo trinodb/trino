@@ -16,6 +16,7 @@ package io.prestosql.plugin.base.security;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
@@ -62,7 +63,6 @@ public class TestFileBasedSystemAccessControl
     private static final Identity bob = Identity.forUser("bob").withGroups(ImmutableSet.of("staff")).build();
     private static final Identity admin = Identity.forUser("admin").withGroups(ImmutableSet.of("admin", "staff")).build();
     private static final Identity nonAsciiUser = Identity.ofUser("\u0194\u0194\u0194");
-    private static final Set<String> allCatalogs = ImmutableSet.of("secret", "open-to-all", "all-allowed", "alice-catalog", "allowed-absent", "\u0200\u0200\u0200");
     private static final CatalogSchemaTableName aliceView = new CatalogSchemaTableName("alice-catalog", "schema", "view");
     private static final Optional<QueryId> queryId = Optional.empty();
 
@@ -75,6 +75,7 @@ public class TestFileBasedSystemAccessControl
     private static final SystemSecurityContext JOE = new SystemSecurityContext(joe, queryId);
     private static final SystemSecurityContext UNKNOWN = new SystemSecurityContext(Identity.ofUser("some-unknown-user-id"), queryId);
 
+    private static final String SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot show schemas";
     private static final String CREATE_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot create schema .*";
     private static final String DROP_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop schema .*";
     private static final String RENAME_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename schema from .* to .*";
@@ -610,17 +611,66 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
-    public void testCatalogOperations()
+    public void testFilterCatalogs()
     {
-        SystemAccessControl accessControl = newFileBasedSystemAccessControl("catalog.json");
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-visibility.json");
+        Set<String> allCatalogs = ImmutableSet.of(
+                "alice-catalog",
+                "bob-catalog",
+                "specific-catalog",
+                "secret",
+                "hidden",
+                "open-to-all",
+                "blocked-catalog",
+                "unknown");
 
-        assertEquals(accessControl.filterCatalogs(new SystemSecurityContext(admin, queryId), allCatalogs), allCatalogs);
-        Set<String> aliceCatalogs = ImmutableSet.of("open-to-all", "alice-catalog", "all-allowed");
-        assertEquals(accessControl.filterCatalogs(new SystemSecurityContext(alice, queryId), allCatalogs), aliceCatalogs);
-        Set<String> bobCatalogs = ImmutableSet.of("open-to-all", "all-allowed");
-        assertEquals(accessControl.filterCatalogs(new SystemSecurityContext(bob, queryId), allCatalogs), bobCatalogs);
-        Set<String> nonAsciiUserCatalogs = ImmutableSet.of("open-to-all", "all-allowed", "\u0200\u0200\u0200");
-        assertEquals(accessControl.filterCatalogs(new SystemSecurityContext(nonAsciiUser, queryId), allCatalogs), nonAsciiUserCatalogs);
+        assertEquals(accessControl.filterCatalogs(ADMIN, allCatalogs), Sets.difference(allCatalogs, ImmutableSet.of("blocked-catalog")));
+        Set<String> aliceCatalogs = ImmutableSet.of("specific-catalog", "alice-catalog");
+        assertEquals(accessControl.filterCatalogs(ALICE, allCatalogs), aliceCatalogs);
+        Set<String> bobCatalogs = ImmutableSet.of("specific-catalog", "alice-catalog", "bob-catalog");
+        assertEquals(accessControl.filterCatalogs(BOB, allCatalogs), bobCatalogs);
+        Set<String> charlieCatalogs = ImmutableSet.of("specific-catalog");
+        assertEquals(accessControl.filterCatalogs(CHARLIE, allCatalogs), charlieCatalogs);
+    }
+
+    @Test
+    public void testSchemaRulesForCheckCanShowSchemas()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-visibility.json");
+
+        accessControl.checkCanShowSchemas(ADMIN, "specific-catalog");
+        accessControl.checkCanShowSchemas(ADMIN, "secret");
+        accessControl.checkCanShowSchemas(ADMIN, "hidden");
+        accessControl.checkCanShowSchemas(ADMIN, "open-to-all");
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(ADMIN, "blocked-catalog"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanShowSchemas(ADMIN, "unknown");
+
+        accessControl.checkCanShowSchemas(ALICE, "specific-catalog");
+        accessControl.checkCanShowSchemas(ALICE, "alice-catalog");
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(ALICE, "bob-catalog"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(ALICE, "secret"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(ALICE, "hidden"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(ALICE, "open-to-all"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(ALICE, "blocked-catalog"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(ALICE, "unknown"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+
+        accessControl.checkCanShowSchemas(BOB, "specific-catalog");
+        accessControl.checkCanShowSchemas(BOB, "bob-catalog");
+        accessControl.checkCanShowSchemas(BOB, "alice-catalog");
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(BOB, "secret"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(BOB, "hidden"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(BOB, "open-to-all"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(BOB, "blocked-catalog"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(BOB, "unknown"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+
+        accessControl.checkCanShowSchemas(CHARLIE, "specific-catalog");
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(CHARLIE, "alice-catalog"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(CHARLIE, "bob-catalog"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(CHARLIE, "secret"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(CHARLIE, "hidden"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(CHARLIE, "open-to-all"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(CHARLIE, "blocked-catalog"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowSchemas(CHARLIE, "unknown"), SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE);
     }
 
     @Test
