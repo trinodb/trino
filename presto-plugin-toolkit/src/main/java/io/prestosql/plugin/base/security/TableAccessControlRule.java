@@ -26,6 +26,13 @@ import static java.util.Objects.requireNonNull;
 
 public class TableAccessControlRule
 {
+    public static final TableAccessControlRule ALLOW_ALL = new TableAccessControlRule(
+            ImmutableSet.copyOf(TablePrivilege.values()),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+
     private final Set<TablePrivilege> privileges;
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> groupRegex;

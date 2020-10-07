@@ -24,6 +24,12 @@ import static java.util.Objects.requireNonNull;
 
 public class SchemaAccessControlRule
 {
+    public static final SchemaAccessControlRule ALLOW_ALL = new SchemaAccessControlRule(
+            true,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+
     private final boolean owner;
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> groupRegex;
