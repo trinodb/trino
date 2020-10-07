@@ -61,6 +61,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 
+import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
@@ -408,6 +409,29 @@ public class FileHiveMetastore
     @Override
     public synchronized List<String> getAllTables(String databaseName)
     {
+        return listAllTables(databaseName);
+    }
+
+    @Override
+    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    {
+        requireNonNull(parameterKey, "parameterKey is null");
+        requireNonNull(parameterValue, "parameterValue is null");
+
+        List<String> tables = listAllTables(databaseName);
+
+        return tables.stream()
+                .map(tableName -> getTable(databaseName, tableName))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .filter(table -> parameterValue.equals(table.getParameters().get(parameterKey)))
+                .map(Table::getTableName)
+                .collect(toImmutableList());
+    }
+
+    @GuardedBy("this")
+    private List<String> listAllTables(String databaseName)
+    {
         requireNonNull(databaseName, "databaseName is null");
 
         Optional<Database> database = getDatabase(databaseName);
@@ -420,23 +444,6 @@ public class FileHiveMetastore
                 .map(Path::getName)
                 .collect(toImmutableList());
         return tables;
-    }
-
-    @Override
-    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
-    {
-        requireNonNull(parameterKey, "parameterKey is null");
-        requireNonNull(parameterValue, "parameterValue is null");
-
-        List<String> tables = getAllTables(databaseName);
-
-        return tables.stream()
-                .map(tableName -> getTable(databaseName, tableName))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .filter(table -> parameterValue.equals(table.getParameters().get(parameterKey)))
-                .map(Table::getTableName)
-                .collect(toImmutableList());
     }
 
     @Override
