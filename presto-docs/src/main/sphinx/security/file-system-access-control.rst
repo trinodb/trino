@@ -127,11 +127,6 @@ ownership of any schema, you can use the following rules:
 .. code-block:: json
 
     {
-      "catalogs": [
-        {
-          "allow": true
-        }
-      ],
       "schemas": [
         {
           "user": "admin",
@@ -179,11 +174,6 @@ The example below defines the following table access policy:
 .. code-block:: json
 
     {
-      "catalogs": [
-        {
-          "allow": true
-        }
-      ],
       "tables": [
         {
           "user": "admin",
@@ -299,11 +289,6 @@ and Kerberos authentication:
 .. code-block:: json
 
     {
-      "catalogs": [
-        {
-          "allow": true
-        }
-      ],
       "principals": [
         {
           "principal": "(.*)",
@@ -325,11 +310,6 @@ name, and allow ``alice`` and ``bob`` to use a group principal named as
 .. code-block:: json
 
     {
-      "catalogs": [
-        {
-          "allow": true
-        }
-      ],
       "principals": [
         {
           "principal": "([^/]+)/?.*@example.net",

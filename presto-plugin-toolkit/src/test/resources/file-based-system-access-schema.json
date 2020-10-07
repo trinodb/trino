@@ -1,9 +1,4 @@
 {
-    "catalogs": [
-        {
-            "allow": true
-        }
-    ],
     "schemas": [
         {
             "catalog": "unknown",

@@ -22,7 +22,7 @@ import java.util.Optional;
 
 public class FileBasedSystemAccessControlRules
 {
-    private final List<CatalogAccessControlRule> catalogRules;
+    private final Optional<List<CatalogAccessControlRule>> catalogRules;
     private final Optional<List<QueryAccessRule>> queryAccessRules;
     private final Optional<List<ImpersonationRule>> impersonationRules;
     private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
@@ -40,7 +40,7 @@ public class FileBasedSystemAccessControlRules
             @JsonProperty("schemas") Optional<List<CatalogSchemaAccessControlRule>> schemaAccessControlRules,
             @JsonProperty("tables") Optional<List<CatalogTableAccessControlRule>> tableAccessControlRules)
     {
-        this.catalogRules = catalogRules.map(ImmutableList::copyOf).orElse(ImmutableList.of());
+        this.catalogRules = catalogRules.map(ImmutableList::copyOf);
         this.queryAccessRules = queryAccessRules.map(ImmutableList::copyOf);
         this.principalUserMatchRules = principalUserMatchRules.map(ImmutableList::copyOf);
         this.impersonationRules = impersonationRules.map(ImmutableList::copyOf);
@@ -49,7 +49,7 @@ public class FileBasedSystemAccessControlRules
         this.tableRules = tableAccessControlRules.map(ImmutableList::copyOf);
     }
 
-    public List<CatalogAccessControlRule> getCatalogRules()
+    public Optional<List<CatalogAccessControlRule>> getCatalogRules()
     {
         return catalogRules;
     }
