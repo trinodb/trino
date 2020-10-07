@@ -3,14 +3,14 @@
     {
       "user": "user",
       "privileges": [
-        "SELECT"
+        "SELECT",
+        "OWNERSHIP"
       ]
     }
   ],
   "schemas": [
     {
-      "user": "user",
-      "owner": true
+      "owner": false
     }
   ]
 }
