@@ -14,7 +14,6 @@
 package io.prestosql.plugin.base.security;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
@@ -401,9 +400,9 @@ public class FileBasedAccessControl
         return checkTablePermission(context, tableName, privileges -> !privileges.isEmpty());
     }
 
-    private boolean checkTablePermission(ConnectorSecurityContext context, SchemaTableName tableName, TablePrivilege... requiredPrivileges)
+    private boolean checkTablePermission(ConnectorSecurityContext context, SchemaTableName tableName, TablePrivilege requiredPrivilege)
     {
-        return checkTablePermission(context, tableName, privileges -> privileges.containsAll(ImmutableSet.copyOf(requiredPrivileges)));
+        return checkTablePermission(context, tableName, privileges -> privileges.contains(requiredPrivilege));
     }
 
     private boolean checkTablePermission(ConnectorSecurityContext context, SchemaTableName tableName, Predicate<Set<TablePrivilege>> checkPrivileges)
