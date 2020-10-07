@@ -24,6 +24,12 @@ import static java.util.Objects.requireNonNull;
 
 public class SessionPropertyAccessControlRule
 {
+    public static final SessionPropertyAccessControlRule ALLOW_ALL = new SessionPropertyAccessControlRule(
+            true,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+
     private final boolean allow;
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> groupRegex;

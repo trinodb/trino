@@ -33,9 +33,9 @@ public class AccessControlRules
             @JsonProperty("tables") Optional<List<TableAccessControlRule>> tableRules,
             @JsonProperty("session_properties") @JsonAlias("sessionProperties") Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules)
     {
-        this.schemaRules = schemaRules.orElse(ImmutableList.of());
-        this.tableRules = tableRules.orElse(ImmutableList.of());
-        this.sessionPropertyRules = sessionPropertyRules.orElse(ImmutableList.of());
+        this.schemaRules = schemaRules.orElse(ImmutableList.of(SchemaAccessControlRule.ALLOW_ALL));
+        this.tableRules = tableRules.orElse(ImmutableList.of(TableAccessControlRule.ALLOW_ALL));
+        this.sessionPropertyRules = sessionPropertyRules.orElse(ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL));
     }
 
     public List<SchemaAccessControlRule> getSchemaRules()
