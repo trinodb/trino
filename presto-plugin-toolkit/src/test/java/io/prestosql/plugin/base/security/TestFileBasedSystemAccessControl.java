@@ -203,8 +203,8 @@ public class TestFileBasedSystemAccessControl
         accessControl.checkCanSelectFromColumns(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanSelectFromColumns(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of("bobcolumn"));
         accessControl.checkCanSelectFromColumns(JOE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of());
-        assertAccessDenied(() -> accessControl.checkCanSelectFromColumns(ADMIN, new CatalogSchemaTableName("some-catalog", "secret", "secret"), ImmutableSet.of()), SELECT_TABLE_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSelectFromColumns(JOE, new CatalogSchemaTableName("some-catalog", "secret", "secret"), ImmutableSet.of()), SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSelectFromColumns(ADMIN, new CatalogSchemaTableName("secret", "secret", "secret"), ImmutableSet.of()), SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSelectFromColumns(JOE, new CatalogSchemaTableName("secret", "secret", "secret"), ImmutableSet.of()), SELECT_TABLE_ACCESS_DENIED_MESSAGE);
     }
 
     @Test

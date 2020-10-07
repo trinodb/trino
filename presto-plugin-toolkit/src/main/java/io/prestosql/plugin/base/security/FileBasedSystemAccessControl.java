@@ -106,8 +106,8 @@ public class FileBasedSystemAccessControl
     private final Optional<List<ImpersonationRule>> impersonationRules;
     private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
     private final Optional<List<SystemInformationRule>> systemInformationRules;
-    private final Optional<List<SchemaAccessControlRule>> schemaRules;
-    private final Optional<List<TableAccessControlRule>> tableRules;
+    private final Optional<List<CatalogSchemaAccessControlRule>> schemaRules;
+    private final Optional<List<CatalogTableAccessControlRule>> tableRules;
 
     private FileBasedSystemAccessControl(
             List<CatalogAccessControlRule> catalogRules,
@@ -115,8 +115,8 @@ public class FileBasedSystemAccessControl
             Optional<List<ImpersonationRule>> impersonationRules,
             Optional<List<PrincipalUserMatchRule>> principalUserMatchRules,
             Optional<List<SystemInformationRule>> systemInformationRules,
-            Optional<List<SchemaAccessControlRule>> schemaRules,
-            Optional<List<TableAccessControlRule>> tableRules)
+            Optional<List<CatalogSchemaAccessControlRule>> schemaRules,
+            Optional<List<CatalogTableAccessControlRule>> tableRules)
     {
         this.catalogRules = catalogRules;
         this.queryAccessRules = queryAccessRules;
@@ -666,8 +666,8 @@ public class FileBasedSystemAccessControl
         }
 
         Identity identity = context.getIdentity();
-        for (SchemaAccessControlRule rule : schemaRules.get()) {
-            Optional<Boolean> owner = rule.match(identity.getUser(), identity.getGroups(), schema.getSchemaName());
+        for (CatalogSchemaAccessControlRule rule : schemaRules.get()) {
+            Optional<Boolean> owner = rule.match(identity.getUser(), identity.getGroups(), schema);
             if (owner.isPresent()) {
                 return owner.get();
             }
@@ -700,14 +700,13 @@ public class FileBasedSystemAccessControl
             return true;
         }
 
-        SchemaTableName tableName = table.getSchemaTableName();
-        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+        if (INFORMATION_SCHEMA_NAME.equals(table.getSchemaTableName().getSchemaName())) {
             return true;
         }
 
         Identity identity = context.getIdentity();
-        for (TableAccessControlRule rule : tableRules.get()) {
-            Optional<Set<TableAccessControlRule.TablePrivilege>> tablePrivileges = rule.match(identity.getUser(), identity.getGroups(), tableName);
+        for (CatalogTableAccessControlRule rule : tableRules.get()) {
+            Optional<Set<TableAccessControlRule.TablePrivilege>> tablePrivileges = rule.match(identity.getUser(), identity.getGroups(), table);
             if (tablePrivileges.isPresent()) {
                 return checkPrivileges.test(tablePrivileges.get());
             }
