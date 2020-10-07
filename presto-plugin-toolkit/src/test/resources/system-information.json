@@ -1,9 +1,4 @@
 {
-  "catalogs": [
-    {
-      "allow": true
-    }
-  ],
   "system_information": [
     {
       "user": "admin",

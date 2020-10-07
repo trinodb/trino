@@ -182,20 +182,26 @@ public class FileBasedSystemAccessControl
         private static SystemAccessControl create(String configFileName)
         {
             FileBasedSystemAccessControlRules rules = parseJson(Paths.get(configFileName), FileBasedSystemAccessControlRules.class);
+            List<CatalogAccessControlRule> catalogAccessControlRules;
+            if (rules.getCatalogRules().isPresent()) {
+                ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
+                catalogRulesBuilder.addAll(rules.getCatalogRules().get());
 
-            ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
-            catalogRulesBuilder.addAll(rules.getCatalogRules());
-
-            // Hack to allow Presto Admin to access the "system" catalog for retrieving server status.
-            // todo Change userRegex from ".*" to one particular user that Presto Admin will be restricted to run as
-            catalogRulesBuilder.add(new CatalogAccessControlRule(
-                    ALL,
-                    Optional.of(Pattern.compile(".*")),
-                    Optional.empty(),
-                    Optional.of(Pattern.compile("system"))));
-
+                // Hack to allow Presto Admin to access the "system" catalog for retrieving server status.
+                // todo Change userRegex from ".*" to one particular user that Presto Admin will be restricted to run as
+                catalogRulesBuilder.add(new CatalogAccessControlRule(
+                        ALL,
+                        Optional.of(Pattern.compile(".*")),
+                        Optional.empty(),
+                        Optional.of(Pattern.compile("system"))));
+                catalogAccessControlRules = catalogRulesBuilder.build();
+            }
+            else {
+                // if no rules are defined then all access is allowed
+                catalogAccessControlRules = ImmutableList.of(CatalogAccessControlRule.ALLOW_ALL);
+            }
             return new FileBasedSystemAccessControl(
-                    catalogRulesBuilder.build(),
+                    catalogAccessControlRules,
                     rules.getQueryAccessRules(),
                     rules.getImpersonationRules(),
                     rules.getPrincipalUserMatchRules(),

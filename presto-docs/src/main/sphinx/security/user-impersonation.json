@@ -1,9 +1,4 @@
 {
-    "catalogs": [
-        {
-            "allow": true
-        }
-    ],
     "impersonation": [
         {
             "original_user": "alice",

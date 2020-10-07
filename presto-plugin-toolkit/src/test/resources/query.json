@@ -1,9 +1,4 @@
 {
-  "catalogs": [
-    {
-      "allow": true
-    }
-  ],
   "queries": [
     {
       "user": "admin",
