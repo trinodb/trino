@@ -260,14 +260,7 @@ public class SnowflakeJdbcClientModule
             {
                 checkState(buildConfigObject(SnowflakeConfig.class).getRole().isEmpty(), "Snowflake role should not be set when impersonation is enabled");
                 install(new AuthToLocalModule(catalogName));
-            }
-
-            @Provides
-            @Singleton
-            @ForBaseJdbc
-            public ConnectionFactory getConnectionFactory(@ForAuthentication ConnectionFactory connectionFactory, AuthToLocal authToLocal)
-            {
-                return new SnowflakeImpersonationConnectionFactory(connectionFactory, authToLocal);
+                binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(SnowflakeImpersonationConnectionFactory.class).in(Scopes.SINGLETON);
             }
         };
     }
