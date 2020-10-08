@@ -1,4 +1,4 @@
-# presto-docs - Presto Documentation
+# presto-docs - Presto documentation
 
 The presto-docs module contains the reference documentation for Presto.
 
@@ -48,7 +48,7 @@ Text](https://en.wikipedia.org/wiki/ReStructuredText) (`.rst`) format in
 The engine used to create the documentation in HTML format is the Python-based
 [Sphinx](https://www.sphinx-doc.org).
 
-## Default Build
+## Default build
 
 The default build is using Apache Maven and Java like for the rest of the
 Presto build. You just need to have built the current version from the root.
@@ -64,7 +64,7 @@ directly.
 This also performs other checks, and it is the authoritative way to build the
 docs, however it is somewhat also slower than using Sphinx directly.
 
-## Faster Build for Authoring
+## Faster build for authoring
 
 For faster local build times when writing documentation, you can run the
 Sphinx build directly. The build runs inside a Docker container and thus
@@ -82,7 +82,7 @@ by doing a Maven clean first:
 ./mvnw -pl presto-docs clean
 ```
 
-## Viewing Documentation
+## Viewing documentation
 
 However you built the docs, the output HTML files can be found in the folder
 `presto-docs/target/html/`.
@@ -119,22 +119,6 @@ python3 -m http.server 4000
 In order to see any changes from the source files in the HTML output, simply
 re-run the make command and refresh the browser.
 
-## Using sphinx-autobuild
-
-The optional setup of using
-[sphinx-autobuild](https://pypi.org/project/sphinx-autobuild/) allows you to
-have a running server with the docs and get incremental updates after saving any
-changes. This is the fastest and best way to work on the documentation.
-
-To use it, simply install sphinx-autobuild, and then run
-
-```bash
-make clean livehtml
-```
-
-From now on the docs are available at
-[http://localhost:8000](http://localhost:8000).
-
 ## Versioning
 
 The version displayed in the resulting HTML is read from the top level Maven
@@ -145,32 +129,17 @@ version you have to override the pom version with the `PRESTO_VERSION`
 environment variable.
 
 ```bash
-PRESTO_VERSION=327 make clean html
+PRESTO_VERSION=327 presto-docs/build
 ```
 
 If you work on the docs for more than one invocation, you can export the
-variable and use it with sphinx as well as sphinx-autobuild.
+variable and use it with sphinx.
 
 ```bash
 export PRESTO_VERSION=327
-make clean html
+presto-docs/build
 ```
 
 This is especially useful when deploying doc patches for a release where the
 Maven pom has already moved to the next SNAPSHOT version.
 
-## Known Issues
-
-- Older Sphinx versions do not support the `-j auto` SPHINXOPTS in the makefile.
-  You can delete the option or upgrade Sphinx. The correct version of sphinx is
-  embedded in the Maven plugin used for the default build.
-- Formats like `man` and others beyond the default `html` might have formatting
-  and content issues and are not actively maintained.
-- Different installation methods for Sphinx result in different versions, and
-  hence in sometimes different problems. Especially when also using
-  sphinx-autobuild we recommend using the `pip`-based installation.
-- Sphinx 2.x+ fails due to requiring parallel write support, which our sitemap extension
-  does not support. We recommend installing an older version by running
-  `pip3 install sphinx==1.8.2`. Alternatively, you clear `SPHINXOPTS` when running
-  Sphinx by using `make SPHINXOPTS="" clean html`, but this may result in other
-  compatibility issues or differences from the output produced by the Maven plugin.
