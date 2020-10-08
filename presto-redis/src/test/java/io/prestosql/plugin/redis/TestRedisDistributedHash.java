@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.redis;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.redis.util.RedisServer;
 import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.QueryRunner;
@@ -33,7 +34,7 @@ public class TestRedisDistributedHash
             throws Exception
     {
         redisServer = new RedisServer();
-        return createRedisQueryRunner(redisServer, "hash", TpchTable.getTables());
+        return createRedisQueryRunner(redisServer, ImmutableMap.of(), "hash", TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
