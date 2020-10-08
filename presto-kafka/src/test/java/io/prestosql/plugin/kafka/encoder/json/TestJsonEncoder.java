@@ -57,7 +57,7 @@ public class TestJsonEncoder
     private void assertUnsupportedColumnTypeException(ThrowableAssert.ThrowingCallable callable)
     {
         assertThatThrownBy(callable)
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageMatching("Unsupported column type .* for column .*");
     }
 

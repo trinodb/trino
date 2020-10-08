@@ -83,9 +83,9 @@ import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 public class TestExpressionInterpreter
@@ -1286,11 +1286,21 @@ public class TestExpressionInterpreter
     @Test
     public void testInvalidLike()
     {
-        assertThrows(PrestoException.class, () -> optimize("unbound_string LIKE 'abc' ESCAPE ''"));
-        assertThrows(PrestoException.class, () -> optimize("unbound_string LIKE 'abc' ESCAPE 'bc'"));
-        assertThrows(PrestoException.class, () -> optimize("unbound_string LIKE '#' ESCAPE '#'"));
-        assertThrows(PrestoException.class, () -> optimize("unbound_string LIKE '#abc' ESCAPE '#'"));
-        assertThrows(PrestoException.class, () -> optimize("unbound_string LIKE 'ab#' ESCAPE '#'"));
+        assertThatThrownBy(() -> optimize("unbound_string LIKE 'abc' ESCAPE ''"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape string must be a single character");
+        assertThatThrownBy(() -> optimize("unbound_string LIKE 'abc' ESCAPE 'bc'"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape string must be a single character");
+        assertThatThrownBy(() -> optimize("unbound_string LIKE '#' ESCAPE '#'"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
+        assertThatThrownBy(() -> optimize("unbound_string LIKE '#abc' ESCAPE '#'"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
+        assertThatThrownBy(() -> optimize("unbound_string LIKE 'ab#' ESCAPE '#'"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
     }
 
     @Test

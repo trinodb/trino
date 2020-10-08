@@ -19,7 +19,7 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 
 import static com.google.common.collect.Sets.difference;
-import static org.testng.Assert.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPrestoAzureConfigurationInitializer
 {
@@ -27,6 +27,7 @@ public class TestPrestoAzureConfigurationInitializer
     public void testAdl()
     {
         testPropertyGroup(
+                "If any of ADL client ID, credential, and refresh URL are set, all must be set",
                 HiveAzureConfig::setAdlClientId,
                 HiveAzureConfig::setAdlCredential,
                 HiveAzureConfig::setAdlRefreshUrl);
@@ -36,6 +37,7 @@ public class TestPrestoAzureConfigurationInitializer
     public void testWasb()
     {
         testPropertyGroup(
+                "If WASB storage account or access key is set, both must be set",
                 HiveAzureConfig::setWasbAccessKey,
                 HiveAzureConfig::setWasbStorageAccount);
     }
@@ -44,6 +46,7 @@ public class TestPrestoAzureConfigurationInitializer
     public void testAbfsAccessKey()
     {
         testPropertyGroup(
+                "If ABFS storage account or access key is set, both must be set",
                 HiveAzureConfig::setAbfsAccessKey,
                 HiveAzureConfig::setAbfsStorageAccount);
     }
@@ -52,6 +55,7 @@ public class TestPrestoAzureConfigurationInitializer
     public void testAbfsOAuth()
     {
         testPropertyGroup(
+                "If any of ABFS OAuth2 Client endpoint, ID, and secret are set, all must be set.",
                 HiveAzureConfig::setAbfsOAuthClientEndpoint,
                 HiveAzureConfig::setAbfsOAuthClientId,
                 HiveAzureConfig::setAbfsOAuthClientSecret);
@@ -60,28 +64,32 @@ public class TestPrestoAzureConfigurationInitializer
     @Test
     public void testExclusiveProperties()
     {
-        assertThrows(() -> testProperties(
+        assertThatThrownBy(() -> testProperties(
                 HiveAzureConfig::setAbfsAccessKey,
                 HiveAzureConfig::setAbfsStorageAccount,
                 HiveAzureConfig::setAbfsOAuthClientEndpoint,
                 HiveAzureConfig::setAbfsOAuthClientId,
-                HiveAzureConfig::setAbfsOAuthClientSecret));
+                HiveAzureConfig::setAbfsOAuthClientSecret))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Multiple ABFS authentication methods configured: access key and OAuth2");
     }
 
     @SafeVarargs
-    private static void testPropertyGroup(BiConsumer<HiveAzureConfig, String>... setters)
+    private static void testPropertyGroup(String expectedErrorMessage, BiConsumer<HiveAzureConfig, String>... setters)
     {
-        testPropertyGroup(Set.of(setters));
+        testPropertyGroup(expectedErrorMessage, Set.of(setters));
     }
 
-    private static void testPropertyGroup(Set<BiConsumer<HiveAzureConfig, String>> setters)
+    private static void testPropertyGroup(String expectedErrorMessage, Set<BiConsumer<HiveAzureConfig, String>> setters)
     {
         // All properties work together
         testProperties(setters);
 
         // Dropping any one property fails
         for (var setter : setters) {
-            assertThrows(() -> testProperties(difference(setters, Set.of(setter))));
+            assertThatThrownBy(() -> testProperties(difference(setters, Set.of(setter))))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage(expectedErrorMessage);
         }
     }
 

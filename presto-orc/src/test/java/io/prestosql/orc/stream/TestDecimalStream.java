@@ -34,8 +34,8 @@ import static io.prestosql.spi.type.Decimals.MAX_DECIMAL_UNSCALED_VALUE;
 import static io.prestosql.spi.type.Decimals.MIN_DECIMAL_UNSCALED_VALUE;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static java.math.BigInteger.ONE;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertThrows;
 
 public class TestDecimalStream
 {
@@ -196,18 +196,20 @@ public class TestDecimalStream
 
     private static void assertShortValueReadFails(BigInteger value)
     {
-        assertThrows(OrcCorruptionException.class, () -> {
+        assertThatThrownBy(() -> {
             DecimalInputStream stream = new DecimalInputStream(decimalChunkLoader(value));
             nextShortDecimalValue(stream);
-        });
+        }).isInstanceOf(OrcCorruptionException.class)
+                .hasMessageContaining("Malformed ORC file. Decimal does not fit long (invalid table schema?)");
     }
 
     private static void assertLongValueReadFails(BigInteger value)
     {
-        assertThrows(OrcCorruptionException.class, () -> {
+        assertThatThrownBy(() -> {
             DecimalInputStream stream = new DecimalInputStream(decimalChunkLoader(value));
             nextLongDecimalValue(stream);
-        });
+        }).isInstanceOf(OrcCorruptionException.class)
+                .hasMessageContaining("Malformed ORC file. Decimal exceeds 128 bits");
     }
 
     private static long nextShortDecimalValue(DecimalInputStream stream)

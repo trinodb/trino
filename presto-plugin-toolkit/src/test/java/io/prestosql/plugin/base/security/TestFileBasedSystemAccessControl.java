@@ -47,7 +47,6 @@ import static java.lang.Thread.sleep;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.util.Files.newTemporaryFile;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertThrows;
 
 public class TestFileBasedSystemAccessControl
 {
@@ -135,8 +134,12 @@ public class TestFileBasedSystemAccessControl
         accessControl.checkCanKillQueryOwnedBy(UNKNOWN, "anyone");
 
         // system information access is denied by default
-        assertThrows(AccessDeniedException.class, () -> accessControl.checkCanReadSystemInformation(UNKNOWN));
-        assertThrows(AccessDeniedException.class, () -> accessControl.checkCanWriteSystemInformation(UNKNOWN));
+        assertThatThrownBy(() -> accessControl.checkCanReadSystemInformation(UNKNOWN))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot read system information");
+        assertThatThrownBy(() -> accessControl.checkCanWriteSystemInformation(UNKNOWN))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot write system information");
     }
 
     @Test
@@ -494,10 +497,16 @@ public class TestFileBasedSystemAccessControl
         accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(alice, queryId));
         accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(alice, queryId), "any");
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(alice, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
-        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(alice, queryId), "any"));
+        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(alice, queryId), "any"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
 
-        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(bob, queryId)));
-        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any"));
+        assertThatThrownBy(() -> accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(bob, queryId)))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
+        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of());
         accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any");
 
@@ -530,14 +539,20 @@ public class TestFileBasedSystemAccessControl
         accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(admin, queryId), "any");
 
         accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(alice, queryId));
-        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(alice, queryId), "any"));
+        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(alice, queryId), "any"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(alice, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of());
         accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(alice, queryId), "any");
 
         accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(bob, queryId));
-        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any"));
+        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of());
-        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any"));
+        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot view query");
     }
 
     @Test
@@ -549,10 +564,16 @@ public class TestFileBasedSystemAccessControl
         accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
 
         accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(alice, Optional.empty()));
-        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, Optional.empty())));
+        assertThatThrownBy(() -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, Optional.empty())))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot write system information");
 
-        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
-        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
+        assertThatThrownBy(() -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot read system information");
+        assertThatThrownBy(() -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot write system information");
 
         accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(nonAsciiUser, Optional.empty()));
         accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(nonAsciiUser, Optional.empty()));
@@ -563,8 +584,12 @@ public class TestFileBasedSystemAccessControl
     {
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("catalog.json");
 
-        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
-        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
+        assertThatThrownBy(() -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot read system information");
+        assertThatThrownBy(() -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot write system information");
     }
 
     @Test
@@ -577,10 +602,16 @@ public class TestFileBasedSystemAccessControl
         accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
 
         accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(alice, Optional.empty()));
-        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, Optional.empty())));
+        assertThatThrownBy(() -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, Optional.empty())))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot write system information");
 
-        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
-        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
+        assertThatThrownBy(() -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot read system information");
+        assertThatThrownBy(() -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Access Denied: Cannot write system information");
     }
 
     @Test
