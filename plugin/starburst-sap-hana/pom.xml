@@ -110,6 +110,13 @@
 
         <dependency>
             <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-license</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-presto-testing</artifactId>
             <scope>test</scope>
         </dependency>

@@ -11,9 +11,14 @@ package com.starburstdata.presto.plugin.saphana;
 
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
+import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
+import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
+import io.prestosql.plugin.jdbc.JdbcSplitManager;
+import io.prestosql.spi.connector.ConnectorRecordSetProvider;
+import io.prestosql.spi.connector.ConnectorSplitManager;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,6 +36,10 @@ public class SapHanaClientModule
     public void setup(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SapHanaClient.class).in(Scopes.SINGLETON);
+
+        binder.bind(ConnectorSplitManager.class).annotatedWith(ForDynamicFiltering.class).to(JdbcSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
+
         install(new SapHanaAuthenticationModule(catalogName));
     }
 }

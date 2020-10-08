@@ -9,13 +9,17 @@
  */
 package com.starburstdata.presto.plugin.saphana;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Module;
 import com.starburstdata.presto.license.LicenceCheckingConnectorFactory;
-import io.prestosql.plugin.jdbc.JdbcConnectorFactory;
+import com.starburstdata.presto.license.LicenseModule;
+import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteringJdbcConnectorFactory;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
 import static com.starburstdata.presto.license.StarburstPrestoFeature.SAP_HANA;
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
 public class SapHanaPlugin
         implements Plugin
@@ -25,6 +29,12 @@ public class SapHanaPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new LicenceCheckingConnectorFactory(SAP_HANA, new JdbcConnectorFactory(CONNECTOR_NAME, SapHanaClientModule::new)));
+        return ImmutableList.of(new LicenceCheckingConnectorFactory(SAP_HANA, getConnectorFactory(new LicenseModule())));
+    }
+
+    @VisibleForTesting
+    ConnectorFactory getConnectorFactory(Module module)
+    {
+        return new DynamicFilteringJdbcConnectorFactory(CONNECTOR_NAME, (String catalogName) -> combine(module, new SapHanaClientModule(catalogName)));
     }
 }

@@ -10,16 +10,15 @@
 package com.starburstdata.presto.plugin.saphana;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.jdbc.JdbcConnectorFactory;
-import io.prestosql.spi.Plugin;
+import com.starburstdata.presto.license.TestingLicenseModule;
 import io.prestosql.spi.connector.ConnectorFactory;
 
 public class TestingSapHanaPlugin
-        implements Plugin
+        extends SapHanaPlugin
 {
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new JdbcConnectorFactory(SapHanaPlugin.CONNECTOR_NAME, SapHanaClientModule::new));
+        return ImmutableList.of(getConnectorFactory(new TestingLicenseModule()));
     }
 }
