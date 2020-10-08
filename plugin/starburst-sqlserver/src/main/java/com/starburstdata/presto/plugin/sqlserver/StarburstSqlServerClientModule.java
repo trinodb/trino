@@ -17,7 +17,6 @@ import com.google.inject.Singleton;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule;
-import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
@@ -82,14 +81,7 @@ public class StarburstSqlServerClientModule
         public void configure(Binder binder)
         {
             binder.install(new AuthToLocalModule(catalogName));
-        }
-
-        @Provides
-        @Singleton
-        @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(@ForAuthentication ConnectionFactory connectionFactory, AuthToLocal authToLocal)
-        {
-            return new SqlServerImpersonatingConnectionFactory(connectionFactory, authToLocal);
+            binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(SqlServerImpersonatingConnectionFactory.class).in(Scopes.SINGLETON);
         }
     }
 }

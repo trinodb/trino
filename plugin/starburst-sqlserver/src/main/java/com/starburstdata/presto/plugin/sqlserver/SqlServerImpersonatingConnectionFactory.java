@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.sqlserver;
 
 import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
+import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
@@ -29,7 +30,7 @@ public class SqlServerImpersonatingConnectionFactory
     private final AuthToLocal authToLocal;
 
     @Inject
-    public SqlServerImpersonatingConnectionFactory(ConnectionFactory delegate, AuthToLocal authToLocal)
+    public SqlServerImpersonatingConnectionFactory(@ForAuthentication ConnectionFactory delegate, AuthToLocal authToLocal)
     {
         super(delegate);
         this.authToLocal = requireNonNull(authToLocal, "authToLocal is null");
