@@ -13,25 +13,29 @@
  */
 package io.prestosql.plugin.jdbc;
 
+import io.airlift.units.Duration;
+
 import javax.inject.Inject;
+
+import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
 
 public class JdbcMetadataFactory
 {
-    private final CachingJdbcClientFactory cachingJdbcClientFactory;
+    private final JdbcClient jdbcClient;
     private final boolean allowDropTable;
 
     @Inject
-    public JdbcMetadataFactory(CachingJdbcClientFactory cachingJdbcClientFactory, JdbcMetadataConfig config)
+    public JdbcMetadataFactory(JdbcClient jdbcClient, JdbcMetadataConfig config)
     {
-        this.cachingJdbcClientFactory = requireNonNull(cachingJdbcClientFactory, "jdbcClient is null");
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         requireNonNull(config, "config is null");
         this.allowDropTable = config.isAllowDropTable();
     }
 
     public JdbcMetadata create()
     {
-        return new JdbcMetadata(cachingJdbcClientFactory.create(), allowDropTable);
+        return new JdbcMetadata(new TransactionCachingJdbcClient(jdbcClient, new Duration(1, TimeUnit.DAYS)), allowDropTable);
     }
 }
