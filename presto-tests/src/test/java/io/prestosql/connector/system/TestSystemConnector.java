@@ -33,7 +33,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -50,7 +49,6 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
-import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
@@ -121,19 +119,12 @@ public class TestSystemConnector
         List<Object> fields = row.getFields();
         assertThat(fields).hasSize(4);
         for (int i = 0; i < fields.size(); i++) {
-            final int fieldNumber = i;
-            Object value = fields.get(fieldNumber);
-            assertThat(value)
-                    .as("value for field " + fieldNumber)
+            Object value = fields.get(i);
+            assertThat((ZonedDateTime) value)
+                    .as("value for field " + i)
                     .isNotNull()
-                    .isInstanceOfSatisfying(LocalDateTime.class, localDatetime -> {
-                        // TODO (https://github.com/prestosql/presto/issues/5464) map to `timestamp with time zone`
-                        ZonedDateTime zonedDateTime = localDatetime.atZone(UTC);
-                        assertThat(zonedDateTime)
-                                .as("value for field " + fieldNumber)
-                                .isAfterOrEqualTo(timeBefore)
-                                .isBeforeOrEqualTo(timeAfter);
-                    });
+                    .isAfterOrEqualTo(timeBefore)
+                    .isBeforeOrEqualTo(timeAfter);
         }
     }
 
@@ -151,19 +142,12 @@ public class TestSystemConnector
         List<Object> fields = row.getFields();
         assertThat(fields).hasSize(4);
         for (int i = 0; i < fields.size(); i++) {
-            final int fieldNumber = i;
-            Object value = fields.get(fieldNumber);
-            assertThat(value)
-                    .as("value for field " + fieldNumber)
+            Object value = fields.get(i);
+            assertThat((ZonedDateTime) value)
+                    .as("value for field " + i)
                     .isNotNull()
-                    .isInstanceOfSatisfying(LocalDateTime.class, localDatetime -> {
-                        // TODO (https://github.com/prestosql/presto/issues/5464) map to `timestamp with time zone`
-                        ZonedDateTime zonedDateTime = localDatetime.atZone(UTC);
-                        assertThat(zonedDateTime)
-                                .as("value for field " + fieldNumber)
-                                .isAfterOrEqualTo(timeBefore)
-                                .isBeforeOrEqualTo(timeAfter);
-                    });
+                    .isAfterOrEqualTo(timeBefore)
+                    .isBeforeOrEqualTo(timeAfter);
         }
     }
 
@@ -181,19 +165,12 @@ public class TestSystemConnector
         List<Object> fields = row.getFields();
         assertThat(fields).hasSize(1);
         for (int i = 0; i < fields.size(); i++) {
-            final int fieldNumber = i;
-            Object value = fields.get(fieldNumber);
-            assertThat(value)
-                    .as("value for field " + fieldNumber)
+            Object value = fields.get(i);
+            assertThat((ZonedDateTime) value)
+                    .as("value for field " + i)
                     .isNotNull()
-                    .isInstanceOfSatisfying(LocalDateTime.class, localDatetime -> {
-                        // TODO (https://github.com/prestosql/presto/issues/5464) map to `timestamp with time zone`
-                        ZonedDateTime zonedDateTime = localDatetime.atZone(UTC);
-                        assertThat(zonedDateTime)
-                                .as("value for field " + fieldNumber)
-                                .isAfterOrEqualTo(timeBefore)
-                                .isBeforeOrEqualTo(timeAfter);
-                    });
+                    .isAfterOrEqualTo(timeBefore)
+                    .isBeforeOrEqualTo(timeAfter);
         }
     }
 

@@ -31,6 +31,7 @@ import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.transaction.TransactionInfo;
 import io.prestosql.transaction.TransactionManager;
+import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
@@ -41,10 +42,11 @@ import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetad
 import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static java.util.Objects.requireNonNull;
 
 public class TransactionsSystemTable
@@ -63,7 +65,7 @@ public class TransactionsSystemTable
                 .column("isolation_level", createUnboundedVarcharType())
                 .column("read_only", BOOLEAN)
                 .column("auto_commit_context", BOOLEAN)
-                .column("create_time", TIMESTAMP_MILLIS)
+                .column("create_time", TIMESTAMP_TZ_MILLIS)
                 .column("idle_time_secs", BIGINT)
                 .column("written_catalog", createUnboundedVarcharType())
                 .column("catalogs", metadata.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.typeParameter(createUnboundedVarcharType().getTypeSignature()))))
@@ -93,7 +95,7 @@ public class TransactionsSystemTable
                     info.getIsolationLevel().toString(),
                     info.isReadOnly(),
                     info.isAutoCommitContext(),
-                    info.getCreateTime().getMillis() * MICROSECONDS_PER_MILLISECOND,
+                    toTimestampWithTimeZoneMillis(info.getCreateTime()),
                     (long) info.getIdleTime().getValue(TimeUnit.SECONDS),
                     info.getWrittenConnectorId().map(CatalogName::getCatalogName).orElse(null),
                     createStringsBlock(info.getCatalogNames()));
@@ -114,5 +116,11 @@ public class TransactionsSystemTable
             }
         }
         return builder.build();
+    }
+
+    private static Long toTimestampWithTimeZoneMillis(DateTime dateTime)
+    {
+        // dateTime.getZone() is the server zone, should be of no interest to the user
+        return packDateTimeWithZone(dateTime.getMillis(), UTC_KEY);
     }
 }
