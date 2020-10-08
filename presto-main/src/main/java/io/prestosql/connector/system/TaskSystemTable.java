@@ -38,6 +38,7 @@ import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_NODES;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 
 public class TaskSystemTable
         implements SystemTable
@@ -166,6 +167,6 @@ public class TaskSystemTable
         if (dateTime == null) {
             return null;
         }
-        return dateTime.getMillis();
+        return dateTime.getMillis() * MICROSECONDS_PER_MILLISECOND;
     }
 }
