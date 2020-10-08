@@ -25,7 +25,7 @@ import java.util.List;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.json.JsonCodec.listJsonCodec;
-import static io.airlift.testing.Closeables.closeQuietly;
+import static io.airlift.testing.Closeables.closeAll;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static io.prestosql.failuredetector.HeartbeatFailureDetector.Stats;
 import static org.testng.Assert.assertTrue;
@@ -44,9 +44,9 @@ public class TestNodeResource
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
+            throws Exception
     {
-        closeQuietly(server);
-        closeQuietly(client);
+        closeAll(server, client);
     }
 
     @Test

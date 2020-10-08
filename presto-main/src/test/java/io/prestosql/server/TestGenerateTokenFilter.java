@@ -43,7 +43,7 @@ import static io.airlift.http.client.StringResponseHandler.createStringResponseH
 import static io.airlift.http.client.TraceTokenRequestFilter.TRACETOKEN_HEADER;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.airlift.testing.Closeables.closeQuietly;
+import static io.airlift.testing.Closeables.closeAll;
 import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
@@ -73,9 +73,9 @@ public class TestGenerateTokenFilter
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
+            throws Exception
     {
-        closeQuietly(server);
-        closeQuietly(httpClient);
+        closeAll(server, httpClient);
     }
 
     @Test

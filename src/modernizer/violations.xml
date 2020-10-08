@@ -108,4 +108,10 @@
         <version>1.8</version>
         <comment>Use io.airlift.units.DataSize.succinct()</comment>
     </violation>
+
+    <violation>
+        <name>io/airlift/testing/Closeables.closeQuietly:([Ljava/io/Closeable;)V</name>
+        <version>1.0</version>
+        <comment>Use Closeables.closeAll() or Closer.</comment>
+    </violation>
 </modernizer>
