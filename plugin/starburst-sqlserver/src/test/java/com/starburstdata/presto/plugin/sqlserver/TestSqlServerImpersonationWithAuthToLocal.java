@@ -39,7 +39,7 @@ public class TestSqlServerImpersonationWithAuthToLocal
         sqlServer.start();
         return createStarburstSqlServerQueryRunner(
                 sqlServer,
-                false,
+                true,
                 session -> createSession(ALICE_USER + "/admin@company.com"),
                 ImmutableMap.of(
                         "sqlserver.impersonation.enabled", "true",

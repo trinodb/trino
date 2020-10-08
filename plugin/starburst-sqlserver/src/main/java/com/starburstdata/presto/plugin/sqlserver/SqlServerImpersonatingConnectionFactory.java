@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
+import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
 import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
@@ -21,6 +22,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import static com.starburstdata.presto.license.StarburstPrestoFeature.JDBC_IMPERSONATION;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -30,9 +32,10 @@ public class SqlServerImpersonatingConnectionFactory
     private final AuthToLocal authToLocal;
 
     @Inject
-    public SqlServerImpersonatingConnectionFactory(@ForAuthentication ConnectionFactory delegate, AuthToLocal authToLocal)
+    public SqlServerImpersonatingConnectionFactory(LicenseManager licenseManager, @ForAuthentication ConnectionFactory delegate, AuthToLocal authToLocal)
     {
         super(delegate);
+        licenseManager.checkFeature(JDBC_IMPERSONATION);
         this.authToLocal = requireNonNull(authToLocal, "authToLocal is null");
     }
 
