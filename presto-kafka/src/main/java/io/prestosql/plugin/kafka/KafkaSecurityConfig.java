@@ -20,6 +20,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import org.apache.kafka.common.config.SslConfigs;
 
+import java.util.Locale;
 import java.util.Properties;
 
 /**
@@ -112,12 +113,7 @@ public class KafkaSecurityConfig
     @ConfigDescription(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_DOC)
     public void setSslEndpointIdentificationAlgorithm(String sslEndpointIdentificationAlgorithm)
     {
-        if (sslEndpointIdentificationAlgorithm.equals("https")) {
-            this.sslEndpointIdentificationAlgorithm = KafkaEndpointIdentificationAlgorithm.HTTPS;
-        }
-        else if (sslEndpointIdentificationAlgorithm.equals("")) {
-            this.sslEndpointIdentificationAlgorithm = KafkaEndpointIdentificationAlgorithm.DISABLED;
-        }
+        this.sslEndpointIdentificationAlgorithm = KafkaEndpointIdentificationAlgorithm.valueOf(sslEndpointIdentificationAlgorithm.toUpperCase(Locale.ENGLISH));
     }
 
     public KafkaEndpointIdentificationAlgorithm getSslEndpointIdentificationAlgorithm()

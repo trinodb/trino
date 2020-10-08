@@ -173,7 +173,7 @@ public class KafkaConfig
     @ConfigDescription("Security protocol used for Kafka connection.")
     public KafkaConfig setSecurityProtocol(String securityProtocol)
     {
-        if (securityProtocol == null) {
+        if (securityProtocol == null || securityProtocol.isEmpty()) {
             return this;
         }
         this.securityProtocol = KafkaClientSecurityProtocol.forName(securityProtocol);
