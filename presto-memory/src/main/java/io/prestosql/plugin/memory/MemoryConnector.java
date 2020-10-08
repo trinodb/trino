@@ -45,6 +45,13 @@ public class MemoryConnector
     }
 
     @Override
+    public boolean isSingleStatementWritesOnly()
+    {
+        // TODO (https://github.com/prestosql/presto/issues/5467) fix
+        return true;
+    }
+
+    @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
         return MemoryTransactionHandle.INSTANCE;

@@ -90,6 +90,13 @@ public final class TestingSession
         return new Connector()
         {
             @Override
+            public boolean isSingleStatementWritesOnly()
+            {
+                // TODO consider changing, or removing when there is a default implementation
+                return false;
+            }
+
+            @Override
             public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
             {
                 return new ConnectorTransactionHandle() {};

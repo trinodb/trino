@@ -60,6 +60,13 @@ public class SystemConnector
     }
 
     @Override
+    public boolean isSingleStatementWritesOnly()
+    {
+        // Actually, writes are not supported at all.
+        return false;
+    }
+
+    @Override
     public ConnectorTransactionHandle beginTransaction(TransactionId transactionId, IsolationLevel isolationLevel, boolean readOnly)
     {
         return new SystemTransactionHandle(transactionId, transactionHandleFunction);

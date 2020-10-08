@@ -180,10 +180,8 @@ public interface Connector
     /**
      * True if the connector only supports write statements in independent transactions.
      */
-    default boolean isSingleStatementWritesOnly()
-    {
-        return false;
-    }
+    // TODO make is return `true` by default
+    boolean isSingleStatementWritesOnly();
 
     /**
      * Shutdown the connector by releasing any held resources such as

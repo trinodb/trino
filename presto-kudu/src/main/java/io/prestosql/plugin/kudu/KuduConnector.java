@@ -73,6 +73,13 @@ public class KuduConnector
     }
 
     @Override
+    public boolean isSingleStatementWritesOnly()
+    {
+        // TODO add tests
+        return false;
+    }
+
+    @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);

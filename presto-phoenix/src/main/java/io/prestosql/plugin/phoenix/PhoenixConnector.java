@@ -71,6 +71,13 @@ public class PhoenixConnector
     }
 
     @Override
+    public boolean isSingleStatementWritesOnly()
+    {
+        // TODO add tests
+        return false;
+    }
+
+    @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
         return new JdbcTransactionHandle();
