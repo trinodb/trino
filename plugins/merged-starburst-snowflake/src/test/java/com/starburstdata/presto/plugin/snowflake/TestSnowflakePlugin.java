@@ -18,6 +18,8 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.google.common.collect.MoreCollectors.toOptional;
+import static com.google.common.collect.Streams.stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -65,5 +67,34 @@ public class TestSnowflakePlugin
                         "snowflake.warehouse", "test"),
                 new TestingConnectorContext())
                 .shutdown();
+    }
+
+    @Test
+    public void testLicenseRequiredForImpersonation()
+    {
+        Plugin plugin = new SnowflakePlugin();
+        ConnectorFactory factory = stream(plugin.getConnectorFactories())
+                .filter(connectorFactory -> connectorFactory.getName().equals("snowflake-jdbc"))
+                .collect(toOptional())
+                .orElseThrow();
+
+        for (SnowflakeImpersonationType impersonationType : SnowflakeImpersonationType.values()) {
+            if (impersonationType == SnowflakeImpersonationType.NONE) {
+                continue;
+            }
+            assertThatThrownBy(() -> factory.create(
+                    "test",
+                    ImmutableMap.of(
+                            "connection-url", "test",
+                            "snowflake.role", "test",
+                            "snowflake.database", "test",
+                            "snowflake.warehouse", "test",
+                            "snowflake.impersonation-type", impersonationType.name()),
+                    new TestingConnectorContext()))
+                    .describedAs("create failure for " + impersonationType)
+                    .isInstanceOf(RuntimeException.class)
+                    // We expect 'snowflake' not 'jdbc-impersonation' -- the test exists just in case we base our Snowflake connector on open source in the future
+                    .hasStackTraceContaining("com.starburstdata.presto.license.PrestoLicenseException: Valid license required to use the feature: snowflake");
+        }
     }
 }
