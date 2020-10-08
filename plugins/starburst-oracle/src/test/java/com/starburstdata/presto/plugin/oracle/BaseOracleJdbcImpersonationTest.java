@@ -42,6 +42,7 @@ public abstract class BaseOracleJdbcImpersonationTest
                 .build();
 
         return OracleQueryRunner.builder()
+                .withUnlockEnterpriseFeatures(true)
                 .withConnectorProperties(properties)
                 .withTables(ImmutableList.of())
                 .build();

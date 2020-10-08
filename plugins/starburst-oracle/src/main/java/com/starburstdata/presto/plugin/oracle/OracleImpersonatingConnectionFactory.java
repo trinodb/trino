@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.inject.Inject;
+import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
 import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
@@ -21,6 +22,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import static com.starburstdata.presto.license.StarburstPrestoFeature.JDBC_IMPERSONATION;
 import static java.util.Objects.requireNonNull;
 
 public class OracleImpersonatingConnectionFactory
@@ -29,9 +31,10 @@ public class OracleImpersonatingConnectionFactory
     private final AuthToLocal authToLocal;
 
     @Inject
-    public OracleImpersonatingConnectionFactory(@ForAuthentication ConnectionFactory connectionFactory, AuthToLocal authToLocal)
+    public OracleImpersonatingConnectionFactory(LicenseManager licenseManager, @ForAuthentication ConnectionFactory connectionFactory, AuthToLocal authToLocal)
     {
         super(connectionFactory);
+        licenseManager.checkFeature(JDBC_IMPERSONATION);
         this.authToLocal = requireNonNull(authToLocal, "authToLocal is null");
     }
 

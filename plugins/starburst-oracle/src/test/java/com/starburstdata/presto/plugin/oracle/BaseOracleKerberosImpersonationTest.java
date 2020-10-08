@@ -45,8 +45,8 @@ public abstract class BaseOracleKerberosImpersonationTest
                 .putAll(additionalProperties)
                 .build();
 
-        return OracleQueryRunner
-                .builder()
+        return OracleQueryRunner.builder()
+                .withUnlockEnterpriseFeatures(true)
                 .withConnectorProperties(properties)
                 .withTables(ImmutableList.of())
                 .build();

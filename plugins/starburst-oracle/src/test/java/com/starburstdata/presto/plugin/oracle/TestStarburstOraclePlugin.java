@@ -51,6 +51,22 @@ public class TestStarburstOraclePlugin
     }
 
     @Test
+    public void testLicenseRequiredForImpersonation()
+    {
+        Plugin plugin = new StarburstOraclePlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "connection-url", "test",
+                        "oracle.impersonation.enabled", "true"),
+                new TestingConnectorContext()))
+                .isInstanceOf(RuntimeException.class)
+                .hasStackTraceContaining("com.starburstdata.presto.license.PrestoLicenseException: Valid license required to use the feature: jdbc-impersonation");
+    }
+
+    @Test
     public void testParallelismRequiresLicense()
     {
         Plugin plugin = new StarburstOraclePlugin();

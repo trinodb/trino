@@ -46,6 +46,7 @@ public abstract class BaseOracleImpersonationWithAuthToLocalTest
                 .build();
 
         return OracleQueryRunner.builder()
+                .withUnlockEnterpriseFeatures(true)
                 .withConnectorProperties(properties)
                 .withSessionModifier(session -> createSession(session.getIdentity().getUser() + "/admin@company.com"))
                 .withTables(ImmutableList.of())
