@@ -51,7 +51,6 @@ public class JdbcModule
         procedureBinder(binder);
         tablePropertiesProviderBinder(binder);
 
-        newOptionalBinder(binder, CachingJdbcClientFactory.class).setDefault().to(DefaultCachingJdbcClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(JdbcMetadataFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorSplitManager.class).setDefault().to(JdbcSplitManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorRecordSetProvider.class).setDefault().to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
