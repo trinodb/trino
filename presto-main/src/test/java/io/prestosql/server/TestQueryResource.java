@@ -42,7 +42,7 @@ import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerat
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
-import static io.airlift.testing.Closeables.closeQuietly;
+import static io.airlift.testing.Closeables.closeAll;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.RUNNING;
@@ -79,9 +79,9 @@ public class TestQueryResource
 
     @AfterMethod(alwaysRun = true)
     public void teardown()
+            throws Exception
     {
-        closeQuietly(server);
-        closeQuietly(client);
+        closeAll(server, client);
     }
 
     @Test
