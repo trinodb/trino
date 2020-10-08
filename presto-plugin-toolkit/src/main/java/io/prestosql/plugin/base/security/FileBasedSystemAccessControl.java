@@ -803,15 +803,30 @@ public class FileBasedSystemAccessControl
 
     public static final class Builder
     {
-        private List<CatalogAccessControlRule> catalogRules = ImmutableList.of();
+        private List<CatalogAccessControlRule> catalogRules = ImmutableList.of(CatalogAccessControlRule.ALLOW_ALL);
         private Optional<List<QueryAccessRule>> queryAccessRules = Optional.empty();
         private Optional<List<ImpersonationRule>> impersonationRules = Optional.empty();
         private Optional<List<PrincipalUserMatchRule>> principalUserMatchRules = Optional.empty();
         private Optional<List<SystemInformationRule>> systemInformationRules = Optional.empty();
-        private List<CatalogSchemaAccessControlRule> schemaRules = ImmutableList.of();
-        private List<CatalogTableAccessControlRule> tableRules = ImmutableList.of();
-        private List<SessionPropertyAccessControlRule> sessionPropertyRules = ImmutableList.of();
-        private List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules = ImmutableList.of();
+        private List<CatalogSchemaAccessControlRule> schemaRules = ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL);
+        private List<CatalogTableAccessControlRule> tableRules = ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL);
+        private List<SessionPropertyAccessControlRule> sessionPropertyRules = ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL);
+        private List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules = ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL);
+
+        @SuppressWarnings("unused")
+        public Builder denyAllAccess()
+        {
+            catalogRules = ImmutableList.of();
+            queryAccessRules = Optional.of(ImmutableList.of());
+            impersonationRules = Optional.of(ImmutableList.of());
+            principalUserMatchRules = Optional.of(ImmutableList.of());
+            systemInformationRules = Optional.of(ImmutableList.of());
+            schemaRules = ImmutableList.of();
+            tableRules = ImmutableList.of();
+            sessionPropertyRules = ImmutableList.of();
+            catalogSessionPropertyRules = ImmutableList.of();
+            return this;
+        }
 
         public Builder setCatalogRules(List<CatalogAccessControlRule> catalogRules)
         {
