@@ -80,7 +80,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 public class TestAvroDecoder
@@ -285,9 +284,9 @@ public class TestAvroDecoder
     public void testSchemaEvolutionRemovingColumn()
     {
         byte[] originalData = buildAvroData(getFieldBuilder()
-                .name("string_field").type().stringType().noDefault()
-                .name("string_field_to_be_removed").type().optional().stringType()
-                .endRecord(),
+                        .name("string_field").type().stringType().noDefault()
+                        .name("string_field_to_be_removed").type().optional().stringType()
+                        .endRecord(),
                 ImmutableMap.of(
                         "string_field", "string_field_value",
                         "string_field_to_be_removed", "removed_field_value"));
@@ -858,7 +857,9 @@ public class TestAvroDecoder
 
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_ARRAY_OF_MAP_TYPE, "map_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
-        assertThrows(AssertionError.class, () -> checkArrayValue(decodedRow, row, mismatchedData));
+        assertThatThrownBy(() -> checkArrayValue(decodedRow, row, mismatchedData))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("Unexpected type expected [true] but found [false]");
     }
 
     @Test
@@ -881,7 +882,9 @@ public class TestAvroDecoder
 
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_ARRAY_OF_MAP_TYPE, "map_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
-        assertThrows(AssertionError.class, () -> checkArrayValue(decodedRow, row, mismatchedData));
+        assertThatThrownBy(() -> checkArrayValue(decodedRow, row, mismatchedData))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("Unexpected type expected [true] but found [false]");
     }
 
     @Test
@@ -931,10 +934,12 @@ public class TestAvroDecoder
                 "key1", "abc",
                 "key2", "def",
                 "key3", "zyx"));
-        assertThrows(AssertionError.class, () -> checkMapValue(decodedRow, row, ImmutableMap.of(
+        assertThatThrownBy(() -> checkMapValue(decodedRow, row, ImmutableMap.of(
                 "key1", "abc",
                 "key4", "def",
-                "key3", "zyx")));
+                "key3", "zyx")))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("expected [true] but found [false]");
     }
 
     @Test
@@ -946,10 +951,12 @@ public class TestAvroDecoder
                 "key1", "abc",
                 "key2", "def",
                 "key3", "zyx"));
-        assertThrows(AssertionError.class, () -> checkMapValue(decodedRow, row, ImmutableMap.of(
+        assertThatThrownBy(() -> checkMapValue(decodedRow, row, ImmutableMap.of(
                 "key1", "abc",
                 "key2", "fed",
-                "key3", "zyx")));
+                "key3", "zyx")))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("expected [fed] but found [def]");
     }
 
     @Test

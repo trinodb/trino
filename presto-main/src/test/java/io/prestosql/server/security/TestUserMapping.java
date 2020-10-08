@@ -25,8 +25,8 @@ import java.util.Optional;
 
 import static io.prestosql.server.security.UserMapping.Case.KEEP;
 import static io.prestosql.server.security.UserMapping.createUserMapping;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertThrows;
 
 public class TestUserMapping
 {
@@ -52,9 +52,13 @@ public class TestUserMapping
         UserMapping fileUserMapping = createUserMapping(Optional.empty(), Optional.of(testFile));
         assertEquals(fileUserMapping.mapUser("test@example.com"), "test_file");
         assertEquals(fileUserMapping.mapUser("user"), "user");
-        assertThrows(UserMappingException.class, () -> fileUserMapping.mapUser("test"));
+        assertThatThrownBy(() -> fileUserMapping.mapUser("test"))
+                .isInstanceOf(UserMappingException.class)
+                .hasMessage("Principal is not allowed");
 
-        assertThrows(IllegalArgumentException.class, () -> createUserMapping(Optional.of("(.*?)@.*"), Optional.of(testFile)));
+        assertThatThrownBy(() -> createUserMapping(Optional.of("(.*?)@.*"), Optional.of(testFile)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("user mapping pattern and file can not both be set");
     }
 
     @Test
@@ -63,8 +67,12 @@ public class TestUserMapping
     {
         UserMapping userMapping = new UserMapping(ImmutableList.of(new Rule("(.*?)@.*")));
         assertEquals(userMapping.mapUser("test@example.com"), "test");
-        assertThrows(UserMappingException.class, () -> userMapping.mapUser("no at sign"));
-        assertThrows(UserMappingException.class, () -> userMapping.mapUser("@no user string"));
+        assertThatThrownBy(() -> userMapping.mapUser("no at sign"))
+                .isInstanceOf(UserMappingException.class)
+                .hasMessage("No user mapping patterns match the principal");
+        assertThatThrownBy(() -> userMapping.mapUser("@no user string"))
+                .isInstanceOf(UserMappingException.class)
+                .hasMessage("Principal matched, but mapped user is empty");
     }
 
     @Test
@@ -73,20 +81,28 @@ public class TestUserMapping
     {
         UserMapping userMapping = new UserMapping(ImmutableList.of(new Rule("(.*?)@.*", "$1 ^ $1", true, KEEP)));
         assertEquals(userMapping.mapUser("test@example.com"), "test ^ test");
-        assertThrows(UserMappingException.class, () -> userMapping.mapUser("no at sign"));
+        assertThatThrownBy(() -> userMapping.mapUser("no at sign"))
+                .isInstanceOf(UserMappingException.class)
+                .hasMessage("No user mapping patterns match the principal");
 
         UserMapping emptyMapping = new UserMapping(ImmutableList.of(new Rule("(.*?)@.*", "  ", true, KEEP)));
-        assertThrows(UserMappingException.class, () -> emptyMapping.mapUser("test@example.com"));
+        assertThatThrownBy(() -> emptyMapping.mapUser("test@example.com"))
+                .isInstanceOf(UserMappingException.class)
+                .hasMessage("Principal matched, but mapped user is empty");
     }
 
     @Test
     public void testNotAllowedRule()
     {
         UserMapping userMapping = new UserMapping(ImmutableList.of(new Rule("(.*?)@.*", "$1", false, KEEP)));
-        assertThrows(UserMappingException.class, () -> userMapping.mapUser("test@example.com"));
+        assertThatThrownBy(() -> userMapping.mapUser("test@example.com"))
+                .isInstanceOf(UserMappingException.class)
+                .hasMessage("Principal is not allowed");
 
         UserMapping emptyMapping = new UserMapping(ImmutableList.of(new Rule("(.*?)@.*", "", false, KEEP)));
-        assertThrows(UserMappingException.class, () -> emptyMapping.mapUser("test@example.com"));
+        assertThatThrownBy(() -> emptyMapping.mapUser("test@example.com"))
+                .isInstanceOf(UserMappingException.class)
+                .hasMessage("Principal is not allowed");
     }
 
     @Test
@@ -95,8 +111,12 @@ public class TestUserMapping
     {
         UserMapping userMapping = new UserMapping(ImmutableList.of(new Rule("test@example.com", "", false, KEEP), new Rule("(.*?)@example.com")));
         assertEquals(userMapping.mapUser("apple@example.com"), "apple");
-        assertThrows(UserMappingException.class, () -> userMapping.mapUser("test@example.com"));
-        assertThrows(UserMappingException.class, () -> userMapping.mapUser("apple@other.example.com"));
+        assertThatThrownBy(() -> userMapping.mapUser("test@example.com"))
+                .isInstanceOf(UserMappingException.class)
+                .hasMessage("Principal is not allowed");
+        assertThatThrownBy(() -> userMapping.mapUser("apple@other.example.com"))
+                .isInstanceOf(UserMappingException.class)
+                .hasMessage("No user mapping patterns match the principal");
     }
 
     @Test
@@ -126,8 +146,12 @@ public class TestUserMapping
         assertEquals(userMapping.mapUser("apple@example.com"), "apple");
         assertEquals(userMapping.mapUser("apple@uk.example.com"), "apple_uk");
         assertEquals(userMapping.mapUser("apple@de.example.com"), "apple_de");
-        assertThrows(UserMappingException.class, () -> userMapping.mapUser("apple@unknown.com"));
-        assertThrows(UserMappingException.class, () -> userMapping.mapUser("test@example.com"));
+        assertThatThrownBy(() -> userMapping.mapUser("apple@unknown.com"))
+                .isInstanceOf(UserMappingException.class)
+                .hasMessage("No user mapping patterns match the principal");
+        assertThatThrownBy(() -> userMapping.mapUser("test@example.com"))
+                .isInstanceOf(UserMappingException.class)
+                .hasMessage("Principal is not allowed");
         assertEquals(userMapping.mapUser("test@uppercase.com"), "TEST");
     }
 }

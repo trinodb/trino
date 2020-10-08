@@ -20,6 +20,7 @@ import io.prestosql.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -40,7 +41,9 @@ public class TestExpressionVerifier
         ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
 
         assertTrue(verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND X < 10)")));
-        assertThrows(() -> verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND Z < 10)")));
+        assertThatThrownBy(() -> verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND Z < 10)")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("missing expression for alias Z");
         assertFalse(verifier.process(actual, expression("NOT(X = 3 AND X = 3 AND X < 10)")));
     }
 
@@ -125,15 +128,5 @@ public class TestExpressionVerifier
     private Expression expression(String sql)
     {
         return rewriteIdentifiersToSymbolReferences(parser.createExpression(sql, new ParsingOptions()));
-    }
-
-    private static void assertThrows(Runnable runnable)
-    {
-        try {
-            runnable.run();
-            throw new AssertionError("Method didn't throw exception as expected");
-        }
-        catch (Exception expected) {
-        }
     }
 }

@@ -16,7 +16,7 @@ package io.prestosql.plugin.thrift.api;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.thrift.api.NameValidationUtils.checkValidName;
-import static org.testng.Assert.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestNameValidationUtils
 {
@@ -24,12 +24,26 @@ public class TestNameValidationUtils
     public void testCheckValidColumnName()
     {
         checkValidName("abc01_def2");
-        assertThrows(() -> checkValidName(null));
-        assertThrows(() -> checkValidName(""));
-        assertThrows(() -> checkValidName("Abc"));
-        assertThrows(() -> checkValidName("0abc"));
-        assertThrows(() -> checkValidName("_abc"));
-        assertThrows(() -> checkValidName("aBc"));
-        assertThrows(() -> checkValidName("ab-c"));
+        assertThatThrownBy(() -> checkValidName(null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("name is null or empty");
+        assertThatThrownBy(() -> checkValidName(""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("name is null or empty");
+        assertThatThrownBy(() -> checkValidName("Abc"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("name must start with a lowercase latin letter");
+        assertThatThrownBy(() -> checkValidName("0abc"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("name must start with a lowercase latin letter");
+        assertThatThrownBy(() -> checkValidName("_abc"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("name must start with a lowercase latin letter");
+        assertThatThrownBy(() -> checkValidName("aBc"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("name must contain only lowercase latin letters, digits or underscores");
+        assertThatThrownBy(() -> checkValidName("ab-c"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("name must contain only lowercase latin letters, digits or underscores");
     }
 }
