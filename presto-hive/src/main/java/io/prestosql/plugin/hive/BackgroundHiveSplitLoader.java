@@ -450,7 +450,7 @@ public class BackgroundHiveSplitLoader
 
             JobConf jobConf = toJobConf(configuration);
             FileInputFormat.setInputPaths(jobConf, path);
-            InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
+            InputSplit[] splits = hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> inputFormat.getSplits(jobConf, 0));
 
             return addSplitsToSource(splits, splitFactory);
         }
