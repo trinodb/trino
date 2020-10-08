@@ -116,7 +116,6 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -358,8 +357,12 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
-        assertThrows(RuntimeException.class, () -> drain(hiveSplitSource));
-        assertThrows(RuntimeException.class, hiveSplitSource::isFinished);
+        assertThatThrownBy(() -> drain(hiveSplitSource))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("OFFLINE");
+        assertThatThrownBy(hiveSplitSource::isFinished)
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("OFFLINE");
     }
 
     @Test(timeOut = 30_000)

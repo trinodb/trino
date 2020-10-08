@@ -58,10 +58,10 @@ import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -718,9 +718,15 @@ public class TestSignatureBinder
                 .withCoercion()
                 .fails();
 
-        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "array"));
-        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "map"));
-        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "decimal"));
+        assertThatThrownBy(() -> withVariadicBound("T", "array"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("variadicBound must be row but is array");
+        assertThatThrownBy(() -> withVariadicBound("T", "map"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("variadicBound must be row but is map");
+        assertThatThrownBy(() -> withVariadicBound("T", "decimal"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("variadicBound must be row but is decimal");
     }
 
     @Test
@@ -742,9 +748,15 @@ public class TestSignatureBinder
     @Test
     public void testInvalidVariadicBound()
     {
-        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "array"));
-        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "map"));
-        assertThrows(IllegalArgumentException.class, () -> withVariadicBound("T", "decimal"));
+        assertThatThrownBy(() -> withVariadicBound("T", "array"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("variadicBound must be row but is array");
+        assertThatThrownBy(() -> withVariadicBound("T", "map"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("variadicBound must be row but is map");
+        assertThatThrownBy(() -> withVariadicBound("T", "decimal"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("variadicBound must be row but is decimal");
     }
 
     @Test
