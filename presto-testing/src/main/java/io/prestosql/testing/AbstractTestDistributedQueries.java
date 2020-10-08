@@ -44,6 +44,7 @@ import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.prestosql.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.DataProviders.toDataProvider;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.QueryAssertions.getPrestoExceptionCause;
@@ -1366,8 +1367,7 @@ public abstract class AbstractTestDistributedQueries
                 .map(this::filterColumnNameTestData)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .map(columnName -> new Object[] {columnName})
-                .toArray(Object[][]::new);
+                .collect(toDataProvider());
     }
 
     private List<String> testColumnNameTestData()

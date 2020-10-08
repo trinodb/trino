@@ -21,17 +21,14 @@ import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
-import io.prestosql.testing.sql.JdbcSqlExecutor;
+import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
-import java.util.Properties;
 
-import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_PASS;
-import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_USER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
@@ -401,11 +398,8 @@ public class TestOracleDistributedQueries
         return Optional.empty();
     }
 
-    protected JdbcSqlExecutor createJdbcSqlExecutor()
+    protected SqlExecutor createJdbcSqlExecutor()
     {
-        Properties properties = new Properties();
-        properties.setProperty("user", TEST_USER);
-        properties.setProperty("password", TEST_PASS);
-        return new JdbcSqlExecutor(oracleServer.getJdbcUrl(), properties);
+        return oracleServer::execute;
     }
 }
