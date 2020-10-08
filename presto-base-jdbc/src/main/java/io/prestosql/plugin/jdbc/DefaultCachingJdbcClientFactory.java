@@ -35,6 +35,6 @@ public class DefaultCachingJdbcClientFactory
     @Override
     public JdbcClient create()
     {
-        return new CachingJdbcClient(jdbcClient, new Duration(1, TimeUnit.DAYS), true);
+        return new TransactionCachingJdbcClient(jdbcClient, new Duration(1, TimeUnit.DAYS));
     }
 }
