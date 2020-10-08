@@ -12,13 +12,13 @@ package com.starburstdata.presto.plugin.oracle;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.starburstdata.presto.kerberos.ConnectorKerberosManagerModule;
 import com.starburstdata.presto.kerberos.KerberosManager;
 import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule;
 import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
-import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
 import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConfig;
 import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConnectionFactory;
@@ -126,14 +126,7 @@ public class OracleAuthenticationModule
         public void configure(Binder binder)
         {
             binder.install(new AuthToLocalModule(catalogName));
-        }
-
-        @Provides
-        @Singleton
-        @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(@ForAuthentication ConnectionFactory connectionFactory, AuthToLocal authToLocal)
-        {
-            return new OracleImpersonatingConnectionFactory(connectionFactory, authToLocal);
+            binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(OracleImpersonatingConnectionFactory.class).in(Scopes.SINGLETON);
         }
     }
 
