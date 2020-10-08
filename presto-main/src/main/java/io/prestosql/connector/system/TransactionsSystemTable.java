@@ -44,6 +44,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.StandardTypes.ARRAY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static java.util.Objects.requireNonNull;
 
 public class TransactionsSystemTable
@@ -92,7 +93,7 @@ public class TransactionsSystemTable
                     info.getIsolationLevel().toString(),
                     info.isReadOnly(),
                     info.isAutoCommitContext(),
-                    info.getCreateTime().getMillis(),
+                    info.getCreateTime().getMillis() * MICROSECONDS_PER_MILLISECOND,
                     (long) info.getIdleTime().getValue(TimeUnit.SECONDS),
                     info.getWrittenConnectorId().map(CatalogName::getCatalogName).orElse(null),
                     createStringsBlock(info.getCatalogNames()));

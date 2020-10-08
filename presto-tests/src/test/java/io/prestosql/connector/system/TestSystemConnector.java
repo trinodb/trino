@@ -168,6 +168,36 @@ public class TestSystemConnector
     }
 
     @Test
+    public void testRuntimeTransactionsTimestamps()
+    {
+        ZonedDateTime timeBefore = ZonedDateTime.now();
+        computeActual("START TRANSACTION");
+        MaterializedResult result = computeActual("" +
+                "SELECT max(create_time) " +
+                "FROM system.runtime.transactions");
+        ZonedDateTime timeAfter = ZonedDateTime.now();
+
+        MaterializedRow row = Iterables.getOnlyElement(result.toTestTypes().getMaterializedRows());
+        List<Object> fields = row.getFields();
+        assertThat(fields).hasSize(1);
+        for (int i = 0; i < fields.size(); i++) {
+            final int fieldNumber = i;
+            Object value = fields.get(fieldNumber);
+            assertThat(value)
+                    .as("value for field " + fieldNumber)
+                    .isNotNull()
+                    .isInstanceOfSatisfying(LocalDateTime.class, localDatetime -> {
+                        // TODO (https://github.com/prestosql/presto/issues/5464) map to `timestamp with time zone`
+                        ZonedDateTime zonedDateTime = localDatetime.atZone(UTC);
+                        assertThat(zonedDateTime)
+                                .as("value for field " + fieldNumber)
+                                .isAfterOrEqualTo(timeBefore)
+                                .isBeforeOrEqualTo(timeAfter);
+                    });
+        }
+    }
+
+    @Test
     public void testFinishedQueryIsCaptured()
     {
         String testQueryId = "test_query_id_" + counter.incrementAndGet();
