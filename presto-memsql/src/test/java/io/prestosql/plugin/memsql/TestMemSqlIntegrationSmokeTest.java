@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.memsql;
 
+import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
@@ -193,8 +194,7 @@ public class TestMemSqlIntegrationSmokeTest
         assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
 
         // with filter over varchar column
-        // TODO (https://github.com/prestosql/presto/issues/5263) should be `.isNotFullyPushedDown(FilterNode.class)`
-        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isFullyPushedDown();
+        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isNotFullyPushedDown(FilterNode.class);
     }
 
     @Test
