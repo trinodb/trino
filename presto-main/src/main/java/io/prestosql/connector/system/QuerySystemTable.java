@@ -49,6 +49,7 @@ import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_COORDINATO
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static java.util.Objects.requireNonNull;
 
 public class QuerySystemTable
@@ -156,11 +157,12 @@ public class QuerySystemTable
         return duration.toMillis();
     }
 
+    // TODO (https://github.com/prestosql/presto/issues/5464) map to timestamp with time zone
     private static Long toTimeStamp(DateTime dateTime)
     {
         if (dateTime == null) {
             return null;
         }
-        return dateTime.getMillis();
+        return dateTime.getMillis() * MICROSECONDS_PER_MILLISECOND;
     }
 }
