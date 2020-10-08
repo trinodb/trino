@@ -13,10 +13,10 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.testing.TestingConnectorContext;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSapHanaPlugin
 {
@@ -25,7 +25,7 @@ public class TestSapHanaPlugin
     {
         Plugin plugin = new SapHanaPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        Assertions.assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext()))
+        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
                 .hasToString("com.starburstdata.presto.license.PrestoLicenseException: Valid license required to use the feature: sap-hana");
     }
