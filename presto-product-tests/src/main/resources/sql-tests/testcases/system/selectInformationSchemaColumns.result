@@ -85,10 +85,10 @@ system| runtime| queries| resource_group_id| array(varchar)| YES| null| null|
 system| runtime| queries| queued_time_ms| bigint| YES| null| null|
 system| runtime| queries| analysis_time_ms| bigint| YES| null| null|
 system| runtime| queries| planning_time_ms| bigint| YES| null| null|
-system| runtime| queries| created| timestamp(3)| YES| null| null|
-system| runtime| queries| started| timestamp(3)| YES| null| null|
-system| runtime| queries| last_heartbeat| timestamp(3)| YES| null| null|
-system| runtime| queries| end| timestamp(3)| YES| null| null|
+system| runtime| queries| created| timestamp(3) with time zone| YES| null| null|
+system| runtime| queries| started| timestamp(3) with time zone| YES| null| null|
+system| runtime| queries| last_heartbeat| timestamp(3) with time zone| YES| null| null|
+system| runtime| queries| end| timestamp(3) with time zone| YES| null| null|
 system| runtime| queries| error_type| varchar| YES| null| null|
 system| runtime| queries| error_code| varchar| YES| null| null|
 system| runtime| tasks| node_id| varchar| YES| null| null|
@@ -111,15 +111,15 @@ system| runtime| tasks| output_bytes| bigint| YES| null| null|
 system| runtime| tasks| output_rows| bigint| YES| null| null|
 system| runtime| tasks| physical_input_bytes| bigint| YES| null| null|
 system| runtime| tasks| physical_written_bytes| bigint| YES| null| null|
-system| runtime| tasks| created| timestamp(3)| YES| null| null|
-system| runtime| tasks| start| timestamp(3)| YES| null| null|
-system| runtime| tasks| last_heartbeat| timestamp(3)| YES| null| null|
-system| runtime| tasks| end| timestamp(3)| YES| null| null|
+system| runtime| tasks| created| timestamp(3) with time zone| YES| null| null|
+system| runtime| tasks| start| timestamp(3) with time zone| YES| null| null|
+system| runtime| tasks| last_heartbeat| timestamp(3) with time zone| YES| null| null|
+system| runtime| tasks| end| timestamp(3) with time zone| YES| null| null|
 system| runtime| transactions| transaction_id| varchar| YES| null| null|
 system| runtime| transactions| isolation_level| varchar| YES| null| null|
 system| runtime| transactions| read_only| boolean| YES| null| null|
 system| runtime| transactions| auto_commit_context| boolean| YES| null| null|
-system| runtime| transactions| create_time| timestamp(3)| YES| null| null|
+system| runtime| transactions| create_time| timestamp(3) with time zone| YES| null| null|
 system| runtime| transactions| idle_time_secs| bigint| YES| null| null|
 system| runtime| transactions| written_catalog| varchar| YES| null| null|
 system| runtime| transactions| catalogs| array(varchar)| YES| null| null|
