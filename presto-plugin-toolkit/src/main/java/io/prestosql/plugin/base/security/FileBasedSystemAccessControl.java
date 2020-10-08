@@ -243,16 +243,17 @@ public class FileBasedSystemAccessControl
                 // if no rules are defined then all access is allowed
                 catalogAccessControlRules = ImmutableList.of(CatalogAccessControlRule.ALLOW_ALL);
             }
-            return new FileBasedSystemAccessControl(
-                    catalogAccessControlRules,
-                    rules.getQueryAccessRules(),
-                    rules.getImpersonationRules(),
-                    rules.getPrincipalUserMatchRules(),
-                    rules.getSystemInformationRules(),
-                    rules.getSchemaRules().orElse(ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL)),
-                    rules.getTableRules().orElse(ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL)),
-                    rules.getSessionPropertyRules().orElse(ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL)),
-                    rules.getCatalogSessionPropertyRules().orElse(ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL)));
+            return FileBasedSystemAccessControl.builder()
+                    .setCatalogRules(catalogAccessControlRules)
+                    .setQueryAccessRules(rules.getQueryAccessRules())
+                    .setImpersonationRules(rules.getImpersonationRules())
+                    .setPrincipalUserMatchRules(rules.getPrincipalUserMatchRules())
+                    .setSystemInformationRules(rules.getSystemInformationRules())
+                    .setSchemaRules(rules.getSchemaRules().orElse(ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL)))
+                    .setTableRules(rules.getTableRules().orElse(ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL)))
+                    .setSessionPropertyRules(rules.getSessionPropertyRules().orElse(ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL)))
+                    .setCatalogSessionPropertyRules(rules.getCatalogSessionPropertyRules().orElse(ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL)))
+                    .build();
         }
     }
 
@@ -793,5 +794,91 @@ public class FileBasedSystemAccessControl
             }
         }
         return false;
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static final class Builder
+    {
+        private List<CatalogAccessControlRule> catalogRules = ImmutableList.of();
+        private Optional<List<QueryAccessRule>> queryAccessRules = Optional.empty();
+        private Optional<List<ImpersonationRule>> impersonationRules = Optional.empty();
+        private Optional<List<PrincipalUserMatchRule>> principalUserMatchRules = Optional.empty();
+        private Optional<List<SystemInformationRule>> systemInformationRules = Optional.empty();
+        private List<CatalogSchemaAccessControlRule> schemaRules = ImmutableList.of();
+        private List<CatalogTableAccessControlRule> tableRules = ImmutableList.of();
+        private List<SessionPropertyAccessControlRule> sessionPropertyRules = ImmutableList.of();
+        private List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules = ImmutableList.of();
+
+        public Builder setCatalogRules(List<CatalogAccessControlRule> catalogRules)
+        {
+            this.catalogRules = catalogRules;
+            return this;
+        }
+
+        public Builder setQueryAccessRules(Optional<List<QueryAccessRule>> queryAccessRules)
+        {
+            this.queryAccessRules = queryAccessRules;
+            return this;
+        }
+
+        public Builder setImpersonationRules(Optional<List<ImpersonationRule>> impersonationRules)
+        {
+            this.impersonationRules = impersonationRules;
+            return this;
+        }
+
+        public Builder setPrincipalUserMatchRules(Optional<List<PrincipalUserMatchRule>> principalUserMatchRules)
+        {
+            this.principalUserMatchRules = principalUserMatchRules;
+            return this;
+        }
+
+        public Builder setSystemInformationRules(Optional<List<SystemInformationRule>> systemInformationRules)
+        {
+            this.systemInformationRules = systemInformationRules;
+            return this;
+        }
+
+        public Builder setSchemaRules(List<CatalogSchemaAccessControlRule> schemaRules)
+        {
+            this.schemaRules = schemaRules;
+            return this;
+        }
+
+        public Builder setTableRules(List<CatalogTableAccessControlRule> tableRules)
+        {
+            this.tableRules = tableRules;
+            return this;
+        }
+
+        public Builder setSessionPropertyRules(List<SessionPropertyAccessControlRule> sessionPropertyRules)
+        {
+            this.sessionPropertyRules = sessionPropertyRules;
+            return this;
+        }
+
+        public Builder setCatalogSessionPropertyRules(List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules)
+        {
+            this.catalogSessionPropertyRules = catalogSessionPropertyRules;
+            return this;
+        }
+
+        public FileBasedSystemAccessControl build()
+        {
+            return new FileBasedSystemAccessControl(
+                    catalogRules,
+                    queryAccessRules,
+                    impersonationRules,
+                    principalUserMatchRules,
+                    systemInformationRules,
+                    schemaRules,
+                    tableRules,
+                    sessionPropertyRules,
+                    catalogSessionPropertyRules);
+        }
     }
 }
