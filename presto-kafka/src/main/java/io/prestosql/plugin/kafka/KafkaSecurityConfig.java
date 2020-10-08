@@ -116,7 +116,7 @@ public class KafkaSecurityConfig
             this.sslEndpointIdentificationAlgorithm = KafkaEndpointIdentificationAlgorithm.HTTPS;
         }
         else if (sslEndpointIdentificationAlgorithm.equals("")) {
-            this.sslEndpointIdentificationAlgorithm = KafkaEndpointIdentificationAlgorithm.DEACTIVATED;
+            this.sslEndpointIdentificationAlgorithm = KafkaEndpointIdentificationAlgorithm.DISABLED;
         }
     }
 

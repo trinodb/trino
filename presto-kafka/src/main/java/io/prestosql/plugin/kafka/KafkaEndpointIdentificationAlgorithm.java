@@ -16,7 +16,7 @@ package io.prestosql.plugin.kafka;
 public enum KafkaEndpointIdentificationAlgorithm
 {
     HTTPS("https"),
-    DEACTIVATED("");
+    DISABLED("");
 
     public final String name;
 
