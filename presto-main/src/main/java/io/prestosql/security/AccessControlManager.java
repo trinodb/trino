@@ -148,7 +148,7 @@ public class AccessControlManager
                 .flatMap(listeners -> ImmutableSet.copyOf(listeners).stream())
                 .forEach(eventListenerManager::addEventListener);
 
-        checkState(this.systemAccessControls.compareAndSet(null, systemAccessControls), "System access control already initialized");
+        setSystemAccessControls(systemAccessControls);
     }
 
     private SystemAccessControl createSystemAccessControl(File configFile)
@@ -185,7 +185,7 @@ public class AccessControlManager
         checkState(systemAccessControlFactory != null, "Access control '%s' is not registered", name);
 
         SystemAccessControl systemAccessControl = systemAccessControlFactory.create(ImmutableMap.copyOf(properties));
-        checkState(systemAccessControls.compareAndSet(null, ImmutableList.of(systemAccessControl)), "System access control already initialized");
+        setSystemAccessControls(ImmutableList.of(systemAccessControl));
     }
 
     @VisibleForTesting
@@ -196,6 +196,12 @@ public class AccessControlManager
                         .addAll(currentControls)
                         .add(systemAccessControl)
                         .build());
+    }
+
+    @VisibleForTesting
+    public void setSystemAccessControls(List<SystemAccessControl> systemAccessControls)
+    {
+        checkState(this.systemAccessControls.compareAndSet(null, systemAccessControls), "System access control already initialized");
     }
 
     @Override

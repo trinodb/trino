@@ -39,11 +39,6 @@
 
         <dependency>
             <groupId>io.prestosql</groupId>
-            <artifactId>presto-plugin-toolkit</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prestosql</groupId>
             <artifactId>presto-spi</artifactId>
         </dependency>
 
