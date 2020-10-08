@@ -51,6 +51,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Optional;
 import java.util.TimeZone;
+import java.util.function.BiFunction;
 
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
@@ -396,6 +397,18 @@ public class SapHanaClient
         }
 
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    @Override
+    protected Optional<BiFunction<String, Long, String>> limitFunction()
+    {
+        return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
+    }
+
+    @Override
+    public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return true;
     }
 
     private static ColumnMapping timeColumnMapping()

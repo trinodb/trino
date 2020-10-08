@@ -21,6 +21,7 @@ import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test
 public class TestSapHanaIntegrationSmokeTest
@@ -47,5 +48,17 @@ public class TestSapHanaIntegrationSmokeTest
     public final void destroy()
     {
         server.close();
+    }
+
+    @Test
+    public void testLimitPushdown()
+    {
+        assertThat(query("SELECT name FROM nation LIMIT 30")).isCorrectlyPushedDown(); // Use high limit for result determinism
+
+        // with filter over numeric column
+        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isCorrectlyPushedDown();
+
+        // with filter over varchar column
+        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isCorrectlyPushedDown();
     }
 }
