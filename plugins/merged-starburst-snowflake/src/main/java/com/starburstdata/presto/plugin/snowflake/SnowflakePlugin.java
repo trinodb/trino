@@ -11,7 +11,9 @@ package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Module;
 import com.starburstdata.presto.license.LicenceCheckingConnectorFactory;
+import com.starburstdata.presto.license.LicenseModule;
 import com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDistributedConnectorFactory;
 import com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeJdbcClientModule;
 import io.prestosql.plugin.jdbc.JdbcConnectorFactory;
@@ -33,18 +35,18 @@ public class SnowflakePlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return getUnlicensedConnectorFactories().stream()
+        return getConnectorFactoriesWithLicensing(new LicenseModule()).stream()
                 .map(connectorFactory -> new LicenceCheckingConnectorFactory(SNOWFLAKE, connectorFactory))
                 .collect(toImmutableList());
     }
 
     @VisibleForTesting
-    List<ConnectorFactory> getUnlicensedConnectorFactories()
+    List<ConnectorFactory> getConnectorFactoriesWithLicensing(Module licenseModule)
     {
         return ImmutableList.of(
                 new JdbcConnectorFactory(
                         SNOWFLAKE_JDBC,
                         (JdbcModuleProvider) catalogName -> new SnowflakeJdbcClientModule(catalogName, false)),
-                new SnowflakeDistributedConnectorFactory(SNOWFLAKE_DISTRIBUTED));
+                new SnowflakeDistributedConnectorFactory(SNOWFLAKE_DISTRIBUTED, licenseModule));
     }
 }

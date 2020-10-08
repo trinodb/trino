@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
+import com.starburstdata.presto.license.TestingLicenseModule;
 import io.prestosql.spi.connector.ConnectorFactory;
 
 public class TestingSnowflakePlugin
@@ -17,6 +18,6 @@ public class TestingSnowflakePlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return getUnlicensedConnectorFactories();
+        return getConnectorFactoriesWithLicensing(new TestingLicenseModule());
     }
 }

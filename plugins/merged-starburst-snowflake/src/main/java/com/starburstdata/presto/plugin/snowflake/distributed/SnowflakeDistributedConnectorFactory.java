@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import com.google.inject.Injector;
+import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.Connector;
@@ -27,10 +28,12 @@ public class SnowflakeDistributedConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
+    private final Module licenseModule;
 
-    public SnowflakeDistributedConnectorFactory(String name)
+    public SnowflakeDistributedConnectorFactory(String name, Module licenseModule)
     {
         this.name = requireNonNull(name, "name is null");
+        this.licenseModule = requireNonNull(licenseModule, "licenseModule is null");
     }
 
     @Override
@@ -53,6 +56,7 @@ public class SnowflakeDistributedConnectorFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             Bootstrap app = new Bootstrap(
                     new SnowflakeDistributedModule(catalogName),
+                    licenseModule,
                     binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()));
 
             Injector injector = app
