@@ -48,6 +48,8 @@ public class MemSqlClientModule
         Properties connectionProperties = new Properties();
         // we don't want to interpret tinyInt type (with cardinality as 2) as boolean/bit
         connectionProperties.setProperty("tinyInt1isBit", "false");
+        // TODO removing this will cause varchar smoke tests to fail due to case insensitive UTF-8 comparisions
+        connectionProperties.setProperty("sessionVariables", "collation_connection=utf8_bin");
         connectionProperties.setProperty("autoReconnect", String.valueOf(memsqlConfig.isAutoReconnect()));
         connectionProperties.setProperty("connectTimeout", String.valueOf(memsqlConfig.getConnectionTimeout().toMillis()));
 
