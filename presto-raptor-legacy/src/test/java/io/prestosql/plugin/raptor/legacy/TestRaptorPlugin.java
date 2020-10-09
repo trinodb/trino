@@ -46,7 +46,7 @@ public class TestRaptorPlugin
                     .put("storage.data-directory", tmpDir.getAbsolutePath())
                     .build();
 
-            factory.create("test", config, new TestingConnectorContext());
+            factory.create("test", config, new TestingConnectorContext()).shutdown();
         }
         finally {
             deleteRecursively(tmpDir.toPath(), ALLOW_INSECURE);

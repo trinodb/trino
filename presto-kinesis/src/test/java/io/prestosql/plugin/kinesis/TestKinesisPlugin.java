@@ -81,5 +81,7 @@ public class TestKinesisPlugin
 
         ConnectorTransactionHandle handle = c.beginTransaction(READ_COMMITTED, true);
         assertTrue(handle instanceof KinesisTransactionHandle);
+
+        c.shutdown();
     }
 }
