@@ -61,7 +61,7 @@ public class OracleClientModule
 
         install(new OracleAuthenticationModule(catalogName));
 
-        install(new DynamicFilteringModule());
+        install(new DynamicFilteringModule(catalogName));
 
         newOptionalBinder(binder, ConnectorRecordSetProvider.class).setBinding()
                 .to(DynamicFilteringJdbcRecordSetProvider.class).in(Scopes.SINGLETON);
