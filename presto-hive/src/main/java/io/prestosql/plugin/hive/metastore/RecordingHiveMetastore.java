@@ -21,9 +21,9 @@ import com.google.common.cache.CacheBuilder;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
-import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
+import io.prestosql.plugin.hive.RecordingMetastoreConfig;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -85,16 +85,16 @@ public class RecordingHiveMetastore
     private final Cache<String, Set<RoleGrant>> grantedPrincipalsCache;
 
     @Inject
-    public RecordingHiveMetastore(@ForRecordingHiveMetastore HiveMetastore delegate, HiveConfig hiveConfig, JsonCodec<RecordingHiveMetastore.Recording> recordingCodec)
+    public RecordingHiveMetastore(@ForRecordingHiveMetastore HiveMetastore delegate, RecordingMetastoreConfig config, JsonCodec<RecordingHiveMetastore.Recording> recordingCodec)
             throws IOException
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.recordingCodec = recordingCodec;
-        requireNonNull(hiveConfig, "hiveConfig is null");
-        this.recordingPath = Paths.get(requireNonNull(hiveConfig.getRecordingPath(), "recordingPath is null"));
-        this.replay = hiveConfig.isReplay();
+        requireNonNull(config, "config is null");
+        this.recordingPath = Paths.get(requireNonNull(config.getRecordingPath(), "recordingPath is null"));
+        this.replay = config.isReplay();
 
-        Duration recordingDuration = hiveConfig.getRecordingDuration();
+        Duration recordingDuration = config.getRecordingDuration();
         databaseCache = createCache(replay, recordingDuration);
         tableCache = createCache(replay, recordingDuration);
         supportedColumnStatisticsCache = createCache(replay, recordingDuration);
