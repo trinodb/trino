@@ -23,11 +23,9 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
-import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.RecordingHiveMetastoreModule;
 import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
-import io.prestosql.plugin.hive.metastore.cache.ForCachingHiveMetastore;
 
 import java.util.concurrent.Executor;
 
@@ -51,24 +49,15 @@ public class GlueMetastoreModule
 
         newOptionalBinder(binder, Key.get(RequestHandler2.class, ForGlueHiveMetastore.class));
 
-        if (buildConfigObject(HiveConfig.class).getRecordingPath() != null) {
-            binder.bind(HiveMetastore.class)
-                    .annotatedWith(ForRecordingHiveMetastore.class)
-                    .to(GlueHiveMetastore.class)
-                    .in(Scopes.SINGLETON);
-            binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
-            newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
-            binder.install(new RecordingHiveMetastoreModule());
-        }
-        else {
-            binder.bind(HiveMetastore.class)
-                    .annotatedWith(ForCachingHiveMetastore.class)
-                    .to(GlueHiveMetastore.class)
-                    .in(Scopes.SINGLETON);
-            newExporter(binder).export(HiveMetastore.class)
-                    .as(generator -> generator.generatedNameOf(GlueHiveMetastore.class));
-        }
-        binder.install(new CachingHiveMetastoreModule());
+        binder.bind(HiveMetastore.class)
+                .annotatedWith(ForRecordingHiveMetastore.class)
+                .to(GlueHiveMetastore.class)
+                .in(Scopes.SINGLETON);
+        binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
+
+        install(new RecordingHiveMetastoreModule());
+        install(new CachingHiveMetastoreModule());
     }
 
     @Provides
