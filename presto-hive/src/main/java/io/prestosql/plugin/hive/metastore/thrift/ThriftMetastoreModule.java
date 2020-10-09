@@ -18,11 +18,9 @@ import com.google.inject.Scopes;
 import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
-import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.RecordingHiveMetastoreModule;
 import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
-import io.prestosql.plugin.hive.metastore.cache.ForCachingHiveMetastore;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -43,21 +41,13 @@ public class ThriftMetastoreModule
         newExporter(binder).export(ThriftMetastore.class)
                 .as(generator -> generator.generatedNameOf(ThriftHiveMetastore.class));
 
-        if (buildConfigObject(HiveConfig.class).getRecordingPath() != null) {
-            binder.bind(HiveMetastore.class)
-                    .annotatedWith(ForRecordingHiveMetastore.class)
-                    .to(BridgingHiveMetastore.class)
-                    .in(Scopes.SINGLETON);
-            binder.install(new RecordingHiveMetastoreModule());
-        }
-        else {
-            binder.bind(HiveMetastore.class)
-                    .annotatedWith(ForCachingHiveMetastore.class)
-                    .to(BridgingHiveMetastore.class)
-                    .in(Scopes.SINGLETON);
-        }
+        binder.bind(HiveMetastore.class)
+                .annotatedWith(ForRecordingHiveMetastore.class)
+                .to(BridgingHiveMetastore.class)
+                .in(Scopes.SINGLETON);
 
-        binder.install(new CachingHiveMetastoreModule());
+        install(new RecordingHiveMetastoreModule());
+        install(new CachingHiveMetastoreModule());
 
         install(new ThriftMetastoreAuthenticationModule());
     }
