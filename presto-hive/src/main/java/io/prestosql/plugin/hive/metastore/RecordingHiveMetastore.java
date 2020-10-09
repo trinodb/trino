@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveType;
@@ -93,21 +94,22 @@ public class RecordingHiveMetastore
         this.recordingPath = Paths.get(requireNonNull(hiveConfig.getRecordingPath(), "recordingPath is null"));
         this.replay = hiveConfig.isReplay();
 
-        databaseCache = createCache(hiveConfig);
-        tableCache = createCache(hiveConfig);
-        supportedColumnStatisticsCache = createCache(hiveConfig);
-        tableStatisticsCache = createCache(hiveConfig);
-        partitionStatisticsCache = createCache(hiveConfig);
-        allTablesCache = createCache(hiveConfig);
-        tablesWithParameterCache = createCache(hiveConfig);
-        allViewsCache = createCache(hiveConfig);
-        partitionCache = createCache(hiveConfig);
-        partitionNamesCache = createCache(hiveConfig);
-        partitionNamesByPartsCache = createCache(hiveConfig);
-        partitionsByNamesCache = createCache(hiveConfig);
-        tablePrivilegesCache = createCache(hiveConfig);
-        roleGrantsCache = createCache(hiveConfig);
-        grantedPrincipalsCache = createCache(hiveConfig);
+        Duration recordingDuration = hiveConfig.getRecordingDuration();
+        databaseCache = createCache(replay, recordingDuration);
+        tableCache = createCache(replay, recordingDuration);
+        supportedColumnStatisticsCache = createCache(replay, recordingDuration);
+        tableStatisticsCache = createCache(replay, recordingDuration);
+        partitionStatisticsCache = createCache(replay, recordingDuration);
+        allTablesCache = createCache(replay, recordingDuration);
+        tablesWithParameterCache = createCache(replay, recordingDuration);
+        allViewsCache = createCache(replay, recordingDuration);
+        partitionCache = createCache(replay, recordingDuration);
+        partitionNamesCache = createCache(replay, recordingDuration);
+        partitionNamesByPartsCache = createCache(replay, recordingDuration);
+        partitionsByNamesCache = createCache(replay, recordingDuration);
+        tablePrivilegesCache = createCache(replay, recordingDuration);
+        roleGrantsCache = createCache(replay, recordingDuration);
+        grantedPrincipalsCache = createCache(replay, recordingDuration);
 
         if (replay) {
             loadRecording();
@@ -139,15 +141,15 @@ public class RecordingHiveMetastore
         grantedPrincipalsCache.putAll(toMap(recording.getGrantedPrincipals()));
     }
 
-    private static <K, V> Cache<K, V> createCache(HiveConfig hiveConfig)
+    private static <K, V> Cache<K, V> createCache(boolean reply, Duration recordingDuration)
     {
-        if (hiveConfig.isReplay()) {
+        if (reply) {
             return CacheBuilder.newBuilder()
                     .build();
         }
 
         return CacheBuilder.newBuilder()
-                .expireAfterWrite(hiveConfig.getRecordingDuration().toMillis(), MILLISECONDS)
+                .expireAfterWrite(recordingDuration.toMillis(), MILLISECONDS)
                 .build();
     }
 
