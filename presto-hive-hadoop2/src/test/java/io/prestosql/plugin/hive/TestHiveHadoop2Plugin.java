@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
@@ -63,6 +64,75 @@ public class TestHiveHadoop2Plugin
     {
         // revert static rubix initialization done by other tests
         CachingFileSystem.deinitialize();
+    }
+
+    @Test
+    public void testCreateConnector()
+    {
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        // simplest possible configuration
+        factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext()).shutdown();
+    }
+
+    @Test
+    public void testThriftMetastore()
+    {
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "hive.metastore", "thrift",
+                        "hive.metastore.uri", "thrift://foo:1234"),
+                new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    public void testGlueMetastore()
+    {
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "hive.metastore", "glue",
+                        "hive.metastore.glue.region", "us-east-2"),
+                new TestingConnectorContext());
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "hive.metastore", "glue",
+                        "hive.metastore.uri", "thrift://foo:1234"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
+    }
+
+    @Test
+    public void testRecordingMetastore()
+    {
+        Plugin plugin = new HiveHadoop2Plugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "hive.metastore", "thrift",
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "hive.metastore-recording-path", "/tmp"),
+                new TestingConnectorContext())
+                .shutdown();
+
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "hive.metastore", "glue",
+                        "hive.metastore.glue.region", "us-east-2",
+                        "hive.metastore-recording-path", "/tmp"),
+                new TestingConnectorContext())
+                .shutdown();
     }
 
     @Test
