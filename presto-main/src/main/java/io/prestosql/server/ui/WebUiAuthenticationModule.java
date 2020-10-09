@@ -16,7 +16,6 @@ package io.prestosql.server.ui;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.util.Modules;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.HttpServer.ClientCertificate;
 import io.prestosql.server.security.Authenticator;
@@ -35,6 +34,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.http.server.HttpServer.ClientCertificate.REQUESTED;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -81,7 +81,7 @@ public class WebUiAuthenticationModule
             binder.install(new FormUiAuthenticatorModule(false));
             newOptionalBinder(binder, Key.get(Authenticator.class, ForWebUi.class)).setBinding().to(clazz).in(SINGLETON);
         };
-        return webUiAuthenticator(name, Modules.combine(module, authModule));
+        return webUiAuthenticator(name, combine(module, authModule));
     }
 
     private static class ConditionalWebUiAuthenticationModule
