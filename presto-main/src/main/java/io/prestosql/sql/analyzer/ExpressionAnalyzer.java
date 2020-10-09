@@ -1497,7 +1497,7 @@ public class ExpressionAnalyzer
                 operatorSignature = metadata.resolveOperator(operatorType, argumentTypes.build()).getSignature();
             }
             catch (OperatorNotFoundException e) {
-                throw semanticException(TYPE_MISMATCH, node, "%s", e.getMessage());
+                throw semanticException(TYPE_MISMATCH, node, e, "%s", e.getMessage());
             }
 
             for (int i = 0; i < arguments.length; i++) {
