@@ -19,7 +19,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
-import io.prestosql.plugin.hive.HiveConfig;
+import io.prestosql.plugin.hive.RecordingMetastoreConfig;
 import io.prestosql.plugin.hive.metastore.cache.ForCachingHiveMetastore;
 import io.prestosql.plugin.hive.util.BlockJsonSerde;
 import io.prestosql.plugin.hive.util.HiveBlockEncodingSerde;
@@ -37,7 +37,7 @@ public class RecordingHiveMetastoreModule
     @Override
     protected void setup(Binder binder)
     {
-        if (buildConfigObject(HiveConfig.class).getRecordingPath() != null) {
+        if (buildConfigObject(RecordingMetastoreConfig.class).getRecordingPath() != null) {
             install(new RecordingModule());
         }
         else {
