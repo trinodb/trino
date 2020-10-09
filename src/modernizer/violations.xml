@@ -114,4 +114,16 @@
         <version>1.0</version>
         <comment>Use Closeables.closeAll() or Closer.</comment>
     </violation>
+
+    <violation>
+        <name>com/google/inject/util/Modules.combine:(Ljava/lang/Iterable;)Lcom/google/inject/Module;</name>
+        <version>1.8</version>
+        <comment>Use io.airlift.configuration.ConfigurationAwareModule.combine</comment>
+    </violation>
+
+    <violation>
+        <name>com/google/inject/util/Modules.combine:([Lcom/google/inject/Module;)Lcom/google/inject/Module;</name>
+        <version>1.8</version>
+        <comment>Use io.airlift.configuration.ConfigurationAwareModule.combine</comment>
+    </violation>
 </modernizer>
