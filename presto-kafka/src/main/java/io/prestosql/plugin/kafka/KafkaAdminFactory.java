@@ -20,6 +20,7 @@ import org.apache.kafka.clients.admin.KafkaAdminClient;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
 import java.util.Properties;
 
 import static java.util.Objects.requireNonNull;
@@ -29,14 +30,19 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS
 public class KafkaAdminFactory
 {
     private final KafkaConfig kafkaConfig;
-    private final KafkaSecurityConfig kafkaSecurityConfig;
+    private final Properties kafkaSecurityConfig;
 
     @Inject
-    public KafkaAdminFactory(KafkaConfig kafkaConfig, KafkaSecurityConfig kafkaSecurityConfig)
+    public KafkaAdminFactory(KafkaConfig kafkaConfig, Optional<KafkaSecurityConfig> kafkaSecurityConfig)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
         this.kafkaConfig = kafkaConfig;
-        this.kafkaSecurityConfig = kafkaSecurityConfig;
+        if (kafkaSecurityConfig.isPresent()) {
+            this.kafkaSecurityConfig = kafkaSecurityConfig.get().getKafkaClientProperties();
+        }
+        else {
+            this.kafkaSecurityConfig = new Properties();
+        }
     }
 
     public AdminClient create()
@@ -50,7 +56,7 @@ public class KafkaAdminFactory
         properties.setProperty(BOOTSTRAP_SERVERS_CONFIG, kafkaConfig.getNodes().stream()
                 .map(HostAddress::toString)
                 .collect(joining(",")));
-        properties.putAll(kafkaSecurityConfig.getKafkaClientProperties());
+        properties.putAll(kafkaSecurityConfig);
         return properties;
     }
 }

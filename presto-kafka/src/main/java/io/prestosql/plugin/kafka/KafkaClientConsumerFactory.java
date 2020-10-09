@@ -19,6 +19,7 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
@@ -36,13 +37,18 @@ public class KafkaClientConsumerFactory
     private final KafkaConfig kafkaConfig;
     private final Set<HostAddress> nodes;
     private final DataSize kafkaBufferSize;
-    private final KafkaSecurityConfig securityConfigProvider;
+    private final Properties securityConfig;
 
     @Inject
-    public KafkaClientConsumerFactory(KafkaConfig kafkaConfig, KafkaSecurityConfig securityConfigProvider)
+    public KafkaClientConsumerFactory(KafkaConfig kafkaConfig, Optional<KafkaSecurityConfig> securityConfig)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
-        this.securityConfigProvider = securityConfigProvider;
+        if (securityConfig.isPresent()) {
+            this.securityConfig = securityConfig.get().getKafkaClientProperties();
+        }
+        else {
+            this.securityConfig = new Properties();
+        }
         this.kafkaConfig = kafkaConfig;
         nodes = kafkaConfig.getNodes();
         kafkaBufferSize = kafkaConfig.getKafkaBufferSize();
@@ -59,8 +65,8 @@ public class KafkaClientConsumerFactory
         properties.setProperty(VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         properties.setProperty(RECEIVE_BUFFER_CONFIG, Long.toString(kafkaBufferSize.toBytes()));
         properties.setProperty(ENABLE_AUTO_COMMIT_CONFIG, Boolean.toString(false));
-        properties.setProperty("security.protocol", kafkaConfig.getSecurityProtocol());
-        properties.putAll(securityConfigProvider.getKafkaClientProperties());
+        properties.setProperty("security.protocol", kafkaConfig.getSecurityProtocol().name);
+        properties.putAll(securityConfig);
         return properties;
     }
 }

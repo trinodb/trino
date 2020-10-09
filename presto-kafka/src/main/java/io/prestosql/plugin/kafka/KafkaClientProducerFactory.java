@@ -22,6 +22,8 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import javax.inject.Inject;
 
 import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 
 import static com.google.common.collect.Maps.fromProperties;
@@ -36,9 +38,14 @@ public class KafkaClientProducerFactory
     private final Map<String, Object> properties;
 
     @Inject
-    public KafkaClientProducerFactory(KafkaConfig kafkaConfig, KafkaSecurityConfig securityConfigProvider)
+    public KafkaClientProducerFactory(KafkaConfig kafkaConfig, Optional<KafkaSecurityConfig> securityConfig)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
+        Properties securityProperties = new Properties();
+        if (securityConfig.isPresent()) {
+            securityProperties = securityConfig.get().getKafkaClientProperties();
+        }
+
         Set<HostAddress> nodes = ImmutableSet.copyOf(kafkaConfig.getNodes());
         properties = ImmutableMap.<String, Object>builder()
                 .put(BOOTSTRAP_SERVERS_CONFIG, nodes.stream()
@@ -46,7 +53,7 @@ public class KafkaClientProducerFactory
                         .collect(joining(",")))
                 .put(ACKS_CONFIG, "all")
                 .put(LINGER_MS_CONFIG, 5)
-                .putAll(fromProperties(securityConfigProvider.getKafkaClientProperties()))
+                .putAll(fromProperties(securityProperties))
                 .build();
     }
 

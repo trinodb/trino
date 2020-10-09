@@ -20,7 +20,6 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import org.apache.kafka.common.config.SslConfigs;
 
-import java.util.Locale;
 import java.util.Properties;
 
 /**
@@ -30,8 +29,6 @@ import java.util.Properties;
  */
 public class KafkaSecurityConfig
 {
-    private Properties props;
-
     private String sslKeystoreFile;
     private String sslKeystorePassword;
     private String sslKeyPassword;
@@ -111,9 +108,9 @@ public class KafkaSecurityConfig
 
     @Config("kafka.endpoint-identification-algorithm")
     @ConfigDescription(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_DOC)
-    public void setSslEndpointIdentificationAlgorithm(String sslEndpointIdentificationAlgorithm)
+    public void setSslEndpointIdentificationAlgorithm(KafkaEndpointIdentificationAlgorithm sslEndpointIdentificationAlgorithm)
     {
-        this.sslEndpointIdentificationAlgorithm = KafkaEndpointIdentificationAlgorithm.valueOf(sslEndpointIdentificationAlgorithm.toUpperCase(Locale.ENGLISH));
+        this.sslEndpointIdentificationAlgorithm = sslEndpointIdentificationAlgorithm;
     }
 
     public KafkaEndpointIdentificationAlgorithm getSslEndpointIdentificationAlgorithm()
@@ -123,17 +120,17 @@ public class KafkaSecurityConfig
 
     public Properties getKafkaClientProperties()
     {
-        props = new Properties();
-        addNotNull(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, sslKeystoreFile);
-        addNotNull(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, sslKeystorePassword);
-        addNotNull(SslConfigs.SSL_KEY_PASSWORD_CONFIG, sslKeyPassword);
-        addNotNull(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, sslTruststoreFile);
-        addNotNull(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, sslTruststorePassword);
-        addNotNull(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, sslEndpointIdentificationAlgorithm);
+        Properties props = new Properties();
+        addNotNull(props, SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, sslKeystoreFile);
+        addNotNull(props, SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, sslKeystorePassword);
+        addNotNull(props, SslConfigs.SSL_KEY_PASSWORD_CONFIG, sslKeyPassword);
+        addNotNull(props, SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, sslTruststoreFile);
+        addNotNull(props, SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, sslTruststorePassword);
+        addNotNull(props, SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, sslEndpointIdentificationAlgorithm);
         return props;
     }
 
-    private void addNotNull(Object key, Object value)
+    private static void addNotNull(Properties props, Object key, Object value)
     {
         if (value != null) {
             props.put(key, value.toString());

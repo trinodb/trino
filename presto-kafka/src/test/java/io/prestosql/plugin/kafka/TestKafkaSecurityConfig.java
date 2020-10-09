@@ -18,7 +18,7 @@ import org.testng.annotations.Test;
 
 import java.util.Properties;
 
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestKafkaSecurityConfig
 {
@@ -32,23 +32,23 @@ public class TestKafkaSecurityConfig
     @Test
     public void verifyAllConfigPropertiesAreContained()
     {
-        KafkaSecurityConfig sut = new KafkaSecurityConfig();
-        sut.setSslKeystoreFile("/some/path/to/keystore");
-        sut.setSslKeystorePassword("superSavePasswordForKeystore");
-        sut.setSslKeyPassword("aSslKeyPassword");
-        sut.setSslTruststoreFile("/some/path/to/truststore");
-        sut.setSslTruststorePassword("superSavePasswordForTruststore");
-        sut.setSslEndpointIdentificationAlgorithm("https");
-        Properties securityProperties = sut.getKafkaClientProperties();
+        KafkaSecurityConfig config = new KafkaSecurityConfig();
+        config.setSslKeystoreFile("/some/path/to/keystore");
+        config.setSslKeystorePassword("superSavePasswordForKeystore");
+        config.setSslKeyPassword("aSslKeyPassword");
+        config.setSslTruststoreFile("/some/path/to/truststore");
+        config.setSslTruststorePassword("superSavePasswordForTruststore");
+        config.setSslEndpointIdentificationAlgorithm(KafkaEndpointIdentificationAlgorithm.HTTPS);
+        Properties securityProperties = config.getKafkaClientProperties();
         Assert.assertEquals(securityProperties.isEmpty(), false);
         Assert.assertEquals(securityProperties.keySet().size(), 6);
         // Since security related properties are all passed to the underlying kafka-clients library,
         // the property names must match those expected by kafka-clients
-        assertTrue(securityProperties.containsKey("ssl.keystore.location"));
-        assertTrue(securityProperties.containsKey("ssl.keystore.password"));
-        assertTrue(securityProperties.containsKey("ssl.truststore.location"));
-        assertTrue(securityProperties.containsKey("ssl.truststore.password"));
-        assertTrue(securityProperties.containsKey("ssl.key.password"));
-        assertTrue(securityProperties.containsKey("ssl.endpoint.identification.algorithm"));
+        assertThat(securityProperties).containsKey("ssl.keystore.location");
+        assertThat(securityProperties).containsKey("ssl.keystore.password");
+        assertThat(securityProperties).containsKey("ssl.truststore.location");
+        assertThat(securityProperties).containsKey("ssl.truststore.password");
+        assertThat(securityProperties).containsKey("ssl.key.password");
+        assertThat(securityProperties).containsKey("ssl.endpoint.identification.algorithm");
     }
 }

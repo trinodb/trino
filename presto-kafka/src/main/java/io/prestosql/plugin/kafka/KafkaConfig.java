@@ -171,17 +171,14 @@ public class KafkaConfig
 
     @Config("kafka.security-protocol")
     @ConfigDescription("Security protocol used for Kafka connection.")
-    public KafkaConfig setSecurityProtocol(String securityProtocol)
+    public KafkaConfig setSecurityProtocol(KafkaClientSecurityProtocol securityProtocol)
     {
-        if (securityProtocol == null || securityProtocol.isEmpty()) {
-            return this;
-        }
-        this.securityProtocol = KafkaClientSecurityProtocol.forName(securityProtocol);
+        this.securityProtocol = securityProtocol;
         return this;
     }
 
-    public String getSecurityProtocol()
+    public KafkaClientSecurityProtocol getSecurityProtocol()
     {
-        return securityProtocol.name;
+        return securityProtocol;
     }
 }

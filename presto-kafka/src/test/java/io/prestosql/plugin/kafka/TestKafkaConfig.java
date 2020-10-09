@@ -37,7 +37,7 @@ public class TestKafkaConfig
                 .setHideInternalColumns(true)
                 .setMessagesPerSplit(100_000)
                 .setTimestampUpperBoundPushDownEnabled(false)
-                .setSecurityProtocol(null));
+                .setSecurityProtocol(KafkaClientSecurityProtocol.PLAINTEXT));
     }
 
     @Test
@@ -63,7 +63,7 @@ public class TestKafkaConfig
                 .setHideInternalColumns(false)
                 .setMessagesPerSplit(1)
                 .setTimestampUpperBoundPushDownEnabled(true)
-                .setSecurityProtocol("SSL");
+                .setSecurityProtocol(KafkaClientSecurityProtocol.SSL);
 
         assertFullMapping(properties, expected);
     }

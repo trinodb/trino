@@ -13,15 +13,17 @@
  */
 package io.prestosql.plugin.kafka;
 
-public enum KafkaClientSecurityProtocol
+import com.google.inject.Binder;
+import com.google.inject.Module;
+
+import static io.airlift.configuration.ConfigBinder.configBinder;
+
+public class KafkaSecurityModule
+        implements Module
 {
-    PLAINTEXT("PLAINTEXT"),
-    SSL("SSL");
-
-    public final String name;
-
-    KafkaClientSecurityProtocol(String name)
+    @Override
+    public void configure(Binder binder)
     {
-        this.name = name;
+        configBinder(binder).bindConfig(KafkaSecurityConfig.class);
     }
 }
