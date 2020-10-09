@@ -56,6 +56,7 @@
         <dep.tempto.version>181</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.4.0</dep.errorprone.version>
+        <dep.jackson.version>2.11.3</dep.jackson.version>
         <dep.joda.version>2.10.6</dep.joda.version>
 
         <!--
