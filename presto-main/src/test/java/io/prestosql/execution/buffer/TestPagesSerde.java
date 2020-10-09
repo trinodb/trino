@@ -32,6 +32,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.fail;
 
 public class TestPagesSerde
 {
@@ -104,6 +105,22 @@ public class TestPagesSerde
         page = new Page(builder.build());
         int secondValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - (pageSize + firstValueSize);
         assertEquals(secondValueSize, 4 + 3); // length + "bob" (null shared with first entry)
+    }
+
+    @Test
+    public void testClosedContext()
+    {
+        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde();
+        PagesSerde.PagesSerdeContext context = serde.newContext();
+        context.close();
+
+        try {
+            serde.serialize(context, new Page(1));
+            fail("Expected failure from closed context");
+        }
+        catch (IllegalStateException e) {
+            assertEquals(e.getMessage(), "PagesSerdeContext is already closed");
+        }
     }
 
     private static int serializedSize(List<? extends Type> types, Page expectedPage)

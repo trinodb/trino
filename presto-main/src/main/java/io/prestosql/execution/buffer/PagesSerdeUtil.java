@@ -125,10 +125,12 @@ public final class PagesSerdeUtil
     public static long writePages(PagesSerde serde, SliceOutput sliceOutput, Iterator<Page> pages)
     {
         long size = 0;
-        while (pages.hasNext()) {
-            Page page = pages.next();
-            writeSerializedPage(sliceOutput, serde.serialize(page));
-            size += page.getSizeInBytes();
+        try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
+            while (pages.hasNext()) {
+                Page page = pages.next();
+                writeSerializedPage(sliceOutput, serde.serialize(context, page));
+                size += page.getSizeInBytes();
+            }
         }
         return size;
     }
@@ -142,22 +144,25 @@ public final class PagesSerdeUtil
             extends AbstractIterator<Page>
     {
         private final PagesSerde serde;
+        private final PagesSerde.PagesSerdeContext context;
         private final SliceInput input;
 
         PageReader(PagesSerde serde, SliceInput input)
         {
             this.serde = requireNonNull(serde, "serde is null");
             this.input = requireNonNull(input, "input is null");
+            this.context = serde.newContext();
         }
 
         @Override
         protected Page computeNext()
         {
             if (!input.isReadable()) {
+                context.close(); // Release context buffers
                 return endOfData();
             }
 
-            return serde.deserialize(readSerializedPage(input));
+            return serde.deserialize(context, readSerializedPage(input));
         }
     }
 
