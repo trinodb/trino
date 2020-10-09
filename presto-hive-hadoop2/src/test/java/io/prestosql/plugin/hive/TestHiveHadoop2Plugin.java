@@ -81,8 +81,8 @@ public class TestHiveHadoop2Plugin
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("hive.cache.location", tempDirectory.toString())
                         .build(),
-                new TestingConnectorContext())
-                .shutdown()).hasMessageContaining("S3 security mapping is not compatible with Hive caching");
+                new TestingConnectorContext()))
+                .hasMessageContaining("S3 security mapping is not compatible with Hive caching");
     }
 
     @Test
@@ -99,8 +99,7 @@ public class TestHiveHadoop2Plugin
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("hive.cache.location", tempDirectory.toString())
                         .build(),
-                new TestingConnectorContext())
-                .shutdown())
+                new TestingConnectorContext()))
                 .hasMessageContaining("Use of GCS access token is not compatible with Hive caching");
     }
 
@@ -134,8 +133,8 @@ public class TestHiveHadoop2Plugin
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .build(),
                 new TestingConnectorContext());
-
         assertThat(getDefaultValueInsertExistingPartitionsBehavior(connector)).isEqualTo(ERROR);
+        connector.shutdown();
     }
 
     @Test
@@ -150,8 +149,8 @@ public class TestHiveHadoop2Plugin
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .build(),
                 new TestingConnectorContext());
-
         assertThat(getDefaultValueInsertExistingPartitionsBehavior(connector)).isEqualTo(APPEND);
+        connector.shutdown();
     }
 
     private Object getDefaultValueInsertExistingPartitionsBehavior(Connector connector)
@@ -177,8 +176,7 @@ public class TestHiveHadoop2Plugin
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("hive.cache.location", tempDirectory.toString())
                         .build(),
-                new TestingConnectorContext())
-                .shutdown())
+                new TestingConnectorContext()))
                 .hasMessageContaining("HDFS impersonation is not compatible with Hive caching");
     }
 
@@ -213,8 +211,7 @@ public class TestHiveHadoop2Plugin
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("hive.cache.location", "/tmp/non/existing/directory")
                         .build(),
-                new TestingConnectorContext())
-                .shutdown())
+                new TestingConnectorContext()))
                 .hasRootCauseMessage("None of the cache parent directories exists");
 
         assertThatThrownBy(() -> connectorFactory.create(
@@ -224,8 +221,7 @@ public class TestHiveHadoop2Plugin
                         .put("hive.cache.start-server-on-coordinator", "true")
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .build(),
-                new TestingConnectorContext())
-                .shutdown())
+                new TestingConnectorContext()))
                 .hasRootCauseMessage("caching directories were not provided");
 
         // cache directories should not be required when cache is not explicitly started on coordinator
