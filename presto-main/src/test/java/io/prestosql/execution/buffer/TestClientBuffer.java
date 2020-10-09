@@ -36,11 +36,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.execution.buffer.BufferResult.emptyResults;
 import static io.prestosql.execution.buffer.BufferTestUtils.NO_WAIT;
-import static io.prestosql.execution.buffer.BufferTestUtils.PAGES_SERDE;
 import static io.prestosql.execution.buffer.BufferTestUtils.assertBufferResultEquals;
 import static io.prestosql.execution.buffer.BufferTestUtils.createBufferResult;
 import static io.prestosql.execution.buffer.BufferTestUtils.createPage;
 import static io.prestosql.execution.buffer.BufferTestUtils.getFuture;
+import static io.prestosql.execution.buffer.BufferTestUtils.serializePage;
 import static io.prestosql.execution.buffer.BufferTestUtils.sizeOfPages;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
@@ -383,7 +383,7 @@ public class TestClientBuffer
     private static AtomicBoolean addPage(ClientBuffer buffer, Page page)
     {
         AtomicBoolean dereferenced = new AtomicBoolean(true);
-        SerializedPageReference serializedPageReference = new SerializedPageReference(PAGES_SERDE.serialize(page), 1, () -> dereferenced.set(false));
+        SerializedPageReference serializedPageReference = new SerializedPageReference(serializePage(page), 1, () -> dereferenced.set(false));
         buffer.enqueuePages(ImmutableList.of(serializedPageReference));
         serializedPageReference.dereferencePage();
         return dereferenced;
@@ -456,7 +456,7 @@ public class TestClientBuffer
         {
             requireNonNull(page, "page is null");
             checkState(!noMorePages);
-            buffer.add(new SerializedPageReference(PAGES_SERDE.serialize(page), 1, () -> {}));
+            buffer.add(new SerializedPageReference(serializePage(page), 1, () -> {}));
         }
 
         @Override
