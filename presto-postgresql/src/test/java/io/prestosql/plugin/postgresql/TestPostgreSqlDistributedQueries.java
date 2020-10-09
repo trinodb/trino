@@ -14,7 +14,7 @@
 package io.prestosql.plugin.postgresql;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.AbstractTestDistributedQueries;
+import io.prestosql.testing.AbstractConnectorReadWriteTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
@@ -23,7 +23,7 @@ import io.prestosql.tpch.TpchTable;
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 
 public class TestPostgreSqlDistributedQueries
-        extends AbstractTestDistributedQueries
+        extends AbstractConnectorReadWriteTest
 {
     private TestingPostgreSqlServer postgreSqlServer;
 

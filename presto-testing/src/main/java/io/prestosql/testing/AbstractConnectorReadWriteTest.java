@@ -84,7 +84,8 @@ import static org.testng.Assert.assertTrue;
  *
  * @see AbstractConnectorSmokeTest
  */
-public abstract class AbstractTestDistributedQueries
+// TODO rename subclasses
+public abstract class AbstractConnectorReadWriteTest
         extends AbstractTestQueries
 {
     protected boolean supportsDelete()

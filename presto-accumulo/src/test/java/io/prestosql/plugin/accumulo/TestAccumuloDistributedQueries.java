@@ -15,7 +15,7 @@ package io.prestosql.plugin.accumulo;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.AbstractTestDistributedQueries;
+import io.prestosql.testing.AbstractConnectorReadWriteTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
@@ -40,7 +40,7 @@ import static org.testng.Assert.assertTrue;
  * so some test cases are overridden from the base class and slightly modified to add an additional UUID column.
  */
 public class TestAccumuloDistributedQueries
-        extends AbstractTestDistributedQueries
+        extends AbstractConnectorReadWriteTest
 {
     @Override
     protected QueryRunner createQueryRunner()

@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.kudu;
 
-import io.prestosql.testing.AbstractTestDistributedQueries;
+import io.prestosql.testing.AbstractConnectorReadWriteTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
@@ -29,7 +29,7 @@ import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 
 public class TestKuduDistributedQueries
-        extends AbstractTestDistributedQueries
+        extends AbstractConnectorReadWriteTest
 {
     private TestingKuduServer kuduServer;
 

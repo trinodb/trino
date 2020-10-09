@@ -16,7 +16,7 @@ package io.prestosql.plugin.oracle;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryInfo;
-import io.prestosql.testing.AbstractTestDistributedQueries;
+import io.prestosql.testing.AbstractConnectorReadWriteTest;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
@@ -38,7 +38,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestOracleDistributedQueries
-        extends AbstractTestDistributedQueries
+        extends AbstractConnectorReadWriteTest
 {
     private TestingOracleServer oracleServer;
 

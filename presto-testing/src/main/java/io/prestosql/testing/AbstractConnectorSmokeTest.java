@@ -37,7 +37,7 @@ import static org.testng.Assert.assertTrue;
  * This is also the base class for connector-specific tests (not generic),
  * regardless whether they exercise read-only or read-write capabilities.
  *
- * @see AbstractTestDistributedQueries
+ * @see AbstractConnectorReadWriteTest
  */
 public abstract class AbstractConnectorSmokeTest
         extends AbstractTestQueryFramework

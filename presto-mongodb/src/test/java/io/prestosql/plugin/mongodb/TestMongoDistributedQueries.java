@@ -14,7 +14,7 @@
 package io.prestosql.plugin.mongodb;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.AbstractTestDistributedQueries;
+import io.prestosql.testing.AbstractConnectorReadWriteTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test
 public class TestMongoDistributedQueries
-        extends AbstractTestDistributedQueries
+        extends AbstractConnectorReadWriteTest
 {
     private MongoServer server;
 

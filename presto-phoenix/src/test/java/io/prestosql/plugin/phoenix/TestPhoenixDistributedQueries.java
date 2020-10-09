@@ -14,7 +14,7 @@
 package io.prestosql.plugin.phoenix;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.AbstractTestDistributedQueries;
+import io.prestosql.testing.AbstractConnectorReadWriteTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
 import org.testng.SkipException;
@@ -23,7 +23,7 @@ import org.testng.annotations.AfterClass;
 import static io.prestosql.plugin.phoenix.PhoenixQueryRunner.createPhoenixQueryRunner;
 
 public class TestPhoenixDistributedQueries
-        extends AbstractTestDistributedQueries
+        extends AbstractConnectorReadWriteTest
 {
     @Override
     protected QueryRunner createQueryRunner()

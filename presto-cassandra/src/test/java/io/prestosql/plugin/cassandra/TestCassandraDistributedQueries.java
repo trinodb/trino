@@ -14,7 +14,7 @@
 package io.prestosql.plugin.cassandra;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.AbstractTestDistributedQueries;
+import io.prestosql.testing.AbstractConnectorReadWriteTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
@@ -31,7 +31,7 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestCassandraDistributedQueries
-        extends AbstractTestDistributedQueries
+        extends AbstractConnectorReadWriteTest
 {
     private CassandraServer server;
 

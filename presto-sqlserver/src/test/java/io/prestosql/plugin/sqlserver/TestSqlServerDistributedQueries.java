@@ -14,7 +14,7 @@
 package io.prestosql.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.AbstractTestDistributedQueries;
+import io.prestosql.testing.AbstractConnectorReadWriteTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
@@ -27,7 +27,7 @@ import static io.prestosql.plugin.sqlserver.SqlServerQueryRunner.createSqlServer
 
 @Test
 public class TestSqlServerDistributedQueries
-        extends AbstractTestDistributedQueries
+        extends AbstractConnectorReadWriteTest
 {
     private TestingSqlServer sqlServer;
 
