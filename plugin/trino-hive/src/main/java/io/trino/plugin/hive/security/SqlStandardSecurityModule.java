@@ -16,7 +16,6 @@ package io.trino.plugin.hive.security;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.spi.connector.ConnectorAccessControl;
 
 public class SqlStandardSecurityModule
@@ -35,7 +34,7 @@ public class SqlStandardSecurityModule
         public SqlStandardAccessControlMetadataFactory() {}
 
         @Override
-        public AccessControlMetadata create(SemiTransactionalHiveMetastore metastore)
+        public AccessControlMetadata create(SqlStandardAccessControlMetadataMetastore metastore)
         {
             return new SqlStandardAccessControlMetadata(metastore);
         }
