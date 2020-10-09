@@ -15,19 +15,15 @@ package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
-import com.google.inject.multibindings.Multibinder;
 import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.RecordingHiveMetastoreModule;
-import io.prestosql.plugin.hive.metastore.WriteHiveMetastoreRecordingProcedure;
 import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
 import io.prestosql.plugin.hive.metastore.cache.ForCachingHiveMetastore;
-import io.prestosql.spi.procedure.Procedure;
 
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -53,9 +49,6 @@ public class ThriftMetastoreModule
                     .to(BridgingHiveMetastore.class)
                     .in(Scopes.SINGLETON);
             binder.install(new RecordingHiveMetastoreModule());
-
-            Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
-            procedures.addBinding().toProvider(WriteHiveMetastoreRecordingProcedure.class).in(Scopes.SINGLETON);
         }
         else {
             binder.bind(HiveMetastore.class)
