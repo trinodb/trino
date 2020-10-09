@@ -13,23 +13,40 @@
  */
 package io.prestosql.plugin.google.sheets;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.spi.type.VarcharType;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimeType.TIME;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class SheetsRecordCursor
         implements RecordCursor
@@ -40,6 +57,12 @@ public class SheetsRecordCursor
 
     private List<String> fields;
     private int currentIndex;
+
+    private static final String DELIMITER_COMMA = ",";
+
+    private static final DateTimeFormatter DATE_PARSER = ISODateTimeFormat.date().withZoneUTC();
+    private static final DateTimeFormatter TIME_PARSER = DateTimeFormat.forPattern("HH:mm:ss");
+    private static final DateTimeFormatter TIMESTAMP_PARSER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss");
 
     public SheetsRecordCursor(List<SheetsColumnHandle> columnHandles, List<List<Object>> dataValues)
     {
@@ -116,8 +139,35 @@ public class SheetsRecordCursor
     @Override
     public long getLong(int field)
     {
-        checkFieldType(field, BIGINT);
-        return Long.parseLong(getFieldValue(field));
+        checkFieldType(field, BIGINT, INTEGER, TIME, TIMESTAMP, DATE, TINYINT, SMALLINT, REAL);
+        Type type = getType(field);
+        if (type.equals(TIME)) {
+            return TIME_PARSER.parseDateTime(getFieldValue(field)).getMillis();
+        }
+        else if (type.equals(TIMESTAMP)) {
+            return TIMESTAMP_PARSER.parseDateTime(getFieldValue(field)).getMillis();
+        }
+        else if (type.equals(DATE)) {
+            return MILLISECONDS.toDays(DATE_PARSER.parseDateTime(getFieldValue(field)).getMillis());
+        }
+        else if (type.equals(REAL)) {
+            return Float.floatToIntBits(Float.parseFloat(getFieldValue(field)));
+        }
+        else if (type.equals(TINYINT)) {
+            return Byte.valueOf(getFieldValue(field));
+        }
+        else if (type.equals(SMALLINT)) {
+            return Short.parseShort(getFieldValue(field));
+        }
+        else if (type.equals(BIGINT)) {
+            return Long.parseLong(getFieldValue(field));
+        }
+        else if (type.equals(INTEGER)) {
+            return Integer.parseInt(getFieldValue(field));
+        }
+        else {
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
+        }
     }
 
     @Override
@@ -130,8 +180,16 @@ public class SheetsRecordCursor
     @Override
     public Slice getSlice(int field)
     {
-        checkFieldType(field, createUnboundedVarcharType());
-        return Slices.utf8Slice(getFieldValue(field));
+        Type type = getType(field);
+        if (type instanceof VarbinaryType) {
+            return Slices.wrappedBuffer(getFieldValue(field).getBytes(UTF_8));
+        }
+        else if (type instanceof VarcharType) {
+            return Slices.utf8Slice(getFieldValue(field));
+        }
+        else {
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
+        }
     }
 
     @Override
@@ -147,10 +205,16 @@ public class SheetsRecordCursor
         return Strings.isNullOrEmpty(getFieldValue(field));
     }
 
-    private void checkFieldType(int field, Type expected)
+    private void checkFieldType(int field, Type... expected)
     {
         Type actual = getType(field);
-        checkArgument(actual.equals(expected), "Expected field %s to be type %s but is %s", field, expected, actual);
+        for (Type type : expected) {
+            if (actual.equals(type)) {
+                return;
+            }
+        }
+        throw new IllegalArgumentException(format("Expected field %s to be type %s but is %s",
+                field, Joiner.on(DELIMITER_COMMA).join(expected), actual));
     }
 
     @Override

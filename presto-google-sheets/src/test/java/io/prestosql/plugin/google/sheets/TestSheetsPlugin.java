@@ -26,7 +26,12 @@ import java.util.Base64;
 
 import static com.google.common.collect.ImmutableMap.Builder;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.plugin.google.sheets.TestGoogleSheets.DRIVE_PERMISSION_EMAIL_ADDRESS;
+import static io.prestosql.plugin.google.sheets.TestGoogleSheets.DRIVE_PERMISSION_ROLE;
+import static io.prestosql.plugin.google.sheets.TestGoogleSheets.DRIVE_PERMISSION_TYPE;
 import static io.prestosql.plugin.google.sheets.TestGoogleSheets.GOOGLE_SHEETS;
+import static io.prestosql.plugin.google.sheets.TestGoogleSheets.SHEET_RANGE;
+import static io.prestosql.plugin.google.sheets.TestGoogleSheets.SHEET_VALUE_INPUT_OPTION;
 import static java.io.File.createTempFile;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertNotNull;
@@ -52,7 +57,14 @@ public class TestSheetsPlugin
     {
         Plugin plugin = new SheetsPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        Builder<String, String> propertiesMap = new Builder<String, String>().put("credentials-path", getTestCredentialsPath()).put("metadata-sheet-id", TEST_METADATA_SHEET_ID);
+        Builder<String, String> propertiesMap = new Builder<String, String>()
+                .put("credentials-path", getTestCredentialsPath())
+                .put("metadata-sheet-id", TEST_METADATA_SHEET_ID)
+                .put("sheets-range", SHEET_RANGE)
+                .put("sheets-value-input-option", SHEET_VALUE_INPUT_OPTION)
+                .put("drive-permission-type", DRIVE_PERMISSION_TYPE)
+                .put("drive-permission-role", DRIVE_PERMISSION_ROLE)
+                .put("drive-permission-email-address", DRIVE_PERMISSION_EMAIL_ADDRESS);
         Connector c = factory.create(GOOGLE_SHEETS, propertiesMap.build(), new TestingConnectorContext());
         assertNotNull(c);
     }
