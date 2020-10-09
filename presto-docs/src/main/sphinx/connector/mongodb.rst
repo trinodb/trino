@@ -71,6 +71,13 @@ At startup, this connector tries guessing fields' types, but it might not be cor
 
 This property is optional; the default is ``_schema``.
 
+``mongodb.case-insensitive-name-matching``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Match database and collection names case insensitively.
+
+This property is optional; the default is ``false``.
+
 ``mongodb.credentials``
 ^^^^^^^^^^^^^^^^^^^^^^^
 
