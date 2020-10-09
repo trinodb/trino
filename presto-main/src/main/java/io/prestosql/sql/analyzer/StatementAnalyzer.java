@@ -1787,7 +1787,7 @@ class StatementAnalyzer
                             leftField.get().getType(), rightField.get().getType()));
                 }
                 catch (OperatorNotFoundException e) {
-                    throw semanticException(TYPE_MISMATCH, column, "%s", e.getMessage());
+                    throw semanticException(TYPE_MISMATCH, column, e, "%s", e.getMessage());
                 }
 
                 Optional<Type> type = typeCoercion.getCommonSuperType(leftField.get().getType(), rightField.get().getType());
