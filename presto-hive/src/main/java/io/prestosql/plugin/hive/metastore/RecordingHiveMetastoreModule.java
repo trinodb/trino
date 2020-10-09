@@ -20,7 +20,9 @@ import io.prestosql.plugin.hive.metastore.cache.ForCachingHiveMetastore;
 import io.prestosql.plugin.hive.util.BlockJsonSerde;
 import io.prestosql.plugin.hive.util.HiveBlockEncodingSerde;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.procedure.Procedure;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -43,5 +45,7 @@ public class RecordingHiveMetastoreModule
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 
         newExporter(binder).export(RecordingHiveMetastore.class).withGeneratedName();
+
+        newSetBinder(binder, Procedure.class).addBinding().toProvider(WriteHiveMetastoreRecordingProcedure.class).in(Scopes.SINGLETON);
     }
 }
