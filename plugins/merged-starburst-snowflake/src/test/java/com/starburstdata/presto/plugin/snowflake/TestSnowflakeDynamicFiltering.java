@@ -36,6 +36,13 @@ public class TestSnowflakeDynamicFiltering
     }
 
     @Override
+    protected String getDynamicFilteringJmxTableName()
+    {
+        // SF connector uses ConnectorObjectNameGeneratorModule which overrides default name generation
+        return "jmx.current.\"com.starburstdata.presto.plugin.jdbc.dynamicfiltering:catalog=snowflake,name=snowflake,type=dynamicfilteringstats\"";
+    }
+
+    @Override
     protected boolean isAssertNumberOfSplits()
     {
         return true;

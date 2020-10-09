@@ -76,7 +76,7 @@ class SnowflakeDistributedModule
 
         install(new JdbcModule(catalogName));
         install(new SnowflakeJdbcClientModule(catalogName, true));
-        install(new DynamicFilteringModule());
+        install(new DynamicFilteringModule(catalogName));
     }
 
     @Provides
