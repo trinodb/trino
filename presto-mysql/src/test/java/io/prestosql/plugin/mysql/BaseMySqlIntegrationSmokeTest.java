@@ -15,7 +15,7 @@ package io.prestosql.plugin.mysql;
 
 import io.prestosql.Session;
 import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.AbstractConnectorSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import org.intellij.lang.annotations.Language;
@@ -33,7 +33,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 abstract class BaseMySqlIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends AbstractConnectorSmokeTest
 {
     protected TestingMySqlServer mysqlServer;
 

@@ -16,7 +16,7 @@ package io.prestosql.plugin.phoenix;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.AbstractConnectorSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -34,7 +34,7 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestPhoenixIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends AbstractConnectorSmokeTest
 {
     private TestingPhoenixServer testingPhoenixServer;
 

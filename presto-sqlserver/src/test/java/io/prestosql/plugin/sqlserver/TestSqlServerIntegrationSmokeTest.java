@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.AbstractConnectorSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
@@ -36,7 +36,7 @@ import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestSqlServerIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends AbstractConnectorSmokeTest
 {
     protected TestingSqlServer sqlServer;
 

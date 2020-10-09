@@ -39,7 +39,7 @@ import static org.testng.Assert.assertTrue;
  *
  * @see AbstractTestDistributedQueries
  */
-public abstract class AbstractTestIntegrationSmokeTest
+public abstract class AbstractConnectorSmokeTest
         extends AbstractTestQueryFramework
 {
     /**

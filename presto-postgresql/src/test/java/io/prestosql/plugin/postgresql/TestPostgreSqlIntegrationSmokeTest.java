@@ -14,7 +14,7 @@
 package io.prestosql.plugin.postgresql;
 
 import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.AbstractConnectorSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -38,7 +38,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestPostgreSqlIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends AbstractConnectorSmokeTest
 {
     protected TestingPostgreSqlServer postgreSqlServer;
 

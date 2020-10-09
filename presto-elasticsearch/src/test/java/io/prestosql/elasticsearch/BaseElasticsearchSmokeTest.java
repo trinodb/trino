@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.AbstractConnectorSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
@@ -47,7 +47,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class BaseElasticsearchSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends AbstractConnectorSmokeTest
 {
     private final String image;
     private ElasticsearchServer elasticsearch;

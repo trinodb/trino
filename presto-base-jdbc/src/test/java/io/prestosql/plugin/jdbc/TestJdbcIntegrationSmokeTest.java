@@ -15,7 +15,7 @@ package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.AbstractConnectorSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
@@ -32,7 +32,7 @@ import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static java.lang.String.format;
 
 public class TestJdbcIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends AbstractConnectorSmokeTest
 {
     private final Map<String, String> properties = TestingH2JdbcModule.createProperties();
 

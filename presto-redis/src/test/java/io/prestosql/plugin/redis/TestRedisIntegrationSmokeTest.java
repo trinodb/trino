@@ -14,7 +14,7 @@
 package io.prestosql.plugin.redis;
 
 import io.prestosql.plugin.redis.util.RedisServer;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.AbstractConnectorSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -27,7 +27,7 @@ import static io.prestosql.tpch.TpchTable.REGION;
 
 @Test
 public class TestRedisIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends AbstractConnectorSmokeTest
 {
     private RedisServer redisServer;
 

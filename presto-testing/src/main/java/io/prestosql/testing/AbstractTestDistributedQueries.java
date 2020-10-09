@@ -82,7 +82,7 @@ import static org.testng.Assert.assertTrue;
 /**
  * Generic test for connectors exercising connector's read and write capabilities.
  *
- * @see AbstractTestIntegrationSmokeTest
+ * @see AbstractConnectorSmokeTest
  */
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries

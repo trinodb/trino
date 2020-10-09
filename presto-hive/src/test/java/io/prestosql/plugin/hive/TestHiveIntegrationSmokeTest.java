@@ -48,7 +48,7 @@ import io.prestosql.sql.planner.planprinter.IoPlanPrinter.FormattedMarker;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.FormattedRange;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.IoPlan;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.IoPlan.TableColumnInfo;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.AbstractConnectorSmokeTest;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
@@ -159,7 +159,7 @@ import static org.testng.Assert.fail;
 import static org.testng.FileAssert.assertFile;
 
 public class TestHiveIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends AbstractConnectorSmokeTest
 {
     private final String catalog;
     private final Session bucketedSession;

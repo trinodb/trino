@@ -14,7 +14,7 @@
 package io.prestosql.plugin.accumulo;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.AbstractConnectorSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
@@ -26,7 +26,7 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAccumuloIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends AbstractConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
