@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.prestosql.Session;
+import io.prestosql.plugin.jmx.JmxPlugin;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.DistributedQueryRunner;
@@ -45,6 +46,9 @@ public final class SapHanaQueryRunner
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setExtraProperties(extraProperties)
                     .build();
+
+            queryRunner.installPlugin(new JmxPlugin());
+            queryRunner.createCatalog("jmx", "jmx");
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
