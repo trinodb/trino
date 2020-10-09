@@ -39,7 +39,6 @@ import static io.prestosql.execution.buffer.BufferState.OPEN;
 import static io.prestosql.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static io.prestosql.execution.buffer.BufferTestUtils.MAX_WAIT;
 import static io.prestosql.execution.buffer.BufferTestUtils.NO_WAIT;
-import static io.prestosql.execution.buffer.BufferTestUtils.PAGES_SERDE;
 import static io.prestosql.execution.buffer.BufferTestUtils.acknowledgeBufferResult;
 import static io.prestosql.execution.buffer.BufferTestUtils.assertBufferResultEquals;
 import static io.prestosql.execution.buffer.BufferTestUtils.assertFinished;
@@ -47,6 +46,7 @@ import static io.prestosql.execution.buffer.BufferTestUtils.assertFutureIsDone;
 import static io.prestosql.execution.buffer.BufferTestUtils.createBufferResult;
 import static io.prestosql.execution.buffer.BufferTestUtils.createPage;
 import static io.prestosql.execution.buffer.BufferTestUtils.getFuture;
+import static io.prestosql.execution.buffer.BufferTestUtils.serializePage;
 import static io.prestosql.execution.buffer.BufferTestUtils.sizeOfPages;
 import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
@@ -1000,7 +1000,7 @@ public class TestArbitraryOutputBuffer
 
     private static ListenableFuture<?> enqueuePage(OutputBuffer buffer, Page page)
     {
-        buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page)));
+        buffer.enqueue(ImmutableList.of(serializePage(page)));
         ListenableFuture<?> future = buffer.isFull();
         assertFalse(future.isDone());
         return future;
@@ -1008,7 +1008,7 @@ public class TestArbitraryOutputBuffer
 
     private static void addPage(OutputBuffer buffer, Page page)
     {
-        buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page)));
+        buffer.enqueue(ImmutableList.of(serializePage(page)));
         assertTrue(buffer.isFull().isDone(), "Expected add page to not block");
     }
 

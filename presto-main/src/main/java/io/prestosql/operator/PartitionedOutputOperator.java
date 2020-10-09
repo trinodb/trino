@@ -450,28 +450,30 @@ public class PartitionedOutputOperator
 
         public void flush(boolean force)
         {
-            // add all full pages to output buffer
-            for (int partition = 0; partition < pageBuilders.length; partition++) {
-                PageBuilder partitionPageBuilder = pageBuilders[partition];
-                if (!partitionPageBuilder.isEmpty() && (force || partitionPageBuilder.isFull())) {
-                    Page pagePartition = partitionPageBuilder.build();
-                    partitionPageBuilder.reset();
+            try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
+                // add all full pages to output buffer
+                for (int partition = 0; partition < pageBuilders.length; partition++) {
+                    PageBuilder partitionPageBuilder = pageBuilders[partition];
+                    if (!partitionPageBuilder.isEmpty() && (force || partitionPageBuilder.isFull())) {
+                        Page pagePartition = partitionPageBuilder.build();
+                        partitionPageBuilder.reset();
 
-                    operatorContext.recordOutput(pagePartition.getSizeInBytes(), pagePartition.getPositionCount());
+                        operatorContext.recordOutput(pagePartition.getSizeInBytes(), pagePartition.getPositionCount());
 
-                    outputBuffer.enqueue(partition, splitAndSerializePage(pagePartition));
-                    pagesAdded.incrementAndGet();
-                    rowsAdded.addAndGet(pagePartition.getPositionCount());
+                        outputBuffer.enqueue(partition, splitAndSerializePage(context, pagePartition));
+                        pagesAdded.incrementAndGet();
+                        rowsAdded.addAndGet(pagePartition.getPositionCount());
+                    }
                 }
             }
         }
 
-        private List<SerializedPage> splitAndSerializePage(Page pagePartition)
+        private List<SerializedPage> splitAndSerializePage(PagesSerde.PagesSerdeContext context, Page page)
         {
-            List<Page> split = splitPage(pagePartition, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+            List<Page> split = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
             ImmutableList.Builder<SerializedPage> builder = ImmutableList.builderWithExpectedSize(split.size());
             for (Page p : split) {
-                builder.add(serde.serialize(p));
+                builder.add(serde.serialize(context, p));
             }
             return builder.build();
         }
