@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.license.TestingLicenseModule;
 import io.prestosql.Session;
+import io.prestosql.plugin.jmx.JmxPlugin;
 import io.prestosql.plugin.sqlserver.TestingSqlServer;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.Plugin;
@@ -78,6 +79,9 @@ public final class StarburstSqlServerQueryRunner
         try {
             Session modifiedSession = sessionModifier.apply(session);
 
+            queryRunner.installPlugin(new JmxPlugin());
+            queryRunner.createCatalog("jmx", "jmx");
+
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
@@ -118,7 +122,8 @@ public final class StarburstSqlServerQueryRunner
 
     private static Plugin getPluginWithLicense()
     {
-        return new StarburstSqlServerPlugin() {
+        return new StarburstSqlServerPlugin()
+        {
             @Override
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
