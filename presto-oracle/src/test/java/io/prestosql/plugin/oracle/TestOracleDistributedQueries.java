@@ -105,10 +105,7 @@ public class TestOracleDistributedQueries
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getPrestoTypeName();
-        if (typeName.equals("timestamp(3) with time zone")
-                || typeName.equals("time")
-                || typeName.equals("varbinary")
-                || typeName.equals("char(3)")) {
+        if (typeName.equals("time")) {
             return Optional.empty();
         }
 
@@ -371,6 +368,8 @@ public class TestOracleDistributedQueries
         assertUpdate("INSERT INTO test_insert_with_coercion (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (CAST('aa     ' AS varchar), CAST('aa     ' AS varchar), CAST('aa     ' AS varchar))", 1);
         assertUpdate("INSERT INTO test_insert_with_coercion (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (NULL, NULL, NULL)", 1);
         assertUpdate("INSERT INTO test_insert_with_coercion (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (CAST(NULL AS varchar), CAST(NULL AS varchar), CAST(NULL AS varchar))", 1);
+        // Note this case does not actually require coercion, because the `date_column` ends up as Oracle's DATE, which is mapped to Presto's TIMESTAMP.
+        // The test case is still retained for black box testing purposes.
         assertUpdate("INSERT INTO test_insert_with_coercion (date_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')", 1);
 
         // at oracle date field has time part to
