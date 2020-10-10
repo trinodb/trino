@@ -254,7 +254,7 @@ public final class TestRun
                         .withFileSystemBind(testJar.getPath(), "/docker/test.jar", READ_ONLY)
                         .withCommand(ImmutableList.<String>builder()
                                 .add(
-                                        "/usr/lib/jvm/zulu-11/bin/java",
+                                        "/usr/lib/jvm/zulu-15/bin/java",
                                         "-Xmx1g",
                                         // Force Parallel GC to ensure MaxHeapFreeRatio is respected
                                         "-XX:+UseParallelGC",

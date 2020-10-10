@@ -40,7 +40,7 @@
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
 
-        <project.build.targetJdk>11</project.build.targetJdk>
+        <project.build.targetJdk>15</project.build.targetJdk>
         <air.modernizer.java-version>8</air.modernizer.java-version>
 
         <dep.accumulo.version>1.7.4</dep.accumulo.version>

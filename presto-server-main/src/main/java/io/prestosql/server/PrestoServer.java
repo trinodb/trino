@@ -29,8 +29,8 @@ public final class PrestoServer
         String javaVersion = nullToEmpty(StandardSystemProperty.JAVA_VERSION.value());
         String majorVersion = javaVersion.split("[^\\d]", 2)[0];
         Integer major = Ints.tryParse(majorVersion);
-        if (major == null || major < 11) {
-            System.err.println(format("ERROR: Presto requires Java 11+ (found %s)", javaVersion));
+        if (major == null || major < 15) {
+            System.err.println(format("ERROR: Presto requires Java 15+ (found %s)", javaVersion));
             System.exit(100);
         }
 
