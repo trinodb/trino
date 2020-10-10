@@ -18,6 +18,7 @@ import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
+import io.prestosql.plugin.jdbc.JdbcMetadataConfig;
 import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
 import io.prestosql.plugin.oracle.OracleConfig;
 import io.prestosql.plugin.oracle.OracleSessionProperties;
@@ -66,5 +67,8 @@ public class OracleClientModule
                 .to(DynamicFilteringJdbcRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class)
                 .to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
+
+        // Disable aggregation pushdown by default, since it is protected with a license
+        configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setAggregationPushdownEnabled(false));
     }
 }

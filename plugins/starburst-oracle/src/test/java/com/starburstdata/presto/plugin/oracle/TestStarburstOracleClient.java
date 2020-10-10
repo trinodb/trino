@@ -62,6 +62,7 @@ public class TestStarburstOracleClient
                     .build();
 
     private static final JdbcClient JDBC_CLIENT = new StarburstOracleClient(
+            feature -> {},
             new BaseJdbcConfig(),
             new JdbcStatisticsConfig(),
             new OracleConfig(),

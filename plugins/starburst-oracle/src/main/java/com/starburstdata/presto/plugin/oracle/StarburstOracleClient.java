@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
@@ -66,6 +67,7 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.starburstdata.presto.license.StarburstPrestoFeature.ORACLE_EXTENSIONS;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
@@ -84,11 +86,13 @@ public class StarburstOracleClient
     private static final int PRESTO_BIGINT_TYPE = 832_424_001;
 
     private final boolean synonymsEnabled;
+    private final LicenseManager licenseManager;
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
     private final TableStatisticsClient tableStatisticsClient;
 
     @Inject
     public StarburstOracleClient(
+            LicenseManager licenseManager,
             BaseJdbcConfig config,
             JdbcStatisticsConfig statisticsConfig,
             OracleConfig oracleConfig,
@@ -96,6 +100,7 @@ public class StarburstOracleClient
     {
         super(config, oracleConfig, connectionFactory);
         synonymsEnabled = oracleConfig.isSynonymsEnabled();
+        this.licenseManager = requireNonNull(licenseManager, "licenseManager is null");
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(PRESTO_BIGINT_TYPE, Optional.empty(), 0, 0, Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
                 this::quoted,
@@ -256,6 +261,7 @@ public class StarburstOracleClient
     @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
+        licenseManager.checkFeature(ORACLE_EXTENSIONS);
         // TODO support complex ConnectorExpressions
         return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
