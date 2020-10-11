@@ -62,7 +62,6 @@ import static io.prestosql.operator.WorkProcessor.TransformationState.blocked;
 import static io.prestosql.operator.WorkProcessor.TransformationState.finished;
 import static io.prestosql.operator.WorkProcessor.TransformationState.needsMoreData;
 import static io.prestosql.operator.WorkProcessor.TransformationState.ofResult;
-import static io.prestosql.operator.WorkProcessor.TransformationState.yield;
 import static io.prestosql.operator.WorkProcessor.flatten;
 import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
@@ -268,7 +267,7 @@ public class LookupJoinOperator
                     return ofResult(buildOutputPage(), false);
                 }
 
-                return yield();
+                return TransformationState.yield();
             }
 
             if (!pageBuilder.isEmpty() || finishing) {
