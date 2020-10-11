@@ -35,6 +35,7 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -188,6 +189,30 @@ public class MongoSession
         getCollection(tableName).drop();
 
         tableCache.invalidate(tableName);
+    }
+
+    public void addColumn(SchemaTableName schemaTableName, ColumnMetadata columnMetadata)
+    {
+        Document metadata = getTableMetadata(schemaTableName);
+
+        List<Document> columns = new ArrayList<>(getColumnMetadata(metadata));
+
+        Document newColumn = new Document();
+        newColumn.append(FIELDS_NAME_KEY, columnMetadata.getName());
+        newColumn.append(FIELDS_TYPE_KEY, columnMetadata.getType().getTypeSignature().toString());
+        newColumn.append(FIELDS_HIDDEN_KEY, false);
+        columns.add(newColumn);
+
+        String schemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
+        String tableName = toRemoteTableName(schemaName, schemaTableName.getTableName());
+
+        metadata.append(FIELDS_KEY, columns);
+
+        MongoDatabase db = client.getDatabase(schemaName);
+        MongoCollection<Document> schema = db.getCollection(schemaCollection);
+        schema.findOneAndReplace(new Document(TABLE_NAME_KEY, tableName), metadata);
+
+        tableCache.invalidate(schemaTableName);
     }
 
     private MongoTable loadTableSchema(SchemaTableName tableName)
