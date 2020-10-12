@@ -272,7 +272,7 @@ public final class ThriftMetastoreUtil
                 .anyMatch(role::equals);
     }
 
-    public static Stream<String> listApplicableRoles(SemiTransactionalHiveMetastore metastore, HivePrincipal principal)
+    private static Stream<String> listApplicableRoles(SemiTransactionalHiveMetastore metastore, HivePrincipal principal)
     {
         return listApplicableRoles(principal, metastore::listRoleGrants)
                 .map(RoleGrant::getRoleName);
