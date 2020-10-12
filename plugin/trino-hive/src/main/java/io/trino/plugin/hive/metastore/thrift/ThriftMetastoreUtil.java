@@ -30,7 +30,6 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
@@ -262,26 +261,26 @@ public final class ThriftMetastoreUtil
         });
     }
 
-    public static boolean isRoleApplicable(SemiTransactionalHiveMetastore metastore, HivePrincipal principal, String role)
+    public static boolean isRoleApplicable(HivePrincipal principal, String role, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
         if (principal.getType() == ROLE && principal.getName().equals(role)) {
             return true;
         }
-        return listApplicableRoles(metastore, principal)
+        return listApplicableRoleNames(principal, listRoleGrants)
                 .anyMatch(role::equals);
     }
 
-    private static Stream<String> listApplicableRoles(SemiTransactionalHiveMetastore metastore, HivePrincipal principal)
+    private static Stream<String> listApplicableRoleNames(HivePrincipal principal, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
-        return listApplicableRoles(principal, metastore::listRoleGrants)
+        return listApplicableRoles(principal, listRoleGrants)
                 .map(RoleGrant::getRoleName);
     }
 
-    public static Stream<HivePrincipal> listEnabledPrincipals(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity)
+    public static Stream<HivePrincipal> listEnabledPrincipals(ConnectorIdentity identity, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
         return Stream.concat(
                 Stream.of(new HivePrincipal(USER, identity.getUser())),
-                listEnabledRoles(identity, metastore::listRoleGrants)
+                listEnabledRoles(identity, listRoleGrants)
                         .map(role -> new HivePrincipal(ROLE, role)));
     }
 

@@ -200,7 +200,7 @@ public class SqlStandardAccessControlMetadata
     @Override
     public List<GrantInfo> listTablePrivileges(ConnectorSession session, List<SchemaTableName> tableNames)
     {
-        Set<HivePrincipal> principals = listEnabledPrincipals(metastore, session.getIdentity())
+        Set<HivePrincipal> principals = listEnabledPrincipals(session.getIdentity(), metastore::listRoleGrants)
                 .collect(toImmutableSet());
         boolean isAdminRoleSet = hasAdminRole(principals);
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
