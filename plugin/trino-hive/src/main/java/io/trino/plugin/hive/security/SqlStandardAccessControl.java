@@ -433,7 +433,7 @@ public class SqlStandardAccessControl
     public void checkCanSetRole(ConnectorSecurityContext context, String role, String catalogName)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle()));
-        if (!isRoleApplicable(metastore, new HivePrincipal(USER, context.getIdentity().getUser()), role)) {
+        if (!isRoleApplicable(new HivePrincipal(USER, context.getIdentity().getUser()), role, metastore::listRoleGrants)) {
             denySetRole(role);
         }
     }
@@ -548,7 +548,7 @@ public class SqlStandardAccessControl
                 .map(HivePrivilegeInfo::getGrantee)
                 .collect(toImmutableSet());
 
-        return listEnabledPrincipals(metastore, context.getIdentity())
+        return listEnabledPrincipals(context.getIdentity(), metastore::listRoleGrants)
                 .anyMatch(allowedPrincipals::contains);
     }
 
@@ -616,7 +616,7 @@ public class SqlStandardAccessControl
                 .map(HivePrivilegeInfo::getGrantee)
                 .collect(toImmutableSet());
 
-        return listEnabledPrincipals(metastore, context.getIdentity())
+        return listEnabledPrincipals(context.getIdentity(), metastore::listRoleGrants)
                 .anyMatch(allowedPrincipals::contains);
     }
 }
