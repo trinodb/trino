@@ -1181,7 +1181,7 @@ public class ExpressionAnalyzer
         {
             return type.equals(DATE) ||
                     type instanceof TimeType ||
-                    type.equals(TIME_WITH_TIME_ZONE) ||
+                    type instanceof TimeWithTimeZoneType ||
                     type instanceof TimestampType ||
                     type instanceof TimestampWithTimeZoneType ||
                     type.equals(INTERVAL_DAY_TIME) ||
