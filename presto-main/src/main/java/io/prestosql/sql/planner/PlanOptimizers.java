@@ -527,20 +527,26 @@ public class PlanOptimizers
                 new CheckSubqueryNodesAreRewritten(),
                 new StatsRecordingPlanOptimizer(
                         optimizerStats,
-                        new PredicatePushDown(metadata, typeOperators, typeAnalyzer, false, false)),
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        ImmutableSet.<Rule<?>>builder()
-                                .addAll(columnPruningRules)
-                                .addAll(projectionPushdownRules)
-                                .add(new RemoveRedundantIdentityProjections())
-                                .add(new PushLimitIntoTableScan(metadata))
-                                .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))
-                                .add(new PushSampleIntoTableScan(metadata))
-                                .add(new PushAggregationIntoTableScan(metadata))
-                                .build()),
+                        new PredicatePushDown(metadata, typeOperators, typeAnalyzer, false, false)));
+
+        IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                ImmutableSet.<Rule<?>>builder()
+                        .addAll(columnPruningRules)
+                        .addAll(projectionPushdownRules)
+                        .add(new RemoveRedundantIdentityProjections())
+                        .add(new PushLimitIntoTableScan(metadata))
+                        .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))
+                        .add(new PushSampleIntoTableScan(metadata))
+                        .add(new PushAggregationIntoTableScan(metadata))
+                        .build());
+        builder.add(pushIntoTableScanOptimizer);
+        builder.add(new UnaliasSymbolReferences(metadata));
+        builder.add(pushIntoTableScanOptimizer); // TODO (https://github.com/prestosql/presto/issues/811) merge with the above after migrating UnaliasSymbolReferences to rules
+
+        builder.add(
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
