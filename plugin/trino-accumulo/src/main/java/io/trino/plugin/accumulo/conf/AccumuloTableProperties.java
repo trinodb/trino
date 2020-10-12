@@ -24,13 +24,11 @@ import io.trino.plugin.accumulo.serializers.StringRowSerializer;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.VarcharType;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -129,7 +127,7 @@ public final class AccumuloTableProperties
      * @param tableProperties The map of table properties
      * @return The column mapping, Trino name to (accumulo column family, qualifier)
      */
-    public static Optional<Map<String, Pair<String, String>>> getColumnMapping(
+    public static Optional<Map<String, Entry<String, String>>> getColumnMapping(
             Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties);
@@ -141,11 +139,11 @@ public final class AccumuloTableProperties
 
         // Parse out the column mapping
         // This is a comma-delimited list of "(presto, column:accumulo, fam:accumulo qualifier)" triplets
-        ImmutableMap.Builder<String, Pair<String, String>> mapping = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Entry<String, String>> mapping = ImmutableMap.builder();
         for (String m : COMMA_SPLITTER.split(strMapping)) {
             String[] tokens = Iterables.toArray(COLON_SPLITTER.split(m), String.class);
             checkState(tokens.length == 3, "Mapping of %s contains %s tokens instead of 3", m, tokens.length);
-            mapping.put(tokens[0], Pair.of(tokens[1], tokens[2]));
+            mapping.put(tokens[0], Map.entry(tokens[1], tokens[2]));
         }
 
         return Optional.of(mapping.buildOrThrow());
@@ -160,7 +158,7 @@ public final class AccumuloTableProperties
             return Optional.empty();
         }
 
-        return Optional.of(Arrays.asList(StringUtils.split(indexColumns, ',')));
+        return Optional.of(Splitter.on(',').splitToList(indexColumns));
     }
 
     /**
