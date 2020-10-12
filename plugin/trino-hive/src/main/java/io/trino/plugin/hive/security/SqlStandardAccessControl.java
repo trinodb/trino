@@ -39,6 +39,7 @@ import javax.inject.Inject;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.metastore.Database.DEFAULT_DATABASE_NAME;
@@ -51,7 +52,6 @@ import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isRoleApplicable;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isRoleEnabled;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableRoles;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableTablePrivileges;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
@@ -565,6 +565,22 @@ public class SqlStandardAccessControl
                 tableName.getTableName(),
                 context.getIdentity())
                 .anyMatch(privilegeInfo -> privilegeInfo.getHivePrivilege() == toHivePrivilege(privilege) && privilegeInfo.isGrantOption());
+    }
+
+    private static Stream<HivePrivilegeInfo> listApplicableTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, ConnectorIdentity identity)
+    {
+        String user = identity.getUser();
+        HivePrincipal userPrincipal = new HivePrincipal(USER, user);
+        Stream<HivePrincipal> principals = Stream.concat(
+                Stream.of(userPrincipal),
+                listApplicableRoles(userPrincipal, metastore::listRoleGrants)
+                        .map(role -> new HivePrincipal(ROLE, role.getRoleName())));
+        return listTablePrivileges(metastore, new HiveIdentity(identity), databaseName, tableName, principals);
+    }
+
+    private static Stream<HivePrivilegeInfo> listTablePrivileges(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, String databaseName, String tableName, Stream<HivePrincipal> principals)
+    {
+        return principals.flatMap(principal -> metastore.listTablePrivileges(identity, databaseName, tableName, Optional.of(principal)).stream());
     }
 
     private boolean hasAdminOptionForRoles(ConnectorSecurityContext context, Set<String> roles)
