@@ -37,7 +37,9 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.EmptyPageSource;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.transaction.IsolationLevel;
 import io.prestosql.split.EmptySplit;
 import io.prestosql.testing.AbstractTestQueryFramework;
@@ -60,6 +62,7 @@ import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.prestosql.spi.predicate.Domain.singleValue;
+import static io.prestosql.spi.predicate.Range.range;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
@@ -102,6 +105,9 @@ public class TestCoordinatorDynamicFiltering
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .build();
         return DistributedQueryRunner.builder(session)
+                .setExtraProperties(ImmutableMap.of(
+                        // keep limits lower to test edge cases
+                        "dynamic-filtering.small-partitioned.max-distinct-values-per-driver", "10"))
                 .build();
     }
 
@@ -165,7 +171,9 @@ public class TestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey",
-                TupleDomain.all());
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
     }
 
     @Test(timeOut = 30_000)
@@ -195,7 +203,9 @@ public class TestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem RIGHT JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey",
-                TupleDomain.all());
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
     }
 
     @Test(timeOut = 30_000)
@@ -268,7 +278,9 @@ public class TestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier)",
-                TupleDomain.all());
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
     }
 
     @Test(timeOut = 30_000)

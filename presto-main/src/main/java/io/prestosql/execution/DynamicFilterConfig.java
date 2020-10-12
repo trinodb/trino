@@ -37,19 +37,19 @@ public class DynamicFilterConfig
     private boolean enableLargeDynamicFilters;
     private int serviceThreadCount = 2;
 
-    private int smallBroadcastMaxDistinctValuesPerDriver = 100;
-    private DataSize smallBroadcastMaxSizePerDriver = DataSize.of(10, KILOBYTE);
-    private int smallBroadcastRangeRowLimitPerDriver;
-    private int smallPartitionedMaxDistinctValuesPerDriver = 10;
+    private int smallBroadcastMaxDistinctValuesPerDriver = 200;
+    private DataSize smallBroadcastMaxSizePerDriver = DataSize.of(20, KILOBYTE);
+    private int smallBroadcastRangeRowLimitPerDriver = 400;
+    private int smallPartitionedMaxDistinctValuesPerDriver = 20;
     private DataSize smallPartitionedMaxSizePerDriver = DataSize.of(10, KILOBYTE);
-    private int smallPartitionedRangeRowLimitPerDriver;
+    private int smallPartitionedRangeRowLimitPerDriver = 100;
 
     private int largeBroadcastMaxDistinctValuesPerDriver = 5_000;
     private DataSize largeBroadcastMaxSizePerDriver = DataSize.of(500, KILOBYTE);
-    private int largeBroadcastRangeRowLimitPerDriver;
+    private int largeBroadcastRangeRowLimitPerDriver = 10_000;
     private int largePartitionedMaxDistinctValuesPerDriver = 500;
     private DataSize largePartitionedMaxSizePerDriver = DataSize.of(50, KILOBYTE);
-    private int largePartitionedRangeRowLimitPerDriver;
+    private int largePartitionedRangeRowLimitPerDriver = 1_000;
 
     public boolean isEnableDynamicFiltering()
     {
