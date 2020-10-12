@@ -947,14 +947,16 @@ public class ExpressionAnalyzer
                     WindowFrame frame = node.getWindow().get().getFrame().get();
 
                     if (frame.getStart().getValue().isPresent()) {
-                        Type type = process(frame.getStart().getValue().get(), context);
+                        Expression startValue = frame.getStart().getValue().get();
+                        Type type = process(startValue, context);
                         if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
                             throw semanticException(TYPE_MISMATCH, node, "Window frame start value type must be INTEGER or BIGINT(actual %s)", type);
                         }
                     }
 
                     if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
-                        Type type = process(frame.getEnd().get().getValue().get(), context);
+                        Expression endValue = frame.getEnd().get().getValue().get();
+                        Type type = process(endValue, context);
                         if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
                             throw semanticException(TYPE_MISMATCH, node, "Window frame end value type must be INTEGER or BIGINT (actual %s)", type);
                         }
