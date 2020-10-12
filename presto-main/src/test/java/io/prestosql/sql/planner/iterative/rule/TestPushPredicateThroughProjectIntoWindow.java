@@ -242,7 +242,7 @@ public class TestPushPredicateThroughProjectIntoWindow
         return new Function(
                 tester().getMetadata().resolveFunction(QualifiedName.of("row_number"), fromTypes()),
                 ImmutableList.of(),
-                new Frame(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), CURRENT_ROW, Optional.empty(), Optional.empty(), Optional.empty()),
+                new Frame(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), Optional.empty(), CURRENT_ROW, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
                 false);
     }
 }

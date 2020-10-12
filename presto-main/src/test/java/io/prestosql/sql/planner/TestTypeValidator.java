@@ -149,7 +149,9 @@ public class TestTypeValidator
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,
                 Optional.empty(),
+                Optional.empty(),
                 FrameBound.Type.UNBOUNDED_FOLLOWING,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -282,7 +284,9 @@ public class TestTypeValidator
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,
                 Optional.empty(),
+                Optional.empty(),
                 FrameBound.Type.UNBOUNDED_FOLLOWING,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -313,7 +317,9 @@ public class TestTypeValidator
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,
                 Optional.empty(),
+                Optional.empty(),
                 FrameBound.Type.UNBOUNDED_FOLLOWING,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
