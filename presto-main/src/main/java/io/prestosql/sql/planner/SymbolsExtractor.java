@@ -118,7 +118,9 @@ public final class SymbolsExtractor
             builder.addAll(extractAll(argument));
         }
         function.getFrame().getEndValue().ifPresent(builder::add);
+        function.getFrame().getSortKeyCoercedForFrameEndComparison().ifPresent(builder::add);
         function.getFrame().getStartValue().ifPresent(builder::add);
+        function.getFrame().getSortKeyCoercedForFrameStartComparison().ifPresent(builder::add);
         return builder.build();
     }
 

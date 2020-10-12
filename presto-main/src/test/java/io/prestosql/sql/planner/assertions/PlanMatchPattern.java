@@ -317,14 +317,29 @@ public final class PlanMatchPattern
             FrameBound.Type startType,
             Optional<String> startValue,
             FrameBound.Type endType,
-            Optional<String> endValue)
+            Optional<String> endValue,
+            Optional<String> sortKey)
+    {
+        return windowFrame(type, startType, startValue, sortKey, endType, endValue, sortKey);
+    }
+
+    public static ExpectedValueProvider<WindowNode.Frame> windowFrame(
+            WindowFrame.Type type,
+            FrameBound.Type startType,
+            Optional<String> startValue,
+            Optional<String> sortKeyForStartComparison,
+            FrameBound.Type endType,
+            Optional<String> endValue,
+            Optional<String> sortKeyForEndComparison)
     {
         return new WindowFrameProvider(
                 type,
                 startType,
                 startValue.map(SymbolAlias::new),
+                sortKeyForStartComparison.map(SymbolAlias::new),
                 endType,
-                endValue.map(SymbolAlias::new));
+                endValue.map(SymbolAlias::new),
+                sortKeyForEndComparison.map(SymbolAlias::new));
     }
 
     public static PlanMatchPattern window(Consumer<WindowMatcher.Builder> handler, PlanMatchPattern source)
