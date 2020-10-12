@@ -108,6 +108,7 @@ import io.prestosql.sql.tree.TimeLiteral;
 import io.prestosql.sql.tree.TimestampLiteral;
 import io.prestosql.sql.tree.TryExpression;
 import io.prestosql.sql.tree.WhenClause;
+import io.prestosql.sql.tree.Window;
 import io.prestosql.sql.tree.WindowFrame;
 import io.prestosql.type.FunctionType;
 import io.prestosql.type.TypeCoercion;
@@ -927,7 +928,8 @@ public class ExpressionAnalyzer
         protected Type visitFunctionCall(FunctionCall node, StackableAstVisitorContext<Context> context)
         {
             if (node.getWindow().isPresent()) {
-                for (Expression expression : node.getWindow().get().getPartitionBy()) {
+                Window window = node.getWindow().get();
+                for (Expression expression : window.getPartitionBy()) {
                     process(expression, context);
                     Type type = getExpressionType(expression);
                     if (!type.isComparable()) {
@@ -935,7 +937,7 @@ public class ExpressionAnalyzer
                     }
                 }
 
-                for (SortItem sortItem : getSortItemsFromOrderBy(node.getWindow().get().getOrderBy())) {
+                for (SortItem sortItem : getSortItemsFromOrderBy(window.getOrderBy())) {
                     process(sortItem.getSortKey(), context);
                     Type type = getExpressionType(sortItem.getSortKey());
                     if (!type.isOrderable()) {
@@ -943,8 +945,8 @@ public class ExpressionAnalyzer
                     }
                 }
 
-                if (node.getWindow().get().getFrame().isPresent()) {
-                    WindowFrame frame = node.getWindow().get().getFrame().get();
+                if (window.getFrame().isPresent()) {
+                    WindowFrame frame = window.getFrame().get();
 
                     if (frame.getStart().getValue().isPresent()) {
                         Expression startValue = frame.getStart().getValue().get();
