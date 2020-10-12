@@ -20,6 +20,7 @@ import io.prestosql.plugin.hive.coercions.DoubleToFloatCoercer;
 import io.prestosql.plugin.hive.coercions.FloatToDoubleCoercer;
 import io.prestosql.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
 import io.prestosql.plugin.hive.coercions.IntegerNumberUpscaleCoercer;
+import io.prestosql.plugin.hive.coercions.VarcharCoercer;
 import io.prestosql.plugin.hive.coercions.VarcharToIntegerNumberCoercer;
 import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.Page;
@@ -370,6 +371,17 @@ public class HivePageSource
         if (fromType instanceof VarcharType && (toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
             return new VarcharToIntegerNumberCoercer<>((VarcharType) fromType, toType);
         }
+        if (fromType instanceof VarcharType && toType instanceof VarcharType) {
+            VarcharType toVarcharType = (VarcharType) toType;
+            VarcharType fromVarcharType = (VarcharType) fromType;
+
+            if (narrowerThan(toVarcharType, fromVarcharType)) {
+                return new VarcharCoercer(fromVarcharType, toVarcharType);
+            }
+
+            // TODO make the method return Optional
+            return Function.identity();
+        }
         if (fromHiveType.equals(HIVE_BYTE) && (toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
             return new IntegerNumberUpscaleCoercer<>(fromType, toType);
         }
@@ -411,6 +423,16 @@ public class HivePageSource
         }
 
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
+    }
+
+    public static boolean narrowerThan(VarcharType first, VarcharType second)
+    {
+        requireNonNull(first, "first is null");
+        requireNonNull(second, "second is null");
+        if (first.isUnbounded() || second.isUnbounded()) {
+            return !first.isUnbounded();
+        }
+        return first.getBoundedLength() < second.getBoundedLength();
     }
 
     private static class ListCoercer
