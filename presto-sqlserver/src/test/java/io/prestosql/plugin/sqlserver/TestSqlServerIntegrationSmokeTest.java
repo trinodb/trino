@@ -275,6 +275,15 @@ public class TestSqlServerIntegrationSmokeTest
 
         // with filter over varchar column
         assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isCorrectlyPushedDown();
+
+        // with aggregation
+        assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isCorrectlyPushedDown(); // global aggregation, LIMIT removed
+        assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5")).isCorrectlyPushedDown();
+        // TODO (https://github.com/prestosql/presto/issues/5522) assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isCorrectlyPushedDown();
+
+        // with filter and aggregation
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isCorrectlyPushedDown();
     }
 
     /**
