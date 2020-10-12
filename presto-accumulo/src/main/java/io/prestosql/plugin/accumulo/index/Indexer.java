@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.primitives.Bytes;
 import com.google.common.primitives.UnsignedBytes;
 import io.prestosql.plugin.accumulo.Types;
 import io.prestosql.plugin.accumulo.iterators.MaxByteArrayCombiner;
@@ -45,8 +46,6 @@ import org.apache.accumulo.core.iterators.TypedValueCombiner;
 import org.apache.accumulo.core.iterators.user.SummingCombiner;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.accumulo.core.security.ColumnVisibility;
-import org.apache.commons.lang.ArrayUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.io.Text;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -65,6 +64,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.Maps.immutableEntry;
 import static io.prestosql.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
 import static io.prestosql.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -116,7 +116,7 @@ public class Indexer
     public static final Text METRICS_TABLE_ROWID_AS_TEXT = new Text(METRICS_TABLE_ROW_ID.array());
 
     private static final byte[] EMPTY_BYTES = new byte[0];
-    private static final byte UNDERSCORE = '_';
+    private static final byte[] UNDERSCORE = {'_'};
     private static final TypedValueCombiner.Encoder<Long> ENCODER = new LongCombiner.StringEncoder();
 
     private final AccumuloTable table;
@@ -185,9 +185,9 @@ public class Indexer
         metrics.put(METRICS_TABLE_ROW_COUNT, new AtomicLong(0));
 
         // Scan the metrics table for existing first row and last row
-        Pair<byte[], byte[]> minmax = getMinMaxRowIds(connector, table, auths);
-        firstRow = minmax.getLeft();
-        lastRow = minmax.getRight();
+        Entry<byte[], byte[]> minmax = getMinMaxRowIds(connector, table, auths);
+        firstRow = minmax.getKey();
+        lastRow = minmax.getValue();
     }
 
     /**
@@ -396,7 +396,7 @@ public class Indexer
      */
     public static ByteBuffer getIndexColumnFamily(byte[] columnFamily, byte[] columnQualifier)
     {
-        return wrap(ArrayUtils.addAll(ArrayUtils.add(columnFamily, UNDERSCORE), columnQualifier));
+        return wrap(Bytes.concat(columnFamily, UNDERSCORE, columnQualifier));
     }
 
     /**
@@ -468,7 +468,7 @@ public class Indexer
         return getMetricsTableName(tableName.getSchemaName(), tableName.getTableName());
     }
 
-    public static Pair<byte[], byte[]> getMinMaxRowIds(Connector connector, AccumuloTable table, Authorizations auths)
+    public static Entry<byte[], byte[]> getMinMaxRowIds(Connector connector, AccumuloTable table, Authorizations auths)
             throws TableNotFoundException
     {
         Scanner scanner = connector.createScanner(table.getMetricsTableName(), auths);
@@ -491,7 +491,7 @@ public class Indexer
             }
         }
         scanner.close();
-        return Pair.of(firstRow, lastRow);
+        return immutableEntry(firstRow, lastRow);
     }
 
     /**

@@ -33,7 +33,6 @@ import org.apache.accumulo.core.client.Instance;
 import org.apache.accumulo.core.client.ZooKeeperInstance;
 import org.apache.accumulo.core.client.security.tokens.PasswordToken;
 import org.apache.accumulo.minicluster.MiniAccumuloCluster;
-import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.io.Text;
 import org.intellij.lang.annotations.Language;
 
@@ -42,6 +41,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Map;
 
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.plugin.accumulo.AccumuloErrorCode.MINI_ACCUMULO;
 import static io.prestosql.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
@@ -213,7 +214,7 @@ public final class AccumuloQueryRunner
 
             try {
                 LOG.info("Cleaning up MAC directory");
-                FileUtils.forceDelete(macDir);
+                deleteRecursively(macDir.toPath(), ALLOW_INSECURE);
             }
             catch (IOException e) {
                 throw new PrestoException(MINI_ACCUMULO, "Failed to clean up MAC directory", e);
