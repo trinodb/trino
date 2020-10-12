@@ -40,7 +40,7 @@ public class TestParquetWriterConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("hive.parquet.optimized-writer.enabled", "true")
+                .put("hive.parquet.experimental-optimized-writer.enabled", "true")
                 .put("hive.parquet.writer.block-size", "234MB")
                 .put("hive.parquet.writer.page-size", "11MB")
                 .build();
