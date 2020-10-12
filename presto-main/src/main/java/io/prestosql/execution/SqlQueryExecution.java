@@ -457,6 +457,7 @@ public class SqlQueryExecution
         return new PlanRoot(fragmentedPlan, !explainAnalyze);
     }
 
+
     private void planDistribution(PlanRoot plan)
     {
         // plan the execution on the active nodes

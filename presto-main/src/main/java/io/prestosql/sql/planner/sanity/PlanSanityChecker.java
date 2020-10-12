@@ -58,7 +58,8 @@ public final class PlanSanityChecker
                         new ValidateAggregationsWithDefaultValues(forceSingleNode),
                         new ValidateStreamingAggregations(),
                         new DynamicFiltersChecker(),
-                        new TableScanValidator())
+                        new TableScanValidator(),
+                        new VerifyOutputFieldsLessThanMax())
                 .build();
     }
 

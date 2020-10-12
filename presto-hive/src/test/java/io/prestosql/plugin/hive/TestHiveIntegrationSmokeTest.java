@@ -95,6 +95,7 @@ import static io.prestosql.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.SystemSessionProperties.GROUPED_EXECUTION;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.QUERY_MAX_FIELDS_OUTPUT;
 import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
@@ -535,6 +536,22 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(admin, "insert into nest_test values(2, ('b', 1, 'd'), '1')", 1);
         assertQuery(admin, "select a.y from nest_test", "values (null), (null), (1)");
         assertQuery(admin, "select id from nest_test where a.y IS NOT NULL", "values (2)");
+        assertUpdate(admin, "DROP TABLE nest_test");
+    }
+
+    @Test
+    public void testNestedDataExceedsMaxColumnsOutput()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(QUERY_MAX_FIELDS_OUTPUT, "5")
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "true")
+                .build();
+        assertUpdate(admin, "CREATE TABLE nest_test(id INT, a ROW(x VARCHAR, y ROW(ya VARCHAR, yb INT, yc BIGINT), z VARCHAR), b VARCHAR) WITH (FORMAT='PARQUET')");
+        assertUpdate(admin, "INSERT INTO nest_test VALUES(0, ('b', ('a', 2, 3), 'd'), '1')", 1);
+        assertQueryFails(admin, "SELECT * FROM nest_test", "Maximum number of output fields of 5 has been exceeded with 7");
         assertUpdate(admin, "DROP TABLE nest_test");
     }
 
