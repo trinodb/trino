@@ -29,21 +29,27 @@ public class WindowFrameProvider
     private final WindowFrame.Type type;
     private final FrameBound.Type startType;
     private final Optional<SymbolAlias> startValue;
+    private final Optional<SymbolAlias> sortKeyForStartComparison;
     private final FrameBound.Type endType;
     private final Optional<SymbolAlias> endValue;
+    private final Optional<SymbolAlias> sortKeyForEndComparison;
 
     WindowFrameProvider(
             WindowFrame.Type type,
             FrameBound.Type startType,
             Optional<SymbolAlias> startValue,
+            Optional<SymbolAlias> sortKeyForStartComparison,
             FrameBound.Type endType,
-            Optional<SymbolAlias> endValue)
+            Optional<SymbolAlias> endValue,
+            Optional<SymbolAlias> sortKeyForEndComparison)
     {
         this.type = requireNonNull(type, "type is null");
         this.startType = requireNonNull(startType, "startType is null");
         this.startValue = requireNonNull(startValue, "startValue is null");
+        this.sortKeyForStartComparison = requireNonNull(sortKeyForStartComparison, "sortKeyForStartComparison is null");
         this.endType = requireNonNull(endType, "endType is null");
         this.endValue = requireNonNull(endValue, "endValue is null");
+        this.sortKeyForEndComparison = requireNonNull(sortKeyForEndComparison, "sortKeyForEndComparison is null");
     }
 
     @Override
@@ -58,8 +64,10 @@ public class WindowFrameProvider
                 type,
                 startType,
                 startValue.map(alias -> alias.toSymbol(aliases)),
+                sortKeyForStartComparison.map(alias -> alias.toSymbol(aliases)),
                 endType,
                 endValue.map(alias -> alias.toSymbol(aliases)),
+                sortKeyForEndComparison.map(alias -> alias.toSymbol(aliases)),
                 originalStartValue,
                 originalEndValue);
     }

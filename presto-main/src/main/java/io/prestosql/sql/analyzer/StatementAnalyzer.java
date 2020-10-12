@@ -255,7 +255,6 @@ import static io.prestosql.sql.tree.Join.Type.FULL;
 import static io.prestosql.sql.tree.Join.Type.INNER;
 import static io.prestosql.sql.tree.Join.Type.LEFT;
 import static io.prestosql.sql.tree.Join.Type.RIGHT;
-import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
 import static io.prestosql.sql.util.AstUtils.preOrder;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.MoreLists.mappedCopy;
@@ -2021,12 +2020,6 @@ class StatementAnalyzer
             }
             if ((startType == FOLLOWING) && (endType == CURRENT_ROW)) {
                 throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from FOLLOWING cannot end with CURRENT ROW");
-            }
-            if ((frame.getType() == RANGE) && ((startType == PRECEDING) || (endType == PRECEDING))) {
-                throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame RANGE PRECEDING is only supported with UNBOUNDED");
-            }
-            if ((frame.getType() == RANGE) && ((startType == FOLLOWING) || (endType == FOLLOWING))) {
-                throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame RANGE FOLLOWING is only supported with UNBOUNDED");
             }
         }
 

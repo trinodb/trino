@@ -74,7 +74,7 @@ import static org.testng.Assert.assertTrue;
 public class TestWindowOperator
 {
     private static final TypeOperators TYPE_OPERATORS_CACHE = new TypeOperators();
-    private static final FrameInfo UNBOUNDED_FRAME = new FrameInfo(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty());
+    private static final FrameInfo UNBOUNDED_FRAME = new FrameInfo(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
     public static final List<WindowFunctionDefinition> ROW_NUMBER = ImmutableList.of(
             window(new ReflectionWindowFunctionSupplier<>("row_number", BIGINT, ImmutableList.of(), RowNumberFunction.class), BIGINT, UNBOUNDED_FRAME, false, ImmutableList.of()));
