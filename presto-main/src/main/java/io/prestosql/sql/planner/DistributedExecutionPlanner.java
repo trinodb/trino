@@ -121,7 +121,9 @@ public class DistributedExecutionPlanner
         PlanFragment currentFragment = root.getFragment();
 
         // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
-        Map<PlanNodeId, SplitSource> splitSources = currentFragment.getRoot().accept(new Visitor(session, currentFragment.getStageExecutionDescriptor(), allSplitSources), null);
+        Map<PlanNodeId, SplitSource> splitSources = currentFragment.getRoot().accept(
+                new Visitor(session, currentFragment.getStageExecutionDescriptor(), TypeProvider.copyOf(currentFragment.getSymbols()), allSplitSources),
+                null);
 
         // create child stages
         ImmutableList.Builder<StageExecutionPlan> dependencies = ImmutableList.builder();
@@ -156,12 +158,18 @@ public class DistributedExecutionPlanner
     {
         private final Session session;
         private final StageExecutionDescriptor stageExecutionDescriptor;
+        private final TypeProvider typeProvider;
         private final ImmutableList.Builder<SplitSource> splitSources;
 
-        private Visitor(Session session, StageExecutionDescriptor stageExecutionDescriptor, ImmutableList.Builder<SplitSource> allSplitSources)
+        private Visitor(
+                Session session,
+                StageExecutionDescriptor stageExecutionDescriptor,
+                TypeProvider typeProvider,
+                ImmutableList.Builder<SplitSource> allSplitSources)
         {
             this.session = session;
             this.stageExecutionDescriptor = stageExecutionDescriptor;
+            this.typeProvider = typeProvider;
             this.splitSources = allSplitSources;
         }
 
@@ -188,7 +196,7 @@ public class DistributedExecutionPlanner
             DynamicFilter dynamicFilter = EMPTY;
             if (!dynamicFilters.isEmpty()) {
                 log.debug("Dynamic filters: %s", dynamicFilters);
-                dynamicFilter = dynamicFilterService.createDynamicFilter(session.getQueryId(), dynamicFilters, node.getAssignments());
+                dynamicFilter = dynamicFilterService.createDynamicFilter(session.getQueryId(), dynamicFilters, node.getAssignments(), typeProvider);
             }
 
             // get dataSource for table

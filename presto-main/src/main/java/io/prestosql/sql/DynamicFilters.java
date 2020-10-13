@@ -15,6 +15,7 @@ package io.prestosql.sql;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
@@ -24,7 +25,9 @@ import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.planner.FunctionCallBuilder;
+import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
+import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.QualifiedName;
@@ -37,6 +40,8 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
 import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
@@ -79,6 +84,22 @@ public final class DynamicFilters
         }
 
         return new ExtractResult(staticConjuncts.build(), dynamicConjuncts.build());
+    }
+
+    public static Multimap<DynamicFilterId, Symbol> extractSourceSymbols(List<DynamicFilters.Descriptor> dynamicFilters)
+    {
+        return dynamicFilters.stream()
+                .collect(toImmutableListMultimap(
+                        DynamicFilters.Descriptor::getId,
+                        descriptor -> {
+                            Expression dynamicFilterExpression = descriptor.getInput();
+                            if (dynamicFilterExpression instanceof SymbolReference) {
+                                return Symbol.from(dynamicFilterExpression);
+                            }
+                            checkState(dynamicFilterExpression instanceof Cast);
+                            checkState(((Cast) dynamicFilterExpression).getExpression() instanceof SymbolReference);
+                            return Symbol.from(((Cast) dynamicFilterExpression).getExpression());
+                        }));
     }
 
     public static boolean isDynamicFilter(Expression expression)
