@@ -40,8 +40,10 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeAnalyzer;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.rule.test.RuleTester;
 import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Identifier;
@@ -61,6 +63,7 @@ import static io.prestosql.spi.type.RowType.field;
 import static io.prestosql.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.prestosql.sql.planner.TypeProvider.viewOf;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.identityProject;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
@@ -175,8 +178,39 @@ public class TestPushProjectionIntoTableScan
                                     TupleDomain.all(),
                                     newNames.entrySet().stream()
                                             .collect(toImmutableMap(
-                                            Map.Entry::getValue,
+                                                    Map.Entry::getValue,
                                                     e -> equalTo(column(e.getValue(), types.get(e.getKey()))))))));
+        }
+    }
+
+    @Test
+    public void testUpdateAssignments()
+    {
+        try (RuleTester ruleTester = defaultRuleTester()) {
+            String columnName = "input_column";
+            Type columnType = ROW_TYPE;
+            ColumnHandle inputColumnHandle = column(columnName, columnType);
+
+            MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, inputColumnHandle), Optional.empty());
+
+            ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, factory, ImmutableMap.of());
+
+            PushProjectionIntoTableScan optimizer = new PushProjectionIntoTableScan(
+                    ruleTester.getMetadata(),
+                    new TypeAnalyzer(new SqlParser(), ruleTester.getMetadata()));
+
+            ruleTester.assertThat(optimizer)
+                    .on(p -> {
+                        Symbol columnSymbol = p.symbol(columnName, columnType);
+                        Symbol projectedSymbol = p.symbol("projectedSymbol", columnType);
+                        return p.project(
+                                Assignments.of(projectedSymbol, new SymbolReference(columnSymbol.getName())),
+                                p.tableScan(TEST_TABLE_HANDLE, ImmutableList.of(columnSymbol), ImmutableMap.of(columnSymbol, inputColumnHandle)));
+                    })
+                    .withSession(MOCK_SESSION)
+                    .matches(
+                            identityProject(
+                                    PlanMatchPattern.node(TableScanNode.class)));
         }
     }
 

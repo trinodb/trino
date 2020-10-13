@@ -31,16 +31,20 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -116,7 +120,9 @@ public class PushProjectionIntoTableScan
         Optional<ProjectionApplicationResult<TableHandle>> result = metadata.applyProjection(context.getSession(), tableScan.getTable(), connectorPartialProjections, assignments);
 
         if (result.isEmpty()) {
-            return Result.empty();
+            return pushAssignmentsIntoTableScan(project, tableScan)
+                    .map(Result::ofPlanNode)
+                    .orElseGet(Result::empty);
         }
 
         List<ConnectorExpression> newConnectorPartialProjections = result.get().getProjections();
@@ -163,5 +169,50 @@ public class PushProjectionIntoTableScan
                                 newScanOutputs,
                                 newScanAssignments),
                         newProjectionAssignments.build()));
+    }
+
+    private Optional<PlanNode> pushAssignmentsIntoTableScan(ProjectNode project, TableScanNode tableScan)
+    {
+        if (project.isIdentity()) {
+            // Can be removed by RemoveRedundantIdentityProjections
+            return Optional.empty();
+        }
+
+        if (project.getOutputSymbols().size() != tableScan.getOutputSymbols().size()) {
+            // Can be simplified with PruneTableScanColumns
+            return Optional.empty();
+        }
+
+        Map<Symbol, ColumnHandle> assignments = tableScan.getAssignments();
+
+        Assignments.Builder newProjectionAssignments = Assignments.builder();
+        Set<Symbol> newScanOutputs = new LinkedHashSet<>();
+        ImmutableMap.Builder<Symbol, ColumnHandle> newScanAssignments = ImmutableMap.builder();
+
+        for (Map.Entry<Symbol, Expression> projectAssignment : project.getAssignments().entrySet()) {
+            if (!(projectAssignment.getValue() instanceof SymbolReference)) {
+                return Optional.empty();
+            }
+
+            Symbol outputSymbol = projectAssignment.getKey();
+            Symbol intermediateSymbol = new Symbol(((SymbolReference) projectAssignment.getValue()).getName());
+
+            newProjectionAssignments.put(outputSymbol, outputSymbol.toSymbolReference());
+            if (!newScanOutputs.add(outputSymbol)) {
+                // Duplicate
+                return Optional.empty();
+            }
+            newScanAssignments.put(outputSymbol, assignments.get(intermediateSymbol));
+        }
+
+        return Optional.of(new ProjectNode(
+                project.getId(),
+                new TableScanNode(
+                        tableScan.getId(),
+                        tableScan.getTable(),
+                        ImmutableList.copyOf(newScanOutputs),
+                        newScanAssignments.build(),
+                        tableScan.getEnforcedConstraint()),
+                newProjectionAssignments.build()));
     }
 }

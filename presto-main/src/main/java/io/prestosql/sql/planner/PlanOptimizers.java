@@ -529,7 +529,7 @@ public class PlanOptimizers
                         optimizerStats,
                         new PredicatePushDown(metadata, typeOperators, typeAnalyzer, false, false)));
 
-        IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
+        builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
@@ -541,10 +541,7 @@ public class PlanOptimizers
                         .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))
                         .add(new PushSampleIntoTableScan(metadata))
                         .add(new PushAggregationIntoTableScan(metadata))
-                        .build());
-        builder.add(pushIntoTableScanOptimizer);
-        builder.add(new UnaliasSymbolReferences(metadata));
-        builder.add(pushIntoTableScanOptimizer); // TODO (https://github.com/prestosql/presto/issues/811) merge with the above after migrating UnaliasSymbolReferences to rules
+                        .build()));
 
         builder.add(
                 new IterativeOptimizer(
