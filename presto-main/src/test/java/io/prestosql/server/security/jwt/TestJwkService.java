@@ -49,12 +49,13 @@ public class TestJwkService
             "      \"kid\": \"test-rsa\"\n" +
             "    },\n" +
             "    {\n" +
-            "      \"kid\": \"other-rsa\",\n" +
-            "      \"alg\": \"RS256\",\n" +
-            "      \"n\": \"teG3wvigoU_KPbPAiEVERFmlGeHWPsnqbEk1pAhz69B0kGHJXU8l8tPHpTw0Gy_M9BJ5WAe9FvXL41xSFbqMGiJ7DIZ32ejlncrf2vGkMl26C5p8OOvuS6ThFjREUzWbV0sYtJL0nNjzmQNCQeb90tDQDZW229ZeUNlM2yN0QRisKlGFSK7uL8X0dRUbXnfgS6eI4mvSAK6tqq3n8IcPA0PxBr-R81rtdG70C2zxlPQ4Wp_MJzjb81d-RPdcYd64loOMhhHFbbfq2bTS9TSn_Y16lYA7gyRGSPhwcsdqOH2qqon7QOiF8gtrvztwd9TpxecPd7mleGGWVFlN6pTQYQ\",\n" +
-            "      \"kty\": \"RSA\",\n" +
-            "      \"e\": \"AQAB\",\n" +
-            "      \"use\": \"sig\"\n" +
+            "      \"kty\": \"EC\",\n" +
+            "      \"use\": \"sig\",\n" +
+            "      \"crv\": \"P-256\",\n" +
+            "      \"kid\": \"test-ec\",\n" +
+            "      \"x\": \"W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y\",\n" +
+            "      \"y\": \"XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg\",\n" +
+            "      \"alg\": \"ES256\"\n" +
             "    }\n" +
             "  ]\n" +
             "}";
@@ -186,6 +187,6 @@ public class TestJwkService
         Map<String, PublicKey> keys = service.getKeys();
         assertEquals(keys.size(), 2);
         assertTrue(keys.containsKey("test-rsa"));
-        assertTrue(keys.containsKey("other-rsa"));
+        assertTrue(keys.containsKey("test-ec"));
     }
 }
