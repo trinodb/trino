@@ -13,6 +13,7 @@
  */
 package io.prestosql.spiller;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.prestosql.spi.PrestoException;
 
 import javax.crypto.Cipher;
@@ -27,7 +28,8 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
-final class AesSpillCipher
+@VisibleForTesting
+public final class AesSpillCipher
         implements SpillCipher
 {
     //  256-bit AES CBC mode
@@ -39,7 +41,8 @@ final class AesSpillCipher
     private Cipher encryptSizer;
     private final int ivBytes;
 
-    AesSpillCipher()
+    @VisibleForTesting
+    public AesSpillCipher()
     {
         this.key = generateNewSecretKey();
         this.encryptSizer = createEncryptCipher(key);
