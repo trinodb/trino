@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.kafka;
 
+import static java.util.Locale.ENGLISH;
+
 public enum KafkaEndpointIdentificationAlgorithm
 {
     HTTPS("https"),
@@ -29,5 +31,13 @@ public enum KafkaEndpointIdentificationAlgorithm
     KafkaEndpointIdentificationAlgorithm(String name)
     {
         this.name = name;
+    }
+
+    public static KafkaEndpointIdentificationAlgorithm fromString(String value)
+    {
+        if (value.isBlank()) {
+            return KafkaEndpointIdentificationAlgorithm.DISABLED;
+        }
+        return KafkaEndpointIdentificationAlgorithm.valueOf(value.toUpperCase(ENGLISH));
     }
 }

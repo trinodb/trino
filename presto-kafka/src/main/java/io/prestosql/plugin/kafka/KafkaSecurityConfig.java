@@ -39,9 +39,10 @@ public class KafkaSecurityConfig
     @Config("kafka.keystore-file")
     @LegacyConfig("kafka.ssl.keystore.location")
     @ConfigDescription(SslConfigs.SSL_KEYSTORE_LOCATION_DOC)
-    public void setSslKeystoreFile(String sslKeystoreFile)
+    public KafkaSecurityConfig setSslKeystoreFile(String sslKeystoreFile)
     {
         this.sslKeystoreFile = sslKeystoreFile;
+        return this;
     }
 
     @FileExists
@@ -54,9 +55,10 @@ public class KafkaSecurityConfig
     @LegacyConfig("kafka.ssl.keystore.password")
     @ConfigDescription(SslConfigs.SSL_KEYSTORE_PASSWORD_DOC)
     @ConfigSecuritySensitive
-    public void setSslKeystorePassword(String sslKeystorePassword)
+    public KafkaSecurityConfig setSslKeystorePassword(String sslKeystorePassword)
     {
         this.sslKeystorePassword = sslKeystorePassword;
+        return this;
     }
 
     public String getSslKeystorePassword()
@@ -68,9 +70,10 @@ public class KafkaSecurityConfig
     @LegacyConfig("kafka.ssl.key.password")
     @ConfigDescription(SslConfigs.SSL_KEY_PASSWORD_DOC)
     @ConfigSecuritySensitive
-    public void setSslKeyPassword(String sslKeyPassword)
+    public KafkaSecurityConfig setSslKeyPassword(String sslKeyPassword)
     {
         this.sslKeyPassword = sslKeyPassword;
+        return this;
     }
 
     public String getSslKeyPassword()
@@ -81,9 +84,10 @@ public class KafkaSecurityConfig
     @Config("kafka.truststore-file")
     @LegacyConfig("kafka.ssl.truststore.location")
     @ConfigDescription(SslConfigs.SSL_TRUSTSTORE_LOCATION_DOC)
-    public void setSslTruststoreFile(String sslTruststoreFile)
+    public KafkaSecurityConfig setSslTruststoreFile(String sslTruststoreFile)
     {
         this.sslTruststoreFile = sslTruststoreFile;
+        return this;
     }
 
     @FileExists
@@ -96,9 +100,10 @@ public class KafkaSecurityConfig
     @LegacyConfig("kafka.ssl.truststore.password")
     @ConfigDescription(SslConfigs.SSL_TRUSTSTORE_PASSWORD_DOC)
     @ConfigSecuritySensitive
-    public void setSslTruststorePassword(String sslTruststorePassword)
+    public KafkaSecurityConfig setSslTruststorePassword(String sslTruststorePassword)
     {
         this.sslTruststorePassword = sslTruststorePassword;
+        return this;
     }
 
     public String getSslTruststorePassword()
@@ -108,9 +113,10 @@ public class KafkaSecurityConfig
 
     @Config("kafka.endpoint-identification-algorithm")
     @ConfigDescription(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_DOC)
-    public void setSslEndpointIdentificationAlgorithm(KafkaEndpointIdentificationAlgorithm sslEndpointIdentificationAlgorithm)
+    public KafkaSecurityConfig setSslEndpointIdentificationAlgorithm(String sslEndpointIdentificationAlgorithm)
     {
-        this.sslEndpointIdentificationAlgorithm = sslEndpointIdentificationAlgorithm;
+        this.sslEndpointIdentificationAlgorithm = KafkaEndpointIdentificationAlgorithm.fromString(sslEndpointIdentificationAlgorithm);
+        return this;
     }
 
     public KafkaEndpointIdentificationAlgorithm getSslEndpointIdentificationAlgorithm()
@@ -130,7 +136,7 @@ public class KafkaSecurityConfig
         return props;
     }
 
-    private static void addNotNull(Properties props, Object key, Object value)
+    private void addNotNull(Properties props, Object key, Object value)
     {
         if (value != null) {
             props.put(key, value.toString());

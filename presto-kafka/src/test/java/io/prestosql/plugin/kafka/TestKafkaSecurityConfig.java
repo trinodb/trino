@@ -13,15 +13,50 @@
  */
 package io.prestosql.plugin.kafka;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.assertions.Assert;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Properties;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestKafkaSecurityConfig
 {
+    @Test
+    public void testDefaults()
+    {
+        // No defaults, should be empty if nothing is set specifically
+        assertThat(recordDefaults(KafkaSecurityConfig.class).getKafkaClientProperties()).isEmpty();
+    }
+
+    @Test
+    public void testExplicitPropertyMappings()
+    {
+        String keystoreFilepath = getClass().getClassLoader().getResource("keystore.jks").getPath();
+        String truststoreFilepath = getClass().getClassLoader().getResource("truststore.jks").getPath();
+        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("kafka.keystore-file", keystoreFilepath)
+                .put("kafka.keystore-password", "keystore-password")
+                .put("kafka.key-password", "key-password")
+                .put("kafka.truststore-file", truststoreFilepath)
+                .put("kafka.truststore-password", "truststore-password")
+                .put("kafka.endpoint-identification-algorithm", "https")
+                .build();
+        KafkaSecurityConfig expected = new KafkaSecurityConfig()
+                .setSslKeystoreFile(keystoreFilepath)
+                .setSslKeystorePassword("keystore-password")
+                .setSslKeyPassword("key-password")
+                .setSslTruststoreFile(truststoreFilepath)
+                .setSslTruststorePassword("truststore-password")
+                .setSslEndpointIdentificationAlgorithm("https");
+
+        assertFullMapping(properties, expected);
+    }
+
     @Test
     public void verifyEmptyPropertiesAreReturned()
     {
@@ -38,7 +73,7 @@ public class TestKafkaSecurityConfig
         config.setSslKeyPassword("aSslKeyPassword");
         config.setSslTruststoreFile("/some/path/to/truststore");
         config.setSslTruststorePassword("superSavePasswordForTruststore");
-        config.setSslEndpointIdentificationAlgorithm(KafkaEndpointIdentificationAlgorithm.HTTPS);
+        config.setSslEndpointIdentificationAlgorithm(KafkaEndpointIdentificationAlgorithm.HTTPS.toString());
         Properties securityProperties = config.getKafkaClientProperties();
         Assert.assertEquals(securityProperties.isEmpty(), false);
         Assert.assertEquals(securityProperties.keySet().size(), 6);
