@@ -91,45 +91,45 @@ public class TestSqlServerIntegrationSmokeTest
         // TODO support aggregation pushdown with GROUPING SETS
         // TODO support aggregation over expressions
 
-        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
 
-        assertThat(query("SELECT count(*) FROM orders")).isCorrectlyPushedDown();
-        assertThat(query("SELECT count(nationkey) FROM nation")).isCorrectlyPushedDown();
-        assertThat(query("SELECT min(totalprice) FROM orders")).isCorrectlyPushedDown();
-        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT count(*) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT min(totalprice) FROM orders")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
 
-        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
 
         try (AutoCloseable ignoreTable = withTable("test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), varchar_column varchar(10))")) {
             sqlServer.execute("INSERT INTO test_aggregation_pushdown VALUES (100.000, 100000000.000000000, 'ala')");
             sqlServer.execute("INSERT INTO test_aggregation_pushdown VALUES (123.321, 123456789.987654321, 'kot')");
 
-            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
-            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
-            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
-            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
 
             // WHERE on aggregation column
-            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown WHERE short_decimal < 110 AND long_decimal < 124")).isCorrectlyPushedDown();
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown WHERE short_decimal < 110 AND long_decimal < 124")).isFullyPushedDown();
             // WHERE on non-aggregation column
-            assertThat(query("SELECT min(long_decimal) FROM test_aggregation_pushdown WHERE short_decimal < 110")).isCorrectlyPushedDown();
+            assertThat(query("SELECT min(long_decimal) FROM test_aggregation_pushdown WHERE short_decimal < 110")).isFullyPushedDown();
             // GROUP BY
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown GROUP BY short_decimal")).isCorrectlyPushedDown();
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown GROUP BY short_decimal")).isFullyPushedDown();
             // GROUP BY with WHERE on both grouping and aggregation column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE short_decimal < 110 AND long_decimal < 124" + " GROUP BY short_decimal")).isCorrectlyPushedDown();
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE short_decimal < 110 AND long_decimal < 124" + " GROUP BY short_decimal")).isFullyPushedDown();
             // GROUP BY with WHERE on grouping column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE short_decimal < 110 GROUP BY short_decimal")).isCorrectlyPushedDown();
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE short_decimal < 110 GROUP BY short_decimal")).isFullyPushedDown();
             // GROUP BY with WHERE on aggregation column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE long_decimal < 124 GROUP BY short_decimal")).isCorrectlyPushedDown();
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE long_decimal < 124 GROUP BY short_decimal")).isFullyPushedDown();
             // GROUP BY with WHERE on neither grouping nor aggregation column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE varchar_column = 'ala' GROUP BY short_decimal")).isCorrectlyPushedDown();
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE varchar_column = 'ala' GROUP BY short_decimal")).isFullyPushedDown();
             // aggregation on varchar column
-            assertThat(query("SELECT min(varchar_column) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+            assertThat(query("SELECT min(varchar_column) FROM test_aggregation_pushdown")).isFullyPushedDown();
             // aggregation on varchar column with GROUPING
-            assertThat(query("SELECT short_decimal, min(varchar_column) FROM test_aggregation_pushdown GROUP BY short_decimal")).isCorrectlyPushedDown();
+            assertThat(query("SELECT short_decimal, min(varchar_column) FROM test_aggregation_pushdown GROUP BY short_decimal")).isFullyPushedDown();
             // aggregation on varchar column with WHERE
-            assertThat(query("SELECT min(varchar_column) FROM test_aggregation_pushdown WHERE varchar_column ='ala'")).isCorrectlyPushedDown();
+            assertThat(query("SELECT min(varchar_column) FROM test_aggregation_pushdown WHERE varchar_column ='ala'")).isFullyPushedDown();
 
             // not supported yet
             assertThat(query("SELECT min(DISTINCT short_decimal) FROM test_aggregation_pushdown")).isNotFullyPushedDown(AggregationNode.class);
@@ -143,22 +143,22 @@ public class TestSqlServerIntegrationSmokeTest
     {
         try (TestTable testTable = new TestTable(sqlServer::execute, getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
-            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
-            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
-            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
             sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
 
-            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
-            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
-            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
             sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
-            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
             sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
-            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
-            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
         try (TestTable testTable = new TestTable(sqlServer::execute, getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
@@ -169,9 +169,9 @@ public class TestSqlServerIntegrationSmokeTest
             sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (4)");
             sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
 
-            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
-            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
-            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
     }
 
@@ -180,22 +180,22 @@ public class TestSqlServerIntegrationSmokeTest
     {
         try (TestTable testTable = new TestTable(sqlServer::execute, getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
             sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
 
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
             sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
             sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
         try (TestTable testTable = new TestTable(sqlServer::execute, getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
@@ -207,9 +207,9 @@ public class TestSqlServerIntegrationSmokeTest
             sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (4)");
             sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
 
-            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
-            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
-            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
     }
 
@@ -243,47 +243,47 @@ public class TestSqlServerIntegrationSmokeTest
 
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 124"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
-                    .isCorrectlyPushedDown();
+                    .isFullyPushedDown();
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 124"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
-                    .isCorrectlyPushedDown();
+                    .isFullyPushedDown();
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal <= 123456790"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
-                    .isCorrectlyPushedDown();
+                    .isFullyPushedDown();
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 123.321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
-                    .isCorrectlyPushedDown();
+                    .isFullyPushedDown();
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal <= 123456789.987654321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
-                    .isCorrectlyPushedDown();
+                    .isFullyPushedDown();
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal = 123.321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
-                    .isCorrectlyPushedDown();
+                    .isFullyPushedDown();
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal = 123456789.987654321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
-                    .isCorrectlyPushedDown();
+                    .isFullyPushedDown();
         }
     }
 
     @Test
     public void testLimitPushdown()
     {
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isCorrectlyPushedDown(); // Use high limit for result determinism
+        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
 
         // with filter over numeric column
-        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isCorrectlyPushedDown();
+        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
 
         // with filter over varchar column
-        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isCorrectlyPushedDown();
+        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isFullyPushedDown();
 
         // with aggregation
-        assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isCorrectlyPushedDown(); // global aggregation, LIMIT removed
-        assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5")).isCorrectlyPushedDown();
-        // TODO (https://github.com/prestosql/presto/issues/5522) assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isCorrectlyPushedDown();
+        assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isFullyPushedDown(); // global aggregation, LIMIT removed
+        assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5")).isFullyPushedDown();
+        // TODO (https://github.com/prestosql/presto/issues/5522) assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
 
         // with filter and aggregation
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isCorrectlyPushedDown();
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
     }
 
     /**
