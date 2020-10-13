@@ -67,6 +67,26 @@ public class TestStarburstOraclePlugin
     }
 
     @Test
+    public void testLicenseProtectionOfKerberos()
+    {
+        Plugin plugin = new StarburstOraclePlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("connection-url", "test")
+                        .put("oracle.authentication.type", "KERBEROS")
+                        .put("kerberos.client.principal", "test@TESTING-KRB.STARBURSTDATA.COM")
+                        .put("kerberos.client.keytab", getResource("krb/client/test.keytab").getPath())
+                        .put("kerberos.config", getResource("krb/krb5.conf").getPath())
+                        .build(),
+                new TestingConnectorContext()))
+                .isInstanceOf(RuntimeException.class)
+                .hasStackTraceContaining("com.starburstdata.presto.license.PrestoLicenseException: Valid license required to use the feature: jdbc-kerberos");
+    }
+
+    @Test
     public void testParallelismRequiresLicense()
     {
         Plugin plugin = new StarburstOraclePlugin();

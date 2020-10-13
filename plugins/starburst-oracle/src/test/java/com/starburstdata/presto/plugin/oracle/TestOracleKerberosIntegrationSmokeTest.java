@@ -14,6 +14,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.testing.QueryRunner;
 import org.testng.SkipException;
+import org.testng.annotations.Test;
 
 import static com.google.common.io.Resources.getResource;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
@@ -28,15 +29,17 @@ public class TestOracleKerberosIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return OracleQueryRunner.builder().withConnectorProperties(
-                ImmutableMap.<String, String>builder()
-                        .put("connection-url", TestingStarburstOracleServer.getJdbcUrl())
-                        .put("oracle.authentication.type", "KERBEROS")
-                        .put("kerberos.client.principal", "test@TESTING-KRB.STARBURSTDATA.COM")
-                        .put("kerberos.client.keytab", getResource("krb/client/test.keytab").getPath())
-                        .put("kerberos.config", getResource("krb/krb5.conf").getPath())
-                        .put("allow-drop-table", "true")
-                        .build())
+        return OracleQueryRunner.builder()
+                .withUnlockEnterpriseFeatures(true)
+                .withConnectorProperties(
+                    ImmutableMap.<String, String>builder()
+                            .put("connection-url", TestingStarburstOracleServer.getJdbcUrl())
+                            .put("oracle.authentication.type", "KERBEROS")
+                            .put("kerberos.client.principal", "test@TESTING-KRB.STARBURSTDATA.COM")
+                            .put("kerberos.client.keytab", getResource("krb/client/test.keytab").getPath())
+                            .put("kerberos.config", getResource("krb/krb5.conf").getPath())
+                            .put("allow-drop-table", "true")
+                            .build())
                 .withSessionModifier(session -> Session.builder(session)
                         .setSchema("test")
                         .build())
@@ -60,5 +63,12 @@ public class TestOracleKerberosIntegrationSmokeTest
     public void testSelectInformationSchemaTables()
     {
         throw new SkipException("This test is taking forever with kerberos authentication, due the connection retrying");
+    }
+
+    @Test
+    @Override
+    public void testAggregationPushdownRequiresLicense()
+    {
+        throw new SkipException("License for Oracle extensions is necessary for Kerberos, expected exceptions will NOT be thrown");
     }
 }

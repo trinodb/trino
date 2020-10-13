@@ -10,12 +10,14 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.starburstdata.presto.kerberos.ConnectorKerberosManagerModule;
 import com.starburstdata.presto.kerberos.KerberosManager;
+import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule;
 import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
@@ -205,10 +207,12 @@ public class OracleAuthenticationModule
             configBinder(binder).bindConfig(KerberosConfig.class);
         }
 
+        @Inject
         @Provides
         @Singleton
         @ForAuthentication
         public ConnectionFactory getConnectionFactory(
+                LicenseManager licenseManager,
                 BaseJdbcConfig baseJdbcConfig,
                 StarburstOracleConfig starburstOracleConfig,
                 OracleConfig oracleConfig,
@@ -222,9 +226,9 @@ public class OracleAuthenticationModule
                         Optional.empty(),
                         oracleConfig,
                         starburstOracleConfig.getAuthenticationType());
-                return new KerberosConnectionFactory(connectionFactory, kerberosConfig);
+                return new KerberosConnectionFactory(licenseManager, connectionFactory, kerberosConfig);
             }
-            return new KerberosConnectionFactory(baseJdbcConfig, kerberosConfig, getKerberosProperties(oracleConfig));
+            return new KerberosConnectionFactory(licenseManager, baseJdbcConfig, kerberosConfig, getKerberosProperties(oracleConfig));
         }
     }
 
