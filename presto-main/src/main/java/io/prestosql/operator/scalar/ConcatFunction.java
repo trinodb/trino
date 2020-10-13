@@ -29,6 +29,7 @@ import java.lang.invoke.MethodHandle;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -44,6 +45,9 @@ public final class ConcatFunction
     public static final ConcatFunction VARCHAR_CONCAT = new ConcatFunction(VARCHAR.getTypeSignature(), "Concatenates given strings");
 
     public static final ConcatFunction VARBINARY_CONCAT = new ConcatFunction(VARBINARY.getTypeSignature(), "concatenates given varbinary values");
+
+    private static final int MAX_INPUT_VALUES = 254;
+    private static final int MAX_OUTPUT_LENGTH = DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 
     private ConcatFunction(TypeSignature type, String description)
     {
@@ -72,7 +76,7 @@ public final class ConcatFunction
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more concatenation arguments");
         }
 
-        if (arity > 254) {
+        if (arity > MAX_INPUT_VALUES) {
             throw new PrestoException(NOT_SUPPORTED, "Too many arguments for string concatenation");
         }
 
@@ -91,7 +95,10 @@ public final class ConcatFunction
         // Validate the concatenation length
         int length = 0;
         for (Slice value : values) {
-            length = checkedAdd(length, value.length());
+            length = addExact(length, value.length());
+            if (length > MAX_OUTPUT_LENGTH) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Concatenated string is too large");
+            }
         }
 
         // Construct the result
@@ -103,15 +110,5 @@ public final class ConcatFunction
         }
 
         return result;
-    }
-
-    private static int checkedAdd(int x, int y)
-    {
-        try {
-            return addExact(x, y);
-        }
-        catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Concatenated string is too large");
-        }
     }
 }
