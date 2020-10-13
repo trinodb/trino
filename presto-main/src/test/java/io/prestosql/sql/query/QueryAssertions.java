@@ -14,8 +14,13 @@
 package io.prestosql.sql.query;
 
 import io.prestosql.Session;
+import io.prestosql.cost.CachingStatsProvider;
 import io.prestosql.cost.PlanNodeStatsEstimate;
+import io.prestosql.cost.StatsAndCosts;
+import io.prestosql.cost.StatsCalculator;
+import io.prestosql.cost.StatsProvider;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.SqlTime;
 import io.prestosql.spi.type.SqlTimeWithTimeZone;
 import io.prestosql.spi.type.SqlTimestamp;
@@ -46,10 +51,13 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.prestosql.sql.planner.assertions.PlanAssert.assertPlan;
+import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
+import static io.prestosql.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.prestosql.sql.query.QueryAssertions.ExpressionAssert.newExpressionAssert;
 import static io.prestosql.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -336,14 +344,30 @@ public class QueryAssertions
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(session, session -> {
                         Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
-                        assertPlan(
-                                session,
-                                runner.getMetadata(),
-                                (node, sourceStats, lookup, ignore, types) -> PlanNodeStatsEstimate.unknown(),
-                                plan,
-                                PlanMatchPattern.anyTree(
-                                        PlanMatchPattern.node(retainedNode,
+
+                        PlanMatchPattern retainedDirectlyAboveTableScan = PlanMatchPattern.anyTree(
+                                PlanMatchPattern.node(retainedNode,
+                                        PlanMatchPattern.node(TableScanNode.class)));
+
+                        PlanMatchPattern retained = PlanMatchPattern.anyTree(
+                                PlanMatchPattern.node(retainedNode,
+                                        PlanMatchPattern.anyTree(
                                                 PlanMatchPattern.node(TableScanNode.class))));
+
+                        Metadata metadata = runner.getMetadata();
+                        StatsCalculator statsCalculator = (node, sourceStats, lookup, ignore, types) -> PlanNodeStatsEstimate.unknown();
+                        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, plan.getTypes());
+                        boolean retainedDirectlyAboveTableScanMatches = PlanAssert.matches(session, metadata, statsProvider, plan, noLookup(), retainedDirectlyAboveTableScan);
+                        boolean retainedMatches = PlanAssert.matches(session, metadata, statsProvider, plan, noLookup(), retained);
+
+                        if (!retainedDirectlyAboveTableScanMatches && !retainedMatches) {
+                            String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
+                            throw new AssertionError(format(
+                                    "Plan does not match, expected [\n\n%s\n] or [\n\n%s\n] but found [\n\n%s\n]",
+                                    retainedDirectlyAboveTableScan,
+                                    retained,
+                                    formattedPlan));
+                        }
                     });
 
             return this;

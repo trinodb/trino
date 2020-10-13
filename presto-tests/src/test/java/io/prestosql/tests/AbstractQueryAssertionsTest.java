@@ -157,17 +157,17 @@ public abstract class AbstractQueryAssertionsTest
                         "Plan does not match, expected [\n" +
                                 "\n" +
                                 "- anyTree\n" +
-                                "    - node(FilterNode)\n")
-                .hasMessageContaining(
-                        "\n" +
+                                "    - node(FilterNode)\n" +
+                                "        - node(TableScanNode)\n" +
+                                "\n" +
+                                "] or [\n" +
+                                "\n" +
+                                "- anyTree\n" +
+                                "    - node(FilterNode)\n" +
+                                "        - anyTree\n" +
+                                "            - node(TableScanNode)\n" +
                                 "\n" +
                                 "] but found [\n" +
-                                "\n" +
-                                "Output[name]\n")
-                .hasMessageContaining(
-                        "\n" +
-                                "\n" +
-                                "] which resolves to [\n" +
                                 "\n" +
                                 "Output[name]\n");
     }

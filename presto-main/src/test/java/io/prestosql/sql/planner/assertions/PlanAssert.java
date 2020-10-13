@@ -45,8 +45,7 @@ public final class PlanAssert
 
     public static void assertPlan(Session session, Metadata metadata, StatsProvider statsProvider, Plan actual, Lookup lookup, PlanMatchPattern pattern)
     {
-        MatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata, statsProvider, lookup), pattern);
-        if (!matches.isMatch()) {
+        if (!matches(session, metadata, statsProvider, actual, lookup, pattern)) {
             String formattedPlan = textLogicalPlan(actual.getRoot(), actual.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
             PlanNode resolvedPlan = resolveGroupReferences(actual.getRoot(), lookup);
             String resolvedFormattedPlan = textLogicalPlan(resolvedPlan, actual.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
@@ -56,5 +55,11 @@ public final class PlanAssert
                     formattedPlan,
                     resolvedFormattedPlan));
         }
+    }
+
+    public static boolean matches(Session session, Metadata metadata, StatsProvider statsProvider, Plan actual, Lookup lookup, PlanMatchPattern pattern)
+    {
+        MatchResult matchResult = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata, statsProvider, lookup), pattern);
+        return matchResult.isMatch();
     }
 }
