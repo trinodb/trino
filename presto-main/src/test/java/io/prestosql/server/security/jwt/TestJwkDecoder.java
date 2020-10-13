@@ -21,6 +21,7 @@ import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SigningKeyResolver;
+import io.prestosql.server.security.jwt.JwkDecoder.JwkEcPublicKey;
 import io.prestosql.server.security.jwt.JwkDecoder.JwkRsaPublicKey;
 import org.testng.annotations.Test;
 
@@ -28,7 +29,9 @@ import java.io.File;
 import java.security.Key;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPublicKey;
+import java.security.spec.ECParameterSpec;
 import java.time.ZonedDateTime;
 import java.util.Date;
 import java.util.Map;
@@ -38,6 +41,7 @@ import static io.prestosql.server.security.jwt.JwkDecoder.decodeKeys;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 public class TestJwkDecoder
@@ -57,37 +61,19 @@ public class TestJwkDecoder
                 "      \"kid\": \"example-rsa\"\n" +
                 "    },\n" +
                 "    {\n" +
-                "      \"kid\": \"other-rsa\",\n" +
-                "      \"alg\": \"RS256\",\n" +
-                "      \"n\": \"teG3wvigoU_KPbPAiEVERFmlGeHWPsnqbEk1pAhz69B0kGHJXU8l8tPHpTw0Gy_M9BJ5WAe9FvXL41xSFbqMGiJ7DIZ32ejlncrf2vGkMl26C5p8OOvuS6ThFjREUzWbV0sYtJL0nNjzmQNCQeb90tDQDZW229ZeUNlM2yN0QRisKlGFSK7uL8X0dRUbXnfgS6eI4mvSAK6tqq3n8IcPA0PxBr-R81rtdG70C2zxlPQ4Wp_MJzjb81d-RPdcYd64loOMhhHFbbfq2bTS9TSn_Y16lYA7gyRGSPhwcsdqOH2qqon7QOiF8gtrvztwd9TpxecPd7mleGGWVFlN6pTQYQ\",\n" +
-                "      \"kty\": \"RSA\",\n" +
-                "      \"e\": \"AQAB\",\n" +
-                "      \"use\": \"sig\"\n" +
+                "      \"kty\": \"EC\",\n" +
+                "      \"use\": \"sig\",\n" +
+                "      \"crv\": \"P-256\",\n" +
+                "      \"kid\": \"example-ec\",\n" +
+                "      \"x\": \"W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y\",\n" +
+                "      \"y\": \"XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg\",\n" +
+                "      \"alg\": \"ES256\"\n" +
                 "    }\n" +
                 "  ]\n" +
                 "}");
         assertEquals(keys.size(), 2);
         assertTrue(keys.get("example-rsa") instanceof JwkRsaPublicKey);
-        assertTrue(keys.get("other-rsa") instanceof JwkRsaPublicKey);
-    }
-
-    @Test
-    public void testReadEcKey()
-    {
-        // EC keys are currently ignored
-        Map<String, PublicKey> keys = decodeKeys("" +
-                "{\n" +
-                "  \"keys\": [\n" +
-                "    {\n" +
-                "      \"kty\" : \"EC\",\n" +
-                "      \"crv\" : \"P-256\",\n" +
-                "      \"x\"   : \"SVqB4JcUD6lsfvqMr-OKUNUphdNn64Eay60978ZlL74\",\n" +
-                "      \"y\"   : \"lf0u0pMj4lGAzZix5u4Cm5CMQIgMNpkwy163wtKYVKI\",\n" +
-                "      \"d\"   : \"0g5vAEKzugrXaRbgKG0Tj2qJ5lMP4Bezds1_sTybkfk\"\n" +
-                "    }" +
-                "  ]\n" +
-                "}");
-        assertTrue(keys.isEmpty());
+        assertTrue(keys.get("example-ec") instanceof JwkEcPublicKey);
     }
 
     @Test
@@ -102,6 +88,14 @@ public class TestJwkDecoder
                 "      \"alg\": \"RS256\",\n" +
                 "      \"use\": \"sig\",\n" +
                 "      \"kty\": \"RSA\"\n" +
+                "    },\n" +
+                "    {\n" +
+                "      \"kty\": \"EC\",\n" +
+                "      \"use\": \"sig\",\n" +
+                "      \"crv\": \"P-256\",\n" +
+                "      \"x\": \"W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y\",\n" +
+                "      \"y\": \"XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg\",\n" +
+                "      \"alg\": \"ES256\"\n" +
                 "    }\n" +
                 "  ]\n" +
                 "}");
@@ -222,6 +216,141 @@ public class TestJwkDecoder
                     {
                         String keyId = header.getKeyId();
                         assertEquals(keyId, "test-rsa");
+                        return publicKey;
+                    }
+                })
+                .parseClaimsJws(jwt);
+
+        assertEquals(claimsJws.getBody().getSubject(), "test-user");
+    }
+
+    @Test
+    public void testEcKey()
+    {
+        Map<String, PublicKey> keys = decodeKeys("" +
+                "{\n" +
+                "  \"keys\": [\n" +
+                "    {\n" +
+                "      \"kid\": \"test-ec\",\n" +
+                "      \"kty\": \"EC\",\n" +
+                "      \"crv\": \"P-256\",\n" +
+                "      \"x\": \"W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y\",\n" +
+                "      \"y\": \"XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg\"\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}");
+        assertEquals(keys.size(), 1);
+        assertTrue(keys.get("test-ec") instanceof JwkEcPublicKey);
+    }
+
+    @Test
+    public void testEcInvalidCurve()
+    {
+        Map<String, PublicKey> keys = decodeKeys("" +
+                "{\n" +
+                "  \"keys\": [\n" +
+                "    {\n" +
+                "      \"kid\": \"test-ec\",\n" +
+                "      \"kty\": \"EC\",\n" +
+                "      \"crv\": \"taco\",\n" +
+                "      \"x\": \"W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y\",\n" +
+                "      \"y\": \"XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg\"\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}");
+        assertEquals(keys.size(), 0);
+    }
+
+    @Test
+    public void testEcInvalidX()
+    {
+        Map<String, PublicKey> keys = decodeKeys("" +
+                "{\n" +
+                "  \"keys\": [\n" +
+                "    {\n" +
+                "      \"kid\": \"test-ec\",\n" +
+                "      \"kty\": \"EC\",\n" +
+                "      \"crv\": \"P-256\",\n" +
+                "      \"x\": \"!!INVALID!!\",\n" +
+                "      \"y\": \"XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg\"\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}");
+        assertEquals(keys.size(), 0);
+    }
+
+    @Test
+    public void testEcInvalidY()
+    {
+        Map<String, PublicKey> keys = decodeKeys("" +
+                "{\n" +
+                "  \"keys\": [\n" +
+                "    {\n" +
+                "      \"kid\": \"test-ec\",\n" +
+                "      \"kty\": \"EC\",\n" +
+                "      \"crv\": \"P-256\",\n" +
+                "      \"x\": \"W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y\",\n" +
+                "      \"y\": \"!!INVALID!!\"\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}");
+        assertEquals(keys.size(), 0);
+    }
+
+    @Test
+    public void testJwtEc()
+            throws Exception
+    {
+        assertJwtEc("jwk-ec-p256", SignatureAlgorithm.ES256, EcCurve.P_256);
+        assertJwtEc("jwk-ec-p384", SignatureAlgorithm.ES384, EcCurve.P_384);
+        assertJwtEc("jwk-ec-p512", SignatureAlgorithm.ES512, EcCurve.P_521);
+        assertJwtEc("jwk-ec-secp256k1", SignatureAlgorithm.ES256, EcCurve.SECP256K1);
+    }
+
+    private static void assertJwtEc(String keyName, SignatureAlgorithm signatureAlgorithm, ECParameterSpec expectedSpec)
+            throws Exception
+    {
+        String jwkKeys = Resources.toString(Resources.getResource("jwk/jwk-public.json"), UTF_8);
+        Map<String, PublicKey> keys = decodeKeys(jwkKeys);
+
+        ECPublicKey publicKey = (ECPublicKey) keys.get(keyName);
+        assertNotNull(publicKey);
+
+        assertSame(publicKey.getParams(), expectedSpec);
+
+        ECPublicKey expectedPublicKey = (ECPublicKey) PemReader.loadPublicKey(new File(Resources.getResource("jwk/" + keyName + "-public.pem").getPath()));
+        assertEquals(publicKey.getW(), expectedPublicKey.getW());
+        assertEquals(publicKey.getParams().getCurve(), expectedPublicKey.getParams().getCurve());
+        assertEquals(publicKey.getParams().getGenerator(), expectedPublicKey.getParams().getGenerator());
+        assertEquals(publicKey.getParams().getOrder(), expectedPublicKey.getParams().getOrder());
+        assertEquals(publicKey.getParams().getCofactor(), expectedPublicKey.getParams().getCofactor());
+
+        PrivateKey privateKey = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/" + keyName + "-private.pem").getPath()), Optional.empty());
+        String jwt = Jwts.builder()
+                .signWith(signatureAlgorithm, privateKey)
+                .setHeaderParam(JwsHeader.KEY_ID, keyName)
+                .setSubject("test-user")
+                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                .compact();
+
+        Jws<Claims> claimsJws = Jwts.parser()
+                .setSigningKeyResolver(new SigningKeyResolver() {
+                    @Override
+                    public Key resolveSigningKey(JwsHeader header, Claims claims)
+                    {
+                        return getKey(header);
+                    }
+
+                    @Override
+                    public Key resolveSigningKey(JwsHeader header, String plaintext)
+                    {
+                        return getKey(header);
+                    }
+
+                    private Key getKey(JwsHeader<?> header)
+                    {
+                        String keyId = header.getKeyId();
+                        assertEquals(keyId, keyName);
                         return publicKey;
                     }
                 })
