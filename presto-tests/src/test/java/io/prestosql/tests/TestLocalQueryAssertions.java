@@ -44,22 +44,22 @@ public class TestLocalQueryAssertions
     }
 
     @Override
-    public void testIsCorrectlyPushedDown()
+    public void testIsFullyPushedDown()
     {
-        assertThatThrownBy(() -> assertThat(query("SELECT name FROM nation")).isCorrectlyPushedDown())
+        assertThatThrownBy(() -> assertThat(query("SELECT name FROM nation")).isFullyPushedDown())
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("isCorrectlyPushedDown() currently does not work with LocalQueryRunner");
+                .hasMessage("testIsFullyPushedDown() currently does not work with LocalQueryRunner");
     }
 
     @Override
-    public void testIsCorrectlyPushedDownWithSession()
+    public void testIsFullyPushedDownWithSession()
     {
         Session baseSession = Session.builder(getSession())
                 .setCatalog("jdbc_with_aggregation_pushdown_disabled")
                 .build();
 
-        assertThatThrownBy(() -> assertThat(query(baseSession, "SELECT name FROM nation")).isCorrectlyPushedDown())
+        assertThatThrownBy(() -> assertThat(query(baseSession, "SELECT name FROM nation")).isFullyPushedDown())
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("isCorrectlyPushedDown() currently does not work with LocalQueryRunner");
+                .hasMessage("testIsFullyPushedDown() currently does not work with LocalQueryRunner");
     }
 }
