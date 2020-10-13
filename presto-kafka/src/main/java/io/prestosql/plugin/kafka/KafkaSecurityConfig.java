@@ -132,6 +132,7 @@ public class KafkaSecurityConfig
         addNotNull(props, SslConfigs.SSL_KEY_PASSWORD_CONFIG, sslKeyPassword);
         addNotNull(props, SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, sslTruststoreFile);
         addNotNull(props, SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, sslTruststorePassword);
+
         addNotNull(props, SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, sslEndpointIdentificationAlgorithm);
         return props;
     }

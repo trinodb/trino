@@ -18,13 +18,16 @@ import static java.util.Locale.ENGLISH;
 public enum KafkaEndpointIdentificationAlgorithm
 {
     HTTPS("https"),
-    DISABLED("");
+    DISABLED("disabled");
 
     public final String name;
 
     @Override
     public String toString()
     {
+        if (this == KafkaEndpointIdentificationAlgorithm.DISABLED) {
+            return "";
+        }
         return name;
     }
 
@@ -35,9 +38,6 @@ public enum KafkaEndpointIdentificationAlgorithm
 
     public static KafkaEndpointIdentificationAlgorithm fromString(String value)
     {
-        if (value.isBlank()) {
-            return KafkaEndpointIdentificationAlgorithm.DISABLED;
-        }
         return KafkaEndpointIdentificationAlgorithm.valueOf(value.toUpperCase(ENGLISH));
     }
 }

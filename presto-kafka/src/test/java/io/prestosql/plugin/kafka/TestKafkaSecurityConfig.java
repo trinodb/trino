@@ -86,4 +86,13 @@ public class TestKafkaSecurityConfig
         assertThat(securityProperties).containsKey("ssl.key.password");
         assertThat(securityProperties).containsKey("ssl.endpoint.identification.algorithm");
     }
+
+    @Test
+    public void verifyDisabledIsTranslatedToKafkaConformValue() {
+        KafkaSecurityConfig config = new KafkaSecurityConfig();
+        config.setSslEndpointIdentificationAlgorithm("disabled");
+        Properties securityProperties = config.getKafkaClientProperties();
+        assertThat(securityProperties).containsKey("ssl.endpoint.identification.algorithm");
+        assertThat(securityProperties.get("ssl.endpoint.identification.algorithm")).isEqualTo("");
+    }
 }
