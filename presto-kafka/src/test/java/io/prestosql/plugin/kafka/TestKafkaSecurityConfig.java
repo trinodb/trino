@@ -18,7 +18,6 @@ import io.prestosql.testing.assertions.Assert;
 import org.testng.annotations.Test;
 
 import java.util.Map;
-import java.util.Properties;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -74,7 +73,7 @@ public class TestKafkaSecurityConfig
         config.setSslTruststoreFile("/some/path/to/truststore");
         config.setSslTruststorePassword("superSavePasswordForTruststore");
         config.setSslEndpointIdentificationAlgorithm(KafkaEndpointIdentificationAlgorithm.HTTPS.toString());
-        Properties securityProperties = config.getKafkaClientProperties();
+        Map<String, Object> securityProperties = config.getKafkaClientProperties();
         Assert.assertEquals(securityProperties.isEmpty(), false);
         Assert.assertEquals(securityProperties.keySet().size(), 6);
         // Since security related properties are all passed to the underlying kafka-clients library,
@@ -88,10 +87,11 @@ public class TestKafkaSecurityConfig
     }
 
     @Test
-    public void verifyDisabledIsTranslatedToKafkaConformValue() {
+    public void verifyDisabledIsTranslatedToKafkaConformValue()
+    {
         KafkaSecurityConfig config = new KafkaSecurityConfig();
         config.setSslEndpointIdentificationAlgorithm("disabled");
-        Properties securityProperties = config.getKafkaClientProperties();
+        Map<String, Object> securityProperties = config.getKafkaClientProperties();
         assertThat(securityProperties).containsKey("ssl.endpoint.identification.algorithm");
         assertThat(securityProperties.get("ssl.endpoint.identification.algorithm")).isEqualTo("");
     }

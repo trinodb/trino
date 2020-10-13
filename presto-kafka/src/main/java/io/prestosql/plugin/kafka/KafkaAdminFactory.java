@@ -14,13 +14,14 @@
 
 package io.prestosql.plugin.kafka;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.HostAddress;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
 
 import javax.inject.Inject;
 
-import java.util.Optional;
+import java.util.Map;
 import java.util.Properties;
 
 import static java.util.Objects.requireNonNull;
@@ -29,34 +30,23 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS
 
 public class KafkaAdminFactory
 {
-    private final KafkaConfig kafkaConfig;
-    private final Properties kafkaSecurityConfig;
+    private final Properties kafkaProperties;
 
     @Inject
-    public KafkaAdminFactory(KafkaConfig kafkaConfig, Optional<KafkaSecurityConfig> kafkaSecurityConfig)
+    public KafkaAdminFactory(KafkaConfig kafkaConfig, @KafkaSecurityModules.ForKafkaSecurity Map<String, Object> kafkaSecurityConfig)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
-        this.kafkaConfig = kafkaConfig;
-        if (kafkaSecurityConfig.isPresent()) {
-            this.kafkaSecurityConfig = kafkaSecurityConfig.get().getKafkaClientProperties();
-        }
-        else {
-            this.kafkaSecurityConfig = new Properties();
-        }
+        Map<String, Object> kafkaSecurityProperties = ImmutableMap.copyOf(kafkaSecurityConfig);
+
+        kafkaProperties = new Properties();
+        kafkaProperties.setProperty(BOOTSTRAP_SERVERS_CONFIG, kafkaConfig.getNodes().stream()
+                .map(HostAddress::toString)
+                .collect(joining(",")));
+        kafkaProperties.putAll(kafkaSecurityProperties);
     }
 
     public AdminClient create()
     {
-        return KafkaAdminClient.create(configure());
-    }
-
-    public Properties configure()
-    {
-        Properties properties = new Properties();
-        properties.setProperty(BOOTSTRAP_SERVERS_CONFIG, kafkaConfig.getNodes().stream()
-                .map(HostAddress::toString)
-                .collect(joining(",")));
-        properties.putAll(kafkaSecurityConfig);
-        return properties;
+        return KafkaAdminClient.create(kafkaProperties);
     }
 }

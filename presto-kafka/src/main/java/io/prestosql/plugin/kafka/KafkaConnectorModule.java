@@ -16,6 +16,7 @@ package io.prestosql.plugin.kafka;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
+import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.decoder.DecoderModule;
@@ -34,7 +35,6 @@ import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
@@ -61,11 +61,9 @@ public class KafkaConnectorModule
         binder.bind(KafkaFilterManager.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(KafkaConfig.class);
-        install(installModuleIf(
-                KafkaConfig.class,
-                config -> config.getSecurityProtocol() == KafkaClientSecurityProtocol.SSL,
-                new KafkaSecurityModule()));
-        newSetBinder(binder, TableDescriptionSupplier.class).addBinding().toProvider(KafkaTableDescriptionSupplier.class).in(Scopes.SINGLETON);
+
+        installSecurityModule(KafkaClientSecurityProtocol.SSL, new KafkaSecurityModules.KafkaSslSecurityModule());
+        installSecurityModule(KafkaClientSecurityProtocol.PLAINTEXT, new KafkaSecurityModules.KafkaPlaintextSecurityModule());
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
@@ -73,6 +71,14 @@ public class KafkaConnectorModule
         binder.install(new DecoderModule());
         binder.install(new EncoderModule());
         binder.install(new KafkaProducerModule());
+    }
+
+    private void installSecurityModule(KafkaClientSecurityProtocol securityProtocol, Module module)
+    {
+        install(installModuleIf(
+                KafkaConfig.class,
+                config -> config.getSecurityProtocol() == securityProtocol,
+                module));
     }
 
     private static final class TypeDeserializer

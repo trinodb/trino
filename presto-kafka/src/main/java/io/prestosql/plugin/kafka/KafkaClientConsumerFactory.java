@@ -13,15 +13,14 @@
  */
 package io.prestosql.plugin.kafka;
 
-import io.airlift.units.DataSize;
+import io.prestosql.plugin.kafka.KafkaSecurityModules.ForKafkaSecurity;
 import io.prestosql.spi.HostAddress;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 
 import javax.inject.Inject;
 
-import java.util.Optional;
+import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -34,39 +33,28 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZE
 public class KafkaClientConsumerFactory
         implements KafkaConsumerFactory
 {
-    private final KafkaConfig kafkaConfig;
-    private final Set<HostAddress> nodes;
-    private final DataSize kafkaBufferSize;
-    private final Properties securityConfig;
+    private final Properties kafkaProperties;
 
     @Inject
-    public KafkaClientConsumerFactory(KafkaConfig kafkaConfig, Optional<KafkaSecurityConfig> securityConfig)
+    public KafkaClientConsumerFactory(KafkaConfig kafkaConfig, @ForKafkaSecurity Map<String, Object> kafkaSecurityProperties)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
-        if (securityConfig.isPresent()) {
-            this.securityConfig = securityConfig.get().getKafkaClientProperties();
-        }
-        else {
-            this.securityConfig = new Properties();
-        }
-        this.kafkaConfig = kafkaConfig;
-        nodes = kafkaConfig.getNodes();
-        kafkaBufferSize = kafkaConfig.getKafkaBufferSize();
+
+        kafkaProperties = new Properties();
+        kafkaProperties.setProperty(BOOTSTRAP_SERVERS_CONFIG, kafkaConfig.getNodes().stream()
+                .map(HostAddress::toString)
+                .collect(joining(",")));
+        kafkaProperties.setProperty(KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        kafkaProperties.setProperty(VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        kafkaProperties.setProperty(RECEIVE_BUFFER_CONFIG, Long.toString(kafkaConfig.getKafkaBufferSize().toBytes()));
+        kafkaProperties.setProperty(ENABLE_AUTO_COMMIT_CONFIG, Boolean.toString(false));
+        kafkaProperties.setProperty("security.protocol", kafkaConfig.getSecurityProtocol().name);
+        kafkaProperties.putAll(kafkaSecurityProperties);
     }
 
     @Override
     public Properties configure()
     {
-        Properties properties = new Properties();
-        properties.setProperty(BOOTSTRAP_SERVERS_CONFIG, nodes.stream()
-                .map(HostAddress::toString)
-                .collect(joining(",")));
-        properties.setProperty(KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
-        properties.setProperty(VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
-        properties.setProperty(RECEIVE_BUFFER_CONFIG, Long.toString(kafkaBufferSize.toBytes()));
-        properties.setProperty(ENABLE_AUTO_COMMIT_CONFIG, Boolean.toString(false));
-        properties.setProperty("security.protocol", kafkaConfig.getSecurityProtocol().name);
-        properties.putAll(securityConfig);
-        return properties;
+        return kafkaProperties;
     }
 }

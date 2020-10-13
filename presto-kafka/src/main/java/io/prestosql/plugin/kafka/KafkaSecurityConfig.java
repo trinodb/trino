@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.kafka;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
@@ -20,7 +21,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import org.apache.kafka.common.config.SslConfigs;
 
-import java.util.Properties;
+import java.util.Map;
 
 /**
  *  {@KafkaSecurityConfig} manages Kafka configuration related to connection security. I.e. if the security protocol
@@ -124,9 +125,9 @@ public class KafkaSecurityConfig
         return sslEndpointIdentificationAlgorithm;
     }
 
-    public Properties getKafkaClientProperties()
+    public Map<String, Object> getKafkaClientProperties()
     {
-        Properties props = new Properties();
+        ImmutableMap.Builder<String, Object> props = ImmutableMap.builder();
         addNotNull(props, SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, sslKeystoreFile);
         addNotNull(props, SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, sslKeystorePassword);
         addNotNull(props, SslConfigs.SSL_KEY_PASSWORD_CONFIG, sslKeyPassword);
@@ -134,10 +135,10 @@ public class KafkaSecurityConfig
         addNotNull(props, SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, sslTruststorePassword);
 
         addNotNull(props, SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, sslEndpointIdentificationAlgorithm);
-        return props;
+        return props.build();
     }
 
-    private void addNotNull(Properties props, Object key, Object value)
+    private void addNotNull(ImmutableMap.Builder<String, Object> props, String key, Object value)
     {
         if (value != null) {
             props.put(key, value.toString());

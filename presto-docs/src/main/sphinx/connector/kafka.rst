@@ -197,6 +197,7 @@ This property is optional.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The endpoint identification algorithm used by clients to validate server host name for connection to Kafka cluster.
+Kafka uses ``https`` as default. Use ``disabled`` to disable server host name validation.
 
 This property is optional.
 

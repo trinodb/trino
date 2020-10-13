@@ -15,6 +15,7 @@ package io.prestosql.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.plugin.kafka.KafkaSecurityModules.ForKafkaSecurity;
 import io.prestosql.spi.HostAddress;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -22,11 +23,8 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import javax.inject.Inject;
 
 import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
 import java.util.Set;
 
-import static com.google.common.collect.Maps.fromProperties;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.kafka.clients.producer.ProducerConfig.ACKS_CONFIG;
@@ -38,13 +36,9 @@ public class KafkaClientProducerFactory
     private final Map<String, Object> properties;
 
     @Inject
-    public KafkaClientProducerFactory(KafkaConfig kafkaConfig, Optional<KafkaSecurityConfig> securityConfig)
+    public KafkaClientProducerFactory(KafkaConfig kafkaConfig, @ForKafkaSecurity Map<String, Object> kafkaSecurityProperties)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
-        Properties securityProperties = new Properties();
-        if (securityConfig.isPresent()) {
-            securityProperties = securityConfig.get().getKafkaClientProperties();
-        }
 
         Set<HostAddress> nodes = ImmutableSet.copyOf(kafkaConfig.getNodes());
         properties = ImmutableMap.<String, Object>builder()
@@ -53,7 +47,7 @@ public class KafkaClientProducerFactory
                         .collect(joining(",")))
                 .put(ACKS_CONFIG, "all")
                 .put(LINGER_MS_CONFIG, 5)
-                .putAll(fromProperties(securityProperties))
+                .putAll(kafkaSecurityProperties)
                 .build();
     }
 
