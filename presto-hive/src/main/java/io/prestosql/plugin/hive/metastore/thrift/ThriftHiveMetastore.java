@@ -175,6 +175,7 @@ public class ThriftHiveMetastore
     private final boolean authenticationEnabled;
     private final LoadingCache<String, String> delegationTokenCache;
     private final boolean deleteFilesOnDrop;
+    private final boolean purgeTableOnDrop;
     private final boolean translateHiveViews;
 
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
@@ -224,6 +225,7 @@ public class ThriftHiveMetastore
         this.maxRetries = thriftConfig.getMaxRetries();
         this.impersonationEnabled = thriftConfig.isImpersonationEnabled();
         this.deleteFilesOnDrop = thriftConfig.isDeleteFilesOnDrop();
+        this.purgeTableOnDrop = thriftConfig.isPurgeTableOnDrop();
         requireNonNull(hiveConfig, "hiveConfig is null");
         this.translateHiveViews = hiveConfig.isTranslateHiveViews();
         requireNonNull(metastoreConfig, "metastoreConfig is null");
@@ -1095,7 +1097,12 @@ public class ThriftHiveMetastore
                     .run("dropTable", stats.getDropTable().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             Table table = client.getTable(databaseName, tableName);
-                            client.dropTable(databaseName, tableName, deleteData);
+                            EnvironmentContext environmentContext = new EnvironmentContext();
+                            if (purgeTableOnDrop) {
+                                environmentContext.putToProperties("ifPurge", "true");
+                            }
+
+                            client.dropTableWithEnvironmentContext(databaseName, tableName, deleteData, environmentContext);
                             String tableLocation = table.getSd().getLocation();
                             if (deleteFilesOnDrop && deleteData && isManagedTable(table) && !isNullOrEmpty(tableLocation)) {
                                 deleteDirRecursive(hdfsContext, hdfsEnvironment, new Path(tableLocation));

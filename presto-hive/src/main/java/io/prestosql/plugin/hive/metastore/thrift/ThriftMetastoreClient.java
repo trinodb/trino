@@ -67,7 +67,7 @@ public interface ThriftMetastoreClient
     void createTable(Table table)
             throws TException;
 
-    void dropTable(String databaseName, String name, boolean deleteData)
+    void dropTableWithEnvironmentContext(String databaseName, String name, boolean deleteData, EnvironmentContext environmentContext)
             throws TException;
 
     void alterTableWithEnvironmentContext(String databaseName, String tableName, Table newTable, EnvironmentContext context)

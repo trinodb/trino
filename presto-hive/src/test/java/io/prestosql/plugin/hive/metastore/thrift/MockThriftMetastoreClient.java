@@ -329,7 +329,7 @@ public class MockThriftMetastoreClient
     }
 
     @Override
-    public void dropTable(String databaseName, String name, boolean deleteData)
+    public void dropTableWithEnvironmentContext(String databaseName, String name, boolean deleteData, EnvironmentContext environmentContext)
     {
         throw new UnsupportedOperationException();
     }

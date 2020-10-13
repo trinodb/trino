@@ -163,10 +163,15 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public void dropTable(String databaseName, String name, boolean deleteData)
+    public void dropTableWithEnvironmentContext(String databaseName, String name, boolean deleteData, EnvironmentContext environmentContext)
             throws TException
     {
-        client.drop_table(databaseName, name, deleteData);
+        if (environmentContext.isSetProperties()) {
+            client.drop_table_with_environment_context(databaseName, name, deleteData, environmentContext);
+        }
+        else {
+            client.drop_table(databaseName, name, deleteData);
+        }
     }
 
     @Override

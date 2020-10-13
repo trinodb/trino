@@ -131,10 +131,10 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public void dropTable(String databaseName, String name, boolean deleteData)
+    public void dropTableWithEnvironmentContext(String databaseName, String name, boolean deleteData, EnvironmentContext environmentContext)
             throws TException
     {
-        runWithHandle(() -> delegate.dropTable(databaseName, name, deleteData));
+        runWithHandle(() -> delegate.dropTableWithEnvironmentContext(databaseName, name, deleteData, environmentContext));
     }
 
     @Override
