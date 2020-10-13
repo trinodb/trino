@@ -42,11 +42,9 @@ import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -376,8 +374,7 @@ public class MaterializedResult
                 convertedValue = ((SqlTimestamp) prestoValue).toLocalDateTime();
             }
             else if (prestoValue instanceof SqlTimestampWithTimeZone) {
-                convertedValue = Instant.ofEpochMilli(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc())
-                        .atZone(ZoneId.of(((SqlTimestampWithTimeZone) prestoValue).getTimeZoneKey().getId()));
+                convertedValue = ((SqlTimestampWithTimeZone) prestoValue).toZonedDateTime();
             }
             else if (prestoValue instanceof SqlDecimal) {
                 convertedValue = ((SqlDecimal) prestoValue).toBigDecimal();
