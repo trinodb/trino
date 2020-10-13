@@ -104,22 +104,22 @@ public abstract class BaseOracleIntegrationSmokeTest
         // varchar equality
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
                 .matches("VALUES (CAST(3 AS DECIMAL(19,0)), CAST(19 AS DECIMAL(19,0)), CAST('ROMANIA' AS varchar(25)))")
-                .isCorrectlyPushedDown();
+                .isFullyPushedDown();
 
         // varchar range
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
                 .matches("VALUES (CAST(3 AS DECIMAL(19,0)), CAST(19 AS DECIMAL(19,0)), CAST('ROMANIA' AS varchar(25)))")
-                .isCorrectlyPushedDown();
+                .isFullyPushedDown();
 
         // varchar different case
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
                 .returnsEmptyResult()
-                .isCorrectlyPushedDown();
+                .isFullyPushedDown();
 
         // date equality
         assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
                 .matches("VALUES CAST(1250 AS DECIMAL(19,0)), 34406, 38436, 57570")
-                .isCorrectlyPushedDown();
+                .isFullyPushedDown();
     }
 
     @Test
@@ -168,7 +168,7 @@ public abstract class BaseOracleIntegrationSmokeTest
             onOracle().execute(format("INSERT INTO %s VALUES (%s)", table.getName(), oracleLiteral));
 
             assertThat(query(format("SELECT * FROM %s WHERE c %s %s", table.getName(), operator, filterLiteral)))
-                    .isCorrectlyPushedDown();
+                    .isFullyPushedDown();
         }
     }
 
