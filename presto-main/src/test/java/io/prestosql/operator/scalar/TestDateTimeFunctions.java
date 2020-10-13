@@ -18,6 +18,7 @@ import io.prestosql.Session;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.SqlDate;
+import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimeZoneKey;
@@ -55,6 +56,7 @@ import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -219,6 +221,36 @@ public class TestDateTimeFunctions
         dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 888, DATE_TIME_ZONE);
         seconds = dateTime.getMillis() / 1000.0;
         assertFunction("from_unixtime(" + seconds + ")", TIMESTAMP_MILLIS, sqlTimestampOf(dateTime));
+    }
+
+    @Test
+    public void testFromUnixTimeNanos()
+    {
+        // long
+        assertFunction("from_unixtime_nanos(1234567890123456789)", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 1234567890_123456L, 789000));
+        assertFunction("from_unixtime_nanos(999999999)", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 999999, 999000));
+        assertFunction("from_unixtime_nanos(-1234567890123456789)", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -1234567890_123457L, 211000));
+        assertFunction("from_unixtime_nanos(-999999999)", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -1000000, 1000));
+
+        // short decimal
+        assertFunction("from_unixtime_nanos(DECIMAL '1234')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 1, 234000));
+        assertFunction("from_unixtime_nanos(DECIMAL '1234.0')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 1, 234000));
+        assertFunction("from_unixtime_nanos(DECIMAL '1234.499')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 1, 234000));
+        assertFunction("from_unixtime_nanos(DECIMAL '1234.500')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 1, 235000));
+        assertFunction("from_unixtime_nanos(DECIMAL '-1234')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -2, 766000));
+        assertFunction("from_unixtime_nanos(DECIMAL '-1234.0')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -2, 766000));
+        assertFunction("from_unixtime_nanos(DECIMAL '-1234.499')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -2, 766000));
+        assertFunction("from_unixtime_nanos(DECIMAL '-1234.500')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -2, 765000));
+
+        // long decimal
+        assertFunction("from_unixtime_nanos(DECIMAL '12345678900123456789')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 12345678900_123456L, 789000));
+        assertFunction("from_unixtime_nanos(DECIMAL '12345678900123456789.000000')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 12345678900_123456L, 789000));
+        assertFunction("from_unixtime_nanos(DECIMAL '12345678900123456789.499')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 12345678900_123456L, 789000));
+        assertFunction("from_unixtime_nanos(DECIMAL '12345678900123456789.500')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, 12345678900_123456L, 790000));
+        assertFunction("from_unixtime_nanos(DECIMAL '-12345678900123456789')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -12345678900_123457L, 211000));
+        assertFunction("from_unixtime_nanos(DECIMAL '-12345678900123456789.000000')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -12345678900_123457L, 211000));
+        assertFunction("from_unixtime_nanos(DECIMAL '-12345678900123456789.499')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -12345678900_123457L, 211000));
+        assertFunction("from_unixtime_nanos(DECIMAL '-12345678900123456789.500')", TIMESTAMP_NANOS, SqlTimestamp.newInstance(9, -12345678900_123457L, 210000));
     }
 
     @Test

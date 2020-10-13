@@ -24,6 +24,12 @@ import static java.util.Objects.requireNonNull;
 
 public class SessionPropertyAccessControlRule
 {
+    public static final SessionPropertyAccessControlRule ALLOW_ALL = new SessionPropertyAccessControlRule(
+            true,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+
     private final boolean allow;
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> groupRegex;
@@ -40,6 +46,21 @@ public class SessionPropertyAccessControlRule
         this.userRegex = requireNonNull(userRegex, "user is null");
         this.groupRegex = requireNonNull(groupRegex, "group is null");
         this.propertyRegex = requireNonNull(propertyRegex, "propertyRegex is null");
+    }
+
+    boolean isAllow()
+    {
+        return allow;
+    }
+
+    Optional<Pattern> getUserRegex()
+    {
+        return userRegex;
+    }
+
+    Optional<Pattern> getGroupRegex()
+    {
+        return groupRegex;
     }
 
     public Optional<Boolean> match(String user, Set<String> groups, String property)

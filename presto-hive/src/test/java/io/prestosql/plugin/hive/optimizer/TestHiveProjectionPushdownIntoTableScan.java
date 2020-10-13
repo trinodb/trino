@@ -31,6 +31,7 @@ import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.prestosql.plugin.hive.testing.TestingHiveConnectorFactory;
@@ -83,11 +84,15 @@ public class TestHiveProjectionPushdownIntoTableScan
     {
         baseDir = Files.createTempDir();
         HdfsConfig config = new HdfsConfig();
-        FileHiveMetastoreConfig metastoreConfig = new FileHiveMetastoreConfig();
         HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
 
-        HiveMetastore metastore = new FileHiveMetastore(environment, baseDir.toURI().toString(), "test", metastoreConfig.isAssumeCanonicalPartitionKeys());
+        HiveMetastore metastore = new FileHiveMetastore(
+                environment,
+                new MetastoreConfig(),
+                new FileHiveMetastoreConfig()
+                        .setCatalogDirectory(baseDir.toURI().toString())
+                        .setMetastoreUser("test"));
         Database database = Database.builder()
                 .setDatabaseName(SCHEMA_NAME)
                 .setOwnerName("public")

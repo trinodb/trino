@@ -24,9 +24,9 @@ import io.prestosql.metadata.IndexHandle;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.TableHandle;
-import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.ExpressionUtils;
@@ -55,6 +55,7 @@ import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExceptNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
+import io.prestosql.sql.planner.plan.ExplainAnalyzeNode;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.GroupIdNode;
 import io.prestosql.sql.planner.plan.IndexJoinNode;
@@ -107,6 +108,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -137,6 +139,16 @@ public class PlanBuilder
                 source,
                 columnNames,
                 outputs);
+    }
+
+    public ExplainAnalyzeNode explainAnalyzeNode(Symbol output, List<Symbol> actualOutputs, PlanNode source)
+    {
+        return new ExplainAnalyzeNode(
+                idAllocator.getNextId(),
+                source,
+                output,
+                actualOutputs,
+                false);
     }
 
     public OutputNode output(Consumer<OutputBuilder> outputBuilderConsumer)
@@ -316,7 +328,7 @@ public class PlanBuilder
         Map<Symbol, Symbol> groupingColumns = groupingSets.stream()
                 .flatMap(Collection::stream)
                 .distinct()
-                .collect(ImmutableMap.toImmutableMap(identity(), identity()));
+                .collect(toImmutableMap(identity(), identity()));
 
         return new GroupIdNode(
                 idAllocator.getNextId(),

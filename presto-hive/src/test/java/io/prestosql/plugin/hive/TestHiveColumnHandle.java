@@ -20,6 +20,8 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.type.InternalTypeManager;
 import org.testng.annotations.Test;
 
@@ -87,7 +89,8 @@ public class TestHiveColumnHandle
     private void testRoundTrip(HiveColumnHandle expected)
     {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new HiveModule.TypeDeserializer(new InternalTypeManager(createTestMetadataManager()))));
+        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new HiveModule.TypeDeserializer(typeManager)));
         JsonCodec<HiveColumnHandle> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(HiveColumnHandle.class);
 
         String json = codec.toJson(expected);

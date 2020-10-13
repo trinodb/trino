@@ -460,7 +460,7 @@ public class AggregationImplementation
                                     .map(TypeParameter::value)
                                     .collect(toImmutableSet()),
                             literalParameters);
-                    builder.add(createDependency(annotation, literalParameters));
+                    builder.add(createDependency(annotation, literalParameters, parameter.getType()));
                 });
             }
             return builder.build();

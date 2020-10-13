@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.type.InternalTypeManager;
 
@@ -33,7 +34,7 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 public final class PrometheusQueryRunner
 {
     private static final Metadata METADATA = createTestMetadataManager();
-    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA);
+    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA, new TypeOperators());
 
     private PrometheusQueryRunner() {}
 

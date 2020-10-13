@@ -13,8 +13,10 @@
  */
 package io.prestosql.operator.aggregation;
 
-import io.airlift.stats.QuantileDigest;
-import io.prestosql.operator.aggregation.state.DigestAndPercentileArrayState;
+import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Doubles;
+import io.airlift.stats.TDigest;
+import io.prestosql.operator.aggregation.state.TDigestAndPercentileArrayState;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.AggregationFunction;
@@ -27,9 +29,10 @@ import io.prestosql.spi.type.StandardTypes;
 
 import java.util.List;
 
-import static io.prestosql.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
-import static io.prestosql.operator.aggregation.FloatingPointBitsConverterUtil.sortableLongToDouble;
+import static io.prestosql.operator.scalar.TDigestFunctions.verifyWeight;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.util.Failures.checkCondition;
 
 @AggregationFunction("approx_percentile")
 public final class ApproximateDoublePercentileArrayAggregations
@@ -37,27 +40,54 @@ public final class ApproximateDoublePercentileArrayAggregations
     private ApproximateDoublePercentileArrayAggregations() {}
 
     @InputFunction
-    public static void input(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType("array(double)") Block percentilesArrayBlock)
+    public static void input(@AggregationState TDigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType("array(double)") Block percentilesArrayBlock)
     {
-        ApproximateLongPercentileArrayAggregations.input(state, doubleToSortableLong(value), percentilesArrayBlock);
+        initializePercentilesArray(state, percentilesArrayBlock);
+        initializeDigest(state);
+
+        TDigest digest = state.getDigest();
+        state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
+        digest.add(value);
+        state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
     }
 
     @InputFunction
-    public static void weightedInput(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType("array(double)") Block percentilesArrayBlock)
+    public static void weightedInput(@AggregationState TDigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType("array(double)") Block percentilesArrayBlock)
     {
-        ApproximateLongPercentileArrayAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentilesArrayBlock);
+        verifyWeight(weight);
+
+        initializePercentilesArray(state, percentilesArrayBlock);
+        initializeDigest(state);
+
+        TDigest digest = state.getDigest();
+        state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
+        digest.add(value, weight);
+        state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
     }
 
     @CombineFunction
-    public static void combine(@AggregationState DigestAndPercentileArrayState state, DigestAndPercentileArrayState otherState)
+    public static void combine(@AggregationState TDigestAndPercentileArrayState state, TDigestAndPercentileArrayState otherState)
     {
-        ApproximateLongPercentileArrayAggregations.combine(state, otherState);
+        TDigest otherDigest = otherState.getDigest();
+        TDigest digest = state.getDigest();
+
+        if (digest == null) {
+            state.setDigest(otherDigest);
+            state.addMemoryUsage(otherDigest.estimatedInMemorySizeInBytes());
+        }
+        else {
+            state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
+            digest.mergeWith(otherDigest);
+            state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
+        }
+
+        state.setPercentiles(otherState.getPercentiles());
     }
 
     @OutputFunction("array(double)")
-    public static void output(@AggregationState DigestAndPercentileArrayState state, BlockBuilder out)
+    public static void output(@AggregationState TDigestAndPercentileArrayState state, BlockBuilder out)
     {
-        QuantileDigest digest = state.getDigest();
+        TDigest digest = state.getDigest();
         List<Double> percentiles = state.getPercentiles();
 
         if (percentiles == null || digest == null) {
@@ -67,11 +97,65 @@ public final class ApproximateDoublePercentileArrayAggregations
 
         BlockBuilder blockBuilder = out.beginBlockEntry();
 
-        for (int i = 0; i < percentiles.size(); i++) {
-            Double percentile = percentiles.get(i);
-            DOUBLE.writeDouble(blockBuilder, sortableLongToDouble(digest.getQuantile(percentile)));
+        List<Double> valuesAtPercentiles = valuesAtPercentiles(digest, percentiles);
+        for (double value : valuesAtPercentiles) {
+            DOUBLE.writeDouble(blockBuilder, value);
         }
 
         out.closeEntry();
+    }
+
+    public static List<Double> valuesAtPercentiles(TDigest digest, List<Double> percentiles)
+    {
+        int[] indexes = new int[percentiles.size()];
+        double[] sortedPercentiles = new double[percentiles.size()];
+        for (int i = 0; i < indexes.length; i++) {
+            indexes[i] = i;
+            sortedPercentiles[i] = percentiles.get(i);
+        }
+
+        it.unimi.dsi.fastutil.Arrays.quickSort(0, percentiles.size(), (a, b) -> Doubles.compare(sortedPercentiles[a], sortedPercentiles[b]), (a, b) -> {
+            double tempPercentile = sortedPercentiles[a];
+            sortedPercentiles[a] = sortedPercentiles[b];
+            sortedPercentiles[b] = tempPercentile;
+
+            int tempIndex = indexes[a];
+            indexes[a] = indexes[b];
+            indexes[b] = tempIndex;
+        });
+
+        List<Double> valuesAtPercentiles = digest.valuesAt(Doubles.asList(sortedPercentiles));
+        double[] result = new double[valuesAtPercentiles.size()];
+        for (int i = 0; i < valuesAtPercentiles.size(); i++) {
+            result[indexes[i]] = valuesAtPercentiles.get(i);
+        }
+
+        return Doubles.asList(result);
+    }
+
+    private static void initializePercentilesArray(@AggregationState TDigestAndPercentileArrayState state, Block percentilesArrayBlock)
+    {
+        if (state.getPercentiles() == null) {
+            ImmutableList.Builder<Double> percentilesListBuilder = ImmutableList.builder();
+
+            for (int i = 0; i < percentilesArrayBlock.getPositionCount(); i++) {
+                checkCondition(!percentilesArrayBlock.isNull(i), INVALID_FUNCTION_ARGUMENT, "Percentile cannot be null");
+                double percentile = DOUBLE.getDouble(percentilesArrayBlock, i);
+                checkCondition(0 <= percentile && percentile <= 1, INVALID_FUNCTION_ARGUMENT, "Percentile must be between 0 and 1");
+                percentilesListBuilder.add(percentile);
+            }
+
+            state.setPercentiles(percentilesListBuilder.build());
+        }
+    }
+
+    private static void initializeDigest(@AggregationState TDigestAndPercentileArrayState state)
+    {
+        TDigest digest = state.getDigest();
+        if (digest == null) {
+            digest = new TDigest();
+            state.setDigest(digest);
+            state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
+        }
     }
 }

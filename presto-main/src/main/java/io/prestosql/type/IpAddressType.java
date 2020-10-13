@@ -23,9 +23,14 @@ import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.block.Int128ArrayBlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.BlockIndex;
+import io.prestosql.spi.function.BlockPosition;
+import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.type.AbstractType;
 import io.prestosql.spi.type.FixedWidthType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TypeOperatorDeclaration;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spi.type.TypeSignature;
 
 import java.net.InetAddress;
@@ -33,11 +38,19 @@ import java.net.UnknownHostException;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.prestosql.spi.block.Int128ArrayBlock.INT128_BYTES;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
+import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.Long.reverseBytes;
+import static java.lang.invoke.MethodHandles.lookup;
 
 public class IpAddressType
         extends AbstractType
         implements FixedWidthType
 {
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(IpAddressType.class, lookup(), Slice.class);
+
     public static final IpAddressType IPADDRESS = new IpAddressType();
 
     private IpAddressType()
@@ -91,28 +104,9 @@ public class IpAddressType
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
     {
-        return leftBlock.getLong(leftPosition, SIZE_OF_LONG) == rightBlock.getLong(rightPosition, SIZE_OF_LONG) &&
-                leftBlock.getLong(leftPosition, 0) == rightBlock.getLong(rightPosition, 0);
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        // compare high order bits
-        int compare = Long.compare(leftBlock.getLong(leftPosition, SIZE_OF_LONG), rightBlock.getLong(rightPosition, SIZE_OF_LONG));
-        if (compare != 0) {
-            return compare;
-        }
-        // compare low order bits
-        return Long.compare(leftBlock.getLong(leftPosition, 0), rightBlock.getLong(rightPosition, 0));
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        return XxHash64.hash(getSlice(block, position));
+        return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override
@@ -165,5 +159,76 @@ public class IpAddressType
         return Slices.wrappedLongArray(
                 block.getLong(position, 0),
                 block.getLong(position, SIZE_OF_LONG));
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(Slice left, Slice right)
+    {
+        return equal(
+                left.getLong(0),
+                left.getLong(SIZE_OF_LONG),
+                right.getLong(0),
+                right.getLong(SIZE_OF_LONG));
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        return equal(
+                leftBlock.getLong(leftPosition, 0),
+                leftBlock.getLong(leftPosition, SIZE_OF_LONG),
+                rightBlock.getLong(rightPosition, 0),
+                rightBlock.getLong(rightPosition, SIZE_OF_LONG));
+    }
+
+    private static boolean equal(long leftLow, long leftHigh, long rightLow, long rightHigh)
+    {
+        return leftLow == rightLow && leftHigh == rightHigh;
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(Slice value)
+    {
+        return xxHash64(value.getLong(0), value.getLong(SIZE_OF_LONG));
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
+    {
+        return xxHash64(block.getLong(position, 0), block.getLong(position, SIZE_OF_LONG));
+    }
+
+    private static long xxHash64(long low, long high)
+    {
+        return XxHash64.hash(low) ^ XxHash64.hash(high);
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(Slice left, Slice right)
+    {
+        return compareBigEndian(
+                left.getLong(0),
+                left.getLong(SIZE_OF_LONG),
+                right.getLong(0),
+                right.getLong(SIZE_OF_LONG));
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        return compareBigEndian(
+                leftBlock.getLong(leftPosition, 0),
+                leftBlock.getLong(leftPosition, SIZE_OF_LONG),
+                rightBlock.getLong(rightPosition, 0),
+                rightBlock.getLong(rightPosition, SIZE_OF_LONG));
+    }
+
+    private static int compareBigEndian(long leftLow64le, long leftHigh64le, long rightLow64le, long rightHigh64le)
+    {
+        int value = Long.compareUnsigned(reverseBytes(leftLow64le), reverseBytes(rightLow64le));
+        if (value != 0) {
+            return value;
+        }
+        return Long.compareUnsigned(reverseBytes(leftHigh64le), reverseBytes(rightHigh64le));
     }
 }

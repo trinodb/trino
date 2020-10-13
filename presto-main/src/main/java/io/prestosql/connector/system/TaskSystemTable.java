@@ -36,7 +36,9 @@ import javax.inject.Inject;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_NODES;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class TaskSystemTable
@@ -73,10 +75,10 @@ public class TaskSystemTable
             .column("physical_input_bytes", BIGINT)
             .column("physical_written_bytes", BIGINT)
 
-            .column("created", TIMESTAMP_MILLIS)
-            .column("start", TIMESTAMP_MILLIS)
-            .column("last_heartbeat", TIMESTAMP_MILLIS)
-            .column("end", TIMESTAMP_MILLIS)
+            .column("created", TIMESTAMP_TZ_MILLIS)
+            .column("start", TIMESTAMP_TZ_MILLIS)
+            .column("last_heartbeat", TIMESTAMP_TZ_MILLIS)
+            .column("end", TIMESTAMP_TZ_MILLIS)
             .build();
 
     private final TaskManager taskManager;
@@ -137,10 +139,10 @@ public class TaskSystemTable
                     toBytes(stats.getPhysicalInputDataSize()),
                     toBytes(stats.getPhysicalWrittenDataSize()),
 
-                    toTimeStamp(stats.getCreateTime()),
-                    toTimeStamp(stats.getFirstStartTime()),
-                    toTimeStamp(taskInfo.getLastHeartbeat()),
-                    toTimeStamp(stats.getEndTime()));
+                    toTimestampWithTimeZoneMillis(stats.getCreateTime()),
+                    toTimestampWithTimeZoneMillis(stats.getFirstStartTime()),
+                    toTimestampWithTimeZoneMillis(taskInfo.getLastHeartbeat()),
+                    toTimestampWithTimeZoneMillis(stats.getEndTime()));
         }
         return table.build().cursor();
     }
@@ -161,11 +163,12 @@ public class TaskSystemTable
         return dataSize.toBytes();
     }
 
-    private static Long toTimeStamp(DateTime dateTime)
+    private static Long toTimestampWithTimeZoneMillis(DateTime dateTime)
     {
         if (dateTime == null) {
             return null;
         }
-        return dateTime.getMillis();
+        // dateTime.getZone() is the server zone, should be of no interest to the user
+        return packDateTimeWithZone(dateTime.getMillis(), UTC_KEY);
     }
 }

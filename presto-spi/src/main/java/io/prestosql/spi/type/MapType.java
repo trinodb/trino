@@ -20,43 +20,81 @@ import io.prestosql.spi.block.MapBlock;
 import io.prestosql.spi.block.MapBlockBuilder;
 import io.prestosql.spi.block.SingleMapBlock;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.spi.function.OperatorMethodHandle;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.spi.type.TypeUtils.checkElementNotNull;
-import static io.prestosql.spi.type.TypeUtils.hashPosition;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
+import static io.prestosql.spi.type.TypeOperatorDeclaration.NO_TYPE_OPERATOR_DECLARATION;
+import static io.prestosql.spi.type.TypeUtils.NULL_HASH_CODE;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Arrays.asList;
-import static java.util.Objects.requireNonNull;
 
 public class MapType
         extends AbstractType
 {
+    private static final InvocationConvention EQUAL_CONVENTION = simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL);
+    private static final InvocationConvention HASH_CODE_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL);
+    private static final InvocationConvention DISTINCT_FROM_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE);
+    private static final InvocationConvention INDETERMINATE_CONVENTION = simpleConvention(FAIL_ON_NULL, NULL_FLAG);
+
+    private static final MethodHandle EQUAL;
+    private static final MethodHandle HASH_CODE;
+
+    private static final MethodHandle SEEK_KEY;
+    private static final MethodHandle DISTINCT_FROM;
+    private static final MethodHandle INDETERMINATE;
+
+    static {
+        try {
+            Lookup lookup = MethodHandles.lookup();
+            EQUAL = lookup.findStatic(MapType.class, "equalOperator", methodType(Boolean.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class));
+            HASH_CODE = lookup.findStatic(MapType.class, "hashOperator", methodType(long.class, MethodHandle.class, MethodHandle.class, Block.class));
+            DISTINCT_FROM = lookup.findStatic(MapType.class, "distinctFromOperator", methodType(boolean.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class));
+            INDETERMINATE = lookup.findStatic(MapType.class, "indeterminate", methodType(boolean.class, MethodHandle.class, Block.class, boolean.class));
+            SEEK_KEY = lookup.findVirtual(
+                    SingleMapBlock.class,
+                    "seekKey",
+                    methodType(int.class, MethodHandle.class, MethodHandle.class, Block.class, int.class));
+        }
+        catch (NoSuchMethodException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private final Type keyType;
     private final Type valueType;
-    private static final String MAP_NULL_ELEMENT_MSG = "MAP comparison not supported for null value elements";
     private static final int EXPECTED_BYTES_PER_ENTRY = 32;
 
     private final MethodHandle keyNativeHashCode;
     private final MethodHandle keyBlockHashCode;
-    private final MethodHandle keyBlockNativeEquals;
-    private final MethodHandle keyBlockEquals;
+    private final MethodHandle keyBlockNativeEqual;
+    private final MethodHandle keyBlockEqual;
 
-    public MapType(
-            Type keyType,
-            Type valueType,
-            MethodHandle keyBlockNativeEquals,
-            MethodHandle keyBlockEquals,
-            MethodHandle keyNativeHashCode,
-            MethodHandle keyBlockHashCode)
+    // this field is used in double checked locking
+    @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
+    private volatile TypeOperatorDeclaration typeOperatorDeclaration;
+
+    public MapType(Type keyType, Type valueType, TypeOperators typeOperators)
     {
-        super(new TypeSignature(StandardTypes.MAP,
+        super(
+                new TypeSignature(
+                        StandardTypes.MAP,
                         TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
                         TypeSignatureParameter.typeParameter(valueType.getTypeSignature())),
                 Block.class);
@@ -65,18 +103,82 @@ public class MapType
         }
         this.keyType = keyType;
         this.valueType = valueType;
-        requireNonNull(keyBlockNativeEquals, "keyBlockNativeEquals is null");
-        requireNonNull(keyNativeHashCode, "keyNativeHashCode is null");
-        requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
-        if (!keyType.getJavaType().isPrimitive()) {
-            // equals and hash code non-primitive types must be exactly Object
-            keyBlockNativeEquals = keyBlockNativeEquals.asType(methodType(Boolean.class, Block.class, int.class, Object.class));
-            keyNativeHashCode = keyNativeHashCode.asType(methodType(long.class, Object.class));
+
+        keyBlockNativeEqual = typeOperators.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, NEVER_NULL))
+                .asType(methodType(Boolean.class, Block.class, int.class, keyType.getJavaType().isPrimitive() ? keyType.getJavaType() : Object.class));
+        keyBlockEqual = typeOperators.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
+        keyNativeHashCode = typeOperators.getHashCodeOperator(keyType, HASH_CODE_CONVENTION)
+                .asType(methodType(long.class, keyType.getJavaType().isPrimitive() ? keyType.getJavaType() : Object.class));
+        keyBlockHashCode = typeOperators.getHashCodeOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
+    }
+
+    @Override
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        if (typeOperatorDeclaration == null) {
+            generateTypeOperators(typeOperators);
         }
-        this.keyBlockNativeEquals = keyBlockNativeEquals;
-        this.keyNativeHashCode = keyNativeHashCode;
-        this.keyBlockHashCode = keyBlockHashCode;
-        this.keyBlockEquals = keyBlockEquals;
+        return typeOperatorDeclaration;
+    }
+
+    private synchronized void generateTypeOperators(TypeOperators typeOperators)
+    {
+        if (typeOperatorDeclaration != null) {
+            return;
+        }
+        if (!valueType.isComparable()) {
+            typeOperatorDeclaration = NO_TYPE_OPERATOR_DECLARATION;
+        }
+        typeOperatorDeclaration = TypeOperatorDeclaration.builder(getJavaType())
+                .addEqualOperator(getEqualOperatorMethodHandle(typeOperators, keyType, valueType))
+                .addHashCodeOperator(getHashCodeOperatorMethodHandle(typeOperators, keyType, valueType))
+                .addXxHash64Operator(getXxHash64OperatorMethodHandle(typeOperators, keyType, valueType))
+                .addDistinctFromOperator(getDistinctFromOperatorInvoker(typeOperators, keyType, valueType))
+                .addIndeterminateOperator(getIndeterminateOperatorInvoker(typeOperators, valueType))
+                .build();
+    }
+
+    private static OperatorMethodHandle getHashCodeOperatorMethodHandle(TypeOperators typeOperators, Type keyType, Type valueType)
+    {
+        MethodHandle keyHashCodeOperator = typeOperators.getHashCodeOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
+        MethodHandle valueHashCodeOperator = typeOperators.getHashCodeOperator(valueType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
+        return new OperatorMethodHandle(HASH_CODE_CONVENTION, HASH_CODE.bindTo(keyHashCodeOperator).bindTo(valueHashCodeOperator));
+    }
+
+    private static OperatorMethodHandle getXxHash64OperatorMethodHandle(TypeOperators typeOperators, Type keyType, Type valueType)
+    {
+        MethodHandle keyHashCodeOperator = typeOperators.getXxHash64Operator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
+        MethodHandle valueHashCodeOperator = typeOperators.getXxHash64Operator(valueType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
+        return new OperatorMethodHandle(HASH_CODE_CONVENTION, HASH_CODE.bindTo(keyHashCodeOperator).bindTo(valueHashCodeOperator));
+    }
+
+    private static OperatorMethodHandle getEqualOperatorMethodHandle(TypeOperators typeOperators, Type keyType, Type valueType)
+    {
+        MethodHandle seekKey = MethodHandles.insertArguments(
+                SEEK_KEY,
+                1,
+                typeOperators.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION)),
+                typeOperators.getHashCodeOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)));
+        MethodHandle valueEqualOperator = typeOperators.getEqualOperator(valueType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
+        return new OperatorMethodHandle(EQUAL_CONVENTION, EQUAL.bindTo(seekKey).bindTo(valueEqualOperator));
+    }
+
+    private static OperatorMethodHandle getDistinctFromOperatorInvoker(TypeOperators typeOperators, Type keyType, Type valueType)
+    {
+        MethodHandle seekKey = MethodHandles.insertArguments(
+                SEEK_KEY,
+                1,
+                typeOperators.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION)),
+                typeOperators.getHashCodeOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)));
+
+        MethodHandle valueDistinctFromOperator = typeOperators.getDistinctFromOperator(valueType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        return new OperatorMethodHandle(DISTINCT_FROM_CONVENTION, DISTINCT_FROM.bindTo(seekKey).bindTo(valueDistinctFromOperator));
+    }
+
+    private static OperatorMethodHandle getIndeterminateOperatorInvoker(TypeOperators typeOperators, Type valueType)
+    {
+        MethodHandle valueIndeterminateOperator = typeOperators.getIndeterminateOperator(valueType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
+        return new OperatorMethodHandle(INDETERMINATE_CONVENTION, INDETERMINATE.bindTo(valueIndeterminateOperator));
     }
 
     @Override
@@ -105,90 +207,6 @@ public class MapType
     public boolean isComparable()
     {
         return valueType.isComparable();
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        Block mapBlock = getObject(block, position);
-        long result = 0;
-
-        for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-            result += hashPosition(keyType, mapBlock, i) ^ hashPosition(valueType, mapBlock, i + 1);
-        }
-        return result;
-    }
-
-    @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        Block leftMapBlock = leftBlock.getObject(leftPosition, Block.class);
-        Block rightMapBlock = rightBlock.getObject(rightPosition, Block.class);
-
-        if (leftMapBlock.getPositionCount() != rightMapBlock.getPositionCount()) {
-            return false;
-        }
-
-        Map<KeyWrapper, Integer> wrappedLeftMap = new HashMap<>();
-        for (int position = 0; position < leftMapBlock.getPositionCount(); position += 2) {
-            wrappedLeftMap.put(new KeyWrapper(keyType, leftMapBlock, position), position + 1);
-        }
-
-        for (int position = 0; position < rightMapBlock.getPositionCount(); position += 2) {
-            KeyWrapper key = new KeyWrapper(keyType, rightMapBlock, position);
-            Integer leftValuePosition = wrappedLeftMap.get(key);
-            if (leftValuePosition == null) {
-                return false;
-            }
-            int rightValuePosition = position + 1;
-            checkElementNotNull(leftMapBlock.isNull(leftValuePosition), MAP_NULL_ELEMENT_MSG);
-            checkElementNotNull(rightMapBlock.isNull(rightValuePosition), MAP_NULL_ELEMENT_MSG);
-
-            if (!valueType.equalTo(leftMapBlock, leftValuePosition, rightMapBlock, rightValuePosition)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static final class KeyWrapper
-    {
-        private final Type type;
-        private final Block block;
-        private final int position;
-
-        public KeyWrapper(Type type, Block block, int position)
-        {
-            this.type = type;
-            this.block = block;
-            this.position = position;
-        }
-
-        public Block getBlock()
-        {
-            return this.block;
-        }
-
-        public int getPosition()
-        {
-            return this.position;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Long.hashCode(type.hash(block, position));
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (obj == null || !getClass().equals(obj.getClass())) {
-                return false;
-            }
-            KeyWrapper other = (KeyWrapper) obj;
-            return type.equalTo(this.block, this.position, other.getBlock(), other.getPosition());
-        }
     }
 
     @Override
@@ -277,16 +295,131 @@ public class MapType
     /**
      * Internal use by this package and io.prestosql.spi.block only.
      */
-    public MethodHandle getKeyBlockNativeEquals()
+    public MethodHandle getKeyBlockNativeEqual()
     {
-        return keyBlockNativeEquals;
+        return keyBlockNativeEqual;
     }
 
     /**
      * Internal use by this package and io.prestosql.spi.block only.
      */
-    public MethodHandle getKeyBlockEquals()
+    public MethodHandle getKeyBlockEqual()
     {
-        return keyBlockEquals;
+        return keyBlockEqual;
+    }
+
+    private static long hashOperator(MethodHandle keyOperator, MethodHandle valueOperator, Block block)
+            throws Throwable
+    {
+        long result = 0;
+        for (int i = 0; i < block.getPositionCount(); i += 2) {
+            result += invokeHashOperator(keyOperator, block, i) ^ invokeHashOperator(valueOperator, block, i + 1);
+        }
+        return result;
+    }
+
+    private static long invokeHashOperator(MethodHandle keyOperator, Block block, int position)
+            throws Throwable
+    {
+        if (block.isNull(position)) {
+            return NULL_HASH_CODE;
+        }
+        return (long) keyOperator.invokeExact(block, position);
+    }
+
+    private static Boolean equalOperator(
+            MethodHandle seekKey,
+            MethodHandle valueEqualOperator,
+            Block leftBlock,
+            Block rightBlock)
+            throws Throwable
+    {
+        if (leftBlock.getPositionCount() != rightBlock.getPositionCount()) {
+            return false;
+        }
+
+        SingleMapBlock leftSingleMapLeftBlock = (SingleMapBlock) leftBlock;
+        SingleMapBlock rightSingleMapBlock = (SingleMapBlock) rightBlock;
+
+        boolean unknown = false;
+        for (int position = 0; position < leftSingleMapLeftBlock.getPositionCount(); position += 2) {
+            int leftPosition = position + 1;
+            int rightPosition = (int) seekKey.invokeExact(rightSingleMapBlock, leftBlock, position);
+            if (rightPosition == -1) {
+                return false;
+            }
+
+            if (leftBlock.isNull(leftPosition) || rightBlock.isNull(rightPosition)) {
+                unknown = true;
+            }
+            else {
+                Boolean result = (Boolean) valueEqualOperator.invokeExact((Block) leftSingleMapLeftBlock, leftPosition, (Block) rightSingleMapBlock, rightPosition);
+                if (result == null) {
+                    unknown = true;
+                }
+                else if (!result) {
+                    return false;
+                }
+            }
+        }
+
+        if (unknown) {
+            return null;
+        }
+        return true;
+    }
+
+    private static boolean distinctFromOperator(
+            MethodHandle seekKey,
+            MethodHandle valueDistinctFromOperator,
+            Block leftBlock,
+            Block rightBlock)
+            throws Throwable
+    {
+        boolean leftIsNull = leftBlock == null;
+        boolean rightIsNull = rightBlock == null;
+        if (leftIsNull || rightIsNull) {
+            return leftIsNull != rightIsNull;
+        }
+
+        if (leftBlock.getPositionCount() != rightBlock.getPositionCount()) {
+            return true;
+        }
+
+        SingleMapBlock leftSingleMapLeftBlock = (SingleMapBlock) leftBlock;
+        SingleMapBlock rightSingleMapBlock = (SingleMapBlock) rightBlock;
+
+        for (int position = 0; position < leftSingleMapLeftBlock.getPositionCount(); position += 2) {
+            int leftPosition = position + 1;
+            int rightPosition = (int) seekKey.invokeExact(rightSingleMapBlock, leftBlock, position);
+            if (rightPosition == -1) {
+                return true;
+            }
+
+            boolean result = (boolean) valueDistinctFromOperator.invokeExact((Block) leftSingleMapLeftBlock, leftPosition, (Block) rightSingleMapBlock, rightPosition);
+            if (result) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean indeterminate(MethodHandle valueIndeterminateFunction, Block block, boolean isNull)
+            throws Throwable
+    {
+        if (isNull) {
+            return true;
+        }
+        for (int i = 0; i < block.getPositionCount(); i += 2) {
+            // since maps are not allowed to have indeterminate keys we only check values here
+            if (block.isNull(i + 1)) {
+                return true;
+            }
+            if ((boolean) valueIndeterminateFunction.invokeExact(block, i + 1)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -17,6 +17,7 @@ import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators;
 import io.prestosql.util.MergeSortedPages.PageWithPosition;
 
 import java.io.Closeable;
@@ -38,10 +39,12 @@ public class MergeHashSort
         implements Closeable
 {
     private final AggregatedMemoryContext memoryContext;
+    private final BlockTypeOperators blockTypeOperators;
 
-    public MergeHashSort(AggregatedMemoryContext memoryContext)
+    public MergeHashSort(AggregatedMemoryContext memoryContext, BlockTypeOperators blockTypeOperators)
     {
         this.memoryContext = memoryContext;
+        this.blockTypeOperators = blockTypeOperators;
     }
 
     /**
@@ -87,12 +90,12 @@ public class MergeHashSort
         };
     }
 
-    private static InterpretedHashGenerator createHashGenerator(List<Type> keyTypes)
+    private InterpretedHashGenerator createHashGenerator(List<Type> keyTypes)
     {
         int[] hashChannels = new int[keyTypes.size()];
         for (int i = 0; i < keyTypes.size(); i++) {
             hashChannels[i] = i;
         }
-        return new InterpretedHashGenerator(keyTypes, hashChannels);
+        return new InterpretedHashGenerator(keyTypes, hashChannels, blockTypeOperators);
     }
 }

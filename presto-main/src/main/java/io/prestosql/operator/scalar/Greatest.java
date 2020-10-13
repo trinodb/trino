@@ -13,8 +13,6 @@
  */
 package io.prestosql.operator.scalar;
 
-import io.prestosql.spi.function.OperatorType;
-
 public final class Greatest
         extends AbstractGreatestLeast
 {
@@ -22,6 +20,6 @@ public final class Greatest
 
     public Greatest()
     {
-        super("greatest", OperatorType.GREATER_THAN, "Get the largest of the given values");
+        super(false, "Get the largest of the given values");
     }
 }

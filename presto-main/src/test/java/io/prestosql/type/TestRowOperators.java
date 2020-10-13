@@ -13,14 +13,15 @@
  */
 package io.prestosql.type;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
+import io.prestosql.operator.scalar.CombineHashFunction;
 import io.prestosql.spi.StandardErrorCode;
-import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
@@ -32,6 +33,7 @@ import io.prestosql.spi.type.TypeSignature;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -39,8 +41,12 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
@@ -54,7 +60,6 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.type.JsonType.JSON;
-import static io.prestosql.util.StructuralTestUtil.appendToBlockBuilder;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -183,7 +188,7 @@ public class TestRowOperators
                         RowType.field("d", BIGINT))),
                 asList(1L, null, 3L, null));
         assertFunction(
-                "CAST(JSON '[{\"a\":1,\"c\":3}]' AS ARRAY(ROW(a BIGINT, b BIGINT, c BIGINT, d BIGINT)))",
+                "CAST(JSON '[{\"a\":1,\"c\":3}]' AS ARRAY<ROW(a BIGINT, b BIGINT, c BIGINT, d BIGINT)>)",
                 new ArrayType(
                         RowType.from(ImmutableList.of(
                                 RowType.field("a", BIGINT),
@@ -465,12 +470,12 @@ public class TestRowOperators
         assertInvalidFunction("cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog)) = cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog))",
                 TYPE_MISMATCH, "line 1:81: Cannot apply operator: row(col0 HyperLogLog) = row(col0 HyperLogLog)");
         assertInvalidFunction("cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog)) > cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog))",
-                TYPE_MISMATCH, "line 1:81: Cannot apply operator: row(col0 HyperLogLog) > row(col0 HyperLogLog)");
+                TYPE_MISMATCH, "line 1:81: Cannot apply operator: row(col0 HyperLogLog) < row(col0 HyperLogLog)");
 
         assertInvalidFunction("cast(row(cast(cast ('' as varbinary) as qdigest(double))) as row(col0 qdigest(double))) = cast(row(cast(cast ('' as varbinary) as qdigest(double))) as row(col0 qdigest(double)))",
                 TYPE_MISMATCH, "line 1:89: Cannot apply operator: row(col0 qdigest(double)) = row(col0 qdigest(double))");
         assertInvalidFunction("cast(row(cast(cast ('' as varbinary) as qdigest(double))) as row(col0 qdigest(double))) > cast(row(cast(cast ('' as varbinary) as qdigest(double))) as row(col0 qdigest(double)))",
-                TYPE_MISMATCH, "line 1:89: Cannot apply operator: row(col0 qdigest(double)) > row(col0 qdigest(double))");
+                TYPE_MISMATCH, "line 1:89: Cannot apply operator: row(col0 qdigest(double)) < row(col0 qdigest(double))");
 
         assertFunction("row(TRUE, ARRAY [1], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])) = row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0]))", BOOLEAN, false);
         assertFunction("row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])) = row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0]))", BOOLEAN, true);
@@ -480,7 +485,7 @@ public class TestRowOperators
         assertFunction("row(2, CAST(NULL AS INTEGER)) = row(1, 2)", BOOLEAN, false);
         assertFunction("row(2, CAST(NULL AS INTEGER)) != row(1, 2)", BOOLEAN, true);
         assertInvalidFunction("row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])) > row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0]))",
-                TYPE_MISMATCH, "line 1:64: Cannot apply operator: row(boolean, array(integer), map(integer, double)) > row(boolean, array(integer), map(integer, double))");
+                TYPE_MISMATCH, "line 1:64: Cannot apply operator: row(boolean, array(integer), map(integer, double)) < row(boolean, array(integer), map(integer, double))");
 
         assertInvalidFunction("row(1, CAST(NULL AS INTEGER)) < row(1, 2)", StandardErrorCode.NOT_SUPPORTED);
 
@@ -494,6 +499,10 @@ public class TestRowOperators
         assertFunction("ROW(1.0, 123123123456.6549876543) = ROW(1.0, 123123123456.6549876542)", BOOLEAN, false);
         assertFunction("ROW(1.0, 123123123456.6549876543) != ROW(1.0, 123123123456.6549876543)", BOOLEAN, false);
         assertFunction("ROW(1.0, 123123123456.6549876543) != ROW(1.0, 123123123456.6549876542)", BOOLEAN, true);
+
+        for (int i = 1; i < 128; i += 10) {
+            assertEqualOperator(i);
+        }
     }
 
     @Test
@@ -501,6 +510,11 @@ public class TestRowOperators
     {
         assertRowHashOperator("ROW(1, 2)", ImmutableList.of(INTEGER, INTEGER), ImmutableList.of(1, 2));
         assertRowHashOperator("ROW(true, 2)", ImmutableList.of(BOOLEAN, INTEGER), ImmutableList.of(true, 2));
+
+        for (int i = 1; i < 128; i += 5) {
+            assertRowHashOperator(i, false);
+            assertRowHashOperator(i, true);
+        }
     }
 
     @Test
@@ -536,18 +550,116 @@ public class TestRowOperators
         assertOperator(INDETERMINATE, "row(true,null)", BOOLEAN, true);
     }
 
+    private void assertEqualOperator(int fieldCount)
+    {
+        String rowLiteral = toRowLiteral(largeRow(fieldCount, false));
+        assertFunction(rowLiteral + " = " + rowLiteral, BOOLEAN, true);
+        assertFunction(rowLiteral + " != " + rowLiteral, BOOLEAN, false);
+
+        String alternateRowLiteral = toRowLiteral(largeRow(fieldCount, false, true));
+        assertFunction(rowLiteral + " = " + alternateRowLiteral, BOOLEAN, false);
+        assertFunction(rowLiteral + " != " + alternateRowLiteral, BOOLEAN, true);
+
+        if (fieldCount > 1) {
+            String rowLiteralWithNulls = toRowLiteral(largeRow(fieldCount, true));
+            assertFunction(rowLiteralWithNulls + " = " + rowLiteralWithNulls, BOOLEAN, null);
+            assertFunction(rowLiteralWithNulls + " != " + rowLiteralWithNulls, BOOLEAN, null);
+
+            String alternateRowLiteralWithNulls = toRowLiteral(largeRow(fieldCount, true, true));
+            assertFunction(rowLiteralWithNulls + " = " + alternateRowLiteralWithNulls, BOOLEAN, false);
+            assertFunction(rowLiteralWithNulls + " != " + alternateRowLiteralWithNulls, BOOLEAN, true);
+        }
+    }
+
+    private void assertRowHashOperator(int fieldCount, boolean nulls)
+    {
+        List<Object> data = largeRow(fieldCount, nulls);
+        assertRowHashOperator(toRowLiteral(data), largeRowDataTypes(fieldCount), data);
+    }
+
+    private static String toRowLiteral(List<Object> data)
+    {
+        return "ROW(" + Joiner.on(", ").useForNull("null").join(data) + ")";
+    }
+
     private void assertRowHashOperator(String inputString, List<Type> types, List<Object> elements)
     {
         checkArgument(types.size() == elements.size(), "types and elements must have the same size");
-        RowType rowType = RowType.anonymous(types);
-        BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1);
-        BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
-        for (int i = 0; i < types.size(); i++) {
-            appendToBlockBuilder(types.get(i), elements.get(i), singleRowBlockWriter);
-        }
-        blockBuilder.closeEntry();
+        assertOperator(HASH_CODE, inputString, BIGINT, hashFields(types, elements));
+        assertOperator(XX_HASH_64, inputString, BIGINT, hashFields(types, elements));
+    }
 
-        assertOperator(HASH_CODE, inputString, BIGINT, rowType.hash(blockBuilder.build(), 0));
+    private long hashFields(List<Type> types, List<Object> elements)
+    {
+        checkArgument(types.size() == elements.size(), "types and elements must have the same size");
+
+        long result = 1;
+        for (int i = 0; i < types.size(); i++) {
+            Object fieldValue = elements.get(i);
+
+            long fieldHashCode = 0;
+            if (fieldValue != null) {
+                Type fieldType = types.get(i);
+                try {
+                    fieldHashCode = (long) functionAssertions.getTypeOperators().getHashCodeOperator(fieldType, simpleConvention(FAIL_ON_NULL, NEVER_NULL))
+                            .invoke(fieldValue);
+                }
+                catch (Throwable throwable) {
+                    throw new RuntimeException(throwable);
+                }
+            }
+
+            result = CombineHashFunction.getHash(result, fieldHashCode);
+        }
+        return result;
+    }
+
+    private static List<Object> largeRow(int fieldCount, boolean nulls)
+    {
+        return largeRow(fieldCount, nulls, false);
+    }
+
+    private static List<Object> largeRow(int fieldCount, boolean nulls, boolean alternateLastElement)
+    {
+        List<Object> data = new ArrayList<>(fieldCount);
+        for (int i = 0; i < fieldCount; i++) {
+            if (nulls && i % 7 == 0) {
+                data.add(null);
+            }
+            else if (i % 10 == 0) {
+                data.add(true);
+            }
+            else {
+                data.add(i);
+            }
+        }
+        if (alternateLastElement) {
+            int lastPosition = fieldCount - 1;
+            if (nulls && lastPosition % 7 == 0) {
+                lastPosition--;
+            }
+            if (lastPosition % 10 == 0) {
+                data.set(lastPosition, false);
+            }
+            else {
+                data.set(lastPosition, -lastPosition);
+            }
+        }
+        return data;
+    }
+
+    private static List<Type> largeRowDataTypes(int fieldCount)
+    {
+        List<Type> types = new ArrayList<>(fieldCount);
+        for (int i = 0; i < fieldCount; i++) {
+            if (i % 10 == 0) {
+                types.add(BOOLEAN);
+            }
+            else {
+                types.add(INTEGER);
+            }
+        }
+        return types;
     }
 
     private void assertComparisonCombination(String base, String greater)

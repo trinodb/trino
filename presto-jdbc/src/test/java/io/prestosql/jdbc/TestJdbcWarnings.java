@@ -109,7 +109,7 @@ public class TestJdbcWarnings
     {
         connection = createConnection();
         statement = connection.createStatement();
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     }
 
     @AfterMethod(alwaysRun = true)

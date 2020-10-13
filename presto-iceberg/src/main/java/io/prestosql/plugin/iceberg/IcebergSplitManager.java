@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
@@ -22,13 +23,14 @@ import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.DynamicFilter;
+import io.prestosql.spi.connector.FixedSplitSource;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 
 import javax.inject.Inject;
 
+import static io.prestosql.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getIcebergTable;
-import static io.prestosql.plugin.iceberg.IcebergUtil.getTableScan;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -54,10 +56,16 @@ public class IcebergSplitManager
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
 
+        if (table.getSnapshotId().isEmpty()) {
+            return new FixedSplitSource(ImmutableList.of());
+        }
+
         HiveMetastore metastore = transactionManager.get(transaction).getMetastore();
         Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
 
-        TableScan tableScan = getTableScan(session, table.getPredicate(), table.getSnapshotId(), icebergTable);
+        TableScan tableScan = icebergTable.newScan()
+                .filter(toIcebergExpression(table.getPredicate()))
+                .useSnapshot(table.getSnapshotId().get());
 
         // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
         //      propagate it at split level so the parquet pushdown can leverage it.

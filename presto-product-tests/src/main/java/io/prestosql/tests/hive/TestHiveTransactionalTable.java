@@ -15,8 +15,11 @@ package io.prestosql.tests.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient;
+import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
 import io.prestosql.tempto.query.QueryResult;
 import io.prestosql.testng.services.Flaky;
 import io.prestosql.tests.hive.util.TemporaryHiveTable;
@@ -26,8 +29,11 @@ import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -46,6 +52,7 @@ import static io.prestosql.tests.hive.TestHiveTransactionalTable.CompactionMode.
 import static io.prestosql.tests.hive.TestHiveTransactionalTable.CompactionMode.MINOR;
 import static io.prestosql.tests.hive.TransactionalTableType.ACID;
 import static io.prestosql.tests.hive.TransactionalTableType.INSERT_ONLY;
+import static io.prestosql.tests.hive.util.TableLocationUtils.getTablePath;
 import static io.prestosql.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
@@ -58,7 +65,13 @@ public class TestHiveTransactionalTable
 {
     private static final Logger log = Logger.get(TestHiveTransactionalTable.class);
 
-    private static final int TEST_TIMEOUT = 10 * 60 * 1000;
+    private static final int TEST_TIMEOUT = 15 * 60 * 1000;
+
+    @Inject
+    private TestHiveMetastoreClientFactory testHiveMetastoreClientFactory;
+
+    @Inject
+    private HdfsClient hdfsClient;
 
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testReadFullAcid()
@@ -138,7 +151,7 @@ public class TestHiveTransactionalTable
 
             assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE col=20")).containsExactly(row(20, 3));
 
-            compactTableAndWait(MINOR, tableName, hivePartitionString, Duration.valueOf("3m"));
+            compactTableAndWait(MINOR, tableName, hivePartitionString, Duration.valueOf("6m"));
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(21, 1), row(22, 2));
 
             // delete a row
@@ -155,7 +168,7 @@ public class TestHiveTransactionalTable
             assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE col=20")).containsExactly(row(20, 3));
 
             // test major compaction
-            compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("3m"));
+            compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("6m"));
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(23, 1));
         }
     }
@@ -190,7 +203,7 @@ public class TestHiveTransactionalTable
             assertThat(query("SELECT col FROM " + tableName + " WHERE col=2")).containsExactly(row(2));
 
             // test minor compacted data read
-            compactTableAndWait(MINOR, tableName, hivePartitionString, Duration.valueOf("3m"));
+            compactTableAndWait(MINOR, tableName, hivePartitionString, Duration.valueOf("6m"));
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(1), row(2));
             assertThat(query("SELECT col FROM " + tableName + " WHERE col=2")).containsExactly(row(2));
 
@@ -203,7 +216,7 @@ public class TestHiveTransactionalTable
 
                 // test major compaction
                 onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " SELECT 4");
-                compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("3m"));
+                compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("6m"));
                 assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(3), row(4));
             }
         }
@@ -358,6 +371,89 @@ public class TestHiveTransactionalTable
         }
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testFilesForAbortedTransactionsIgnored()
+            throws Exception
+    {
+        if (getHiveVersionMajor() < 3) {
+            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
+        }
+
+        String tableName = "test_aborted_transaction_table";
+        onHive().executeQuery("" +
+                "CREATE TABLE " + tableName + " (col INT) " +
+                "STORED AS ORC " +
+                "TBLPROPERTIES ('transactional'='true')");
+
+        ThriftHiveMetastoreClient client = testHiveMetastoreClientFactory.createMetastoreClient();
+        try {
+            String selectFromOnePartitionsSql = "SELECT col FROM " + tableName + " ORDER BY COL";
+
+            // Create `delta-A` file
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + " VALUES (1),(2)");
+            QueryResult onePartitionQueryResult = query(selectFromOnePartitionsSql);
+            assertThat(onePartitionQueryResult).containsExactly(row(1), row(2));
+
+            String tableLocation = getTablePath(tableName);
+
+            // Insert data to create a valid delta, which creates `delta-B`
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + " SELECT 3");
+
+            // Simulate aborted transaction in Hive which has left behind a write directory and file (`delta-C` i.e `delta_0000003_0000003_0000`)
+            long transaction = client.openTransaction("test");
+            client.allocateTableWriteIds("default", tableName, Collections.singletonList(transaction)).get(0).getWriteId();
+            client.abortTransaction(transaction);
+
+            String deltaA = tableLocation + "/delta_0000001_0000001_0000";
+            String deltaB = tableLocation + "/delta_0000002_0000002_0000";
+            String deltaC = tableLocation + "/delta_0000003_0000003_0000";
+
+            // Delete original `delta-B`, `delta-C`
+            hdfsDeleteAll(deltaB);
+            hdfsDeleteAll(deltaC);
+
+            // Copy content of `delta-A` to `delta-B`
+            hdfsCopyAll(deltaA, deltaB);
+
+            // Verify that data from delta-A and delta-B is visible
+            onePartitionQueryResult = query(selectFromOnePartitionsSql);
+            assertThat(onePartitionQueryResult).containsOnly(row(1), row(1), row(2), row(2));
+
+            // Copy content of `delta-A` to `delta-C` (which is an aborted transaction)
+            hdfsCopyAll(deltaA, deltaC);
+
+            // Verify that delta, corresponding to aborted transaction, is not getting read
+            onePartitionQueryResult = query(selectFromOnePartitionsSql);
+            assertThat(onePartitionQueryResult).containsOnly(row(1), row(1), row(2), row(2));
+        }
+        finally {
+            client.close();
+            onHive().executeQuery("DROP TABLE " + tableName);
+        }
+    }
+
+    private void hdfsDeleteAll(String directory)
+    {
+        if (!hdfsClient.exist(directory)) {
+            return;
+        }
+        for (String file : hdfsClient.listDirectory(directory)) {
+            hdfsClient.delete(directory + "/" + file);
+        }
+    }
+
+    private void hdfsCopyAll(String source, String target)
+    {
+        if (!hdfsClient.exist(target)) {
+            hdfsClient.createDirectory(target);
+        }
+        for (String file : hdfsClient.listDirectory(source)) {
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            hdfsClient.loadFile(source + "/" + file, bos);
+            hdfsClient.saveFile(target + "/" + file, new ByteArrayInputStream(bos.toByteArray()));
+        }
+    }
+
     @DataProvider
     public Object[][] testCreateAcidTableDataProvider()
     {
@@ -403,7 +499,7 @@ public class TestHiveTransactionalTable
                     throw new IllegalStateException(format("Could not compact table %s in %d retries", tableName, event.getAttemptCount()), event.getFailure());
                 })
                 .onSuccess(event -> log.info("Finished %s compaction on %s in %s (%d tries)", compactMode, tableName, event.getElapsedTime(), event.getAttemptCount()))
-                .run(() -> tryCompactingTable(compactMode, tableName, partitionString, Duration.valueOf("60s")));
+                .run(() -> tryCompactingTable(compactMode, tableName, partitionString, Duration.valueOf("2m")));
     }
 
     private static void tryCompactingTable(CompactionMode compactMode, String tableName, String partitionString, Duration timeout)

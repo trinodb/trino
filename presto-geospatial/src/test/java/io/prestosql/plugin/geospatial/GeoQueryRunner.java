@@ -30,7 +30,6 @@ public final class GeoQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build())
-                .setNodeCount(4)
                 .setExtraProperties(extraProperties)
                 .build();
         queryRunner.installPlugin(new GeoPlugin());

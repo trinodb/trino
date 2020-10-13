@@ -50,7 +50,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.MULTIPLY;
@@ -193,8 +192,8 @@ public class BenchmarkPageProcessor
                 Form.AND,
                 BOOLEAN,
                 new CallExpression(
-                        metadata.resolveOperator(GREATER_THAN_OR_EQUAL, ImmutableList.of(VARCHAR, VARCHAR)),
-                        ImmutableList.of(field(SHIP_DATE, VARCHAR), constant(MIN_SHIP_DATE, VARCHAR))),
+                        metadata.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(VARCHAR, VARCHAR)),
+                        ImmutableList.of(constant(MIN_SHIP_DATE, VARCHAR), field(SHIP_DATE, VARCHAR))),
                 new SpecialForm(
                         Form.AND,
                         BOOLEAN,
@@ -205,8 +204,8 @@ public class BenchmarkPageProcessor
                                 Form.AND,
                                 BOOLEAN,
                                 new CallExpression(
-                                        metadata.resolveOperator(GREATER_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
-                                        ImmutableList.of(field(DISCOUNT, DOUBLE), constant(0.05, DOUBLE))),
+                                        metadata.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
+                                        ImmutableList.of(constant(0.05, DOUBLE), field(DISCOUNT, DOUBLE))),
                                 new SpecialForm(
                                         Form.AND,
                                         BOOLEAN,

@@ -47,7 +47,8 @@ public class IdentityCast
     {
         Type type = functionBinding.getTypeVariable("T");
         MethodHandle identity = MethodHandles.identity(type.getJavaType());
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 identity);

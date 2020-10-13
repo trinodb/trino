@@ -20,15 +20,15 @@ import static com.google.common.base.Preconditions.checkArgument;
 public final class NodeLocation
 {
     private final int line;
-    private final int charPositionInLine;
+    private final int column;
 
-    public NodeLocation(int line, int charPositionInLine)
+    public NodeLocation(int line, int column)
     {
         checkArgument(line >= 1, "line must be at least one, got: %s", line);
-        checkArgument(charPositionInLine >= 0, "charPositionInLine must be at least zero, got: %s", charPositionInLine);
+        checkArgument(column >= 1, "column must be at least one, got: %s", column);
 
         this.line = line;
-        this.charPositionInLine = charPositionInLine;
+        this.column = column;
     }
 
     public int getLineNumber()
@@ -38,13 +38,13 @@ public final class NodeLocation
 
     public int getColumnNumber()
     {
-        return charPositionInLine + 1;
+        return column;
     }
 
     @Override
     public String toString()
     {
-        return line + ":" + charPositionInLine;
+        return line + ":" + column;
     }
 
     @Override
@@ -58,12 +58,12 @@ public final class NodeLocation
         }
         NodeLocation that = (NodeLocation) o;
         return line == that.line &&
-                charPositionInLine == that.charPositionInLine;
+                column == that.column;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(line, charPositionInLine);
+        return Objects.hash(line, column);
     }
 }

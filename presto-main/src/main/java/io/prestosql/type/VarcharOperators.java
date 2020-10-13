@@ -14,85 +14,19 @@
 package io.prestosql.type;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.XxHash64;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.function.BlockIndex;
-import io.prestosql.spi.function.BlockPosition;
-import io.prestosql.spi.function.IsNull;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.HASH_CODE;
-import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
-import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static java.lang.String.format;
 
 public final class VarcharOperators
 {
     private VarcharOperators() {}
-
-    @LiteralParameters("x")
-    @ScalarOperator(EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean equal(@SqlType("varchar(x)") Slice left, @SqlType("varchar(x)") Slice right)
-    {
-        return left.equals(right);
-    }
-
-    @LiteralParameters("x")
-    @ScalarOperator(NOT_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean notEqual(@SqlType("varchar(x)") Slice left, @SqlType("varchar(x)") Slice right)
-    {
-        return !left.equals(right);
-    }
-
-    @LiteralParameters("x")
-    @ScalarOperator(LESS_THAN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThan(@SqlType("varchar(x)") Slice left, @SqlType("varchar(x)") Slice right)
-    {
-        return left.compareTo(right) < 0;
-    }
-
-    @LiteralParameters("x")
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThanOrEqual(@SqlType("varchar(x)") Slice left, @SqlType("varchar(x)") Slice right)
-    {
-        return left.compareTo(right) <= 0;
-    }
-
-    @LiteralParameters("x")
-    @ScalarOperator(GREATER_THAN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThan(@SqlType("varchar(x)") Slice left, @SqlType("varchar(x)") Slice right)
-    {
-        return left.compareTo(right) > 0;
-    }
-
-    @LiteralParameters("x")
-    @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThanOrEqual(@SqlType("varchar(x)") Slice left, @SqlType("varchar(x)") Slice right)
-    {
-        return left.compareTo(right) >= 0;
-    }
 
     @LiteralParameters("x")
     @ScalarOperator(CAST)
@@ -220,73 +154,5 @@ public final class VarcharOperators
     public static Slice castToBinary(@SqlType("varchar(x)") Slice slice)
     {
         return slice;
-    }
-
-    @LiteralParameters("x")
-    @ScalarOperator(HASH_CODE)
-    @SqlType(StandardTypes.BIGINT)
-    public static long hashCode(@SqlType("varchar(x)") Slice value)
-    {
-        return xxHash64(value);
-    }
-
-    @ScalarOperator(IS_DISTINCT_FROM)
-    public static final class VarcharDistinctFromOperator
-    {
-        @LiteralParameters({"x", "y"})
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean isDistinctFrom(
-                @SqlType("varchar(x)") Slice left,
-                @IsNull boolean leftNull,
-                @SqlType("varchar(y)") Slice right,
-                @IsNull boolean rightNull)
-        {
-            if (leftNull != rightNull) {
-                return true;
-            }
-            if (leftNull) {
-                return false;
-            }
-            return notEqual(left, right);
-        }
-
-        @LiteralParameters({"x", "y"})
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean isDistinctFrom(
-                @BlockPosition @SqlType(value = "varchar(x)", nativeContainerType = Slice.class) Block left,
-                @BlockIndex int leftPosition,
-                @BlockPosition @SqlType(value = "varchar(y)", nativeContainerType = Slice.class) Block right,
-                @BlockIndex int rightPosition)
-        {
-            if (left.isNull(leftPosition) != right.isNull(rightPosition)) {
-                return true;
-            }
-            if (left.isNull(leftPosition)) {
-                return false;
-            }
-
-            int leftLength = left.getSliceLength(leftPosition);
-            int rightLength = right.getSliceLength(rightPosition);
-            if (leftLength != rightLength) {
-                return true;
-            }
-            return !left.equals(leftPosition, 0, right, rightPosition, 0, leftLength);
-        }
-    }
-
-    @LiteralParameters("x")
-    @ScalarOperator(XX_HASH_64)
-    @SqlType(StandardTypes.BIGINT)
-    public static long xxHash64(@SqlType("varchar(x)") Slice slice)
-    {
-        return XxHash64.hash(slice);
-    }
-
-    @LiteralParameters("x")
-    @ScalarOperator(INDETERMINATE)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean indeterminate(@SqlType("varchar(x)") Slice value, @IsNull boolean isNull)
-    {
-        return isNull;
     }
 }

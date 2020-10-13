@@ -50,6 +50,7 @@ import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.session.PropertyMetadata;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.split.PageSinkManager;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.RecordPageSourceProvider;
@@ -103,6 +104,7 @@ public class ConnectorManager
     private final VersionEmbedder versionEmbedder;
     private final TransactionManager transactionManager;
     private final EventListenerManager eventListenerManager;
+    private final TypeOperators typeOperators;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, InternalConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -129,7 +131,8 @@ public class ConnectorManager
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager,
-            EventListenerManager eventListenerManager)
+            EventListenerManager eventListenerManager,
+            TypeOperators typeOperators)
     {
         this.metadataManager = metadataManager;
         this.catalogManager = catalogManager;
@@ -147,6 +150,7 @@ public class ConnectorManager
         this.versionEmbedder = embedVersion;
         this.transactionManager = transactionManager;
         this.eventListenerManager = eventListenerManager;
+        this.typeOperators = typeOperators;
     }
 
     @PreDestroy
@@ -340,7 +344,7 @@ public class ConnectorManager
         ConnectorContext context = new ConnectorContextInstance(
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogName),
                 versionEmbedder,
-                new InternalTypeManager(metadataManager),
+                new InternalTypeManager(metadataManager, typeOperators),
                 pageSorter,
                 pageIndexerFactory,
                 factory.getDuplicatePluginClassLoaderFactory());

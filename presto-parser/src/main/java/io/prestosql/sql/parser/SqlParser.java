@@ -50,7 +50,7 @@ public class SqlParser
         @Override
         public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String message, RecognitionException e)
         {
-            throw new ParsingException(message, e, line, charPositionInLine);
+            throw new ParsingException(message, e, line, charPositionInLine + 1);
         }
     };
     private static final BiConsumer<SqlBaseLexer, SqlBaseParser> DEFAULT_PARSER_INITIALIZER = (SqlBaseLexer lexer, SqlBaseParser parser) -> {};
@@ -188,7 +188,7 @@ public class SqlParser
         {
             Token token = context.QUOTED_IDENTIFIER().getSymbol();
             if (token.getText().length() == 2) { // empty identifier
-                throw new ParsingException("Zero-length delimited identifier not allowed", null, token.getLine(), token.getCharPositionInLine());
+                throw new ParsingException("Zero-length delimited identifier not allowed", null, token.getLine(), token.getCharPositionInLine() + 1);
             }
         }
 
@@ -200,7 +200,7 @@ public class SqlParser
                     "backquoted identifiers are not supported; use double quotes to quote identifiers",
                     null,
                     token.getLine(),
-                    token.getCharPositionInLine());
+                    token.getCharPositionInLine() + 1);
         }
 
         @Override
@@ -211,7 +211,7 @@ public class SqlParser
                     "identifiers must not start with a digit; surround the identifier with double quotes",
                     null,
                     token.getLine(),
-                    token.getCharPositionInLine());
+                    token.getCharPositionInLine() + 1);
         }
 
         @Override

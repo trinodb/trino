@@ -866,6 +866,22 @@ public abstract class AbstractTestQueries
 
         assertEquals(actual.getMaterializedRows().size(), 10);
         assertContains(all, actual);
+
+        // with ORDER BY
+        assertQuery("SELECT name FROM nation ORDER BY nationkey LIMIT 3");
+        assertQuery("SELECT name FROM nation ORDER BY regionkey LIMIT 5"); // query is deterministic because first peer group in regionkey order has 5 rows
+
+        // global aggregation, LIMIT should be removed (and connector should not prevent this from happening)
+        assertQuery("SELECT max(regionkey) FROM nation LIMIT 5");
+
+        // with aggregation
+        assertQuery("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5");
+
+        // with DISTINCT (can be expressed as DistinctLimitNode and handled differently)
+        assertQuery("SELECT DISTINCT regionkey FROM nation LIMIT 5");
+
+        // with filter and aggregation
+        assertQuery("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3");
     }
 
     @Test

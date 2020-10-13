@@ -26,6 +26,7 @@ import io.prestosql.execution.QueryManager;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.sql.TestTable;
+import io.prestosql.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -33,6 +34,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -42,6 +44,7 @@ import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.prestosql.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.DataProviders.toDataProvider;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.QueryAssertions.getPrestoExceptionCause;
@@ -84,6 +87,11 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
+    protected boolean supportsDelete()
+    {
+        return true;
+    }
+
     protected boolean supportsViews()
     {
         return true;
@@ -94,9 +102,14 @@ public abstract class AbstractTestDistributedQueries
         return true;
     }
 
+    protected boolean supportsCommentOnTable()
+    {
+        return true;
+    }
+
     protected boolean supportsCommentOnColumn()
     {
-        return false;
+        return true;
     }
 
     /**
@@ -337,43 +350,101 @@ public abstract class AbstractTestDistributedQueries
     public void testCommentTable()
     {
         String tableName = "test_comment_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + "(id integer)");
+        if (!supportsCommentOnTable()) {
+            assertUpdate("CREATE TABLE " + tableName + "(a integer)");
+            assertQueryFails("COMMENT ON TABLE " + tableName + " IS 'new comment'", "This connector does not support setting table comments");
+            assertUpdate("DROP TABLE " + tableName);
+            return;
+        }
 
+        assertUpdate("CREATE TABLE " + tableName + "(a integer)");
+
+        // comment set
         assertUpdate("COMMENT ON TABLE " + tableName + " IS 'new comment'");
-        MaterializedResult materializedRows = computeActual("SHOW CREATE TABLE " + tableName);
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'new comment'"));
+        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).contains("COMMENT 'new comment'");
+        assertThat(getTableComment(tableName)).isEqualTo("new comment");
 
+        // comment updated
+        assertUpdate("COMMENT ON TABLE " + tableName + " IS 'updated comment'");
+        assertThat(getTableComment(tableName)).isEqualTo("updated comment");
+
+        // comment set to empty or deleted
         assertUpdate("COMMENT ON TABLE " + tableName + " IS ''");
-        materializedRows = computeActual("SHOW CREATE TABLE " + tableName);
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT ''"));
+        assertThat(getTableComment(tableName)).isIn("", null); // Some storages do not preserve empty comment
 
+        // comment deleted
+        assertUpdate("COMMENT ON TABLE " + tableName + " IS 'a comment'");
+        assertThat(getTableComment(tableName)).isEqualTo("a comment");
         assertUpdate("COMMENT ON TABLE " + tableName + " IS NULL");
-        materializedRows = computeActual("SHOW CREATE TABLE " + tableName);
-        assertFalse(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT"));
+        assertThat(getTableComment(tableName)).isEqualTo(null);
 
         assertUpdate("DROP TABLE " + tableName);
+
+        // comment set when creating a table
+        assertUpdate("CREATE TABLE " + tableName + "(key integer) COMMENT 'new table comment'");
+        assertThat(getTableComment(tableName)).isEqualTo("new table comment");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private String getTableComment(String tableName)
+    {
+        // TODO use information_schema.tables.table_comment
+        String result = (String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue();
+        Matcher matcher = Pattern.compile("COMMENT '([^']*)'").matcher(result);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
     }
 
     @Test
     public void testCommentColumn()
     {
-        skipTestUnless(supportsCommentOnColumn());
+        String tableName = "test_comment_column_" + randomTableSuffix();
+        if (!supportsCommentOnColumn()) {
+            assertUpdate("CREATE TABLE " + tableName + "(a integer)");
+            assertQueryFails("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'", "This connector does not support setting column comments");
+            assertUpdate("DROP TABLE " + tableName);
+            return;
+        }
 
-        assertUpdate("CREATE TABLE test_comment_column(id integer)");
+        assertUpdate("CREATE TABLE " + tableName + "(a integer)");
 
-        assertUpdate("COMMENT ON COLUMN test_comment_column.id IS 'new comment'");
-        MaterializedResult materializedRows = computeActual("SHOW CREATE TABLE test_comment_column");
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'new comment'"));
+        // comment set
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'");
+        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).contains("COMMENT 'new comment'");
+        assertThat(getColumnComment(tableName, "a")).isEqualTo("new comment");
 
-        assertUpdate("COMMENT ON COLUMN test_comment_column.id IS ''");
-        materializedRows = computeActual("SHOW CREATE TABLE test_comment_column");
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT ''"));
+        // comment updated
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'updated comment'");
+        assertThat(getColumnComment(tableName, "a")).isEqualTo("updated comment");
 
-        assertUpdate("COMMENT ON COLUMN test_comment_column.id IS NULL");
-        materializedRows = computeActual("SHOW CREATE TABLE test_comment_column");
-        assertFalse(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT"));
+        // comment set to empty or deleted
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS ''");
+        assertThat(getColumnComment(tableName, "a")).isIn("", null); // Some storages do not preserve empty comment
 
-        assertUpdate("DROP TABLE test_comment_column");
+        // comment deleted
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'a comment'");
+        assertThat(getColumnComment(tableName, "a")).isEqualTo("a comment");
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS NULL");
+        assertThat(getColumnComment(tableName, "a")).isEqualTo(null);
+
+        assertUpdate("DROP TABLE " + tableName);
+
+        // TODO: comment set when creating a table
+//        assertUpdate("CREATE TABLE " + tableName + "(a integer COMMENT 'new column comment')");
+//        assertThat(getColumnComment(tableName, "a")).isEqualTo("new column comment");
+//        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private String getColumnComment(String tableName, String columnName)
+    {
+        MaterializedResult materializedResult = computeActual(format(
+                "SELECT comment FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'",
+                getSession().getSchema().orElseThrow(),
+                tableName,
+                columnName));
+        return (String) materializedResult.getOnlyValue();
     }
 
     @Test
@@ -594,6 +665,13 @@ public abstract class AbstractTestDistributedQueries
         // delete half the table, then delete the rest
         String tableName = "test_delete_" + randomTableSuffix();
 
+        if (!supportsDelete()) {
+            assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders WITH NO DATA", 0);
+            assertQueryFails("DELETE FROM " + tableName, "This connector does not support updates or deletes");
+            assertUpdate("DROP TABLE " + tableName);
+            return;
+        }
+
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
 
         assertUpdate("DELETE FROM " + tableName + " WHERE orderkey % 2 = 0", "SELECT count(*) FROM orders WHERE orderkey % 2 = 0");
@@ -739,7 +817,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("CREATE OR REPLACE VIEW " + testViewWithComment + " COMMENT 'orders' AS " + query);
 
         MaterializedResult materializedRows = computeActual("SHOW CREATE VIEW " + testViewWithComment);
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'orders'"));
+        assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT 'orders'");
 
         assertQuery("SELECT * FROM " + testView, query);
         assertQuery("SELECT * FROM " + testViewWithComment, query);
@@ -1178,6 +1256,7 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/5172", match = "AssertionError: expected \\[.*\\] but found \\[.*\\]")
     public void testWrittenStats()
     {
         String tableName = "test_written_stats_" + randomTableSuffix();
@@ -1284,28 +1363,42 @@ public abstract class AbstractTestDistributedQueries
     @DataProvider
     public Object[][] testColumnNameDataProvider()
     {
-        return new Object[][] {
-                {"lowercase"},
-                {"UPPERCASE"},
-                {"MixedCase"},
-                {"an_underscore"},
-                {"a-hyphen-minus"}, // ASCII '-' is HYPHEN-MINUS in Unicode
-                {"a space"},
-                {"atrailingspace "},
-                {" aleadingspace"},
-                {"a.dot"},
-                {"a,comma"},
-                {"a:colon"},
-                {"a;semicolon"},
-                {"an@at"},
-                {"a\"quote"},
-                {"an'apostrophe"},
-                {"a`backtick`"},
-                {"a/slash`"},
-                {"a\\backslash`"},
-                {"adigit0"},
-                {"0startwithdigit"},
-        };
+        return testColumnNameTestData().stream()
+                .map(this::filterColumnNameTestData)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toDataProvider());
+    }
+
+    private List<String> testColumnNameTestData()
+    {
+        return ImmutableList.<String>builder()
+                .add("lowercase")
+                .add("UPPERCASE")
+                .add("MixedCase")
+                .add("an_underscore")
+                .add("a-hyphen-minus") // ASCII '-' is HYPHEN-MINUS in Unicode
+                .add("a space")
+                .add("atrailingspace ")
+                .add(" aleadingspace")
+                .add("a.dot")
+                .add("a,comma")
+                .add("a:colon")
+                .add("a;semicolon")
+                .add("an@at")
+                .add("a\"quote")
+                .add("an'apostrophe")
+                .add("a`backtick`")
+                .add("a/slash`")
+                .add("a\\backslash`")
+                .add("adigit0")
+                .add("0startwithdigit")
+                .build();
+    }
+
+    protected Optional<String> filterColumnNameTestData(String columnName)
+    {
+        return Optional.of(columnName);
     }
 
     protected String dataMappingTableName(String prestoTypeName)

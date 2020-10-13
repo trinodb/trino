@@ -13,27 +13,47 @@
  */
 package io.prestosql.spi.type;
 
+import io.airlift.slice.XxHash64;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.IsNull;
+import io.prestosql.spi.function.ScalarOperator;
 
 import java.util.Optional;
 
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
+import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
+import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 
 public final class RealType
         extends AbstractIntType
 {
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(RealType.class, lookup(), long.class);
+
     public static final RealType REAL = new RealType();
 
     private RealType()
     {
         super(new TypeSignature(StandardTypes.REAL));
+    }
+
+    @Override
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override
@@ -43,34 +63,6 @@ public final class RealType
             return null;
         }
         return intBitsToFloat(block.getInt(position, 0));
-    }
-
-    @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition, 0));
-        float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition, 0));
-
-        // direct equality is correct here
-        // noinspection FloatingPointEquality
-        return leftValue == rightValue;
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        // convert to canonical NaN if necessary
-        return hash(floatToIntBits(intBitsToFloat(block.getInt(position, 0))));
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        // WARNING: the correctness of InCodeGenerator is dependent on the implementation of this
-        // function being the equivalence of internal long representation.
-        float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition, 0));
-        float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition, 0));
-        return Float.compare(leftValue, rightValue);
     }
 
     @Override
@@ -104,5 +96,64 @@ public final class RealType
         // The range for real is undefined because NaN is a special value that
         // is *not* in any reasonable definition of a range for this type.
         return Optional.empty();
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(long left, long right)
+    {
+        return intBitsToFloat((int) left) == intBitsToFloat((int) right);
+    }
+
+    @ScalarOperator(HASH_CODE)
+    private static long hashCodeOperator(long value)
+    {
+        float realValue = intBitsToFloat((int) value);
+        if (realValue == 0) {
+            realValue = 0;
+        }
+        return AbstractLongType.hash(floatToIntBits(realValue));
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(long value)
+    {
+        float realValue = intBitsToFloat((int) value);
+        if (realValue == 0) {
+            realValue = 0;
+        }
+        return XxHash64.hash(floatToIntBits(realValue));
+    }
+
+    @ScalarOperator(IS_DISTINCT_FROM)
+    private static boolean distinctFromOperator(long left, @IsNull boolean leftNull, long right, @IsNull boolean rightNull)
+    {
+        if (leftNull || rightNull) {
+            return leftNull != rightNull;
+        }
+
+        float leftFloat = intBitsToFloat((int) left);
+        float rightFloat = intBitsToFloat((int) right);
+        if (Float.isNaN(leftFloat) && Float.isNaN(rightFloat)) {
+            return false;
+        }
+        return leftFloat != rightFloat;
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(long left, long right)
+    {
+        return Float.compare(intBitsToFloat((int) left), intBitsToFloat((int) right));
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(long left, long right)
+    {
+        return intBitsToFloat((int) left) < intBitsToFloat((int) right);
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(long left, long right)
+    {
+        return intBitsToFloat((int) left) <= intBitsToFloat((int) right);
     }
 }

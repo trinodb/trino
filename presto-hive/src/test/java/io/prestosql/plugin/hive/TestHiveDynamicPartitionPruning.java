@@ -48,6 +48,7 @@ import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NO
 import static io.prestosql.tpch.TpchTable.getTables;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestHiveDynamicPartitionPruning
         extends AbstractTestQueryFramework
@@ -116,6 +117,7 @@ public class TestHiveDynamicPartitionPruning
         assertEquals(domainStats.getSimplifiedDomain(), none(INTEGER).toString(getSession().toConnectorSession()));
         assertEquals(domainStats.getDiscreteValuesCount(), 0);
         assertEquals(domainStats.getRangeCount(), 0);
+        assertTrue(domainStats.getCollectionDuration().isPresent());
     }
 
     @Test(timeOut = 30_000)
@@ -166,7 +168,7 @@ public class TestHiveDynamicPartitionPruning
                 range(INTEGER, 1L, true, 100L, true)), false)
                 .toString(getSession().toConnectorSession()));
         assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
+        assertEquals(domainStats.getRangeCount(), 100);
     }
 
     @Test(timeOut = 30_000)
@@ -298,7 +300,7 @@ public class TestHiveDynamicPartitionPruning
                 range(INTEGER, 1L, true, 100L, true)), false)
                 .toString(getSession().toConnectorSession()));
         assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
+        assertEquals(domainStats.getRangeCount(), 100);
     }
 
     @Test(timeOut = 30_000)

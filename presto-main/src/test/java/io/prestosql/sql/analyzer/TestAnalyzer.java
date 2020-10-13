@@ -213,6 +213,15 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testNonAggregationDistinct()
+    {
+        assertFails("SELECT lower(DISTINCT a) FROM (VALUES('foo')) AS t1(a)")
+                .hasErrorCode(FUNCTION_NOT_AGGREGATE);
+        assertFails("SELECT lower(DISTINCT max(a)) FROM (VALUES('foo')) AS t1(a)")
+                .hasErrorCode(FUNCTION_NOT_AGGREGATE);
+    }
+
+    @Test
     public void testInSubqueryTypes()
     {
         assertFails("SELECT * FROM (VALUES 'a') t(y) WHERE y IN (VALUES 1)")

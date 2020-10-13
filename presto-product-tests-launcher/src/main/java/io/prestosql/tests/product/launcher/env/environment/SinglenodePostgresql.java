@@ -22,11 +22,11 @@ import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
-import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
@@ -71,7 +71,7 @@ public final class SinglenodePostgresql
                 .withEnv("POSTGRES_DB", "test")
                 .withEnv("PGPORT", Integer.toString(POSTGRESQL_PORT))
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(new SelectedPortWaitStrategy(POSTGRESQL_PORT));
+                .waitingFor(forSelectedPorts(POSTGRESQL_PORT));
 
         portBinder.exposePort(container, POSTGRESQL_PORT);
 

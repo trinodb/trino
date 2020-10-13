@@ -26,4 +26,6 @@ public class TestAtopPlugin
         AtopPlugin plugin = new AtopPlugin();
         assertInstanceOf(getOnlyElement(plugin.getConnectorFactories()), AtopConnectorFactory.class);
     }
+
+    // TODO test factory
 }

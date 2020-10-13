@@ -68,6 +68,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> TRACE_TOKEN = new TraceToken();
     public static final ConnectionProperty<Boolean> USE_SESSION_TIMEZONE = new UseSessionTimeZone();
     public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
+    public static final ConnectionProperty<String> SOURCE = new Source();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
@@ -97,6 +98,7 @@ final class ConnectionProperties
             .add(TRACE_TOKEN)
             .add(USE_SESSION_TIMEZONE)
             .add(SESSION_PROPERTIES)
+            .add(SOURCE)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -441,6 +443,15 @@ final class ConnectionProperties
                 checkArgument(NAME_PARTS_SPLITTER.splitToList(sessionPropertyName).size() <= 2, "Malformed session property name: %s", sessionPropertyName);
             }
             return sessionProperties;
+        }
+    }
+
+    private static class Source
+            extends AbstractConnectionProperty<String>
+    {
+        public Source()
+        {
+            super("source", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 

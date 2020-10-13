@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.INSERT;
@@ -44,28 +45,34 @@ import static io.prestosql.plugin.base.util.JsonUtils.parseJson;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyCreateRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateView;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static io.prestosql.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
+import static io.prestosql.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -75,6 +82,7 @@ public class FileBasedAccessControl
     private final List<SchemaAccessControlRule> schemaRules;
     private final List<TableAccessControlRule> tableRules;
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
+    private final Set<AnySchemaPermissionsRule> anySchemaPermissionsRules;
 
     @Inject
     public FileBasedAccessControl(FileBasedAccessControlConfig config)
@@ -84,6 +92,18 @@ public class FileBasedAccessControl
         this.schemaRules = rules.getSchemaRules();
         this.tableRules = rules.getTableRules();
         this.sessionPropertyRules = rules.getSessionPropertyRules();
+        ImmutableSet.Builder<AnySchemaPermissionsRule> anySchemaPermissionsRules = ImmutableSet.builder();
+        schemaRules.stream()
+                .map(SchemaAccessControlRule::toAnySchemaPermissionsRule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(anySchemaPermissionsRules::add);
+        tableRules.stream()
+                .map(TableAccessControlRule::toAnySchemaPermissionsRule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(anySchemaPermissionsRules::add);
+        this.anySchemaPermissionsRules = anySchemaPermissionsRules.build();
     }
 
     @Override
@@ -126,7 +146,9 @@ public class FileBasedAccessControl
     @Override
     public Set<String> filterSchemas(ConnectorSecurityContext context, Set<String> schemaNames)
     {
-        return schemaNames;
+        return schemaNames.stream()
+                .filter(schemaName -> checkAnySchemaAccess(context, schemaName))
+                .collect(toImmutableSet());
     }
 
     @Override
@@ -148,7 +170,8 @@ public class FileBasedAccessControl
     @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        if (!isSchemaOwner(context, tableName.getSchemaName())) {
+        // check if user will be an owner of the table after creation
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
             denyCreateTable(tableName.toString());
         }
     }
@@ -164,12 +187,17 @@ public class FileBasedAccessControl
     @Override
     public void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
     {
+        if (!checkAnySchemaAccess(context, schemaName)) {
+            denyShowTables(schemaName);
+        }
     }
 
     @Override
     public Set<SchemaTableName> filterTables(ConnectorSecurityContext context, Set<SchemaTableName> tableNames)
     {
-        return tableNames;
+        return tableNames.stream()
+                .filter(tableName -> isSchemaOwner(context, tableName.getSchemaName()) || checkAnyTablePermission(context, tableName))
+                .collect(toImmutableSet());
     }
 
     @Override
@@ -192,6 +220,7 @@ public class FileBasedAccessControl
     @Override
     public void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName)
     {
+        // check if user owns the existing table, and if they will be an owner of the table after the rename
         if (!checkTablePermission(context, tableName, OWNERSHIP) || !checkTablePermission(context, newTableName, OWNERSHIP)) {
             denyRenameTable(tableName.toString(), newTableName.toString());
         }
@@ -265,7 +294,8 @@ public class FileBasedAccessControl
     @Override
     public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
-        if (!isSchemaOwner(context, viewName.getSchemaName())) {
+        // check if user will be an owner of the view after creation
+        if (!checkTablePermission(context, viewName, OWNERSHIP)) {
             denyCreateView(viewName.toString());
         }
     }
@@ -273,6 +303,7 @@ public class FileBasedAccessControl
     @Override
     public void checkCanRenameView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
     {
+        // check if user owns the existing view, and if they will be an owner of the view after the rename
         if (!checkTablePermission(context, viewName, OWNERSHIP) || !checkTablePermission(context, newViewName, OWNERSHIP)) {
             denyRenameView(viewName.toString(), newViewName.toString());
         }
@@ -309,62 +340,69 @@ public class FileBasedAccessControl
     @Override
     public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
-        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
-            denyGrantTablePrivilege(privilege.name(), tableName.toString());
-        }
+        // file based rules are immutable
+        denyGrantTablePrivilege(privilege.toString(), tableName.toString());
     }
 
     @Override
     public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
     {
-        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
-            denyRevokeTablePrivilege(privilege.name(), tableName.toString());
-        }
+        // file based rules are immutable
+        denyRevokeTablePrivilege(privilege.toString(), tableName.toString());
     }
 
     @Override
     public void checkCanCreateRole(ConnectorSecurityContext context, String role, Optional<PrestoPrincipal> grantor)
     {
+        denyCreateRole(role);
     }
 
     @Override
     public void checkCanDropRole(ConnectorSecurityContext context, String role)
     {
+        denyDropRole(role);
     }
 
     @Override
     public void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
+        denyGrantRoles(roles, grantees);
     }
 
     @Override
     public void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
+        denyRevokeRoles(roles, grantees);
     }
 
     @Override
     public void checkCanSetRole(ConnectorSecurityContext context, String role, String catalogName)
     {
+        denySetRole(role);
     }
 
     @Override
     public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
     {
+        // allow, no roles are supported so show will always be empty
     }
 
     @Override
     public void checkCanShowRoles(ConnectorSecurityContext context, String catalogName)
     {
+        // allow, no roles are supported so show will always be empty
     }
 
     @Override
     public void checkCanShowCurrentRoles(ConnectorSecurityContext context, String catalogName)
     {
+        // allow, no roles are supported so show will always be empty
     }
 
     @Override
     public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
     {
+        // allow, no roles are supported so show will always be empty
     }
 
     @Override
@@ -401,9 +439,9 @@ public class FileBasedAccessControl
         return checkTablePermission(context, tableName, privileges -> !privileges.isEmpty());
     }
 
-    private boolean checkTablePermission(ConnectorSecurityContext context, SchemaTableName tableName, TablePrivilege... requiredPrivileges)
+    private boolean checkTablePermission(ConnectorSecurityContext context, SchemaTableName tableName, TablePrivilege requiredPrivilege)
     {
-        return checkTablePermission(context, tableName, privileges -> privileges.containsAll(ImmutableSet.copyOf(requiredPrivileges)));
+        return checkTablePermission(context, tableName, privileges -> privileges.contains(requiredPrivilege));
     }
 
     private boolean checkTablePermission(ConnectorSecurityContext context, SchemaTableName tableName, Predicate<Set<TablePrivilege>> checkPrivileges)
@@ -420,6 +458,12 @@ public class FileBasedAccessControl
             }
         }
         return false;
+    }
+
+    private boolean checkAnySchemaAccess(ConnectorSecurityContext context, String schemaName)
+    {
+        ConnectorIdentity identity = context.getIdentity();
+        return anySchemaPermissionsRules.stream().anyMatch(rule -> rule.match(identity.getUser(), identity.getGroups(), schemaName));
     }
 
     private boolean isSchemaOwner(ConnectorSecurityContext context, String schemaName)

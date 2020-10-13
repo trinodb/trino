@@ -27,6 +27,7 @@ import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.TxnToWriteId;
 import org.apache.thrift.TException;
 
 import java.io.Closeable;
@@ -162,6 +163,12 @@ public interface ThriftMetastoreClient
     void commitTransaction(long transactionId)
             throws TException;
 
+    default void abortTransaction(long transactionId)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
     void sendTransactionHeartbeat(long transactionId)
             throws TException;
 
@@ -179,4 +186,10 @@ public interface ThriftMetastoreClient
 
     String getDelegationToken(String userName)
             throws TException;
+
+    default List<TxnToWriteId> allocateTableWriteIds(String database, String tableName, List<Long> transactionIds)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
 }

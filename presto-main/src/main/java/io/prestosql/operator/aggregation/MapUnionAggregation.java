@@ -29,8 +29,12 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,17 +48,26 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.util.Reflection.methodHandle;
+import static java.util.Objects.requireNonNull;
 
 public class MapUnionAggregation
         extends SqlAggregationFunction
 {
-    public static final MapUnionAggregation MAP_UNION = new MapUnionAggregation();
     public static final String NAME = "map_union";
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(MapUnionAggregation.class, "output", KeyValuePairsState.class, BlockBuilder.class);
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(MapUnionAggregation.class, "input", Type.class, Type.class, KeyValuePairsState.class, Block.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(MapUnionAggregation.class,
+            "input",
+            Type.class,
+            BlockPositionEqual.class,
+            BlockPositionHashCode.class,
+            Type.class,
+            KeyValuePairsState.class,
+            Block.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(MapUnionAggregation.class, "combine", KeyValuePairsState.class, KeyValuePairsState.class);
 
-    public MapUnionAggregation()
+    private final BlockTypeOperators blockTypeOperators;
+
+    public MapUnionAggregation(BlockTypeOperators blockTypeOperators)
     {
         super(
                 new FunctionMetadata(
@@ -73,35 +86,39 @@ public class MapUnionAggregation
                         AGGREGATE),
                 true,
                 false);
+        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
     @Override
     public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
     {
         MapType outputType = (MapType) functionBinding.getBoundSignature().getReturnType();
-        return ImmutableList.of(new KeyValuePairStateSerializer(outputType).getSerializedType().getTypeSignature());
+        return ImmutableList.of(outputType.getTypeSignature());
     }
 
     @Override
     public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
         Type keyType = functionBinding.getTypeVariable("K");
+        BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(keyType);
+        BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
+
         Type valueType = functionBinding.getTypeVariable("V");
         MapType outputType = (MapType) functionBinding.getBoundSignature().getReturnType();
-        return generateAggregation(keyType, valueType, outputType);
+        return generateAggregation(keyType, keyEqual, keyHashCode, valueType, outputType);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type keyType, Type valueType, MapType outputType)
+    private static InternalAggregationFunction generateAggregation(Type keyType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Type valueType, MapType outputType)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(MapUnionAggregation.class.getClassLoader());
         List<Type> inputTypes = ImmutableList.of(outputType);
-        KeyValuePairStateSerializer stateSerializer = new KeyValuePairStateSerializer(outputType);
+        KeyValuePairStateSerializer stateSerializer = new KeyValuePairStateSerializer(outputType, keyEqual, keyHashCode);
         Type intermediateType = stateSerializer.getSerializedType();
 
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(outputType),
-                INPUT_FUNCTION.bindTo(keyType).bindTo(valueType),
+                MethodHandles.insertArguments(INPUT_FUNCTION, 0, keyType, keyEqual, keyHashCode, valueType),
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
@@ -122,11 +139,17 @@ public class MapUnionAggregation
                 new ParameterMetadata(INPUT_CHANNEL, inputType));
     }
 
-    public static void input(Type keyType, Type valueType, KeyValuePairsState state, Block value)
+    public static void input(
+            Type keyType,
+            BlockPositionEqual keyEqual,
+            BlockPositionHashCode keyHashCode,
+            Type valueType,
+            KeyValuePairsState state,
+            Block value)
     {
         KeyValuePairs pairs = state.get();
         if (pairs == null) {
-            pairs = new KeyValuePairs(keyType, valueType);
+            pairs = new KeyValuePairs(keyType, keyEqual, keyHashCode, valueType);
             state.set(pairs);
         }
 

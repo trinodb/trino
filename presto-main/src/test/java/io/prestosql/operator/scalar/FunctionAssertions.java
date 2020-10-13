@@ -57,6 +57,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.ExpressionCompiler;
@@ -71,6 +72,7 @@ import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.type.BlockTypeOperators;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -141,8 +143,8 @@ import static org.testng.Assert.fail;
 public final class FunctionAssertions
         implements Closeable
 {
-    private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-%s"));
-    private static final ScheduledExecutorService SCHEDULED_EXECUTOR = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+    private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("FunctionAssertions-%s"));
+    private static final ScheduledExecutorService SCHEDULED_EXECUTOR = newScheduledThreadPool(2, daemonThreadsNamed("FunctionAssertions-scheduledExecutor-%s"));
 
     // Increase the number of fields to generate a wide column
     private static final int TEST_ROW_NUMBER_OF_FIELDS = 2500;
@@ -231,6 +233,16 @@ public final class FunctionAssertions
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    public TypeOperators getTypeOperators()
+    {
+        return runner.getTypeOperators();
+    }
+
+    public BlockTypeOperators getBlockTypeOperators()
+    {
+        return runner.getBlockTypeOperators();
     }
 
     public void installPlugin(Plugin plugin)

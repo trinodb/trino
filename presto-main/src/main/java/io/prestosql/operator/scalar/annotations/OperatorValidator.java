@@ -41,11 +41,9 @@ public final class OperatorValidator
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
                 break;
             case EQUAL:
-            case NOT_EQUAL:
+            case COMPARISON:
             case LESS_THAN:
             case LESS_THAN_OR_EQUAL:
-            case GREATER_THAN:
-            case GREATER_THAN_OR_EQUAL:
                 validateComparisonOperatorSignature(operatorType, returnType, argumentTypes, 2);
                 break;
             case CAST:

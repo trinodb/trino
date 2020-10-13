@@ -61,7 +61,7 @@ public class StatisticsFetcher
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.error("Could not fetch container %s statistics: %s", container.getLogicalName(), getStackTraceAsString(e));
             return lastStats.get();
         }

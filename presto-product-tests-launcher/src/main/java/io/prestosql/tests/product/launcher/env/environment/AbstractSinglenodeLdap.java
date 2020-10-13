@@ -20,12 +20,12 @@ import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
-import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import java.time.Duration;
 import java.util.List;
 
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.LDAP;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
@@ -81,7 +81,7 @@ public abstract class AbstractSinglenodeLdap
 
         DockerContainer container = new DockerContainer(baseImage, LDAP)
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(new SelectedPortWaitStrategy(LDAP_PORT))
+                .waitingFor(forSelectedPorts(LDAP_PORT))
                 .withStartupTimeout(Duration.ofMinutes(5));
         portBinder.exposePort(container, LDAP_PORT);
 
@@ -91,16 +91,6 @@ public abstract class AbstractSinglenodeLdap
     protected String getBaseImage()
     {
         return "centos6-oj8-openldap";
-    }
-
-    protected DockerFiles getDockerFiles()
-    {
-        return dockerFiles;
-    }
-
-    protected String getImagesVersion()
-    {
-        return imagesVersion;
     }
 
     protected abstract String getPasswordAuthenticatorConfigPath();

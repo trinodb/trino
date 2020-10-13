@@ -18,29 +18,31 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableOperations;
-import org.apache.iceberg.TableScan;
-import org.apache.iceberg.expressions.Expression;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Streams.stream;
+import static com.google.common.collect.Lists.reverse;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
+import static java.lang.String.format;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
@@ -48,6 +50,8 @@ import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 
 final class IcebergUtil
 {
+    private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
+
     private IcebergUtil() {}
 
     public static boolean isIcebergTable(io.prestosql.plugin.hive.metastore.Table table)
@@ -60,7 +64,20 @@ final class IcebergUtil
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
         HiveIdentity identity = new HiveIdentity(session);
         TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, table.getSchemaName(), table.getTableName());
-        return new BaseTable(operations, table.getSchemaName() + "." + table.getTableName());
+        return new BaseTable(operations, quotedTableName(table));
+    }
+
+    public static long resolveSnapshotId(Table table, long snapshotId)
+    {
+        if (table.snapshot(snapshotId) != null) {
+            return snapshotId;
+        }
+
+        return reverse(table.history()).stream()
+                .filter(entry -> entry.timestampMillis() <= snapshotId)
+                .map(HistoryEntry::snapshotId)
+                .findFirst()
+                .orElseThrow(() -> new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", snapshotId, table)));
     }
 
     public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)
@@ -107,18 +124,16 @@ final class IcebergUtil
         return Optional.ofNullable(table.properties().get(TABLE_COMMENT));
     }
 
-    public static TableScan getTableScan(ConnectorSession session, TupleDomain<IcebergColumnHandle> predicates, Optional<Long> snapshotId, Table icebergTable)
+    private static String quotedTableName(SchemaTableName name)
     {
-        Expression expression = ExpressionConverter.toIcebergExpression(predicates);
-        TableScan tableScan = icebergTable.newScan().filter(expression);
-        return snapshotId
-                .map(id -> isSnapshot(icebergTable, id) ? tableScan.useSnapshot(id) : tableScan.asOfTime(id))
-                .orElse(tableScan);
+        return quotedName(name.getSchemaName()) + "." + quotedName(name.getTableName());
     }
 
-    private static boolean isSnapshot(Table icebergTable, Long id)
+    private static String quotedName(String name)
     {
-        return stream(icebergTable.snapshots())
-                .anyMatch(snapshot -> snapshot.snapshotId() == id);
+        if (SIMPLE_NAME.matcher(name).matches()) {
+            return name;
+        }
+        return '"' + name.replace("\"", "\"\"") + '"';
     }
 }

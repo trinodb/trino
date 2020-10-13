@@ -29,12 +29,13 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionXxHash64;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.Signature.comparableTypeParameter;
@@ -45,19 +46,21 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.util.Reflection.methodHandle;
+import static java.util.Objects.requireNonNull;
 
 public class ChecksumAggregationFunction
         extends SqlAggregationFunction
 {
-    public static final ChecksumAggregationFunction CHECKSUM_AGGREGATION = new ChecksumAggregationFunction();
     @VisibleForTesting
     public static final long PRIME64 = 0x9E3779B185EBCA87L;
     private static final String NAME = "checksum";
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ChecksumAggregationFunction.class, "output", NullableLongState.class, BlockBuilder.class);
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(ChecksumAggregationFunction.class, "input", Type.class, NullableLongState.class, Block.class, int.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(ChecksumAggregationFunction.class, "input", BlockPositionXxHash64.class, NullableLongState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(ChecksumAggregationFunction.class, "combine", NullableLongState.class, NullableLongState.class);
 
-    public ChecksumAggregationFunction()
+    private final BlockTypeOperators blockTypeOperators;
+
+    public ChecksumAggregationFunction(BlockTypeOperators blockTypeOperators)
     {
         super(
                 new FunctionMetadata(
@@ -76,6 +79,7 @@ public class ChecksumAggregationFunction
                         AGGREGATE),
                 true,
                 false);
+        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
     @Override
@@ -88,20 +92,19 @@ public class ChecksumAggregationFunction
     public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
         Type valueType = functionBinding.getTypeVariable("T");
-        return generateAggregation(valueType);
+        BlockPositionXxHash64 xxHash64Operator = blockTypeOperators.getXxHash64Operator(valueType);
+        return generateAggregation(valueType, xxHash64Operator);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type type)
+    private static InternalAggregationFunction generateAggregation(Type type, BlockPositionXxHash64 xxHash64Operator)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(ChecksumAggregationFunction.class.getClassLoader());
 
-        List<Type> inputTypes = ImmutableList.of(type);
-
         AccumulatorStateSerializer<NullableLongState> stateSerializer = StateCompiler.generateStateSerializer(NullableLongState.class, classLoader);
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
+                generateAggregationName(NAME, type.getTypeSignature(), ImmutableList.of(type.getTypeSignature())),
                 createInputParameterMetadata(type),
-                INPUT_FUNCTION.bindTo(type),
+                INPUT_FUNCTION.bindTo(xxHash64Operator),
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
@@ -112,7 +115,7 @@ public class ChecksumAggregationFunction
                 VARBINARY);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(stateSerializer.getSerializedType()), VARBINARY, factory);
+        return new InternalAggregationFunction(NAME, ImmutableList.of(type), ImmutableList.of(stateSerializer.getSerializedType()), VARBINARY, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)
@@ -120,14 +123,14 @@ public class ChecksumAggregationFunction
         return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, type), new ParameterMetadata(BLOCK_INDEX));
     }
 
-    public static void input(Type type, NullableLongState state, Block block, int position)
+    public static void input(BlockPositionXxHash64 xxHash64Operator, NullableLongState state, Block block, int position)
     {
         state.setNull(false);
         if (block.isNull(position)) {
             state.setLong(state.getLong() + PRIME64);
         }
         else {
-            state.setLong(state.getLong() + type.hash(block, position) * PRIME64);
+            state.setLong(state.getLong() + xxHash64Operator.xxHash64(block, position) * PRIME64);
         }
     }
 

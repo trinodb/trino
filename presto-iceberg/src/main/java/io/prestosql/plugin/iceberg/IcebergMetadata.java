@@ -64,6 +64,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
@@ -81,9 +82,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -128,6 +131,8 @@ public class IcebergMetadata
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
+
+    private final Map<String, Optional<Long>> snapshotIds = new ConcurrentHashMap<>();
 
     private Transaction transaction;
 
@@ -174,42 +179,64 @@ public class IcebergMetadata
     @Override
     public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        IcebergTableHandle handle = IcebergTableHandle.from(tableName);
-        Optional<Table> table = metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName());
-        if (table.isEmpty()) {
+        IcebergTableName name = IcebergTableName.from(tableName.getTableName());
+        verify(name.getTableType() == DATA, "Wrong table type: " + name.getTableType());
+
+        Optional<Table> hiveTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), name.getTableName());
+        if (hiveTable.isEmpty()) {
             return null;
         }
-        if (handle.getTableType() != DATA) {
-            throw new PrestoException(NOT_SUPPORTED, "Table type not yet supported: " + handle.getSchemaTableNameWithType());
-        }
-        if (!isIcebergTable(table.get())) {
+        if (!isIcebergTable(hiveTable.get())) {
             throw new UnknownTableTypeException(tableName);
         }
-        return handle;
+
+        org.apache.iceberg.Table table = getIcebergTable(metastore, hdfsEnvironment, session, hiveTable.get().getSchemaTableName());
+        Optional<Long> snapshotId = getSnapshotId(table, name.getSnapshotId());
+
+        return new IcebergTableHandle(
+                tableName.getSchemaName(),
+                name.getTableName(),
+                name.getTableType(),
+                snapshotId,
+                TupleDomain.all());
     }
 
     @Override
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
-        IcebergTableHandle table = IcebergTableHandle.from(tableName);
-        return getRawSystemTable(session, table)
+        return getRawSystemTable(session, tableName)
                 .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
     }
 
-    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, IcebergTableHandle table)
+    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
-        switch (table.getTableType()) {
-            case PARTITIONS:
-                return Optional.of(new PartitionTable(table, typeManager, icebergTable));
+        IcebergTableName name = IcebergTableName.from(tableName.getTableName());
+
+        Optional<Table> hiveTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), name.getTableName());
+        if (hiveTable.isEmpty() || !isIcebergTable(hiveTable.get())) {
+            return Optional.empty();
+        }
+
+        org.apache.iceberg.Table table = getIcebergTable(metastore, hdfsEnvironment, session, hiveTable.get().getSchemaTableName());
+
+        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
+        switch (name.getTableType()) {
             case HISTORY:
-                return Optional.of(new HistoryTable(table.getSchemaTableNameWithType(), icebergTable));
+                if (name.getSnapshotId().isPresent()) {
+                    throw new PrestoException(NOT_SUPPORTED, "Snapshot ID not supported for history table: " + systemTableName);
+                }
+                return Optional.of(new HistoryTable(systemTableName, table));
             case SNAPSHOTS:
-                return Optional.of(new SnapshotsTable(table.getSchemaTableNameWithType(), typeManager, icebergTable));
+                if (name.getSnapshotId().isPresent()) {
+                    throw new PrestoException(NOT_SUPPORTED, "Snapshot ID not supported for snapshots table: " + systemTableName);
+                }
+                return Optional.of(new SnapshotsTable(systemTableName, typeManager, table));
+            case PARTITIONS:
+                return Optional.of(new PartitionTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId())));
             case MANIFESTS:
-                return Optional.of(new ManifestsTable(table.getSchemaTableNameWithType(), icebergTable, table.getSnapshotId()));
+                return Optional.of(new ManifestsTable(systemTableName, table, getSnapshotId(table, name.getSnapshotId())));
             case FILES:
-                return Optional.of(new FilesTable(table.getSchemaTableNameWithType(), icebergTable, table.getSnapshotId(), typeManager));
+                return Optional.of(new FilesTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId())));
         }
         return Optional.empty();
     }
@@ -660,6 +687,13 @@ public class IcebergMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
-        return TableStatisticsMaker.getTableStatistics(typeManager, session, constraint, handle, icebergTable);
+        return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable);
+    }
+
+    private Optional<Long> getSnapshotId(org.apache.iceberg.Table table, Optional<Long> snapshotId)
+    {
+        return snapshotIds.computeIfAbsent(table.toString(), ignored -> snapshotId
+                .map(id -> IcebergUtil.resolveSnapshotId(table, id))
+                .or(() -> Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId)));
     }
 }

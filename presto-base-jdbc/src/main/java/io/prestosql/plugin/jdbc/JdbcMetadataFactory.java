@@ -36,6 +36,6 @@ public class JdbcMetadataFactory
 
     public JdbcMetadata create()
     {
-        return new JdbcMetadata(new CachingJdbcClient(jdbcClient, new Duration(1, TimeUnit.DAYS), true), allowDropTable);
+        return new JdbcMetadata(new TransactionCachingJdbcClient(jdbcClient, new Duration(1, TimeUnit.DAYS)), allowDropTable);
     }
 }

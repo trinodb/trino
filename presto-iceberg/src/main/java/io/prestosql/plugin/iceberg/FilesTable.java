@@ -44,7 +44,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.plugin.iceberg.IcebergUtil.getTableScan;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TypeSignature.mapType;
@@ -59,7 +58,7 @@ public class FilesTable
     private final Table icebergTable;
     private final Optional<Long> snapshotId;
 
-    public FilesTable(SchemaTableName tableName, Table icebergTable, Optional<Long> snapshotId, TypeManager typeManager)
+    public FilesTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId)
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
 
@@ -95,14 +94,20 @@ public class FilesTable
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        return new FixedPageSource(buildPages(tableMetadata, session, icebergTable, snapshotId));
+        if (snapshotId.isEmpty()) {
+            return new FixedPageSource(ImmutableList.of());
+        }
+        return new FixedPageSource(buildPages(tableMetadata, icebergTable, snapshotId.get()));
     }
 
-    private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, ConnectorSession session, Table icebergTable, Optional<Long> snapshotId)
+    private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, Table icebergTable, long snapshotId)
     {
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
-        TableScan tableScan = getTableScan(session, TupleDomain.all(), snapshotId, icebergTable).includeColumnStats();
         Map<Integer, Type> idToTypeMapping = getIcebergIdToTypeMapping(icebergTable.schema());
+
+        TableScan tableScan = icebergTable.newScan()
+                .useSnapshot(snapshotId)
+                .includeColumnStats();
 
         tableScan.planFiles().forEach(fileScanTask -> {
             DataFile dataFile = fileScanTask.file();

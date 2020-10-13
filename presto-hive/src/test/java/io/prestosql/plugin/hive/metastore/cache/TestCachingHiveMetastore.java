@@ -22,6 +22,7 @@ import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveMetastoreClosure;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
@@ -32,6 +33,7 @@ import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreStats;
 import io.prestosql.spi.predicate.TupleDomain;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -75,6 +77,7 @@ public class TestCachingHiveMetastore
             .build();
 
     private MockThriftMetastoreClient mockClient;
+    private ListeningExecutorService executor;
     private CachingHiveMetastore metastore;
     private ThriftMetastoreStats stats;
 
@@ -83,7 +86,7 @@ public class TestCachingHiveMetastore
     {
         mockClient = new MockThriftMetastoreClient();
         ThriftHiveMetastore thriftHiveMetastore = createThriftHiveMetastore();
-        ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
+        executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s")));
         metastore = (CachingHiveMetastore) cachingHiveMetastore(
                 new BridgingHiveMetastore(thriftHiveMetastore),
                 executor,
@@ -93,10 +96,18 @@ public class TestCachingHiveMetastore
         stats = thriftHiveMetastore.getStats();
     }
 
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        executor.shutdownNow();
+        executor = null;
+        metastore = null;
+    }
+
     private ThriftHiveMetastore createThriftHiveMetastore()
     {
         MetastoreLocator metastoreLocator = new MockMetastoreLocator(mockClient);
-        return new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), HDFS_ENVIRONMENT, false);
+        return new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new MetastoreConfig(), new ThriftMetastoreConfig(), HDFS_ENVIRONMENT, false);
     }
 
     @Test

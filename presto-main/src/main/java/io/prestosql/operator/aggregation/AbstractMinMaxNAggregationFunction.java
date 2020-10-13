@@ -30,6 +30,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.type.BlockTypeOperators.BlockPositionComparison;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -55,14 +56,14 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractMinMaxNAggregationFunction
         extends SqlAggregationFunction
 {
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(AbstractMinMaxNAggregationFunction.class, "input", BlockComparator.class, Type.class, MinMaxNState.class, Block.class, long.class, int.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(AbstractMinMaxNAggregationFunction.class, "input", BlockPositionComparison.class, Type.class, MinMaxNState.class, Block.class, long.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(AbstractMinMaxNAggregationFunction.class, "combine", MinMaxNState.class, MinMaxNState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(AbstractMinMaxNAggregationFunction.class, "output", ArrayType.class, MinMaxNState.class, BlockBuilder.class);
     private static final long MAX_NUMBER_OF_VALUES = 10_000;
 
-    private final Function<Type, BlockComparator> typeToComparator;
+    private final Function<Type, BlockPositionComparison> typeToComparator;
 
-    protected AbstractMinMaxNAggregationFunction(String name, Function<Type, BlockComparator> typeToComparator, String description)
+    protected AbstractMinMaxNAggregationFunction(String name, Function<Type, BlockPositionComparison> typeToComparison, String description)
     {
         super(
                 new FunctionMetadata(
@@ -83,8 +84,8 @@ public abstract class AbstractMinMaxNAggregationFunction
                         AGGREGATE),
                 true,
                 false);
-        requireNonNull(typeToComparator);
-        this.typeToComparator = typeToComparator;
+        requireNonNull(typeToComparison);
+        this.typeToComparator = typeToComparison;
     }
 
     @Override
@@ -105,9 +106,9 @@ public abstract class AbstractMinMaxNAggregationFunction
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(AbstractMinMaxNAggregationFunction.class.getClassLoader());
 
-        BlockComparator comparator = typeToComparator.apply(type);
+        BlockPositionComparison comparison = typeToComparator.apply(type);
         List<Type> inputTypes = ImmutableList.of(type, BIGINT);
-        MinMaxNStateSerializer stateSerializer = new MinMaxNStateSerializer(comparator, type);
+        MinMaxNStateSerializer stateSerializer = new MinMaxNStateSerializer(comparison, type);
         Type intermediateType = stateSerializer.getSerializedType();
         ArrayType outputType = new ArrayType(type);
 
@@ -121,7 +122,7 @@ public abstract class AbstractMinMaxNAggregationFunction
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(name, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
-                INPUT_FUNCTION.bindTo(comparator).bindTo(type),
+                INPUT_FUNCTION.bindTo(comparison).bindTo(type),
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION.bindTo(outputType),
@@ -135,7 +136,7 @@ public abstract class AbstractMinMaxNAggregationFunction
         return new InternalAggregationFunction(name, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 
-    public static void input(BlockComparator comparator, Type type, MinMaxNState state, Block block, long n, int blockIndex)
+    public static void input(BlockPositionComparison comparison, Type type, MinMaxNState state, Block block, long n, int blockIndex)
     {
         TypedHeap heap = state.getTypedHeap();
         if (heap == null) {
@@ -143,7 +144,7 @@ public abstract class AbstractMinMaxNAggregationFunction
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "second argument of max_n/min_n must be positive");
             }
             checkCondition(n <= MAX_NUMBER_OF_VALUES, INVALID_FUNCTION_ARGUMENT, "second argument of max_n/min_n must be less than or equal to %s; found %s", MAX_NUMBER_OF_VALUES, n);
-            heap = new TypedHeap(comparator, type, toIntExact(n));
+            heap = new TypedHeap(comparison, type, toIntExact(n));
             state.setTypedHeap(heap);
         }
         long startSize = heap.getEstimatedSize();

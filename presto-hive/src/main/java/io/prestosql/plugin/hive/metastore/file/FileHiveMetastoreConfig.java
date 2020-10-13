@@ -32,9 +32,10 @@ public class FileHiveMetastoreConfig
 
     @Config("hive.metastore.catalog.dir")
     @ConfigDescription("Hive file-based metastore catalog directory")
-    public void setCatalogDirectory(String catalogDirectory)
+    public FileHiveMetastoreConfig setCatalogDirectory(String catalogDirectory)
     {
         this.catalogDirectory = catalogDirectory;
+        return this;
     }
 
     @NotNull
@@ -45,9 +46,10 @@ public class FileHiveMetastoreConfig
 
     @Config("hive.metastore.user")
     @ConfigDescription("Hive file-based metastore username for file access")
-    public void setMetastoreUser(String metastoreUser)
+    public FileHiveMetastoreConfig setMetastoreUser(String metastoreUser)
     {
         this.metastoreUser = metastoreUser;
+        return this;
     }
 
     public boolean isAssumeCanonicalPartitionKeys()

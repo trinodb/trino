@@ -17,11 +17,13 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.TestingTaskContext;
 import io.prestosql.tpch.LineItem;
 import io.prestosql.tpch.LineItemGenerator;
+import io.prestosql.type.BlockTypeOperators;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -82,8 +84,8 @@ public class BenchmarkDynamicFilterSourceOperator
         @Setup
         public void setup()
         {
-            executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+            executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
 
             pages = createInputPages(positionsPerPage);
 
@@ -98,7 +100,8 @@ public class BenchmarkDynamicFilterSourceOperator
                     ImmutableList.of(new DynamicFilterSourceOperator.Channel(new DynamicFilterId("0"), BIGINT, 0)),
                     maxDistinctValuesCount,
                     DataSize.ofBytes(Long.MAX_VALUE),
-                    minMaxCollectionLimit);
+                    minMaxCollectionLimit,
+                    new BlockTypeOperators(new TypeOperators()));
         }
 
         @TearDown

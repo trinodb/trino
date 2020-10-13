@@ -29,6 +29,7 @@ import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.block.ArrayBlockEncoding;
+import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.block.ByteArrayBlockEncoding;
@@ -97,6 +98,7 @@ import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeNotFoundException;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
@@ -104,15 +106,19 @@ import io.prestosql.sql.planner.ConnectorExpressions;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.transaction.TransactionManager;
+import io.prestosql.type.BlockTypeOperators;
 import io.prestosql.type.FunctionType;
 import io.prestosql.type.InternalTypeManager;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -133,11 +139,12 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.metadata.FunctionId.toFunctionId;
+import static com.google.common.primitives.Primitives.wrap;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
+import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.INVALID_VIEW;
@@ -145,22 +152,20 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -174,6 +179,7 @@ public final class MetadataManager
         implements Metadata
 {
     private final FunctionRegistry functions;
+    private final TypeOperators typeOperators;
     private final FunctionResolver functionResolver;
     private final ProcedureRegistry procedures;
     private final SessionPropertyManager sessionPropertyManager;
@@ -197,10 +203,12 @@ public final class MetadataManager
             TablePropertyManager tablePropertyManager,
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
-            TransactionManager transactionManager)
+            TransactionManager transactionManager,
+            TypeOperators typeOperators,
+            BlockTypeOperators blockTypeOperators)
     {
         typeRegistry = new TypeRegistry(featuresConfig);
-        functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig);
+        functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators);
         functionResolver = new FunctionResolver(this);
 
         this.procedures = new ProcedureRegistry(this);
@@ -210,6 +218,7 @@ public final class MetadataManager
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
 
         // add the built-in BlockEncodings
         addBlockEncoding(new VariableWidthBlockEncoding());
@@ -221,14 +230,14 @@ public final class MetadataManager
         addBlockEncoding(new Int128ArrayBlockEncoding());
         addBlockEncoding(new DictionaryBlockEncoding());
         addBlockEncoding(new ArrayBlockEncoding());
-        addBlockEncoding(new MapBlockEncoding(new InternalTypeManager(this)));
-        addBlockEncoding(new SingleMapBlockEncoding(new InternalTypeManager(this)));
+        addBlockEncoding(new MapBlockEncoding(new InternalTypeManager(this, typeOperators)));
+        addBlockEncoding(new SingleMapBlockEncoding(new InternalTypeManager(this, typeOperators)));
         addBlockEncoding(new RowBlockEncoding());
         addBlockEncoding(new SingleRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
         addBlockEncoding(new LazyBlockEncoding());
 
-        verifyComparableOrderableContract();
+        verifyTypes();
 
         functionDecoder = new ResolvedFunctionDecoder(this::getType);
     }
@@ -255,6 +264,7 @@ public final class MetadataManager
 
     public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig)
     {
+        TypeOperators typeOperators = new TypeOperators();
         return new MetadataManager(
                 featuresConfig,
                 new SessionPropertyManager(),
@@ -262,7 +272,9 @@ public final class MetadataManager
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
-                transactionManager);
+                transactionManager,
+                typeOperators,
+                new BlockTypeOperators(typeOperators));
     }
 
     @Override
@@ -275,21 +287,6 @@ public final class MetadataManager
     public boolean catalogExists(Session session, String catalogName)
     {
         return getOptionalCatalogMetadata(session, catalogName).isPresent();
-    }
-
-    private boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
-    {
-        FunctionId functionId = toFunctionId(new Signature(
-                mangleOperatorName(operatorType),
-                returnType.getTypeSignature(),
-                argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())));
-        try {
-            functions.get(functionId);
-            return true;
-        }
-        catch (IllegalStateException e) {
-            return false;
-        }
     }
 
     @Override
@@ -1494,19 +1491,19 @@ public final class MetadataManager
     @Override
     public Type getType(TypeSignature signature)
     {
-        return typeRegistry.getType(new InternalTypeManager(this), signature);
+        return typeRegistry.getType(new InternalTypeManager(this, typeOperators), signature);
     }
 
     @Override
     public Type fromSqlType(String sqlType)
     {
-        return typeRegistry.fromSqlType(new InternalTypeManager(this), sqlType);
+        return typeRegistry.fromSqlType(new InternalTypeManager(this, typeOperators), sqlType);
     }
 
     @Override
     public Type getType(TypeId id)
     {
-        return typeRegistry.getType(new InternalTypeManager(this), id);
+        return typeRegistry.getType(new InternalTypeManager(this, typeOperators), id);
     }
 
     @Override
@@ -1532,42 +1529,142 @@ public final class MetadataManager
     }
 
     @Override
-    public void verifyComparableOrderableContract()
+    public void verifyTypes()
     {
+        Set<Type> missingOperatorDeclaration = new HashSet<>();
         Multimap<Type, OperatorType> missingOperators = HashMultimap.create();
         for (Type type : typeRegistry.getTypes()) {
+            if (type.getTypeOperatorDeclaration(typeOperators) == null) {
+                missingOperatorDeclaration.add(type);
+                continue;
+            }
             if (type.isComparable()) {
-                for (OperatorType operator : ImmutableList.of(HASH_CODE, XX_HASH_64)) {
-                    if (!canResolveOperator(operator, BIGINT, ImmutableList.of(type))) {
-                        missingOperators.put(type, operator);
-                    }
+                if (!hasEqualMethod(type)) {
+                    missingOperators.put(type, EQUAL);
                 }
-                for (OperatorType operator : ImmutableList.of(INDETERMINATE)) {
-                    if (!canResolveOperator(operator, BOOLEAN, ImmutableList.of(type))) {
-                        missingOperators.put(type, operator);
-                    }
+                if (!hasHashCodeMethod(type)) {
+                    missingOperators.put(type, HASH_CODE);
                 }
-                for (OperatorType operator : ImmutableList.of(EQUAL, NOT_EQUAL, IS_DISTINCT_FROM)) {
-                    if (!canResolveOperator(operator, BOOLEAN, ImmutableList.of(type, type))) {
-                        missingOperators.put(type, operator);
-                    }
+                if (!hasXxHash64Method(type)) {
+                    missingOperators.put(type, XX_HASH_64);
+                }
+                if (!hasDistinctFromMethod(type)) {
+                    missingOperators.put(type, IS_DISTINCT_FROM);
+                }
+                if (!hasIndeterminateMethod(type)) {
+                    missingOperators.put(type, INDETERMINATE);
                 }
             }
             if (type.isOrderable()) {
-                for (OperatorType operator : ImmutableList.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL)) {
-                    if (!canResolveOperator(operator, BOOLEAN, ImmutableList.of(type, type))) {
-                        missingOperators.put(type, operator);
-                    }
+                if (!hasComparisonMethod(type)) {
+                    missingOperators.put(type, COMPARISON);
+                }
+                if (!hasLessThanMethod(type)) {
+                    missingOperators.put(type, LESS_THAN);
+                }
+                if (!hasLessThanOrEqualMethod(type)) {
+                    missingOperators.put(type, LESS_THAN_OR_EQUAL);
                 }
             }
         }
         // TODO: verify the parametric types too
         if (!missingOperators.isEmpty()) {
             List<String> messages = new ArrayList<>();
+            for (Type type : missingOperatorDeclaration) {
+                messages.add(format("%s types operators is null", type));
+            }
             for (Type type : missingOperators.keySet()) {
                 messages.add(format("%s missing for %s", missingOperators.get(type), type));
             }
             throw new IllegalStateException(Joiner.on(", ").join(messages));
+        }
+    }
+
+    private boolean hasEqualMethod(Type type)
+    {
+        try {
+            typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasHashCodeMethod(Type type)
+    {
+        try {
+            typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasXxHash64Method(Type type)
+    {
+        try {
+            typeOperators.getXxHash64Operator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasDistinctFromMethod(Type type)
+    {
+        try {
+            typeOperators.getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasIndeterminateMethod(Type type)
+    {
+        try {
+            typeOperators.getIndeterminateOperator(type, simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasComparisonMethod(Type type)
+    {
+        try {
+            typeOperators.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (UnsupportedOperationException e) {
+            return false;
+        }
+    }
+
+    private boolean hasLessThanMethod(Type type)
+    {
+        try {
+            typeOperators.getLessThanOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (UnsupportedOperationException e) {
+            return false;
+        }
+    }
+
+    private boolean hasLessThanOrEqualMethod(Type type)
+    {
+        try {
+            typeOperators.getLessThanOrEqualOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (UnsupportedOperationException e) {
+            return false;
         }
     }
 
@@ -1773,7 +1870,99 @@ public final class MetadataManager
     {
         InvocationConvention expectedConvention = invocationConvention.orElseGet(() -> getDefaultCallingConvention(resolvedFunction));
         FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        return functions.getScalarFunctionInvoker(toFunctionBinding(resolvedFunction), functionDependencies, expectedConvention);
+        FunctionInvoker functionInvoker = functions.getScalarFunctionInvoker(toFunctionBinding(resolvedFunction), functionDependencies, expectedConvention);
+        verifyMethodHandleSignature(resolvedFunction.getSignature(), functionInvoker, expectedConvention);
+        return functionInvoker;
+    }
+
+    private static void verifyMethodHandleSignature(BoundSignature boundSignature, FunctionInvoker functionInvoker, InvocationConvention convention)
+    {
+        MethodHandle methodHandle = functionInvoker.getMethodHandle();
+        MethodType methodType = methodHandle.type();
+
+        checkArgument(convention.getArgumentConventions().size() == boundSignature.getArgumentTypes().size(),
+                "Expected %s arguments, but got %s", boundSignature.getArgumentTypes().size(), convention.getArgumentConventions().size());
+
+        int expectedParameterCount = convention.getArgumentConventions().stream()
+                .mapToInt(InvocationArgumentConvention::getParameterCount)
+                .sum();
+        expectedParameterCount += methodType.parameterList().stream().filter(ConnectorSession.class::equals).count();
+        if (functionInvoker.getInstanceFactory().isPresent()) {
+            expectedParameterCount++;
+        }
+        checkArgument(expectedParameterCount == methodType.parameterCount(),
+                "Expected %s method parameters, but got %s", expectedParameterCount, methodType.parameterCount());
+
+        int parameterIndex = 0;
+        if (functionInvoker.getInstanceFactory().isPresent()) {
+            verifyFunctionSignature(convention.supportsInstanceFactor(), "Method requires instance factory, but calling convention does not support an instance factory");
+            MethodHandle factoryMethod = functionInvoker.getInstanceFactory().orElseThrow();
+            verifyFunctionSignature(methodType.parameterType(parameterIndex).equals(factoryMethod.type().returnType()), "Invalid return type");
+            parameterIndex++;
+        }
+
+        int lambdaArgumentIndex = 0;
+        for (int argumentIndex = 0; argumentIndex < boundSignature.getArgumentTypes().size(); argumentIndex++) {
+            // skip session parameters
+            while (methodType.parameterType(parameterIndex).equals(ConnectorSession.class)) {
+                verifyFunctionSignature(convention.supportsSession(), "Method requires session, but calling convention does not support session");
+                parameterIndex++;
+            }
+
+            Class<?> parameterType = methodType.parameterType(parameterIndex);
+            Type argumentType = boundSignature.getArgumentTypes().get(argumentIndex);
+            InvocationArgumentConvention argumentConvention = convention.getArgumentConvention(argumentIndex);
+            switch (argumentConvention) {
+                case NEVER_NULL:
+                    verifyFunctionSignature(parameterType.isAssignableFrom(argumentType.getJavaType()),
+                            "Expected argument type to be %s, but is %s", argumentType, parameterType);
+                    break;
+                case NULL_FLAG:
+                    verifyFunctionSignature(parameterType.isAssignableFrom(argumentType.getJavaType()),
+                            "Expected argument type to be %s, but is %s", argumentType.getJavaType(), parameterType);
+                    verifyFunctionSignature(methodType.parameterType(parameterIndex + 1).equals(boolean.class),
+                            "Expected null flag parameter to be followed by a boolean parameter");
+                    break;
+                case BOXED_NULLABLE:
+                    verifyFunctionSignature(parameterType.isAssignableFrom(wrap(argumentType.getJavaType())),
+                            "Expected argument type to be %s, but is %s", wrap(argumentType.getJavaType()), parameterType);
+                    break;
+                case BLOCK_POSITION:
+                    verifyFunctionSignature(parameterType.equals(Block.class) && methodType.parameterType(parameterIndex + 1).equals(int.class),
+                            "Expected BLOCK_POSITION argument have parameters Block and int");
+                    break;
+                case FUNCTION:
+                    Class<?> lambdaInterface = functionInvoker.getLambdaInterfaces().get(lambdaArgumentIndex);
+                    verifyFunctionSignature(parameterType.equals(lambdaInterface),
+                            "Expected function interface to be %s, but is %s", lambdaInterface, parameterType);
+                    lambdaArgumentIndex++;
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unknown argument convention: " + argumentConvention);
+            }
+            parameterIndex += argumentConvention.getParameterCount();
+        }
+
+        Type returnType = boundSignature.getReturnType();
+        switch (convention.getReturnConvention()) {
+            case FAIL_ON_NULL:
+                verifyFunctionSignature(methodType.returnType().isAssignableFrom(returnType.getJavaType()),
+                        "Expected return type to be %s, but is %s", returnType.getJavaType(), methodType.returnType());
+                break;
+            case NULLABLE_RETURN:
+                verifyFunctionSignature(methodType.returnType().isAssignableFrom(wrap(returnType.getJavaType())),
+                        "Expected return type to be %s, but is %s", returnType.getJavaType(), wrap(methodType.returnType()));
+                break;
+            default:
+                throw new UnsupportedOperationException("Unknown return convention: " + convention.getReturnConvention());
+        }
+    }
+
+    private static void verifyFunctionSignature(boolean check, String message, Object... args)
+    {
+        if (!check) {
+            throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format(message, args));
+        }
     }
 
     /**

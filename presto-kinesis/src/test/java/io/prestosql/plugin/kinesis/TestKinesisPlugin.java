@@ -22,11 +22,8 @@ import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -39,30 +36,13 @@ import static org.testng.Assert.assertTrue;
 public class TestKinesisPlugin
 {
     @Test
-    public ConnectorFactory testConnectorExists()
+    public void testCreateConnector()
     {
         KinesisPlugin plugin = new KinesisPlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
 
-        // Create factory manually to double check everything is done right
-        Iterable<ConnectorFactory> iteratable = plugin.getConnectorFactories();
-
-        List<ConnectorFactory> factories = new ArrayList<>();
-        for (ConnectorFactory connectorFactory : iteratable) {
-            factories.add(connectorFactory);
-        }
-        assertNotNull(factories);
-        assertEquals(factories.size(), 1);
-        ConnectorFactory factory = factories.get(0);
-        assertNotNull(factory);
-        return factory;
-    }
-
-    @Test
-    public void testSpinUp()
-    {
         String accessKey = "kinesis.accessKey";
         String secretKey = "kinesis.secretKey";
-        ConnectorFactory factory = testConnectorExists();
         // Important: this has to be created before we setup the injector in the factory:
         assertNotNull(factory.getHandleResolver());
 
@@ -81,5 +61,7 @@ public class TestKinesisPlugin
 
         ConnectorTransactionHandle handle = c.beginTransaction(READ_COMMITTED, true);
         assertTrue(handle instanceof KinesisTransactionHandle);
+
+        c.shutdown();
     }
 }

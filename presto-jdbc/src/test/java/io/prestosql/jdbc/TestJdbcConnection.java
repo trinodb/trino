@@ -290,6 +290,33 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testSource()
+            throws SQLException
+    {
+        try (Connection connection = createConnection("source=testing")) {
+            assertConnectionSource(connection, "testing");
+        }
+
+        try (Connection connection = createConnection("source=testing&applicationNamePrefix=fruit:")) {
+            assertConnectionSource(connection, "testing");
+        }
+
+        try (Connection connection = createConnection("source=testing")) {
+            connection.setClientInfo("ApplicationName", "testingApplicationName");
+            assertConnectionSource(connection, "testing");
+        }
+
+        try (Connection connection = createConnection("source=testing&applicationNamePrefix=fruit:")) {
+            connection.setClientInfo("ApplicationName", "testingApplicationName");
+            assertConnectionSource(connection, "testing");
+        }
+
+        try (Connection connection = createConnection()) {
+            assertConnectionSource(connection, "presto-jdbc");
+        }
+    }
+
+    @Test
     public void testExtraCredentials()
             throws SQLException
     {

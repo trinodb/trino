@@ -19,7 +19,8 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
-import io.prestosql.type.TypeUtils;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -62,6 +63,8 @@ public class GroupedTypedHistogram
     private final int bucketId;
 
     private final Type type;
+    private final BlockPositionEqual equalOperator;
+    private final BlockPositionHashCode hashCodeOperator;
     private final BlockBuilder values;
     private final BucketNodeFactory bucketNodeFactory;
     //** these parallel arrays represent a node in the hash table; index -> int, value -> long
@@ -91,10 +94,12 @@ public class GroupedTypedHistogram
     //
     private final ValueStore valueStore;
 
-    public GroupedTypedHistogram(Type type, int expectedCount)
+    public GroupedTypedHistogram(Type type, BlockPositionEqual equalOperator, BlockPositionHashCode hashCodeOperator, int expectedCount)
     {
         checkArgument(expectedCount > 0, "expectedSize must be greater than zero");
-        this.type = type;
+        this.type = requireNonNull(type, "type is null");
+        this.equalOperator = requireNonNull(equalOperator, "equalOperator is null");
+        this.hashCodeOperator = requireNonNull(hashCodeOperator, "hashCodeOperator is null");
         this.bucketId = expectedCount;
         this.bucketCount = computeBucketCount(expectedCount, MAX_FILL_RATIO);
         this.mask = bucketCount - 1;
@@ -117,7 +122,7 @@ public class GroupedTypedHistogram
         // index into counts/valuePositions
         nextNodePointer = 0;
         bucketNodeFactory = this.new BucketNodeFactory();
-        valueStore = new ValueStore(expectedCount, values);
+        valueStore = new ValueStore(type, equalOperator, expectedCount, values);
     }
 
     /**
@@ -125,9 +130,9 @@ public class GroupedTypedHistogram
      *
      * @param block of the form [key1, count1, key2, count2, ...]
      */
-    public GroupedTypedHistogram(long groupId, Block block, Type type, int bucketId)
+    public GroupedTypedHistogram(long groupId, Block block, Type type, BlockPositionEqual equalOperator, BlockPositionHashCode hashCodeOperator, int bucketId)
     {
-        this(type, bucketId);
+        this(type, equalOperator, hashCodeOperator, bucketId);
         currentGroupId = (int) groupId;
         requireNonNull(block, "block is null");
         for (int i = 0; i < block.getPositionCount(); i += 2) {
@@ -442,7 +447,7 @@ public class GroupedTypedHistogram
             checkState(isEmpty(), "bucket %s not empty, points to %s", bucketId, buckets.get(bucketId));
 
             // we've already computed the value hash for only the value only; ValueStore will save it for future use
-            int nextValuePosition = valueStore.addAndGetPosition(type, block, position, valueHash);
+            int nextValuePosition = valueStore.addAndGetPosition(block, position, valueHash);
             // set value pointer to hash map of values
             valuePositions.set(nodePointerToUse, nextValuePosition);
             // save hashes for future rehashing
@@ -469,7 +474,7 @@ public class GroupedTypedHistogram
          */
         private BucketDataNode createBucketDataNode(long groupId, Block block, int position)
         {
-            long valueHash = murmurHash3(TypeUtils.hashPosition(type, block, position));
+            long valueHash = murmurHash3(hashCodeOperator.hashCodeNullSafe(block, position));
             long groupIdHash = murmurHash3(groupId);
             long valueAndGroupHash = combineGroupAndValueHash(groupIdHash, valueHash);
             int bucketId = (int) (valueAndGroupHash & mask);
@@ -500,7 +505,7 @@ public class GroupedTypedHistogram
         {
             long existingGroupId = groupIds.get(nodePointer);
 
-            return existingGroupId == groupId && type.equalTo(block, position, values, valuePosition);
+            return existingGroupId == groupId && equalOperator.equal(block, position, values, valuePosition);
         }
 
         private ValueNode createValueNode(int nodePointer)

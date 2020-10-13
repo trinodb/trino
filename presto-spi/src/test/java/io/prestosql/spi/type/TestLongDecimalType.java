@@ -13,14 +13,19 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.Test;
 
+import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static java.lang.Math.signum;
 import static org.testng.Assert.assertEquals;
@@ -28,6 +33,7 @@ import static org.testng.Assert.assertEquals;
 public class TestLongDecimalType
 {
     private static final LongDecimalType TYPE = (LongDecimalType) LongDecimalType.createDecimalType(20, 10);
+    private static final MethodHandle TYPE_COMPARISON = new TypeOperators().getComparisonOperator(TYPE, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
 
     @Test
     public void testCompareTo()
@@ -54,8 +60,14 @@ public class TestLongDecimalType
 
     private void testCompare(String decimalA, String decimalB, int expected)
     {
-        int actual = TYPE.compareTo(decimalAsBlock(decimalA), 0, decimalAsBlock(decimalB), 0);
-        assertEquals((int) signum(actual), (int) signum(expected), "bad comparison result for " + decimalA + ", " + decimalB);
+        try {
+            long actual = (long) TYPE_COMPARISON.invokeExact(decimalAsBlock(decimalA), 0, decimalAsBlock(decimalB), 0);
+            assertEquals((int) signum(actual), (int) signum(expected), "bad comparison result for " + decimalA + ", " + decimalB);
+        }
+        catch (Throwable throwable) {
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
+        }
     }
 
     private Block decimalAsBlock(String value)

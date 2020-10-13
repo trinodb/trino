@@ -14,6 +14,10 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.prestosql.metadata.BoundSignature;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionId;
 import io.prestosql.spi.connector.ConnectorSession;
 import org.testng.annotations.Test;
 
@@ -22,6 +26,7 @@ import java.util.Optional;
 
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.util.Reflection.methodHandle;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -35,14 +40,16 @@ public class TestParametricScalarImplementationValidation
     {
         // Without cached instance factory
         MethodHandle validFunctionMethodHandle = methodHandle(TestParametricScalarImplementationValidation.class, "validConnectorSessionParameterPosition", ConnectorSession.class, long.class, long.class);
-        ScalarFunctionImplementation validFunction = new ScalarFunctionImplementation(
+        ChoicesScalarFunctionImplementation validFunction = new ChoicesScalarFunctionImplementation(
+                new FunctionBinding(new FunctionId("test"), new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)), ImmutableMap.of(), ImmutableMap.of()),
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 validFunctionMethodHandle);
         assertEquals(validFunction.getChoices().get(0).getMethodHandle(), validFunctionMethodHandle);
 
         try {
-            ScalarFunctionImplementation invalidFunction = new ScalarFunctionImplementation(
+            new ChoicesScalarFunctionImplementation(
+                    new FunctionBinding(new FunctionId("test"), new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)), ImmutableMap.of(), ImmutableMap.of()),
                     FAIL_ON_NULL,
                     ImmutableList.of(NEVER_NULL, NEVER_NULL),
                     methodHandle(TestParametricScalarImplementationValidation.class, "invalidConnectorSessionParameterPosition", long.class, long.class, ConnectorSession.class));
@@ -54,7 +61,8 @@ public class TestParametricScalarImplementationValidation
 
         // With cached instance factory
         MethodHandle validFunctionWithInstanceFactoryMethodHandle = methodHandle(TestParametricScalarImplementationValidation.class, "validConnectorSessionParameterPosition", Object.class, ConnectorSession.class, long.class, long.class);
-        ScalarFunctionImplementation validFunctionWithInstanceFactory = new ScalarFunctionImplementation(
+        ChoicesScalarFunctionImplementation validFunctionWithInstanceFactory = new ChoicesScalarFunctionImplementation(
+                new FunctionBinding(new FunctionId("test"), new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)), ImmutableMap.of(), ImmutableMap.of()),
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 validFunctionWithInstanceFactoryMethodHandle,
@@ -62,7 +70,8 @@ public class TestParametricScalarImplementationValidation
         assertEquals(validFunctionWithInstanceFactory.getChoices().get(0).getMethodHandle(), validFunctionWithInstanceFactoryMethodHandle);
 
         try {
-            ScalarFunctionImplementation invalidFunctionWithInstanceFactory = new ScalarFunctionImplementation(
+            new ChoicesScalarFunctionImplementation(
+                    new FunctionBinding(new FunctionId("test"), new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)), ImmutableMap.of(), ImmutableMap.of()),
                     FAIL_ON_NULL,
                     ImmutableList.of(NEVER_NULL, NEVER_NULL),
                     methodHandle(TestParametricScalarImplementationValidation.class, "invalidConnectorSessionParameterPosition", Object.class, long.class, long.class, ConnectorSession.class),

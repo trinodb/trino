@@ -31,6 +31,7 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spiller.Spiller;
 import io.prestosql.spiller.SpillerFactory;
 import io.prestosql.sql.gen.JoinCompiler;
@@ -39,6 +40,7 @@ import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.TestingTaskContext;
+import io.prestosql.type.BlockTypeOperators;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -108,15 +110,25 @@ public class TestHashAggregationOperator
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
-    private JoinCompiler joinCompiler = new JoinCompiler(createTestMetadataManager());
+    private final TypeOperators typeOperators = new TypeOperators();
+    private final BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
+    private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
     private DummySpillerFactory spillerFactory;
 
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
         spillerFactory = new DummySpillerFactory();
+    }
+
+    @AfterMethod(alwaysRun = true)
+    public void tearDown()
+    {
+        spillerFactory = null;
+        executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
     }
 
     @DataProvider(name = "hashEnabled")
@@ -144,14 +156,6 @@ public class TestHashAggregationOperator
     public Object[][] dataType()
     {
         return new Object[][] {{VARCHAR}, {BIGINT}};
-    }
-
-    @AfterMethod(alwaysRun = true)
-    public void tearDown()
-    {
-        spillerFactory = null;
-        executor.shutdownNow();
-        scheduledExecutor.shutdownNow();
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
@@ -197,6 +201,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler,
+                blockTypeOperators,
                 false);
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
@@ -254,6 +259,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler,
+                blockTypeOperators,
                 false);
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
@@ -302,6 +308,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler,
+                blockTypeOperators,
                 false);
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -344,6 +351,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
+                blockTypeOperators,
                 false);
 
         toPages(operatorFactory, driverContext, input);
@@ -384,6 +392,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler,
+                blockTypeOperators,
                 false);
 
         toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
@@ -406,6 +415,7 @@ public class TestHashAggregationOperator
                 1,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
+                blockTypeOperators,
                 false);
 
         // get result with yield; pick a relatively small buffer for aggregator's memory usage
@@ -458,6 +468,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
+                blockTypeOperators,
                 false);
 
         toPages(operatorFactory, driverContext, input);
@@ -492,6 +503,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
+                blockTypeOperators,
                 false);
 
         assertEquals(toPages(operatorFactory, createDriverContext(), input).size(), 2);
@@ -523,6 +535,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(1, KILOBYTE)),
                 joinCompiler,
+                blockTypeOperators,
                 true);
 
         DriverContext driverContext = createDriverContext(1024);
@@ -609,6 +622,7 @@ public class TestHashAggregationOperator
                 succinctBytes(Integer.MAX_VALUE),
                 spillerFactory,
                 joinCompiler,
+                blockTypeOperators,
                 false);
 
         DriverContext driverContext = createDriverContext(smallPagesSpillThresholdSize);
@@ -665,6 +679,7 @@ public class TestHashAggregationOperator
                 succinctBytes(Integer.MAX_VALUE),
                 new FailingSpillerFactory(),
                 joinCompiler,
+                blockTypeOperators,
                 false);
 
         try {
@@ -706,6 +721,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
+                blockTypeOperators,
                 useSystemMemory);
 
         DriverContext driverContext = createDriverContext(1024);

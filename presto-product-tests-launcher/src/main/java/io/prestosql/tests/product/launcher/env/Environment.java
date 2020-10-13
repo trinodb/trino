@@ -83,13 +83,20 @@ public final class Environment
     private final int startupRetries;
     private final Map<String, DockerContainer> containers;
     private final Optional<EnvironmentListener> listener;
+    private final boolean attached;
 
-    private Environment(String name, int startupRetries, Map<String, DockerContainer> containers, Optional<EnvironmentListener> listener)
+    private Environment(
+            String name,
+            int startupRetries,
+            Map<String, DockerContainer> containers,
+            Optional<EnvironmentListener> listener,
+            boolean attached)
     {
         this.name = requireNonNull(name, "name is null");
         this.startupRetries = startupRetries;
         this.containers = requireNonNull(containers, "containers is null");
         this.listener = requireNonNull(listener, "listener is null");
+        this.attached = attached;
     }
 
     public Environment start()
@@ -118,19 +125,24 @@ public final class Environment
     {
         pruneEnvironment();
 
+        // Reset containerId so that containers can start when failed in previous attempt
+        List<DockerContainer> containers = ImmutableList.copyOf(this.containers.values());
+        for (DockerContainer container : containers) {
+            container.reset();
+        }
+
         // Create new network when environment tries to start
         try (Network network = createNetwork(name)) {
-            List<DockerContainer> containers = ImmutableList.copyOf(this.containers.values());
             attachNetwork(containers, network);
 
             String containerNames = Joiner.on(", ").join(getContainerNames());
             log.info("Starting containers %s for environment %s", containerNames, name);
 
-            for (DockerContainer container : containers) {
-                container.reset();
-            }
-
             Startables.deepStart(containers).get();
+
+            // After deepStart all containers should be running and healthy
+            checkState(allContainersHealthy(containers), "Not all containers are running or healthy");
+
             this.listener.ifPresent(listener -> listener.environmentStarted(this));
             return this;
         }
@@ -138,13 +150,14 @@ public final class Environment
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
-        catch (ExecutionException e) {
+        catch (ExecutionException | RuntimeException e) {
             throw new RuntimeException(e);
         }
     }
 
     public void stop()
     {
+        checkState(!attached, "Cannot stop environment that is attached");
         this.listener.ifPresent(listener -> listener.environmentStopping(this));
 
         // Allow containers to take up to 5 minutes to stop
@@ -185,7 +198,7 @@ public final class Environment
             log.info("Interrupted");
             // It's OK not to restore interrupt flag here. When we return we're exiting the process.
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Could not query for containers state: %s", getStackTraceAsString(e));
         }
     }
@@ -204,7 +217,7 @@ public final class Environment
             while (testContainer.isRunning()) {
                 Thread.sleep(10000); // check every 10 seconds
 
-                if (!allContainersHealthy(containers)) {
+                if (!attached && !allContainersHealthy(containers)) {
                     log.warn("Environment %s is not healthy, interrupting tests", name);
                     return ENVIRONMENT_FAILED_EXIT_CODE;
                 }
@@ -251,15 +264,20 @@ public final class Environment
     @Override
     public void close()
     {
+        if (attached) {
+            // do not stop attached, externally controlled environment
+            return;
+        }
+
         try {
             stop();
         }
-        catch (Exception e) {
-            log.warn("Exception occured while closing environment: %s", getStackTraceAsString(e));
+        catch (RuntimeException e) {
+            log.warn("Exception occurred while closing environment: %s", getStackTraceAsString(e));
         }
     }
 
-    public static boolean allContainersHealthy(Iterable<DockerContainer> containers)
+    private static boolean allContainersHealthy(Iterable<DockerContainer> containers)
     {
         return Streams.stream(containers)
                 .allMatch(Environment::containerIsHealthy);
@@ -306,6 +324,7 @@ public final class Environment
         private int startupRetries = 1;
         private Map<String, DockerContainer> containers = new HashMap<>();
         private Optional<Path> logsBaseDir = Optional.empty();
+        private boolean attached;
 
         public Builder(String name)
         {
@@ -315,6 +334,15 @@ public final class Environment
         public String getEnvironmentName()
         {
             return name;
+        }
+
+        public Builder containerDependsOn(String container, String dependencyContainer)
+        {
+            checkState(containers.containsKey(container), "Container with name %s is not registered", name);
+            checkState(containers.containsKey(dependencyContainer), "Dependency container with name %s is not registered", dependencyContainer);
+            containers.get(container).dependsOn(containers.get(dependencyContainer));
+
+            return this;
         }
 
         public Builder addContainers(DockerContainer... containers)
@@ -369,10 +397,10 @@ public final class Environment
         private static List<Ulimit> standardUlimits()
         {
             return ImmutableList.of(
-                // Number of open file descriptors
-                new Ulimit("nofile", 65535L, 65535L),
-                // Number of processes
-                new Ulimit("nproc", 8096L, 8096L));
+                    // Number of open file descriptors
+                    new Ulimit("nofile", 65535L, 65535L),
+                    // Number of processes
+                    new Ulimit("nproc", 8096L, 8096L));
         }
 
         public Builder configureContainer(String logicalName, Consumer<DockerContainer> configurer)
@@ -477,7 +505,7 @@ public final class Environment
                         });
             });
 
-            return new Environment(name, startupRetries, containers, listener);
+            return new Environment(name, startupRetries, containers, listener, attached);
         }
 
         private static Consumer<OutputFrame> writeContainerLogs(DockerContainer container, Path path)
@@ -526,6 +554,12 @@ public final class Environment
         public Builder setLogsBaseDir(Optional<Path> baseDir)
         {
             this.logsBaseDir = baseDir;
+            return this;
+        }
+
+        public Builder setAttached(boolean attached)
+        {
+            this.attached = attached;
             return this;
         }
     }

@@ -19,15 +19,21 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 
 public class KeyValuePairStateSerializer
         implements AccumulatorStateSerializer<KeyValuePairsState>
 {
     private final MapType mapType;
+    private final BlockPositionEqual keyEqual;
+    private final BlockPositionHashCode keyHashCode;
 
-    public KeyValuePairStateSerializer(MapType mapType)
+    public KeyValuePairStateSerializer(MapType mapType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode)
     {
         this.mapType = mapType;
+        this.keyEqual = keyEqual;
+        this.keyHashCode = keyHashCode;
     }
 
     @Override
@@ -50,6 +56,6 @@ public class KeyValuePairStateSerializer
     @Override
     public void deserialize(Block block, int index, KeyValuePairsState state)
     {
-        state.set(new KeyValuePairs(mapType.getObject(block, index), state.getKeyType(), state.getValueType()));
+        state.set(new KeyValuePairs(mapType.getObject(block, index), state.getKeyType(), keyEqual, keyHashCode, state.getValueType()));
     }
 }

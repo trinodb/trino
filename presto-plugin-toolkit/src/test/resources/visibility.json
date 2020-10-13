@@ -1,0 +1,49 @@
+{
+    "schemas": [
+        {
+            "schema": "hidden",
+            "owner": false
+        },
+        {
+            "schema": "secret",
+            "owner": false
+        },
+        {
+            "user": "admin",
+            "owner": true
+        },
+        {
+            "user": "bob",
+            "schema": "bob-schema",
+            "owner": true
+        }
+    ],
+    "tables": [
+        {
+            "schema": "secret",
+            "privileges": []
+        },
+        {
+            "user": "alice",
+            "schema": "alice-schema",
+            "privileges": [
+                "SELECT"
+            ]
+        },
+        {
+            "user": "bob",
+            "schema": "bob-schema",
+            "table": "bob.*",
+            "privileges": [
+                "SELECT"
+            ]
+        },
+        {
+            "schema": "specific-schema",
+            "table": "specific-table",
+            "privileges": [
+                "SELECT"
+            ]
+        }
+    ]
+}

@@ -19,6 +19,7 @@ import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
+import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 
 import java.util.Optional;
@@ -67,7 +68,8 @@ public class StatefulSleepingSum
     protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
         int args = 4;
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 nCopies(args, NEVER_NULL),
                 methodHandle(StatefulSleepingSum.class, "statefulSleepingSum", State.class, double.class, long.class, long.class, long.class),

@@ -15,6 +15,7 @@ package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
 
 import java.util.ArrayList;
@@ -22,11 +23,14 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.addExact;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class NestedLoopJoinPagesBuilder
 {
     private final OperatorContext operatorContext;
+    private int emptyChannelPositionCounter;
     private List<Page> pages;
     private boolean finished;
 
@@ -40,15 +44,35 @@ public class NestedLoopJoinPagesBuilder
 
     public void addPage(Page page)
     {
-        checkState(!finished, "NestedLoopJoinPagesBuilder is finished");
+        checkNotFinished();
 
         // ignore empty pages
         if (page.getPositionCount() == 0) {
             return;
         }
 
+        // Fast path for empty output channels
+        if (page.getChannelCount() == 0) {
+            updatePagePositionCounter(page.getPositionCount());
+            return;
+        }
+
         pages.add(page);
         estimatedSize += page.getRetainedSizeInBytes();
+    }
+
+    private void updatePagePositionCounter(int positions)
+    {
+        // Overflow should not be possible here since both arguments start as ints
+        long nextPositionCount = addExact(this.emptyChannelPositionCounter, (long) positions);
+        while (nextPositionCount >= PageProcessor.MAX_BATCH_SIZE) {
+            nextPositionCount -= PageProcessor.MAX_BATCH_SIZE;
+            Page flushed = new Page(PageProcessor.MAX_BATCH_SIZE);
+            pages.add(flushed);
+            estimatedSize += flushed.getRetainedSizeInBytes();
+        }
+        // Overflow should not occur since MAX_BATCH_SIZE is itself a positive integer
+        this.emptyChannelPositionCounter = toIntExact(nextPositionCount);
     }
 
     public DataSize getEstimatedSize()
@@ -58,7 +82,7 @@ public class NestedLoopJoinPagesBuilder
 
     public void compact()
     {
-        checkState(!finished, "NestedLoopJoinPagesBuilder is finished");
+        checkNotFinished();
 
         long estimatedSize = 0L;
         for (Page page : pages) {
@@ -70,11 +94,24 @@ public class NestedLoopJoinPagesBuilder
 
     public NestedLoopJoinPages build()
     {
-        checkState(!finished, "NestedLoopJoinPagesBuilder is already finished");
+        checkNotFinished();
+
+        // Flush the position counter if we're in empty channels mode
+        if (emptyChannelPositionCounter > 0) {
+            Page output = new Page(emptyChannelPositionCounter);
+            pages.add(output);
+            estimatedSize += output.getRetainedSizeInBytes();
+            this.emptyChannelPositionCounter = 0;
+        }
 
         finished = true;
         pages = ImmutableList.copyOf(pages);
         return new NestedLoopJoinPages(pages, getEstimatedSize(), operatorContext);
+    }
+
+    private void checkNotFinished()
+    {
+        checkState(!finished, "NestedLoopJoinPagesBuilder is already finished");
     }
 
     @Override

@@ -35,20 +35,21 @@ public class DynamicFilterConfig
 {
     private boolean enableDynamicFiltering = true;
     private boolean enableLargeDynamicFilters;
+    private int serviceThreadCount = 2;
 
     private int smallBroadcastMaxDistinctValuesPerDriver = 100;
     private DataSize smallBroadcastMaxSizePerDriver = DataSize.of(10, KILOBYTE);
     private int smallBroadcastRangeRowLimitPerDriver;
-    private int smallPartitionedMaxDistinctValuesPerDriver = 100;
+    private int smallPartitionedMaxDistinctValuesPerDriver = 10;
     private DataSize smallPartitionedMaxSizePerDriver = DataSize.of(10, KILOBYTE);
     private int smallPartitionedRangeRowLimitPerDriver;
 
     private int largeBroadcastMaxDistinctValuesPerDriver = 5_000;
     private DataSize largeBroadcastMaxSizePerDriver = DataSize.of(500, KILOBYTE);
-    private int largeBroadcastRangeRowLimitPerDriver = 50_000;
+    private int largeBroadcastRangeRowLimitPerDriver;
     private int largePartitionedMaxDistinctValuesPerDriver = 500;
     private DataSize largePartitionedMaxSizePerDriver = DataSize.of(50, KILOBYTE);
-    private int largePartitionedRangeRowLimitPerDriver = 5_000;
+    private int largePartitionedRangeRowLimitPerDriver;
 
     public boolean isEnableDynamicFiltering()
     {
@@ -72,6 +73,19 @@ public class DynamicFilterConfig
     public DynamicFilterConfig setEnableLargeDynamicFilters(boolean enableLargeDynamicFilters)
     {
         this.enableLargeDynamicFilters = enableLargeDynamicFilters;
+        return this;
+    }
+
+    @Min(1)
+    public int getServiceThreadCount()
+    {
+        return serviceThreadCount;
+    }
+
+    @Config("dynamic-filtering.service-thread-count")
+    public DynamicFilterConfig setServiceThreadCount(int serviceThreadCount)
+    {
+        this.serviceThreadCount = serviceThreadCount;
         return this;
     }
 

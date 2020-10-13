@@ -25,6 +25,8 @@ import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -36,6 +38,7 @@ import static io.prestosql.util.StructuralTestUtil.appendToBlockBuilder;
 public final class StructuralTestUtil
 {
     private static final Metadata METADATA = createTestMetadataManager();
+    private static final BlockTypeOperators TYPE_OPERATORS_CACHE = new BlockTypeOperators();
 
     private StructuralTestUtil() {}
 
@@ -44,11 +47,12 @@ public final class StructuralTestUtil
         if (block1.getPositionCount() != block2.getPositionCount()) {
             return false;
         }
+        BlockPositionEqual elementEqualOperator = TYPE_OPERATORS_CACHE.getEqualOperator(elementType);
         for (int i = 0; i < block1.getPositionCount(); i++) {
             if (block1.isNull(i) != block2.isNull(i)) {
                 return false;
             }
-            if (!block1.isNull(i) && !elementType.equalTo(block1, i, block2, i)) {
+            if (!block1.isNull(i) && !elementEqualOperator.equal(block1, i, block2, i)) {
                 return false;
             }
         }
@@ -60,14 +64,17 @@ public final class StructuralTestUtil
         if (block1.getPositionCount() != block2.getPositionCount()) {
             return false;
         }
+
+        BlockPositionEqual keyEqualOperator = TYPE_OPERATORS_CACHE.getEqualOperator(keyType);
+        BlockPositionEqual valueEqualOperator = TYPE_OPERATORS_CACHE.getEqualOperator(valueType);
         for (int i = 0; i < block1.getPositionCount(); i += 2) {
             if (block1.isNull(i) != block2.isNull(i) || block1.isNull(i + 1) != block2.isNull(i + 1)) {
                 return false;
             }
-            if (!block1.isNull(i) && !keyType.equalTo(block1, i, block2, i)) {
+            if (!block1.isNull(i) && !keyEqualOperator.equal(block1, i, block2, i)) {
                 return false;
             }
-            if (!block1.isNull(i + 1) && !valueType.equalTo(block1, i + 1, block2, i + 1)) {
+            if (!block1.isNull(i + 1) && !valueEqualOperator.equal(block1, i + 1, block2, i + 1)) {
                 return false;
             }
         }

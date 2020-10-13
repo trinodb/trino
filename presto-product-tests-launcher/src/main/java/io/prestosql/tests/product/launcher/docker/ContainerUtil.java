@@ -21,7 +21,9 @@ import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Network;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
+import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.DockerClientFactory;
+import org.testcontainers.containers.wait.strategy.WaitStrategy;
 
 import java.util.List;
 import java.util.function.Function;
@@ -79,5 +81,10 @@ public final class ContainerUtil
     {
         container.addExposedPort(port);
         container.withFixedExposedPort(port, port);
+    }
+
+    public static WaitStrategy forSelectedPorts(int... ports)
+    {
+        return new SelectedPortWaitStrategy(ports);
     }
 }

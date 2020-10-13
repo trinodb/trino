@@ -75,6 +75,7 @@ import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.LikePatternType.LIKE_PATTERN;
 import static io.prestosql.type.MapParametricType.MAP;
 import static io.prestosql.type.RowParametricType.ROW;
+import static io.prestosql.type.TDigestType.TDIGEST;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.type.UuidType.UUID;
 import static io.prestosql.type.setdigest.SetDigestType.SET_DIGEST;
@@ -120,6 +121,7 @@ final class TypeRegistry
         addType(CODE_POINTS);
         addType(IPADDRESS);
         addType(UUID);
+        addType(TDIGEST);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);

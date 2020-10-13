@@ -14,19 +14,28 @@
 package io.prestosql.spi.type;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.block.LongArrayBlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.ScalarOperator;
 
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackOffsetMinutes;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackTimeNanos;
-import static io.prestosql.spi.type.TimeWithTimezoneTypes.hashShortTimeWithTimeZone;
-import static io.prestosql.spi.type.TimeWithTimezoneTypes.normalizeNanos;
+import static io.prestosql.spi.type.TimeWithTimezoneTypes.normalizePackedTime;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 
 /**
  * Encodes time with time zone up to p = 9.
@@ -34,6 +43,8 @@ import static java.lang.String.format;
 class ShortTimeWithTimeZoneType
         extends TimeWithTimeZoneType
 {
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(ShortTimeWithTimeZoneType.class, lookup(), long.class);
+
     public ShortTimeWithTimeZoneType(int precision)
     {
         super(precision, long.class);
@@ -41,6 +52,12 @@ class ShortTimeWithTimeZoneType
         if (precision < 0 || precision > MAX_SHORT_PRECISION) {
             throw new IllegalArgumentException(format("Precision must be in the range [0, %s]", MAX_SHORT_PRECISION));
         }
+    }
+
+    @Override
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override
@@ -79,31 +96,6 @@ class ShortTimeWithTimeZoneType
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long left = leftBlock.getLong(leftPosition, 0);
-        long right = rightBlock.getLong(rightPosition, 0);
-
-        return normalizeNanos(unpackTimeNanos(left), unpackOffsetMinutes(left)) == normalizeNanos(unpackTimeNanos(right), unpackOffsetMinutes(right));
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        long packedTime = block.getLong(position, 0);
-        return hashShortTimeWithTimeZone(packedTime);
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long left = leftBlock.getLong(leftPosition, 0);
-        long right = rightBlock.getLong(rightPosition, 0);
-
-        return Long.compare(normalizeNanos(unpackTimeNanos(left), unpackOffsetMinutes(left)), normalizeNanos(unpackTimeNanos(right), unpackOffsetMinutes(right)));
-    }
-
-    @Override
     public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         int maxBlockSizeInBytes;
@@ -139,5 +131,41 @@ class ShortTimeWithTimeZoneType
 
         long value = block.getLong(position, 0);
         return SqlTimeWithTimeZone.newInstance(getPrecision(), unpackTimeNanos(value) * PICOSECONDS_PER_NANOSECOND, unpackOffsetMinutes(value));
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(long leftPackedTime, long rightPackedTime)
+    {
+        return normalizePackedTime(leftPackedTime) == normalizePackedTime(rightPackedTime);
+    }
+
+    @ScalarOperator(HASH_CODE)
+    private static long hashCodeOperator(long packedTime)
+    {
+        return AbstractLongType.hash(normalizePackedTime(packedTime));
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(long packedTime)
+    {
+        return XxHash64.hash(normalizePackedTime(packedTime));
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(long left, long right)
+    {
+        return Long.compare(normalizePackedTime(left), normalizePackedTime(right));
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(long left, long right)
+    {
+        return normalizePackedTime(left) < normalizePackedTime(right);
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(long left, long right)
+    {
+        return normalizePackedTime(left) <= normalizePackedTime(right);
     }
 }

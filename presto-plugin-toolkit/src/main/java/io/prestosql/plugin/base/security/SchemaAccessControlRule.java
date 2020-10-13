@@ -24,6 +24,12 @@ import static java.util.Objects.requireNonNull;
 
 public class SchemaAccessControlRule
 {
+    public static final SchemaAccessControlRule ALLOW_ALL = new SchemaAccessControlRule(
+            true,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+
     private final boolean owner;
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> groupRegex;
@@ -50,5 +56,33 @@ public class SchemaAccessControlRule
             return Optional.of(owner);
         }
         return Optional.empty();
+    }
+
+    Optional<AnySchemaPermissionsRule> toAnySchemaPermissionsRule()
+    {
+        if (!owner) {
+            return Optional.empty();
+        }
+        return Optional.of(new AnySchemaPermissionsRule(userRegex, groupRegex, schemaRegex));
+    }
+
+    boolean isOwner()
+    {
+        return owner;
+    }
+
+    Optional<Pattern> getUserRegex()
+    {
+        return userRegex;
+    }
+
+    Optional<Pattern> getGroupRegex()
+    {
+        return groupRegex;
+    }
+
+    Optional<Pattern> getSchemaRegex()
+    {
+        return schemaRegex;
     }
 }

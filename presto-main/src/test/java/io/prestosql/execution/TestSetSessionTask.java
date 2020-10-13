@@ -48,8 +48,8 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingSession.createBogusTestingCatalog;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -89,36 +89,33 @@ public class TestSetSessionTask
                         "test property",
                         null,
                         false),
-                new PropertyMetadata<>(
+                integerProperty(
                         "positive_property",
                         "property that should be positive",
-                        INTEGER,
-                        Integer.class,
                         null,
-                        false,
                         TestSetSessionTask::validatePositive,
-                        value -> value));
+                        false));
 
         metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), sessionProperties);
 
         catalogManager.registerCatalog(bogusTestingCatalog);
     }
 
-    private static int validatePositive(Object value)
+    private static void validatePositive(Object value)
     {
         int intValue = ((Number) value).intValue();
         if (intValue < 0) {
             throw new PrestoException(INVALID_SESSION_PROPERTY, MUST_BE_POSITIVE);
         }
-        return intValue;
     }
 
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%s"));
+    private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
+        executor = null;
     }
 
     @Test

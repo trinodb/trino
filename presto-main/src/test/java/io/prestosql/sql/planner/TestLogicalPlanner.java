@@ -19,8 +19,8 @@ import io.airlift.slice.Slices;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchTableHandle;
-import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -40,6 +40,7 @@ import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
+import io.prestosql.sql.planner.plan.ExplainAnalyzeNode;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.JoinNode;
@@ -1527,6 +1528,16 @@ public class TestLogicalPlanner
                                                 tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey"))),
                                         anyTree(
                                                 values("T_A"))))));
+    }
+
+    @Test
+    public void testExplainAnalyze()
+    {
+        assertPlan("EXPLAIN ANALYZE SELECT regionkey FROM nation",
+                output(
+                        node(ExplainAnalyzeNode.class,
+                                exchange(LOCAL, GATHER,
+                                        strictTableScan("nation", ImmutableMap.of("regionkey", "regionkey"))))));
     }
 
     private Session noJoinReordering()

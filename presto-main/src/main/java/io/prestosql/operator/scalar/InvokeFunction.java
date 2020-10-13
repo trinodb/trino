@@ -67,10 +67,11 @@ public final class InvokeFunction
     protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
         Type returnType = functionBinding.getTypeVariable("T");
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
                 NULLABLE_RETURN,
                 ImmutableList.of(FUNCTION),
-                ImmutableList.of(Optional.of(InvokeLambda.class)),
+                ImmutableList.of(InvokeLambda.class),
                 METHOD_HANDLE.asType(
                         METHOD_HANDLE.type()
                                 .changeReturnType(Primitives.wrap(returnType.getJavaType()))),

@@ -69,7 +69,8 @@ public class ArrayToJsonCast
 
         JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(type);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(writer);
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 methodHandle);

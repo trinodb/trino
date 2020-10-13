@@ -13,12 +13,9 @@
  */
 package io.prestosql.operator.scalar.timestamptz;
 
-import io.airlift.slice.XxHash64;
-import io.prestosql.spi.function.IsNull;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.StandardTypes;
@@ -27,21 +24,10 @@ import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
 import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.HASH_CODE;
-import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
-import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
-import static io.prestosql.spi.type.TimestampWithTimeZoneTypes.hashLongTimestampWithTimeZone;
-import static io.prestosql.spi.type.TimestampWithTimeZoneTypes.hashShortTimestampWithTimeZone;
 import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
 import static io.prestosql.type.DateTimes.roundToNearest;
 
@@ -49,172 +35,6 @@ import static io.prestosql.type.DateTimes.roundToNearest;
 public final class TimestampWithTimeZoneOperators
 {
     private TimestampWithTimeZoneOperators() {}
-
-    @ScalarOperator(EQUAL)
-    public static final class Equal
-    {
-        @LiteralParameters("p")
-        @SqlNullable
-        @SqlType(StandardTypes.BOOLEAN)
-        public static Boolean equal(@SqlType("timestamp(p) with time zone") long left, @SqlType("timestamp(p) with time zone") long right)
-        {
-            return unpackMillisUtc(left) == unpackMillisUtc(right);
-        }
-
-        @LiteralParameters("p")
-        @SqlNullable
-        @SqlType(StandardTypes.BOOLEAN)
-        public static Boolean equal(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone left, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone right)
-        {
-            return left.getEpochMillis() == right.getEpochMillis() && left.getPicosOfMilli() == right.getPicosOfMilli();
-        }
-    }
-
-    @ScalarOperator(NOT_EQUAL)
-    public static final class NotEqual
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean notEqual(@SqlType("timestamp(p) with time zone") long left, @SqlType("timestamp(p) with time zone") long right)
-        {
-            return !Equal.equal(left, right);
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean notEqual(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone left, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone right)
-        {
-            return !Equal.equal(left, right);
-        }
-    }
-
-    @ScalarOperator(LESS_THAN)
-    public static final class LessThan
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean lessThan(@SqlType("timestamp(p) with time zone") long left, @SqlType("timestamp(p) with time zone") long right)
-        {
-            return unpackMillisUtc(left) < unpackMillisUtc(right);
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean lessThan(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone left, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone right)
-        {
-            return (left.getEpochMillis() < right.getEpochMillis()) ||
-                    ((left.getEpochMillis() == right.getEpochMillis()) && (left.getPicosOfMilli() < right.getPicosOfMilli()));
-        }
-    }
-
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
-    public static final class LessThanOrEqual
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean lessThanOrEqual(@SqlType("timestamp(p) with time zone") long left, @SqlType("timestamp(p) with time zone") long right)
-        {
-            return unpackMillisUtc(left) <= unpackMillisUtc(right);
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean lessThanOrEqual(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone left, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone right)
-        {
-            return left.getEpochMillis() < right.getEpochMillis() ||
-                    left.getEpochMillis() == right.getEpochMillis() && left.getPicosOfMilli() <= right.getPicosOfMilli();
-        }
-    }
-
-    @ScalarOperator(GREATER_THAN)
-    public static final class GreaterThan
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean greaterThan(@SqlType("timestamp(p) with time zone") long left, @SqlType("timestamp(p) with time zone") long right)
-        {
-            return !LessThanOrEqual.lessThanOrEqual(left, right);
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean greaterThan(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone left, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone right)
-        {
-            return !LessThanOrEqual.lessThanOrEqual(left, right);
-        }
-    }
-
-    @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    public static final class GreaterThanOrEqual
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean greaterThanOrEqual(@SqlType("timestamp(p) with time zone") long left, @SqlType("timestamp(p) with time zone") long right)
-        {
-            return !LessThan.lessThan(left, right);
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean greaterThanOrEqual(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone left, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone right)
-        {
-            return !LessThan.lessThan(left, right);
-        }
-    }
-
-    @ScalarOperator(HASH_CODE)
-    public static final class HashCode
-    {
-        @SqlType(StandardTypes.BIGINT)
-        @LiteralParameters("p")
-        public static long hashCode(@SqlType("timestamp(p) with time zone") long value)
-        {
-            return hashShortTimestampWithTimeZone(value);
-        }
-
-        @SqlType(StandardTypes.BIGINT)
-        @LiteralParameters("p")
-        public static long hashCode(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone value)
-        {
-            return hashLongTimestampWithTimeZone(value);
-        }
-    }
-
-    @ScalarOperator(INDETERMINATE)
-    public static final class Indeterminate
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean indeterminate(@SqlType("timestamp(p) with time zone") long value, @IsNull boolean isNull)
-        {
-            return isNull;
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean indeterminate(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone value, @IsNull boolean isNull)
-        {
-            return isNull;
-        }
-    }
-
-    @ScalarOperator(XX_HASH_64)
-    public static final class XxHash64Operator
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BIGINT)
-        public static long xxHash64(@SqlType("timestamp(p) with time zone") long value)
-        {
-            return XxHash64.hash(unpackMillisUtc(value));
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BIGINT)
-        public static long xxHash64(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone value)
-        {
-            return XxHash64.hash(value.getEpochMillis()) ^ XxHash64.hash(value.getPicosOfMilli());
-        }
-    }
 
     @ScalarOperator(ADD)
     public static final class TimestampPlusIntervalDayToSecond

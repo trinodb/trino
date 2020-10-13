@@ -16,13 +16,13 @@ package io.prestosql.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.InMemoryRecordSet;
 import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.RowType;
@@ -54,7 +54,6 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getIdentityPartitions;
-import static io.prestosql.plugin.iceberg.IcebergUtil.getTableScan;
 import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
 import static io.prestosql.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -65,9 +64,9 @@ import static java.util.stream.Collectors.toSet;
 public class PartitionTable
         implements SystemTable
 {
-    private final IcebergTableHandle tableHandle;
     private final TypeManager typeManager;
     private final Table icebergTable;
+    private final Optional<Long> snapshotId;
     private final Map<Integer, Type.PrimitiveType> idToTypeMapping;
     private final List<Types.NestedField> nonPartitionPrimitiveColumns;
     private final List<io.prestosql.spi.type.Type> partitionColumnTypes;
@@ -75,11 +74,11 @@ public class PartitionTable
     private final List<RowType> columnMetricTypes;
     private final ConnectorTableMetadata connectorTableMetadata;
 
-    public PartitionTable(IcebergTableHandle tableHandle, TypeManager typeManager, Table icebergTable)
+    public PartitionTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId)
     {
-        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
+        this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
         this.idToTypeMapping = icebergTable.schema().columns().stream()
                 .filter(column -> column.type().isPrimitiveType())
                 .collect(Collectors.toMap(Types.NestedField::fieldId, (column) -> column.type().asPrimitiveType()));
@@ -115,7 +114,7 @@ public class PartitionTable
         this.resultTypes = columnMetadata.stream()
                 .map(ColumnMetadata::getType)
                 .collect(toImmutableList());
-        this.connectorTableMetadata = new ConnectorTableMetadata(tableHandle.getSchemaTableNameWithType(), columnMetadata);
+        this.connectorTableMetadata = new ConnectorTableMetadata(tableName, columnMetadata);
     }
 
     @Override
@@ -153,11 +152,13 @@ public class PartitionTable
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         // TODO instead of cursor use pageSource method.
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            TableScan tableScan = getTableScan(session, TupleDomain.all(), tableHandle.getSnapshotId(), icebergTable).includeColumnStats();
-            Map<StructLikeWrapper, Partition> partitions = getPartitions(tableScan);
-            return buildRecordCursor(partitions, icebergTable.spec().fields());
+        if (snapshotId.isEmpty()) {
+            return new InMemoryRecordSet(resultTypes, ImmutableList.of()).cursor();
         }
+        TableScan tableScan = icebergTable.newScan()
+                .useSnapshot(snapshotId.get())
+                .includeColumnStats();
+        return buildRecordCursor(getPartitions(tableScan), icebergTable.spec().fields());
     }
 
     private Map<StructLikeWrapper, Partition> getPartitions(TableScan tableScan)

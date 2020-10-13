@@ -57,7 +57,7 @@ public final class Environments
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Could not prune containers correctly: %s", getStackTraceAsString(e));
         }
     }
@@ -73,7 +73,7 @@ public final class Environments
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Could not prune networks correctly: %s", getStackTraceAsString(e));
         }
     }

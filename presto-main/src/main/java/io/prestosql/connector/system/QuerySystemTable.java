@@ -47,7 +47,9 @@ import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetad
 import static io.prestosql.security.AccessControlUtil.filterQueries;
 import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_COORDINATORS;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -68,10 +70,10 @@ public class QuerySystemTable
             .column("analysis_time_ms", BIGINT)
             .column("planning_time_ms", BIGINT)
 
-            .column("created", TIMESTAMP_MILLIS)
-            .column("started", TIMESTAMP_MILLIS)
-            .column("last_heartbeat", TIMESTAMP_MILLIS)
-            .column("end", TIMESTAMP_MILLIS)
+            .column("created", TIMESTAMP_TZ_MILLIS)
+            .column("started", TIMESTAMP_TZ_MILLIS)
+            .column("last_heartbeat", TIMESTAMP_TZ_MILLIS)
+            .column("end", TIMESTAMP_TZ_MILLIS)
 
             .column("error_type", createUnboundedVarcharType())
             .column("error_code", createUnboundedVarcharType())
@@ -126,10 +128,10 @@ public class QuerySystemTable
                     toMillis(queryStats.getAnalysisTime()),
                     toMillis(queryStats.getPlanningTime()),
 
-                    toTimeStamp(queryStats.getCreateTime()),
-                    toTimeStamp(queryStats.getExecutionStartTime()),
-                    toTimeStamp(queryStats.getLastHeartbeat()),
-                    toTimeStamp(queryStats.getEndTime()),
+                    toTimestampWithTimeZoneMillis(queryStats.getCreateTime()),
+                    toTimestampWithTimeZoneMillis(queryStats.getExecutionStartTime()),
+                    toTimestampWithTimeZoneMillis(queryStats.getLastHeartbeat()),
+                    toTimestampWithTimeZoneMillis(queryStats.getEndTime()),
 
                     Optional.ofNullable(queryInfo.getErrorType()).map(Enum::name).orElse(null),
                     Optional.ofNullable(queryInfo.getErrorCode()).map(ErrorCode::getName).orElse(null));
@@ -156,11 +158,12 @@ public class QuerySystemTable
         return duration.toMillis();
     }
 
-    private static Long toTimeStamp(DateTime dateTime)
+    private static Long toTimestampWithTimeZoneMillis(DateTime dateTime)
     {
         if (dateTime == null) {
             return null;
         }
-        return dateTime.getMillis();
+        // dateTime.getZone() is the server zone, should be of no interest to the user
+        return packDateTimeWithZone(dateTime.getMillis(), UTC_KEY);
     }
 }

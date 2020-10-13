@@ -31,7 +31,6 @@ import io.prestosql.tests.product.launcher.testcontainers.ExistingNetwork;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.Timeout;
 import net.jodah.failsafe.TimeoutExceededException;
-import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
@@ -52,16 +51,15 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
 import static io.prestosql.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
-import static io.prestosql.tests.product.launcher.env.Environment.allContainersHealthy;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.prestosql.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.lang.StrictMath.toIntExact;
-import static java.lang.String.format;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
+import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
 
@@ -199,7 +197,7 @@ public final class TestRun
             try (Environment environment = startEnvironment()) {
                 return toIntExact(environment.awaitTestsCompletion());
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 log.warn("Failed to execute tests: %s", getStackTraceAsString(e));
                 return ExitCode.SOFTWARE;
             }
@@ -212,22 +210,17 @@ public final class TestRun
             Collection<DockerContainer> allContainers = environment.getContainers();
             DockerContainer testsContainer = environment.getContainer(TESTS);
 
-            Collection<DockerContainer> environmentContainers = allContainers.stream()
-                    .filter(container -> !container.equals(testsContainer))
-                    .collect(toImmutableList());
-
             if (!attach) {
                 // Reestablish dependency on every startEnvironment attempt
+                Collection<DockerContainer> environmentContainers = allContainers.stream()
+                        .filter(container -> !container.equals(testsContainer))
+                        .collect(toImmutableList());
                 testsContainer.dependsOn(environmentContainers);
 
                 log.info("Starting the environment '%s' with configuration %s", this.environment, environmentConfig);
                 environment.start();
             }
             else {
-                if (!allContainersHealthy(environmentContainers)) {
-                    throw new RuntimeException(format("Could not attach tests to unhealthy environment %s", this.environment));
-                }
-
                 testsContainer.setNetwork(new ExistingNetwork(Environment.PRODUCT_TEST_LAUNCHER_NETWORK));
                 // TODO prune previous ptl-tests container
                 testsContainer.start();
@@ -285,9 +278,11 @@ public final class TestRun
                                 .addAll(reportsDirOptions(reportsDirBase))
                                 .build().toArray(new String[0]))
                         // this message marks that environment has started and tests are running
-                        .waitingFor(new LogMessageWaitStrategy().withRegEx(".*\\[TestNG] Running.*")
+                        .waitingFor(forLogMessage(".*\\[TestNG] Running.*", 1)
                                 .withStartupTimeout(ofMinutes(15)));
             });
+
+            builder.setAttached(attach);
 
             return builder.build(getStandardListeners(logsDirBase));
         }

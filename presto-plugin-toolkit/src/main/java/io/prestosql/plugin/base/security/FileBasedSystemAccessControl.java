@@ -20,6 +20,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode;
+import io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaRoutineName;
@@ -52,6 +53,7 @@ import static io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessM
 import static io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode.READ_ONLY;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
+import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.INSERT;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.OWNERSHIP;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
@@ -80,11 +82,15 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
+import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
+import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
 import static java.lang.String.format;
@@ -104,8 +110,12 @@ public class FileBasedSystemAccessControl
     private final Optional<List<ImpersonationRule>> impersonationRules;
     private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
     private final Optional<List<SystemInformationRule>> systemInformationRules;
-    private final Optional<List<SchemaAccessControlRule>> schemaRules;
-    private final Optional<List<TableAccessControlRule>> tableRules;
+    private final List<CatalogSchemaAccessControlRule> schemaRules;
+    private final List<CatalogTableAccessControlRule> tableRules;
+    private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
+    private final List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules;
+    private final Set<AnyCatalogPermissionsRule> anyCatalogPermissionsRules;
+    private final Set<AnyCatalogSchemaPermissionsRule> anyCatalogSchemaPermissionsRules;
 
     private FileBasedSystemAccessControl(
             List<CatalogAccessControlRule> catalogRules,
@@ -113,8 +123,10 @@ public class FileBasedSystemAccessControl
             Optional<List<ImpersonationRule>> impersonationRules,
             Optional<List<PrincipalUserMatchRule>> principalUserMatchRules,
             Optional<List<SystemInformationRule>> systemInformationRules,
-            Optional<List<SchemaAccessControlRule>> schemaRules,
-            Optional<List<TableAccessControlRule>> tableRules)
+            List<CatalogSchemaAccessControlRule> schemaRules,
+            List<CatalogTableAccessControlRule> tableRules,
+            List<SessionPropertyAccessControlRule> sessionPropertyRules,
+            List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules)
     {
         this.catalogRules = catalogRules;
         this.queryAccessRules = queryAccessRules;
@@ -123,6 +135,39 @@ public class FileBasedSystemAccessControl
         this.systemInformationRules = systemInformationRules;
         this.schemaRules = schemaRules;
         this.tableRules = tableRules;
+        this.sessionPropertyRules = sessionPropertyRules;
+        this.catalogSessionPropertyRules = catalogSessionPropertyRules;
+
+        ImmutableSet.Builder<AnyCatalogPermissionsRule> anyCatalogPermissionsRules = ImmutableSet.builder();
+        schemaRules.stream()
+                .map(CatalogSchemaAccessControlRule::toAnyCatalogPermissionsRule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(anyCatalogPermissionsRules::add);
+        tableRules.stream()
+                .map(CatalogTableAccessControlRule::toAnyCatalogPermissionsRule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(anyCatalogPermissionsRules::add);
+        catalogSessionPropertyRules.stream()
+                .map(CatalogSessionPropertyAccessControlRule::toAnyCatalogPermissionsRule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(anyCatalogPermissionsRules::add);
+        this.anyCatalogPermissionsRules = anyCatalogPermissionsRules.build();
+
+        ImmutableSet.Builder<AnyCatalogSchemaPermissionsRule> anyCatalogSchemaPermissionsRules = ImmutableSet.builder();
+        schemaRules.stream()
+                .map(CatalogSchemaAccessControlRule::toAnyCatalogSchemaPermissionsRule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(anyCatalogSchemaPermissionsRules::add);
+        tableRules.stream()
+                .map(CatalogTableAccessControlRule::toAnyCatalogSchemaPermissionsRule)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(anyCatalogSchemaPermissionsRules::add);
+        this.anyCatalogSchemaPermissionsRules = anyCatalogSchemaPermissionsRules.build();
     }
 
     public static class Factory
@@ -170,36 +215,45 @@ public class FileBasedSystemAccessControl
             return create(configFileName);
         }
 
-        private PrestoException invalidRefreshPeriodException(Map<String, String> config, String configFileName)
+        private static PrestoException invalidRefreshPeriodException(Map<String, String> config, String configFileName)
         {
             return new PrestoException(
                     CONFIGURATION_INVALID,
                     format("Invalid duration value '%s' for property '%s' in '%s'", config.get(SECURITY_REFRESH_PERIOD), SECURITY_REFRESH_PERIOD, configFileName));
         }
 
-        private SystemAccessControl create(String configFileName)
+        private static SystemAccessControl create(String configFileName)
         {
             FileBasedSystemAccessControlRules rules = parseJson(Paths.get(configFileName), FileBasedSystemAccessControlRules.class);
+            List<CatalogAccessControlRule> catalogAccessControlRules;
+            if (rules.getCatalogRules().isPresent()) {
+                ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
+                catalogRulesBuilder.addAll(rules.getCatalogRules().get());
 
-            ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
-            catalogRulesBuilder.addAll(rules.getCatalogRules());
-
-            // Hack to allow Presto Admin to access the "system" catalog for retrieving server status.
-            // todo Change userRegex from ".*" to one particular user that Presto Admin will be restricted to run as
-            catalogRulesBuilder.add(new CatalogAccessControlRule(
-                    ALL,
-                    Optional.of(Pattern.compile(".*")),
-                    Optional.empty(),
-                    Optional.of(Pattern.compile("system"))));
-
-            return new FileBasedSystemAccessControl(
-                    catalogRulesBuilder.build(),
-                    rules.getQueryAccessRules(),
-                    rules.getImpersonationRules(),
-                    rules.getPrincipalUserMatchRules(),
-                    rules.getSystemInformationRules(),
-                    rules.getSchemaRules(),
-                    rules.getTableRules());
+                // Hack to allow Presto Admin to access the "system" catalog for retrieving server status.
+                // todo Change userRegex from ".*" to one particular user that Presto Admin will be restricted to run as
+                catalogRulesBuilder.add(new CatalogAccessControlRule(
+                        ALL,
+                        Optional.of(Pattern.compile(".*")),
+                        Optional.empty(),
+                        Optional.of(Pattern.compile("system"))));
+                catalogAccessControlRules = catalogRulesBuilder.build();
+            }
+            else {
+                // if no rules are defined then all access is allowed
+                catalogAccessControlRules = ImmutableList.of(CatalogAccessControlRule.ALLOW_ALL);
+            }
+            return FileBasedSystemAccessControl.builder()
+                    .setCatalogRules(catalogAccessControlRules)
+                    .setQueryAccessRules(rules.getQueryAccessRules())
+                    .setImpersonationRules(rules.getImpersonationRules())
+                    .setPrincipalUserMatchRules(rules.getPrincipalUserMatchRules())
+                    .setSystemInformationRules(rules.getSystemInformationRules())
+                    .setSchemaRules(rules.getSchemaRules().orElse(ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL)))
+                    .setTableRules(rules.getTableRules().orElse(ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL)))
+                    .setSessionPropertyRules(rules.getSessionPropertyRules().orElse(ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL)))
+                    .setCatalogSessionPropertyRules(rules.getCatalogSessionPropertyRules().orElse(ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL)))
+                    .build();
         }
     }
 
@@ -260,9 +314,6 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanExecuteQuery(SystemSecurityContext context)
     {
-        if (queryAccessRules.isEmpty()) {
-            return;
-        }
         if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.EXECUTE)) {
             denyViewQuery();
         }
@@ -271,9 +322,6 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
-        if (queryAccessRules.isEmpty()) {
-            return;
-        }
         if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.VIEW)) {
             denyViewQuery();
         }
@@ -294,9 +342,6 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
-        if (queryAccessRules.isEmpty()) {
-            return;
-        }
         if (!canAccessQuery(context.getIdentity(), QueryAccessRule.AccessMode.KILL)) {
             denyViewQuery();
         }
@@ -304,12 +349,13 @@ public class FileBasedSystemAccessControl
 
     private boolean canAccessQuery(Identity identity, QueryAccessRule.AccessMode requiredAccess)
     {
-        if (queryAccessRules.isPresent()) {
-            for (QueryAccessRule rule : queryAccessRules.get()) {
-                Optional<Set<QueryAccessRule.AccessMode>> accessMode = rule.match(identity.getUser());
-                if (accessMode.isPresent()) {
-                    return accessMode.get().contains(requiredAccess);
-                }
+        if (queryAccessRules.isEmpty()) {
+            return true;
+        }
+        for (QueryAccessRule rule : queryAccessRules.get()) {
+            Optional<Set<QueryAccessRule.AccessMode>> accessMode = rule.match(identity.getUser());
+            if (accessMode.isPresent()) {
+                return accessMode.get().contains(requiredAccess);
             }
         }
         return false;
@@ -345,12 +391,22 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
     {
+        Identity identity = context.getIdentity();
+        boolean allowed = sessionPropertyRules.stream()
+                .map(rule -> rule.match(identity.getUser(), identity.getGroups(), propertyName))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findFirst()
+                .orElse(false);
+        if (!allowed) {
+            denySetSystemSessionProperty(propertyName);
+        }
     }
 
     @Override
     public void checkCanAccessCatalog(SystemSecurityContext context, String catalogName)
     {
-        if (!canAccessCatalog(context.getIdentity(), catalogName, READ_ONLY)) {
+        if (!canAccessCatalog(context, catalogName, READ_ONLY)) {
             denyCatalogAccess(catalogName);
         }
     }
@@ -360,28 +416,17 @@ public class FileBasedSystemAccessControl
     {
         ImmutableSet.Builder<String> filteredCatalogs = ImmutableSet.builder();
         for (String catalog : catalogs) {
-            if (canAccessCatalog(context.getIdentity(), catalog, READ_ONLY)) {
+            if (checkAnyCatalogAccess(context, catalog)) {
                 filteredCatalogs.add(catalog);
             }
         }
         return filteredCatalogs.build();
     }
 
-    private boolean canAccessCatalog(Identity identity, String catalogName, AccessMode requiredAccess)
-    {
-        for (CatalogAccessControlRule rule : catalogRules) {
-            Optional<AccessMode> accessMode = rule.match(identity.getUser(), identity.getGroups(), catalogName);
-            if (accessMode.isPresent()) {
-                return accessMode.get().implies(requiredAccess);
-            }
-        }
-        return false;
-    }
-
     @Override
     public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema)
     {
-        if (!canAccessCatalog(context.getIdentity(), schema.getCatalogName(), ALL)) {
+        if (!isSchemaOwner(context, schema)) {
             denyCreateSchema(schema.toString());
         }
     }
@@ -389,82 +434,64 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanDropSchema(SystemSecurityContext context, CatalogSchemaName schema)
     {
-        if (!canAccessCatalog(context.getIdentity(), schema.getCatalogName(), ALL)) {
+        if (!isSchemaOwner(context, schema)) {
             denyDropSchema(schema.toString());
-        }
-
-        if (!isSchemaOwner(context, schema.getSchemaName())) {
-            denyDropSchema(schema.getSchemaName());
         }
     }
 
     @Override
     public void checkCanRenameSchema(SystemSecurityContext context, CatalogSchemaName schema, String newSchemaName)
     {
-        if (!canAccessCatalog(context.getIdentity(), schema.getCatalogName(), ALL)) {
+        if (!isSchemaOwner(context, schema) || !isSchemaOwner(context, new CatalogSchemaName(schema.getCatalogName(), newSchemaName))) {
             denyRenameSchema(schema.toString(), newSchemaName);
-        }
-
-        if (!isSchemaOwner(context, schema.getSchemaName()) || !isSchemaOwner(context, newSchemaName)) {
-            denyRenameSchema(schema.getSchemaName(), newSchemaName);
         }
     }
 
     @Override
     public void checkCanSetSchemaAuthorization(SystemSecurityContext context, CatalogSchemaName schema, PrestoPrincipal principal)
     {
-        if (!canAccessCatalog(context.getIdentity(), schema.getCatalogName(), ALL)) {
+        if (!isSchemaOwner(context, schema)) {
             denySetSchemaAuthorization(schema.toString(), principal);
-        }
-
-        if (!isSchemaOwner(context, schema.getSchemaName())) {
-            denySetSchemaAuthorization(schema.getSchemaName(), principal);
         }
     }
 
     @Override
     public void checkCanShowSchemas(SystemSecurityContext context, String catalogName)
     {
+        if (!checkAnyCatalogAccess(context, catalogName)) {
+            denyShowSchemas();
+        }
     }
 
     @Override
     public Set<String> filterSchemas(SystemSecurityContext context, String catalogName, Set<String> schemaNames)
     {
-        if (!canAccessCatalog(context.getIdentity(), catalogName, READ_ONLY)) {
-            return ImmutableSet.of();
-        }
-
-        return schemaNames;
+        return schemaNames.stream()
+                .filter(schemaName -> checkAnySchemaAccess(context, catalogName, schemaName))
+                .collect(toImmutableSet());
     }
 
     @Override
     public void checkCanShowCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
             denyShowCreateTable(table.toString());
-        }
-
-        if (!checkTablePermission(context, table.getSchemaTableName(), OWNERSHIP)) {
-            denyShowCreateTable(table.getSchemaTableName().getTableName());
         }
     }
 
     @Override
     public void checkCanShowCreateSchema(SystemSecurityContext context, CatalogSchemaName schemaName)
     {
-        if (!canAccessCatalog(context.getIdentity(), schemaName.getCatalogName(), ALL)) {
+        if (!isSchemaOwner(context, schemaName)) {
             denyShowCreateSchema(schemaName.toString());
-        }
-
-        if (!isSchemaOwner(context, schemaName.getSchemaName())) {
-            denyShowCreateSchema(schemaName.getSchemaName());
         }
     }
 
     @Override
     public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+        // check if user will be an owner of the table after creation
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
             denyCreateTable(table.toString());
         }
     }
@@ -472,43 +499,32 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanDropTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
             denyDropTable(table.toString());
-        }
-
-        if (!checkTablePermission(context, table.getSchemaTableName(), OWNERSHIP)) {
-            denyDropTable(table.getSchemaTableName().getTableName());
         }
     }
 
     @Override
     public void checkCanRenameTable(SystemSecurityContext context, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
     {
-        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+        // check if user is an owner current table and will be an owner of the renamed table
+        if (!checkTablePermission(context, table, OWNERSHIP) || !checkTablePermission(context, newTable, OWNERSHIP)) {
             denyRenameTable(table.toString(), newTable.toString());
-        }
-
-        if (!checkTablePermission(context, table.getSchemaTableName(), OWNERSHIP) || !checkTablePermission(context, newTable.getSchemaTableName(), OWNERSHIP)) {
-            denyRenameTable(table.getSchemaTableName().getTableName(), newTable.getSchemaTableName().getTableName());
         }
     }
 
     @Override
     public void checkCanSetTableComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
             denyCommentTable(table.toString());
-        }
-
-        if (!checkTablePermission(context, table.getSchemaTableName(), OWNERSHIP)) {
-            denyCommentTable(table.getSchemaTableName().getTableName());
         }
     }
 
     @Override
     public void checkCanSetColumnComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
             denyCommentColumn(table.toString());
         }
     }
@@ -516,34 +532,32 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanShowTables(SystemSecurityContext context, CatalogSchemaName schema)
     {
+        if (!checkAnySchemaAccess(context, schema.getCatalogName(), schema.getSchemaName())) {
+            denyShowTables(schema.toString());
+        }
     }
 
     @Override
     public Set<SchemaTableName> filterTables(SystemSecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
-        if (!canAccessCatalog(context.getIdentity(), catalogName, READ_ONLY)) {
-            return ImmutableSet.of();
-        }
-
-        return tableNames;
+        return tableNames.stream()
+                .filter(tableName -> isSchemaOwner(context, new CatalogSchemaName(catalogName, tableName.getSchemaName())) ||
+                        checkAnyTablePermission(context, new CatalogSchemaTableName(catalogName, tableName)))
+                .collect(toImmutableSet());
     }
 
     @Override
     public void checkCanShowColumns(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        if (!checkAnyTablePermission(context, table.getSchemaTableName())) {
-            denyShowColumns(table.getSchemaTableName().getTableName());
+        if (!checkAnyTablePermission(context, table)) {
+            denyShowColumns(table.toString());
         }
     }
 
     @Override
     public List<ColumnMetadata> filterColumns(SystemSecurityContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
     {
-        if (!canAccessCatalog(context.getIdentity(), tableName.getCatalogName(), READ_ONLY)) {
-            return ImmutableList.of();
-        }
-
-        if (!checkAnyTablePermission(context, tableName.getSchemaTableName())) {
+        if (!checkAnyTablePermission(context, tableName)) {
             return ImmutableList.of();
         }
 
@@ -553,75 +567,56 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanAddColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
             denyAddColumn(table.toString());
-        }
-
-        if (!checkTablePermission(context, table.getSchemaTableName(), OWNERSHIP)) {
-            denyAddColumn(table.getSchemaTableName().getTableName());
         }
     }
 
     @Override
     public void checkCanDropColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
             denyDropColumn(table.toString());
-        }
-
-        if (!checkTablePermission(context, table.getSchemaTableName(), OWNERSHIP)) {
-            denyDropColumn(table.getSchemaTableName().getTableName());
         }
     }
 
     @Override
     public void checkCanRenameColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
             denyRenameColumn(table.toString());
-        }
-
-        if (!checkTablePermission(context, table.getSchemaTableName(), OWNERSHIP)) {
-            denyRenameColumn(table.getSchemaTableName().getTableName());
         }
     }
 
     @Override
     public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
-        if (!checkTablePermission(context, table.getSchemaTableName(), SELECT)) {
-            denySelectTable(table.getSchemaTableName().getTableName());
+        if (!checkTablePermission(context, table, SELECT)) {
+            denySelectTable(table.toString());
         }
     }
 
     @Override
     public void checkCanInsertIntoTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+        if (!checkTablePermission(context, table, INSERT)) {
             denyInsertTable(table.toString());
-        }
-
-        if (!checkTablePermission(context, table.getSchemaTableName(), INSERT)) {
-            denyInsertTable(table.getSchemaTableName().getTableName());
         }
     }
 
     @Override
     public void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+        if (!checkTablePermission(context, table, DELETE)) {
             denyDeleteTable(table.toString());
-        }
-
-        if (!checkTablePermission(context, table.getSchemaTableName(), DELETE)) {
-            denyDeleteTable(table.getSchemaTableName().getTableName());
         }
     }
 
     @Override
     public void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
-        if (!canAccessCatalog(context.getIdentity(), view.getCatalogName(), ALL)) {
+        // check if user will be an owner of the view after creation
+        if (!checkTablePermission(context, view, OWNERSHIP)) {
             denyCreateView(view.toString());
         }
     }
@@ -629,7 +624,8 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanRenameView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
     {
-        if (!canAccessCatalog(context.getIdentity(), view.getCatalogName(), ALL)) {
+        // check if user owns the existing view, and if they will be an owner of the view after the rename
+        if (!checkTablePermission(context, view, OWNERSHIP) || !checkTablePermission(context, newView, OWNERSHIP)) {
             denyRenameView(view.toString(), newView.toString());
         }
     }
@@ -637,7 +633,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanDropView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
-        if (!canAccessCatalog(context.getIdentity(), view.getCatalogName(), ALL)) {
+        if (!checkTablePermission(context, view, OWNERSHIP)) {
             denyDropView(view.toString());
         }
     }
@@ -645,7 +641,11 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
-        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+        // TODO: implement column level permissions
+        if (!checkTablePermission(context, table, SELECT)) {
+            denySelectTable(table.toString());
+        }
+        if (!checkTablePermission(context, table, GRANT_SELECT)) {
             denyCreateViewWithSelect(table.toString(), context.getIdentity());
         }
     }
@@ -658,29 +658,31 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName)
     {
+        Identity identity = context.getIdentity();
+        boolean allowed = canAccessCatalog(context, catalogName, READ_ONLY) && catalogSessionPropertyRules.stream()
+                .map(rule -> rule.match(identity.getUser(), identity.getGroups(), catalogName, propertyName))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findFirst()
+                .orElse(false);
+        if (!allowed) {
+            denySetCatalogSessionProperty(propertyName);
+        }
     }
 
     @Override
     public void checkCanGrantTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal grantee, boolean grantOption)
     {
-        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
-            denyGrantTablePrivilege(privilege.toString(), table.toString());
-        }
-
-        if (!checkTablePermission(context, table.getSchemaTableName(), OWNERSHIP)) {
-            denyGrantTablePrivilege(privilege.name(), table.getSchemaTableName().getTableName());
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
+            denyGrantTablePrivilege(privilege.name(), table.toString());
         }
     }
 
     @Override
     public void checkCanRevokeTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOption)
     {
-        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
-            denyRevokeTablePrivilege(privilege.toString(), table.toString());
-        }
-
-        if (!checkTablePermission(context, table.getSchemaTableName(), OWNERSHIP)) {
-            denyRevokeTablePrivilege(privilege.name(), table.getSchemaTableName().getTableName());
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
+            denyRevokeTablePrivilege(privilege.name(), table.toString());
         }
     }
 
@@ -717,15 +719,41 @@ public class FileBasedSystemAccessControl
         return Optional.empty();
     }
 
-    private boolean isSchemaOwner(SystemSecurityContext context, String schemaName)
+    private boolean checkAnyCatalogAccess(SystemSecurityContext context, String catalogName)
     {
-        if (schemaRules.isEmpty()) {
-            return true;
+        Identity identity = context.getIdentity();
+        return canAccessCatalog(context, catalogName, READ_ONLY) &&
+                anyCatalogPermissionsRules.stream().anyMatch(rule -> rule.match(identity.getUser(), identity.getGroups(), catalogName));
+    }
+
+    private boolean canAccessCatalog(SystemSecurityContext context, String catalogName, AccessMode requiredAccess)
+    {
+        Identity identity = context.getIdentity();
+        for (CatalogAccessControlRule rule : catalogRules) {
+            Optional<AccessMode> accessMode = rule.match(identity.getUser(), identity.getGroups(), catalogName);
+            if (accessMode.isPresent()) {
+                return accessMode.get().implies(requiredAccess);
+            }
+        }
+        return false;
+    }
+
+    private boolean checkAnySchemaAccess(SystemSecurityContext context, String catalogName, String schemaName)
+    {
+        Identity identity = context.getIdentity();
+        return canAccessCatalog(context, catalogName, READ_ONLY) &&
+                anyCatalogSchemaPermissionsRules.stream().anyMatch(rule -> rule.match(identity.getUser(), identity.getGroups(), catalogName, schemaName));
+    }
+
+    private boolean isSchemaOwner(SystemSecurityContext context, CatalogSchemaName schema)
+    {
+        if (!canAccessCatalog(context, schema.getCatalogName(), ALL)) {
+            return false;
         }
 
         Identity identity = context.getIdentity();
-        for (SchemaAccessControlRule rule : schemaRules.get()) {
-            Optional<Boolean> owner = rule.match(identity.getUser(), identity.getGroups(), schemaName);
+        for (CatalogSchemaAccessControlRule rule : schemaRules) {
+            Optional<Boolean> owner = rule.match(identity.getUser(), identity.getGroups(), schema);
             if (owner.isPresent()) {
                 return owner.get();
             }
@@ -733,33 +761,139 @@ public class FileBasedSystemAccessControl
         return false;
     }
 
-    private boolean checkAnyTablePermission(SystemSecurityContext context, SchemaTableName tableName)
+    private boolean checkAnyTablePermission(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        return checkTablePermission(context, tableName, privileges -> !privileges.isEmpty());
+        return checkTablePermission(context, table, READ_ONLY, privileges -> !privileges.isEmpty());
     }
 
-    private boolean checkTablePermission(SystemSecurityContext context, SchemaTableName tableName, TableAccessControlRule.TablePrivilege... requiredPrivileges)
+    private boolean checkTablePermission(SystemSecurityContext context, CatalogSchemaTableName table, TableAccessControlRule.TablePrivilege requiredPrivilege)
     {
-        return checkTablePermission(context, tableName, privileges -> privileges.containsAll(ImmutableSet.copyOf(requiredPrivileges)));
+        AccessMode requiredCatalogAccess = requiredPrivilege == SELECT || requiredPrivilege == GRANT_SELECT ? READ_ONLY : ALL;
+        return checkTablePermission(context, table, requiredCatalogAccess, privileges -> privileges.contains(requiredPrivilege));
     }
 
-    private boolean checkTablePermission(SystemSecurityContext context, SchemaTableName tableName, Predicate<Set<TableAccessControlRule.TablePrivilege>> checkPrivileges)
+    private boolean checkTablePermission(
+            SystemSecurityContext context,
+            CatalogSchemaTableName table,
+            AccessMode requiredCatalogAccess,
+            Predicate<Set<TablePrivilege>> checkPrivileges)
     {
-        if (tableRules.isEmpty()) {
-            return true;
+        if (!canAccessCatalog(context, table.getCatalogName(), requiredCatalogAccess)) {
+            return false;
         }
 
-        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+        if (INFORMATION_SCHEMA_NAME.equals(table.getSchemaTableName().getSchemaName())) {
             return true;
         }
 
         Identity identity = context.getIdentity();
-        for (TableAccessControlRule rule : tableRules.get()) {
-            Optional<Set<TableAccessControlRule.TablePrivilege>> tablePrivileges = rule.match(identity.getUser(), identity.getGroups(), tableName);
+        for (CatalogTableAccessControlRule rule : tableRules) {
+            Optional<Set<TableAccessControlRule.TablePrivilege>> tablePrivileges = rule.match(identity.getUser(), identity.getGroups(), table);
             if (tablePrivileges.isPresent()) {
                 return checkPrivileges.test(tablePrivileges.get());
             }
         }
         return false;
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static final class Builder
+    {
+        private List<CatalogAccessControlRule> catalogRules = ImmutableList.of(CatalogAccessControlRule.ALLOW_ALL);
+        private Optional<List<QueryAccessRule>> queryAccessRules = Optional.empty();
+        private Optional<List<ImpersonationRule>> impersonationRules = Optional.empty();
+        private Optional<List<PrincipalUserMatchRule>> principalUserMatchRules = Optional.empty();
+        private Optional<List<SystemInformationRule>> systemInformationRules = Optional.empty();
+        private List<CatalogSchemaAccessControlRule> schemaRules = ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL);
+        private List<CatalogTableAccessControlRule> tableRules = ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL);
+        private List<SessionPropertyAccessControlRule> sessionPropertyRules = ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL);
+        private List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules = ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL);
+
+        @SuppressWarnings("unused")
+        public Builder denyAllAccess()
+        {
+            catalogRules = ImmutableList.of();
+            queryAccessRules = Optional.of(ImmutableList.of());
+            impersonationRules = Optional.of(ImmutableList.of());
+            principalUserMatchRules = Optional.of(ImmutableList.of());
+            systemInformationRules = Optional.of(ImmutableList.of());
+            schemaRules = ImmutableList.of();
+            tableRules = ImmutableList.of();
+            sessionPropertyRules = ImmutableList.of();
+            catalogSessionPropertyRules = ImmutableList.of();
+            return this;
+        }
+
+        public Builder setCatalogRules(List<CatalogAccessControlRule> catalogRules)
+        {
+            this.catalogRules = catalogRules;
+            return this;
+        }
+
+        public Builder setQueryAccessRules(Optional<List<QueryAccessRule>> queryAccessRules)
+        {
+            this.queryAccessRules = queryAccessRules;
+            return this;
+        }
+
+        public Builder setImpersonationRules(Optional<List<ImpersonationRule>> impersonationRules)
+        {
+            this.impersonationRules = impersonationRules;
+            return this;
+        }
+
+        public Builder setPrincipalUserMatchRules(Optional<List<PrincipalUserMatchRule>> principalUserMatchRules)
+        {
+            this.principalUserMatchRules = principalUserMatchRules;
+            return this;
+        }
+
+        public Builder setSystemInformationRules(Optional<List<SystemInformationRule>> systemInformationRules)
+        {
+            this.systemInformationRules = systemInformationRules;
+            return this;
+        }
+
+        public Builder setSchemaRules(List<CatalogSchemaAccessControlRule> schemaRules)
+        {
+            this.schemaRules = schemaRules;
+            return this;
+        }
+
+        public Builder setTableRules(List<CatalogTableAccessControlRule> tableRules)
+        {
+            this.tableRules = tableRules;
+            return this;
+        }
+
+        public Builder setSessionPropertyRules(List<SessionPropertyAccessControlRule> sessionPropertyRules)
+        {
+            this.sessionPropertyRules = sessionPropertyRules;
+            return this;
+        }
+
+        public Builder setCatalogSessionPropertyRules(List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules)
+        {
+            this.catalogSessionPropertyRules = catalogSessionPropertyRules;
+            return this;
+        }
+
+        public FileBasedSystemAccessControl build()
+        {
+            return new FileBasedSystemAccessControl(
+                    catalogRules,
+                    queryAccessRules,
+                    impersonationRules,
+                    principalUserMatchRules,
+                    systemInformationRules,
+                    schemaRules,
+                    tableRules,
+                    sessionPropertyRules,
+                    catalogSessionPropertyRules);
+        }
     }
 }

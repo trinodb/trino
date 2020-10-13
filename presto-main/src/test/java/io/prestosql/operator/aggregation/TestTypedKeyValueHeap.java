@@ -15,6 +15,9 @@ package io.prestosql.operator.aggregation;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.TypeOperators;
+import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionComparison;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -33,8 +36,9 @@ public class TestTypedKeyValueHeap
     private static final int INPUT_SIZE = 1_000_000; // larger than COMPACT_THRESHOLD_* to guarantee coverage of compact
     private static final int OUTPUT_SIZE = 1_000;
 
-    private static final BlockComparator MAX_ELEMENTS_COMPARATOR = BIGINT::compareTo;
-    private static final BlockComparator MIN_ELEMENTS_COMPARATOR = (leftBlock, leftIndex, rightBlock, rightIndex) -> -BIGINT.compareTo(leftBlock, leftIndex, rightBlock, rightIndex);
+    private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
+    private static final BlockPositionComparison MAX_ELEMENTS_COMPARATOR = TYPE_OPERATOR_FACTORY.getComparisonOperator(BIGINT);
+    private static final BlockPositionComparison MIN_ELEMENTS_COMPARATOR = TYPE_OPERATOR_FACTORY.getComparisonOperator(BIGINT).reversed();
 
     @Test
     public void testAscending()
@@ -77,14 +81,14 @@ public class TestTypedKeyValueHeap
                 IntStream.range(0, OUTPUT_SIZE).map(x -> OUTPUT_SIZE - 1 - x).mapToObj(key -> Integer.toString(key * 2)).iterator());
     }
 
-    private static void test(IntStream keyInputStream, Stream<String> valueInputStream, BlockComparator comparator, Iterator<String> outputIterator)
+    private static void test(IntStream keyInputStream, Stream<String> valueInputStream, BlockPositionComparison comparison, Iterator<String> outputIterator)
     {
         BlockBuilder keysBlockBuilder = BIGINT.createBlockBuilder(null, INPUT_SIZE);
         BlockBuilder valuesBlockBuilder = VARCHAR.createBlockBuilder(null, INPUT_SIZE);
         keyInputStream.forEach(x -> BIGINT.writeLong(keysBlockBuilder, x));
         valueInputStream.forEach(x -> VARCHAR.writeString(valuesBlockBuilder, x));
 
-        TypedKeyValueHeap heap = new TypedKeyValueHeap(comparator, BIGINT, VARCHAR, OUTPUT_SIZE);
+        TypedKeyValueHeap heap = new TypedKeyValueHeap(comparison, BIGINT, VARCHAR, OUTPUT_SIZE);
         heap.addAll(keysBlockBuilder, valuesBlockBuilder);
 
         BlockBuilder resultBlockBuilder = VARCHAR.createBlockBuilder(null, OUTPUT_SIZE);

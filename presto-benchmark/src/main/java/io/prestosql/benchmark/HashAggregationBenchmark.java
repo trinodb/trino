@@ -21,6 +21,7 @@ import io.prestosql.operator.HashAggregationOperator.HashAggregationOperatorFact
 import io.prestosql.operator.OperatorFactory;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.AggregationNode.Step;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.tree.QualifiedName;
@@ -64,7 +65,8 @@ public class HashAggregationBenchmark
                 Optional.empty(),
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
-                JOIN_COMPILER,
+                new JoinCompiler(localQueryRunner.getTypeOperators()),
+                localQueryRunner.getBlockTypeOperators(),
                 false);
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }

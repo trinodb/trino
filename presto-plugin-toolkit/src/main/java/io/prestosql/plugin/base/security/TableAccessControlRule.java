@@ -26,6 +26,13 @@ import static java.util.Objects.requireNonNull;
 
 public class TableAccessControlRule
 {
+    public static final TableAccessControlRule ALLOW_ALL = new TableAccessControlRule(
+            ImmutableSet.copyOf(TablePrivilege.values()),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+
     private final Set<TablePrivilege> privileges;
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> groupRegex;
@@ -56,6 +63,34 @@ public class TableAccessControlRule
             return Optional.of(privileges);
         }
         return Optional.empty();
+    }
+
+    Optional<AnySchemaPermissionsRule> toAnySchemaPermissionsRule()
+    {
+        if (privileges.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new AnySchemaPermissionsRule(userRegex, groupRegex, schemaRegex));
+    }
+
+    Set<TablePrivilege> getPrivileges()
+    {
+        return privileges;
+    }
+
+    Optional<Pattern> getUserRegex()
+    {
+        return userRegex;
+    }
+
+    Optional<Pattern> getGroupRegex()
+    {
+        return groupRegex;
+    }
+
+    Optional<Pattern> getSchemaRegex()
+    {
+        return schemaRegex;
     }
 
     public enum TablePrivilege

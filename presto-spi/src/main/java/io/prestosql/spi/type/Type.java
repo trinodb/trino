@@ -23,6 +23,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import java.util.List;
 import java.util.Optional;
 
+import static io.prestosql.spi.type.TypeOperatorDeclaration.NO_TYPE_OPERATOR_DECLARATION;
 import static java.util.Objects.requireNonNull;
 
 public interface Type
@@ -62,6 +63,14 @@ public interface Type
      * True if the type supports compareTo.
      */
     boolean isOrderable();
+
+    /**
+     * Gets the declared type specific operators for this type.
+     */
+    default TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        return NO_TYPE_OPERATOR_DECLARATION;
+    }
 
     /**
      * Gets the Java class type used to represent this value on the stack during
@@ -154,26 +163,6 @@ public interface Type
      * Append the value at {@code position} in {@code block} to {@code blockBuilder}.
      */
     void appendTo(Block block, int position, BlockBuilder blockBuilder);
-
-    /**
-     * Are the values in the specified blocks at the specified positions equal?
-     * <p>
-     * This method assumes input is not null.
-     */
-    boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
-
-    /**
-     * Calculates the hash code of the value at the specified position in the
-     * specified block.
-     */
-    long hash(Block block, int position);
-
-    /**
-     * Compare the values in the specified block at the specified positions.
-     *
-     * @return 0 if the values are equal, negative if left is less than right, and positive, otherwise.
-     */
-    int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
 
     /**
      * Return the range of possible values for this type, if available.

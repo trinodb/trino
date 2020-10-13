@@ -114,6 +114,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -162,6 +163,7 @@ public class GlueHiveMetastore
     private final GlueMetastoreStats stats = new GlueMetastoreStats();
     private final GlueColumnStatisticsProvider columnStatisticsProvider;
     private final boolean assumeCanonicalPartitionKeys;
+    private final Predicate<com.amazonaws.services.glue.model.Table> tableFilter;
 
     @Inject
     public GlueHiveMetastore(
@@ -169,7 +171,8 @@ public class GlueHiveMetastore
             GlueHiveMetastoreConfig glueConfig,
             GlueColumnStatisticsProvider columnStatisticsProvider,
             @ForGlueHiveMetastore Executor executor,
-            @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler)
+            @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler,
+            @ForGlueHiveMetastore Predicate<com.amazonaws.services.glue.model.Table> tableFilter)
     {
         requireNonNull(glueConfig, "glueConfig is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -181,6 +184,7 @@ public class GlueHiveMetastore
         this.executor = requireNonNull(executor, "executor is null");
         this.columnStatisticsProvider = requireNonNull(columnStatisticsProvider, "columnStatisticsProvider is null");
         this.assumeCanonicalPartitionKeys = glueConfig.isAssumeCanonicalPartitionKeys();
+        this.tableFilter = requireNonNull(tableFilter, "tableFilter is null");
     }
 
     private static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config, Optional<RequestHandler2> requestHandler)
@@ -403,7 +407,10 @@ public class GlueHiveMetastore
                             .withCatalogId(catalogId)
                             .withDatabaseName(databaseName)
                             .withNextToken(nextToken));
-                    result.getTableList().forEach(table -> tableNames.add(table.getName()));
+                    result.getTableList().stream()
+                            .filter(tableFilter)
+                            .map(com.amazonaws.services.glue.model.Table::getName)
+                            .forEach(tableNames::add);
                     nextToken = result.getNextToken();
                 }
                 while (nextToken != null);

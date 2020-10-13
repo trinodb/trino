@@ -165,7 +165,7 @@ public final class ArrayJoin
         return specializeArrayJoin(functionBinding, functionDependencies, METHOD_HANDLE);
     }
 
-    private static ScalarFunctionImplementation specializeArrayJoin(
+    private static ChoicesScalarFunctionImplementation specializeArrayJoin(
             FunctionBinding functionBinding,
             FunctionDependencies functionDependencies,
             MethodHandle methodHandle)
@@ -174,7 +174,8 @@ public final class ArrayJoin
 
         Type type = functionBinding.getTypeVariable("T");
         if (type instanceof UnknownType) {
-            return new ScalarFunctionImplementation(
+            return new ChoicesScalarFunctionImplementation(
+                    functionBinding,
                     FAIL_ON_NULL,
                     argumentConventions,
                     methodHandle.bindTo(null),
@@ -191,7 +192,8 @@ public final class ArrayJoin
                 }
 
                 MethodHandle target = MethodHandles.insertArguments(methodHandle, 0, cast);
-                return new ScalarFunctionImplementation(
+                return new ChoicesScalarFunctionImplementation(
+                        functionBinding,
                         FAIL_ON_NULL,
                         argumentConventions,
                         target,

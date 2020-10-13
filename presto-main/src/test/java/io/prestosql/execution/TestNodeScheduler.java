@@ -128,8 +128,11 @@ public class TestNodeScheduler
     public void tearDown()
     {
         remoteTaskExecutor.shutdown();
+        remoteTaskExecutor = null;
         remoteTaskScheduledExecutor.shutdown();
+        remoteTaskScheduledExecutor = null;
         finalizerService.destroy();
+        finalizerService = null;
     }
 
     // Test exception throw when no nodes available to schedule

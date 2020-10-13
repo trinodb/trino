@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.raptor.legacy.storage.StoragePageSink;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageSorter;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
 
 import java.util.ArrayList;

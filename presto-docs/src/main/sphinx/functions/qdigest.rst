@@ -2,11 +2,6 @@
 Quantile Digest Functions
 =========================
 
-Presto implements the ``approx_percentile``  function with the quantile digest
-data structure.  The underlying data structure, :ref:`qdigest <qdigest_type>`,
-is exposed as a data type in Presto, and can be created, queried and stored
-separately from ``approx_percentile``.
-
 Data Structures
 ---------------
 
@@ -27,10 +22,10 @@ Functions
 
 .. function:: value_at_quantile(qdigest(T), quantile) -> T
 
-    Returns the approximate percentile values from the quantile digest given
+    Returns the approximate percentile value from the quantile digest given
     the number ``quantile`` between 0 and 1.
 
-.. function:: values_at_quantiles(qdigest(T), quantiles) -> T
+.. function:: values_at_quantiles(qdigest(T), quantiles) -> array(T)
 
     Returns the approximate percentile values as an array given the input
     quantile digest and array of values between 0 and 1 which

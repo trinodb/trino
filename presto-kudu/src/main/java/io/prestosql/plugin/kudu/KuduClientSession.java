@@ -385,7 +385,7 @@ public class KuduClientSession
     {
         List<ColumnSchema> kuduColumns = columns.stream()
                 .map(this::toColumnSchema)
-                .collect(ImmutableList.toImmutableList());
+                .collect(toImmutableList());
         return new Schema(kuduColumns);
     }
 

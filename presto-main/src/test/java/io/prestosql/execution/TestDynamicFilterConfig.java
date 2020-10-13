@@ -32,18 +32,19 @@ public class TestDynamicFilterConfig
         assertRecordedDefaults(recordDefaults(DynamicFilterConfig.class)
                 .setEnableDynamicFiltering(true)
                 .setEnableLargeDynamicFilters(false)
+                .setServiceThreadCount(2)
                 .setSmallBroadcastMaxDistinctValuesPerDriver(100)
                 .setSmallBroadcastMaxSizePerDriver(DataSize.of(10, KILOBYTE))
                 .setSmallBroadcastRangeRowLimitPerDriver(0)
-                .setSmallPartitionedMaxDistinctValuesPerDriver(100)
+                .setSmallPartitionedMaxDistinctValuesPerDriver(10)
                 .setSmallPartitionedMaxSizePerDriver(DataSize.of(10, KILOBYTE))
                 .setSmallPartitionedRangeRowLimitPerDriver(0)
                 .setLargeBroadcastMaxDistinctValuesPerDriver(5000)
                 .setLargeBroadcastMaxSizePerDriver(DataSize.of(500, KILOBYTE))
-                .setLargeBroadcastRangeRowLimitPerDriver(50_000)
+                .setLargeBroadcastRangeRowLimitPerDriver(0)
                 .setLargePartitionedMaxDistinctValuesPerDriver(500)
                 .setLargePartitionedMaxSizePerDriver(DataSize.of(50, KILOBYTE))
-                .setLargePartitionedRangeRowLimitPerDriver(5_000));
+                .setLargePartitionedRangeRowLimitPerDriver(0));
     }
 
     @Test
@@ -52,6 +53,7 @@ public class TestDynamicFilterConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("enable-dynamic-filtering", "false")
                 .put("enable-large-dynamic-filters", "true")
+                .put("dynamic-filtering.service-thread-count", "4")
                 .put("dynamic-filtering.small-broadcast.max-distinct-values-per-driver", "256")
                 .put("dynamic-filtering.small-broadcast.max-size-per-driver", "64kB")
                 .put("dynamic-filtering.small-broadcast.range-row-limit-per-driver", "10000")
@@ -69,6 +71,7 @@ public class TestDynamicFilterConfig
         DynamicFilterConfig expected = new DynamicFilterConfig()
                 .setEnableDynamicFiltering(false)
                 .setEnableLargeDynamicFilters(true)
+                .setServiceThreadCount(4)
                 .setSmallBroadcastMaxDistinctValuesPerDriver(256)
                 .setSmallBroadcastMaxSizePerDriver(DataSize.of(64, KILOBYTE))
                 .setSmallBroadcastRangeRowLimitPerDriver(10000)

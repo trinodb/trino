@@ -28,6 +28,8 @@ import net.jodah.failsafe.function.CheckedRunnable;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.SelinuxContext;
+import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
+import org.testcontainers.containers.wait.strategy.WaitStrategy;
 import org.testcontainers.images.builder.Transferable;
 
 import java.io.IOException;
@@ -200,11 +202,6 @@ public class DockerContainer
         }
     }
 
-    public void clearDependencies()
-    {
-        dependencies.clear();
-    }
-
     public String execCommand(String... command)
     {
         String fullCommand = Joiner.on(" ").join(command);
@@ -249,7 +246,7 @@ public class DockerContainer
             try {
                 files.addAll(listFilesInContainer(containerLogPath));
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 log.warn("Could not list files in container %s path %s", logicalName, containerLogPath);
             }
         }
@@ -274,7 +271,11 @@ public class DockerContainer
             execCommand("tar", "-cf", containerLogsArchive, "-T", containerLogsListingFile);
             copyFileFromContainer(containerLogsArchive, hostPath.resolve(format("%s/logs.tar.gz", logicalName)));
         }
-        catch (Exception e) {
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (ExecutionException | RuntimeException e) {
             log.warn("Could not copy logs archive from %s: %s", logicalName, getStackTraceAsString(e));
         }
     }
@@ -282,6 +283,16 @@ public class DockerContainer
     public StatisticsFetcher.Stats getStats()
     {
         return statistics.get();
+    }
+
+    public DockerContainer waitingForAll(WaitStrategy... strategies)
+    {
+        WaitAllStrategy waitAllStrategy = new WaitAllStrategy();
+        for (WaitStrategy strategy : strategies) {
+            waitAllStrategy.withStrategy(strategy);
+        }
+        waitingFor(waitAllStrategy);
+        return this;
     }
 
     private void copyFileFromContainer(String filename, Path targetPath)
@@ -295,7 +306,11 @@ public class DockerContainer
                 log.info("Copied file %s to %s (size: %s bytes)", filename, targetPath, ofBytes(size(targetPath)).succinct());
             }).get();
         }
-        catch (Exception e) {
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (ExecutionException | RuntimeException e) {
             log.warn("Could not copy file from %s to %s: %s", filename, targetPath, getStackTraceAsString(e));
         }
     }
@@ -307,7 +322,7 @@ public class DockerContainer
                     .omitEmptyStrings()
                     .splitToList(execCommand("/usr/bin/find", path, "-type", "f", "-print"));
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Could not list files in container '%s' path %s: %s", logicalName, path, e);
         }
 
@@ -382,7 +397,11 @@ public class DockerContainer
         try {
             executor.runAsync(this::stop).get();
         }
-        catch (Exception e) {
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (ExecutionException | RuntimeException e) {
             log.warn("Could not stop container correctly: %s", getStackTraceAsString(e));
         }
 

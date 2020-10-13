@@ -15,6 +15,8 @@ package io.prestosql.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.prestosql.execution.buffer.OutputBuffer;
@@ -31,14 +33,18 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.util.Mergeable;
 
+import javax.annotation.Nullable;
+
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.execution.buffer.PageSplitterUtil.splitPage;
 import static io.prestosql.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.Math.max;
@@ -297,8 +303,9 @@ public class PartitionedOutputOperator
         private final OutputBuffer outputBuffer;
         private final List<Type> sourceTypes;
         private final PartitionFunction partitionFunction;
-        private final List<Integer> partitionChannels;
-        private final List<Optional<Block>> partitionConstants;
+        private final int[] partitionChannels;
+        @Nullable
+        private final Block[] partitionConstantBlocks; // when null, no constants are present. Only non-null elements are constants
         private final PagesSerde serde;
         private final PageBuilder[] pageBuilders;
         private final boolean replicatesAnyRow;
@@ -321,16 +328,30 @@ public class PartitionedOutputOperator
                 OperatorContext operatorContext)
         {
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
-            this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
-            this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null").stream()
-                    .map(constant -> constant.map(NullableValue::asBlock))
-                    .collect(toImmutableList());
+            this.partitionChannels = Ints.toArray(requireNonNull(partitionChannels, "partitionChannels is null"));
+            Block[] partitionConstantBlocks = requireNonNull(partitionConstants, "partitionConstants is null").stream()
+                    .map(constant -> constant.map(NullableValue::asBlock).orElse(null))
+                    .toArray(Block[]::new);
+            if (Arrays.stream(partitionConstantBlocks).anyMatch(Objects::nonNull)) {
+                this.partitionConstantBlocks = partitionConstantBlocks;
+            }
+            else {
+                this.partitionConstantBlocks = null;
+            }
             this.replicatesAnyRow = replicatesAnyRow;
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
             this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+
+            //  Ensure partition channels align with constant arguments provided
+            for (int i = 0; i < this.partitionChannels.length; i++) {
+                if (this.partitionChannels[i] < 0) {
+                    checkArgument(this.partitionConstantBlocks != null && this.partitionConstantBlocks[i] != null,
+                            "Expected constant for partitioning channel %s, but none was found", i);
+                }
+            }
 
             int partitionCount = partitionFunction.getPartitionCount();
             int pageSize = toIntExact(min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, maxMemory.toBytes() / partitionCount));
@@ -399,14 +420,19 @@ public class PartitionedOutputOperator
 
         private Page getPartitionFunctionArguments(Page page)
         {
-            Block[] blocks = new Block[partitionChannels.size()];
+            // Fast path for no constants
+            if (partitionConstantBlocks == null) {
+                return page.getColumns(partitionChannels);
+            }
+
+            Block[] blocks = new Block[partitionChannels.length];
             for (int i = 0; i < blocks.length; i++) {
-                Optional<Block> partitionConstant = partitionConstants.get(i);
-                if (partitionConstant.isPresent()) {
-                    blocks[i] = new RunLengthEncodedBlock(partitionConstant.get(), page.getPositionCount());
+                int channel = partitionChannels[i];
+                if (channel < 0) {
+                    blocks[i] = new RunLengthEncodedBlock(partitionConstantBlocks[i], page.getPositionCount());
                 }
                 else {
-                    blocks[i] = page.getBlock(partitionChannels.get(i));
+                    blocks[i] = page.getBlock(channel);
                 }
             }
             return new Page(page.getPositionCount(), blocks);
@@ -433,15 +459,21 @@ public class PartitionedOutputOperator
 
                     operatorContext.recordOutput(pagePartition.getSizeInBytes(), pagePartition.getPositionCount());
 
-                    List<SerializedPage> serializedPages = splitPage(pagePartition, DEFAULT_MAX_PAGE_SIZE_IN_BYTES).stream()
-                            .map(serde::serialize)
-                            .collect(toImmutableList());
-
-                    outputBuffer.enqueue(partition, serializedPages);
+                    outputBuffer.enqueue(partition, splitAndSerializePage(pagePartition));
                     pagesAdded.incrementAndGet();
                     rowsAdded.addAndGet(pagePartition.getPositionCount());
                 }
             }
+        }
+
+        private List<SerializedPage> splitAndSerializePage(Page pagePartition)
+        {
+            List<Page> split = splitPage(pagePartition, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+            ImmutableList.Builder<SerializedPage> builder = ImmutableList.builderWithExpectedSize(split.size());
+            for (Page p : split) {
+                builder.add(serde.serialize(p));
+            }
+            return builder.build();
         }
     }
 

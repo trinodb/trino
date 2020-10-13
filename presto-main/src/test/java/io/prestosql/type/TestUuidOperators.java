@@ -130,9 +130,11 @@ public class TestUuidOperators
         assertEquals(uuidCompare("12151fd2-7586-11e9-8f9e-2a86e4085a58", "dfa7eaf8-6a26-5749-8d36-336025df74e8"), -1);
     }
 
-    private static int uuidCompare(String uuidLeft, String uuidRight)
+    private int uuidCompare(String uuidLeft, String uuidRight)
     {
-        return UUID.compareTo(uuidBlock(uuidLeft), 0, uuidBlock(uuidRight), 0);
+        return (int) functionAssertions.getBlockTypeOperators()
+                .getComparisonOperator(UUID)
+                .compare(uuidBlock(uuidLeft), 0, uuidBlock(uuidRight), 0);
     }
 
     @Test
@@ -149,9 +151,11 @@ public class TestUuidOperators
         assertOperator(HASH_CODE, "UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'", BIGINT, hashFromType("12151fd2-7586-11e9-8f9e-2a86e4085a59"));
     }
 
-    private static long hashFromType(String uuidString)
+    private long hashFromType(String uuidString)
     {
-        return UUID.hash(uuidBlock(uuidString), 0);
+        return functionAssertions.getBlockTypeOperators()
+                .getHashCodeOperator(UUID)
+                .hashCode(uuidBlock(uuidString), 0);
     }
 
     private static Block uuidBlock(String uuidString)

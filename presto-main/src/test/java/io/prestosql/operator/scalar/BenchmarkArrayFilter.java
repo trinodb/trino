@@ -70,7 +70,7 @@ import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.BenchmarkArrayFilter.ExactArrayFilterFunction.EXACT_ARRAY_FILTER_FUNCTION;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
@@ -137,13 +137,13 @@ public class BenchmarkArrayFilter
                 ResolvedFunction resolvedFunction = metadata.resolveFunction(
                         QualifiedName.of(name),
                         fromTypes(arrayType, new FunctionType(ImmutableList.of(BIGINT), BOOLEAN)));
-                ResolvedFunction greaterThan = metadata.resolveOperator(GREATER_THAN, ImmutableList.of(BIGINT, BIGINT));
+                ResolvedFunction lessThan = metadata.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
                 projectionsBuilder.add(new CallExpression(resolvedFunction, ImmutableList.of(
                         field(0, arrayType),
                         new LambdaDefinitionExpression(
                                 ImmutableList.of(BIGINT),
                                 ImmutableList.of("x"),
-                                new CallExpression(greaterThan, ImmutableList.of(new VariableReferenceExpression("x", BIGINT), constant(0L, BIGINT)))))));
+                                new CallExpression(lessThan, ImmutableList.of(constant(0L, BIGINT), new VariableReferenceExpression("x", BIGINT)))))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
@@ -229,7 +229,8 @@ public class BenchmarkArrayFilter
         protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
         {
             Type type = functionBinding.getTypeVariable("T");
-            return new ScalarFunctionImplementation(
+            return new ChoicesScalarFunctionImplementation(
+                    functionBinding,
                     FAIL_ON_NULL,
                     ImmutableList.of(NEVER_NULL, NEVER_NULL),
                     METHOD_HANDLE.bindTo(type));

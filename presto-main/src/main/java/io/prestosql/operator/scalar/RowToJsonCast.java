@@ -79,7 +79,8 @@ public class RowToJsonCast
         }
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(fieldWriters);
 
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 methodHandle);

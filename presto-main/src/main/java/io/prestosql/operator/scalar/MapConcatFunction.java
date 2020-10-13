@@ -29,12 +29,17 @@ import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor;
+import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
+import static io.prestosql.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -43,19 +48,27 @@ import static io.prestosql.sql.gen.VarArgsToArrayAdapterGenerator.generateVarArg
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Math.min;
 import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
 
 public final class MapConcatFunction
         extends SqlScalarFunction
 {
-    public static final MapConcatFunction MAP_CONCAT_FUNCTION = new MapConcatFunction();
-
     private static final String FUNCTION_NAME = "map_concat";
     private static final String DESCRIPTION = "Concatenates given maps";
 
     private static final MethodHandle USER_STATE_FACTORY = methodHandle(MapConcatFunction.class, "createMapState", MapType.class);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapConcatFunction.class, "mapConcat", MapType.class, Object.class, Block[].class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(
+            MapConcatFunction.class,
+            "mapConcat",
+            MapType.class,
+            BlockPositionEqual.class,
+            BlockPositionHashCode.class,
+            Object.class,
+            Block[].class);
 
-    private MapConcatFunction()
+    private final BlockTypeOperators blockTypeOperators;
+
+    public MapConcatFunction(BlockTypeOperators blockTypeOperators)
     {
         super(new FunctionMetadata(
                 new Signature(
@@ -71,6 +84,7 @@ public final class MapConcatFunction
                 true,
                 DESCRIPTION,
                 SCALAR));
+        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
     @Override
@@ -81,15 +95,19 @@ public final class MapConcatFunction
         }
 
         MapType mapType = (MapType) functionBinding.getBoundSignature().getReturnType();
+        Type keyType = mapType.getKeyType();
+        BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(keyType);
+        BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
 
         MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
                 Block.class,
                 Block.class,
                 functionBinding.getArity(),
-                METHOD_HANDLE.bindTo(mapType),
+                MethodHandles.insertArguments(METHOD_HANDLE, 0, mapType, keyEqual, keyHashCode),
                 USER_STATE_FACTORY.bindTo(mapType));
 
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 nCopies(functionBinding.getArity(), NEVER_NULL),
                 methodHandleAndConstructor.getMethodHandle(),
@@ -103,7 +121,7 @@ public final class MapConcatFunction
     }
 
     @UsedByGeneratedCode
-    public static Block mapConcat(MapType mapType, Object state, Block[] maps)
+    public static Block mapConcat(MapType mapType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Object state, Block[] maps)
     {
         int entries = 0;
         int lastMapIndex = maps.length - 1;
@@ -127,7 +145,7 @@ public final class MapConcatFunction
         // TODO: we should move TypedSet into user state as well
         Type keyType = mapType.getKeyType();
         Type valueType = mapType.getValueType();
-        TypedSet typedSet = new TypedSet(keyType, entries / 2, FUNCTION_NAME);
+        TypedSet typedSet = createEqualityTypedSet(keyType, keyEqual, keyHashCode, entries / 2, FUNCTION_NAME);
         BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
 

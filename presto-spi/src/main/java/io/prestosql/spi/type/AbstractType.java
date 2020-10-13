@@ -68,24 +68,6 @@ public abstract class AbstractType
     }
 
     @Override
-    public long hash(Block block, int position)
-    {
-        throw new UnsupportedOperationException(getTypeSignature() + " type is not comparable");
-    }
-
-    @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        throw new UnsupportedOperationException(getTypeSignature() + " type is not comparable");
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        throw new UnsupportedOperationException(getTypeSignature() + " type is not orderable");
-    }
-
-    @Override
     public boolean getBoolean(Block block, int position)
     {
         throw new UnsupportedOperationException(getClass().getName());

@@ -36,8 +36,8 @@ import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -551,6 +551,7 @@ public class HiveWriterFactory
                     sortFields,
                     sortOrders,
                     pageSorter,
+                    typeManager.getTypeOperators(),
                     OrcFileWriterFactory::createOrcDataSink);
         }
 

@@ -15,13 +15,12 @@ package io.prestosql.plugin.session.file;
 
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.prestosql.plugin.session.AbstractSessionPropertyManager;
 import io.prestosql.plugin.session.SessionMatchSpec;
-import io.prestosql.spi.session.SessionConfigurationContext;
-import io.prestosql.spi.session.SessionPropertyConfigurationManager;
 
 import javax.inject.Inject;
 
@@ -29,22 +28,20 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FileSessionPropertyManager
-        implements SessionPropertyConfigurationManager
+        extends AbstractSessionPropertyManager
 {
     public static final JsonCodec<List<SessionMatchSpec>> CODEC = new JsonCodecFactory(
             () -> new ObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
             .listJsonCodec(SessionMatchSpec.class);
 
-    private final List<SessionMatchSpec> sessionMatchSpecs;
+    private final ImmutableList<SessionMatchSpec> sessionMatchSpecs;
 
     @Inject
     public FileSessionPropertyManager(FileSessionPropertyManagerConfig config)
@@ -53,7 +50,7 @@ public class FileSessionPropertyManager
 
         Path configurationFile = config.getConfigFile().toPath();
         try {
-            sessionMatchSpecs = CODEC.fromJson(Files.readAllBytes(configurationFile));
+            sessionMatchSpecs = ImmutableList.copyOf(CODEC.fromJson(Files.readAllBytes(configurationFile)));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -80,20 +77,8 @@ public class FileSessionPropertyManager
     }
 
     @Override
-    public Map<String, String> getSystemSessionProperties(SessionConfigurationContext context)
+    protected List<SessionMatchSpec> getSessionMatchSpecs()
     {
-        // later properties override earlier properties
-        Map<String, String> combinedProperties = new HashMap<>();
-        for (SessionMatchSpec sessionMatchSpec : sessionMatchSpecs) {
-            combinedProperties.putAll(sessionMatchSpec.match(context));
-        }
-
-        return ImmutableMap.copyOf(combinedProperties);
-    }
-
-    @Override
-    public Map<String, Map<String, String>> getCatalogSessionProperties(SessionConfigurationContext context)
-    {
-        return ImmutableMap.of();
+        return sessionMatchSpecs;
     }
 }

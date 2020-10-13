@@ -116,7 +116,8 @@ public final class MapConstructor
         Type mapType = functionBinding.getBoundSignature().getReturnType();
         MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
 
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 METHOD_HANDLE.bindTo(mapType).bindTo(keyEqual).bindTo(keyHashCode).bindTo(keyIndeterminate),
@@ -141,6 +142,7 @@ public final class MapConstructor
         }
 
         MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) pageBuilder.getBlockBuilder(0);
+        mapBlockBuilder.strict();
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
         for (int i = 0; i < keyBlock.getPositionCount(); i++) {
             if (keyBlock.isNull(i)) {
@@ -163,10 +165,10 @@ public final class MapConstructor
             mapType.getValueType().appendTo(valueBlock, i, blockBuilder);
         }
         try {
-            mapBlockBuilder.closeEntryStrict();
+            mapBlockBuilder.closeEntry();
         }
         catch (DuplicateMapKeyException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getDetailedMessage(mapType.getKeyType(), session), e);
+            throw e.withDetailedMessage(mapType.getKeyType(), session);
         }
         finally {
             pageBuilder.declarePosition();

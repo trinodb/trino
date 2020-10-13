@@ -14,21 +14,22 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators.BlockPositionComparison;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 
-import java.lang.invoke.MethodHandle;
-import java.util.List;
-
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 
 @ScalarFunction("array_sort")
 @Description("Sorts the given array in ascending order according to the natural ordering of its elements.")
@@ -36,7 +37,7 @@ public final class ArraySortFunction
 {
     private final PageBuilder pageBuilder;
     private static final int INITIAL_LENGTH = 128;
-    private List<Integer> positions = Ints.asList(new int[INITIAL_LENGTH]);
+    private final IntArrayList positions = new IntArrayList(INITIAL_LENGTH);
 
     @TypeParameter("E")
     public ArraySortFunction(@TypeParameter("E") Type elementType)
@@ -47,21 +48,22 @@ public final class ArraySortFunction
     @TypeParameter("E")
     @SqlType("array(E)")
     public Block sort(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"E", "E"}) MethodHandle lessThanFunction,
+            @OperatorDependency(
+                    operator = COMPARISON,
+                    argumentTypes = {"E", "E"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionComparison comparisonOperator,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block block)
     {
         int arrayLength = block.getPositionCount();
-        if (positions.size() < arrayLength) {
-            positions = Ints.asList(new int[arrayLength]);
-        }
+        positions.clear();
         for (int i = 0; i < arrayLength; i++) {
-            positions.set(i, i);
+            positions.add(i);
         }
 
-        positions.subList(0, arrayLength).sort((p1, p2) -> {
-            boolean nullLeft = block.isNull(p1);
-            boolean nullRight = block.isNull(p2);
+        positions.subList(0, arrayLength).sort((left, right) -> {
+            boolean nullLeft = block.isNull(left);
+            boolean nullRight = block.isNull(right);
             if (nullLeft && nullRight) {
                 return 0;
             }
@@ -72,8 +74,7 @@ public final class ArraySortFunction
                 return -1;
             }
 
-            //TODO: This could be quite slow, it should use parametric equals
-            return type.compareTo(block, p1, block, p2);
+            return (int) comparisonOperator.compare(block, left, block, right);
         });
 
         if (pageBuilder.isFull()) {
@@ -83,7 +84,7 @@ public final class ArraySortFunction
         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
 
         for (int i = 0; i < arrayLength; i++) {
-            type.appendTo(block, positions.get(i), blockBuilder);
+            type.appendTo(block, positions.getInt(i), blockBuilder);
         }
         pageBuilder.declarePositions(arrayLength);
 

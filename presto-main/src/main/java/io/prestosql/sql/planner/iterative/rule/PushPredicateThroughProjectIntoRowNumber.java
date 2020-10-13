@@ -22,6 +22,7 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.DomainTranslator.ExtractionResult;
@@ -83,10 +84,12 @@ public class PushPredicateThroughProjectIntoRowNumber
                             .capturedAs(ROW_NUMBER)))));
 
     private final Metadata metadata;
+    private final TypeOperators typeOperators;
 
-    public PushPredicateThroughProjectIntoRowNumber(Metadata metadata)
+    public PushPredicateThroughProjectIntoRowNumber(Metadata metadata, TypeOperators typeOperators)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }
 
     @Override
@@ -106,7 +109,7 @@ public class PushPredicateThroughProjectIntoRowNumber
             return Result.empty();
         }
 
-        ExtractionResult extractionResult = fromPredicate(metadata, context.getSession(), filter.getPredicate(), context.getSymbolAllocator().getTypes());
+        ExtractionResult extractionResult = fromPredicate(metadata, typeOperators, context.getSession(), filter.getPredicate(), context.getSymbolAllocator().getTypes());
         TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
         OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
         if (upperBound.isEmpty()) {

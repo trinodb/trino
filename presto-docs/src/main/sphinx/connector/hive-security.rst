@@ -34,6 +34,8 @@ Property Value                                     Description
                                                    To alter these privileges, use the :doc:`/sql/grant` and
                                                    :doc:`/sql/revoke` commands.
                                                    See :ref:`hive-sql-standard-based-authorization` for details.
+
+``allow-all``                                      No authorization checks are enforced.
 ================================================== ============================================================
 
 .. _hive-sql-standard-based-authorization:
@@ -561,7 +563,7 @@ See below for an example.
           "privileges": ["SELECT"]
         }
       ],
-      "sessionProperties": [
+      "session_properties": [
         {
           "property": "force_local_scheduling",
           "allow": true

@@ -25,22 +25,15 @@ import io.prestosql.metadata.TypeVariableConstraint;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.SingleRowBlockWriter;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.RowType.Field;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.util.JsonCastException;
 import io.prestosql.util.JsonUtil.BlockBuilderAppender;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
-import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -51,8 +44,6 @@ import static io.prestosql.util.JsonUtil.BlockBuilderAppender.createBlockBuilder
 import static io.prestosql.util.JsonUtil.JSON_FACTORY;
 import static io.prestosql.util.JsonUtil.canCastFromJson;
 import static io.prestosql.util.JsonUtil.createJsonParser;
-import static io.prestosql.util.JsonUtil.getFieldNameToIndex;
-import static io.prestosql.util.JsonUtil.parseJsonToSingleRowBlock;
 import static io.prestosql.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.String.format;
@@ -61,7 +52,7 @@ public class JsonToRowCast
         extends SqlOperator
 {
     public static final JsonToRowCast JSON_TO_ROW = new JsonToRowCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRow", RowType.class, BlockBuilderAppender[].class, Optional.class, ConnectorSession.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRow", RowType.class, BlockBuilderAppender.class, ConnectorSession.class, Slice.class);
 
     private JsonToRowCast()
     {
@@ -82,12 +73,10 @@ public class JsonToRowCast
         RowType rowType = (RowType) functionBinding.getTypeVariable("T");
         checkCondition(canCastFromJson(rowType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", rowType);
 
-        List<Field> rowFields = rowType.getFields();
-        BlockBuilderAppender[] fieldAppenders = rowFields.stream()
-                .map(rowField -> createBlockBuilderAppender(rowField.getType()))
-                .toArray(BlockBuilderAppender[]::new);
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(rowType).bindTo(fieldAppenders).bindTo(getFieldNameToIndex(rowFields));
-        return new ScalarFunctionImplementation(
+        BlockBuilderAppender fieldAppender = createBlockBuilderAppender(rowType);
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(rowType).bindTo(fieldAppender);
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL),
                 methodHandle);
@@ -96,8 +85,7 @@ public class JsonToRowCast
     @UsedByGeneratedCode
     public static Block toRow(
             RowType rowType,
-            BlockBuilderAppender[] fieldAppenders,
-            Optional<Map<String, Integer>> fieldNameToIndex,
+            BlockBuilderAppender rowAppender,
             ConnectorSession connectorSession,
             Slice json)
     {
@@ -107,18 +95,8 @@ public class JsonToRowCast
                 return null;
             }
 
-            if (jsonParser.getCurrentToken() != START_ARRAY && jsonParser.getCurrentToken() != START_OBJECT) {
-                throw new JsonCastException(format("Expected a json array or object, but got %s", jsonParser.getText()));
-            }
-
             BlockBuilder rowBlockBuilder = rowType.createBlockBuilder(null, 1);
-            parseJsonToSingleRowBlock(
-                    jsonParser,
-                    (SingleRowBlockWriter) rowBlockBuilder.beginBlockEntry(),
-                    fieldAppenders,
-                    fieldNameToIndex);
-            rowBlockBuilder.closeEntry();
-
+            rowAppender.append(jsonParser, rowBlockBuilder);
             if (jsonParser.nextToken() != null) {
                 throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
             }

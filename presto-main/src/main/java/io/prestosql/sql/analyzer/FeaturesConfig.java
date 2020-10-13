@@ -50,6 +50,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "deprecated.legacy-row-field-ordinal-access",
         "deprecated.legacy-unnest-array-rows",
         "resource-group-manager",
+        "fast-inequality-joins",
         "experimental.resource-groups-enabled",
         "experimental-syntax-enabled",
         "analyzer.experimental-syntax-enabled",
@@ -75,7 +76,6 @@ public class FeaturesConfig
     private boolean dynamicScheduleForGroupedExecution;
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
-    private boolean fastInequalityJoins = true;
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private int maxReorderedJoins = 9;
     private boolean redistributeWrites = true;
@@ -318,19 +318,6 @@ public class FeaturesConfig
     {
         this.spatialJoinsEnabled = spatialJoinsEnabled;
         return this;
-    }
-
-    @Config("fast-inequality-joins")
-    @ConfigDescription("Use faster handling of inequality joins if it is possible")
-    public FeaturesConfig setFastInequalityJoins(boolean fastInequalityJoins)
-    {
-        this.fastInequalityJoins = fastInequalityJoins;
-        return this;
-    }
-
-    public boolean isFastInequalityJoins()
-    {
-        return fastInequalityJoins;
     }
 
     public JoinReorderingStrategy getJoinReorderingStrategy()

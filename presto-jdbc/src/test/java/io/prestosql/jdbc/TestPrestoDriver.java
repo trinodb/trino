@@ -97,7 +97,7 @@ public class TestPrestoDriver
         server.createCatalog("blackhole", "blackhole");
         waitForNodeRefresh(server);
         setupTestTables();
-        executorService = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executorService = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     }
 
     static void waitForNodeRefresh(TestingPrestoServer server)
@@ -133,6 +133,7 @@ public class TestPrestoDriver
             throws Exception
     {
         executorService.shutdownNow();
+        executorService = null;
         server.close();
     }
 

@@ -115,6 +115,7 @@ import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.session.PropertyMetadata;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spiller.FileSingleStreamSpillerFactory;
 import io.prestosql.spiller.GenericPartitioningSpillerFactory;
 import io.prestosql.spiller.GenericSpillerFactory;
@@ -174,6 +175,7 @@ import io.prestosql.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import io.prestosql.transaction.InMemoryTransactionManager;
 import io.prestosql.transaction.TransactionManager;
 import io.prestosql.transaction.TransactionManagerConfig;
+import io.prestosql.type.BlockTypeOperators;
 import io.prestosql.util.FinalizerService;
 import org.intellij.lang.annotations.Language;
 import org.weakref.jmx.MBeanExporter;
@@ -231,6 +233,8 @@ public class LocalQueryRunner
     private final SqlParser sqlParser;
     private final PlanFragmenter planFragmenter;
     private final InMemoryNodeManager nodeManager;
+    private final TypeOperators typeOperators;
+    private final BlockTypeOperators blockTypeOperators;
     private final MetadataManager metadata;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
@@ -294,6 +298,8 @@ public class LocalQueryRunner
         this.finalizerService = new FinalizerService();
         finalizerService.start();
 
+        this.typeOperators = new TypeOperators();
+        this.blockTypeOperators = new BlockTypeOperators(typeOperators);
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
         PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
@@ -308,7 +314,7 @@ public class LocalQueryRunner
                 yieldExecutor,
                 catalogManager,
                 notificationExecutor);
-        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
+        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators);
 
         this.metadata = new MetadataManager(
                 featuresConfig,
@@ -317,11 +323,13 @@ public class LocalQueryRunner
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
-                transactionManager);
+                transactionManager,
+                typeOperators,
+                blockTypeOperators);
         this.splitManager = new SplitManager(new QueryManagerConfig(), metadata);
         this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig());
-        this.joinCompiler = new JoinCompiler(metadata);
-        PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
+        this.joinCompiler = new JoinCompiler(typeOperators);
+        PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler, blockTypeOperators);
         this.statsCalculator = createNewStatsCalculator(metadata, new TypeAnalyzer(sqlParser, metadata));
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
@@ -351,7 +359,8 @@ public class LocalQueryRunner
                 pageSorter,
                 pageIndexerFactory,
                 transactionManager,
-                eventListenerManager);
+                eventListenerManager,
+                typeOperators);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
@@ -473,6 +482,16 @@ public class LocalQueryRunner
         return metadata;
     }
 
+    public TypeOperators getTypeOperators()
+    {
+        return typeOperators;
+    }
+
+    public BlockTypeOperators getBlockTypeOperators()
+    {
+        return blockTypeOperators;
+    }
+
     @Override
     public NodePartitioningManager getNodePartitioningManager()
     {
@@ -556,7 +575,8 @@ public class LocalQueryRunner
     @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        throw new UnsupportedOperationException();
+        nodeManager.addCurrentNodeConnector(new CatalogName(catalogName));
+        connectorManager.createCatalog(catalogName, connectorName, properties);
     }
 
     public LocalQueryRunner printPlan()
@@ -729,8 +749,10 @@ public class LocalQueryRunner
                 new PagesIndex.TestingFactory(false),
                 joinCompiler,
                 new LookupJoinOperators(),
-                new OrderingCompiler(),
-                new DynamicFilterConfig());
+                new OrderingCompiler(typeOperators),
+                new DynamicFilterConfig(),
+                typeOperators,
+                blockTypeOperators);
 
         // plan query
         StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();
@@ -826,6 +848,7 @@ public class LocalQueryRunner
     {
         return new PlanOptimizers(
                 metadata,
+                typeOperators,
                 new TypeAnalyzer(sqlParser, metadata),
                 taskManagerConfig,
                 forceSingleNode,
@@ -857,6 +880,7 @@ public class LocalQueryRunner
                 optimizers,
                 planFragmenter,
                 metadata,
+                typeOperators,
                 accessControl,
                 sqlParser,
                 statsCalculator,
@@ -864,7 +888,17 @@ public class LocalQueryRunner
                 dataDefinitionTask);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()), warningCollector);
 
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, new PlanSanityChecker(true), idAllocator, metadata, new TypeAnalyzer(sqlParser, metadata), statsCalculator, costCalculator, warningCollector);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(
+                session,
+                optimizers,
+                new PlanSanityChecker(true),
+                idAllocator,
+                metadata,
+                typeOperators,
+                new TypeAnalyzer(sqlParser, metadata),
+                statsCalculator,
+                costCalculator,
+                warningCollector);
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         // make LocalQueryRunner always compute plan statistics for test purposes

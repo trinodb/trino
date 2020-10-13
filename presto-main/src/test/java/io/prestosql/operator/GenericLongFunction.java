@@ -19,6 +19,7 @@ import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
+import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 
 import java.lang.invoke.MethodHandle;
@@ -58,7 +59,7 @@ public final class GenericLongFunction
     protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(longUnaryOperator);
-        return new ScalarFunctionImplementation(FAIL_ON_NULL, ImmutableList.of(NEVER_NULL), methodHandle);
+        return new ChoicesScalarFunctionImplementation(functionBinding, FAIL_ON_NULL, ImmutableList.of(NEVER_NULL), methodHandle);
     }
 
     public static long apply(LongUnaryOperator longUnaryOperator, long value)

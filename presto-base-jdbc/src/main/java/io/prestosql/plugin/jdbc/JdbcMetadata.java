@@ -62,7 +62,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.plugin.jdbc.JdbcMetadataSessionProperties.isAllowAggregationPushdown;
+import static io.prestosql.plugin.jdbc.JdbcMetadataSessionProperties.isAggregationPushdownEnabled;
 import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.util.Objects.requireNonNull;
 
@@ -207,7 +207,7 @@ public class JdbcMetadata
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets)
     {
-        if (!isAllowAggregationPushdown(session)) {
+        if (!isAggregationPushdownEnabled(session)) {
             return Optional.empty();
         }
 
@@ -400,18 +400,12 @@ public class JdbcMetadata
     {
         JdbcOutputTableHandle handle = (JdbcOutputTableHandle) tableHandle;
         jdbcClient.commitCreateTable(JdbcIdentity.from(session), handle);
-        clearRollback();
         return Optional.empty();
     }
 
     private void setRollback(Runnable action)
     {
         checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
-    }
-
-    private void clearRollback()
-    {
-        rollbackAction.set(null);
     }
 
     public void rollback()

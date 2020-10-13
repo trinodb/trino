@@ -1,0 +1,123 @@
+{
+    "catalogs": [
+        {
+            "catalog": "blocked-catalog",
+            "allow": "none"
+        },
+        {
+            "user": "admin",
+            "allow": "all"
+        },
+        {
+            "catalog": "open-to-all",
+            "allow": "all"
+        },
+        {
+            "catalog": "specific-catalog",
+            "allow": "read-only"
+        },
+        {
+            "catalog": "hidden",
+            "allow": "all"
+        },
+        {
+            "catalog": "secret",
+            "allow": "all"
+        },
+        {
+            "user": "alice",
+            "catalog": "alice-catalog",
+            "allow": "all"
+        },
+        {
+            "user": "bob",
+            "catalog": "(bob-catalog|alice-catalog)",
+            "allow": "all"
+        },
+        {
+            "catalog": ".*session.*",
+            "allow": "read-only"
+        }
+    ],
+    "schemas": [
+        {
+            "catalog": "hidden",
+            "owner": false
+        },
+        {
+            "catalog": "secret",
+            "schema": "secret",
+            "owner": false
+        },
+        {
+            "user": "admin",
+            "owner": true
+        },
+        {
+            "user": "bob",
+            "catalog": "alice-catalog",
+            "schema": "bob-schema",
+            "owner": true
+        }
+    ],
+    "tables": [
+        {
+            "catalog": "secret",
+            "schema": "secret",
+            "privileges": []
+        },
+        {
+            "user": "alice",
+            "catalog": "alice-catalog",
+            "schema": "alice-schema",
+            "privileges": [
+                "SELECT"
+            ]
+        },
+        {
+            "user": "bob",
+            "catalog": "bob-catalog",
+            "schema": "bob-schema",
+            "table": "bob.*",
+            "privileges": [
+                "SELECT"
+            ]
+        },
+        {
+            "catalog": "specific-catalog",
+            "schema": "specific-schema",
+            "table": "specific-table",
+            "privileges": [
+                "SELECT"
+            ]
+        }
+    ],
+    "catalog_session_properties": [
+        {
+            "catalog": "secret",
+            "allow": false
+        },
+        {
+            "catalog": "session-catalog",
+            "property": "something",
+            "allow": true
+        },
+        {
+            "user": "alice",
+            "catalog": "alice-catalog-session",
+            "property": "dangerous",
+            "allow": false
+        },
+        {
+            "user": "alice",
+            "catalog": "alice-catalog-session",
+            "allow": true
+        },
+        {
+            "user": "bob",
+            "catalog": "bob-catalog-session",
+            "property": "safe",
+            "allow": true
+        }
+    ]
+}

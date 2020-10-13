@@ -29,6 +29,9 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -38,6 +41,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
+import static io.prestosql.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.block.MethodHandleUtil.compose;
 import static io.prestosql.spi.block.MethodHandleUtil.nativeValueWriter;
@@ -51,18 +55,19 @@ import static io.prestosql.util.Failures.internalError;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.invoke.MethodType.methodType;
+import static java.util.Objects.requireNonNull;
 
 public final class MapToMapCast
         extends SqlOperator
 {
-    public static final MapToMapCast MAP_TO_MAP_CAST = new MapToMapCast();
-
     private static final MethodHandle METHOD_HANDLE = methodHandle(
             MapToMapCast.class,
             "mapCast",
             MethodHandle.class,
             MethodHandle.class,
             Type.class,
+            BlockPositionEqual.class,
+            BlockPositionHashCode.class,
             ConnectorSession.class,
             Block.class);
 
@@ -72,7 +77,9 @@ public final class MapToMapCast
     private static final MethodHandle CHECK_SLICE_IS_NOT_NULL = methodHandle(MapToMapCast.class, "checkSliceIsNotNull", Slice.class);
     private static final MethodHandle CHECK_BLOCK_IS_NOT_NULL = methodHandle(MapToMapCast.class, "checkBlockIsNotNull", Block.class);
 
-    public MapToMapCast()
+    private final BlockTypeOperators blockTypeOperators;
+
+    public MapToMapCast(BlockTypeOperators blockTypeOperators)
     {
         super(CAST,
                 ImmutableList.of(
@@ -84,6 +91,7 @@ public final class MapToMapCast
                 mapType(new TypeSignature("TK"), new TypeSignature("TV")),
                 ImmutableList.of(mapType(new TypeSignature("FK"), new TypeSignature("FV"))),
                 true);
+        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
     @Override
@@ -107,8 +115,10 @@ public final class MapToMapCast
 
         MethodHandle keyProcessor = buildProcessor(functionDependencies, fromKeyType, toKeyType, true);
         MethodHandle valueProcessor = buildProcessor(functionDependencies, fromValueType, toValueType, false);
-        MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType);
-        return new ScalarFunctionImplementation(NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
+        BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(toKeyType);
+        BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(toKeyType);
+        MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType, keyEqual, keyHashCode);
+        return new ChoicesScalarFunctionImplementation(functionBinding, NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
     }
 
     /**
@@ -227,12 +237,14 @@ public final class MapToMapCast
             MethodHandle keyProcessFunction,
             MethodHandle valueProcessFunction,
             Type toMapType,
+            BlockPositionEqual keyEqual,
+            BlockPositionHashCode keyHashCode,
             ConnectorSession session,
             Block fromMap)
     {
         checkState(toMapType.getTypeParameters().size() == 2, "Expect two type parameters for toMapType");
         Type toKeyType = toMapType.getTypeParameters().get(0);
-        TypedSet typedSet = new TypedSet(toKeyType, fromMap.getPositionCount() / 2, "map-to-map cast");
+        TypedSet typedSet = createEqualityTypedSet(toKeyType, keyEqual, keyHashCode, fromMap.getPositionCount() / 2, "map-to-map cast");
         BlockBuilder keyBlockBuilder = toKeyType.createBlockBuilder(null, fromMap.getPositionCount() / 2);
         for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
             try {

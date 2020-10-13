@@ -114,10 +114,11 @@ public final class MapTransformValuesFunction
         Type valueType = functionBinding.getTypeVariable("V1");
         Type transformedValueType = functionBinding.getTypeVariable("V2");
         Type resultMapType = functionBinding.getBoundSignature().getReturnType();
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),
-                ImmutableList.of(Optional.empty(), Optional.of(BinaryFunctionInterface.class)),
+                ImmutableList.of(BinaryFunctionInterface.class),
                 generateTransform(keyType, valueType, transformedValueType, resultMapType),
                 Optional.of(STATE_FACTORY.bindTo(resultMapType)));
     }

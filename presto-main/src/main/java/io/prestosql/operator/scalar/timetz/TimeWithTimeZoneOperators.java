@@ -13,33 +13,19 @@
  */
 package io.prestosql.operator.scalar.timetz;
 
-import io.airlift.slice.XxHash64;
 import io.prestosql.operator.scalar.time.TimeOperators;
-import io.prestosql.spi.function.IsNull;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimeWithTimeZone;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.type.Constraint;
 
 import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.HASH_CODE;
-import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
-import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackOffsetMinutes;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackTimeNanos;
-import static io.prestosql.spi.type.TimeWithTimezoneTypes.hashLongTimeWithTimeZone;
-import static io.prestosql.spi.type.TimeWithTimezoneTypes.hashShortTimeWithTimeZone;
 import static io.prestosql.type.DateTimes.NANOSECONDS_PER_DAY;
 import static io.prestosql.type.DateTimes.NANOSECONDS_PER_MINUTE;
 import static io.prestosql.type.DateTimes.PICOSECONDS_PER_DAY;
@@ -74,170 +60,6 @@ public final class TimeWithTimeZoneOperators
     static long normalize(LongTimeWithTimeZone time)
     {
         return floorMod(time.getPicoSeconds() - time.getOffsetMinutes() * PICOSECONDS_PER_MINUTE, PICOSECONDS_PER_DAY);
-    }
-
-    @ScalarOperator(EQUAL)
-    public static final class Equal
-    {
-        @LiteralParameters("p")
-        @SqlNullable
-        @SqlType(StandardTypes.BOOLEAN)
-        public static Boolean equal(@SqlType("time(p) with time zone") long left, @SqlType("time(p) with time zone") long right)
-        {
-            return normalize(left) == normalize(right);
-        }
-
-        @LiteralParameters("p")
-        @SqlNullable
-        @SqlType(StandardTypes.BOOLEAN)
-        public static Boolean equal(@SqlType("time(p) with time zone") LongTimeWithTimeZone left, @SqlType("time(p) with time zone") LongTimeWithTimeZone right)
-        {
-            return normalize(left) == normalize(right);
-        }
-    }
-
-    @ScalarOperator(NOT_EQUAL)
-    public static final class NotEqual
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean notEqual(@SqlType("time(p) with time zone") long left, @SqlType("time(p) with time zone") long right)
-        {
-            return !Equal.equal(left, right);
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean notEqual(@SqlType("time(p) with time zone") LongTimeWithTimeZone left, @SqlType("time(p) with time zone") LongTimeWithTimeZone right)
-        {
-            return !Equal.equal(left, right);
-        }
-    }
-
-    @ScalarOperator(LESS_THAN)
-    public static final class LessThan
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean lessThan(@SqlType("time(p) with time zone") long left, @SqlType("time(p) with time zone") long right)
-        {
-            return normalize(left) < normalize(right);
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean lessThan(@SqlType("time(p) with time zone") LongTimeWithTimeZone left, @SqlType("time(p) with time zone") LongTimeWithTimeZone right)
-        {
-            return normalize(left) < normalize(right);
-        }
-    }
-
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
-    public static final class LessThanOrEqual
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean lessThanOrEqual(@SqlType("time(p) with time zone") long left, @SqlType("time(p) with time zone") long right)
-        {
-            return normalize(left) <= normalize(right);
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean lessThanOrEqual(@SqlType("time(p) with time zone") LongTimeWithTimeZone left, @SqlType("time(p) with time zone") LongTimeWithTimeZone right)
-        {
-            return normalize(left) <= normalize(right);
-        }
-    }
-
-    @ScalarOperator(GREATER_THAN)
-    public static final class GreaterThan
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean greaterThan(@SqlType("time(p) with time zone") long left, @SqlType("time(p) with time zone") long right)
-        {
-            return !LessThanOrEqual.lessThanOrEqual(left, right);
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean greaterThan(@SqlType("time(p) with time zone") LongTimeWithTimeZone left, @SqlType("time(p) with time zone") LongTimeWithTimeZone right)
-        {
-            return !LessThanOrEqual.lessThanOrEqual(left, right);
-        }
-    }
-
-    @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    public static final class GreaterThanOrEqual
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean greaterThanOrEqual(@SqlType("time(p) with time zone") long left, @SqlType("time(p) with time zone") long right)
-        {
-            return !LessThan.lessThan(left, right);
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean greaterThanOrEqual(@SqlType("time(p) with time zone") LongTimeWithTimeZone left, @SqlType("time(p) with time zone") LongTimeWithTimeZone right)
-        {
-            return !LessThan.lessThan(left, right);
-        }
-    }
-
-    @ScalarOperator(HASH_CODE)
-    public static final class HashCode
-    {
-        @SqlType(StandardTypes.BIGINT)
-        @LiteralParameters("p")
-        public static long hashCode(@SqlType("time(p) with time zone") long packedTime)
-        {
-            return hashShortTimeWithTimeZone(packedTime);
-        }
-
-        @SqlType(StandardTypes.BIGINT)
-        @LiteralParameters("p")
-        public static long hashCode(@SqlType("time(p) with time zone") LongTimeWithTimeZone time)
-        {
-            return hashLongTimeWithTimeZone(time);
-        }
-    }
-
-    @ScalarOperator(INDETERMINATE)
-    public static final class Indeterminate
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean indeterminate(@SqlType("time(p) with time zone") long value, @IsNull boolean isNull)
-        {
-            return isNull;
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean indeterminate(@SqlType("time(p) with time zone") LongTimeWithTimeZone value, @IsNull boolean isNull)
-        {
-            return isNull;
-        }
-    }
-
-    @ScalarOperator(XX_HASH_64)
-    public static final class XxHash64Operator
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BIGINT)
-        public static long xxHash64(@SqlType("time(p) with time zone") long packedTime)
-        {
-            return XxHash64.hash(normalize(packedTime));
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BIGINT)
-        public static long xxHash64(@SqlType("time(p) with time zone") LongTimeWithTimeZone time)
-        {
-            return XxHash64.hash(normalize(time));
-        }
     }
 
     @ScalarOperator(ADD)

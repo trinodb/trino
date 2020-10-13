@@ -22,6 +22,8 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
+import io.airlift.bytecode.expression.BytecodeExpression;
+import io.airlift.bytecode.expression.BytecodeExpressions;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
@@ -30,8 +32,6 @@ import io.prestosql.metadata.FunctionDependencyDeclaration;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.CallSiteBinder;
@@ -43,6 +43,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.primitives.Primitives.wrap;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
@@ -50,54 +51,59 @@ import static io.airlift.bytecode.Access.STATIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
+import static io.airlift.bytecode.expression.BytecodeExpressions.and;
+import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.isNotNull;
+import static io.airlift.bytecode.expression.BytecodeExpressions.isNull;
+import static io.airlift.bytecode.expression.BytecodeExpressions.or;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.orderableTypeParameter;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.sql.gen.BytecodeUtils.invoke;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
+import static io.prestosql.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.prestosql.util.CompilerUtils.defineClass;
 import static io.prestosql.util.CompilerUtils.makeClassName;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.Reflection.methodHandle;
-import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.filterReturnValue;
+import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public abstract class AbstractGreatestLeast
         extends SqlScalarFunction
 {
-    private static final MethodHandle CHECK_NOT_NAN = methodHandle(AbstractGreatestLeast.class, "checkNotNaN", String.class, double.class);
+    private static final MethodHandle MIN_FUNCTION = methodHandle(AbstractGreatestLeast.class, "min", long.class);
+    private static final MethodHandle MAX_FUNCTION = methodHandle(AbstractGreatestLeast.class, "max", long.class);
 
-    private final OperatorType operatorType;
+    private final MethodHandle comparisonResultAdapter;
 
-    protected AbstractGreatestLeast(String name, OperatorType operatorType, String description)
+    protected AbstractGreatestLeast(boolean min, String description)
     {
         super(new FunctionMetadata(
                 new Signature(
-                        name,
+                        min ? "least" : "greatest",
                         ImmutableList.of(orderableTypeParameter("E")),
                         ImmutableList.of(),
                         new TypeSignature("E"),
                         ImmutableList.of(new TypeSignature("E")),
                         true),
-                false,
-                ImmutableList.of(new FunctionArgumentDefinition(false)),
+                true,
+                ImmutableList.of(new FunctionArgumentDefinition(true)),
                 false,
                 true,
                 description,
                 SCALAR));
-        this.operatorType = requireNonNull(operatorType, "operatorType is null");
+        this.comparisonResultAdapter = min ? MIN_FUNCTION : MAX_FUNCTION;
     }
 
     @Override
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
         return FunctionDependencyDeclaration.builder()
-                .addOperatorSignature(operatorType, ImmutableList.of(new TypeSignature("E"), new TypeSignature("E")))
+                .addOperatorSignature(COMPARISON, ImmutableList.of(new TypeSignature("E"), new TypeSignature("E")))
                 .build();
     }
 
@@ -107,30 +113,24 @@ public abstract class AbstractGreatestLeast
         Type type = functionBinding.getTypeVariable("E");
         checkArgument(type.isOrderable(), "Type must be orderable");
 
-        MethodHandle compareMethod = functionDependencies.getOperatorInvoker(operatorType, ImmutableList.of(type, type), Optional.empty()).getMethodHandle();
+        MethodHandle compareMethod = functionDependencies.getOperatorInvoker(COMPARISON, ImmutableList.of(type, type), Optional.empty()).getMethodHandle();
+        compareMethod = filterReturnValue(compareMethod, comparisonResultAdapter);
 
         List<Class<?>> javaTypes = IntStream.range(0, functionBinding.getArity())
-                .mapToObj(i -> type.getJavaType())
+                .mapToObj(i -> wrap(type.getJavaType()))
                 .collect(toImmutableList());
 
-        Class<?> clazz = generate(javaTypes, type, compareMethod);
-        MethodHandle methodHandle = methodHandle(clazz, getFunctionMetadata().getSignature().getName(), javaTypes.toArray(new Class<?>[javaTypes.size()]));
+        Class<?> clazz = generate(javaTypes, compareMethod);
+        MethodHandle methodHandle = methodHandle(clazz, getFunctionMetadata().getSignature().getName(), javaTypes.toArray(new Class<?>[0]));
 
-        return new ScalarFunctionImplementation(
-                FAIL_ON_NULL,
-                nCopies(javaTypes.size(), NEVER_NULL),
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
+                NULLABLE_RETURN,
+                nCopies(javaTypes.size(), BOXED_NULLABLE),
                 methodHandle);
     }
 
-    @UsedByGeneratedCode
-    public static void checkNotNaN(String name, double value)
-    {
-        if (Double.isNaN(value)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid argument to %s(): NaN", name));
-        }
-    }
-
-    private Class<?> generate(List<Class<?>> javaTypes, Type type, MethodHandle compareMethod)
+    private Class<?> generate(List<Class<?>> javaTypes, MethodHandle compareMethod)
     {
         Signature signature = getFunctionMetadata().getSignature();
         checkCondition(javaTypes.size() <= 127, NOT_SUPPORTED, "Too many arguments for function call %s()", signature.getName());
@@ -152,7 +152,7 @@ public abstract class AbstractGreatestLeast
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
                 signature.getName(),
-                type(javaTypes.get(0)),
+                type(wrap(javaTypes.get(0))),
                 parameters);
 
         Scope scope = method.getScope();
@@ -160,28 +160,39 @@ public abstract class AbstractGreatestLeast
 
         CallSiteBinder binder = new CallSiteBinder();
 
-        if (type.equals(DOUBLE)) {
-            for (Parameter parameter : parameters) {
-                body.append(parameter);
-                body.append(invoke(binder.bind(CHECK_NOT_NAN.bindTo(signature.getName())), "checkNotNaN"));
-            }
-        }
+        Variable value = scope.declareVariable(wrap(javaTypes.get(0)), "value");
 
-        Variable value = scope.declareVariable(javaTypes.get(0), "value");
+        body.append(value.set(BytecodeExpressions.constantNull(wrap(javaTypes.get(0)))));
 
-        body.append(value.set(parameters.get(0)));
-
-        for (int i = 1; i < javaTypes.size(); i++) {
+        compareMethod = compareMethod.asType(methodType(boolean.class, compareMethod.type().wrap().parameterList()));
+        for (int i = 0; i < javaTypes.size(); i++) {
+            Parameter parameter = parameters.get(i);
+            BytecodeExpression invokeCompare = invokeDynamic(
+                    BOOTSTRAP_METHOD,
+                    ImmutableList.of(binder.bind(compareMethod).getBindingId()),
+                    "compare",
+                    boolean.class,
+                    parameter,
+                    value);
             body.append(new IfStatement()
-                    .condition(new BytecodeBlock()
-                            .append(parameters.get(i))
-                            .append(value)
-                            .append(invoke(binder.bind(compareMethod), "compare")))
-                    .ifTrue(value.set(parameters.get(i))));
+                    .condition(and(isNotNull(parameter), or(isNull(value), invokeCompare)))
+                    .ifTrue(value.set(parameter)));
         }
 
         body.append(value.ret());
 
         return defineClass(definition, Object.class, binder.getBindings(), new DynamicClassLoader(getClass().getClassLoader()));
+    }
+
+    @UsedByGeneratedCode
+    public static boolean min(long comparisonResult)
+    {
+        return comparisonResult < 0;
+    }
+
+    @UsedByGeneratedCode
+    public static boolean max(long comparisonResult)
+    {
+        return comparisonResult > 0;
     }
 }

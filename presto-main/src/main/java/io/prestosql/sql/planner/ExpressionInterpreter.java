@@ -55,6 +55,7 @@ import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.CoalesceExpression;
 import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.ComparisonExpression.Operator;
 import io.prestosql.sql.tree.CurrentPath;
 import io.prestosql.sql.tree.CurrentUser;
 import io.prestosql.sql.tree.DereferenceExpression;
@@ -121,6 +122,8 @@ import static io.prestosql.metadata.LiteralFunction.isSupportedLiteralType;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -575,7 +578,12 @@ public class ExpressionInterpreter
                 if (valueList.getValues().stream().allMatch(Literal.class::isInstance) &&
                         valueList.getValues().stream().noneMatch(NullLiteral.class::isInstance)) {
                     Set<Object> objectSet = valueList.getValues().stream().map(expression -> process(expression, context)).collect(Collectors.toSet());
-                    set = FastutilSetHelper.toFastutilHashSet(objectSet, type(node.getValue()), metadata);
+                    Type type = type(node.getValue());
+                    set = FastutilSetHelper.toFastutilHashSet(
+                            objectSet,
+                            type,
+                            metadata.getScalarFunctionInvoker(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)), Optional.empty()).getMethodHandle(),
+                            metadata.getScalarFunctionInvoker(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)), Optional.empty()).getMethodHandle());
                 }
                 inListCache.put(valueList, set);
             }
@@ -718,41 +726,93 @@ public class ExpressionInterpreter
         protected Object visitComparisonExpression(ComparisonExpression node, Object context)
         {
             ComparisonExpression.Operator operator = node.getOperator();
+            Expression left = node.getLeft();
+            Expression right = node.getRight();
 
-            if (operator == ComparisonExpression.Operator.IS_DISTINCT_FROM) {
-                Object left = process(node.getLeft(), context);
-                Object right = process(node.getRight(), context);
-
-                if (left == null && right instanceof Expression) {
-                    return new IsNotNullPredicate((Expression) right);
+            if (operator == Operator.IS_DISTINCT_FROM) {
+                return evaluateIsDistinctFrom(context, left, right);
+            }
+            // Execution engine does not have not equal and greater than operators, so interpret with
+            // equal or less than, but do not flip operator in result, as many optimizers depend on
+            // operators not flipping
+            if (node.getOperator() == Operator.NOT_EQUAL) {
+                Object result = visitComparisonExpression(flipComparison(node), context);
+                if (result == null) {
+                    return null;
                 }
-
-                if (right == null && left instanceof Expression) {
-                    return new IsNotNullPredicate((Expression) left);
+                if (result instanceof ComparisonExpression) {
+                    return flipComparison((ComparisonExpression) result);
                 }
-
-                if (left instanceof Expression || right instanceof Expression) {
-                    return new ComparisonExpression(operator, toExpression(left, type(node.getLeft())), toExpression(right, type(node.getRight())));
+                return !(Boolean) result;
+            }
+            if (node.getOperator() == Operator.GREATER_THAN || node.getOperator() == Operator.GREATER_THAN_OR_EQUAL) {
+                Object result = visitComparisonExpression(flipComparison(node), context);
+                if (result instanceof ComparisonExpression) {
+                    return flipComparison((ComparisonExpression) result);
                 }
-
-                return invokeOperator(OperatorType.valueOf(operator.name()), types(node.getLeft(), node.getRight()), Arrays.asList(left, right));
+                return result;
             }
 
-            Object left = process(node.getLeft(), context);
+            return evaluateComparisonExpression(context, operator, left, right);
+        }
+
+        private Object evaluateIsDistinctFrom(Object context, Expression leftExpression, Expression rightExpression)
+        {
+            Object left = process(leftExpression, context);
+            Object right = process(rightExpression, context);
+
+            if (left == null && right instanceof Expression) {
+                return new IsNotNullPredicate((Expression) right);
+            }
+
+            if (right == null && left instanceof Expression) {
+                return new IsNotNullPredicate((Expression) left);
+            }
+
+            if (left instanceof Expression || right instanceof Expression) {
+                return new ComparisonExpression(Operator.IS_DISTINCT_FROM, toExpression(left, type(leftExpression)), toExpression(right, type(rightExpression)));
+            }
+
+            return invokeOperator(OperatorType.valueOf(Operator.IS_DISTINCT_FROM.name()), types(leftExpression, rightExpression), Arrays.asList(left, right));
+        }
+
+        private Object evaluateComparisonExpression(Object context, Operator operator, Expression leftExpression, Expression rightExpression)
+        {
+            Object left = process(leftExpression, context);
             if (left == null) {
                 return null;
             }
 
-            Object right = process(node.getRight(), context);
+            Object right = process(rightExpression, context);
             if (right == null) {
                 return null;
             }
 
             if (left instanceof Expression || right instanceof Expression) {
-                return new ComparisonExpression(operator, toExpression(left, type(node.getLeft())), toExpression(right, type(node.getRight())));
+                return new ComparisonExpression(operator, toExpression(left, type(leftExpression)), toExpression(right, type(rightExpression)));
             }
 
-            return invokeOperator(OperatorType.valueOf(operator.name()), types(node.getLeft(), node.getRight()), ImmutableList.of(left, right));
+            return invokeOperator(OperatorType.valueOf(operator.name()), types(leftExpression, rightExpression), ImmutableList.of(left, right));
+        }
+
+        private ComparisonExpression flipComparison(ComparisonExpression comparisonExpression)
+        {
+            switch (comparisonExpression.getOperator()) {
+                case EQUAL:
+                    return new ComparisonExpression(Operator.NOT_EQUAL, comparisonExpression.getLeft(), comparisonExpression.getRight());
+                case NOT_EQUAL:
+                    return new ComparisonExpression(Operator.EQUAL, comparisonExpression.getLeft(), comparisonExpression.getRight());
+                case LESS_THAN:
+                    return new ComparisonExpression(Operator.GREATER_THAN, comparisonExpression.getRight(), comparisonExpression.getLeft());
+                case LESS_THAN_OR_EQUAL:
+                    return new ComparisonExpression(Operator.GREATER_THAN_OR_EQUAL, comparisonExpression.getRight(), comparisonExpression.getLeft());
+                case GREATER_THAN:
+                    return new ComparisonExpression(Operator.LESS_THAN, comparisonExpression.getRight(), comparisonExpression.getLeft());
+                case GREATER_THAN_OR_EQUAL:
+                    return new ComparisonExpression(Operator.LESS_THAN_OR_EQUAL, comparisonExpression.getRight(), comparisonExpression.getLeft());
+                default:
+                    throw new IllegalArgumentException("Unsupported comparison type: " + comparisonExpression.getOperator());
+            }
         }
 
         @Override

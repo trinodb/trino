@@ -83,7 +83,7 @@ public class TestBroadcastOutputBuffer
     @BeforeClass
     public void setUp()
     {
-        stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-%s"));
+        stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     }
 
     @AfterClass(alwaysRun = true)

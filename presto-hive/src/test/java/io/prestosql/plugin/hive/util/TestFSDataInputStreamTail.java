@@ -33,12 +33,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Arrays;
 
+import static io.airlift.testing.Closeables.closeAll;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true) // e.g. test methods operate on shared, mutated tempFile
 public class TestFSDataInputStreamTail
 {
     private File tempRoot;
@@ -67,17 +69,9 @@ public class TestFSDataInputStreamTail
     public void tearDown()
             throws Exception
     {
-        try {
-            fs.delete(tempFile, true);
-        }
-        catch (IOException ignored) {
-        }
-        try {
-            fs.delete(new Path(tempRoot.toURI()), true);
-        }
-        finally {
-            fs.close();
-        }
+        closeAll(
+                () -> fs.delete(new Path(tempRoot.toURI()), true),
+                fs);
     }
 
     @Test

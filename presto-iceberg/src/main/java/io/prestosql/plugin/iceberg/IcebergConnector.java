@@ -40,7 +40,7 @@ import java.util.Set;
 
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.prestosql.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
-import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static io.prestosql.spi.transaction.IsolationLevel.SERIALIZABLE;
 import static io.prestosql.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
@@ -179,7 +179,7 @@ public class IcebergConnector
     @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
-        checkConnectorSupports(READ_COMMITTED, isolationLevel);
+        checkConnectorSupports(SERIALIZABLE, isolationLevel);
         ConnectorTransactionHandle transaction = new HiveTransactionHandle();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             transactionManager.put(transaction, metadataFactory.create());

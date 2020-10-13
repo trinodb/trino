@@ -23,9 +23,11 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.type.BlockTypeOperators;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -76,6 +78,7 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 @Test(singleThreaded = true)
 public class TestDynamicFilterSourceOperator
 {
+    private BlockTypeOperators blockTypeOperators;
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private PipelineContext pipelineContext;
@@ -85,8 +88,9 @@ public class TestDynamicFilterSourceOperator
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        blockTypeOperators = new BlockTypeOperators(new TypeOperators());
+        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
         pipelineContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false);
 
@@ -132,7 +136,8 @@ public class TestDynamicFilterSourceOperator
                 ImmutableList.copyOf(buildChannels),
                 maxFilterDistinctValues,
                 maxFilterSize,
-                minMaxCollectionLimit);
+                minMaxCollectionLimit,
+                blockTypeOperators);
     }
 
     private void consumePredicate(TupleDomain<DynamicFilterId> partitionPredicate)

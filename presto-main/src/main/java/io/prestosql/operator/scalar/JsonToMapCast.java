@@ -32,7 +32,6 @@ import io.prestosql.util.JsonUtil.BlockBuilderAppender;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.metadata.Signature.castableFromTypeParameter;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -43,7 +42,6 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.JsonUtil.BlockBuilderAppender.createBlockBuilderAppender;
-import static io.prestosql.util.JsonUtil.HashTable;
 import static io.prestosql.util.JsonUtil.JSON_FACTORY;
 import static io.prestosql.util.JsonUtil.canCastFromJson;
 import static io.prestosql.util.JsonUtil.createJsonParser;
@@ -55,7 +53,7 @@ public class JsonToMapCast
         extends SqlOperator
 {
     public static final JsonToMapCast JSON_TO_MAP = new JsonToMapCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToMapCast.class, "toMap", MapType.class, BlockBuilderAppender.class, BlockBuilderAppender.class, ConnectorSession.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToMapCast.class, "toMap", MapType.class, BlockBuilderAppender.class, ConnectorSession.class, Slice.class);
 
     private JsonToMapCast()
     {
@@ -76,17 +74,17 @@ public class JsonToMapCast
         MapType mapType = (MapType) functionBinding.getBoundSignature().getReturnType();
         checkCondition(canCastFromJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", mapType);
 
-        BlockBuilderAppender keyAppender = createBlockBuilderAppender(mapType.getKeyType());
-        BlockBuilderAppender valueAppender = createBlockBuilderAppender(mapType.getValueType());
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(mapType).bindTo(keyAppender).bindTo(valueAppender);
-        return new ScalarFunctionImplementation(
+        BlockBuilderAppender mapAppender = createBlockBuilderAppender(mapType);
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(mapType).bindTo(mapAppender);
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL),
                 methodHandle);
     }
 
     @UsedByGeneratedCode
-    public static Block toMap(MapType mapType, BlockBuilderAppender keyAppender, BlockBuilderAppender valueAppender, ConnectorSession connectorSession, Slice json)
+    public static Block toMap(MapType mapType, BlockBuilderAppender mapAppender, ConnectorSession connectorSession, Slice json)
     {
         try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, json)) {
             jsonParser.nextToken();
@@ -94,31 +92,12 @@ public class JsonToMapCast
                 return null;
             }
 
-            if (jsonParser.getCurrentToken() != START_OBJECT) {
-                throw new JsonCastException(format("Expected a json object, but got %s", jsonParser.getText()));
-            }
-            BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
-            BlockBuilder singleMapBlockBuilder = mapBlockBuilder.beginBlockEntry();
-            HashTable hashTable = new HashTable(mapType.getKeyType(), singleMapBlockBuilder);
-            int position = 0;
-            while (jsonParser.nextToken() != JsonToken.END_OBJECT) {
-                keyAppender.append(jsonParser, singleMapBlockBuilder);
-                jsonParser.nextToken();
-                valueAppender.append(jsonParser, singleMapBlockBuilder);
-
-                // Duplicate key detection is required even if the JSON is valid.
-                // For example: CAST(JSON '{"1": 1, "01": 2}' AS MAP<INTEGER, INTEGER>).
-                if (!hashTable.addIfAbsent(position)) {
-                    throw new JsonCastException("Duplicate keys are not allowed");
-                }
-                position += 2;
-            }
+            BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 1);
+            mapAppender.append(jsonParser, blockBuilder);
             if (jsonParser.nextToken() != null) {
                 throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
             }
-
-            mapBlockBuilder.closeEntry();
-            return mapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
+            return mapType.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
         }
         catch (PrestoException | JsonCastException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", mapType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);

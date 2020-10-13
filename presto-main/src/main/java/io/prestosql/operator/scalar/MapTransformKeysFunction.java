@@ -43,6 +43,9 @@ import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.CallSiteBinder;
 import io.prestosql.sql.gen.SqlTypeBytecodeExpression;
 import io.prestosql.sql.gen.lambda.BinaryFunctionInterface;
+import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
@@ -75,23 +78,27 @@ import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentC
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.spi.type.TypeSignature.mapType;
+import static io.prestosql.sql.gen.BytecodeUtils.loadConstant;
 import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.CompilerUtils.defineClass;
 import static io.prestosql.util.CompilerUtils.makeClassName;
 import static io.prestosql.util.Reflection.methodHandle;
+import static java.util.Objects.requireNonNull;
 
 public final class MapTransformKeysFunction
         extends SqlScalarFunction
 {
-    public static final MapTransformKeysFunction MAP_TRANSFORM_KEYS_FUNCTION = new MapTransformKeysFunction();
+    public static final String NAME = "transform_keys";
     private static final MethodHandle STATE_FACTORY = methodHandle(MapTransformKeysFunction.class, "createState", MapType.class);
 
-    private MapTransformKeysFunction()
+    private final BlockTypeOperators blockTypeOperators;
+
+    public MapTransformKeysFunction(BlockTypeOperators blockTypeOperators)
     {
         super(new FunctionMetadata(
                 new Signature(
-                        "transform_keys",
+                        NAME,
                         ImmutableList.of(typeVariable("K1"), typeVariable("K2"), typeVariable("V")),
                         ImmutableList.of(),
                         mapType(new TypeSignature("K2"), new TypeSignature("V")),
@@ -107,6 +114,7 @@ public final class MapTransformKeysFunction
                 false,
                 "Apply lambda to each entry of the map and transform the key",
                 SCALAR));
+        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
     @Override
@@ -116,10 +124,11 @@ public final class MapTransformKeysFunction
         Type transformedKeyType = functionBinding.getTypeVariable("K2");
         Type valueType = functionBinding.getTypeVariable("V");
         MapType resultMapType = (MapType) functionBinding.getBoundSignature().getReturnType();
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),
-                ImmutableList.of(Optional.empty(), Optional.of(BinaryFunctionInterface.class)),
+                ImmutableList.of(BinaryFunctionInterface.class),
                 generateTransformKey(keyType, transformedKeyType, valueType, resultMapType),
                 Optional.of(STATE_FACTORY.bindTo(resultMapType)));
     }
@@ -130,7 +139,7 @@ public final class MapTransformKeysFunction
         return new PageBuilder(ImmutableList.of(mapType));
     }
 
-    private static MethodHandle generateTransformKey(Type keyType, Type transformedKeyType, Type valueType, Type resultMapType)
+    private MethodHandle generateTransformKey(Type keyType, Type transformedKeyType, Type valueType, Type resultMapType)
     {
         CallSiteBinder binder = new CallSiteBinder();
         Class<?> keyJavaType = Primitives.wrap(keyType.getJavaType());
@@ -177,11 +186,15 @@ public final class MapTransformKeysFunction
         body.append(blockBuilder.set(mapBlockBuilder.invoke("beginBlockEntry", BlockBuilder.class)));
 
         // create typed set
-        body.append(typedSet.set(newInstance(
+        body.append(typedSet.set(invokeStatic(
+                TypedSet.class,
+                "createEqualityTypedSet",
                 TypedSet.class,
                 constantType(binder, transformedKeyType),
+                loadConstant(binder, blockTypeOperators.getEqualOperator(transformedKeyType), BlockPositionEqual.class),
+                loadConstant(binder, blockTypeOperators.getHashCodeOperator(transformedKeyType), BlockPositionHashCode.class),
                 divide(positionCount, constantInt(2)),
-                constantString(MAP_TRANSFORM_KEYS_FUNCTION.getFunctionMetadata().getSignature().getName()))));
+                constantString(NAME))));
 
         // throw null key exception block
         BytecodeNode throwNullKeyException = new BytecodeBlock()

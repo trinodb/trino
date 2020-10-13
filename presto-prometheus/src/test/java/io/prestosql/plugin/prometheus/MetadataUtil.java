@@ -24,6 +24,7 @@ import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.type.InternalTypeManager;
 
 import java.util.Map;
@@ -47,7 +48,7 @@ public final class MetadataUtil
     public static final JsonCodec<Map<String, Object>> METRIC_CODEC;
 
     private static final Metadata METADATA = createTestMetadataManager();
-    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA);
+    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA, new TypeOperators());
     static final MapType varcharMapType = (MapType) TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
 
     static {

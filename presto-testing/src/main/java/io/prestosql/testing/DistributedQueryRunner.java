@@ -34,11 +34,11 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.metadata.SqlFunction;
-import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
 import io.prestosql.sql.planner.NodePartitioningManager;
@@ -102,8 +102,7 @@ public class DistributedQueryRunner
             String environment,
             Module additionalModule,
             Optional<Path> baseDataDir,
-            String systemAccessControlName,
-            Map<String, String> systemAccessControlProperties)
+            List<SystemAccessControl> systemAccessControls)
             throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
@@ -124,8 +123,7 @@ public class DistributedQueryRunner
                         environment,
                         additionalModule,
                         baseDataDir,
-                        systemAccessControlName,
-                        systemAccessControlProperties));
+                        systemAccessControls));
                 servers.add(worker);
             }
 
@@ -139,8 +137,7 @@ public class DistributedQueryRunner
                     environment,
                     additionalModule,
                     baseDataDir,
-                    systemAccessControlName,
-                    systemAccessControlProperties));
+                    systemAccessControls));
             servers.add(coordinator);
 
             this.servers = servers.build();
@@ -179,19 +176,29 @@ public class DistributedQueryRunner
             String environment,
             Module additionalModule,
             Optional<Path> baseDataDir,
-            String systemAccessControlName,
-            Map<String, String> systemAccessControlProperties)
+            List<SystemAccessControl> systemAccessControls)
     {
         long start = System.nanoTime();
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.<String, String>builder()
                 .put("internal-communication.shared-secret", "test-secret")
                 .put("query.client.timeout", "10m")
+                // Use few threads in tests to preserve resources on CI
+                .put("discovery.http-client.min-threads", "1") // default 8
+                .put("exchange.http-client.min-threads", "1") // default 8
+                .put("node-manager.http-client.min-threads", "1") // default 8
+                .put("exchange.page-buffer-client.max-callback-threads", "5") // default 25
                 .put("exchange.http-client.idle-timeout", "1h")
                 .put("task.max-index-memory", "16kB") // causes index joins to fault load
                 .put("distributed-index-joins-enabled", "true");
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
             propertiesBuilder.put("join-distribution-type", "PARTITIONED");
+
+            // Use few threads in tests to preserve resources on CI
+            propertiesBuilder.put("failure-detector.http-client.min-threads", "1"); // default 8
+            propertiesBuilder.put("memoryManager.http-client.min-threads", "1"); // default 8
+            propertiesBuilder.put("scheduler.http-client.min-threads", "1"); // default 8
+            propertiesBuilder.put("workerInfo.http-client.min-threads", "1"); // default 8
         }
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
         properties.putAll(extraProperties);
@@ -203,7 +210,7 @@ public class DistributedQueryRunner
                 .setDiscoveryUri(discoveryUri)
                 .setAdditionalModule(additionalModule)
                 .setBaseDataDir(baseDataDir)
-                .setSystemAccessControl(systemAccessControlName, systemAccessControlProperties)
+                .setSystemAccessControls(systemAccessControls)
                 .build();
 
         String nodeRole = coordinator ? "coordinator" : "worker";
@@ -225,8 +232,7 @@ public class DistributedQueryRunner
                     ENVIRONMENT,
                     EMPTY_MODULE,
                     Optional.empty(),
-                    AllowAllSystemAccessControl.NAME,
-                    ImmutableMap.of()));
+                    ImmutableList.of()));
             serverBuilder.add(server);
             // add functions
             server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
@@ -526,8 +532,7 @@ public class DistributedQueryRunner
         private String environment = ENVIRONMENT;
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
-        private String systemAccessControlName = AllowAllSystemAccessControl.NAME;
-        private Map<String, String> systemAccessControlProperties = ImmutableMap.of();
+        private List<SystemAccessControl> systemAccessControls = ImmutableList.of();
 
         protected Builder(Session defaultSession)
         {
@@ -598,10 +603,15 @@ public class DistributedQueryRunner
         }
 
         @SuppressWarnings("unused")
-        public Builder setSystemAccessControl(String name, Map<String, String> properties)
+        public Builder setSystemAccessControl(SystemAccessControl systemAccessControl)
         {
-            this.systemAccessControlName = requireNonNull(name, "name is null");
-            this.systemAccessControlProperties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+            return setSystemAccessControls(ImmutableList.of(requireNonNull(systemAccessControl, "systemAccessControl is null")));
+        }
+
+        @SuppressWarnings("unused")
+        public Builder setSystemAccessControls(List<SystemAccessControl> systemAccessControls)
+        {
+            this.systemAccessControls = ImmutableList.copyOf(requireNonNull(systemAccessControls, "systemAccessControls is null"));
             return this;
         }
 
@@ -616,8 +626,7 @@ public class DistributedQueryRunner
                     environment,
                     additionalModule,
                     baseDataDir,
-                    systemAccessControlName,
-                    systemAccessControlProperties);
+                    systemAccessControls);
         }
     }
 }

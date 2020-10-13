@@ -20,8 +20,9 @@ import io.prestosql.operator.PagesIndex;
 import io.prestosql.operator.WorkProcessor;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.PageBuilderStatus;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.OrderingCompiler;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -48,7 +49,7 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.SequencePageBuilder.createSequencePage;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.util.MergeSortedPages.mergeSortedPages;
 import static java.util.Collections.nCopies;
@@ -65,7 +66,7 @@ import static org.testng.Assert.assertEquals;
 @Measurement(iterations = 10, time = 400, timeUnit = TimeUnit.MILLISECONDS)
 public class BenchmarkPagesSort
 {
-    private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler();
+    private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler(new TypeOperators());
 
     @Benchmark
     public List<Page> runPagesIndexSortBenchmark(PagesIndexSortBenchmarkData data)

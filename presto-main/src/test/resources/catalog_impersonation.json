@@ -1,31 +1,26 @@
 {
-    "catalogs": [
-        {
-            "allow": true
-        }
-    ],
     "impersonation": [
         {
-            "originalUser": "alice",
-            "newUser": "bob|charlie"
+            "original_user": "alice",
+            "new_user": "bob|charlie"
         },
         {
-            "originalUser": "admin-test",
-            "newUser": ".*",
+            "original_user": "admin-test",
+            "new_user": ".*",
             "allow": false
         },
         {
-            "originalUser": "admin(-.*)?",
-            "newUser": ".*"
+            "original_user": "admin(-.*)?",
+            "new_user": ".*"
         },
         {
-            "originalUser": "invalid(-.*)?",
-            "newUser": ".*",
+            "original_user": "invalid(-.*)?",
+            "new_user": ".*",
             "allow": false
         },
         {
-            "originalUser": ".*",
-            "newUser": "test"
+            "original_user": ".*",
+            "new_user": "test"
         }
     ]
 }

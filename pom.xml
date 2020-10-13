@@ -10,7 +10,7 @@
 
     <groupId>io.prestosql</groupId>
     <artifactId>presto-root</artifactId>
-    <version>344-SNAPSHOT</version>
+    <version>345-SNAPSHOT</version>
 
     <name>presto-root</name>
     <description>Presto</description>
@@ -45,8 +45,8 @@
 
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
-        <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>200</dep.airlift.version>
+        <dep.antlr.version>4.8</dep.antlr.version>
+        <dep.airlift.version>201</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.11.749</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
@@ -164,6 +164,13 @@
             <dependency>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-base-jdbc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-base-jdbc</artifactId>
+                <type>test-jar</type>
                 <version>${project.version}</version>
             </dependency>
 
@@ -504,7 +511,7 @@
             <dependency>
                 <groupId>io.prestosql.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.1.2-3</version>
+                <version>3.1.2-4</version>
             </dependency>
 
             <dependency>

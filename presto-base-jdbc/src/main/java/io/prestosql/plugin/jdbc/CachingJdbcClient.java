@@ -48,7 +48,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.Objects.requireNonNull;
 
-public final class CachingJdbcClient
+public class CachingJdbcClient
         implements JdbcClient
 {
     private final JdbcClient delegate;

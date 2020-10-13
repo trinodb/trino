@@ -34,13 +34,67 @@ Presto restart. The refresh period is specified in the ``etc/access-control.prop
 
    security.refresh-period=1s
 
-Catalog Rules
--------------
+Catalog, Schema, and Table Access
+---------------------------------
 
-These rules govern the catalogs particular users can access. The user is
-granted access to a catalog, based on the first matching rule read from top to
-bottom. If no rule matches, access is denied. Each rule is composed of the
-following fields:
+Access to catalogs, schemas, tables, and views is controlled by the catalog, schema, and table
+rules.  The catalog rules are course grained rules used to restrict all access or write
+access to catalogs. They do not explicitly grant any specific schema or table permissions.
+The table and schema rules are used to specify who can can create, drop, alter, select, insert,
+delete, etc. for schemas and tables.
+
+For each rule set, permission is based on the first matching rule read from top to bottom.  If
+no rule matches, access is denied. If no rules are provided at all, then access is granted.
+
+The following table summarizes the permissions required for each SQL command:
+
+==================================== ========== ======= ==================== ===================================================
+SQL Command                          Catalog    Schema  Table                Note
+==================================== ========== ======= ==================== ===================================================
+SHOW CATALOGS                                                                Always allowed
+SHOW SCHEMAS                         read-only  any*    any*                 Allowed if catalog is :ref:`visible<visibility>`
+SHOW TABLES                          read-only  any*    any*                 Allowed if schema :ref:`visible<visibility>`
+CREATE SCHEMA                        read-only  owner
+DROP SCHEMA                          all        owner
+SHOW CREATE SCHEMA                   all        owner
+ALTER SCHEMA ... RENAME TO           all        owner*                       Ownership is required on both old and new schemas
+ALTER SCHEMA ... SET AUTHORIZATION   all        owner
+CREATE TABLE                         all                owner
+DROP TABLE                           all                owner
+ALTER TABLE ... RENAME TO            all                owner*               Ownership is required on both old and new tables
+CREATE VIEW                          all                owner
+DROP VIEW                            all                owner
+ALTER VIEW ... RENAME TO             all                owner*               Ownership is required on both old and new views
+COMMENT ON TABLE                     all                owner
+COMMENT ON COLUMN                    all                owner
+ALTER TABLE ... ADD COLUMN           all                owner
+ALTER TABLE ... DROP COLUMN          all                owner
+ALTER TABLE ... RENAME COLUMN        all                owner
+SHOW COLUMNS                         all                any
+SELECT FROM table                    read-only          select
+SELECT FROM view                     read-only          select, grant_select
+INSERT INTO                          all                insert
+DELETE FROM                          all                delete
+==================================== ========== ======= ==================== ===================================================
+
+.. _visibility:
+
+Visibility
+^^^^^^^^^^
+
+For a catalog, schema, or table to be visible in a ``SHOW`` command, the user must have
+at least one permission on the item or any nested item. The nested items do not
+need to already exist as any potential permission makes the item visible. Specifically:
+
+* catalog: Visible if user is the owner of any nested schema, has permissions on any nested
+  table, or has permissions to set session properties in the catalog.
+* schema: Visible if the user is the owner of the schema, or has permissions on any nested table.
+* table: Visible if the user has any permissions on the table.
+
+Catalog Rules
+^^^^^^^^^^^^^
+
+Each catalog rule is composed of the following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
@@ -55,6 +109,9 @@ specified in ``user`` attribute.
 
 For group names, a rule can be applied if at least one group name of this user
 matches the ``group`` regular expression.
+
+The ``all`` value for ``allow`` means these rules do not restrict access in any way,
+but the schema and table rules can restrict access.
 
 .. note::
 
@@ -104,33 +161,24 @@ For group-based rules to match, users need to be assigned to groups by a
 :doc:`/develop/group-provider`.
 
 Schema Rules
-------------
+^^^^^^^^^^^^
 
-These rules allow you to grant ownership of a schema. Having ownership of an
-schema allows users to execute ``DROP SCHEMA``, ``ALTER SCHEMA`` (both renaming
-and setting authorization) and ``SHOW CREATE SCHEMA``. The user is granted
-ownership of a schema, based on the first matching rule read from top to
-bottom. If no rule matches, ownership is not granted. Each rule is composed of
-the following fields:
+Each schema rule is composed of the following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
+* ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
 * ``schema`` (optional): regex to match against schema name. Defaults to ``.*``.
 * ``owner`` (required): boolean indicating whether the user is to be considered
   an owner of the schema. Defaults to ``false``.
 
 For example, to provide ownership of all schemas to user ``admin``, treat all
-users as owners of ``default`` schema and prevent user ``guest`` from ownership
-of any schema, you can use the following rules:
+users as owners of the ``default.default`` schema and prevent user ``guest`` from
+ownership of any schema, you can use the following rules:
 
 .. code-block:: json
 
     {
-      "catalogs": [
-        {
-          "allow": true
-        }
-      ],
       "schemas": [
         {
           "user": "admin",
@@ -142,6 +190,7 @@ of any schema, you can use the following rules:
           "owner": false
         },
         {
+          "catalog": "default",
           "schema": "default",
           "owner": true
         }
@@ -149,15 +198,13 @@ of any schema, you can use the following rules:
     }
 
 Table Rules
------------
+^^^^^^^^^^^
 
-These rules define the privileges for table access for users. If no table rules
-are specified, all users are treated as having all privileges by default. The
-user is granted privileges based on the first matching rule read from top to
-bottom. Each rule is composed of the following fields:
+Each table rule is composed of the following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
+* ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
 * ``schema`` (optional): regex to match against schema name. Defaults to ``.*``.
 * ``table`` (optional): regex to match against table names. Defaults to ``.*``.
 * ``privileges`` (required): zero or more of ``SELECT``, ``INSERT``,
@@ -171,16 +218,11 @@ The example below defines the following table access policy:
 
 * User ``admin`` has all privileges across all tables and schemas
 * User ``banned_user`` has no privileges
-* All users have ``SELECT`` privileges on all tables in ``default`` schema
+* All users have ``SELECT`` privileges on all tables in the ``default.default`` schema
 
 .. code-block:: json
 
     {
-      "catalogs": [
-        {
-          "allow": true
-        }
-      ],
       "tables": [
         {
           "user": "admin",
@@ -191,12 +233,43 @@ The example below defines the following table access policy:
           "privileges": []
         },
         {
+          "catalog": "default",
           "schema": "default",
           "table": ".*",
           "privileges": ["SELECT"]
         }
       ]
     }
+
+.. _session_property_rules:
+
+Session Property Rules
+----------------------
+
+These rules control the ability of a user to set system and catalog session properties. The
+user is granted or denied access, based on the first matching rule, read from top to bottom.
+If no rules are specified, all users are allowed set any session property. If no rule matches,
+setting the session property is denied. System session property rules are composed of the
+following fields:
+
+* ``user`` (optional): regex to match against user name. Defaults to ``.*``.
+* ``group`` (optional): regex to match against group names. Defaults to ``.*``.
+* ``property`` (optional): regex to match against the property name. Defaults to ``.*``.
+* ``allow`` (required): boolean indicating if the setting the session property should be allowed.
+
+The catalog session property rules have the additional field:
+
+* ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
+
+The example below defines the following table access policy:
+
+* User ``admin`` can set all session property
+* User ``banned_user`` can not set any session properties
+* All users can set the ``resource_overcommit`` system session property, and the
+  ``bucket_execution_enabled`` session property in the ``hive`` catalog.
+
+.. literalinclude:: session-property-access.json
+    :language: json
 
 .. _query_rules:
 
@@ -245,8 +318,8 @@ defined, impersonation is not allowed.
 
 Each impersonation rule is composed of the following fields:
 
-* ``originalUser`` (required): regex to match against the user requesting the impersonation.
-* ``newUser`` (required): regex to match against the user that will be impersonated.
+* ``original_user`` (required): regex to match against the user requesting the impersonation.
+* ``new_user`` (required): regex to match against the user that will be impersonated.
 * ``allow`` (optional): boolean indicating if the authentication should be allowed.
 
 The following example allows the two admins, ``alice`` and ``bob``, to impersonate
@@ -295,11 +368,6 @@ and Kerberos authentication:
 .. code-block:: json
 
     {
-      "catalogs": [
-        {
-          "allow": true
-        }
-      ],
       "principals": [
         {
           "principal": "(.*)",
@@ -321,11 +389,6 @@ name, and allow ``alice`` and ``bob`` to use a group principal named as
 .. code-block:: json
 
     {
-      "catalogs": [
-        {
-          "allow": true
-        }
-      ],
       "principals": [
         {
           "principal": "([^/]+)/?.*@example.net",

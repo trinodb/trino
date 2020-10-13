@@ -38,9 +38,9 @@ public final class OperatorImplementationDependency
     private final OperatorType operator;
     private final List<TypeSignature> argumentTypes;
 
-    public OperatorImplementationDependency(OperatorType operator, List<TypeSignature> argumentTypes, Optional<InvocationConvention> invocationConvention)
+    public OperatorImplementationDependency(OperatorType operator, List<TypeSignature> argumentTypes, Optional<InvocationConvention> invocationConvention, Class<?> type)
     {
-        super(invocationConvention);
+        super(invocationConvention, type);
         this.operator = requireNonNull(operator, "operator is null");
         checkArgument(operator != CAST && operator != SATURATED_FLOOR_CAST);
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));

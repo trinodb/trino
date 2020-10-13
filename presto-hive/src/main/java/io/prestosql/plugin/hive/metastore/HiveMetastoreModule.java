@@ -55,7 +55,7 @@ public class HiveMetastoreModule
     private void bindMetastoreModule(String name, Module module)
     {
         install(installModuleIf(
-                MetastoreConfig.class,
+                MetastoreTypeConfig.class,
                 metastore -> name.equalsIgnoreCase(metastore.getMetastoreType()),
                 module));
     }
