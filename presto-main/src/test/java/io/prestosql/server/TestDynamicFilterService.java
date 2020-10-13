@@ -20,6 +20,7 @@ import io.prestosql.Session;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.execution.StageId;
 import io.prestosql.execution.TaskId;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.DynamicFilter;
@@ -27,12 +28,14 @@ import io.prestosql.spi.connector.TestingColumnHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.FilterNode;
@@ -41,6 +44,7 @@ import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.RemoteSourceNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
+import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.testing.TestingMetadata;
 import io.prestosql.testing.TestingSession;
@@ -59,13 +63,14 @@ import static io.prestosql.spi.predicate.Domain.multipleValues;
 import static io.prestosql.spi.predicate.Domain.none;
 import static io.prestosql.spi.predicate.Domain.singleValue;
 import static io.prestosql.spi.predicate.Range.range;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.DynamicFilters.createDynamicFilterExpression;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
@@ -76,17 +81,19 @@ import static org.testng.Assert.assertTrue;
 
 public class TestDynamicFilterService
 {
+    private final Metadata metadata = createTestMetadataManager();
+    private final TypeOperators typeOperators = new TypeOperators();
     private static final Session session = TestingSession.testSessionBuilder().build();
 
     @Test
     public void testDynamicFilterSummaryCompletion()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(newDirectExecutorService());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, typeOperators, newDirectExecutorService());
         DynamicFilterId filterId = new DynamicFilterId("df");
         QueryId queryId = new QueryId("query");
         StageId stageId = new StageId(queryId, 0);
 
-        dynamicFilterService.registerQuery(queryId, ImmutableSet.of(filterId), ImmutableSet.of(filterId), ImmutableSet.of());
+        dynamicFilterService.registerQuery(queryId, session, ImmutableSet.of(filterId), ImmutableSet.of(filterId), ImmutableSet.of());
         dynamicFilterService.stageCannotScheduleMoreTasks(stageId, 3);
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
 
@@ -132,13 +139,17 @@ public class TestDynamicFilterService
     @Test
     public void testDynamicFilter()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(newDirectExecutorService());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, typeOperators, newDirectExecutorService());
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         DynamicFilterId filterId2 = new DynamicFilterId("df2");
         DynamicFilterId filterId3 = new DynamicFilterId("df3");
-        Expression df1 = expression("DF_SYMBOL1");
-        Expression df2 = expression("DF_SYMBOL2");
-        Expression df3 = expression("DF_SYMBOL3");
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", INTEGER);
+        Symbol symbol2 = symbolAllocator.newSymbol("DF_SYMBOL2", INTEGER);
+        Symbol symbol3 = symbolAllocator.newSymbol("DF_SYMBOL3", INTEGER);
+        Expression df1 = symbol1.toSymbolReference();
+        Expression df2 = symbol2.toSymbolReference();
+        Expression df3 = symbol3.toSymbolReference();
         QueryId queryId = new QueryId("query");
         StageId stageId1 = new StageId(queryId, 1);
         StageId stageId2 = new StageId(queryId, 2);
@@ -146,6 +157,7 @@ public class TestDynamicFilterService
 
         dynamicFilterService.registerQuery(
                 queryId,
+                session,
                 ImmutableSet.of(filterId1, filterId2, filterId3),
                 ImmutableSet.of(filterId1, filterId2, filterId3),
                 ImmutableSet.of());
@@ -160,9 +172,10 @@ public class TestDynamicFilterService
                         new DynamicFilters.Descriptor(filterId2, df2),
                         new DynamicFilters.Descriptor(filterId3, df3)),
                 ImmutableMap.of(
-                        Symbol.from(df1), new TestingColumnHandle("probeColumnA"),
-                        Symbol.from(df2), new TestingColumnHandle("probeColumnA"),
-                        Symbol.from(df3), new TestingColumnHandle("probeColumnB")));
+                        symbol1, new TestingColumnHandle("probeColumnA"),
+                        symbol2, new TestingColumnHandle("probeColumnA"),
+                        symbol3, new TestingColumnHandle("probeColumnB")),
+                symbolAllocator.getTypes());
 
         assertTrue(dynamicFilter.getCurrentPredicate().isAll());
         assertFalse(dynamicFilter.isComplete());
@@ -251,8 +264,9 @@ public class TestDynamicFilterService
                         new DynamicFilters.Descriptor(filterId1, df1),
                         new DynamicFilters.Descriptor(filterId2, df2)),
                 ImmutableMap.of(
-                        Symbol.from(df1), new TestingColumnHandle("probeColumnA"),
-                        Symbol.from(df2), new TestingColumnHandle("probeColumnA")));
+                        symbol1, new TestingColumnHandle("probeColumnA"),
+                        symbol2, new TestingColumnHandle("probeColumnA")),
+                symbolAllocator.getTypes());
 
         assertTrue(dynamicFilterColumnA.isComplete());
         assertFalse(dynamicFilterColumnA.isAwaitable());
@@ -303,15 +317,18 @@ public class TestDynamicFilterService
     @Test
     public void testShortCircuitOnAllTupleDomain()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(newDirectExecutorService());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, typeOperators, newDirectExecutorService());
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
-        Expression df1 = expression("DF_SYMBOL1");
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", INTEGER);
+        Expression df1 = symbol1.toSymbolReference();
 
         QueryId queryId = new QueryId("query");
         StageId stageId1 = new StageId(queryId, 1);
 
         dynamicFilterService.registerQuery(
                 queryId,
+                session,
                 ImmutableSet.of(filterId1),
                 ImmutableSet.of(filterId1),
                 ImmutableSet.of());
@@ -322,7 +339,8 @@ public class TestDynamicFilterService
                 ImmutableList.of(
                         new DynamicFilters.Descriptor(filterId1, df1)),
                 ImmutableMap.of(
-                        Symbol.from(df1), new TestingColumnHandle("probeColumnA")));
+                        symbol1, new TestingColumnHandle("probeColumnA")),
+                symbolAllocator.getTypes());
 
         // dynamic filter is initially blocked
         assertTrue(dynamicFilter.getCurrentPredicate().isAll());
@@ -340,16 +358,57 @@ public class TestDynamicFilterService
     }
 
     @Test
-    public void testReplicatedDynamicFilter()
+    public void testDynamicFilterCoercion()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(newDirectExecutorService());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, typeOperators, newDirectExecutorService());
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
-        Expression df1 = expression("DF_SYMBOL1");
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", INTEGER);
+        Expression df1 = new Cast(symbol1.toSymbolReference(), toSqlType(BIGINT));
+
         QueryId queryId = new QueryId("query");
         StageId stageId1 = new StageId(queryId, 1);
 
         dynamicFilterService.registerQuery(
                 queryId,
+                session,
+                ImmutableSet.of(filterId1),
+                ImmutableSet.of(filterId1),
+                ImmutableSet.of());
+        dynamicFilterService.stageCannotScheduleMoreTasks(stageId1, 1);
+
+        DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
+                queryId,
+                ImmutableList.of(new DynamicFilters.Descriptor(filterId1, df1)),
+                ImmutableMap.of(symbol1, new TestingColumnHandle("probeColumnA")),
+                symbolAllocator.getTypes());
+
+        assertFalse(dynamicFilter.isComplete());
+        assertTrue(dynamicFilter.getCurrentPredicate().isAll());
+
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stageId1, 0),
+                ImmutableMap.of(filterId1, multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L))));
+        assertTrue(dynamicFilter.isComplete());
+        assertEquals(dynamicFilter.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(
+                new TestingColumnHandle("probeColumnA"),
+                multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
+    }
+
+    @Test
+    public void testReplicatedDynamicFilter()
+    {
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, typeOperators, newDirectExecutorService());
+        DynamicFilterId filterId1 = new DynamicFilterId("df1");
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", INTEGER);
+        Expression df1 = symbol1.toSymbolReference();
+        QueryId queryId = new QueryId("query");
+        StageId stageId1 = new StageId(queryId, 1);
+
+        dynamicFilterService.registerQuery(
+                queryId,
+                session,
                 ImmutableSet.of(filterId1),
                 ImmutableSet.of(),
                 ImmutableSet.of(filterId1));
@@ -358,7 +417,8 @@ public class TestDynamicFilterService
                 queryId,
                 ImmutableList.of(new DynamicFilters.Descriptor(filterId1, df1)),
                 ImmutableMap.of(
-                        Symbol.from(df1), new TestingColumnHandle("probeColumnA")));
+                        symbol1, new TestingColumnHandle("probeColumnA")),
+                symbolAllocator.getTypes());
         assertTrue(dynamicFilter.getCurrentPredicate().isAll());
 
         // assert initial dynamic filtering stats
@@ -402,14 +462,17 @@ public class TestDynamicFilterService
     @Test
     public void testStageCannotScheduleMoreTasks()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(newDirectExecutorService());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, typeOperators, newDirectExecutorService());
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
-        Expression df1 = expression("DF_SYMBOL1");
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", INTEGER);
+        Expression df1 = symbol1.toSymbolReference();
         QueryId queryId = new QueryId("query");
         StageId stageId1 = new StageId(queryId, 1);
 
         dynamicFilterService.registerQuery(
                 queryId,
+                session,
                 ImmutableSet.of(filterId1),
                 ImmutableSet.of(filterId1),
                 ImmutableSet.of());
@@ -417,7 +480,8 @@ public class TestDynamicFilterService
         DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
                 queryId,
                 ImmutableList.of(new DynamicFilters.Descriptor(filterId1, df1)),
-                ImmutableMap.of(Symbol.from(df1), new TestingColumnHandle("probeColumnA")));
+                ImmutableMap.of(symbol1, new TestingColumnHandle("probeColumnA")),
+                symbolAllocator.getTypes());
         assertTrue(dynamicFilter.getCurrentPredicate().isAll());
         assertFalse(dynamicFilter.isComplete());
         CompletableFuture<?> blockedFuture = dynamicFilter.isBlocked();
@@ -446,21 +510,23 @@ public class TestDynamicFilterService
     @Test
     public void testDynamicFilterCancellation()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(newDirectExecutorService());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, typeOperators, newDirectExecutorService());
         DynamicFilterId filterId = new DynamicFilterId("df");
-        Expression df1 = expression("DF_SYMBOL1");
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", INTEGER);
+        Expression df1 = symbol1.toSymbolReference();
         QueryId queryId = new QueryId("query");
         StageId stageId = new StageId(queryId, 0);
 
-        dynamicFilterService.registerQuery(queryId, ImmutableSet.of(filterId), ImmutableSet.of(filterId), ImmutableSet.of());
+        dynamicFilterService.registerQuery(queryId, session, ImmutableSet.of(filterId), ImmutableSet.of(filterId), ImmutableSet.of());
         dynamicFilterService.stageCannotScheduleMoreTasks(stageId, 2);
 
         ColumnHandle column = new TestingColumnHandle("probeColumnA");
         DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
                 queryId,
                 ImmutableList.of(new DynamicFilters.Descriptor(filterId, df1)),
-                ImmutableMap.of(
-                        Symbol.from(df1), column));
+                ImmutableMap.of(symbol1, column),
+                symbolAllocator.getTypes());
         assertFalse(dynamicFilter.isBlocked().isDone());
         assertFalse(dynamicFilter.isComplete());
         assertEquals(dynamicFilter.getCurrentPredicate(), TupleDomain.all());
@@ -489,28 +555,32 @@ public class TestDynamicFilterService
     @Test
     public void testIsAwaitable()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(newDirectExecutorService());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, typeOperators, newDirectExecutorService());
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         DynamicFilterId filterId2 = new DynamicFilterId("df2");
-        Expression symbol = new Symbol("symbol").toSymbolReference();
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        Symbol symbol = symbolAllocator.newSymbol("symbol", INTEGER);
         ColumnHandle handle = new TestingColumnHandle("probeColumnA");
         QueryId queryId = new QueryId("query");
 
         dynamicFilterService.registerQuery(
                 queryId,
+                session,
                 ImmutableSet.of(filterId1, filterId2),
                 ImmutableSet.of(filterId1),
                 ImmutableSet.of());
 
         DynamicFilter dynamicFilter1 = dynamicFilterService.createDynamicFilter(
                 queryId,
-                ImmutableList.of(new DynamicFilters.Descriptor(filterId1, symbol)),
-                ImmutableMap.of(Symbol.from(symbol), handle));
+                ImmutableList.of(new DynamicFilters.Descriptor(filterId1, symbol.toSymbolReference())),
+                ImmutableMap.of(symbol, handle),
+                symbolAllocator.getTypes());
 
         DynamicFilter dynamicFilter2 = dynamicFilterService.createDynamicFilter(
                 queryId,
-                ImmutableList.of(new DynamicFilters.Descriptor(filterId2, symbol)),
-                ImmutableMap.of(Symbol.from(symbol), handle));
+                ImmutableList.of(new DynamicFilters.Descriptor(filterId2, symbol.toSymbolReference())),
+                ImmutableMap.of(symbol, handle),
+                symbolAllocator.getTypes());
 
         assertTrue(dynamicFilter1.isAwaitable());
         // non lazy dynamic filters are marked as non-awaitable
@@ -520,15 +590,19 @@ public class TestDynamicFilterService
     @Test
     public void testMultipleColumnMapping()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(newDirectExecutorService());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, typeOperators, newDirectExecutorService());
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
-        Expression df1 = expression("DF_SYMBOL1");
-        Expression df2 = expression("DF_SYMBOL2");
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", INTEGER);
+        Symbol symbol2 = symbolAllocator.newSymbol("DF_SYMBOL2", INTEGER);
+        Expression df1 = symbol1.toSymbolReference();
+        Expression df2 = symbol2.toSymbolReference();
         QueryId queryId = new QueryId("query");
         StageId stageId1 = new StageId(queryId, 1);
 
         dynamicFilterService.registerQuery(
                 queryId,
+                session,
                 ImmutableSet.of(filterId1),
                 ImmutableSet.of(filterId1),
                 ImmutableSet.of());
@@ -543,8 +617,9 @@ public class TestDynamicFilterService
                         new DynamicFilters.Descriptor(filterId1, df1),
                         new DynamicFilters.Descriptor(filterId1, df2)),
                 ImmutableMap.of(
-                        Symbol.from(df1), column1,
-                        Symbol.from(df2), column2));
+                        symbol1, column1,
+                        symbol2, column2),
+                symbolAllocator.getTypes());
 
         Domain domain = singleValue(INTEGER, 1L);
         dynamicFilterService.addTaskDynamicFilters(

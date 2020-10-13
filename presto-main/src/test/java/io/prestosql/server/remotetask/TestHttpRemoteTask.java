@@ -65,8 +65,10 @@ import io.prestosql.spi.connector.TestingColumnHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.tree.SymbolReference;
@@ -197,14 +199,17 @@ public class TestHttpRemoteTask
     {
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         DynamicFilterId filterId2 = new DynamicFilterId("df2");
-        SymbolReference df1 = new SymbolReference("DF_SYMBOL1");
-        SymbolReference df2 = new SymbolReference("DF_SYMBOL2");
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", BIGINT);
+        Symbol symbol2 = symbolAllocator.newSymbol("DF_SYMBOL2", BIGINT);
+        SymbolReference df1 = symbol1.toSymbolReference();
+        SymbolReference df2 = symbol2.toSymbolReference();
         ColumnHandle handle1 = new TestingColumnHandle("column1");
         ColumnHandle handle2 = new TestingColumnHandle("column2");
         QueryId queryId = new QueryId("test");
 
         TestingTaskResource testingTaskResource = new TestingTaskResource(new AtomicLong(System.nanoTime()), FailureScenario.NO_FAILURE);
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(newDirectExecutorService());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(createTestMetadataManager(), new TypeOperators(), newDirectExecutorService());
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, dynamicFilterService);
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
 
@@ -215,6 +220,7 @@ public class TestHttpRemoteTask
         testingTaskResource.setDynamicFilterDomains(new VersionedDynamicFilterDomains(1L, initialDomain));
         dynamicFilterService.registerQuery(
                 queryId,
+                TEST_SESSION,
                 ImmutableSet.of(filterId1, filterId2),
                 ImmutableSet.of(filterId1, filterId2),
                 ImmutableSet.of());
@@ -228,8 +234,9 @@ public class TestHttpRemoteTask
                         new DynamicFilters.Descriptor(filterId1, df1),
                         new DynamicFilters.Descriptor(filterId2, df2)),
                 ImmutableMap.of(
-                        Symbol.from(df1), handle1,
-                        Symbol.from(df2), handle2));
+                        symbol1, handle1,
+                        symbol2, handle2),
+                symbolAllocator.getTypes());
 
         // make sure initial dynamic filters are collected
         dynamicFilter.isBlocked().get();
@@ -308,7 +315,7 @@ public class TestHttpRemoteTask
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)
     {
-        return createHttpRemoteTaskFactory(testingTaskResource, new DynamicFilterService(new DynamicFilterConfig()));
+        return createHttpRemoteTaskFactory(testingTaskResource, new DynamicFilterService(createTestMetadataManager(), new TypeOperators(), new DynamicFilterConfig()));
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, DynamicFilterService dynamicFilterService)
