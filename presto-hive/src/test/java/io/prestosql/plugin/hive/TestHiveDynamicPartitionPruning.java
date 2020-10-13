@@ -252,7 +252,6 @@ public class TestHiveDynamicPartitionPruning
         assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
         assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        // Dynamic filter is collected from build side but not used for such cases
         assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
         assertEquals(domainStats.getDiscreteValuesCount(), 0);
         assertEquals(domainStats.getRangeCount(), 1);
