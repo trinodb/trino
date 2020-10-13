@@ -244,6 +244,7 @@ public class TestHivePageSink
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TYPE_MANAGER,
                 HDFS_ENVIRONMENT,
+                config,
                 getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, config),
                 getDefaultHiveRecordCursorProviders(config, HDFS_ENVIRONMENT),
                 new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, config));

@@ -40,5 +40,6 @@ public class TestThriftPlugin
         Connector connector = factory.create("test", config, new TestingConnectorContext());
         assertNotNull(connector);
         assertInstanceOf(connector, ThriftConnector.class);
+        connector.shutdown();
     }
 }

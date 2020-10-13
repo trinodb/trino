@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.session.db;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.session.AbstractTestSessionPropertyManager;
 import io.prestosql.plugin.session.SessionMatchSpec;
@@ -82,14 +83,15 @@ public class TestDbSessionPropertyManager
     }
 
     @Override
-    protected void assertProperties(Map<String, String> properties, SessionMatchSpec... specs)
+    protected void assertProperties(Map<String, String> systemProperties, Map<String, Map<String, String>> catalogProperties, SessionMatchSpec... specs)
     {
         insertSpecs(specs);
         long failureCountBefore = specsProvider.getDbLoadFailures().getTotalCount();
         specsProvider.refresh();
         long failureCountAfter = specsProvider.getDbLoadFailures().getTotalCount();
         assertEquals(failureCountAfter, failureCountBefore, "specs refresh should not fail");
-        assertEquals(manager.getSystemSessionProperties(CONTEXT), properties);
+        assertEquals(manager.getSystemSessionProperties(CONTEXT), systemProperties);
+        assertEquals(manager.getCatalogSessionProperties(CONTEXT), catalogProperties);
     }
 
     private void insertSpecs(SessionMatchSpec[] specs)
@@ -210,5 +212,32 @@ public class TestDbSessionPropertyManager
         assertEquals(sessionProperties.get("prop_2"), "val_2_2");
         assertEquals(sessionProperties.get("prop_3"), "val_3_1");
         assertEquals(sessionProperties.size(), 3);
+    }
+
+    @Test
+    public void testCatalogSessionProperties()
+    {
+        dao.insertSpecRow(1, ".*", null, null, null, 0);
+        dao.insertSessionProperty(1, "catalog_1.prop_1", "val_1");
+        dao.insertSessionProperty(1, "catalog_1.prop_2", "val_2");
+
+        dao.insertSpecRow(2, ".*", null, null, null, 1);
+        dao.insertSessionProperty(2, "catalog_1.prop_1", "val_1_bis");
+        dao.insertSessionProperty(2, "catalog_1.prop_3", "val_3");
+
+        specsProvider.refresh();
+        SessionConfigurationContext context1 = new SessionConfigurationContext("foo", Optional.empty(), ImmutableSet.of(), Optional.empty(), TEST_RG);
+        assertEquals(manager.getCatalogSessionProperties(context1),
+                ImmutableMap.of("catalog_1",
+                        ImmutableMap.of("prop_1", "val_1_bis", "prop_2", "val_2", "prop_3", "val_3")));
+    }
+
+    @Test
+    public void testEmptyTables()
+    {
+        specsProvider.refresh();
+        SessionConfigurationContext context1 = new SessionConfigurationContext("foo", Optional.empty(), ImmutableSet.of(), Optional.empty(), TEST_RG);
+        assertEquals(manager.getSystemSessionProperties(context1), ImmutableMap.of());
+        assertEquals(manager.getCatalogSessionProperties(context1), ImmutableMap.of());
     }
 }

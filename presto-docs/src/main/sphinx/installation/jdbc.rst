@@ -113,10 +113,14 @@ Name                                   Description
 ``clientInfo``                         Extra information about the client.
 ``clientTags``                         Client tags for selecting resource groups. Example: ``abc,xyz``
 ``traceToken``                         Trace token for correlating requests across systems.
+``source``                             Source name for the Presto query. This parameter should be used in
+                                       preference to ``ApplicationName``. Thus, it takes precedence
+                                       over ``ApplicationName`` and/or ``applicationNamePrefix``.
 ``applicationNamePrefix``              Prefix to append to any specified ``ApplicationName`` client info
-                                       property, which is used to set the source name for the Presto query.
-                                       If neither this property nor ``ApplicationName`` are set, the source
-                                       for the query is ``presto-jdbc``.
+                                       property, which is used to set the source name for the Presto query
+                                       if the ``source`` parameter has not been set. If neither this
+                                       property nor ``ApplicationName`` or ``source`` are set, the source
+                                       name for the query is ``presto-jdbc``.
 ``accessToken``                        Access token for token based authentication.
 ``SSL``                                Use HTTPS for connections
 ``SSLKeyStorePath``                    The location of the Java KeyStore file that contains the certificate

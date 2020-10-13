@@ -84,12 +84,6 @@ public class TestMongoDistributedQueries
     }
 
     @Override
-    public void testAddColumn()
-    {
-        // the connector does not support adding columns
-    }
-
-    @Override
     public void testRenameColumn()
     {
         // the connector does not support renaming columns

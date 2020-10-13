@@ -34,13 +34,14 @@ public class TestKafkaPlugin
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         assertInstanceOf(factory, KafkaConnectorFactory.class);
 
-        Connector c = factory.create(
+        Connector connector = factory.create(
                 "test-connector",
                 ImmutableMap.<String, String>builder()
                         .put("kafka.table-names", "test")
                         .put("kafka.nodes", "localhost:9092")
                         .build(),
                 new TestingConnectorContext());
-        assertNotNull(c);
+        assertNotNull(connector);
+        connector.shutdown();
     }
 }

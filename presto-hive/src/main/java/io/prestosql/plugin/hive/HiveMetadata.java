@@ -206,6 +206,11 @@ import static io.prestosql.plugin.hive.HiveWriterFactory.computeBucketedFileName
 import static io.prestosql.plugin.hive.PartitionUpdate.UpdateMode.APPEND;
 import static io.prestosql.plugin.hive.PartitionUpdate.UpdateMode.NEW;
 import static io.prestosql.plugin.hive.PartitionUpdate.UpdateMode.OVERWRITE;
+import static io.prestosql.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
+import static io.prestosql.plugin.hive.ViewReaderUtil.createViewReader;
+import static io.prestosql.plugin.hive.ViewReaderUtil.encodeViewData;
+import static io.prestosql.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
+import static io.prestosql.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getProtectMode;
@@ -217,14 +222,9 @@ import static io.prestosql.plugin.hive.util.CompressionConfigUtil.configureCompr
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.HiveBucketing.bucketedOnTimestamp;
 import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
-import static io.prestosql.plugin.hive.util.HiveUtil.PRESTO_VIEW_FLAG;
-import static io.prestosql.plugin.hive.util.HiveUtil.buildHiveViewConnectorDefinition;
 import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
-import static io.prestosql.plugin.hive.util.HiveUtil.decodeViewData;
-import static io.prestosql.plugin.hive.util.HiveUtil.encodeViewData;
 import static io.prestosql.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.prestosql.plugin.hive.util.HiveUtil.hiveColumnHandles;
-import static io.prestosql.plugin.hive.util.HiveUtil.isPrestoView;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.plugin.hive.util.HiveUtil.verifyPartitionTypeSupported;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.checkTableIsWritable;
@@ -267,7 +267,6 @@ public class HiveMetadata
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
     public static final String BUCKETING_VERSION = "bucketing_version";
     public static final String TABLE_COMMENT = "comment";
-    public static final String STORAGE_TABLE = "storage_table";
     private static final String TRANSACTIONAL = "transactional";
 
     private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
@@ -1773,7 +1772,7 @@ public class HiveMetadata
 
         Optional<Table> existing = metastore.getTable(identity, viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
-            if (!replace || !HiveUtil.isPrestoView(existing.get())) {
+            if (!replace || !isPrestoView(existing.get())) {
                 throw new ViewAlreadyExistsException(viewName);
             }
 
@@ -1855,33 +1854,23 @@ public class HiveMetadata
             return Optional.empty();
         }
         return metastore.getTable(new HiveIdentity(session), viewName.getSchemaName(), viewName.getTableName())
-                .flatMap(view -> {
-                    if (isPrestoView(view)) {
-                        ConnectorViewDefinition definition = decodeViewData(view.getViewOriginalText()
-                                .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)));
-                        // use owner from table metadata if it exists
-                        if (view.getOwner() != null && !definition.isRunAsInvoker()) {
-                            definition = new ConnectorViewDefinition(
-                                    definition.getOriginalSql(),
-                                    definition.getCatalog(),
-                                    definition.getSchema(),
-                                    definition.getColumns(),
-                                    definition.getComment(),
-                                    Optional.of(view.getOwner()),
-                                    false);
-                        }
-                        return Optional.of(definition);
+                .filter(ViewReaderUtil::canDecodeView)
+                .map(view -> {
+                    ConnectorViewDefinition definition = createViewReader(metastore, new HiveIdentity(session), view, typeManager)
+                            .decodeViewData(view.getViewOriginalText().get(), view, catalogName);
+                    // use owner from table metadata if it exists
+                    if (view.getOwner() != null && !definition.isRunAsInvoker()) {
+                        definition = new ConnectorViewDefinition(
+                                definition.getOriginalSql(),
+                                definition.getCatalog(),
+                                definition.getSchema(),
+                                definition.getColumns(),
+                                definition.getComment(),
+                                Optional.of(view.getOwner()),
+                                false);
                     }
-                    if (translateHiveViews && isHiveOrPrestoView(view)) {
-                        return Optional.of(buildHiveViewConnectorDefinition(catalogName, view));
-                    }
-                    return Optional.empty();
+                    return definition;
                 });
-    }
-
-    private boolean isHiveOrPrestoView(Table table)
-    {
-        return table.getTableType().equals(TableType.VIRTUAL_VIEW.name());
     }
 
     private static boolean filterSchema(String schemaName)

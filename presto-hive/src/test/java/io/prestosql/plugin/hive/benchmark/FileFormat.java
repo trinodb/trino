@@ -368,6 +368,7 @@ public enum FileFormat
         HivePageSourceProvider factory = new HivePageSourceProvider(
                 TYPE_MANAGER,
                 hdfsEnvironment,
+                new HiveConfig(),
                 getHivePageSourceFactory(hdfsEnvironment).map(ImmutableSet::of).orElse(ImmutableSet.of()),
                 getHiveRecordCursorProvider(hdfsEnvironment).map(ImmutableSet::of).orElse(ImmutableSet.of()),
                 new GenericHiveRecordCursorProvider(hdfsEnvironment, new HiveConfig()));

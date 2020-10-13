@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.parquet;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.prestosql.parquet.writer.ParquetWriterOptions;
 import org.apache.parquet.hadoop.ParquetWriter;
@@ -55,8 +56,9 @@ public class ParquetWriterConfig
         return parquetOptimizedWriterEnabled;
     }
 
-    @Config("hive.parquet.optimized-writer.enabled")
-    @ConfigDescription("Enable optimized Parquet writer")
+    @Config("hive.parquet.experimental-optimized-writer.enabled")
+    @LegacyConfig("hive.parquet.optimized-writer.enabled")
+    @ConfigDescription("Experimental: Enable optimized Parquet writer")
     public ParquetWriterConfig setParquetOptimizedWriterEnabled(boolean parquetOptimizedWriterEnabled)
     {
         this.parquetOptimizedWriterEnabled = parquetOptimizedWriterEnabled;

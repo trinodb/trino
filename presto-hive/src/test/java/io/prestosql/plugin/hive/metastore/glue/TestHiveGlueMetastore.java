@@ -135,12 +135,13 @@ public class TestHiveGlueMetastore
         Executor executor = new BoundedExecutor(this.executor, 10);
         return new GlueHiveMetastore(
                 HDFS_ENVIRONMENT,
-                new MetastoreConfig()
-                        .setHideDeltaLakeTables(true),
                 glueConfig,
                 new DisabledGlueColumnStatisticsProvider(),
                 executor,
-                Optional.empty());
+                Optional.empty(),
+                new DefaultGlueMetastoreTableFilterProvider(
+                        new MetastoreConfig()
+                                .setHideDeltaLakeTables(true)).get());
     }
 
     @Override

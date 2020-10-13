@@ -87,12 +87,12 @@ public abstract class AbstractQueryAssertionsTest
     }
 
     @Test
-    public void testIsCorrectlyPushedDown()
+    public void testIsFullyPushedDown()
     {
-        assertThat(query("SELECT name FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT name FROM nation")).isFullyPushedDown();
 
         // Test that, in case of failure, there is no failure when rendering expected and actual plans
-        assertThatThrownBy(() -> assertThat(query("SELECT name FROM nation WHERE rand() = 42")).isCorrectlyPushedDown())
+        assertThatThrownBy(() -> assertThat(query("SELECT name FROM nation WHERE rand() = 42")).isFullyPushedDown())
                 .hasMessageContaining(
                         "Plan does not match, expected [\n" +
                                 "\n" +
@@ -112,7 +112,7 @@ public abstract class AbstractQueryAssertionsTest
     }
 
     @Test
-    public void testIsCorrectlyPushedDownWithSession()
+    public void testIsFullyPushedDownWithSession()
     {
         Session baseSession = Session.builder(getSession())
                 .setCatalog("jdbc_with_aggregation_pushdown_disabled")
@@ -122,12 +122,12 @@ public abstract class AbstractQueryAssertionsTest
                 .setCatalogSessionProperty("jdbc_with_aggregation_pushdown_disabled", AGGREGATION_PUSHDOWN_ENABLED, "true")
                 .build();
 
-        assertThat(query("SELECT count(*) FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT count(*) FROM nation")).isFullyPushedDown();
         assertThat(query(baseSession, "SELECT count(*) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-        assertThat(query(sessionWithAggregationPushdown, "SELECT count(*) FROM nation")).isCorrectlyPushedDown();
+        assertThat(query(sessionWithAggregationPushdown, "SELECT count(*) FROM nation")).isFullyPushedDown();
 
         // Test that, in case of failure, there is no failure when rendering expected and actual plans
-        assertThatThrownBy(() -> assertThat(query(sessionWithAggregationPushdown, "SELECT count(*) FROM nation WHERE rand() = 42")).isCorrectlyPushedDown())
+        assertThatThrownBy(() -> assertThat(query(sessionWithAggregationPushdown, "SELECT count(*) FROM nation WHERE rand() = 42")).isFullyPushedDown())
                 .hasMessageContaining(
                         "Plan does not match, expected [\n" +
                                 "\n" +

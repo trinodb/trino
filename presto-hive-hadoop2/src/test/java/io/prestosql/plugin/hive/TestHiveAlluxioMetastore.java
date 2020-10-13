@@ -147,12 +147,6 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
-    public void testHiveViewsAreNotSupported()
-    {
-        // Alluxio metastore does not support insert/update operations
-    }
-
-    @Override
     public void testHideDeltaLakeTables()
     {
         // Alluxio metastore does not support create operations

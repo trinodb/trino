@@ -437,7 +437,7 @@ public class TestMySqlTypeMapping
     @Test
     public void testDatetime()
     {
-        // TODO MySQL datetime is not correctly read (see comment in StandardColumnMappings.timestampColumnMappingUsingSqlTimestamp)
+        // TODO (https://github.com/prestosql/presto/issues/5449) MySQL datetime is not correctly read (see comment in StandardColumnMappings.timestampColumnMappingUsingSqlTimestamp)
         // testing this is hard because of https://github.com/prestosql/presto/issues/37
     }
 
@@ -568,12 +568,12 @@ public class TestMySqlTypeMapping
                 identity());
     }
 
-    public static DataType<Float> mysqlFloatDataType()
+    private static DataType<Float> mysqlFloatDataType()
     {
         return dataType("float", RealType.REAL, Object::toString);
     }
 
-    public static DataType<Double> mysqlDoubleDataType()
+    private static DataType<Double> mysqlDoubleDataType()
     {
         return dataType("double precision", DoubleType.DOUBLE, Object::toString);
     }

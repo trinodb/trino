@@ -299,9 +299,9 @@ public class QueryAssertions
         /**
          * Verifies query is fully pushed down and verifies the results are the same as when the pushdown is disabled.
          */
-        public QueryAssert isCorrectlyPushedDown()
+        public QueryAssert isFullyPushedDown()
         {
-            checkState(!(runner instanceof LocalQueryRunner), "isCorrectlyPushedDown() currently does not work with LocalQueryRunner");
+            checkState(!(runner instanceof LocalQueryRunner), "testIsFullyPushedDown() currently does not work with LocalQueryRunner");
 
             // Compare the results with pushdown disabled, so that explicit matches() call is not needed
             verifyResultsWithPushdownDisabled();
@@ -323,9 +323,18 @@ public class QueryAssertions
         }
 
         /**
+         * @deprecated Use {@link #isFullyPushedDown()} instead.
+         */
+        @Deprecated
+        public QueryAssert isCorrectlyPushedDown()
+        {
+            return isFullyPushedDown();
+        }
+
+        /**
          * Verifies query is not fully pushed down and verifies the results are the same as when the pushdown is fully disabled.
          * <p>
-         * <b>Note:</b> the primary intent of this assertion is to ensure the test is updated to {@link #isCorrectlyPushedDown()}
+         * <b>Note:</b> the primary intent of this assertion is to ensure the test is updated to {@link #isFullyPushedDown()}
          * when pushdown capabilities are improved.
          */
         public QueryAssert isNotFullyPushedDown(Class<? extends PlanNode> retainedNode)

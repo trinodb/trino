@@ -108,6 +108,7 @@ import io.prestosql.sql.tree.TimeLiteral;
 import io.prestosql.sql.tree.TimestampLiteral;
 import io.prestosql.sql.tree.TryExpression;
 import io.prestosql.sql.tree.WhenClause;
+import io.prestosql.sql.tree.Window;
 import io.prestosql.sql.tree.WindowFrame;
 import io.prestosql.type.FunctionType;
 import io.prestosql.type.TypeCoercion;
@@ -927,7 +928,8 @@ public class ExpressionAnalyzer
         protected Type visitFunctionCall(FunctionCall node, StackableAstVisitorContext<Context> context)
         {
             if (node.getWindow().isPresent()) {
-                for (Expression expression : node.getWindow().get().getPartitionBy()) {
+                Window window = node.getWindow().get();
+                for (Expression expression : window.getPartitionBy()) {
                     process(expression, context);
                     Type type = getExpressionType(expression);
                     if (!type.isComparable()) {
@@ -935,7 +937,7 @@ public class ExpressionAnalyzer
                     }
                 }
 
-                for (SortItem sortItem : getSortItemsFromOrderBy(node.getWindow().get().getOrderBy())) {
+                for (SortItem sortItem : getSortItemsFromOrderBy(window.getOrderBy())) {
                     process(sortItem.getSortKey(), context);
                     Type type = getExpressionType(sortItem.getSortKey());
                     if (!type.isOrderable()) {
@@ -943,18 +945,20 @@ public class ExpressionAnalyzer
                     }
                 }
 
-                if (node.getWindow().get().getFrame().isPresent()) {
-                    WindowFrame frame = node.getWindow().get().getFrame().get();
+                if (window.getFrame().isPresent()) {
+                    WindowFrame frame = window.getFrame().get();
 
                     if (frame.getStart().getValue().isPresent()) {
-                        Type type = process(frame.getStart().getValue().get(), context);
+                        Expression startValue = frame.getStart().getValue().get();
+                        Type type = process(startValue, context);
                         if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
                             throw semanticException(TYPE_MISMATCH, node, "Window frame start value type must be INTEGER or BIGINT(actual %s)", type);
                         }
                     }
 
                     if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
-                        Type type = process(frame.getEnd().get().getValue().get(), context);
+                        Expression endValue = frame.getEnd().get().getValue().get();
+                        Type type = process(endValue, context);
                         if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
                             throw semanticException(TYPE_MISMATCH, node, "Window frame end value type must be INTEGER or BIGINT (actual %s)", type);
                         }
@@ -1177,7 +1181,7 @@ public class ExpressionAnalyzer
         {
             return type.equals(DATE) ||
                     type instanceof TimeType ||
-                    type.equals(TIME_WITH_TIME_ZONE) ||
+                    type instanceof TimeWithTimeZoneType ||
                     type instanceof TimestampType ||
                     type instanceof TimestampWithTimeZoneType ||
                     type.equals(INTERVAL_DAY_TIME) ||
@@ -1497,7 +1501,7 @@ public class ExpressionAnalyzer
                 operatorSignature = metadata.resolveOperator(operatorType, argumentTypes.build()).getSignature();
             }
             catch (OperatorNotFoundException e) {
-                throw semanticException(TYPE_MISMATCH, node, "%s", e.getMessage());
+                throw semanticException(TYPE_MISMATCH, node, e, "%s", e.getMessage());
             }
 
             for (int i = 0; i < arguments.length; i++) {
