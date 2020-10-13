@@ -13,6 +13,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.oracle.BaseOracleIntegrationSmokeTest;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
@@ -152,6 +154,9 @@ public abstract class BaseStarburstOracleIntegrationSmokeTest
         }
     }
 
+    /**
+     * @see BaseStarburstOracleAggregationPushdownTest#testLimitPushdown()
+     */
     @Test
     public void testLimitPushdown()
     {
@@ -162,6 +167,22 @@ public abstract class BaseStarburstOracleIntegrationSmokeTest
 
         // with filter over varchar column
         assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isFullyPushedDown();
+
+        // with aggregation
+        assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")) // global aggregation, LIMIT removed
+                .isNotFullyPushedDown(AggregationNode.class);
+        assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5"))
+                // TODO https://github.com/prestosql/presto/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
+                .isNotFullyPushedDown(ProjectNode.class);
+        assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isNotFullyPushedDown(ProjectNode.class); // TODO (https://github.com/prestosql/presto/issues/5522)
+
+        // with filter and aggregation
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3"))
+                // TODO https://github.com/prestosql/presto/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
+                .isNotFullyPushedDown(ProjectNode.class);
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3"))
+                // TODO https://github.com/prestosql/presto/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
+                .isNotFullyPushedDown(ProjectNode.class);
     }
 
     @Test

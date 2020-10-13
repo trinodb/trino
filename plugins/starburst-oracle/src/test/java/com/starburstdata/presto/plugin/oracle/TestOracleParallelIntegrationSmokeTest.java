@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.plan.LimitNode;
+import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
@@ -66,12 +67,27 @@ public class TestOracleParallelIntegrationSmokeTest
     @Override
     public void testLimitPushdown()
     {
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isNotFullyPushedDown(LimitNode.class);
+        assertThat(query("SELECT name FROM nation LIMIT 30")).isNotFullyPushedDown(LimitNode.class); // Use high limit for result determinism
 
         // with filter over numeric column
         assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isNotFullyPushedDown(LimitNode.class);
 
         // with filter over varchar column
         assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isNotFullyPushedDown(LimitNode.class);
+
+        // with aggregation
+        assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isFullyPushedDown(); // global aggregation, LIMIT removed
+        assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5"))
+                // TODO https://github.com/prestosql/presto/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
+                .isNotFullyPushedDown(LimitNode.class);
+        assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isNotFullyPushedDown(ProjectNode.class); // TODO (https://github.com/prestosql/presto/issues/5522)
+
+        // with filter and aggregation
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3"))
+                // TODO https://github.com/prestosql/presto/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
+                .isNotFullyPushedDown(LimitNode.class);
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3"))
+                // TODO https://github.com/prestosql/presto/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
+                .isNotFullyPushedDown(LimitNode.class);
     }
 }
