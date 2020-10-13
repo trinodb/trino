@@ -363,7 +363,11 @@ public class SqlQueryScheduler
                     placementPolicy,
                     splitBatchSize,
                     dynamicFilterService,
-                    () -> childStages.stream().anyMatch(SqlStageExecution::isAnyTaskBlocked)));
+                    () -> childStages.stream().anyMatch(SqlStageExecution::isAnyTaskBlocked),
+                    () -> childStages.stream()
+                            // returns true if all stages that produce pages are blocked
+                            .filter(childStage -> childStage.getState() != FLUSHING && childStage.getState() != FINISHED)
+                            .allMatch(SqlStageExecution::isAnyTaskBlocked)));
         }
         else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
             childStages = createChildStages.apply(Optional.of(new int[1]));

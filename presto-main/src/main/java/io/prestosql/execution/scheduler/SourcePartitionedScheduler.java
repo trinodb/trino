@@ -95,6 +95,7 @@ public class SourcePartitionedScheduler
     private final boolean groupedExecution;
     private final DynamicFilterService dynamicFilterService;
     private final BooleanSupplier anySourceTaskBlocked;
+    private final BooleanSupplier allChildStagesBlocked;
 
     private final Map<Lifespan, ScheduleGroup> scheduleGroups = new HashMap<>();
     private boolean noMoreScheduleGroups;
@@ -110,7 +111,8 @@ public class SourcePartitionedScheduler
             int splitBatchSize,
             boolean groupedExecution,
             DynamicFilterService dynamicFilterService,
-            BooleanSupplier anySourceTaskBlocked)
+            BooleanSupplier anySourceTaskBlocked,
+            BooleanSupplier allChildStagesBlocked)
     {
         this.stage = requireNonNull(stage, "stage is null");
         this.partitionedNode = requireNonNull(partitionedNode, "partitionedNode is null");
@@ -118,6 +120,7 @@ public class SourcePartitionedScheduler
         this.splitPlacementPolicy = requireNonNull(splitPlacementPolicy, "splitPlacementPolicy is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.anySourceTaskBlocked = requireNonNull(anySourceTaskBlocked, "anySourceTaskBlocked is null");
+        this.allChildStagesBlocked = requireNonNull(allChildStagesBlocked, "allChildStagesBlocked is null");
 
         checkArgument(splitBatchSize > 0, "splitBatchSize must be at least one");
         this.splitBatchSize = splitBatchSize;
@@ -144,7 +147,8 @@ public class SourcePartitionedScheduler
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
             DynamicFilterService dynamicFilterService,
-            BooleanSupplier anySourceTaskBlocked)
+            BooleanSupplier anySourceTaskBlocked,
+            BooleanSupplier allChildStagesBlocked)
     {
         SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(
                 stage,
@@ -154,7 +158,8 @@ public class SourcePartitionedScheduler
                 splitBatchSize,
                 false,
                 dynamicFilterService,
-                anySourceTaskBlocked);
+                anySourceTaskBlocked,
+                allChildStagesBlocked);
         sourcePartitionedScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
         sourcePartitionedScheduler.noMoreLifespans();
 
@@ -195,7 +200,8 @@ public class SourcePartitionedScheduler
             int splitBatchSize,
             boolean groupedExecution,
             DynamicFilterService dynamicFilterService,
-            BooleanSupplier anySourceTaskBlocked)
+            BooleanSupplier anySourceTaskBlocked,
+            BooleanSupplier allChildStagesBlocked)
     {
         return new SourcePartitionedScheduler(
                 stage,
@@ -205,7 +211,8 @@ public class SourcePartitionedScheduler
                 splitBatchSize,
                 groupedExecution,
                 dynamicFilterService,
-                anySourceTaskBlocked);
+                anySourceTaskBlocked,
+                allChildStagesBlocked);
     }
 
     @Override
@@ -382,8 +389,7 @@ public class SourcePartitionedScheduler
             overallNewTasks.addAll(createTaskOnRandomNode());
         }
 
-        boolean anySourceTaskBlocked = this.anySourceTaskBlocked.getAsBoolean();
-        if (anySourceTaskBlocked) {
+        if (allChildStagesBlocked.getAsBoolean()) {
             // Dynamic filters might not be collected due to build side source tasks being blocked on full buffer.
             // In such case probe split generation that is waiting for dynamic filters should be unblocked to prevent deadlock.
             dynamicFilterService.unblockStageDynamicFilters(stage.getStageId().getQueryId(), stage.getFragment());
@@ -392,7 +398,7 @@ public class SourcePartitionedScheduler
         if (groupedExecution) {
             overallNewTasks.addAll(finalizeTaskCreationIfNecessary());
         }
-        else if (anyBlockedOnPlacements && anySourceTaskBlocked) {
+        else if (anyBlockedOnPlacements && anySourceTaskBlocked.getAsBoolean()) {
             // In a broadcast join, output buffers of the tasks in build source stage have to
             // hold onto all data produced before probe side task scheduling finishes,
             // even if the data is acknowledged by all known consumers. This is because
