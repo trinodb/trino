@@ -48,6 +48,7 @@ import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.TypeManager;
 import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.FailsafeException;
 import net.jodah.failsafe.RetryPolicy;
 import net.jodah.failsafe.event.ExecutionAttemptedEvent;
 import net.jodah.failsafe.function.CheckedSupplier;
@@ -241,6 +242,13 @@ public class SnowflakeSplitSource
                     return new ConnectorSplitBatch(ImmutableList.of(), false);
                 }));
             }
+            catch (FailsafeException exception) {
+                if (exception.getCause() instanceof SnowflakeSQLException) {
+                    String snowflakeQueryId = ((SnowflakeSQLException) exception.getCause()).getQueryId();
+                    throw new PrestoException(JDBC_ERROR, format("%s (Snowflake query id %s)", exception.getMessage(), snowflakeQueryId), exception);
+                }
+                throw new PrestoException(JDBC_ERROR, exception);
+            }
             catch (Exception exception) {
                 throw new PrestoException(JDBC_ERROR, exception);
             }
@@ -264,7 +272,12 @@ public class SnowflakeSplitSource
 
     private void closeSnowflakeConnection(ExecutionAttemptedEvent executionAttemptedEvent)
     {
-        log.info("Retrying Snowflake S3 export (query id: %s, exception: %s", session.getQueryId(), executionAttemptedEvent.getLastFailure());
+        Throwable lastFailure = executionAttemptedEvent.getLastFailure();
+        String snowflakeQueryId = "unknown";
+        if (lastFailure instanceof SnowflakeSQLException) {
+            snowflakeQueryId = ((SnowflakeSQLException) lastFailure).getQueryId();
+        }
+        log.info("Retrying Snowflake S3 export (query id: %s, Snowflake query id: %s, exception: %s", session.getQueryId(), snowflakeQueryId, lastFailure);
         exportStats.getTotalRetries().update(1);
 
         // close connector so that temporary stage is removed when retrying
