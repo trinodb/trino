@@ -53,12 +53,15 @@ import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.utils.QueryExecutors.onHive;
 import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
+import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class TestHiveStorageFormats
         extends ProductTest
@@ -543,6 +546,114 @@ public class TestHiveStorageFormats
         onPresto().executeQuery("DROP TABLE " + tableName);
     }
 
+    @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = STORAGE_FORMATS)
+    public void testStructTimestamps(StorageFormat format)
+            throws SQLException
+    {
+        setAdminRole(onPresto().getConnection());
+        ensureDummyExists();
+
+        String tableName = format("test_struct_timestamp_precision_%s_%s", format.getName().toLowerCase(Locale.ENGLISH), randomTableSuffix());
+
+        onPresto().executeQuery(format(
+                "CREATE TABLE %s ("
+                        + "   id INTEGER,"
+                        + "   arr ARRAY(TIMESTAMP),"
+                        + "   map MAP(TIMESTAMP, TIMESTAMP),"
+                        + "   row ROW(col TIMESTAMP),"
+                        + "   nested ARRAY(MAP(TIMESTAMP, ROW(col ARRAY(TIMESTAMP))))"
+                        + ") WITH (%s)",
+                tableName,
+                format.getStoragePropertiesAsSql()));
+
+        // Insert in a loop because inserting with UNION ALL sometimes makes values invisible to Presto
+        for (TimestampAndPrecision entry : TIMESTAMPS_FROM_HIVE) {
+            onHive().executeQuery(format(
+                    "INSERT INTO %1$s"
+                            // insert with SELECT because hive does not support array/map/struct functions in VALUES
+                            + " SELECT"
+                            + "   %3$s,"
+                            + "   array(%2$s),"
+                            + "   map(%2$s, %2$s),"
+                            + "   named_struct('col', %2$s),"
+                            + "   array(map(%2$s, named_struct('col', array(%2$s))))"
+                            // some hive versions don't allow INSERT from SELECT without FROM
+                            + " FROM dummy",
+                    tableName,
+                    format("TIMESTAMP '%s'", entry.getWriteValue()),
+                    entry.getId()));
+        }
+
+        for (HiveTimestampPrecision precision : HiveTimestampPrecision.values()) {
+            setSessionProperty(onPresto().getConnection(), "hive.timestamp_precision", precision.name());
+
+            // Check that the correct types are read
+            String type = TIMESTAMPS_FROM_HIVE.get(0).getReadType(precision);
+            assertThat(onPresto()
+                    .executeQuery(format(
+                            "SELECT"
+                                    + "   typeof(arr),"
+                                    + "   typeof(map),"
+                                    + "   typeof(row),"
+                                    + "   typeof(nested)"
+                                    + " FROM %s"
+                                    + " LIMIT 1",
+                            tableName)))
+                    .as("timestamp container types on %s", format.getName().toLowerCase(Locale.ENGLISH))
+                    .containsOnly(row(
+                            format("array(%s)", type),
+                            format("map(%1$s, %1$s)", type),
+                            format("row(col %s)", type),
+                            format("array(map(%1$s, row(col array(%1$s))))", type)));
+
+            // Check the values as varchar
+            assertThat(onPresto()
+                    .executeQuery(format(
+                            "SELECT"
+                                    + "   id,"
+                                    + "   CAST(arr[1] AS VARCHAR),"
+                                    + "   CAST(map_entries(map)[1][1] AS VARCHAR)," // key
+                                    + "   CAST(map_entries(map)[1][2] AS VARCHAR)," // value
+                                    + "   CAST(row.col AS VARCHAR),"
+                                    + "   CAST(map_entries(nested[1])[1][1] AS VARCHAR)," // key
+                                    + "   CAST(map_entries(nested[1])[1][2].col[1] AS VARCHAR)" // value
+                                    + " FROM %s"
+                                    + " ORDER BY id",
+                            tableName)))
+                    .as("timestamp containers on %s", format.getName().toLowerCase(Locale.ENGLISH))
+                    .containsExactly(TIMESTAMPS_FROM_HIVE.stream()
+                            .sorted(comparingInt(TimestampAndPrecision::getId))
+                            .map(e -> new Row(Lists.asList(
+                                    e.getId(),
+                                    nCopies(6, e.getReadValue(precision)).toArray())))
+                            .collect(toList()));
+
+            // Check the values
+            assertThat(onPresto()
+                    .executeQuery(format(
+                            "SELECT"
+                                    + "   id,"
+                                    + "   arr[1],"
+                                    + "   map_entries(map)[1][1]," // key
+                                    + "   map_entries(map)[1][2]," // value
+                                    + "   row.col,"
+                                    + "   map_entries(nested[1])[1][1]," // key
+                                    + "   map_entries(nested[1])[1][2].col[1]" // value
+                                    + " FROM %s"
+                                    + " ORDER BY id",
+                            tableName)))
+                    .as("timestamp containers on %s", format.getName().toLowerCase(Locale.ENGLISH))
+                    .containsExactly(TIMESTAMPS_FROM_HIVE.stream()
+                            .sorted(comparingInt(TimestampAndPrecision::getId))
+                            .map(e -> new Row(Lists.asList(
+                                    e.getId(),
+                                    nCopies(6, Timestamp.valueOf(e.getReadValue(precision))).toArray())))
+                            .collect(toList()));
+        }
+
+        onHive().executeQuery(format("DROP TABLE %s", tableName));
+    }
+
     /**
      * Run the given query on the given table and the TPCH {@code lineitem} table
      * (in the schema {@code TPCH_SCHEMA}, asserting that the results are equal.
@@ -576,6 +687,17 @@ public class TestHiveStorageFormats
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * Ensures that a view named "dummy" with exactly one row exists in the default schema.
+     */
+    // These tests run on versions of Hive (1.1.0 on CDH 5) that don't fully support SELECT without FROM
+    private void ensureDummyExists()
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS dummy");
+        onHive().executeQuery("CREATE TABLE dummy (dummy varchar(1))");
+        onHive().executeQuery("INSERT INTO dummy VALUES ('x')");
     }
 
     private static void setSessionProperties(StorageFormat storageFormat)
