@@ -11,15 +11,16 @@ package com.starburstdata.presto.plugin.saphana;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Module;
 import com.starburstdata.presto.license.LicenceCheckingConnectorFactory;
-import com.starburstdata.presto.license.LicenseModule;
+import com.starburstdata.presto.license.LicenseManager;
+import com.starburstdata.presto.license.LicenseManagerProvider;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteringJdbcConnectorFactory;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
 import static com.starburstdata.presto.license.StarburstPrestoFeature.SAP_HANA;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
+import static java.util.Objects.requireNonNull;
 
 public class SapHanaPlugin
         implements Plugin
@@ -29,12 +30,18 @@ public class SapHanaPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new LicenceCheckingConnectorFactory(SAP_HANA, getConnectorFactory(new LicenseModule())));
+        return ImmutableList.of(new LicenceCheckingConnectorFactory(SAP_HANA, getConnectorFactory(new LicenseManagerProvider().get())));
     }
 
     @VisibleForTesting
-    ConnectorFactory getConnectorFactory(Module module)
+    ConnectorFactory getConnectorFactory(LicenseManager licenseManager)
     {
-        return new DynamicFilteringJdbcConnectorFactory(CONNECTOR_NAME, (String catalogName) -> combine(module, new SapHanaClientModule(catalogName)));
+        requireNonNull(licenseManager, "licenseManager is null");
+        return new DynamicFilteringJdbcConnectorFactory(
+                CONNECTOR_NAME,
+                (String catalogName) -> combine(
+                        binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
+                        new SapHanaClientModule(catalogName)),
+                licenseManager);
     }
 }

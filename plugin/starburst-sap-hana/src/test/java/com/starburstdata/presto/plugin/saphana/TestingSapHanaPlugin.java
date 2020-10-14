@@ -10,8 +10,9 @@
 package com.starburstdata.presto.plugin.saphana;
 
 import com.google.common.collect.ImmutableList;
-import com.starburstdata.presto.license.TestingLicenseModule;
 import io.prestosql.spi.connector.ConnectorFactory;
+
+import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
 
 public class TestingSapHanaPlugin
         extends SapHanaPlugin
@@ -19,6 +20,6 @@ public class TestingSapHanaPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(getConnectorFactory(new TestingLicenseModule()));
+        return ImmutableList.of(getConnectorFactory(NOOP_LICENSE_MANAGER));
     }
 }
