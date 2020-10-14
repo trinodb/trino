@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,7 +30,13 @@ public class TestKafkaSecurityConfig
     public void testDefaults()
     {
         // No defaults, should be empty if nothing is set specifically
-        assertThat(recordDefaults(KafkaSecurityConfig.class).getKafkaClientProperties()).isEmpty();
+        assertRecordedDefaults(recordDefaults(KafkaSecurityConfig.class)
+                .setSslKeystoreFile(null)
+                .setSslKeystorePassword(null)
+                .setSslKeyPassword(null)
+                .setSslTruststoreFile(null)
+                .setSslTruststorePassword(null)
+                .setSslEndpointIdentificationAlgorithm(null));
     }
 
     @Test

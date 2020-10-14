@@ -38,6 +38,11 @@ public enum KafkaEndpointIdentificationAlgorithm
 
     public static KafkaEndpointIdentificationAlgorithm fromString(String value)
     {
-        return KafkaEndpointIdentificationAlgorithm.valueOf(value.toUpperCase(ENGLISH));
+        try {
+            return KafkaEndpointIdentificationAlgorithm.valueOf(value.toUpperCase(ENGLISH));
+        }
+        catch (NullPointerException npe) {
+            return null;
+        }
     }
 }
