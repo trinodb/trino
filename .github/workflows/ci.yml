@@ -318,4 +318,10 @@ jobs:
       - name: Product Tests
         run: |
           presto-product-tests-launcher/bin/run-launcher suite run --suite ${{ matrix.suite }} --config ${{ matrix.config }} --no-bind --logs-dir logs/
-
+      - name: Upload logs
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: pt logs (${{ matrix.config }}, ${{ matrix.suite }})
+          path: |
+            logs/*
