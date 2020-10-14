@@ -481,6 +481,10 @@ each of which is a list of rules that are matched in the order specified
 in the config file. The user is granted the privileges from the first
 matching rule. All regexes default to ``.*`` if not specified.
 
+.. note::
+
+    These rules do not apply to system defined table in the ``information_schema`` schema.
+
 Schema Rules
 ------------
 
