@@ -11,7 +11,6 @@ package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.starburstdata.presto.license.TestingLicenseModule;
 import io.prestosql.Session;
 import io.prestosql.plugin.jmx.JmxPlugin;
 import io.prestosql.plugin.sqlserver.TestingSqlServer;
@@ -27,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.QueryAssertions.copyTpchTables;
@@ -127,7 +127,7 @@ public final class StarburstSqlServerQueryRunner
             @Override
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
-                return List.of(getConnectoryFactory(new TestingLicenseModule()));
+                return List.of(getConnectoryFactory(NOOP_LICENSE_MANAGER));
             }
         };
     }
