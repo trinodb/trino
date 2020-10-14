@@ -223,7 +223,7 @@ public class QueryAssertions
                     MaterializedRow row = (MaterializedRow) object;
 
                     return row.getFields().stream()
-                            .map(Object::toString)
+                            .map(String::valueOf)
                             .collect(Collectors.joining(", ", "(", ")"));
                 }
                 else {
