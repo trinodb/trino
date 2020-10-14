@@ -80,7 +80,7 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>jmx</artifactId>
-        </dependency>          
+        </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
@@ -171,6 +171,22 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.linkedin.calcite</groupId>
+            <artifactId>calcite-core</artifactId>
+            <classifier>shaded</classifier>
+        </dependency>
+
+        <dependency>
+            <groupId>com.linkedin.coral</groupId>
+            <artifactId>coral-hive</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.linkedin.coral</groupId>
+            <artifactId>coral-presto</artifactId>
         </dependency>
 
         <dependency>
