@@ -16,6 +16,7 @@ package io.prestosql.tests;
 import io.prestosql.Session;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.QueryRunner;
+import org.testng.annotations.Test;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -61,5 +62,31 @@ public class TestLocalQueryAssertions
         assertThatThrownBy(() -> assertThat(query(baseSession, "SELECT name FROM nation")).isFullyPushedDown())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("testIsFullyPushedDown() currently does not work with LocalQueryRunner");
+    }
+
+    @Test
+    public void testNullInErrorMessage()
+    {
+        assertThatThrownBy(() -> assertThat(query("SELECT CAST(null AS integer)")).matches("SELECT 1"))
+                .hasMessage("[Rows] \n" +
+                        "Expecting:\n" +
+                        "  <(null)>\n" +
+                        "to contain exactly in any order:\n" +
+                        "  <[(1)]>\n" +
+                        "elements not found:\n" +
+                        "  <(1)>\n" +
+                        "and elements not expected:\n" +
+                        "  <(null)>\n");
+
+        assertThatThrownBy(() -> assertThat(query("SELECT 1")).matches("SELECT CAST(null AS integer)"))
+                .hasMessage("[Rows] \n" +
+                        "Expecting:\n" +
+                        "  <(1)>\n" +
+                        "to contain exactly in any order:\n" +
+                        "  <[(null)]>\n" +
+                        "elements not found:\n" +
+                        "  <(null)>\n" +
+                        "and elements not expected:\n" +
+                        "  <(1)>\n");
     }
 }
