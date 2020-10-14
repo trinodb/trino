@@ -99,9 +99,10 @@ public class SqlTask
             ExecutorService taskNotificationExecutor,
             Function<SqlTask, ?> onDone,
             DataSize maxBufferSize,
+            DataSize maxBroadcastBufferSize,
             CounterStat failedTasks)
     {
-        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize);
+        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, maxBroadcastBufferSize);
         sqlTask.initialize(onDone, failedTasks);
         return sqlTask;
     }
@@ -113,7 +114,8 @@ public class SqlTask
             QueryContext queryContext,
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
-            DataSize maxBufferSize)
+            DataSize maxBufferSize,
+            DataSize maxBroadcastBufferSize)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = UUID.randomUUID().toString();
@@ -129,6 +131,7 @@ public class SqlTask
                 taskInstanceId,
                 taskNotificationExecutor,
                 maxBufferSize,
+                maxBroadcastBufferSize,
                 // Pass a memory context supplier instead of a memory context to the output buffer,
                 // because we haven't created the task context that holds the the memory context yet.
                 () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext(),

@@ -49,6 +49,7 @@ public class LazyOutputBuffer
     private final StateMachine<BufferState> state;
     private final String taskInstanceId;
     private final DataSize maxBufferSize;
+    private final DataSize maxBroadcastBufferSize;
     private final Supplier<LocalMemoryContext> systemMemoryContextSupplier;
     private final Executor executor;
     private final Runnable notifyStatusChanged;
@@ -67,6 +68,7 @@ public class LazyOutputBuffer
             String taskInstanceId,
             Executor executor,
             DataSize maxBufferSize,
+            DataSize maxBroadcastBufferSize,
             Supplier<LocalMemoryContext> systemMemoryContextSupplier,
             Runnable notifyStatusChanged)
     {
@@ -75,6 +77,7 @@ public class LazyOutputBuffer
         this.executor = requireNonNull(executor, "executor is null");
         state = new StateMachine<>(taskId + "-buffer", executor, OPEN, TERMINAL_BUFFER_STATES);
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
+        this.maxBroadcastBufferSize = requireNonNull(maxBroadcastBufferSize, "maxBroadcastBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         this.systemMemoryContextSupplier = requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null");
         this.notifyStatusChanged = requireNonNull(notifyStatusChanged, "notifyStatusChanged is null");
@@ -164,7 +167,7 @@ public class LazyOutputBuffer
                         delegate = new PartitionedOutputBuffer(taskInstanceId, state, newOutputBuffers, maxBufferSize, systemMemoryContextSupplier, executor);
                         break;
                     case BROADCAST:
-                        delegate = new BroadcastOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor, notifyStatusChanged);
+                        delegate = new BroadcastOutputBuffer(taskInstanceId, state, maxBroadcastBufferSize, systemMemoryContextSupplier, executor, notifyStatusChanged);
                         break;
                     case ARBITRARY:
                         delegate = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);

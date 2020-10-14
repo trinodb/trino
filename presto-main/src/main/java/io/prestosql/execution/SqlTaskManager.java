@@ -134,6 +134,7 @@ public class SqlTaskManager
         clientTimeout = config.getClientTimeout();
 
         DataSize maxBufferSize = config.getSinkMaxBufferSize();
+        DataSize maxBroadcastBufferSize = config.getSinkMaxBroadcastBufferSize();
 
         taskNotificationExecutor = newFixedThreadPool(config.getTaskNotificationThreads(), threadsNamed("task-notification-%s"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
@@ -168,6 +169,7 @@ public class SqlTaskManager
                             return null;
                         },
                         maxBufferSize,
+                        maxBroadcastBufferSize,
                         failedTasks)));
     }
 
