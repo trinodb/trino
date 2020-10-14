@@ -183,6 +183,32 @@ public class TestCoordinatorDynamicFiltering
     }
 
     @Test(timeOut = 30_000)
+    public void testRightJoinWithEmptyBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem RIGHT JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey WHERE supplier.name = 'abc'",
+                TupleDomain.none());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testRightJoinWithNonSelectiveBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem RIGHT JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey",
+                TupleDomain.all());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testRightJoinWithSelectiveBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem RIGHT JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey WHERE supplier.name = 'Supplier#000000001'",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        singleValue(BIGINT, 1L))));
+    }
+
+    @Test(timeOut = 30_000)
     public void testSemiJoinWithEmptyBuildSide()
     {
         assertQueryDynamicFilters(
