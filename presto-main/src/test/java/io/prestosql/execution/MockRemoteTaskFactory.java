@@ -202,6 +202,7 @@ public class MockRemoteTaskFactory
                     TASK_INSTANCE_ID,
                     executor,
                     DataSize.ofBytes(1),
+                    DataSize.ofBytes(1),
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                     () -> {});
 

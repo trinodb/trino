@@ -56,6 +56,7 @@ public class TaskManagerConfig
     private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
 
     private DataSize sinkMaxBufferSize = DataSize.of(32, Unit.MEGABYTE);
+    private DataSize sinkMaxBroadcastBufferSize = DataSize.of(200, Unit.MEGABYTE);
     private DataSize maxPagePartitioningBufferSize = DataSize.of(32, Unit.MEGABYTE);
 
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
@@ -305,6 +306,18 @@ public class TaskManagerConfig
     public TaskManagerConfig setSinkMaxBufferSize(DataSize sinkMaxBufferSize)
     {
         this.sinkMaxBufferSize = sinkMaxBufferSize;
+        return this;
+    }
+
+    public DataSize getSinkMaxBroadcastBufferSize()
+    {
+        return sinkMaxBroadcastBufferSize;
+    }
+
+    @Config("sink.max-broadcast-buffer-size")
+    public TaskManagerConfig setSinkMaxBroadcastBufferSize(DataSize sinkMaxBroadcastBufferSize)
+    {
+        this.sinkMaxBroadcastBufferSize = sinkMaxBroadcastBufferSize;
         return this;
     }
 
