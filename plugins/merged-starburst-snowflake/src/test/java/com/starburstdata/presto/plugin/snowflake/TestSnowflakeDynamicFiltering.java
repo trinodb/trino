@@ -36,6 +36,13 @@ public class TestSnowflakeDynamicFiltering
     }
 
     @Override
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/5172", match = "java.lang.AssertionError: expected \\[3] but found \\[\\d]")
+    public void testDynamicFilteringWithLimit()
+    {
+        super.testDynamicFilteringWithLimit();
+    }
+
+    @Override
     protected String getDynamicFilteringJmxTableName()
     {
         // SF connector uses ConnectorObjectNameGeneratorModule which overrides default name generation
