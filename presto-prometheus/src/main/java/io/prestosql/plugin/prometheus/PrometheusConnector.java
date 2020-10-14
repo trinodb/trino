@@ -51,13 +51,6 @@ public class PrometheusConnector
     }
 
     @Override
-    public boolean isSingleStatementWritesOnly()
-    {
-        // Actually, writes are not supported at all.
-        return false;
-    }
-
-    @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
         return INSTANCE;

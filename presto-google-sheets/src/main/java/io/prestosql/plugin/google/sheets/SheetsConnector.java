@@ -48,13 +48,6 @@ public class SheetsConnector
     }
 
     @Override
-    public boolean isSingleStatementWritesOnly()
-    {
-        // Actually, writes are not supported at all. TODO https://github.com/prestosql/presto/issues/3866
-        return false;
-    }
-
-    @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
         return INSTANCE;

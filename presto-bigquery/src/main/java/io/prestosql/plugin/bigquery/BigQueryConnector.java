@@ -48,13 +48,6 @@ public class BigQueryConnector
     }
 
     @Override
-    public boolean isSingleStatementWritesOnly()
-    {
-        // Actually, writes are not supported at all.
-        return false;
-    }
-
-    @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
         log.debug("beginTransaction(isolationLevel=%s, readOnly=%s)", isolationLevel, readOnly);

@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.connector;
 
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.session.PropertyMetadata;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 
@@ -180,8 +182,10 @@ public interface Connector
     /**
      * True if the connector only supports write statements in independent transactions.
      */
-    // TODO make is return `true` by default
-    boolean isSingleStatementWritesOnly();
+    default boolean isSingleStatementWritesOnly()
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support writes");
+    }
 
     /**
      * Shutdown the connector by releasing any held resources such as
