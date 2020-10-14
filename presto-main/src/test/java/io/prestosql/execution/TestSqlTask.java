@@ -369,6 +369,7 @@ public class TestSqlTask
                 taskNotificationExecutor,
                 Functions.identity(),
                 DataSize.of(32, MEGABYTE),
+                DataSize.of(200, MEGABYTE),
                 new CounterStat());
     }
 }
