@@ -43,6 +43,10 @@ access to catalogs. They do not explicitly grant any specific schema or table pe
 The table and schema rules are used to specify who can can create, drop, alter, select, insert,
 delete, etc. for schemas and tables.
 
+.. note::
+
+    These rules do not apply to system defined table in the ``information_schema`` schema.
+
 For each rule set, permission is based on the first matching rule read from top to bottom.  If
 no rule matches, access is denied. If no rules are provided at all, then access is granted.
 
