@@ -15,12 +15,15 @@ package io.trino.plugin.hive.util;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slices;
+import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.common.type.HiveChar;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.TimestampWritable;
@@ -46,13 +49,16 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.LongObjectInspect
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.ShortObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.StringObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.TimestampObjectInspector;
+import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
@@ -138,7 +144,9 @@ public final class SerDeUtils
                 type.writeLong(builder, formatDateAsLong(object, (DateObjectInspector) inspector));
                 return;
             case TIMESTAMP:
-                type.writeLong(builder, formatTimestampAsLong(object, (TimestampObjectInspector) inspector));
+                TimestampType timestampType = (TimestampType) type;
+                DecodedTimestamp timestamp = formatTimestamp(timestampType, object, (TimestampObjectInspector) inspector);
+                createTimestampEncoder(timestampType, DateTimeZone.UTC).write(timestamp, builder);
                 return;
             case BINARY:
                 type.writeSlice(builder, Slices.wrappedBuffer(((BinaryObjectInspector) inspector).getPrimitiveJavaObject(object)));
@@ -312,11 +320,28 @@ public final class SerDeUtils
         return inspector.getPrimitiveJavaObject(object).toEpochDay();
     }
 
-    private static long formatTimestampAsLong(Object object, TimestampObjectInspector inspector)
+    private static DecodedTimestamp formatTimestamp(TimestampType type, Object object, TimestampObjectInspector inspector)
     {
+        long epochSecond;
+        int nanoOfSecond;
+
         if (object instanceof TimestampWritable) {
-            return ((TimestampWritable) object).getTimestamp().getTime() * MICROSECONDS_PER_MILLISECOND;
+            TimestampWritable timestamp = (TimestampWritable) object;
+            epochSecond = timestamp.getSeconds();
+            nanoOfSecond = timestamp.getNanos();
         }
-        return inspector.getPrimitiveJavaObject(object).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+        else {
+            Timestamp timestamp = inspector.getPrimitiveJavaObject(object);
+            epochSecond = timestamp.toEpochSecond();
+            nanoOfSecond = timestamp.getNanos();
+        }
+
+        nanoOfSecond = (int) round(nanoOfSecond, 9 - type.getPrecision());
+        if (nanoOfSecond == NANOSECONDS_PER_SECOND) { // round nanos up to seconds
+            epochSecond += 1;
+            nanoOfSecond = 0;
+        }
+
+        return new DecodedTimestamp(epochSecond, nanoOfSecond);
     }
 }

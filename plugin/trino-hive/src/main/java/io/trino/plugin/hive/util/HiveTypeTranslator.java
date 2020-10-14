@@ -16,6 +16,7 @@ package io.trino.plugin.hive.util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import io.trino.plugin.hive.HiveErrorCode;
+import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -44,6 +45,7 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.HiveType.HIVE_BINARY;
 import static io.trino.plugin.hive.HiveType.HIVE_BOOLEAN;
 import static io.trino.plugin.hive.HiveType.HIVE_BYTE;
@@ -68,7 +70,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
@@ -176,11 +178,11 @@ public final class HiveTypeTranslator
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
     }
 
-    public static TypeSignature toTypeSignature(TypeInfo typeInfo)
+    public static TypeSignature toTypeSignature(TypeInfo typeInfo, HiveTimestampPrecision timestampPrecision)
     {
         switch (typeInfo.getCategory()) {
             case PRIMITIVE:
-                Type primitiveType = fromPrimitiveType((PrimitiveTypeInfo) typeInfo);
+                Type primitiveType = fromPrimitiveType((PrimitiveTypeInfo) typeInfo, timestampPrecision);
                 if (primitiveType == null) {
                     break;
                 }
@@ -188,11 +190,11 @@ public final class HiveTypeTranslator
             case MAP:
                 MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
                 return mapType(
-                        toTypeSignature(mapTypeInfo.getMapKeyTypeInfo()),
-                        toTypeSignature(mapTypeInfo.getMapValueTypeInfo()));
+                        toTypeSignature(mapTypeInfo.getMapKeyTypeInfo(), timestampPrecision),
+                        toTypeSignature(mapTypeInfo.getMapValueTypeInfo(), timestampPrecision));
             case LIST:
                 ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
-                TypeSignature elementType = toTypeSignature(listTypeInfo.getListElementTypeInfo());
+                TypeSignature elementType = toTypeSignature(listTypeInfo.getListElementTypeInfo(), timestampPrecision);
                 return arrayType(typeParameter(elementType));
             case STRUCT:
                 StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
@@ -207,7 +209,7 @@ public final class HiveTypeTranslator
                         // Users can't work around this by casting in their queries because Presto parser always lower case types.
                         // TODO: This is a hack. Presto engine should be able to handle identifiers in a case insensitive way where necessary.
                         fieldNames.stream().map(s -> s.toLowerCase(Locale.US)),
-                        fieldTypes.stream().map(HiveTypeTranslator::toTypeSignature),
+                        fieldTypes.stream().map(type -> toTypeSignature(type, timestampPrecision)),
                         TypeSignatureParameter::namedField)
                         .collect(Collectors.toList()));
             case UNION:
@@ -218,15 +220,23 @@ public final class HiveTypeTranslator
                 typeSignatures.add(namedField("tag", TINYINT.getTypeSignature()));
                 for (int i = 0; i < unionObjectTypes.size(); i++) {
                     TypeInfo unionObjectType = unionObjectTypes.get(i);
-                    typeSignatures.add(namedField("field" + i, toTypeSignature(unionObjectType)));
+                    typeSignatures.add(namedField("field" + i, toTypeSignature(unionObjectType, timestampPrecision)));
                 }
                 return rowType(typeSignatures.build());
         }
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
     }
 
+    /** @deprecated Prefer {@link #fromPrimitiveType(PrimitiveTypeInfo, HiveTimestampPrecision)} */
+    @Deprecated
     @Nullable
     public static Type fromPrimitiveType(PrimitiveTypeInfo typeInfo)
+    {
+        return fromPrimitiveType(typeInfo, DEFAULT_PRECISION);
+    }
+
+    @Nullable
+    private static Type fromPrimitiveType(PrimitiveTypeInfo typeInfo, HiveTimestampPrecision timestampPrecision)
     {
         switch (typeInfo.getPrimitiveCategory()) {
             case BOOLEAN:
@@ -252,7 +262,7 @@ public final class HiveTypeTranslator
             case DATE:
                 return DATE;
             case TIMESTAMP:
-                return TIMESTAMP_MILLIS;
+                return createTimestampType(timestampPrecision.getPrecision());
             case BINARY:
                 return VARBINARY;
             case DECIMAL:

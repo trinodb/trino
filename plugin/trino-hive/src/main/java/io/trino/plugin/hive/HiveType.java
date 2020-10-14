@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -35,6 +34,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
+import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.fromPrimitiveType;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeInfo;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeSignature;
@@ -93,11 +93,23 @@ public final class HiveType
         return typeInfo;
     }
 
+    /**
+     * @deprecated Prefer {@link #getTypeSignature(HiveTimestampPrecision)}.
+     */
+    @Deprecated
     public TypeSignature getTypeSignature()
     {
-        return toTypeSignature(typeInfo);
+        return getTypeSignature(DEFAULT_PRECISION);
     }
 
+    public TypeSignature getTypeSignature(HiveTimestampPrecision timestampPrecision)
+    {
+        return toTypeSignature(typeInfo, timestampPrecision);
+    }
+
+    /**
+     * @deprecated Prefer {@link #getType(TypeManager, HiveTimestampPrecision)}.
+     */
     @Deprecated
     public Type getType(TypeManager typeManager)
     {
@@ -106,12 +118,7 @@ public final class HiveType
 
     public Type getType(TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
     {
-        Type tentativeType = typeManager.getType(getTypeSignature());
-        // TODO: handle timestamps in structural types (https://github.com/trinodb/trino/issues/5195)
-        if (tentativeType instanceof TimestampType) {
-            return TimestampType.createTimestampType(timestampPrecision.getPrecision());
-        }
-        return tentativeType;
+        return typeManager.getType(getTypeSignature(timestampPrecision));
     }
 
     @Override
