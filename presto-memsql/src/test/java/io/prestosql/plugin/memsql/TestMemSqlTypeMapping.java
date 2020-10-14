@@ -13,8 +13,10 @@
  */
 package io.prestosql.plugin.memsql;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
@@ -33,9 +35,13 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Objects;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
 import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_DEFAULT_SCALE;
@@ -46,16 +52,19 @@ import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHA
 import static io.prestosql.plugin.memsql.MemSqlClient.MEMSQL_VARCHAR_MAX_LENGTH;
 import static io.prestosql.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.datatype.DataType.bigintDataType;
 import static io.prestosql.testing.datatype.DataType.charDataType;
 import static io.prestosql.testing.datatype.DataType.dataType;
+import static io.prestosql.testing.datatype.DataType.dateDataType;
 import static io.prestosql.testing.datatype.DataType.decimalDataType;
 import static io.prestosql.testing.datatype.DataType.doubleDataType;
 import static io.prestosql.testing.datatype.DataType.formatStringLiteral;
@@ -450,8 +459,45 @@ public class TestMemSqlTypeMapping
     @Test
     public void testDate()
     {
-        // TODO
-        throw new SkipException("TODO");
+        ZoneId jvmZone = ZoneId.systemDefault();
+        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+
+        ZoneId someZone = ZoneId.of("Europe/Vilnius");
+
+        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
+            Session session = Session.builder(getSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
+                    .build();
+            dateTestCases(memSqlDateDataType(value -> formatStringLiteral(value.toString())), jvmZone, someZone)
+                    .execute(getQueryRunner(), session, memSqlCreateAndInsert("tpch.test_date"));
+            dateTestCases(dateDataType(), jvmZone, someZone)
+                    .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_date"));
+            dateTestCases(dateDataType(), jvmZone, someZone)
+                    .execute(getQueryRunner(), session, prestoCreateAsSelect(getSession(), "test_date"));
+            dateTestCases(dateDataType(), jvmZone, someZone)
+                    .execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_date"));
+        }
+    }
+
+    private DataTypeTest dateTestCases(DataType<LocalDate> dateDataType, ZoneId jvmZone, ZoneId someZone)
+    {
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        verify(jvmZone.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay()).isEmpty());
+
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
+        verify(someZone.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay()).isEmpty());
+        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
+        verify(someZone.getRules().getValidOffsets(dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1)).size() == 2);
+
+        return DataTypeTest.create()
+                .addRoundTrip(dateDataType, LocalDate.of(1952, 4, 3)) // before epoch
+                .addRoundTrip(dateDataType, LocalDate.of(1970, 1, 1))
+                .addRoundTrip(dateDataType, LocalDate.of(1970, 2, 3))
+                .addRoundTrip(dateDataType, LocalDate.of(2017, 7, 1)) // summer on northern hemisphere (possible DST)
+                .addRoundTrip(dateDataType, LocalDate.of(2017, 1, 1)) // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip(dateDataType, dateOfLocalTimeChangeForwardAtMidnightInJvmZone)
+                .addRoundTrip(dateDataType, dateOfLocalTimeChangeForwardAtMidnightInSomeZone)
+                .addRoundTrip(dateDataType, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
     }
 
     @Test
@@ -517,18 +563,24 @@ public class TestMemSqlTypeMapping
         return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
+    private DataSetup prestoCreateAndInsert(Session session, String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+    }
+
     private DataSetup memSqlCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(memSqlServer::execute, tableNamePrefix);
     }
 
+    private static DataType<LocalDate> memSqlDateDataType(Function<LocalDate, String> toLiteral)
+    {
+        return dataType("date", DATE, toLiteral, identity());
+    }
+
     private static DataType<String> memSqlJsonDataType(Function<String, String> toLiteral)
     {
-        return dataType(
-                "json",
-                JSON,
-                toLiteral,
-                identity());
+        return dataType("json", JSON, toLiteral, identity());
     }
 
     private static DataType<Float> memSqlFloatDataType()
