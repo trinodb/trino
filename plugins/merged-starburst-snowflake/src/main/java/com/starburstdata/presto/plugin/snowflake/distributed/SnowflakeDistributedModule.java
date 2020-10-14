@@ -14,6 +14,7 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.DynamicFilteringModule;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeJdbcClientModule;
@@ -45,10 +46,12 @@ class SnowflakeDistributedModule
         extends AbstractConfigurationAwareModule
 {
     private final String catalogName;
+    private final LicenseManager licenseManager;
 
-    SnowflakeDistributedModule(String catalogName)
+    SnowflakeDistributedModule(String catalogName, LicenseManager licenseManager)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.licenseManager = requireNonNull(licenseManager, "licenseManager is null");
     }
 
     @Override
@@ -76,7 +79,7 @@ class SnowflakeDistributedModule
 
         install(new JdbcModule(catalogName));
         install(new SnowflakeJdbcClientModule(catalogName, true));
-        install(new DynamicFilteringModule(catalogName));
+        install(new DynamicFilteringModule(catalogName, licenseManager));
     }
 
     @Provides
