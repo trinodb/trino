@@ -118,7 +118,8 @@ public final class Standard
     {
         return new DockerContainer(dockerImageName, logicalName)
                 .withNetworkAliases(logicalName + ".docker.cluster")
-                .withExposedLogPaths("/var/presto/var/log", "/var/log/container-health.log")
+                // We include /var/presto so we cover heap dumps which are put in this directory in case of OOM Error
+                .withExposedLogPaths("/var/presto", "/var/log/container-health.log")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("health-checks/presto-health-check.sh")), CONTAINER_HEALTH_D + "presto-health-check.sh")
