@@ -9,10 +9,11 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import com.starburstdata.presto.license.TestingLicenseModule;
+import com.starburstdata.presto.license.LicenseManager;
 import io.prestosql.plugin.jdbc.JdbcConnectorFactory;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 
+import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
 public class TestingOracleConnectorFactory
@@ -21,7 +22,10 @@ public class TestingOracleConnectorFactory
     public TestingOracleConnectorFactory()
     {
         super("oracle", catalogName -> {
-            return combine(new TestingLicenseModule(), new OracleClientModule(catalogName));
+            LicenseManager licenseManager = NOOP_LICENSE_MANAGER;
+            return combine(
+                    binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
+                    new OracleClientModule(catalogName, licenseManager));
         });
     }
 

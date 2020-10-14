@@ -9,19 +9,23 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import com.starburstdata.presto.license.LicenseModule;
+import com.starburstdata.presto.license.LicenseManager;
 import io.prestosql.plugin.jdbc.JdbcConnectorFactory;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
+import static java.util.Objects.requireNonNull;
 
 public class OracleConnectorFactory
         extends JdbcConnectorFactory
 {
-    public OracleConnectorFactory()
+    public OracleConnectorFactory(LicenseManager licenseManager)
     {
         super("oracle", catalogName -> {
-            return combine(new LicenseModule(), new OracleClientModule(catalogName));
+            requireNonNull(licenseManager, "licenseManager is null");
+            return combine(
+                    binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
+                    new OracleClientModule(catalogName, licenseManager));
         });
     }
 

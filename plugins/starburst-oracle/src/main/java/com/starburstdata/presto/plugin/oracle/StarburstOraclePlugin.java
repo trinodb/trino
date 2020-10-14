@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
+import com.starburstdata.presto.license.LicenseManagerProvider;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
@@ -19,6 +20,6 @@ public class StarburstOraclePlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new OracleConnectorFactory());
+        return ImmutableList.of(new OracleConnectorFactory(new LicenseManagerProvider().get()));
     }
 }

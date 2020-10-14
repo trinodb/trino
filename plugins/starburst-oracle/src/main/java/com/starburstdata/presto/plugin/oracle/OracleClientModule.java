@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
+import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.DynamicFilteringModule;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteringJdbcRecordSetProvider;
@@ -35,10 +36,12 @@ public class OracleClientModule
         extends AbstractConfigurationAwareModule
 {
     private final String catalogName;
+    private final LicenseManager licenseManager;
 
-    public OracleClientModule(String catalogName)
+    public OracleClientModule(String catalogName, LicenseManager licenseManager)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.licenseManager = requireNonNull(licenseManager, "licenseManager is null");
     }
 
     @Override
@@ -61,7 +64,7 @@ public class OracleClientModule
 
         install(new OracleAuthenticationModule(catalogName));
 
-        install(new DynamicFilteringModule(catalogName));
+        install(new DynamicFilteringModule(catalogName, licenseManager));
 
         newOptionalBinder(binder, ConnectorRecordSetProvider.class).setBinding()
                 .to(DynamicFilteringJdbcRecordSetProvider.class).in(Scopes.SINGLETON);
