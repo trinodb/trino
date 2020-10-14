@@ -37,6 +37,7 @@ public class SnowflakeDistributedSessionProperties
     private static final String PARTITION_USE_COLUMN_NAMES = "partition_use_column_names";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
+    private static final String RETRY_CANCELED_QUERIES = "retry_canceled_queries";
 
     private final SnowflakeDistributedConfig snowflakeConfig;
 
@@ -91,7 +92,12 @@ public class SnowflakeDistributedSessionProperties
                         DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT,
                         "Internal Snowflake connector property",
                         new Duration(0, MINUTES),
-                        true));
+                        true),
+                booleanProperty(
+                        RETRY_CANCELED_QUERIES,
+                        "Retry queries that failed due to being canceled",
+                        snowflakeConfig.isRetryCanceledQueries(),
+                        false));
     }
 
     private static PropertyMetadata<DataSize> dataSizeProperty(String name, String description, DataSize defaultValue, boolean hidden)
@@ -110,5 +116,10 @@ public class SnowflakeDistributedSessionProperties
     public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_MAX_READ_BLOCK_SIZE, DataSize.class);
+    }
+
+    public static boolean retryCanceledQueries(ConnectorSession session)
+    {
+        return session.getProperty(RETRY_CANCELED_QUERIES, Boolean.class);
     }
 }

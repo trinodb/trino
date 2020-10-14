@@ -38,7 +38,8 @@ public class TestSnowflakeDistributedConfig
                 .setMaxSplitSize(DataSize.of(64, MEGABYTE))
                 .setParquetMaxReadBlockSize(DataSize.of(16, MEGABYTE))
                 .setExportFileMaxSize(DataSize.of(5, GIGABYTE))
-                .setMaxExportRetries(3));
+                .setMaxExportRetries(3)
+                .setRetryCanceledQueries(false));
     }
 
     @Test
@@ -51,6 +52,7 @@ public class TestSnowflakeDistributedConfig
                 .put("snowflake.parquet.max-read-block-size", "66kB")
                 .put("snowflake.export-file-max-size", "333MB")
                 .put("snowflake.max-export-retries", "42")
+                .put("snowflake.retry-canceled-queries", "true")
                 .build();
 
         SnowflakeDistributedConfig expected = new SnowflakeDistributedConfig()
@@ -59,7 +61,8 @@ public class TestSnowflakeDistributedConfig
                 .setMaxSplitSize(DataSize.of(222, MEGABYTE))
                 .setParquetMaxReadBlockSize(DataSize.of(66, KILOBYTE))
                 .setExportFileMaxSize(DataSize.of(333, MEGABYTE))
-                .setMaxExportRetries(42);
+                .setMaxExportRetries(42)
+                .setRetryCanceledQueries(true);
         assertFullMapping(properties, expected);
     }
 

@@ -96,7 +96,9 @@ class SnowflakeQueryRunner
     static Builder distributedBuilder()
     {
         return new Builder(SNOWFLAKE_DISTRIBUTED)
-                .withAdditionalProperties(ImmutableMap.of("snowflake.stage-schema", TEST_SCHEMA));
+                .withAdditionalProperties(ImmutableMap.of(
+                        "snowflake.stage-schema", TEST_SCHEMA,
+                        "snowflake.retry-canceled-queries", "true"));
     }
 
     static Builder jdbcBuilder()

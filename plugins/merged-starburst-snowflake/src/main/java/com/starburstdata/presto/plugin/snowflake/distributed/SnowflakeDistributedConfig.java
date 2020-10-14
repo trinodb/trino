@@ -31,6 +31,7 @@ public class SnowflakeDistributedConfig
     private DataSize parquetMaxReadBlockSize = DataSize.of(16, MEGABYTE);
     private DataSize exportFileMaxSize = DataSize.of(5, GIGABYTE);
     private int maxExportRetries = 3;
+    private boolean retryCanceledQueries;
 
     @Config("snowflake.stage-schema")
     @ConfigDescription("Schema to use for data staging")
@@ -113,6 +114,19 @@ public class SnowflakeDistributedConfig
     public SnowflakeDistributedConfig setMaxExportRetries(int maxExportRetries)
     {
         this.maxExportRetries = maxExportRetries;
+        return this;
+    }
+
+    public boolean isRetryCanceledQueries()
+    {
+        return retryCanceledQueries;
+    }
+
+    @Config("snowflake.retry-canceled-queries")
+    @ConfigDescription("Should Presto retry queries that failed due to being canceled")
+    public SnowflakeDistributedConfig setRetryCanceledQueries(boolean retryCanceledQueries)
+    {
+        this.retryCanceledQueries = retryCanceledQueries;
         return this;
     }
 

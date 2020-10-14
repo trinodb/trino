@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.snowflake.distributed;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeClient;
 import io.airlift.log.Logger;
@@ -72,6 +73,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHdfsEnvironment;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHiveColumnHandles;
+import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDistributedSessionProperties.retryCanceledQueries;
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeHiveTypeTranslator.toHiveType;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.prestosql.plugin.hive.HiveStorageFormat.PARQUET;
@@ -92,6 +94,7 @@ import static net.snowflake.client.jdbc.internal.snowflake.common.core.SqlState.
 import static net.snowflake.client.jdbc.internal.snowflake.common.core.SqlState.INTERNAL_ERROR;
 import static net.snowflake.client.jdbc.internal.snowflake.common.core.SqlState.IO_ERROR;
 import static net.snowflake.client.jdbc.internal.snowflake.common.core.SqlState.PROGRAM_LIMIT_EXCEEDED;
+import static net.snowflake.client.jdbc.internal.snowflake.common.core.SqlState.QUERY_CANCELED;
 import static net.snowflake.client.jdbc.internal.snowflake.common.core.SqlState.SQLCLIENT_UNABLE_TO_ESTABLISH_SQLCONNECTION;
 import static net.snowflake.client.jdbc.internal.snowflake.common.core.SqlState.SYSTEM_ERROR;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
@@ -130,6 +133,8 @@ public class SnowflakeSplitSource
     private SnowflakeFileTransferAgent transferAgent;
     private ConnectorSplitSource hiveSplitSource;
 
+    private final Set<String> retryableErrorCodes;
+
     SnowflakeSplitSource(
             ListeningExecutorService executorService,
             TypeManager typeManager,
@@ -154,7 +159,13 @@ public class SnowflakeSplitSource
                 .withMaxAttempts(snowflakeConfig.getMaxExportRetries())
                 .onRetry(this::closeSnowflakeConnection)
                 .onFailure(event -> exportStats.getTotalFailures().update(1))
-                .handleIf(SnowflakeSplitSource::isIntermittentIssue);
+                .handleIf(this::isIntermittentIssue);
+        if (retryCanceledQueries(session)) {
+            retryableErrorCodes = Sets.union(INTERMITTENT_SQL_STATES, ImmutableSet.of(QUERY_CANCELED));
+        }
+        else {
+            retryableErrorCodes = INTERMITTENT_SQL_STATES;
+        }
     }
 
     @Override
@@ -241,14 +252,14 @@ public class SnowflakeSplitSource
         return () -> exportStats.getTime().time(supplier);
     }
 
-    private static boolean isIntermittentIssue(Throwable throwable)
+    private boolean isIntermittentIssue(Throwable throwable)
     {
         if (!(throwable instanceof SnowflakeSQLException)) {
             return false;
         }
 
         SnowflakeSQLException snowflakeSQLException = (SnowflakeSQLException) throwable;
-        return INTERMITTENT_SQL_STATES.contains(snowflakeSQLException.getSQLState());
+        return retryableErrorCodes.contains(snowflakeSQLException.getSQLState());
     }
 
     private void closeSnowflakeConnection(ExecutionAttemptedEvent executionAttemptedEvent)
