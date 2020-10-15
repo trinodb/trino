@@ -52,6 +52,8 @@ import io.prestosql.sql.planner.iterative.rule.ImplementFilteredAggregations;
 import io.prestosql.sql.planner.iterative.rule.ImplementIntersectAsUnion;
 import io.prestosql.sql.planner.iterative.rule.ImplementLimitWithTies;
 import io.prestosql.sql.planner.iterative.rule.ImplementOffset;
+import io.prestosql.sql.planner.iterative.rule.ImplementUncorrelatedFilteringSemiJoin;
+import io.prestosql.sql.planner.iterative.rule.ImplementUncorrelatedFilteringSemiJoinWithProject;
 import io.prestosql.sql.planner.iterative.rule.InlineProjections;
 import io.prestosql.sql.planner.iterative.rule.MergeExcept;
 import io.prestosql.sql.planner.iterative.rule.MergeFilters;
@@ -492,6 +494,15 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new TransformExistsApplyToCorrelatedJoin(metadata))),
                 new TransformQuantifiedComparisonApplyToCorrelatedJoin(metadata),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(
+                                new InlineProjections(),
+                                new RemoveRedundantIdentityProjections(),
+                                new ImplementUncorrelatedFilteringSemiJoin(),
+                                new ImplementUncorrelatedFilteringSemiJoinWithProject())),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
