@@ -150,7 +150,7 @@ public class TestSapHanaTypeMapping
     @Test
     public void testBasicTypes()
     {
-        DataTypeTest.create(true)
+        DataTypeTest dataTypeTest = DataTypeTest.create(true)
                 .addRoundTrip(booleanDataType(), true)
                 .addRoundTrip(booleanDataType(), false)
                 .addRoundTrip(bigintDataType(), 123_456_789_012L)
@@ -158,8 +158,10 @@ public class TestSapHanaTypeMapping
                 .addRoundTrip(smallintDataType(), (short) 32_456)
                 .addRoundTrip(tinyintDataType(), (byte) 5)
                 .addRoundTrip(doubleDataType(), 123.45d)
-                .addRoundTrip(realDataType(), 123.45f)
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_basic_types"));
+                .addRoundTrip(realDataType(), 123.45f);
+
+        dataTypeTest.execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_basic_types"));
+        dataTypeTest.execute(getQueryRunner(), prestoCreateAsSelect("test_basic_types"));
     }
 
     @Test
