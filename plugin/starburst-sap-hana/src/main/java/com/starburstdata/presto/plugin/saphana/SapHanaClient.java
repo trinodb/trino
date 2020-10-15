@@ -9,12 +9,14 @@
  */
 package com.starburstdata.presto.plugin.saphana;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
+import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
@@ -24,7 +26,17 @@ import io.prestosql.plugin.jdbc.ObjectReadFunction;
 import io.prestosql.plugin.jdbc.ObjectWriteFunction;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
+import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
+import io.prestosql.plugin.jdbc.expression.AggregateFunctionRule;
+import io.prestosql.plugin.jdbc.expression.ImplementAvgDecimal;
+import io.prestosql.plugin.jdbc.expression.ImplementAvgFloatingPoint;
+import io.prestosql.plugin.jdbc.expression.ImplementCount;
+import io.prestosql.plugin.jdbc.expression.ImplementCountAll;
+import io.prestosql.plugin.jdbc.expression.ImplementMinMax;
+import io.prestosql.plugin.jdbc.expression.ImplementSum;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.AggregateFunction;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -49,6 +61,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.TimeZone;
 import java.util.function.BiFunction;
@@ -131,10 +144,41 @@ public class SapHanaClient
 
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone("UTC");
 
+    private final AggregateFunctionRewriter aggregateFunctionRewriter;
+
     @Inject
     public SapHanaClient(BaseJdbcConfig baseJdbcConfig, ConnectionFactory connectionFactory)
     {
         super(baseJdbcConfig, "\"", connectionFactory);
+
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.empty(), 0, 0, Optional.empty());
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
+                this::quoted,
+                ImmutableSet.<AggregateFunctionRule>builder()
+                        .add(new ImplementCountAll(bigintTypeHandle))
+                        .add(new ImplementCount(bigintTypeHandle))
+                        .add(new ImplementMinMax())
+                        .add(new ImplementSum(SapHanaClient::toTypeHandle))
+                        .add(new ImplementAvgFloatingPoint())
+                        .add(new ImplementAvgBigint())
+                        .add(new ImplementAvgDecimal())
+                        .add(new ImplementStddev())
+                        .add(new ImplementStddevPop())
+                        .add(new ImplementVariance())
+                        .add(new ImplementVariancePop())
+                        .build());
+    }
+
+    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
+    {
+        return Optional.of(new JdbcTypeHandle(Types.DECIMAL, Optional.empty(), decimalType.getPrecision(), decimalType.getScale(), Optional.empty()));
+    }
+
+    @Override
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        // TODO support complex ConnectorExpressions
+        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 
     @Override
