@@ -19,9 +19,6 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.util.HiveTypeTranslator;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.NamedTypeSignature;
-import io.prestosql.spi.type.RowFieldName;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -57,6 +54,11 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
+import static io.prestosql.spi.type.TypeSignature.mapType;
+import static io.prestosql.spi.type.TypeSignature.rowType;
+import static io.prestosql.spi.type.TypeSignatureParameter.namedField;
+import static io.prestosql.spi.type.TypeSignatureParameter.typeParameter;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -238,46 +240,42 @@ public final class HiveType
                 return primitiveType.getTypeSignature();
             case MAP:
                 MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
-                TypeSignature keyType = getTypeSignature(mapTypeInfo.getMapKeyTypeInfo());
-                TypeSignature valueType = getTypeSignature(mapTypeInfo.getMapValueTypeInfo());
-                return new TypeSignature(
-                        StandardTypes.MAP,
-                        ImmutableList.of(TypeSignatureParameter.typeParameter(keyType), TypeSignatureParameter.typeParameter(valueType)));
+                return mapType(
+                        getTypeSignature(mapTypeInfo.getMapKeyTypeInfo()),
+                        getTypeSignature(mapTypeInfo.getMapValueTypeInfo()));
             case LIST:
                 ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
                 TypeSignature elementType = getTypeSignature(listTypeInfo.getListElementTypeInfo());
-                return new TypeSignature(
-                        StandardTypes.ARRAY,
-                        ImmutableList.of(TypeSignatureParameter.typeParameter(elementType)));
+                return arrayType(typeParameter(elementType));
             case STRUCT:
                 StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
-                List<TypeInfo> structFieldTypeInfos = structTypeInfo.getAllStructFieldTypeInfos();
-                List<String> structFieldNames = structTypeInfo.getAllStructFieldNames();
-                if (structFieldTypeInfos.size() != structFieldNames.size()) {
+                List<TypeInfo> fieldTypes = structTypeInfo.getAllStructFieldTypeInfos();
+                List<String> fieldNames = structTypeInfo.getAllStructFieldNames();
+                if (fieldTypes.size() != fieldNames.size()) {
                     throw new PrestoException(HiveErrorCode.HIVE_INVALID_METADATA, format("Invalid Hive struct type: %s", typeInfo));
                 }
                 ImmutableList.Builder<TypeSignatureParameter> typeSignatureBuilder = ImmutableList.builder();
-                for (int i = 0; i < structFieldTypeInfos.size(); i++) {
-                    TypeSignature typeSignature = getTypeSignature(structFieldTypeInfos.get(i));
-                    // Lower case the struct field names.
-                    // Otherwise, Presto will refuse to write to columns whose struct type has field names containing upper case characters.
-                    // Users can't work around this by casting in their queries because Presto parser always lower case types.
-                    // TODO: This is a hack. Presto engine should be able to handle identifiers in a case insensitive way where necessary.
-                    String rowFieldName = structFieldNames.get(i).toLowerCase(Locale.US);
-                    typeSignatureBuilder.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(rowFieldName)), typeSignature)));
+                for (int i = 0; i < fieldTypes.size(); i++) {
+                    typeSignatureBuilder.add(namedField(
+                            // Lower case the struct field names.
+                            // Otherwise, Presto will refuse to write to columns whose struct type has field names containing upper case characters.
+                            // Users can't work around this by casting in their queries because Presto parser always lower case types.
+                            // TODO: This is a hack. Presto engine should be able to handle identifiers in a case insensitive way where necessary.
+                            fieldNames.get(i).toLowerCase(Locale.US),
+                            getTypeSignature(fieldTypes.get(i))));
                 }
-                return new TypeSignature(StandardTypes.ROW, typeSignatureBuilder.build());
+                return rowType(typeSignatureBuilder.build());
             case UNION:
                 // Use a row type to represent a union type in Hive for reading
                 UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
-                List<TypeInfo> unionObjectTypeInfos = unionTypeInfo.getAllUnionObjectTypeInfos();
+                List<TypeInfo> unionObjectTypes = unionTypeInfo.getAllUnionObjectTypeInfos();
                 ImmutableList.Builder<TypeSignatureParameter> typeSignatures = ImmutableList.builder();
-                typeSignatures.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName("tag")), TINYINT.getTypeSignature())));
-                for (int i = 0; i < unionObjectTypeInfos.size(); i++) {
-                    TypeSignature typeSignature = getTypeSignature(unionObjectTypeInfos.get(i));
-                    typeSignatures.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName("field" + i)), typeSignature)));
+                typeSignatures.add(namedField("tag", TINYINT.getTypeSignature()));
+                for (int i = 0; i < unionObjectTypes.size(); i++) {
+                    TypeInfo unionObjectType = unionObjectTypes.get(i);
+                    typeSignatures.add(namedField("field" + i, getTypeSignature(unionObjectType)));
                 }
-                return new TypeSignature(StandardTypes.ROW, typeSignatures.build());
+                return rowType(typeSignatures.build());
         }
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
     }
