@@ -1,0 +1,48 @@
+{
+    "keys": [
+        {
+            "kty": "RSA",
+            "e": "AQAB",
+            "use": "sig",
+            "kid": "test-rsa",
+            "alg": "RS256",
+            "n": "uvTFf_FkFLq098vrtq4OZTbCDjhYe3VoD8ADG6TjN7qe8izEtuqvm5W6xqo31UAIgkRpi7hxnWBLflD0-xKFhxod8UhUriTAOzfYSe3qgaTT_0WM167BjdItWaB3iIdyiMwsR0i-dnkvFdDJAb_7sPteJpvguVZg-AaKvgWntRMKoR0OcbnmxtizSpTMn6TRsNv-Se32wB46xMMftUlHulYrPlmyBURts_-nAGXGyh4yV5pN0cTUeqMqebmSDijJ3AItTejD-TjoroJq-DfwPmQNxXgUt6rFyCAOor_DSvcTnlnggrlcBK9fSn2pvkhQdqku7xKKzvk0axG2ZzeY8Q"
+        },
+        {
+            "kty": "EC",
+            "use": "sig",
+            "crv": "P-256",
+            "kid": "jwk-ec-p256",
+            "x": "W9pnAHwUz81LldKjL3BzxO1iHe1Pc0fO6rHkrybVy6Y",
+            "y": "XKSNmn_xajgOvWuAiJnWx5I46IwPVJJYPaEpsX3NPZg",
+            "alg": "ES256"
+        },
+        {
+            "kty": "EC",
+            "use": "sig",
+            "crv": "P-384",
+            "kid": "jwk-ec-p384",
+            "x": "fTGlHztvxJ8b_ChjLNl77g2F6WY78QJXiogLEeE3izfeOr3k-kTK2VVXYK6haEuO",
+            "y": "8cMxIwBj5zE4WxQpCgkVQ7ucMNjC0Lq0K5XX2EHj1R1n6RTr4VRT24e-KSpWwlDr",
+            "alg": "ES384"
+        },
+        {
+            "kty": "EC",
+            "use": "sig",
+            "crv": "P-521",
+            "kid": "jwk-ec-p512",
+            "x": "ANr-nucxV_8z3ZGuRrgJGisymhOWEZVcjoGvbk4JJYa5bfEUTWOSlJxrMZ_MQYrsdhHlxqnKpeS4EvLodK1trClf",
+            "y": "Adl_hXw8Y2ekgFHarDGOt3QbbiBCvLW0zwphKEil7bxr0vKQrxQ6rnRv60j2Rlfyk2vnRlIMVC288J4pjnOwf7IR",
+            "alg": "ES512"
+        },
+        {
+            "kty": "EC",
+            "use": "sig",
+            "crv": "secp256k1",
+            "kid": "jwk-ec-secp256k1",
+            "x": "iOBYk6jcHl3RG-lTTKMlCgaO8r1qFVWSTONrfuqITq8",
+            "y": "u5VPPt5jWYVUFVAVVFf2uTq05XAfNwce5xhGc_MovbU",
+            "alg": "ES256K"
+        }
+    ]
+}
