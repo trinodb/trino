@@ -38,7 +38,6 @@ public abstract class BaseStarburstOracleAggregationPushdownTest
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("allow-drop-table", "true")
-                        .put("aggregation-pushdown.enabled", "true")
                         .build())
                 .withTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
                 .build();

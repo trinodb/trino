@@ -13,7 +13,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.QueryRunner;
 
 public class TestOraclePooledIntegrationSmokeTest
-        extends BaseStarburstOracleIntegrationSmokeTest
+        extends BaseUnlicensedStarburstOracleIntegrationSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()

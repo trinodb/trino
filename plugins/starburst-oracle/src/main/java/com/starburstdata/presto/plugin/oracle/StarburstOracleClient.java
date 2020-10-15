@@ -21,6 +21,7 @@ import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
+import io.prestosql.plugin.jdbc.JdbcMetadataConfig;
 import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
@@ -94,6 +95,7 @@ public class StarburstOracleClient
     public StarburstOracleClient(
             LicenseManager licenseManager,
             BaseJdbcConfig config,
+            JdbcMetadataConfig jdbcMetadataConfig,
             JdbcStatisticsConfig statisticsConfig,
             OracleConfig oracleConfig,
             ConnectionFactory connectionFactory)
@@ -117,6 +119,10 @@ public class StarburstOracleClient
                         .add(new ImplementOracleVariancePop())
                         .build());
         tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
+
+        if (jdbcMetadataConfig.isAggregationPushdownEnabled()) {
+            licenseManager.checkFeature(ORACLE_EXTENSIONS);
+        }
     }
 
     /** @deprecated This should never be called; use {@link OracleSplitManager} to get splits. */

@@ -87,6 +87,23 @@ public class TestStarburstOraclePlugin
     }
 
     @Test
+    public void testExplicitAggregationPushdownRequiresLicense()
+    {
+        Plugin plugin = new StarburstOraclePlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("connection-url", "test")
+                        .put("aggregation-pushdown.enabled", "true")
+                        .build(),
+                new TestingConnectorContext()))
+                .isInstanceOf(RuntimeException.class)
+                .hasStackTraceContaining("com.starburstdata.presto.license.PrestoLicenseException: Valid license required to use the feature: oracle-extensions");
+    }
+
+    @Test
     public void testParallelismRequiresLicense()
     {
         Plugin plugin = new StarburstOraclePlugin();

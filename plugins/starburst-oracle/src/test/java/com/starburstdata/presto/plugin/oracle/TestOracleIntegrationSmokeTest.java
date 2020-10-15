@@ -10,6 +10,6 @@
 package com.starburstdata.presto.plugin.oracle;
 
 public class TestOracleIntegrationSmokeTest
-        extends BaseStarburstOracleIntegrationSmokeTest
+        extends BaseUnlicensedStarburstOracleIntegrationSmokeTest
 {
 }

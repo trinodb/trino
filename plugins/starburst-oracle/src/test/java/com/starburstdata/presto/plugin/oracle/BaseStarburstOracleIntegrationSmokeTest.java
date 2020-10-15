@@ -12,10 +12,7 @@ package com.starburstdata.presto.plugin.oracle;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
 import io.prestosql.plugin.oracle.BaseOracleIntegrationSmokeTest;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
@@ -31,7 +28,6 @@ import java.util.Map;
 import static com.google.common.base.Strings.repeat;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.prestoTimestampWithTimeZoneDataType;
-import static io.prestosql.plugin.jdbc.JdbcMetadataSessionProperties.AGGREGATION_PUSHDOWN_ENABLED;
 import static io.prestosql.testing.datatype.DataType.timestampDataType;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
@@ -39,7 +35,6 @@ import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseStarburstOracleIntegrationSmokeTest
         extends BaseOracleIntegrationSmokeTest
@@ -156,57 +151,6 @@ public abstract class BaseStarburstOracleIntegrationSmokeTest
                     prestoTimestampWithTimeZoneDataType().toLiteral(pacific1976))))
                     .isCorrectlyPushedDown();
         }
-    }
-
-    /**
-     * Test that aggregation pushdown is disabled.
-     * <p>
-     * {@link BaseStarburstOracleAggregationPushdownTest} covers the case when it is enabled.
-     */
-    @Test
-    public void testAggregationPushdownDisabled()
-    {
-        assertThat(query("SELECT DISTINCT nationkey FROM nation")).isNotFullyPushedDown(ProjectNode.class);
-
-        assertThat(query("SELECT count(*) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-        assertThat(query("SELECT count(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-
-        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isNotFullyPushedDown(ProjectNode.class);
-        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isNotFullyPushedDown(ProjectNode.class);
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isNotFullyPushedDown(ProjectNode.class);
-        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isNotFullyPushedDown(ProjectNode.class);
-    }
-
-    /**
-     * Test that aggregation pushdown requires a license.
-     * <p>
-     * {@link BaseStarburstOracleAggregationPushdownTest} covers the case when it is enabled.
-     */
-    @Test
-    public void testAggregationPushdownRequiresLicense()
-    {
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("oracle", AGGREGATION_PUSHDOWN_ENABLED, "true")
-                .build();
-
-        // Non-aggregation query still works
-        assertThat(query(session, "SELECT name FROM nation WHERE nationkey = 3"))
-                .matches("VALUES CAST('CANADA' AS varchar(25))")
-                .isCorrectlyPushedDown();
-
-        // Simple aggregation queries still work
-        assertThat(query(session, "SELECT DISTINCT regionkey FROM nation")).isCorrectlyPushedDown();
-        assertThat(query(session, "SELECT regionkey FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
-
-        // "normal" aggregation query (one using an aggregation function) requires a license
-        assertThatThrownBy(() -> assertThat(query(session, "SELECT count(*) FROM nation")))
-                .hasMessage("Valid license required to use the feature: oracle-extensions");
-        assertThatThrownBy(() -> assertThat(query(session, "SELECT count(nationkey) FROM nation")))
-                .hasMessage("Valid license required to use the feature: oracle-extensions");
-        assertThatThrownBy(() -> assertThat(query(session, "SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")))
-                .hasMessage("Valid license required to use the feature: oracle-extensions");
-        assertThatThrownBy(() -> assertThat(query(session, "SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")))
-                .hasMessage("Valid license required to use the feature: oracle-extensions");
     }
 
     @Test

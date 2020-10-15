@@ -14,7 +14,6 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.testing.QueryRunner;
 import org.testng.SkipException;
-import org.testng.annotations.Test;
 
 import static com.google.common.io.Resources.getResource;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
@@ -63,12 +62,5 @@ public class TestOracleKerberosIntegrationSmokeTest
     public void testSelectInformationSchemaTables()
     {
         throw new SkipException("This test is taking forever with kerberos authentication, due the connection retrying");
-    }
-
-    @Test
-    @Override
-    public void testAggregationPushdownRequiresLicense()
-    {
-        throw new SkipException("License for Oracle extensions is necessary for Kerberos, expected exceptions will NOT be thrown");
     }
 }

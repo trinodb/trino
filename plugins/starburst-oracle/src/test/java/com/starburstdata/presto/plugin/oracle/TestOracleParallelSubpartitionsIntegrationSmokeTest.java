@@ -83,11 +83,4 @@ public class TestOracleParallelSubpartitionsIntegrationSmokeTest
         // with filter over varchar column
         assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isNotFullyPushedDown(LimitNode.class);
     }
-
-    @Test(enabled = false)
-    @Override
-    public void testAggregationPushdownRequiresLicense()
-    {
-        // License for Oracle extensions is necessary for enabling parallelism, expected exceptions will NOT be thrown
-    }
 }

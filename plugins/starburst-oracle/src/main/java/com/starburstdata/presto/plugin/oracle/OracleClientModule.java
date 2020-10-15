@@ -27,6 +27,7 @@ import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static com.starburstdata.presto.license.StarburstPrestoFeature.ORACLE_EXTENSIONS;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.plugin.jdbc.JdbcModule.bindProcedure;
 import static io.prestosql.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
@@ -71,7 +72,6 @@ public class OracleClientModule
         binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class)
                 .to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
 
-        // Disable aggregation pushdown by default, since it is protected with a license
-        configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setAggregationPushdownEnabled(false));
+        configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setAggregationPushdownEnabled(licenseManager.hasFeature(ORACLE_EXTENSIONS)));
     }
 }

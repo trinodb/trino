@@ -16,6 +16,7 @@ import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcExpression;
+import io.prestosql.plugin.jdbc.JdbcMetadataConfig;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties;
@@ -64,6 +65,7 @@ public class TestStarburstOracleClient
     private static final JdbcClient JDBC_CLIENT = new StarburstOracleClient(
             NOOP_LICENSE_MANAGER,
             new BaseJdbcConfig(),
+            new JdbcMetadataConfig().setAggregationPushdownEnabled(true),
             new JdbcStatisticsConfig(),
             new OracleConfig(),
             identity -> { throw new UnsupportedOperationException(); });
