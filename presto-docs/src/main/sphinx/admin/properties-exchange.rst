@@ -87,3 +87,14 @@ tasks. If the task output is hash partitioned, then the buffer is
 shared across all of the partitioned consumers. Increasing this value may
 improve network throughput for data transferred between stages, if the
 network has high latency, or if there are many nodes in the cluster.
+
+``sink.max-broadcast-buffer-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type** ``data size``
+* **Default value:** ``200MB``
+
+Broadcast output buffer size for task data that is waiting to be pulled by
+upstream tasks. The broadcast buffer is used to store and transfer build side
+data for replicated joins. If the buffer is too small, it prevents scaling of
+join probe side tasks, when new nodes are added to the cluster.
