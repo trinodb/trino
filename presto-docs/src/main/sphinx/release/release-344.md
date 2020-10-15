@@ -20,7 +20,7 @@
   higher than 6. ({issue}`5310`)
 * Fix failure due to rounding error when casting between two `timestamp with time zone` types 
   with precision higher than 3. ({issue}`5371`)
-* Fix column pruning for `EXPLAIN ANALYZE`. ({issue} `4760`)
+* Fix column pruning for `EXPLAIN ANALYZE`. ({issue}`4760`)
 * Fix incorrect timestamp values returned by the `queries`, `transactions`,
   and `tasks` tables in `system.runtime`. ({issue}`5462`)
 
