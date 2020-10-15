@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.util.HiveTypeTranslator;
 import io.prestosql.spi.PrestoException;
@@ -37,6 +38,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -254,17 +256,15 @@ public final class HiveType
                 if (fieldTypes.size() != fieldNames.size()) {
                     throw new PrestoException(HiveErrorCode.HIVE_INVALID_METADATA, format("Invalid Hive struct type: %s", typeInfo));
                 }
-                ImmutableList.Builder<TypeSignatureParameter> typeSignatureBuilder = ImmutableList.builder();
-                for (int i = 0; i < fieldTypes.size(); i++) {
-                    typeSignatureBuilder.add(namedField(
-                            // Lower case the struct field names.
-                            // Otherwise, Presto will refuse to write to columns whose struct type has field names containing upper case characters.
-                            // Users can't work around this by casting in their queries because Presto parser always lower case types.
-                            // TODO: This is a hack. Presto engine should be able to handle identifiers in a case insensitive way where necessary.
-                            fieldNames.get(i).toLowerCase(Locale.US),
-                            getTypeSignature(fieldTypes.get(i))));
-                }
-                return rowType(typeSignatureBuilder.build());
+                return rowType(Streams.zip(
+                        // We lower case the struct field names.
+                        // Otherwise, Presto will refuse to write to columns whose struct type has field names containing upper case characters.
+                        // Users can't work around this by casting in their queries because Presto parser always lower case types.
+                        // TODO: This is a hack. Presto engine should be able to handle identifiers in a case insensitive way where necessary.
+                        fieldNames.stream().map(s -> s.toLowerCase(Locale.US)),
+                        fieldTypes.stream().map(HiveType::getTypeSignature),
+                        TypeSignatureParameter::namedField)
+                        .collect(Collectors.toList()));
             case UNION:
                 // Use a row type to represent a union type in Hive for reading
                 UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
