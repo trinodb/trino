@@ -126,7 +126,7 @@ public class TestExternalHiveTable
                 .hasRowsCount(3 * NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT);
 
         assertThat(() -> onPresto().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME + " WHERE p_name IS NOT NULL"))
-                .failsWithMessage("This connector only supports delete where one or more partitions are deleted entirely");
+                .failsWithMessage("Deletes must match whole partitions for non-transactional tables");
 
         onPresto().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME + " WHERE p_regionkey = 1");
         assertThat(onPresto().executeQuery("SELECT * FROM " + EXTERNAL_TABLE_NAME))

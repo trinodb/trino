@@ -52,6 +52,7 @@ import static io.prestosql.plugin.hive.HiveStorageFormat.ORC;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
+import static io.prestosql.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.StructuralTestUtil.rowBlockOf;
 import static java.lang.String.format;
@@ -223,7 +224,9 @@ public class TestOrcPredicates
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                false,
+                NO_ACID_TRANSACTION);
 
         assertTrue(pageSource.isPresent());
         return pageSource.get();

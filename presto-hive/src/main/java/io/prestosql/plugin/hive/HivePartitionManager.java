@@ -194,8 +194,8 @@ public class HivePartitionManager
                 partitions.getBucketFilter(),
                 handle.getAnalyzePartitionValues(),
                 handle.getAnalyzeColumnNames(),
-                Optionals.combine(handle.getConstraintColumns(), columns,
-                        Sets::union));
+                Optionals.combine(handle.getConstraintColumns(), columns, Sets::union),
+                handle.getTransaction());
     }
 
     public List<HivePartition> getOrLoadPartitions(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, HiveTableHandle table)

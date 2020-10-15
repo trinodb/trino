@@ -44,6 +44,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -234,5 +235,14 @@ public class LongColumnWriter
         presentStream.reset();
         rowGroupColumnStatistics.clear();
         statisticsBuilder = statisticsBuilderSupplier.get();
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("columnId", columnId)
+                .add("type", type)
+                .toString();
     }
 }

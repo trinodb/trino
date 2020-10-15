@@ -251,7 +251,8 @@ public abstract class AbstractTestHiveFileSystem
                 config,
                 getDefaultHivePageSourceFactories(hdfsEnvironment, config),
                 getDefaultHiveRecordCursorProviders(config, hdfsEnvironment),
-                new GenericHiveRecordCursorProvider(hdfsEnvironment, config));
+                new GenericHiveRecordCursorProvider(hdfsEnvironment, config),
+                Optional.empty());
 
         onSetupComplete();
     }

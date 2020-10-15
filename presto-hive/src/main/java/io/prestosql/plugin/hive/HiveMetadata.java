@@ -31,6 +31,9 @@ import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.prestosql.plugin.hive.LocationService.WriteInfo;
+import io.prestosql.plugin.hive.acid.AcidOperation;
+import io.prestosql.plugin.hive.acid.AcidSchema;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
@@ -44,6 +47,7 @@ import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.security.AccessControlMetadata;
 import io.prestosql.plugin.hive.statistics.HiveStatisticsProvider;
+import io.prestosql.plugin.hive.util.HiveBucketing;
 import io.prestosql.plugin.hive.util.HiveUtil;
 import io.prestosql.plugin.hive.util.HiveWriteUtils;
 import io.prestosql.spi.ErrorType;
@@ -61,6 +65,7 @@ import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorPartitioningHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTablePartitioning;
 import io.prestosql.spi.connector.ConnectorTableProperties;
@@ -95,6 +100,7 @@ import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.VarcharType;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
@@ -150,9 +156,10 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.PARTITION_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
-import static io.prestosql.plugin.hive.HiveColumnHandle.updateRowIdHandle;
+import static io.prestosql.plugin.hive.HiveColumnHandle.updateRowIdColumnHandle;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
@@ -203,6 +210,7 @@ import static io.prestosql.plugin.hive.HiveTableProperties.isTransactional;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.HiveWriterFactory.computeBucketedFileName;
+import static io.prestosql.plugin.hive.PartitionAndStatementId.CODEC;
 import static io.prestosql.plugin.hive.PartitionUpdate.UpdateMode.APPEND;
 import static io.prestosql.plugin.hive.PartitionUpdate.UpdateMode.NEW;
 import static io.prestosql.plugin.hive.PartitionUpdate.UpdateMode.OVERWRITE;
@@ -211,6 +219,8 @@ import static io.prestosql.plugin.hive.ViewReaderUtil.createViewReader;
 import static io.prestosql.plugin.hive.ViewReaderUtil.encodeViewData;
 import static io.prestosql.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.prestosql.plugin.hive.ViewReaderUtil.isPrestoView;
+import static io.prestosql.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
+import static io.prestosql.plugin.hive.acid.AcidTransaction.forCreateTable;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getProtectMode;
@@ -259,6 +269,10 @@ import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
+import static org.apache.hadoop.hive.ql.io.AcidUtils.OrcAcidVersion.writeVersionFile;
+import static org.apache.hadoop.hive.ql.io.AcidUtils.deltaSubdir;
+import static org.apache.hadoop.hive.ql.io.AcidUtils.isFullAcidTable;
+import static org.apache.hadoop.hive.ql.io.AcidUtils.isTransactionalTable;
 
 public class HiveMetadata
         implements TransactionalMetadata
@@ -947,7 +961,7 @@ public class HiveMetadata
         getNullFormat(tableMetadata.getProperties())
                 .ifPresent(format -> {
                     checkFormatForProperty(hiveStorageFormat, allowsNullFormat, NULL_FORMAT_PROPERTY);
-                    tableProperties.put(NULL_FORMAT_KEY, format.toString());
+                    tableProperties.put(NULL_FORMAT_KEY, format);
                 });
 
         // Textfile-specific properties
@@ -1288,7 +1302,6 @@ public class HiveMetadata
         HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
-        boolean transactional = isTransactional(tableMetadata.getProperties()).orElse(false);
 
         // get the root directory for the database
         SchemaTableName schemaTableName = tableMetadata.getTable();
@@ -1312,6 +1325,9 @@ public class HiveMetadata
 
         LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, externalLocation);
 
+        boolean transactional = isTransactional(tableMetadata.getProperties()).orElse(false);
+        AcidTransaction transaction = transactional ? forCreateTable() : NO_ACID_TRANSACTION;
+
         HiveOutputTableHandle result = new HiveOutputTableHandle(
                 schemaName,
                 tableName,
@@ -1324,7 +1340,7 @@ public class HiveMetadata
                 bucketProperty,
                 session.getUser(),
                 tableProperties,
-                transactional,
+                transaction,
                 externalLocation.isPresent());
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
@@ -1368,6 +1384,18 @@ public class HiveMetadata
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table, partitionUpdate));
                 createEmptyFiles(session, partitionUpdate.getWritePath(), table, partition, partitionUpdate.getFileNames());
+            }
+            if (handle.isTransactional()) {
+                AcidTransaction transaction = handle.getTransaction();
+                List<String> partitionNames = partitionUpdates.stream().map(PartitionUpdate::getName).collect(toImmutableList());
+                metastore.addDynamicPartitions(
+                        new HiveIdentity(session),
+                        handle.getSchemaName(),
+                        handle.getTableName(),
+                        partitionNames,
+                        transaction.getAcidTransactionId(),
+                        transaction.getWriteId(),
+                        AcidOperation.CREATE_TABLE);
             }
         }
 
@@ -1550,6 +1578,9 @@ public class HiveMetadata
             throw new PrestoException(NOT_SUPPORTED, format("Inserting into Hive table with %s property not supported", SKIP_FOOTER_COUNT_KEY));
         }
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
+
+        AcidTransaction transaction = isTransactionalTable(table.getParameters()) ? metastore.beginInsert(session, table) : NO_ACID_TRANSACTION;
+
         HiveInsertTableHandle result = new HiveInsertTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
@@ -1558,7 +1589,8 @@ public class HiveMetadata
                 locationHandle,
                 table.getStorage().getBucketProperty(),
                 tableStorageFormat,
-                isRespectTableFormat(session) ? tableStorageFormat : getHiveStorageFormat(session));
+                isRespectTableFormat(session) ? tableStorageFormat : getHiveStorageFormat(session),
+                transaction);
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), tableName);
@@ -1590,6 +1622,10 @@ public class HiveMetadata
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates, partitionUpdatesForMissingBuckets));
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table, partitionUpdate));
+                if (handle.isTransactional() && partition.isPresent()) {
+                    PartitionStatistics statistics = PartitionStatistics.builder().setBasicStatistics(partitionUpdate.getStatistics()).build();
+                    metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), partition.get(), partitionUpdate.getWritePath(), statistics);
+                }
                 createEmptyFiles(session, partitionUpdate.getWritePath(), table, partition, partitionUpdate.getFileNames());
             }
         }
@@ -1676,10 +1712,30 @@ public class HiveMetadata
             }
         }
 
+        if (isFullAcidTable(table.getParameters())) {
+            HdfsContext context = new HdfsContext(session, table.getDatabaseName());
+            for (PartitionUpdate update : partitionUpdates) {
+                long writeId = handle.getTransaction().getWriteId();
+                Path deltaDirectory = new Path(format("%s/%s/%s", table.getStorage().getLocation(), update.getName(), deltaSubdir(writeId, writeId, 0)));
+                createOrcAcidVersionFile(context, deltaDirectory);
+            }
+        }
+
         return Optional.of(new HiveWrittenPartitions(
                 partitionUpdates.stream()
                         .map(PartitionUpdate::getName)
                         .collect(toImmutableList())));
+    }
+
+    private void createOrcAcidVersionFile(HdfsContext context, Path deltaDirectory)
+    {
+        try {
+            FileSystem fs = hdfsEnvironment.getFileSystem(context, deltaDirectory);
+            writeVersionFile(deltaDirectory, fs);
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Exception writing _orc_acid_version file for deltaDirectory " + deltaDirectory, e);
+        }
     }
 
     private Partition buildPartitionObject(ConnectorSession session, Table table, PartitionUpdate partitionUpdate)
@@ -1848,6 +1904,13 @@ public class HiveMetadata
     }
 
     @Override
+    public boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
+    {
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
+        return handle.getTableParameters().isEmpty() || !isFullAcidTable(handle.getTableParameters().get());
+    }
+
+    @Override
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         if (!filterSchema(viewName.getSchemaName())) {
@@ -1891,13 +1954,63 @@ public class HiveMetadata
     @Override
     public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
+        SchemaTableName tableName = handle.getSchemaTableName();
+
+        Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+        ensureTableSupportsDelete(table);
+
+        LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
+
+        AcidTransaction transaction = metastore.beginDelete(session, table);
+
+        WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
+        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), handle.getSchemaTableName());
+
+        return handle.withTransaction(transaction);
+    }
+
+    @Override
+    public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
+        checkArgument(handle.isAcidDelete(), "handle should be a delete handle, but is %s", handle);
+
+        requireNonNull(fragments, "fragments is null");
+
+        SchemaTableName tableName = handle.getSchemaTableName();
+        HiveIdentity identity = new HiveIdentity(session);
+        Table table = metastore.getTable(identity, tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+        ensureTableSupportsDelete(table);
+
+        List<PartitionAndStatementId> partitionAndStatementIds = fragments.stream()
+                .map(Slice::getBytes)
+                .map(CODEC::fromJson)
+                .collect(toList());
+
+        HdfsContext context = new HdfsContext(session, table.getDatabaseName());
+        for (PartitionAndStatementId ps : partitionAndStatementIds) {
+            createOrcAcidVersionFile(context, new Path(ps.getDeleteDeltaDirectory()));
+        }
+
+        LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
+        WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
+        metastore.finishRowLevelDelete(session, table.getDatabaseName(), table.getTableName(), writeInfo.getWritePath(), partitionAndStatementIds);
+    }
+
+    private void ensureTableSupportsDelete(Table table)
+    {
+        if (table.getParameters().isEmpty() || !isFullAcidTable(table.getParameters())) {
+            throw new PrestoException(NOT_SUPPORTED, "Deletes must match whole partitions for non-transactional tables");
+        }
     }
 
     @Override
     public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return updateRowIdHandle();
+        return updateRowIdColumnHandle();
     }
 
     @Override
@@ -2210,7 +2323,8 @@ public class HiveMetadata
                 hiveTable.getBucketFilter(),
                 hiveTable.getAnalyzePartitionValues(),
                 hiveTable.getAnalyzeColumnNames(),
-                Optional.empty());
+                Optional.empty(),
+                hiveTable.getTransaction());
     }
 
     @VisibleForTesting
@@ -2281,6 +2395,13 @@ public class HiveMetadata
             if (bucketedOnTimestamp(table.getStorage().getBucketProperty().get(), table)) {
                 throw new PrestoException(NOT_SUPPORTED, "Writing to tables bucketed on timestamp not supported");
             }
+        }
+        // treat un-bucketed transactional table as having a single bucket on no columns
+        else if (hiveTableHandle.isInAcidTransaction()) {
+            table = Table.builder(table)
+                    .withStorage(storage -> storage.setBucketProperty(Optional.of(
+                            new HiveBucketProperty(ImmutableList.of(), HiveBucketing.BucketingVersion.BUCKETING_V2, 1, ImmutableList.of()))))
+                    .build();
         }
 
         Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(session, table, typeManager);
@@ -2635,6 +2756,11 @@ public class HiveMetadata
         if (!table.getPartitionColumns().isEmpty()) {
             builder.put(PARTITION_COLUMN_NAME, Optional.empty());
         }
+        if (isFullAcidTable(table.getParameters())) {
+            for (String name : AcidSchema.ACID_COLUMN_NAMES) {
+                builder.put(name, Optional.empty());
+            }
+        }
 
         Map<String, Optional<String>> columnComment = builder.build();
 
@@ -2656,7 +2782,9 @@ public class HiveMetadata
     @Override
     public void commit()
     {
-        metastore.commit();
+        if (!metastore.isFinished()) {
+            metastore.commit();
+        }
     }
 
     @Override
