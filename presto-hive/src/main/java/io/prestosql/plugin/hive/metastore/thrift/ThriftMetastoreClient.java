@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.metastore.thrift;
 
+import io.prestosql.plugin.hive.acid.AcidOperation;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
@@ -33,6 +34,7 @@ import org.apache.thrift.TException;
 import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 
 public interface ThriftMetastoreClient
         extends Closeable
@@ -192,4 +194,16 @@ public interface ThriftMetastoreClient
     {
         throw new UnsupportedOperationException();
     }
+
+    void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
+            throws TException;
+
+    void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+            throws TException;
+
+    void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+            throws TException;
+
+    void alterTransactionalTable(Table table, long transactionId, long writeId, EnvironmentContext context)
+            throws TException;
 }

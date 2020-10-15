@@ -85,6 +85,7 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.createGenericHiveRecordCursorProvider;
 import static io.prestosql.plugin.hive.HiveType.toHiveType;
+import static io.prestosql.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.prestosql.plugin.hive.util.CompressionConfigUtil.configureCompression;
 import static java.lang.String.join;
@@ -371,7 +372,8 @@ public enum FileFormat
                 new HiveConfig(),
                 getHivePageSourceFactory(hdfsEnvironment).map(ImmutableSet::of).orElse(ImmutableSet.of()),
                 getHiveRecordCursorProvider(hdfsEnvironment).map(ImmutableSet::of).orElse(ImmutableSet.of()),
-                new GenericHiveRecordCursorProvider(hdfsEnvironment, new HiveConfig()));
+                new GenericHiveRecordCursorProvider(hdfsEnvironment, new HiveConfig()),
+                Optional.empty());
 
         Properties schema = createSchema(getFormat(), schemaColumnNames, schemaColumnTypes);
 
@@ -388,6 +390,7 @@ public enum FileFormat
                 ImmutableList.of(),
                 ImmutableList.of(),
                 OptionalInt.empty(),
+                0,
                 false,
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
@@ -470,7 +473,10 @@ public enum FileFormat
                         schema,
                         readColumns,
                         TupleDomain.all(),
-                        Optional.empty());
+                        Optional.empty(),
+                        OptionalInt.empty(),
+                        false,
+                        NO_ACID_TRANSACTION);
 
         checkState(readerPageSourceWithProjections.isPresent(), "readerPageSourceWithProjections is not present");
         checkState(!readerPageSourceWithProjections.get().getProjectedReaderColumns().isPresent(), "projection should not be required");

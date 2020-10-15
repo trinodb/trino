@@ -34,6 +34,8 @@ import io.prestosql.plugin.hive.HiveColumnProjectionInfo;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
 import io.prestosql.plugin.hive.ReaderProjections;
+import io.prestosql.plugin.hive.acid.AcidSchema;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -58,6 +60,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -92,6 +95,7 @@ import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
 import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -102,14 +106,6 @@ import static org.apache.hadoop.hive.ql.io.AcidUtils.isFullAcidTable;
 public class OrcPageSourceFactory
         implements HivePageSourceFactory
 {
-    // ACID format column names
-    public static final String ACID_COLUMN_OPERATION = "operation";
-    public static final String ACID_COLUMN_ORIGINAL_TRANSACTION = "originalTransaction";
-    public static final String ACID_COLUMN_BUCKET = "bucket";
-    public static final String ACID_COLUMN_ROW_ID = "rowId";
-    public static final String ACID_COLUMN_CURRENT_TRANSACTION = "currentTransaction";
-    public static final String ACID_COLUMN_ROW_STRUCT = "row";
-
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
     private final OrcReaderOptions orcReaderOptions;
     private final HdfsEnvironment hdfsEnvironment;
@@ -145,7 +141,10 @@ public class OrcPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            Optional<AcidInfo> acidInfo)
+            Optional<AcidInfo> acidInfo,
+            OptionalInt bucketNumber,
+            boolean originalFile,
+            AcidTransaction transaction)
     {
         if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
@@ -185,6 +184,9 @@ public class OrcPageSourceFactory
                         .withNestedLazy(isOrcNestedLazy(session))
                         .withBloomFiltersEnabled(isOrcBloomFiltersEnabled(session)),
                 acidInfo,
+                bucketNumber,
+                originalFile,
+                transaction,
                 stats);
 
         return Optional.of(new ReaderPageSourceWithProjections(orcPageSource, projectedReaderColumns));
@@ -206,6 +208,9 @@ public class OrcPageSourceFactory
             DateTimeZone legacyFileTimeZone,
             OrcReaderOptions options,
             Optional<AcidInfo> acidInfo,
+            OptionalInt bucketNumber,
+            boolean originalFile,
+            AcidTransaction transaction,
             FileFormatDataSourceStats stats)
     {
         for (HiveColumnHandle column : columns) {
@@ -243,20 +248,25 @@ public class OrcPageSourceFactory
             OrcReader reader = optionalOrcReader.get();
 
             List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
-            List<OrcColumn> fileReadColumns = new ArrayList<>(columns.size() + (isFullAcid ? 2 : 0));
-            List<Type> fileReadTypes = new ArrayList<>(columns.size() + (isFullAcid ? 2 : 0));
-            List<OrcReader.ProjectedLayout> fileReadLayouts = new ArrayList<>(columns.size() + (isFullAcid ? 2 : 0));
+            int actualColumnCount = columns.size() + (isFullAcid ? 3 : 0);
+            List<OrcColumn> fileReadColumns = new ArrayList<>(actualColumnCount);
+            List<Type> fileReadTypes = new ArrayList<>(actualColumnCount);
+            List<OrcReader.ProjectedLayout> fileReadLayouts = new ArrayList<>(actualColumnCount);
             if (isFullAcid && !originalFilesPresent) {
                 verifyAcidSchema(reader, path);
                 Map<String, OrcColumn> acidColumnsByName = uniqueIndex(fileColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
-                fileColumns = acidColumnsByName.get(ACID_COLUMN_ROW_STRUCT.toLowerCase(ENGLISH)).getNestedColumns();
+                fileColumns = acidColumnsByName.get(AcidSchema.ACID_COLUMN_ROW_STRUCT.toLowerCase(ENGLISH)).getNestedColumns();
 
-                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)));
+                fileReadColumns.add(acidColumnsByName.get(AcidSchema.ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)));
                 fileReadTypes.add(BIGINT);
                 fileReadLayouts.add(fullyProjectedLayout());
 
-                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
+                fileReadColumns.add(acidColumnsByName.get(AcidSchema.ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
                 fileReadTypes.add(BIGINT);
+                fileReadLayouts.add(fullyProjectedLayout());
+
+                fileReadColumns.add(acidColumnsByName.get(AcidSchema.ACID_COLUMN_BUCKET.toLowerCase(ENGLISH)));
+                fileReadTypes.add(INTEGER);
                 fileReadLayouts.add(fullyProjectedLayout());
             }
 
@@ -371,6 +381,17 @@ public class OrcPageSourceFactory
                             configuration,
                             stats));
 
+            if (transaction.isDelete()) {
+                if (originalFile) {
+                    int bucket = bucketNumber.orElse(0);
+                    long startingRowId = originalFileRowId.orElse(0L);
+                    columnAdaptations.add(ColumnAdaptation.originalFileRowIdColumn(startingRowId, bucket));
+                }
+                else {
+                    columnAdaptations.add(ColumnAdaptation.rowIdColumn());
+                }
+            }
+
             return new OrcPageSource(
                     recordReader,
                     columnAdaptations,
@@ -422,12 +443,12 @@ public class OrcPageSourceFactory
         if (rootColumn.getNestedColumns().size() != 6) {
             throw new PrestoException(HIVE_BAD_DATA, "ORC ACID file should have 6 columns: " + path);
         }
-        verifyAcidColumn(orcReader, 0, ACID_COLUMN_OPERATION, INT, path);
-        verifyAcidColumn(orcReader, 1, ACID_COLUMN_ORIGINAL_TRANSACTION, LONG, path);
-        verifyAcidColumn(orcReader, 2, ACID_COLUMN_BUCKET, INT, path);
-        verifyAcidColumn(orcReader, 3, ACID_COLUMN_ROW_ID, LONG, path);
-        verifyAcidColumn(orcReader, 4, ACID_COLUMN_CURRENT_TRANSACTION, LONG, path);
-        verifyAcidColumn(orcReader, 5, ACID_COLUMN_ROW_STRUCT, STRUCT, path);
+        verifyAcidColumn(orcReader, 0, AcidSchema.ACID_COLUMN_OPERATION, INT, path);
+        verifyAcidColumn(orcReader, 1, AcidSchema.ACID_COLUMN_ORIGINAL_TRANSACTION, LONG, path);
+        verifyAcidColumn(orcReader, 2, AcidSchema.ACID_COLUMN_BUCKET, INT, path);
+        verifyAcidColumn(orcReader, 3, AcidSchema.ACID_COLUMN_ROW_ID, LONG, path);
+        verifyAcidColumn(orcReader, 4, AcidSchema.ACID_COLUMN_CURRENT_TRANSACTION, LONG, path);
+        verifyAcidColumn(orcReader, 5, AcidSchema.ACID_COLUMN_ROW_STRUCT, STRUCT, path);
     }
 
     private static void verifyAcidColumn(OrcReader orcReader, int columnIndex, String columnName, OrcTypeKind columnType, Path path)

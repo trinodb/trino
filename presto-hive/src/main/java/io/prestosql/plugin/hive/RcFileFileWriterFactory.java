@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.rcfile.HdfsRcFileDataSource;
 import io.prestosql.rcfile.RcFileDataSource;
@@ -38,6 +39,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
@@ -94,7 +96,10 @@ public class RcFileFileWriterFactory
             StorageFormat storageFormat,
             Properties schema,
             JobConf configuration,
-            ConnectorSession session)
+            ConnectorSession session,
+            OptionalInt bucketNumber,
+            AcidTransaction transaction,
+            boolean useAcidSchema)
     {
         if (!RCFileOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
             return Optional.empty();

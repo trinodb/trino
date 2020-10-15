@@ -58,6 +58,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.plugin.hive.HiveColumnHandle.isRowIdColumnHandle;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMappingKind.EMPTY;
@@ -172,7 +173,7 @@ public class HivePageSource
                 coercers.add(Optional.empty());
             }
 
-            if (columnMapping.getKind() == EMPTY) {
+            if (columnMapping.getKind() == EMPTY || isRowIdColumnHandle(column)) {
                 prefilledValues[columnIndex] = null;
             }
             else if (columnMapping.getKind() == PREFILLED) {
@@ -239,6 +240,11 @@ public class HivePageSource
         this.coercers = coercers.build();
     }
 
+    public ConnectorPageSource getDelegate()
+    {
+        return delegate;
+    }
+
     @Override
     public long getCompletedBytes()
     {
@@ -285,6 +291,7 @@ public class HivePageSource
                         blocks.add(RunLengthEncodedBlock.create(types[fieldId], prefilledValues[fieldId], batchSize));
                         break;
                     case REGULAR:
+                    case SYNTHESIZED:
                         Block block = dataPage.getBlock(columnMapping.getIndex());
                         Optional<Function<Block, Block>> coercer = coercers.get(fieldId);
                         if (coercer.isPresent()) {

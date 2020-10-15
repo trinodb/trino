@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -21,6 +22,7 @@ import org.apache.hadoop.fs.Path;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 
 import static java.util.Objects.requireNonNull;
@@ -37,7 +39,10 @@ public interface HivePageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            Optional<AcidInfo> acidInfo);
+            Optional<AcidInfo> acidInfo,
+            OptionalInt bucketNumber,
+            boolean originalFile,
+            AcidTransaction transaction);
 
     /**
      * A wrapper class for

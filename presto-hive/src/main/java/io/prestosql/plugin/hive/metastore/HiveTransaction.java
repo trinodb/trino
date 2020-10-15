@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.metastore;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.HiveMetastoreClosure;
 import io.prestosql.plugin.hive.HiveTableHandle;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.spi.connector.SchemaTableName;
 import org.apache.hadoop.hive.common.ValidTxnWriteIdList;
@@ -32,15 +33,17 @@ public class HiveTransaction
     private final String queryId;
     private final long transactionId;
     private final ScheduledFuture<?> heartbeatTask;
+    private final AcidTransaction transaction;
 
     private final Map<SchemaTableName, ValidTxnWriteIdList> validHiveTransactionsForTable = new HashMap<>();
 
-    public HiveTransaction(HiveIdentity identity, String queryId, long transactionId, ScheduledFuture<?> heartbeatTask)
+    public HiveTransaction(HiveIdentity identity, String queryId, long transactionId, ScheduledFuture<?> heartbeatTask, AcidTransaction transaction)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = transactionId;
         this.heartbeatTask = requireNonNull(heartbeatTask, "heartbeatTask is null");
+        this.transaction = requireNonNull(transaction, "transaction is null");
     }
 
     public long getTransactionId()
@@ -51,6 +54,11 @@ public class HiveTransaction
     public ScheduledFuture<?> getHeartbeatTask()
     {
         return heartbeatTask;
+    }
+
+    public AcidTransaction getTransaction()
+    {
+        return transaction;
     }
 
     public ValidTxnWriteIdList getValidWriteIds(HiveMetastoreClosure metastore, HiveTableHandle tableHandle)
