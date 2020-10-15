@@ -109,10 +109,15 @@ public final class DockerFiles
     }
 
     public static Path createTemporaryDirectoryForDocker()
-            throws IOException
     {
-        // Cannot use Files.createTempDirectory() because on Mac by default it uses /var/folders/ which is not visible to Docker for Mac
-        Path temporaryDirectoryForDocker = Files.createDirectory(Paths.get("/tmp/docker-files-" + randomUUID().toString()));
+        Path temporaryDirectoryForDocker;
+        try {
+            // Cannot use Files.createTempDirectory() because on Mac by default it uses /var/folders/ which is not visible to Docker for Mac
+            temporaryDirectoryForDocker = Files.createDirectory(Paths.get("/tmp/docker-files-" + randomUUID().toString()));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
 
         // Best-effort cleanup
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
