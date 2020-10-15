@@ -22,6 +22,7 @@ import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
 import io.prestosql.plugin.hive.InternalHiveSplit;
 import io.prestosql.plugin.hive.InternalHiveSplit.InternalHiveBlock;
 import io.prestosql.plugin.hive.TableToPartitionMapping;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.s3select.S3SelectPushdown;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.predicate.Domain;
@@ -43,6 +44,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -66,6 +69,8 @@ public class InternalHiveSplitFactory
     private final long minimumTargetSplitSizeInBytes;
     private final boolean forceLocalScheduling;
     private final boolean s3SelectPushdownEnabled;
+    private final AcidTransaction transaction;
+    private final Map<Integer, AtomicInteger> bucketStatementCounters = new ConcurrentHashMap<>();
 
     public InternalHiveSplitFactory(
             FileSystem fileSystem,
@@ -79,7 +84,8 @@ public class InternalHiveSplitFactory
             Optional<BucketConversion> bucketConversion,
             DataSize minimumTargetSplitSize,
             boolean forceLocalScheduling,
-            boolean s3SelectPushdownEnabled)
+            boolean s3SelectPushdownEnabled,
+            AcidTransaction transaction)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
@@ -92,6 +98,7 @@ public class InternalHiveSplitFactory
         this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
         this.forceLocalScheduling = forceLocalScheduling;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
+        this.transaction = requireNonNull(transaction, "transaction is null");
         this.minimumTargetSplitSizeInBytes = requireNonNull(minimumTargetSplitSize, "minimumTargetSplitSize is null").toBytes();
         checkArgument(minimumTargetSplitSizeInBytes > 0, "minimumTargetSplitSize must be > 0, found: %s", minimumTargetSplitSize);
     }
@@ -190,6 +197,13 @@ public class InternalHiveSplitFactory
             blocks = ImmutableList.of(new InternalHiveBlock(start, start + length, blocks.get(0).getAddresses()));
         }
 
+        int statementId = 0;
+
+        if (transaction.isDelete()) {
+            int bucketNumberIndex = bucketNumber.orElse(0);
+            statementId = bucketStatementCounters.computeIfAbsent(bucketNumberIndex, index -> new AtomicInteger()).getAndIncrement();
+        }
+
         return Optional.of(new InternalHiveSplit(
                 partitionName,
                 pathString,
@@ -201,6 +215,7 @@ public class InternalHiveSplitFactory
                 partitionKeys,
                 blocks,
                 bucketNumber,
+                statementId,
                 splittable,
                 forceLocalScheduling && allBlocksHaveAddress(blocks),
                 tableToPartitionMapping,

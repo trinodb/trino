@@ -90,7 +90,8 @@ public class TestRecordingHiveMetastore
             ImmutableList.of(TABLE_COLUMN),
             ImmutableMap.of("param", "value3"),
             Optional.of("original_text"),
-            Optional.of("expanded_text"));
+            Optional.of("expanded_text"),
+            OptionalLong.empty());
     private static final Partition PARTITION = new Partition(
             "database",
             "table",

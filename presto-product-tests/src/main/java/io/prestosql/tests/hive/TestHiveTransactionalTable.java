@@ -19,7 +19,9 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient;
+import io.prestosql.tempto.assertions.QueryAssert;
 import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
+import io.prestosql.tempto.query.QueryExecutor;
 import io.prestosql.tempto.query.QueryResult;
 import io.prestosql.testng.services.Flaky;
 import io.prestosql.tests.hive.util.TemporaryHiveTable;
@@ -39,8 +41,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
@@ -48,6 +54,8 @@ import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_TRANSACTIONAL;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
+import static io.prestosql.tests.hive.BucketingType.BUCKETED_V2;
+import static io.prestosql.tests.hive.BucketingType.NONE;
 import static io.prestosql.tests.hive.TestHiveTransactionalTable.CompactionMode.MAJOR;
 import static io.prestosql.tests.hive.TestHiveTransactionalTable.CompactionMode.MINOR;
 import static io.prestosql.tests.hive.TransactionalTableType.ACID;
@@ -55,6 +63,7 @@ import static io.prestosql.tests.hive.TransactionalTableType.INSERT_ONLY;
 import static io.prestosql.tests.hive.util.TableLocationUtils.getTablePath;
 import static io.prestosql.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
+import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
@@ -267,6 +276,99 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
+    public void testUpdateFullAcidWithOriginalFilesPrestoInserting(boolean isPartitioned, BucketingType bucketingType)
+    {
+        withTemporaryTable("presto_update_full_acid_acid_converted_table_read", true, isPartitioned, bucketingType, tableName -> {
+            onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
+            verify(bucketingType.getHiveTableProperties().isEmpty()); // otherwise we would need to include that in the CREATE TABLE's TBLPROPERTIES
+            onHive().executeQuery("CREATE TABLE " + tableName + " (col INT, fcol INT) " +
+                    (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
+                    bucketingType.getHiveClustering("fcol", 4) + " " +
+                    "STORED AS ORC " +
+                    "TBLPROPERTIES ('transactional'='false')");
+
+            String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (21, 1)");
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (22, 2)");
+            onHive().executeQuery("ALTER TABLE " + tableName + " SET " + hiveTableProperties(ACID, bucketingType));
+
+            // read with original files
+            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(21, 1), row(22, 2));
+            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1")).containsOnly(row(21, 1));
+
+            if (isPartitioned) {
+                query("INSERT INTO " + tableName + "(col, fcol, part_col) VALUES (20, 4, 2)");
+            }
+            else {
+                query("INSERT INTO " + tableName + "(col, fcol) VALUES (20, 4)");
+            }
+
+            // read with original files and insert delta
+            if (isPartitioned) {
+                query("INSERT INTO " + tableName + "(col, fcol, part_col) VALUES (20, 3, 2)");
+            }
+            else {
+                query("INSERT INTO " + tableName + "(col, fcol) VALUES (20, 3)");
+            }
+
+            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(20, 4), row(21, 1), row(22, 2));
+
+            // read with original files and delete delta
+            onHive().executeQuery("DELETE FROM " + tableName + " WHERE fcol = 2");
+
+            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(20, 4), row(21, 1));
+        });
+    }
+
+    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
+    public void testUpdateFullAcidWithOriginalFilesPrestoInsertingAndDeleting(boolean isPartitioned, BucketingType bucketingType)
+    {
+        withTemporaryTable("presto_update_full_acid_acid_converted_table_read", true, isPartitioned, bucketingType, tableName -> {
+            onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
+            verify(bucketingType.getHiveTableProperties().isEmpty()); // otherwise we would need to include that in the CREATE TABLE's TBLPROPERTIES
+            onHive().executeQuery("CREATE TABLE " + tableName + " (col INT, fcol INT) " +
+                    (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
+                    bucketingType.getHiveClustering("fcol", 4) + " " +
+                    "STORED AS ORC " +
+                    "TBLPROPERTIES ('transactional'='false')");
+
+            String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (10, 100), (11, 110), (12, 120), (13, 130), (14, 140)");
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (15, 150), (16, 160), (17, 170), (18, 180), (19, 190)");
+
+            onHive().executeQuery("ALTER TABLE " + tableName + " SET " + hiveTableProperties(ACID, bucketingType));
+
+            // read with original files
+            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE col < 12")).containsOnly(row(10, 100), row(11, 110));
+
+            String fields = isPartitioned ? "(col, fcol, part_col)" : "(col, fcol)";
+            query(format("INSERT INTO %s %s VALUES %s", tableName, fields, makeValues(30, 5, 2, isPartitioned, 3)));
+            query(format("INSERT INTO %s %s VALUES %s", tableName, fields, makeValues(40, 5, 2, isPartitioned, 3)));
+
+            query("DELETE FROM " + tableName + " WHERE col IN (11, 12)");
+            query("DELETE FROM " + tableName + " WHERE col IN (16, 17)");
+            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE fcol >= 100")).containsOnly(row(10, 100), row(13, 130), row(14, 140), row(15, 150), row(18, 180), row(19, 190));
+
+            // read with original files and delete delta
+            query("DELETE FROM " + tableName + " WHERE col = 18 OR col = 14 OR (fcol = 2 AND (col / 2) * 2 = col)");
+
+            assertThat(onHive().executeQuery("SELECT col, fcol FROM " + tableName))
+                    .containsOnly(row(10, 100), row(13, 130), row(15, 150), row(19, 190), row(31, 2), row(33, 2), row(41, 2), row(43, 2));
+
+            assertThat(query("SELECT col, fcol FROM " + tableName))
+                    .containsOnly(row(10, 100), row(13, 130), row(15, 150), row(19, 190), row(31, 2), row(33, 2), row(41, 2), row(43, 2));
+        });
+    }
+
+    String makeValues(int colStart, int colCount, int fcol, boolean isPartitioned, int partCol)
+    {
+        return IntStream.range(colStart, colStart + colCount - 1)
+                .boxed()
+                .map(n -> isPartitioned ? format("(%s, %s, %s)", n, fcol, partCol) : format("(%s, %s)", n, fcol))
+                .collect(Collectors.joining(", "));
+    }
+
+    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
     @Flaky(issue = "https://github.com/prestosql/presto/issues/4927", match = "Hive table .* is is corrupt. Found sub-directory in bucket directory for partition")
     public void testReadInsertOnlyWithOriginalFiles(boolean isPartitioned, BucketingType bucketingType)
     {
@@ -358,16 +460,378 @@ public class TestHiveTransactionalTable
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "testCreateAcidTableDataProvider")
     public void testCreateAcidTable(boolean isPartitioned, BucketingType bucketingType)
     {
-        if (getHiveVersionMajor() < 3) {
-            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
-        }
-
-        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(format("create_transactional_%s", randomTableSuffix()))) {
-            String tableName = table.getName();
+        withTemporaryTable("create_transactional", true, isPartitioned, bucketingType, tableName -> {
             query("CREATE TABLE " + tableName + " (col INTEGER, fcol INTEGER, partcol INTEGER)" +
                     prestoTableProperties(ACID, isPartitioned, bucketingType));
 
-            assertThat(() -> query("INSERT INTO " + tableName + " VALUES (1,2,3)")).failsWithMessageMatching(".*Writes to Hive transactional tables are not supported.*");
+            query("INSERT INTO " + tableName + " VALUES (1, 2, 3)");
+            assertThat(query("SELECT * FROM " + tableName)).containsOnly(row(1, 2, 3));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testSimpleUnpartitionedTransactionalInsert()
+    {
+        withTemporaryTable("unpartitioned_transactional_insert", true, false, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true)", tableName));
+
+            onPresto().executeQuery(format("INSERT INTO %s VALUES (11, 100), (12, 200), (13, 300)", tableName));
+
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(11, 100L), row(12, 200L), row(13, 300L));
+
+            onPresto().executeQuery(format("INSERT INTO %s VALUES (14, 400), (15, 500), (16, 600)", tableName));
+
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(11, 100L), row(12, 200L), row(13, 300L), row(14, 400L), row(15, 500L), row(16, 600L));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testTransactionalPartitionInsert()
+    {
+        withTemporaryTable("transactional_partition_insert", true, true, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true, partitioned_by = ARRAY['column2'])", tableName));
+
+            onPresto().executeQuery(format("INSERT INTO %s (column2, column1) VALUES %s, %s",
+                    tableName,
+                    makeInsertValues(1, 1, 20),
+                    makeInsertValues(2, 1, 20)));
+
+            verifySelectForPrestoAndHive(format("SELECT COUNT(*) FROM %s", tableName), "column1 > 10", row(20));
+
+            onPresto().executeQuery(format("INSERT INTO %s (column2, column1) VALUES %s, %s",
+                    tableName,
+                    makeInsertValues(1, 21, 30),
+                    makeInsertValues(2, 21, 30)));
+
+            verifySelectForPrestoAndHive(format("SELECT COUNT(*) FROM %s", tableName), "column1 > 15 AND column1 <= 25", row(20));
+
+            onHive().executeQuery(format("DELETE FROM %s WHERE column1 > 15 AND column1 <= 25", tableName));
+
+            verifySelectForPrestoAndHive(format("SELECT COUNT(*) FROM %s", tableName), "column1 > 15 AND column1 <= 25", row(0));
+
+            onPresto().executeQuery(format("INSERT INTO %s (column2, column1) VALUES %s, %s",
+                    tableName,
+                    makeInsertValues(1, 20, 23),
+                    makeInsertValues(2, 20, 23)));
+
+            verifySelectForPrestoAndHive(format("SELECT COUNT(*) FROM %s", tableName), "column1 > 15 AND column1 <= 25", row(8));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testTransactionalBucketedPartitionedInsert()
+    {
+        testTransactionalBucketedPartitioned(false);
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testTransactionalBucketedPartitionedInsertOnly()
+    {
+        testTransactionalBucketedPartitioned(true);
+    }
+
+    private void testTransactionalBucketedPartitioned(boolean insertOnly)
+    {
+        withTemporaryTable("bucketed_partitioned_insert_only", true, true, BUCKETED_V2, tableName -> {
+            String insertOnlyProperty = insertOnly ? ", 'transactional_properties'='insert_only'" : "";
+            onHive().executeQuery(format("CREATE TABLE %s (purchase STRING) PARTITIONED BY (customer STRING) CLUSTERED BY (purchase) INTO 3 BUCKETS" +
+                            " STORED AS ORC TBLPROPERTIES ('transactional' = 'true'%s)",
+                    tableName, insertOnlyProperty));
+
+            onPresto().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES", tableName) +
+                    " ('Fred', 'cards'), ('Fred', 'cereal'), ('Fred', 'limes'), ('Fred', 'chips')," +
+                    " ('Ann', 'cards'), ('Ann', 'cereal'), ('Ann', 'lemons'), ('Ann', 'chips')," +
+                    " ('Lou', 'cards'), ('Lou', 'cereal'), ('Lou', 'lemons'), ('Lou', 'chips')");
+
+            verifySelectForPrestoAndHive(format("SELECT customer FROM %s", tableName), "purchase = 'lemons'", row("Ann"), row("Lou"));
+
+            verifySelectForPrestoAndHive(format("SELECT purchase FROM %s", tableName), "customer = 'Fred'", row("cards"), row("cereal"), row("limes"), row("chips"));
+
+            onPresto().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES", tableName) +
+                    " ('Ernie', 'cards'), ('Ernie', 'cereal')," +
+                    " ('Debby', 'corn'), ('Debby', 'chips')," +
+                    " ('Joe', 'corn'), ('Joe', 'lemons'), ('Joe', 'candy')");
+
+            verifySelectForPrestoAndHive(format("SELECT customer FROM %s", tableName), "purchase = 'corn'", row("Debby"), row("Joe"));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
+    public void testTransactionalUnpartitionedDelete(HiveOrPresto inserter, HiveOrPresto deleter)
+    {
+        withTemporaryTable("unpartitioned_delete", true, false, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s (column1 INTEGER, column2 BIGINT) WITH (format = 'ORC', transactional = true)", tableName));
+            execute(inserter, format("INSERT INTO %s (column1, column2) VALUES (1, 100), (2, 200), (3, 300), (4, 400), (5, 500)", tableName));
+            execute(deleter, format("DELETE FROM %s WHERE column2 = 100", tableName));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(2, 200), row(3, 300), row(4, 400), row(5, 500));
+
+            execute(inserter, format("INSERT INTO %s VALUES (6, 600), (7, 700)", tableName));
+            execute(deleter, format("DELETE FROM %s WHERE column1 = 4", tableName));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(2, 200), row(3, 300), row(5, 500), row(6, 600), row(7, 700));
+
+            execute(deleter, format("DELETE FROM %s WHERE column1 <= 3 OR column1 = 6", tableName));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(5, 500), row(7, 700));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
+    public void testMultiDelete(HiveOrPresto inserter, HiveOrPresto deleter)
+    {
+        withTemporaryTable("unpartitioned_multi_delete", true, false, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true)", tableName));
+            execute(inserter, format("INSERT INTO %s VALUES (1, 100), (2, 200), (3, 300), (4, 400), (5, 500)", tableName));
+            execute(inserter, format("INSERT INTO %s VALUES (6, 600), (7, 700), (8, 800), (9, 900), (10, 1000)", tableName));
+
+            execute(deleter, format("DELETE FROM %s WHERE column1 = 9", tableName));
+            execute(deleter, format("DELETE FROM %s WHERE column1 = 2 OR column1 = 3", tableName));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, 100), row(4, 400), row(5, 500), row(6, 600), row(7, 700), row(8, 800), row(10, 1000));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
+    public void testTransactionalMetadataDelete(HiveOrPresto inserter, HiveOrPresto deleter)
+    {
+        withTemporaryTable("metadata_delete", true, true, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true, partitioned_by = ARRAY['column2'])", tableName));
+            execute(inserter, format("INSERT INTO %s (column2, column1) VALUES %s, %s",
+                    tableName,
+                    makeInsertValues(1, 1, 20),
+                    makeInsertValues(2, 1, 20)));
+
+            execute(deleter, format("DELETE FROM %s WHERE column2 = 1", tableName));
+            verifySelectForPrestoAndHive("SELECT COUNT(*) FROM " + tableName, "column2 = 1", row(0));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testNonTransactionalMetadataDelete()
+    {
+        withTemporaryTable("non_transactional_metadata_delete", false, true, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s (column2 BIGINT, column1 INT) WITH (partitioned_by = ARRAY['column1'])", tableName));
+
+            execute(HiveOrPresto.PRESTO, format("INSERT INTO %s (column1, column2) VALUES %s, %s",
+                    tableName,
+                    makeInsertValues(1, 1, 10),
+                    makeInsertValues(2, 1, 10)));
+
+            execute(HiveOrPresto.PRESTO, format("INSERT INTO %s (column1, column2) VALUES %s, %s",
+                    tableName,
+                    makeInsertValues(1, 11, 20),
+                    makeInsertValues(2, 11, 20)));
+
+            execute(HiveOrPresto.PRESTO, format("DELETE FROM %s WHERE column1 = 1", tableName));
+            verifySelectForPrestoAndHive("SELECT COUNT(*) FROM " + tableName, "column1 = 1", row(0));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
+    public void testUnpartitionedDeleteAll(HiveOrPresto inserter, HiveOrPresto deleter)
+    {
+        withTemporaryTable("unpartitioned_delete_all", true, false, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true)", tableName));
+            execute(inserter, format("INSERT INTO %s VALUES (1, 100), (2, 200), (3, 300), (4, 400), (5, 500)", tableName));
+            execute(deleter, "DELETE FROM " + tableName);
+            verifySelectForPrestoAndHive("SELECT COUNT(*) FROM " + tableName, "true", row(0));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
+    public void testMultiColumnDelete(HiveOrPresto inserter, HiveOrPresto deleter)
+    {
+        withTemporaryTable("multi_column_delete", true, false, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true)", tableName));
+            execute(inserter, format("INSERT INTO %s VALUES (1, 100), (2, 200), (3, 300), (4, 400), (5, 500)", tableName));
+            String where = " WHERE column1 >= 2 AND column2 <= 400";
+            execute(deleter, format("DELETE FROM %s %s", tableName, where));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "column1 IN (1, 5)", row(1, 100), row(5, 500));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
+    public void testPartitionAndRowsDelete(HiveOrPresto inserter, HiveOrPresto deleter)
+    {
+        withTemporaryTable("partition_and_rows_delete", true, true, NONE, tableName -> {
+            onPresto().executeQuery("CREATE TABLE " + tableName +
+                    " (column2 BIGINT, column1 INT) WITH (transactional = true, partitioned_by = ARRAY['column1'])");
+            execute(inserter, format("INSERT INTO %s (column1, column2) VALUES (1, 100), (1, 200), (2, 300), (2, 400), (2, 500)", tableName));
+            String where = " WHERE column1 = 2 OR column2 = 200";
+            execute(deleter, format("DELETE FROM %s %s", tableName, where));
+            verifySelectForPrestoAndHive("SELECT column1, column2 FROM " + tableName, "true", row(1, 100));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
+    public void testPartitionedInsertAndRowLevelDelete(HiveOrPresto inserter, HiveOrPresto deleter)
+    {
+        withTemporaryTable("partitioned_row_level_delete", true, true, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s (column2 INT, column1 BIGINT) WITH (transactional = true, partitioned_by = ARRAY['column1'])", tableName));
+
+            execute(inserter, format("INSERT INTO %s (column1, column2) VALUES %s, %s",
+                    tableName,
+                    makeInsertValues(1, 1, 20),
+                    makeInsertValues(2, 1, 20)));
+            execute(inserter, format("INSERT INTO %s (column1, column2) VALUES %s, %s",
+                    tableName,
+                    makeInsertValues(1, 21, 40),
+                    makeInsertValues(2, 21, 40)));
+
+            verifySelectForPrestoAndHive("SELECT COUNT(*) FROM " + tableName, "column2 > 10 AND column2 <= 30", row(40));
+
+            execute(deleter, format("DELETE FROM %s WHERE column2 > 10 AND column2 <= 30", tableName));
+            verifySelectForPrestoAndHive("SELECT COUNT(*) FROM " + tableName, "column2 > 10 AND column2 <= 30", row(0));
+            verifySelectForPrestoAndHive("SELECT COUNT(*) FROM " + tableName, "true", row(40));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
+    public void testBucketedPartitionedDelete(HiveOrPresto inserter, HiveOrPresto deleter)
+    {
+        withTemporaryTable("bucketed_partitioned_delete", true, true, NONE, tableName -> {
+            onHive().executeQuery(format("CREATE TABLE %s (purchase STRING) PARTITIONED BY (customer STRING) CLUSTERED BY (purchase) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional' = 'true')", tableName));
+
+            execute(inserter, format("INSERT INTO %s (customer, purchase) VALUES", tableName) +
+                    " ('Fred', 'cards'), ('Fred', 'cereal'), ('Fred', 'limes'), ('Fred', 'chips')," +
+                    " ('Ann', 'cards'), ('Ann', 'cereal'), ('Ann', 'lemons'), ('Ann', 'chips')," +
+                    " ('Lou', 'cards'), ('Lou', 'cereal'), ('Lou', 'lemons'), ('Lou', 'chips')");
+
+            verifySelectForPrestoAndHive(format("SELECT customer FROM %s", tableName), "purchase = 'lemons'", row("Ann"), row("Lou"));
+
+            verifySelectForPrestoAndHive(format("SELECT purchase FROM %s", tableName), "customer = 'Fred'", row("cards"), row("cereal"), row("limes"), row("chips"));
+
+            execute(inserter, format("INSERT INTO %s (customer, purchase) VALUES", tableName) +
+                    " ('Ernie', 'cards'), ('Ernie', 'cereal')," +
+                    " ('Debby', 'corn'), ('Debby', 'chips')," +
+                    " ('Joe', 'corn'), ('Joe', 'lemons'), ('Joe', 'candy')");
+
+            verifySelectForPrestoAndHive("SELECT customer FROM " + tableName, "purchase = 'corn'", row("Debby"), row("Joe"));
+
+            execute(deleter, format("DELETE FROM %s WHERE purchase = 'lemons'", tableName));
+            verifySelectForPrestoAndHive("SELECT purchase FROM " + tableName, "customer = 'Ann'", row("cards"), row("cereal"), row("chips"));
+
+            execute(deleter, format("DELETE FROM %s WHERE purchase like('c%%')", tableName));
+            verifySelectForPrestoAndHive("SELECT customer, purchase FROM " + tableName, "true", row("Fred", "limes"));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
+    public void testBucketedUnpartitionedDelete(HiveOrPresto inserter, HiveOrPresto deleter)
+    {
+        withTemporaryTable("bucketed_unpartitioned_delete", true, true, NONE, tableName -> {
+            onHive().executeQuery(format("CREATE TABLE %s (customer STRING, purchase STRING) CLUSTERED BY (purchase) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional' = 'true')", tableName));
+
+            execute(inserter, format("INSERT INTO %s (customer, purchase) VALUES", tableName) +
+                    " ('Fred', 'cards'), ('Fred', 'cereal'), ('Fred', 'limes'), ('Fred', 'chips')," +
+                    " ('Ann', 'cards'), ('Ann', 'cereal'), ('Ann', 'lemons'), ('Ann', 'chips')," +
+                    " ('Lou', 'cards'), ('Lou', 'cereal'), ('Lou', 'lemons'), ('Lou', 'chips')");
+
+            verifySelectForPrestoAndHive(format("SELECT customer FROM %s", tableName), "purchase = 'lemons'", row("Ann"), row("Lou"));
+
+            verifySelectForPrestoAndHive(format("SELECT purchase FROM %s", tableName), "customer = 'Fred'", row("cards"), row("cereal"), row("limes"), row("chips"));
+
+            execute(inserter, format("INSERT INTO %s (customer, purchase) VALUES", tableName) +
+                    " ('Ernie', 'cards'), ('Ernie', 'cereal')," +
+                    " ('Debby', 'corn'), ('Debby', 'chips')," +
+                    " ('Joe', 'corn'), ('Joe', 'lemons'), ('Joe', 'candy')");
+
+            verifySelectForPrestoAndHive("SELECT customer FROM " + tableName, "purchase = 'corn'", row("Debby"), row("Joe"));
+
+            execute(deleter, format("DELETE FROM %s WHERE purchase = 'lemons'", tableName));
+            verifySelectForPrestoAndHive("SELECT purchase FROM " + tableName, "customer = 'Ann'", row("cards"), row("cereal"), row("chips"));
+
+            execute(deleter, format("DELETE FROM %s WHERE purchase like('c%%')", tableName));
+            verifySelectForPrestoAndHive("SELECT customer, purchase FROM " + tableName, "true", row("Fred", "limes"));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
+    public void testCorrectSelectCountStar(HiveOrPresto inserter, HiveOrPresto deleter)
+    {
+        withTemporaryTable("select_count_star_delete", true, true, NONE, tableName -> {
+            onHive().executeQuery(format("CREATE TABLE %s (col1 INT, col2 BIGINT) PARTITIONED BY (col3 STRING) STORED AS ORC TBLPROPERTIES ('transactional'='true')", tableName));
+
+            execute(inserter, format("INSERT INTO %s VALUES (1, 100, 'a'), (2, 200, 'b'), (3, 300, 'c'), (4, 400, 'a'), (5, 500, 'b'), (6, 600, 'c')", tableName));
+            execute(deleter, format("DELETE FROM %s WHERE col2 = 200", tableName));
+            verifySelectForPrestoAndHive("SELECT COUNT(*) FROM " + tableName, "true", row(5));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "insertersProvider", timeOut = TEST_TIMEOUT)
+    public void testInsertOnlyMultipleWriters(boolean bucketed, HiveOrPresto inserter1, HiveOrPresto inserter2)
+    {
+        log.info("testInsertOnlyMultipleWriters bucketed %s, inserter1 %s, inserter2 %s", bucketed, inserter1, inserter2);
+        withTemporaryTable("insert_only_partitioned", true, true, NONE, tableName -> {
+            onHive().executeQuery(format("CREATE TABLE %s (col1 INT, col2 BIGINT) PARTITIONED BY (col3 STRING) %s STORED AS ORC TBLPROPERTIES ('transactional'='true', 'transactional_properties'='insert_only')",
+                    tableName, bucketed ? "CLUSTERED BY (col2) INTO 3 BUCKETS" : ""));
+
+            execute(inserter1, format("INSERT INTO %s VALUES (1, 100, 'a'), (2, 200, 'b')", tableName));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, 100, "a"), row(2, 200, "b"));
+
+            execute(inserter2, format("INSERT INTO %s VALUES (3, 300, 'c'), (4, 400, 'a')", tableName));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, 100, "a"), row(2, 200, "b"), row(3, 300, "c"), row(4, 400, "a"));
+
+            execute(inserter1, format("INSERT INTO %s VALUES (5, 500, 'b'), (6, 600, 'c')", tableName));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, 100, "a"), row(2, 200, "b"), row(3, 300, "c"), row(4, 400, "a"), row(5, 500, "b"), row(6, 600, "c"));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "col2 > 300", row(4, 400, "a"), row(5, 500, "b"), row(6, 600, "c"));
+
+            execute(inserter2, format("INSERT INTO %s VALUES (7, 700, 'b'), (8, 800, 'c')", tableName));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(1, 100, "a"), row(2, 200, "b"), row(3, 300, "c"), row(4, 400, "a"), row(5, 500, "b"), row(6, 600, "c"), row(7, 700, "b"), row(8, 800, "c"));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "col3 = 'c'", row(3, 300, "c"), row(6, 600, "c"), row(8, 800, "c"));
+        });
+    }
+
+    @DataProvider
+    public Object[][] insertersProvider()
+    {
+        return new Object[][] {
+                {false, HiveOrPresto.HIVE, HiveOrPresto.PRESTO},
+                {false, HiveOrPresto.PRESTO, HiveOrPresto.PRESTO},
+                {true, HiveOrPresto.HIVE, HiveOrPresto.PRESTO},
+                {true, HiveOrPresto.PRESTO, HiveOrPresto.PRESTO},
+        };
+    }
+
+    private enum HiveOrPresto
+    {
+        HIVE,
+        PRESTO
+    }
+
+    private static QueryResult execute(HiveOrPresto hiveOrPresto, String sql, QueryExecutor.QueryParam... params)
+    {
+        return executorFor(hiveOrPresto).executeQuery(sql, params);
+    }
+
+    private static QueryExecutor executorFor(HiveOrPresto hiveOrPresto)
+    {
+        switch (hiveOrPresto) {
+            case HIVE:
+                return onHive();
+            case PRESTO:
+                return onPresto();
+            default:
+                throw new IllegalStateException("Unknown enum value " + hiveOrPresto);
+        }
+    }
+
+    @DataProvider
+    public Object[][] inserterAndDeleterProvider()
+    {
+        return new Object[][] {
+                {HiveOrPresto.HIVE, HiveOrPresto.PRESTO},
+                {HiveOrPresto.PRESTO, HiveOrPresto.PRESTO},
+                {HiveOrPresto.PRESTO, HiveOrPresto.HIVE}
+        };
+    }
+
+    void withTemporaryTable(String rootName, boolean transactional, boolean isPartitioned, BucketingType bucketingType, Consumer<String> testRunner)
+    {
+        if (transactional) {
+            ensureTransactionalHive();
+        }
+        String tableName = null;
+        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(tableName(rootName, isPartitioned, bucketingType))) {
+            tableName = table.getName();
+            testRunner.accept(tableName);
         }
     }
 
@@ -610,5 +1074,32 @@ public class TestHiveTransactionalTable
         MAJOR,
         MINOR,
         /**/;
+    }
+
+    private String makeInsertValues(int col1Value, int col2First, int col2Last)
+    {
+        checkArgument(col2First <= col2Last, "The first value %s must be less or equal to the last %s", col2First, col2Last);
+        return IntStream.rangeClosed(col2First, col2Last).mapToObj(i -> format("(%s, %s)", col1Value, i)).collect(Collectors.joining(", "));
+    }
+
+    private void ensureTransactionalHive()
+    {
+        if (getHiveVersionMajor() < 3) {
+            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
+        }
+    }
+
+    private void verifySelectForPrestoAndHive(String select, String whereClause, QueryAssert.Row... rows)
+    {
+        verifySelect(onPresto(), "selecting on Presto", select, whereClause, rows);
+        verifySelect(onHive(), "selecting on Hive", select, whereClause, rows);
+    }
+
+    private void verifySelect(QueryExecutor executor, String description, String select, String whereClause, QueryAssert.Row... rows)
+    {
+        String fullQuery = format("%s WHERE %s", select, whereClause);
+
+        assertThat(executor.executeQuery(fullQuery))
+                .containsOnly(rows);
     }
 }

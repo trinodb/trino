@@ -19,6 +19,7 @@ import io.prestosql.plugin.hive.FileWriter;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveFileWriterFactory;
 import io.prestosql.plugin.hive.HiveSessionProperties;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -36,6 +37,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 
@@ -67,7 +69,10 @@ public class ParquetFileWriterFactory
             StorageFormat storageFormat,
             Properties schema,
             JobConf conf,
-            ConnectorSession session)
+            ConnectorSession session,
+            OptionalInt bucketNumber,
+            AcidTransaction transaction,
+            boolean useAcidSchema)
     {
         if (!HiveSessionProperties.isParquetOptimizedWriterEnabled(session)) {
             return Optional.empty();

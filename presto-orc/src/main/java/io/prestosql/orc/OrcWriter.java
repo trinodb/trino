@@ -14,7 +14,6 @@
 package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.UnsignedBytes;
 import io.airlift.slice.Slice;
@@ -106,7 +105,7 @@ public final class OrcWriter
     private final int stripeMaxRowCount;
     private final int rowGroupMaxRowCount;
     private final int maxCompressionBufferSize;
-    private final Map<String, String> userMetadata;
+    private final Map<String, String> userMetadata = new HashMap<>();
     private final CompressedMetadataWriter metadataWriter;
 
     private final List<ClosedStripe> closedStripes = new ArrayList<>();
@@ -161,10 +160,8 @@ public final class OrcWriter
         recordValidation(validation -> validation.setRowGroupMaxRowCount(rowGroupMaxRowCount));
         this.maxCompressionBufferSize = toIntExact(options.getMaxCompressionBufferSize().toBytes());
 
-        this.userMetadata = ImmutableMap.<String, String>builder()
-                .putAll(requireNonNull(userMetadata, "userMetadata is null"))
-                .put(PRESTO_ORC_WRITER_VERSION_METADATA_KEY, PRESTO_ORC_WRITER_VERSION)
-                .build();
+        this.userMetadata.putAll(requireNonNull(userMetadata, "userMetadata is null"));
+        this.userMetadata.put(PRESTO_ORC_WRITER_VERSION_METADATA_KEY, PRESTO_ORC_WRITER_VERSION);
         this.metadataWriter = new CompressedMetadataWriter(new OrcMetadataWriter(writeLegacyVersion), compression, maxCompressionBufferSize);
         this.stats = requireNonNull(stats, "stats is null");
 
@@ -231,6 +228,11 @@ public final class OrcWriter
     public int getBufferedBytes()
     {
         return bufferedBytes;
+    }
+
+    public int getStripeRowCount()
+    {
+        return stripeRowCount;
     }
 
     public long getRetainedBytes()
@@ -466,6 +468,30 @@ public final class OrcWriter
         try (Closeable ignored = orcDataSink) {
             flushStripe(CLOSED);
         }
+    }
+
+    public enum OrcOperation
+    {
+        NONE(-1),
+        INSERT(0),
+        DELETE(2);
+
+        private final int operationNumber;
+
+        OrcOperation(int operationNumber)
+        {
+            this.operationNumber = operationNumber;
+        }
+
+        public int getOperationNumber()
+        {
+            return operationNumber;
+        }
+    }
+
+    public void updateUserMetadata(Map<String, String> updatedProperties)
+    {
+        userMetadata.putAll(updatedProperties);
     }
 
     /**
