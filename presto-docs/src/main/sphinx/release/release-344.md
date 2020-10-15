@@ -68,9 +68,9 @@ Please, read these release notes carefully.
 ## PostgreSQL Connector Changes
 
 * Add support for setting a column comment. ({issue}`5307`)
-* Add support for variable-precision `time` type. ({issue}`5432`)
+* Add support for variable-precision `time` type. ({issue}`5342`)
 * Allow `CREATE TABLE` and `CREATE TABLE AS` with `timestamp` and `timestamp with time zone` with precision higher than 6.
-  The resulting column will be declared with precision of 6, maximal supported by PostgreSQL. ({issue}`5432`)
+  The resulting column will be declared with precision of 6, maximal supported by PostgreSQL. ({issue}`5342`)
 
 ## SQL Server Connector Changes
 
