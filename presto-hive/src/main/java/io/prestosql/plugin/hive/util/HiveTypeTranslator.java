@@ -14,18 +14,34 @@
 package io.prestosql.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
+import io.prestosql.plugin.hive.HiveErrorCode;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
+import org.apache.hadoop.hive.serde2.typeinfo.CharTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.UnionTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
+
+import javax.annotation.Nullable;
+
+import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveType.HIVE_BINARY;
@@ -45,13 +61,23 @@ import static io.prestosql.plugin.hive.util.HiveUtil.isRowType;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
+import static io.prestosql.spi.type.TypeSignature.mapType;
+import static io.prestosql.spi.type.TypeSignature.rowType;
+import static io.prestosql.spi.type.TypeSignatureParameter.namedField;
+import static io.prestosql.spi.type.TypeSignatureParameter.typeParameter;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
@@ -148,5 +174,92 @@ public final class HiveTypeTranslator
                             .collect(toImmutableList()));
         }
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
+    }
+
+    public static TypeSignature toTypeSignature(TypeInfo typeInfo)
+    {
+        switch (typeInfo.getCategory()) {
+            case PRIMITIVE:
+                Type primitiveType = fromPrimitiveType((PrimitiveTypeInfo) typeInfo);
+                if (primitiveType == null) {
+                    break;
+                }
+                return primitiveType.getTypeSignature();
+            case MAP:
+                MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
+                return mapType(
+                        toTypeSignature(mapTypeInfo.getMapKeyTypeInfo()),
+                        toTypeSignature(mapTypeInfo.getMapValueTypeInfo()));
+            case LIST:
+                ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
+                TypeSignature elementType = toTypeSignature(listTypeInfo.getListElementTypeInfo());
+                return arrayType(typeParameter(elementType));
+            case STRUCT:
+                StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
+                List<TypeInfo> fieldTypes = structTypeInfo.getAllStructFieldTypeInfos();
+                List<String> fieldNames = structTypeInfo.getAllStructFieldNames();
+                if (fieldTypes.size() != fieldNames.size()) {
+                    throw new PrestoException(HiveErrorCode.HIVE_INVALID_METADATA, format("Invalid Hive struct type: %s", typeInfo));
+                }
+                return rowType(Streams.zip(
+                        // We lower case the struct field names.
+                        // Otherwise, Presto will refuse to write to columns whose struct type has field names containing upper case characters.
+                        // Users can't work around this by casting in their queries because Presto parser always lower case types.
+                        // TODO: This is a hack. Presto engine should be able to handle identifiers in a case insensitive way where necessary.
+                        fieldNames.stream().map(s -> s.toLowerCase(Locale.US)),
+                        fieldTypes.stream().map(HiveTypeTranslator::toTypeSignature),
+                        TypeSignatureParameter::namedField)
+                        .collect(Collectors.toList()));
+            case UNION:
+                // Use a row type to represent a union type in Hive for reading
+                UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
+                List<TypeInfo> unionObjectTypes = unionTypeInfo.getAllUnionObjectTypeInfos();
+                ImmutableList.Builder<TypeSignatureParameter> typeSignatures = ImmutableList.builder();
+                typeSignatures.add(namedField("tag", TINYINT.getTypeSignature()));
+                for (int i = 0; i < unionObjectTypes.size(); i++) {
+                    TypeInfo unionObjectType = unionObjectTypes.get(i);
+                    typeSignatures.add(namedField("field" + i, toTypeSignature(unionObjectType)));
+                }
+                return rowType(typeSignatures.build());
+        }
+        throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
+    }
+
+    @Nullable
+    public static Type fromPrimitiveType(PrimitiveTypeInfo typeInfo)
+    {
+        switch (typeInfo.getPrimitiveCategory()) {
+            case BOOLEAN:
+                return BOOLEAN;
+            case BYTE:
+                return TINYINT;
+            case SHORT:
+                return SMALLINT;
+            case INT:
+                return INTEGER;
+            case LONG:
+                return BIGINT;
+            case FLOAT:
+                return REAL;
+            case DOUBLE:
+                return DOUBLE;
+            case STRING:
+                return createUnboundedVarcharType();
+            case VARCHAR:
+                return createVarcharType(((VarcharTypeInfo) typeInfo).getLength());
+            case CHAR:
+                return createCharType(((CharTypeInfo) typeInfo).getLength());
+            case DATE:
+                return DATE;
+            case TIMESTAMP:
+                return TIMESTAMP_MILLIS;
+            case BINARY:
+                return VARBINARY;
+            case DECIMAL:
+                DecimalTypeInfo decimalTypeInfo = (DecimalTypeInfo) typeInfo;
+                return createDecimalType(decimalTypeInfo.precision(), decimalTypeInfo.scale());
+            default:
+                return null;
+        }
     }
 }
