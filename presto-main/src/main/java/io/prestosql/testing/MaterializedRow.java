@@ -25,6 +25,7 @@ import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkElementIndex;
+import static io.prestosql.testing.MaterializedResult.DEFAULT_PRECISION;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -40,6 +41,11 @@ public class MaterializedRow
     public MaterializedRow(int precision, Object... values)
     {
         this(precision, Arrays.asList(requireNonNull(values, "values is null")));
+    }
+
+    public MaterializedRow(List<Object> values)
+    {
+        this(DEFAULT_PRECISION, values);
     }
 
     public MaterializedRow(int precision, List<Object> values)

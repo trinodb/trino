@@ -36,7 +36,6 @@ import java.util.Set;
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertThrows;
 
 public class TestFileBasedAccessControl
 {
@@ -371,7 +370,10 @@ public class TestFileBasedAccessControl
 
     private static void assertDenied(ThrowingRunnable runnable)
     {
-        assertThrows(AccessDeniedException.class, runnable);
+        assertThatThrownBy(runnable::run)
+                .isInstanceOf(AccessDeniedException.class)
+                // TODO test expected message precisely, as in TestFileBasedSystemAccessControl
+                .hasMessageStartingWith("Access Denied");
     }
 
     private static ColumnMetadata column(String columnName)

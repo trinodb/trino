@@ -581,7 +581,7 @@ public class PredicatePushDown
 
         private DynamicFiltersResult createDynamicFilters(JoinNode node, List<JoinNode.EquiJoinClause> equiJoinClauses, Session session, PlanNodeIdAllocator idAllocator)
         {
-            if (node.getType() != INNER || !isEnableDynamicFiltering(session) || !dynamicFiltering) {
+            if ((node.getType() != INNER && node.getType() != RIGHT) || !isEnableDynamicFiltering(session) || !dynamicFiltering) {
                 return new DynamicFiltersResult(ImmutableMap.of(), ImmutableList.of());
             }
 

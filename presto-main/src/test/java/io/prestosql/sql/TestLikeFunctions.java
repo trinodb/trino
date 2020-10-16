@@ -34,7 +34,6 @@ import static io.prestosql.type.LikeFunctions.unescapeLiteralLikePattern;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 public class TestLikeFunctions
@@ -147,9 +146,15 @@ public class TestLikeFunctions
     @Test
     public void testInvalidLikePattern()
     {
-        assertThrows(PrestoException.class, () -> likePattern(utf8Slice("#"), utf8Slice("#")));
-        assertThrows(PrestoException.class, () -> likePattern(utf8Slice("abc#abc"), utf8Slice("#")));
-        assertThrows(PrestoException.class, () -> likePattern(utf8Slice("abc#"), utf8Slice("#")));
+        assertThatThrownBy(() -> likePattern(utf8Slice("#"), utf8Slice("#")))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
+        assertThatThrownBy(() -> likePattern(utf8Slice("abc#abc"), utf8Slice("#")))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
+        assertThatThrownBy(() -> likePattern(utf8Slice("abc#"), utf8Slice("#")))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
     }
 
     @Test

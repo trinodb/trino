@@ -46,7 +46,7 @@ Analysis and confirmation
 Dynamic filtering depends on a number of factors:
 
 * Planner support for dynamic filtering for a given join operation in Presto.
-  Currently inner joins with equality join conditions and semi-joins with IN conditions are supported.
+  Currently inner and right joins with equality join conditions and semi-joins with IN conditions are supported.
 * Connector support for utilizing dynamic filters pushed into the table scan at runtime.
   For example, the Hive connector can push dynamic filters into ORC and Parquet readers
   to perform stripe or row-group pruning.

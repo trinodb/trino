@@ -13,8 +13,8 @@
  */
 package io.prestosql.orc.metadata.statistics;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertThrows;
 
 public abstract class AbstractRangeStatisticsTest<R extends RangeStatistics<T>, T>
 {
@@ -29,7 +29,9 @@ public abstract class AbstractRangeStatisticsTest<R extends RangeStatistics<T>, 
         assertMinMaxStatistics(null, max);
 
         if (!min.equals(max)) {
-            assertThrows(() -> getCreateStatistics(max, min));
+            assertThatThrownBy(() -> getCreateStatistics(max, min))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("minimum is not less than or equal to maximum");
         }
     }
 

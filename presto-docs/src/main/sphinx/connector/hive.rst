@@ -335,6 +335,10 @@ Property Name                                      Description                  
 ``hive.metastore-refresh-max-threads``  Maximum threads used to refresh cached metastore data.        100
 
 ``hive.metastore-timeout``              Timeout for Hive metastore requests.                         ``10s``
+
+``hive.hide-delta-lake-tables``         Controls whether to hide Delta Lake tables in table          false
+                                        listings. Currently applies only when using the AWS Glue
+                                        metastore.
 ======================================= ============================================================ ============
 
 Thrift Metastore Configuration Properties

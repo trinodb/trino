@@ -39,10 +39,10 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 public class TestMapBlock
@@ -371,7 +371,9 @@ public class TestMapBlock
             BIGINT.writeLong(entryBuilder, 99);
             BIGINT.writeLong(entryBuilder, -1);
         }
-        assertThrows(DuplicateMapKeyException.class, mapBlockBuilder::closeEntry);
+        assertThatThrownBy(mapBlockBuilder::closeEntry)
+                .isInstanceOf(DuplicateMapKeyException.class)
+                .hasMessage("Duplicate map keys are not allowed");
     }
 
     @Test
