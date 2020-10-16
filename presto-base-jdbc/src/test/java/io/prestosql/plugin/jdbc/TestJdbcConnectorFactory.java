@@ -13,16 +13,19 @@
  */
 package io.prestosql.plugin.jdbc;
 
+import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
+
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
 public class TestJdbcConnectorFactory
 {
     @Test
     public void test()
     {
-        ConnectorFactory connectorFactory = new JdbcConnectorFactory("test", new TestingH2JdbcModule());
+        ConnectorFactory connectorFactory = new JdbcConnectorFactory("test", combine(new CredentialProviderModule(), new TestingH2JdbcModule()));
 
         connectorFactory.create("test", TestingH2JdbcModule.createProperties(), new TestingConnectorContext());
     }
