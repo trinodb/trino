@@ -18,6 +18,7 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
@@ -44,7 +45,8 @@ public class JdbcModule
     @Override
     public void configure(Binder binder)
     {
-        binder.install(new JdbcDiagnosticModule(catalogName));
+        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
+        binder.install(new JdbcDiagnosticModule());
 
         newOptionalBinder(binder, ConnectorAccessControl.class);
 
