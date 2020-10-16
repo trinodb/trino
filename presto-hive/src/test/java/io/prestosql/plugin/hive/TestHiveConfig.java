@@ -99,7 +99,7 @@ public class TestHiveConfig
                 .setPartitionUseColumnNames(false)
                 .setProjectionPushdownEnabled(true)
                 .setDynamicFilteringProbeBlockingTimeout(new Duration(0, TimeUnit.MINUTES))
-                .setTimestampPrecision(HiveTimestampPrecision.MILLISECONDS)
+                .setTimestampPrecision(HiveTimestampPrecision.DEFAULT_PRECISION)
                 .setOptimizeSymlinkListing(true)
                 .setLegacyHiveViewTranslation(false));
     }
