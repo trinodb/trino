@@ -67,6 +67,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -440,8 +441,17 @@ public class OrcPageSourceFactory
     static void verifyAcidSchema(OrcReader orcReader, Path path)
     {
         OrcColumn rootColumn = orcReader.getRootColumn();
-        if (rootColumn.getNestedColumns().size() != 6) {
-            throw new PrestoException(HIVE_BAD_DATA, "ORC ACID file should have 6 columns: " + path);
+        List<OrcColumn> nestedColumns = rootColumn.getNestedColumns();
+        if (nestedColumns.size() != 6) {
+            throw new PrestoException(
+                    HIVE_BAD_DATA,
+                    format(
+                            "ORC ACID file should have 6 columns, found %s %s in %s",
+                            nestedColumns.size(),
+                            nestedColumns.stream()
+                                    .map(column -> format("%s (%s)", column.getColumnName(), column.getColumnType()))
+                                    .collect(toImmutableList()),
+                            path));
         }
         verifyAcidColumn(orcReader, 0, AcidSchema.ACID_COLUMN_OPERATION, INT, path);
         verifyAcidColumn(orcReader, 1, AcidSchema.ACID_COLUMN_ORIGINAL_TRANSACTION, LONG, path);
