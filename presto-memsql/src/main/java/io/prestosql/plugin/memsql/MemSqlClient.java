@@ -25,7 +25,9 @@ import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.PredicatePushdownController;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.StandardTypes;
@@ -42,6 +44,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
@@ -159,6 +162,35 @@ public class MemSqlClient
 
         // TODO add explicit mappings
         return super.toPrestoType(session, connection, typeHandle);
+    }
+
+    @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        // MemSQL doesn't accept `some;column` in CTAS statements - so we explicitly block it and throw a proper error message
+        tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getName)
+                .filter(s -> s.contains(";"))
+                .findAny()
+                .ifPresent(illegalColumnName -> {
+                    throw new PrestoException(JDBC_ERROR, format("Incorrect column name '%s'", illegalColumnName));
+                });
+
+        super.createTable(session, tableMetadata);
+    }
+
+    @Override
+    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    {
+        // MemSQL doesn't accept `some;column` in CTAS statements - so we explicitly block it and throw a proper error message
+        columnNames.stream()
+                .filter(s -> s.contains(";"))
+                .findAny()
+                .ifPresent(illegalColumnName -> {
+                    throw new PrestoException(JDBC_ERROR, format("Incorrect column name '%s'", illegalColumnName));
+                });
+
+        super.copyTableSchema(connection, catalogName, schemaName, tableName, newTableName, columnNames);
     }
 
     @Override
