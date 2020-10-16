@@ -17,16 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.IntegerType;
-import io.prestosql.spi.type.RealType;
-import io.prestosql.spi.type.SmallintType;
-import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
@@ -60,10 +52,8 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
@@ -114,25 +104,25 @@ public final class SerDeUtils
 
         switch (inspector.getPrimitiveCategory()) {
             case BOOLEAN:
-                BooleanType.BOOLEAN.writeBoolean(builder, ((BooleanObjectInspector) inspector).get(object));
+                type.writeBoolean(builder, ((BooleanObjectInspector) inspector).get(object));
                 return;
             case BYTE:
-                TinyintType.TINYINT.writeLong(builder, ((ByteObjectInspector) inspector).get(object));
+                type.writeLong(builder, ((ByteObjectInspector) inspector).get(object));
                 return;
             case SHORT:
-                SmallintType.SMALLINT.writeLong(builder, ((ShortObjectInspector) inspector).get(object));
+                type.writeLong(builder, ((ShortObjectInspector) inspector).get(object));
                 return;
             case INT:
-                IntegerType.INTEGER.writeLong(builder, ((IntObjectInspector) inspector).get(object));
+                type.writeLong(builder, ((IntObjectInspector) inspector).get(object));
                 return;
             case LONG:
-                BigintType.BIGINT.writeLong(builder, ((LongObjectInspector) inspector).get(object));
+                type.writeLong(builder, ((LongObjectInspector) inspector).get(object));
                 return;
             case FLOAT:
-                RealType.REAL.writeLong(builder, floatToRawIntBits(((FloatObjectInspector) inspector).get(object)));
+                type.writeLong(builder, floatToRawIntBits(((FloatObjectInspector) inspector).get(object)));
                 return;
             case DOUBLE:
-                DoubleType.DOUBLE.writeDouble(builder, ((DoubleObjectInspector) inspector).get(object));
+                type.writeDouble(builder, ((DoubleObjectInspector) inspector).get(object));
                 return;
             case STRING:
                 type.writeSlice(builder, Slices.utf8Slice(((StringObjectInspector) inspector).getPrimitiveJavaObject(object)));
@@ -141,27 +131,26 @@ public final class SerDeUtils
                 type.writeSlice(builder, Slices.utf8Slice(((HiveVarcharObjectInspector) inspector).getPrimitiveJavaObject(object).getValue()));
                 return;
             case CHAR:
-                CharType charType = (CharType) type;
                 HiveChar hiveChar = ((HiveCharObjectInspector) inspector).getPrimitiveJavaObject(object);
-                type.writeSlice(builder, truncateToLengthAndTrimSpaces(Slices.utf8Slice(hiveChar.getValue()), charType.getLength()));
+                type.writeSlice(builder, truncateToLengthAndTrimSpaces(Slices.utf8Slice(hiveChar.getValue()), ((CharType) type).getLength()));
                 return;
             case DATE:
-                DateType.DATE.writeLong(builder, formatDateAsLong(object, (DateObjectInspector) inspector));
+                type.writeLong(builder, formatDateAsLong(object, (DateObjectInspector) inspector));
                 return;
             case TIMESTAMP:
-                TIMESTAMP_MILLIS.writeLong(builder, formatTimestampAsLong(object, (TimestampObjectInspector) inspector));
+                type.writeLong(builder, formatTimestampAsLong(object, (TimestampObjectInspector) inspector));
                 return;
             case BINARY:
-                VARBINARY.writeSlice(builder, Slices.wrappedBuffer(((BinaryObjectInspector) inspector).getPrimitiveJavaObject(object)));
+                type.writeSlice(builder, Slices.wrappedBuffer(((BinaryObjectInspector) inspector).getPrimitiveJavaObject(object)));
                 return;
             case DECIMAL:
                 DecimalType decimalType = (DecimalType) type;
                 HiveDecimalWritable hiveDecimal = ((HiveDecimalObjectInspector) inspector).getPrimitiveWritableObject(object);
                 if (decimalType.isShort()) {
-                    decimalType.writeLong(builder, DecimalUtils.getShortDecimalValue(hiveDecimal, decimalType.getScale()));
+                    type.writeLong(builder, DecimalUtils.getShortDecimalValue(hiveDecimal, decimalType.getScale()));
                 }
                 else {
-                    decimalType.writeSlice(builder, DecimalUtils.getLongDecimalValue(hiveDecimal, decimalType.getScale()));
+                    type.writeSlice(builder, DecimalUtils.getLongDecimalValue(hiveDecimal, decimalType.getScale()));
                 }
                 return;
         }

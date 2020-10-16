@@ -48,10 +48,12 @@ import static io.prestosql.plugin.hive.util.SerDeUtils.getBlockObject;
 import static io.prestosql.plugin.hive.util.SerDeUtils.serializeObject;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -163,19 +165,19 @@ public class TestSerDeUtils
         // date
         int date = toIntExact(LocalDate.of(2008, 10, 28).toEpochDay());
         Block expectedDate = VARBINARY.createBlockBuilder(null, 1).writeInt(date).closeEntry().build();
-        Block actualDate = toBinaryBlock(BIGINT, Date.ofEpochDay(date), getInspector(Date.class));
+        Block actualDate = toBinaryBlock(DATE, Date.ofEpochDay(date), getInspector(Date.class));
         assertBlockEquals(actualDate, expectedDate);
 
         // timestamp
-        DateTime dateTime = new DateTime(2008, 10, 28, 16, 7, 15, 0);
+        DateTime dateTime = new DateTime(2008, 10, 28, 16, 7, 15, 123);
         Block expectedTimestamp = VARBINARY.createBlockBuilder(null, 1).writeLong(dateTime.getMillis() * MICROSECONDS_PER_MILLISECOND).closeEntry().build();
-        Block actualTimestamp = toBinaryBlock(BIGINT, Timestamp.ofEpochMilli(dateTime.getMillis()), getInspector(Timestamp.class));
+        Block actualTimestamp = toBinaryBlock(TIMESTAMP_MILLIS, Timestamp.ofEpochMilli(dateTime.getMillis()), getInspector(Timestamp.class));
         assertBlockEquals(actualTimestamp, expectedTimestamp);
 
         // binary
         byte[] byteArray = {81, 82, 84, 85};
         Block expectedBinary = VARBINARY.createBlockBuilder(null, 1).writeBytes(Slices.wrappedBuffer(byteArray), 0, 4).closeEntry().build();
-        Block actualBinary = toBinaryBlock(createUnboundedVarcharType(), byteArray, getInspector(byte[].class));
+        Block actualBinary = toBinaryBlock(VARBINARY, byteArray, getInspector(byte[].class));
         assertBlockEquals(actualBinary, expectedBinary);
     }
 
