@@ -139,7 +139,7 @@ public class HiveConfig
 
     private Duration dynamicFilteringProbeBlockingTimeout = new Duration(0, MINUTES);
 
-    private HiveTimestampPrecision timestampPrecision = HiveTimestampPrecision.MILLISECONDS;
+    private HiveTimestampPrecision timestampPrecision = HiveTimestampPrecision.DEFAULT_PRECISION;
 
     private boolean optimizeSymlinkListing = true;
 
