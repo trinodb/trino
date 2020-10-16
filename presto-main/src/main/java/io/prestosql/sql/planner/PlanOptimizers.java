@@ -502,6 +502,18 @@ public class PlanOptimizers
                                 new RemoveRedundantIdentityProjections(),
                                 new ImplementUncorrelatedFilteringSemiJoin(),
                                 new ImplementUncorrelatedFilteringSemiJoinWithProject())),
+                new StatsRecordingPlanOptimizer(
+                        optimizerStats,
+                        new PredicatePushDown(metadata, typeOperators, typeAnalyzer, false, false)),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(
+                                new InlineProjections(),
+                                new RemoveRedundantIdentityProjections(),
+                                new ImplementUncorrelatedFilteringSemiJoin(),
+                                new ImplementUncorrelatedFilteringSemiJoinWithProject())),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
