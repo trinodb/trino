@@ -175,13 +175,12 @@ import io.prestosql.sql.planner.iterative.rule.RewriteSpatialPartitioningAggrega
 import io.prestosql.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import io.prestosql.sql.planner.iterative.rule.SimplifyExpressions;
 import io.prestosql.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
-import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedInPredicateToJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedJoinToJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedScalarAggregationToJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedScalarSubquery;
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedSingleRowSubqueryToProject;
 import io.prestosql.sql.planner.iterative.rule.TransformExistsApplyToCorrelatedJoin;
-import io.prestosql.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
+import io.prestosql.sql.planner.iterative.rule.TransformInPredicateToJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformUncorrelatedSubqueryToJoin;
 import io.prestosql.sql.planner.iterative.rule.UnwrapCastInComparison;
 import io.prestosql.sql.planner.optimizations.AddExchanges;
@@ -512,7 +511,6 @@ public class PlanOptimizers
                                         new RemoveRedundantEnforceSingleRowNode(),
                                         new RemoveUnreferencedScalarSubqueries(),
                                         new TransformUncorrelatedSubqueryToJoin(),
-                                        new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                                         new TransformCorrelatedJoinToJoin(metadata))
                                 .addAll(new TransformCorrelatedScalarAggregationToJoin(metadata).rules())
                                 .build()),
@@ -522,7 +520,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new RemoveUnreferencedScalarApplyNodes(),
-                                new TransformCorrelatedInPredicateToJoin(metadata), // must be run after columnPruningOptimizer
+                                new TransformInPredicateToJoin(metadata), // must be run after columnPruningOptimizer and after ImplementUncorrelatedFilteringSemiJoin*
                                 new TransformCorrelatedScalarSubquery(metadata), // must be run after TransformCorrelatedScalarAggregationToJoin
                                 new TransformCorrelatedJoinToJoin(metadata),
                                 new ImplementFilteredAggregations(metadata))),

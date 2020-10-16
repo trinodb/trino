@@ -58,18 +58,17 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.matching.Pattern.nonEmpty;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.or;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static io.prestosql.sql.planner.plan.Patterns.Apply.correlation;
 import static io.prestosql.sql.planner.plan.Patterns.applyNode;
 import static java.util.Objects.requireNonNull;
 
-/**
+/** //TODO adjust comment
+ * //TODO extract the case of correlated _filtering_ semi join and implement via inner join in preceding IterativeOptimizer
  * Replaces correlated ApplyNode with InPredicate expression with SemiJoin
  * <p>
  * Transforms:
@@ -91,15 +90,14 @@ import static java.util.Objects.requireNonNull;
  *
  * @see TransformCorrelatedScalarAggregationToJoin
  */
-public class TransformCorrelatedInPredicateToJoin
+public class TransformInPredicateToJoin
         implements Rule<ApplyNode>
 {
-    private static final Pattern<ApplyNode> PATTERN = applyNode()
-            .with(nonEmpty(correlation()));
+    private static final Pattern<ApplyNode> PATTERN = applyNode();
 
     private final ResolvedFunction countFunction;
 
-    public TransformCorrelatedInPredicateToJoin(Metadata metadata)
+    public TransformInPredicateToJoin(Metadata metadata)
     {
         countFunction = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of());
     }
@@ -136,34 +134,50 @@ public class TransformCorrelatedInPredicateToJoin
             PlanNodeIdAllocator idAllocator,
             SymbolAllocator symbolAllocator)
     {
-        Optional<Decorrelated> decorrelated = new DecorrelatingVisitor(lookup, apply.getCorrelation())
-                .decorrelate(apply.getSubquery());
+        PlanNode result;
 
-        if (decorrelated.isEmpty()) {
-            return Result.empty();
+        if (apply.getCorrelation().isEmpty()) {
+            PlanNode buildSource = distinct(apply.getSubquery(), Symbol.from(inPredicate.getValueList()), idAllocator);
+            result = buildInPredicateEquivalent(
+                    apply,
+                    inPredicate,
+                    inPredicateOutputSymbol,
+                    buildSource,
+                    ImmutableList.of(),
+                    idAllocator,
+                    symbolAllocator);
+        }
+        else {
+            Optional<Decorrelated> decorrelated = new DecorrelatingVisitor(lookup, apply.getCorrelation())
+                    .decorrelate(apply.getSubquery());
+
+            if (decorrelated.isEmpty()) {
+                return Result.empty();
+            }
+
+            result = buildInPredicateEquivalent(
+                    apply,
+                    inPredicate,
+                    inPredicateOutputSymbol,
+                    decorrelated.get().getDecorrelatedNode(),
+                    decorrelated.get().getCorrelatedPredicates(),
+                    idAllocator,
+                    symbolAllocator);
         }
 
-        PlanNode projection = buildInPredicateEquivalent(
-                apply,
-                inPredicate,
-                inPredicateOutputSymbol,
-                decorrelated.get(),
-                idAllocator,
-                symbolAllocator);
-
-        return Result.ofPlanNode(projection);
+        return Result.ofPlanNode(result);
     }
 
     private PlanNode buildInPredicateEquivalent(
             ApplyNode apply,
             InPredicate inPredicate,
             Symbol inPredicateOutputSymbol,
-            Decorrelated decorrelated,
+            PlanNode uncorrelatedBuildSource,
+            List<Expression> correlatedPredicates,
             PlanNodeIdAllocator idAllocator,
             SymbolAllocator symbolAllocator)
     {
-        Expression correlationCondition = and(decorrelated.getCorrelatedPredicates());
-        PlanNode decorrelatedBuildSource = decorrelated.getDecorrelatedNode();
+        Expression correlationCondition = and(correlatedPredicates);
 
         AssignUniqueId probeSide = new AssignUniqueId(
                 idAllocator.getNextId(),
@@ -173,9 +187,9 @@ public class TransformCorrelatedInPredicateToJoin
         Symbol buildSideKnownNonNull = symbolAllocator.newSymbol("buildSideKnownNonNull", BIGINT);
         ProjectNode buildSide = new ProjectNode(
                 idAllocator.getNextId(),
-                decorrelatedBuildSource,
+                uncorrelatedBuildSource,
                 Assignments.builder()
-                        .putIdentities(decorrelatedBuildSource.getOutputSymbols())
+                        .putIdentities(uncorrelatedBuildSource.getOutputSymbols())
                         .put(buildSideKnownNonNull, bigint(0))
                         .build());
 
@@ -239,6 +253,19 @@ public class TransformCorrelatedInPredicateToJoin
                         .putIdentities(apply.getInput().getOutputSymbols())
                         .put(inPredicateOutputSymbol, inPredicateEquivalent)
                         .build());
+    }
+
+    private static PlanNode distinct(PlanNode node, Symbol symbol, PlanNodeIdAllocator idAllocator)
+    {
+        return new AggregationNode(
+                idAllocator.getNextId(),
+                node,
+                ImmutableMap.of(),
+                singleGroupingSet(ImmutableList.of(symbol)),
+                ImmutableList.of(),
+                AggregationNode.Step.SINGLE,
+                Optional.empty(),
+                Optional.empty());
     }
 
     private static JoinNode leftOuterJoin(PlanNodeIdAllocator idAllocator, AssignUniqueId probeSide, ProjectNode buildSide, Expression joinExpression)
