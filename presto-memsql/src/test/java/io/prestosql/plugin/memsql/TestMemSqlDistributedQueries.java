@@ -23,6 +23,7 @@ import org.testng.SkipException;
 
 import java.util.Optional;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static io.prestosql.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
 
 public class TestMemSqlDistributedQueries
@@ -116,13 +117,9 @@ public class TestMemSqlDistributedQueries
     }
 
     @Override
-    protected Optional<String> filterColumnNameTestData(String columnName)
+    protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
-        // TODO fails with "Multiple statements detected in a single query."
-        if (columnName.equalsIgnoreCase("a;semicolon")) {
-            return Optional.empty();
-        }
-        return super.filterColumnNameTestData(columnName);
+        return nullToEmpty(exception.getMessage()).matches(".*Incorrect column name.*");
     }
 
     @Override
