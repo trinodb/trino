@@ -104,6 +104,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
+import static io.prestosql.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
@@ -327,7 +328,7 @@ public class TestBackgroundHiveSplitLoader
                 PARTITIONED_TABLE,
                 Optional.of(
                         new HiveBucketHandle(
-                                getRegularColumnHandles(PARTITIONED_TABLE, TYPE_MANAGER, HiveTimestampPrecision.MILLISECONDS),
+                                getRegularColumnHandles(PARTITIONED_TABLE, TYPE_MANAGER, DEFAULT_PRECISION),
                                 BUCKETING_V1,
                                 BUCKET_COUNT,
                                 BUCKET_COUNT)));
