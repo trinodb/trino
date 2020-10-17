@@ -15,7 +15,7 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.RowPagesBuilder;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.type.TypeOperators;
@@ -35,7 +35,6 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -51,10 +50,9 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 @Test(singleThreaded = true)
 public class TestStreamingAggregationOperator
 {
-    private static final Metadata metadata = createTestMetadataManager();
-
-    private static final InternalAggregationFunction LONG_SUM = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(BIGINT)));
-    private static final InternalAggregationFunction COUNT = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of()));
+    private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
+    private static final InternalAggregationFunction LONG_SUM = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("sum"), fromTypes(BIGINT));
+    private static final InternalAggregationFunction COUNT = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("count"), ImmutableList.of());
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;

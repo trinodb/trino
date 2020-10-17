@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createArrayBigintBlock;
 import static io.trino.block.BlockAssertions.createBlockOfReals;
 import static io.trino.block.BlockAssertions.createDoublesBlock;
@@ -48,7 +49,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxDoubleDouble()
     {
-        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(DOUBLE, DOUBLE, BIGINT));
+        ResolvedFunction function = METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(DOUBLE, DOUBLE, BIGINT));
         assertAggregation(
                 METADATA,
                 function,
@@ -109,7 +110,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinDoubleDouble()
     {
-        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(DOUBLE, DOUBLE, BIGINT));
+        ResolvedFunction function = METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(DOUBLE, DOUBLE, BIGINT));
         assertAggregation(
                 METADATA,
                 function,
@@ -146,7 +147,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinDoubleVarchar()
     {
-        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(VARCHAR, DOUBLE, BIGINT));
+        ResolvedFunction function = METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(VARCHAR, DOUBLE, BIGINT));
         assertAggregation(
                 METADATA,
                 function,
@@ -215,7 +216,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxDoubleVarchar()
     {
-        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(VARCHAR, DOUBLE, BIGINT));
+        ResolvedFunction function = METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(VARCHAR, DOUBLE, BIGINT));
         assertAggregation(
                 METADATA,
                 function,
@@ -284,7 +285,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinRealVarchar()
     {
-        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(VARCHAR, REAL, BIGINT));
+        ResolvedFunction function = METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(VARCHAR, REAL, BIGINT));
         assertAggregation(
                 METADATA,
                 function,
@@ -353,7 +354,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxRealVarchar()
     {
-        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(VARCHAR, REAL, BIGINT));
+        ResolvedFunction function = METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(VARCHAR, REAL, BIGINT));
         assertAggregation(
                 METADATA,
                 function,
@@ -422,7 +423,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinVarcharDouble()
     {
-        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(DOUBLE, VARCHAR, BIGINT));
+        ResolvedFunction function = METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(DOUBLE, VARCHAR, BIGINT));
         assertAggregation(
                 METADATA,
                 function,
@@ -451,7 +452,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxVarcharDouble()
     {
-        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(DOUBLE, VARCHAR, BIGINT));
+        ResolvedFunction function = METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(DOUBLE, VARCHAR, BIGINT));
         assertAggregation(
                 METADATA,
                 function,
@@ -480,7 +481,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinVarcharArray()
     {
-        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(new ArrayType(BIGINT), VARCHAR, BIGINT));
+        ResolvedFunction function = METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(new ArrayType(BIGINT), VARCHAR, BIGINT));
         assertAggregation(
                 METADATA,
                 function,
@@ -493,7 +494,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxVarcharArray()
     {
-        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(new ArrayType(BIGINT), VARCHAR, BIGINT));
+        ResolvedFunction function = METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(new ArrayType(BIGINT), VARCHAR, BIGINT));
         assertAggregation(
                 METADATA,
                 function,
@@ -506,7 +507,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinArrayVarchar()
     {
-        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(VARCHAR, new ArrayType(BIGINT), BIGINT));
+        ResolvedFunction function = METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(VARCHAR, new ArrayType(BIGINT), BIGINT));
         assertAggregation(
                 METADATA,
                 function,
@@ -519,7 +520,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxArrayVarchar()
     {
-        ResolvedFunction function = METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(VARCHAR, new ArrayType(BIGINT), BIGINT));
+        ResolvedFunction function = METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(VARCHAR, new ArrayType(BIGINT), BIGINT));
         assertAggregation(
                 METADATA,
                 function,
@@ -533,7 +534,7 @@ public class TestMinMaxByNAggregation
     public void testOutOfBound()
     {
         InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
-                METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(VARCHAR, BIGINT, BIGINT)));
+                METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(VARCHAR, BIGINT, BIGINT)));
         try {
             groupedAggregation(function, new Page(createStringsBlock("z"), createLongsBlock(0), createLongsBlock(10001)));
         }

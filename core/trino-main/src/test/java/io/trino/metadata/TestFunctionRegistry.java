@@ -35,6 +35,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.metadata.Signature.mangleOperatorName;
@@ -336,7 +337,7 @@ public class TestFunctionRegistry
         {
             Metadata metadata = createTestMetadataManager();
             metadata.addFunctions(createFunctionsFromSignatures());
-            return metadata.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes)).getSignature();
+            return metadata.resolveFunction(TEST_SESSION, QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes)).getSignature();
         }
 
         private List<SqlFunction> createFunctionsFromSignatures()

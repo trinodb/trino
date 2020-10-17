@@ -51,12 +51,11 @@ import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 public class TestPrunePattenRecognitionColumns
         extends BaseRuleTest
 {
-    private static final ResolvedFunction RANK = createTestMetadataManager().resolveFunction(QualifiedName.of("rank"), ImmutableList.of());
-    private static final ResolvedFunction LAG = createTestMetadataManager().resolveFunction(QualifiedName.of("lag"), fromTypes(BIGINT));
-
     @Test
     public void testRemovePatternRecognitionNode()
     {
+        ResolvedFunction rank = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("rank"), ImmutableList.of());
+
         // MATCH_RECOGNIZE with options: AFTER MATCH SKIP PAST LAST ROW, ALL ROWS WITH UNMATCHED ROW
         tester().assertThat(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
@@ -93,7 +92,7 @@ public class TestPrunePattenRecognitionColumns
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("b")),
                         p.patternRecognition(builder -> builder
-                                .addWindowFunction(p.symbol("rank"), new WindowNode.Function(RANK, ImmutableList.of(), DEFAULT_FRAME, false))
+                                .addWindowFunction(p.symbol("rank"), new WindowNode.Function(rank, ImmutableList.of(), DEFAULT_FRAME, false))
                                 .addMeasure(p.symbol("measure"), "LAST(X.a)", BIGINT)
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
@@ -110,12 +109,14 @@ public class TestPrunePattenRecognitionColumns
     @Test
     public void testPruneUnreferencedWindowFunctionAndSources()
     {
+        ResolvedFunction lag = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("lag"), fromTypes(BIGINT));
+
         // remove window function "lag" and input symbol "b" used only by that function
         tester().assertThat(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("measure")),
                         p.patternRecognition(builder -> builder
-                                .addWindowFunction(p.symbol("lag"), new WindowNode.Function(LAG, ImmutableList.of(p.symbol("b").toSymbolReference()), DEFAULT_FRAME, false))
+                                .addWindowFunction(p.symbol("lag"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("b").toSymbolReference()), DEFAULT_FRAME, false))
                                 .addMeasure(p.symbol("measure"), "LAST(X.a)", BIGINT)
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
@@ -141,12 +142,14 @@ public class TestPrunePattenRecognitionColumns
     @Test
     public void testPruneUnreferencedMeasureAndSources()
     {
+        ResolvedFunction lag = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("lag"), fromTypes(BIGINT));
+
         // remove row pattern measure "measure" and input symbol "a" used only by that measure
         tester().assertThat(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("lag")),
                         p.patternRecognition(builder -> builder
-                                .addWindowFunction(p.symbol("lag"), new WindowNode.Function(LAG, ImmutableList.of(p.symbol("b").toSymbolReference()), DEFAULT_FRAME, false))
+                                .addWindowFunction(p.symbol("lag"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("b").toSymbolReference()), DEFAULT_FRAME, false))
                                 .addMeasure(p.symbol("measure"), "LAST(X.a)", BIGINT)
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))

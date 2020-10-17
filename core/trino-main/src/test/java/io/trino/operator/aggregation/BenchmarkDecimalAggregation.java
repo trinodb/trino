@@ -43,6 +43,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -151,7 +152,7 @@ public class BenchmarkDecimalAggregation
 
         private Page createValues(Metadata metadata, DecimalType type, ValueWriter writer)
         {
-            ResolvedFunction resolvedFunction = metadata.resolveFunction(QualifiedName.of(function), fromTypes(type));
+            ResolvedFunction resolvedFunction = metadata.resolveFunction(TEST_SESSION, QualifiedName.of(function), fromTypes(type));
             InternalAggregationFunction implementation = metadata.getAggregateFunctionImplementation(resolvedFunction);
             factory = implementation.bind(ImmutableList.of(0), Optional.empty());
             accumulator = factory.createGroupedAccumulator();

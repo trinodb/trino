@@ -30,6 +30,7 @@ import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createDoubleSequenceBlock;
 import static io.trino.block.BlockAssertions.createDoublesBlock;
 import static io.trino.block.BlockAssertions.createRLEBlock;
@@ -62,8 +63,8 @@ public class TestTDigestAggregationFunction
 
     private static final Metadata METADATA = createTestMetadataManager();
 
-    private final ResolvedFunction tdigestAggregation = METADATA.resolveFunction(QualifiedName.of("tdigest_agg"), fromTypes(DOUBLE));
-    private final ResolvedFunction tdigestWeigthedAggregation = METADATA.resolveFunction(QualifiedName.of("tdigest_agg"), fromTypes(DOUBLE, DOUBLE));
+    private final ResolvedFunction tdigestAggregation = METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("tdigest_agg"), fromTypes(DOUBLE));
+    private final ResolvedFunction tdigestWeigthedAggregation = METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("tdigest_agg"), fromTypes(DOUBLE, DOUBLE));
 
     @Test
     public void testTdigestAggregationFunction()

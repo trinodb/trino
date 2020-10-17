@@ -38,6 +38,7 @@ import io.trino.operator.SourceOperatorFactory;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
@@ -72,6 +73,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
+import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -130,6 +132,7 @@ import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -208,6 +211,7 @@ public final class FunctionAssertions
 
     private final Session session;
     private final LocalQueryRunner runner;
+    private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final ExpressionCompiler compiler;
 
@@ -227,6 +231,7 @@ public final class FunctionAssertions
         runner = LocalQueryRunner.builder(session)
                 .withFeaturesConfig(featuresConfig)
                 .build();
+        transactionManager = runner.getTransactionManager();
         metadata = runner.getMetadata();
         compiler = runner.getExpressionCompiler();
     }
@@ -354,6 +359,18 @@ public final class FunctionAssertions
 
     public void assertCachedInstanceHasBoundedRetainedSize(String projection)
     {
+        transaction(transactionManager, new AllowAllAccessControl())
+                .singleStatement()
+                .execute(session, txSession -> {
+                    // metadata.getCatalogHandle() registers the catalog for the transaction
+                    txSession.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(txSession, catalog));
+                    assertCachedInstanceHasBoundedRetainedSizeInTx(projection, txSession);
+                    return null;
+                });
+    }
+
+    private void assertCachedInstanceHasBoundedRetainedSizeInTx(String projection, Session session)
+    {
         requireNonNull(projection, "projection is null");
 
         Expression projectionExpression = createExpression(session, projection, metadata, INPUT_TYPES);
@@ -467,6 +484,17 @@ public final class FunctionAssertions
 
     private List<Object> executeProjectionWithAll(String projection, Type expectedType, Session session, ExpressionCompiler compiler)
     {
+        return transaction(transactionManager, new AllowAllAccessControl())
+                .singleStatement()
+                .execute(session, txSession -> {
+                    // metadata.getCatalogHandle() registers the catalog for the transaction
+                    txSession.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(txSession, catalog));
+                    return executeProjectionWithAllInTx(projection, expectedType, txSession, compiler);
+                });
+    }
+
+    private List<Object> executeProjectionWithAllInTx(String projection, Type expectedType, Session session, ExpressionCompiler compiler)
+    {
         requireNonNull(projection, "projection is null");
 
         Expression projectionExpression = createExpression(session, projection, metadata, INPUT_TYPES);
@@ -520,7 +548,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Session session, Expression projectionExpression)
     {
-        return toRowExpression(projectionExpression, getTypes(session, metadata, INPUT_TYPES, projectionExpression), INPUT_MAPPING);
+        return toRowExpression(session, projectionExpression, getTypes(session, metadata, INPUT_TYPES, projectionExpression), INPUT_MAPPING);
     }
 
     private Object selectSingleValue(OperatorFactory operatorFactory, Type type, Session session)
@@ -795,7 +823,7 @@ public final class FunctionAssertions
         }
     }
 
-    private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<Symbol, Integer> layout)
+    private RowExpression toRowExpression(Session session, Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<Symbol, Integer> layout)
     {
         return translate(projection, expressionTypes, layout, metadata, session, false);
     }

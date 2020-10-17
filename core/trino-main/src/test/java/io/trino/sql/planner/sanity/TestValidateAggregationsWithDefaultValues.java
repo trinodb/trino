@@ -38,6 +38,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -61,7 +62,7 @@ public class TestValidateAggregationsWithDefaultValues
     public void setup()
     {
         metadata = getQueryRunner().getMetadata();
-        builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata);
+        builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata, TEST_SESSION);
         CatalogName catalogName = getCurrentConnectorId();
         TableHandle nationTableHandle = new TableHandle(
                 catalogName,

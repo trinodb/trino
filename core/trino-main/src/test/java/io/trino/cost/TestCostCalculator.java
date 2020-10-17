@@ -22,6 +22,7 @@ import io.trino.connector.CatalogName;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.plugin.tpch.TpchTableHandle;
@@ -813,7 +814,7 @@ public class TestCostCalculator
     private AggregationNode aggregation(String id, PlanNode source)
     {
         AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                localQueryRunner.getMetadata().resolveFunction(QualifiedName.of("count"), ImmutableList.of()),
+                new TestingFunctionResolution(localQueryRunner).resolveFunction(QualifiedName.of("count"), ImmutableList.of()),
                 ImmutableList.of(),
                 false,
                 Optional.empty(),

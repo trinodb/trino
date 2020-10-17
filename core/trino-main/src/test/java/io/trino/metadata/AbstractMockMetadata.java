@@ -741,7 +741,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         String nameSuffix = name.getSuffix();
         if (nameSuffix.equals("rand") && parameterTypes.isEmpty()) {

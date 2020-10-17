@@ -181,7 +181,7 @@ public class TestValidateLimitWithPresortedInput
     {
         LocalQueryRunner queryRunner = getQueryRunner();
         Metadata metadata = queryRunner.getMetadata();
-        PlanBuilder builder = new PlanBuilder(idAllocator, metadata);
+        PlanBuilder builder = new PlanBuilder(idAllocator, metadata, queryRunner.getDefaultSession());
         PlanNode planNode = planProvider.apply(builder);
         TypeProvider types = builder.getTypes();
 

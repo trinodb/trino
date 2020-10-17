@@ -37,7 +37,7 @@ import static java.util.Objects.requireNonNull;
 public class SimplifyExpressions
         extends ExpressionRewriteRuleSet
 {
-    public static Expression rewrite(Expression expression, Session session, SymbolAllocator symbolAllocator, Metadata metadata, LiteralEncoder literalEncoder, TypeAnalyzer typeAnalyzer)
+    public static Expression rewrite(Expression expression, Session session, SymbolAllocator symbolAllocator, Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -50,7 +50,7 @@ public class SimplifyExpressions
         expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
         ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, metadata, session, expressionTypes);
         Object optimized = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
-        return literalEncoder.toExpression(optimized, expressionTypes.get(NodeRef.of(expression)));
+        return new LiteralEncoder(session, metadata).toExpression(optimized, expressionTypes.get(NodeRef.of(expression)));
     }
 
     public SimplifyExpressions(Metadata metadata, TypeAnalyzer typeAnalyzer)
@@ -72,8 +72,7 @@ public class SimplifyExpressions
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-        LiteralEncoder literalEncoder = new LiteralEncoder(metadata);
 
-        return (expression, context) -> rewrite(expression, context.getSession(), context.getSymbolAllocator(), metadata, literalEncoder, typeAnalyzer);
+        return (expression, context) -> rewrite(expression, context.getSession(), context.getSymbolAllocator(), metadata, typeAnalyzer);
     }
 }

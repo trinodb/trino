@@ -163,7 +163,7 @@ public class TransformCorrelatedScalarSubquery
                         ImmutableList.of(
                                 new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
                         Optional.of(new Cast(
-                                new FunctionCallBuilder(metadata)
+                                FunctionCallBuilder.resolve(context.getSession(), metadata)
                                         .setName(QualifiedName.of("fail"))
                                         .addArgument(INTEGER, new LongLiteral(Integer.toString(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode())))
                                         .addArgument(VARCHAR, new StringLiteral("Scalar sub-query has returned multiple rows"))

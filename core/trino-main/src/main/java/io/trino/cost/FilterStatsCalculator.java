@@ -84,7 +84,6 @@ public class FilterStatsCalculator
     private final Metadata metadata;
     private final ScalarStatsCalculator scalarStatsCalculator;
     private final StatsNormalizer normalizer;
-    private final LiteralEncoder literalEncoder;
 
     @Inject
     public FilterStatsCalculator(Metadata metadata, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer)
@@ -92,7 +91,6 @@ public class FilterStatsCalculator
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
         this.normalizer = requireNonNull(normalizer, "normalizer is null");
-        this.literalEncoder = new LiteralEncoder(metadata);
     }
 
     public PlanNodeStatsEstimate filterStats(
@@ -118,7 +116,7 @@ public class FilterStatsCalculator
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
             value = false;
         }
-        return literalEncoder.toExpression(value, BOOLEAN);
+        return new LiteralEncoder(session, metadata).toExpression(value, BOOLEAN);
     }
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
@@ -442,7 +440,7 @@ public class FilterStatsCalculator
 
         private OptionalDouble doubleValueFromLiteral(Type type, Literal literal)
         {
-            Object literalValue = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), getExpressionTypes(session, literal, types), literal);
+            Object literalValue = LiteralInterpreter.evaluate(metadata, session, getExpressionTypes(session, literal, types), literal);
             return toStatsRepresentation(metadata, session, type, literalValue);
         }
     }

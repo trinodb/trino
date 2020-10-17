@@ -2225,10 +2225,7 @@ public class LocalExecutionPlanner
 
         private SpatialPredicate spatialTest(FunctionCall functionCall, boolean probeFirst, Optional<ComparisonExpression.Operator> comparisonOperator)
         {
-            String functionName = metadata.resolveFunction(functionCall.getName(), ImmutableList.of())
-                    .getSignature()
-                    .getName()
-                    .toLowerCase(Locale.ENGLISH);
+            String functionName = ResolvedFunction.extractFunctionName(functionCall.getName()).toLowerCase(Locale.ENGLISH);
             switch (functionName) {
                 case ST_CONTAINS:
                     if (probeFirst) {
