@@ -13,7 +13,6 @@
  */
 package io.prestosql.jdbc;
 
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -33,6 +32,7 @@ import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.google.common.base.Verify.verify;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -81,6 +81,32 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "true", Types.BOOLEAN, true);
             checkRepresentation(connectedStatement.getStatement(), "'hello'", Types.VARCHAR, "hello");
             checkRepresentation(connectedStatement.getStatement(), "cast('foo' as char(5))", Types.CHAR, "foo  ");
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123'", Types.VARCHAR,
+                    (rs, column) -> assertEquals(rs.getLong(column), 123L));
+
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
+                assertThatThrownBy(() -> rs.getLong(column))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage("Value is not a number: ");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR,
+                    (rs, column) -> assertEquals(rs.getLong(column), 12));
+
+            checkRepresentation(connectedStatement.getStatement(), "DOUBLE '123.456'", Types.DOUBLE,
+                    (rs, column) -> assertEquals(rs.getDouble(column), 123.456D));
+
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123'", Types.VARCHAR,
+                    (rs, column) -> assertEquals(rs.getDouble(column), 123D));
+
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
+                assertThatThrownBy(() -> rs.getDouble(column))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage("Value is not a number: ");
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR,
+                    (rs, column) -> assertEquals(rs.getDouble(column), 12.3D));
         }
     }
 
@@ -100,7 +126,7 @@ public abstract class BaseTestJdbcResultSet
 
             long outsideOfDoubleExactRange = 9223372036854775774L;
             //noinspection ConstantConditions
-            Verify.verify((long) (double) outsideOfDoubleExactRange - outsideOfDoubleExactRange != 0, "outsideOfDoubleExactRange should not be exact-representable as a double");
+            verify((long) (double) outsideOfDoubleExactRange - outsideOfDoubleExactRange != 0, "outsideOfDoubleExactRange should not be exact-representable as a double");
             checkRepresentation(connectedStatement.getStatement(), String.format("DECIMAL '%s'",
                     outsideOfDoubleExactRange), Types.DECIMAL,
                     (rs, column) -> {
@@ -122,53 +148,9 @@ public abstract class BaseTestJdbcResultSet
                         .isInstanceOf(SQLException.class)
                         .hasMessage("Value is not a number: 123a");
             });
-        }
-    }
 
-    @Test
-    public void testLong()
-            throws Exception
-    {
-        try (ConnectedStatement connectedStatement = newStatement()) {
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123'", Types.VARCHAR,
-                    (rs, column) -> assertEquals(rs.getLong(column), 123L));
-
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
-                assertThatThrownBy(() -> rs.getLong(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a number: ");
-            });
-
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123a'", Types.VARCHAR, (rs, column) -> {
-                assertThatThrownBy(() -> rs.getLong(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a number: 123a");
-            });
-        }
-    }
-
-    @Test
-    public void testDouble()
-            throws Exception
-    {
-        try (ConnectedStatement connectedStatement = newStatement()) {
-            checkRepresentation(connectedStatement.getStatement(), "DOUBLE '123.456'", Types.DOUBLE,
-                    (rs, column) -> assertEquals(rs.getDouble(column), 123.456D));
-
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123'", Types.VARCHAR,
-                    (rs, column) -> assertEquals(rs.getDouble(column), 123D));
-
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
-                assertThatThrownBy(() -> rs.getDouble(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a number: ");
-            });
-
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123a'", Types.VARCHAR, (rs, column) -> {
-                assertThatThrownBy(() -> rs.getDouble(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a number: 123a");
-            });
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR,
+                    (rs, column) -> assertEquals(rs.getBigDecimal(column), new BigDecimal("12.3")));
         }
     }
 

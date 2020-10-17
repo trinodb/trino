@@ -613,7 +613,7 @@ abstract class AbstractPrestoResultSet
             return null;
         }
 
-        return convertStrToBigDecimal(String.valueOf(value));
+        return toBigDecimal(String.valueOf(value));
     }
 
     @Override
@@ -1751,19 +1751,17 @@ abstract class AbstractPrestoResultSet
             return ((Boolean) value) ? 1 : 0;
         }
         if (value instanceof String) {
-            return convertStrToBigDecimal((String) value);
+            return toBigDecimal((String) value);
         }
         throw new SQLException("Value is not a number: " + value.getClass().getCanonicalName());
     }
 
-    private static BigDecimal convertStrToBigDecimal(String value) throws SQLException
+    private static BigDecimal toBigDecimal(String value) throws SQLException
     {
-        try
-        {
+        try {
             return new BigDecimal(value);
         }
-        catch (NumberFormatException ne)
-        {
+        catch (NumberFormatException ne) {
             throw new SQLException("Value is not a number: " + value);
         }
     }
