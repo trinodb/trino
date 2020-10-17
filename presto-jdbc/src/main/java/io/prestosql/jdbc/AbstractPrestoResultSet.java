@@ -279,7 +279,7 @@ abstract class AbstractPrestoResultSet
             return new Date(calendar.getTimeInMillis());
         }
         catch (IllegalArgumentException e) {
-            throw new SQLException("Expected value to be a date but is : " + value);
+            throw new SQLException("Expected value to be a date but is: " + value);
         }
     }
 
