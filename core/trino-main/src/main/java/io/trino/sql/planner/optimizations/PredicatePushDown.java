@@ -127,7 +127,6 @@ public class PredicatePushDown
 
     private final Metadata metadata;
     private final TypeOperators typeOperators;
-    private final LiteralEncoder literalEncoder;
     private final TypeAnalyzer typeAnalyzer;
     private final boolean useTableProperties;
     private final boolean dynamicFiltering;
@@ -140,7 +139,6 @@ public class PredicatePushDown
             boolean dynamicFiltering)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.literalEncoder = new LiteralEncoder(metadata);
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.useTableProperties = useTableProperties;
@@ -155,12 +153,8 @@ public class PredicatePushDown
         requireNonNull(types, "types is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(
-                new DomainTranslator(metadata),
-                metadata,
-                useTableProperties && isPredicatePushdownUseTableProperties(session));
         return SimplePlanRewriter.rewriteWith(
-                new Rewriter(symbolAllocator, idAllocator, metadata, typeOperators, literalEncoder, effectivePredicateExtractor, typeAnalyzer, session, types, dynamicFiltering),
+                new Rewriter(symbolAllocator, idAllocator, metadata, typeOperators, typeAnalyzer, session, types, useTableProperties, dynamicFiltering),
                 plan,
                 TRUE_LITERAL);
     }
@@ -172,37 +166,40 @@ public class PredicatePushDown
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
         private final TypeOperators typeOperators;
-        private final LiteralEncoder literalEncoder;
-        private final EffectivePredicateExtractor effectivePredicateExtractor;
         private final TypeAnalyzer typeAnalyzer;
         private final Session session;
         private final TypeProvider types;
         private final ExpressionEquivalence expressionEquivalence;
         private final boolean dynamicFiltering;
+        private final LiteralEncoder literalEncoder;
+        private final EffectivePredicateExtractor effectivePredicateExtractor;
 
         private Rewriter(
                 SymbolAllocator symbolAllocator,
                 PlanNodeIdAllocator idAllocator,
                 Metadata metadata,
                 TypeOperators typeOperators,
-                LiteralEncoder literalEncoder,
-                EffectivePredicateExtractor effectivePredicateExtractor,
                 TypeAnalyzer typeAnalyzer,
                 Session session,
                 TypeProvider types,
+                boolean useTableProperties,
                 boolean dynamicFiltering)
         {
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-            this.literalEncoder = requireNonNull(literalEncoder, "literalEncoder is null");
-            this.effectivePredicateExtractor = requireNonNull(effectivePredicateExtractor, "effectivePredicateExtractor is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.expressionEquivalence = new ExpressionEquivalence(metadata, typeAnalyzer);
             this.dynamicFiltering = dynamicFiltering;
+
+            this.effectivePredicateExtractor = new EffectivePredicateExtractor(
+                    new DomainTranslator(session, metadata),
+                    metadata,
+                    useTableProperties && isPredicatePushdownUseTableProperties(session));
+            this.literalEncoder = new LiteralEncoder(session, metadata);
         }
 
         @Override
@@ -302,7 +299,7 @@ public class PredicatePushDown
 
             List<Expression> inlinedDeterministicConjuncts = inlineConjuncts.get(true).stream()
                     .map(entry -> inlineSymbols(node.getAssignments().getMap(), entry))
-                    .map(conjunct -> canonicalizeExpression(conjunct, typeAnalyzer.getTypes(session, types, conjunct), metadata)) // normalize expressions to a form that unwrapCasts understands
+                    .map(conjunct -> canonicalizeExpression(conjunct, typeAnalyzer.getTypes(session, types, conjunct), metadata, session)) // normalize expressions to a form that unwrapCasts understands
                     .map(conjunct -> unwrapCasts(session, metadata, typeOperators, typeAnalyzer, types, conjunct))
                     .collect(Collectors.toList());
 
@@ -678,7 +675,7 @@ public class PredicatePushDown
                         // we can take type of buildSymbol instead probeExpression as comparison expression must have the same type on both sides
                         Type type = symbolAllocator.getTypes().get(buildSymbol);
                         DynamicFilterId id = requireNonNull(buildSymbolToDynamicFilter.get(buildSymbol), () -> "missing dynamic filter for symbol " + buildSymbol);
-                        return createDynamicFilterExpression(metadata, id, type, probeExpression, comparison.getOperator(), clause.isNullAllowed());
+                        return createDynamicFilterExpression(session, metadata, id, type, probeExpression, comparison.getOperator(), clause.isNullAllowed());
                     })
                     .collect(toImmutableList());
             // Return a mapping from build symbols to corresponding dynamic filter IDs:
@@ -1432,6 +1429,7 @@ public class PredicatePushDown
                 dynamicFilterId = Optional.of(new DynamicFilterId("df_" + idAllocator.getNextId().toString()));
                 Symbol sourceSymbol = node.getSourceJoinSymbol();
                 sourceConjuncts.add(createDynamicFilterExpression(
+                        session,
                         metadata,
                         dynamicFilterId.get(),
                         symbolAllocator.getTypes().get(sourceSymbol),

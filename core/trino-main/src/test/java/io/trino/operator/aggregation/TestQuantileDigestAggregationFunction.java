@@ -21,6 +21,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createBlockOfReals;
 import static io.trino.block.BlockAssertions.createDoubleSequenceBlock;
 import static io.trino.block.BlockAssertions.createDoublesBlock;
@@ -50,7 +52,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.Double.NaN;
 import static java.lang.Integer.max;
@@ -167,7 +168,7 @@ public class TestQuantileDigestAggregationFunction
 
     private ResolvedFunction getAggregationFunction(Type... types)
     {
-        return METADATA.resolveFunction(QualifiedName.of("qdigest_agg"), fromTypes(types));
+        return METADATA.resolveFunction(TEST_SESSION, QualifiedName.of("qdigest_agg"), fromTypes(types));
     }
 
     private void testAggregationBigint(Block inputBlock, Block weightsBlock, double maxError, long... inputs)
@@ -365,7 +366,7 @@ public class TestQuantileDigestAggregationFunction
                         type,
                         ARRAY_JOINER.join(boxedPercentiles),
                         ARRAY_JOINER.join(lowerBounds)),
-                METADATA.getType(arrayType(BOOLEAN.getTypeSignature())),
+                new ArrayType(BOOLEAN),
                 Collections.nCopies(percentiles.length, true));
 
         // Ensure that the upper bound of each item in the distribution is not less than the chosen quantiles
@@ -376,7 +377,7 @@ public class TestQuantileDigestAggregationFunction
                         type,
                         ARRAY_JOINER.join(boxedPercentiles),
                         ARRAY_JOINER.join(upperBounds)),
-                METADATA.getType(arrayType(BOOLEAN.getTypeSignature())),
+                new ArrayType(BOOLEAN),
                 Collections.nCopies(percentiles.length, true));
     }
 

@@ -22,6 +22,7 @@ import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.plugin.tpch.TpchTableLayoutHandle;
@@ -39,7 +40,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
@@ -91,6 +91,7 @@ public class TestPushPredicateIntoTableScan
     private PushPredicateIntoTableScan pushPredicateIntoTableScan;
     private TableHandle nationTableHandle;
     private TableHandle ordersTableHandle;
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
 
     @BeforeClass
     public void setUpBeforeClass()
@@ -217,8 +218,8 @@ public class TestPushPredicateIntoTableScan
                                 ImmutableList.of(
                                         new ComparisonExpression(
                                                 EQUAL,
-                                                new FunctionCallBuilder(tester().getMetadata())
-                                                        .setName(QualifiedName.of("rand"))
+                                                functionResolution
+                                                        .functionCallBuilder(QualifiedName.of("rand"))
                                                         .build(),
                                                 new GenericLiteral("BIGINT", "42")),
                                         new ComparisonExpression(
@@ -248,8 +249,8 @@ public class TestPushPredicateIntoTableScan
                                 LogicalExpression.and(
                                         new ComparisonExpression(
                                                 EQUAL,
-                                                new FunctionCallBuilder(tester().getMetadata())
-                                                        .setName(QualifiedName.of("rand"))
+                                                functionResolution
+                                                        .functionCallBuilder(QualifiedName.of("rand"))
                                                         .build(),
                                                 new GenericLiteral("BIGINT", "42")),
                                         new ComparisonExpression(
@@ -273,8 +274,8 @@ public class TestPushPredicateIntoTableScan
                 .on(p -> p.filter(
                         new ComparisonExpression(
                                 EQUAL,
-                                new FunctionCallBuilder(tester().getMetadata())
-                                        .setName(QualifiedName.of("rand"))
+                                functionResolution
+                                        .functionCallBuilder(QualifiedName.of("rand"))
                                         .build(),
                                 new LongLiteral("42")),
                         p.tableScan(
@@ -327,8 +328,8 @@ public class TestPushPredicateIntoTableScan
                                         new StringLiteral("O")),
                                 new ComparisonExpression(
                                         EQUAL,
-                                        new FunctionCallBuilder(tester().getMetadata())
-                                                .setName(QualifiedName.of("rand"))
+                                        functionResolution
+                                                .functionCallBuilder(QualifiedName.of("rand"))
                                                 .build(),
                                         new LongLiteral("0"))),
                         p.tableScan(
@@ -339,8 +340,8 @@ public class TestPushPredicateIntoTableScan
                         filter(
                                 new ComparisonExpression(
                                         EQUAL,
-                                        new FunctionCallBuilder(tester().getMetadata())
-                                                .setName(QualifiedName.of("rand"))
+                                        functionResolution
+                                                .functionCallBuilder(QualifiedName.of("rand"))
                                                 .build(),
                                         new LongLiteral("0")),
                                 constrainedTableScanWithTableLayout(

@@ -434,7 +434,7 @@ public class ExtractSpatialJoins
             }
         }
 
-        Expression newSpatialFunction = new FunctionCallBuilder(metadata)
+        Expression newSpatialFunction = FunctionCallBuilder.resolve(context.getSession(), metadata)
                 .setName(spatialFunction.getName())
                 .addArgument(GEOMETRY_TYPE_SIGNATURE, newFirstArgument)
                 .addArgument(GEOMETRY_TYPE_SIGNATURE, newSecondArgument)
@@ -595,7 +595,7 @@ public class ExtractSpatialJoins
         }
 
         TypeSignature typeSignature = new TypeSignature(KDB_TREE_TYPENAME);
-        FunctionCallBuilder spatialPartitionsCall = new FunctionCallBuilder(metadata)
+        FunctionCallBuilder spatialPartitionsCall = FunctionCallBuilder.resolve(context.getSession(), metadata)
                 .setName(QualifiedName.of("spatial_partitions"))
                 .addArgument(typeSignature, new Cast(new StringLiteral(KdbTreeUtils.toJson(kdbTree)), toSqlType(metadata.getType(typeSignature))))
                 .addArgument(GEOMETRY_TYPE_SIGNATURE, geometry);

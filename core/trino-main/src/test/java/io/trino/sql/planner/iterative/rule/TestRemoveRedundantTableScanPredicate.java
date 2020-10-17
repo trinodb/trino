@@ -151,7 +151,7 @@ public class TestRemoveRedundantTableScanPredicate
                                 ImmutableList.of(
                                         new ComparisonExpression(
                                                 EQUAL,
-                                                new FunctionCallBuilder(tester().getMetadata())
+                                                FunctionCallBuilder.resolve(tester().getSession(), tester().getMetadata())
                                                         .setName(QualifiedName.of("rand"))
                                                         .build(),
                                                 new GenericLiteral("BIGINT", "42")),
@@ -182,7 +182,7 @@ public class TestRemoveRedundantTableScanPredicate
                                 LogicalExpression.and(
                                         new ComparisonExpression(
                                                 EQUAL,
-                                                new FunctionCallBuilder(tester().getMetadata())
+                                                FunctionCallBuilder.resolve(tester().getSession(), tester().getMetadata())
                                                         .setName(QualifiedName.of("rand"))
                                                         .build(),
                                                 new GenericLiteral("BIGINT", "42")),
@@ -207,7 +207,7 @@ public class TestRemoveRedundantTableScanPredicate
                 .on(p -> p.filter(
                         new ComparisonExpression(
                                 EQUAL,
-                                new FunctionCallBuilder(tester().getMetadata())
+                                FunctionCallBuilder.resolve(tester().getSession(), tester().getMetadata())
                                         .setName(QualifiedName.of("rand"))
                                         .build(),
                                 new GenericLiteral("BIGINT", "42")),

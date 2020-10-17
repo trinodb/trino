@@ -93,15 +93,23 @@ public final class ExpressionTestUtils
 
     public static Expression planExpression(Metadata metadata, Session session, TypeProvider typeProvider, Expression expression)
     {
+        if (session.getTransactionId().isPresent()) {
+            return planExpressionInExistingTx(metadata, typeProvider, expression, session);
+        }
         return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    Expression rewritten = rewriteIdentifiersToSymbolReferences(expression);
-                    rewritten = DesugarLikeRewriter.rewrite(rewritten, transactionSession, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
-                    rewritten = DesugarArrayConstructorRewriter.rewrite(rewritten, transactionSession, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
-                    rewritten = CanonicalizeExpressionRewriter.rewrite(rewritten, transactionSession, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
-                    return resolveFunctionCalls(metadata, transactionSession, typeProvider, rewritten);
+                    return planExpressionInExistingTx(metadata, typeProvider, expression, transactionSession);
                 });
+    }
+
+    private static Expression planExpressionInExistingTx(Metadata metadata, TypeProvider typeProvider, Expression expression, Session transactionSession)
+    {
+        Expression rewritten = rewriteIdentifiersToSymbolReferences(expression);
+        rewritten = DesugarLikeRewriter.rewrite(rewritten, transactionSession, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
+        rewritten = DesugarArrayConstructorRewriter.rewrite(rewritten, transactionSession, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
+        rewritten = CanonicalizeExpressionRewriter.rewrite(rewritten, transactionSession, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
+        return resolveFunctionCalls(metadata, transactionSession, typeProvider, rewritten);
     }
 
     public static Expression resolveFunctionCalls(Metadata metadata, Session session, TypeProvider typeProvider, Expression expression)
@@ -171,6 +179,9 @@ public final class ExpressionTestUtils
 
     public static Map<NodeRef<Expression>, Type> getTypes(Session session, Metadata metadata, TypeProvider typeProvider, Expression expression)
     {
+        if (session.getTransactionId().isPresent()) {
+            return new TypeAnalyzer(SQL_PARSER, metadata).getTypes(session, typeProvider, expression);
+        }
         return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {

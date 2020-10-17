@@ -90,7 +90,7 @@ public class TestJoinEnumerator
     public void testDoesNotCreateJoinWhenPartitionedOnCrossJoin()
     {
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        PlanBuilder p = new PlanBuilder(idAllocator, queryRunner.getMetadata());
+        PlanBuilder p = new PlanBuilder(idAllocator, queryRunner.getMetadata(), queryRunner.getDefaultSession());
         Symbol a1 = p.symbol("A1");
         Symbol b1 = p.symbol("B1");
         MultiJoinNode multiJoinNode = new MultiJoinNode(

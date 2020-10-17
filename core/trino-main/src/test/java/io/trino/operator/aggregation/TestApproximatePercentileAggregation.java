@@ -22,6 +22,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createBlockOfReals;
 import static io.trino.block.BlockAssertions.createDoubleRepeatBlock;
 import static io.trino.block.BlockAssertions.createDoubleSequenceBlock;
@@ -40,26 +41,26 @@ public class TestApproximatePercentileAggregation
 {
     private static final Metadata metadata = createTestMetadataManager();
 
-    private static final ResolvedFunction DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION = metadata.resolveFunction(QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, DOUBLE));
-    private static final ResolvedFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = metadata.resolveFunction(QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, BIGINT, DOUBLE));
-    private static final ResolvedFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = metadata.resolveFunction(QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, BIGINT, DOUBLE, DOUBLE));
+    private static final ResolvedFunction DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, DOUBLE));
+    private static final ResolvedFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, BIGINT, DOUBLE));
+    private static final ResolvedFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, BIGINT, DOUBLE, DOUBLE));
 
-    private static final ResolvedFunction LONG_APPROXIMATE_PERCENTILE_AGGREGATION = metadata.resolveFunction(QualifiedName.of("approx_percentile"), fromTypes(BIGINT, DOUBLE));
-    private static final ResolvedFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = metadata.resolveFunction(QualifiedName.of("approx_percentile"), fromTypes(BIGINT, BIGINT, DOUBLE));
-    private static final ResolvedFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = metadata.resolveFunction(QualifiedName.of("approx_percentile"), fromTypes(BIGINT, BIGINT, DOUBLE, DOUBLE));
+    private static final ResolvedFunction LONG_APPROXIMATE_PERCENTILE_AGGREGATION = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(BIGINT, DOUBLE));
+    private static final ResolvedFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(BIGINT, BIGINT, DOUBLE));
+    private static final ResolvedFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(BIGINT, BIGINT, DOUBLE, DOUBLE));
 
-    private static final ResolvedFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = metadata.resolveFunction(QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, new ArrayType(DOUBLE)));
-    private static final ResolvedFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = metadata.resolveFunction(QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, BIGINT, new ArrayType(DOUBLE)));
+    private static final ResolvedFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, new ArrayType(DOUBLE)));
+    private static final ResolvedFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, BIGINT, new ArrayType(DOUBLE)));
 
-    private static final ResolvedFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = metadata.resolveFunction(QualifiedName.of("approx_percentile"), fromTypes(BIGINT, new ArrayType(DOUBLE)));
-    private static final ResolvedFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = metadata.resolveFunction(QualifiedName.of("approx_percentile"), fromTypes(BIGINT, BIGINT, new ArrayType(DOUBLE)));
+    private static final ResolvedFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(BIGINT, new ArrayType(DOUBLE)));
+    private static final ResolvedFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(BIGINT, BIGINT, new ArrayType(DOUBLE)));
 
-    private static final ResolvedFunction FLOAT_APPROXIMATE_PERCENTILE_AGGREGATION = metadata.resolveFunction(QualifiedName.of("approx_percentile"), fromTypes(REAL, DOUBLE));
-    private static final ResolvedFunction FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = metadata.resolveFunction(QualifiedName.of("approx_percentile"), fromTypes(REAL, BIGINT, DOUBLE));
-    private static final ResolvedFunction FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = metadata.resolveFunction(QualifiedName.of("approx_percentile"), fromTypes(REAL, BIGINT, DOUBLE, DOUBLE));
+    private static final ResolvedFunction FLOAT_APPROXIMATE_PERCENTILE_AGGREGATION = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(REAL, DOUBLE));
+    private static final ResolvedFunction FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(REAL, BIGINT, DOUBLE));
+    private static final ResolvedFunction FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(REAL, BIGINT, DOUBLE, DOUBLE));
 
-    private static final ResolvedFunction FLOAT_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = metadata.resolveFunction(QualifiedName.of("approx_percentile"), fromTypes(REAL, new ArrayType(DOUBLE)));
-    private static final ResolvedFunction FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = metadata.resolveFunction(QualifiedName.of("approx_percentile"), fromTypes(REAL, BIGINT, new ArrayType(DOUBLE)));
+    private static final ResolvedFunction FLOAT_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(REAL, new ArrayType(DOUBLE)));
+    private static final ResolvedFunction FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(REAL, BIGINT, new ArrayType(DOUBLE)));
 
     @Test
     public void testLongPartialStep()

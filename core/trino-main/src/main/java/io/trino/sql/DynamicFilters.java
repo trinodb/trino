@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
+import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.ScalarFunction;
@@ -61,6 +62,7 @@ public final class DynamicFilters
     private DynamicFilters() {}
 
     public static Expression createDynamicFilterExpression(
+            Session session,
             Metadata metadata,
             DynamicFilterId id,
             Type inputType,
@@ -68,17 +70,24 @@ public final class DynamicFilters
             ComparisonExpression.Operator operator,
             boolean nullAllowed)
     {
-        return createDynamicFilterExpression(metadata, id, inputType, (Expression) input, operator, nullAllowed);
-    }
-
-    @VisibleForTesting
-    public static Expression createDynamicFilterExpression(Metadata metadata, DynamicFilterId id, Type inputType, Expression input, ComparisonExpression.Operator operator)
-    {
-        return createDynamicFilterExpression(metadata, id, inputType, input, operator, false);
+        return createDynamicFilterExpression(session, metadata, id, inputType, (Expression) input, operator, nullAllowed);
     }
 
     @VisibleForTesting
     public static Expression createDynamicFilterExpression(
+            Session session,
+            Metadata metadata,
+            DynamicFilterId id,
+            Type inputType,
+            Expression input,
+            ComparisonExpression.Operator operator)
+    {
+        return createDynamicFilterExpression(session, metadata, id, inputType, input, operator, false);
+    }
+
+    @VisibleForTesting
+    public static Expression createDynamicFilterExpression(
+            Session session,
             Metadata metadata,
             DynamicFilterId id,
             Type inputType,
@@ -86,7 +95,7 @@ public final class DynamicFilters
             ComparisonExpression.Operator operator,
             boolean nullAllowed)
     {
-        return new FunctionCallBuilder(metadata)
+        return FunctionCallBuilder.resolve(session, metadata)
                 .setName(QualifiedName.of(Function.NAME))
                 .addArgument(inputType, input)
                 .addArgument(VarcharType.VARCHAR, new StringLiteral(operator.toString()))
@@ -96,9 +105,9 @@ public final class DynamicFilters
     }
 
     @VisibleForTesting
-    public static Expression createDynamicFilterExpression(Metadata metadata, DynamicFilterId id, Type inputType, Expression input)
+    public static Expression createDynamicFilterExpression(Session session, Metadata metadata, DynamicFilterId id, Type inputType, Expression input)
     {
-        return createDynamicFilterExpression(metadata, id, inputType, input, EQUAL);
+        return createDynamicFilterExpression(session, metadata, id, inputType, input, EQUAL);
     }
 
     public static ExtractResult extractDynamicFilters(Expression expression)

@@ -42,6 +42,7 @@ import java.util.Optional;
 import java.util.Random;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -188,7 +189,7 @@ public class TestMultimapAggAggregation
 
     private static ResolvedFunction getResolvedFunction(Type keyType, Type valueType)
     {
-        return metadata.resolveFunction(QualifiedName.of(MultimapAggregationFunction.NAME), fromTypes(keyType, valueType));
+        return metadata.resolveFunction(TEST_SESSION, QualifiedName.of(MultimapAggregationFunction.NAME), fromTypes(keyType, valueType));
     }
 
     private static <K, V> void testMultimapAgg(ResolvedFunction aggFunc, Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)

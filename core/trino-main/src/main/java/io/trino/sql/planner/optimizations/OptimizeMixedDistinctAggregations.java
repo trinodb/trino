@@ -86,7 +86,7 @@ public class OptimizeMixedDistinctAggregations
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isOptimizeDistinctAggregationEnabled(session)) {
-            return SimplePlanRewriter.rewriteWith(new Optimizer(idAllocator, symbolAllocator, metadata), plan, Optional.empty());
+            return SimplePlanRewriter.rewriteWith(new Optimizer(session, idAllocator, symbolAllocator, metadata), plan, Optional.empty());
         }
 
         return plan;
@@ -95,12 +95,14 @@ public class OptimizeMixedDistinctAggregations
     private static class Optimizer
             extends SimplePlanRewriter<Optional<AggregateInfo>>
     {
+        private final Session session;
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
         private final Metadata metadata;
 
-        private Optimizer(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Metadata metadata)
+        private Optimizer(Session session, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Metadata metadata)
         {
+            this.session = requireNonNull(session, "session is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -170,7 +172,7 @@ public class OptimizeMixedDistinctAggregations
                     Symbol argument = aggregateInfo.getNewNonDistinctAggregateSymbols().get(entry.getKey());
                     QualifiedName functionName = QualifiedName.of("arbitrary");
                     Aggregation newAggregation = new Aggregation(
-                            metadata.resolveFunction(functionName, fromTypes(symbolAllocator.getTypes().get(argument))),
+                            metadata.resolveFunction(session, functionName, fromTypes(symbolAllocator.getTypes().get(argument))),
                             ImmutableList.of(argument.toSymbolReference()),
                             false,
                             Optional.empty(),

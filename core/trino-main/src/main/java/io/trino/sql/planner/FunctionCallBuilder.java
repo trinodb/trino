@@ -13,7 +13,9 @@
  */
 package io.trino.sql.planner;
 
+import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.analyzer.TypeSignatureProvider;
@@ -33,6 +35,7 @@ import static java.util.Objects.requireNonNull;
 
 public class FunctionCallBuilder
 {
+    private final Session session;
     private final Metadata metadata;
     private QualifiedName name;
     private List<TypeSignature> argumentTypes = new ArrayList<>();
@@ -43,8 +46,14 @@ public class FunctionCallBuilder
     private Optional<OrderBy> orderBy = Optional.empty();
     private boolean distinct;
 
-    public FunctionCallBuilder(Metadata metadata)
+    public static FunctionCallBuilder resolve(Session session, Metadata metadata)
     {
+        return new FunctionCallBuilder(session, metadata);
+    }
+
+    private FunctionCallBuilder(Session session, Metadata metadata)
+    {
+        this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
@@ -130,9 +139,10 @@ public class FunctionCallBuilder
 
     public FunctionCall build()
     {
+        ResolvedFunction resolvedFunction = metadata.resolveFunction(session, name, TypeSignatureProvider.fromTypeSignatures(argumentTypes));
         return new FunctionCall(
                 location,
-                metadata.resolveFunction(name, TypeSignatureProvider.fromTypeSignatures(argumentTypes)).toQualifiedName(),
+                resolvedFunction.toQualifiedName(),
                 window,
                 filter,
                 orderBy,

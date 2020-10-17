@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createArrayBigintBlock;
 import static io.trino.block.BlockAssertions.createBooleansBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
@@ -55,7 +56,7 @@ public class TestArrayAggregation
     @Test
     public void testEmpty()
     {
-        ResolvedFunction bigIntAgg = metadata.resolveFunction(QualifiedName.of("array_agg"), fromTypes(BIGINT));
+        ResolvedFunction bigIntAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(BIGINT));
         assertAggregation(
                 metadata,
                 bigIntAgg,
@@ -66,7 +67,7 @@ public class TestArrayAggregation
     @Test
     public void testNullOnly()
     {
-        ResolvedFunction bigIntAgg = metadata.resolveFunction(QualifiedName.of("array_agg"), fromTypes(BIGINT));
+        ResolvedFunction bigIntAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(BIGINT));
         assertAggregation(
                 metadata,
                 bigIntAgg,
@@ -77,7 +78,7 @@ public class TestArrayAggregation
     @Test
     public void testNullPartial()
     {
-        ResolvedFunction bigIntAgg = metadata.resolveFunction(QualifiedName.of("array_agg"), fromTypes(BIGINT));
+        ResolvedFunction bigIntAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(BIGINT));
         assertAggregation(
                 metadata,
                 bigIntAgg,
@@ -88,7 +89,7 @@ public class TestArrayAggregation
     @Test
     public void testBoolean()
     {
-        ResolvedFunction booleanAgg = metadata.resolveFunction(QualifiedName.of("array_agg"), fromTypes(BOOLEAN));
+        ResolvedFunction booleanAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(BOOLEAN));
         assertAggregation(
                 metadata,
                 booleanAgg,
@@ -99,7 +100,7 @@ public class TestArrayAggregation
     @Test
     public void testBigInt()
     {
-        ResolvedFunction bigIntAgg = metadata.resolveFunction(QualifiedName.of("array_agg"), fromTypes(BIGINT));
+        ResolvedFunction bigIntAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(BIGINT));
         assertAggregation(
                 metadata,
                 bigIntAgg,
@@ -110,7 +111,7 @@ public class TestArrayAggregation
     @Test
     public void testVarchar()
     {
-        ResolvedFunction varcharAgg = metadata.resolveFunction(QualifiedName.of("array_agg"), fromTypes(VARCHAR));
+        ResolvedFunction varcharAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(VARCHAR));
         assertAggregation(
                 metadata,
                 varcharAgg,
@@ -121,7 +122,7 @@ public class TestArrayAggregation
     @Test
     public void testDate()
     {
-        ResolvedFunction varcharAgg = metadata.resolveFunction(QualifiedName.of("array_agg"), fromTypes(DATE));
+        ResolvedFunction varcharAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(DATE));
         assertAggregation(
                 metadata,
                 varcharAgg,
@@ -132,7 +133,7 @@ public class TestArrayAggregation
     @Test
     public void testArray()
     {
-        ResolvedFunction varcharAgg = metadata.resolveFunction(QualifiedName.of("array_agg"), fromTypes(new ArrayType(BIGINT)));
+        ResolvedFunction varcharAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(new ArrayType(BIGINT)));
         assertAggregation(
                 metadata,
                 varcharAgg,
@@ -143,7 +144,7 @@ public class TestArrayAggregation
     @Test
     public void testEmptyStateOutputsNull()
     {
-        InternalAggregationFunction bigIntAgg = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("array_agg"), fromTypes(BIGINT)));
+        InternalAggregationFunction bigIntAgg = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(BIGINT)));
         GroupedAccumulator groupedAccumulator = bigIntAgg.bind(Ints.asList(new int[] {}), Optional.empty())
                 .createGroupedAccumulator();
         BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
@@ -155,7 +156,7 @@ public class TestArrayAggregation
     @Test
     public void testWithMultiplePages()
     {
-        InternalAggregationFunction varcharAgg = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("array_agg"), fromTypes(VARCHAR)));
+        InternalAggregationFunction varcharAgg = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(VARCHAR)));
 
         AggregationTestInputBuilder testInputBuilder = new AggregationTestInputBuilder(
                 new Block[] {
@@ -170,7 +171,7 @@ public class TestArrayAggregation
     @Test
     public void testMultipleGroupsWithMultiplePages()
     {
-        InternalAggregationFunction varcharAgg = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("array_agg"), fromTypes(VARCHAR)));
+        InternalAggregationFunction varcharAgg = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(VARCHAR)));
 
         Block block1 = createStringsBlock("a", "b", "c", "d", "e");
         Block block2 = createStringsBlock("f", "g", "h", "i", "j");
@@ -195,7 +196,7 @@ public class TestArrayAggregation
     public void testManyValues()
     {
         // Test many values so multiple BlockBuilders will be used to store group state.
-        InternalAggregationFunction varcharAgg = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("array_agg"), fromTypes(VARCHAR)));
+        InternalAggregationFunction varcharAgg = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(VARCHAR)));
 
         int numGroups = 50000;
         int arraySize = 30;

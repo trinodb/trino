@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
@@ -53,7 +54,6 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -151,7 +151,8 @@ public class TestExpressionInterpreter
     };
 
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final Metadata METADATA = createTestMetadataManager();
+    private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
+    private static final Metadata METADATA = FUNCTION_RESOLUTION.getMetadata();
 
     @Test
     public void testAnd()

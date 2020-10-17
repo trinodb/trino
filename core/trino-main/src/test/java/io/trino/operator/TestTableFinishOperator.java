@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
 import io.trino.operator.TableFinishOperator.TableFinisher;
 import io.trino.operator.aggregation.InternalAggregationFunction;
@@ -46,7 +46,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -63,9 +62,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTableFinishOperator
 {
-    private static final Metadata METADATA = createTestMetadataManager();
-    private static final InternalAggregationFunction LONG_MAX = METADATA.getAggregateFunctionImplementation(
-            METADATA.resolveFunction(QualifiedName.of("max"), fromTypes(BIGINT)));
+    private static final InternalAggregationFunction LONG_MAX = new TestingFunctionResolution().getAggregateFunctionImplementation(QualifiedName.of("max"), fromTypes(BIGINT));
 
     private ScheduledExecutorService scheduledExecutor;
 
