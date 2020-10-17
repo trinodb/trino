@@ -96,6 +96,7 @@ public class TestSpatialPartitioningInternalAggregation
     {
         Metadata metadata = functionAssertions.getMetadata();
         return metadata.getAggregateFunctionImplementation(metadata.resolveFunction(
+                functionAssertions.getSession(),
                 QualifiedName.of("spatial_partitioning"),
                 fromTypes(GEOMETRY, INTEGER)));
     }

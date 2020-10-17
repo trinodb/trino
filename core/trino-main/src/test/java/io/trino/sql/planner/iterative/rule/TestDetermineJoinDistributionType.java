@@ -773,7 +773,7 @@ public class TestDetermineJoinDistributionType
     @Test
     public void testGetSourceTablesSizeInBytes()
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), tester.getMetadata());
+        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), tester.getMetadata(), tester.getSession());
         Symbol symbol = planBuilder.symbol("col");
         Symbol sourceSymbol1 = planBuilder.symbol("source1");
         Symbol sourceSymbol2 = planBuilder.symbol("soruce2");

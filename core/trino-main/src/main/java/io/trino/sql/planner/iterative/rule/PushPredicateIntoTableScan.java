@@ -34,7 +34,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.ExpressionInterpreter;
-import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.LookupSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -85,14 +84,12 @@ public class PushPredicateIntoTableScan
     private final Metadata metadata;
     private final TypeOperators typeOperators;
     private final TypeAnalyzer typeAnalyzer;
-    private final DomainTranslator domainTranslator;
 
     public PushPredicateIntoTableScan(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-        this.domainTranslator = new DomainTranslator(metadata);
     }
 
     @Override
@@ -122,7 +119,8 @@ public class PushPredicateIntoTableScan
                 typeOperators,
                 typeAnalyzer,
                 context.getStatsProvider(),
-                domainTranslator);
+                new DomainTranslator(context.getSession(),
+                metadata));
 
         if (rewritten.isEmpty() || arePlansSame(filterNode, tableScan, rewritten.get())) {
             return Result.empty();
@@ -344,7 +342,7 @@ public class PushPredicateIntoTableScan
 
         // Make sure we produce an expression whose terms are consistent with the canonical form used in other optimizations
         // Otherwise, we'll end up ping-ponging among rules
-        expression = SimplifyExpressions.rewrite(expression, session, symbolAllocator, metadata, new LiteralEncoder(metadata), typeAnalyzer);
+        expression = SimplifyExpressions.rewrite(expression, session, symbolAllocator, metadata, typeAnalyzer);
 
         return expression;
     }

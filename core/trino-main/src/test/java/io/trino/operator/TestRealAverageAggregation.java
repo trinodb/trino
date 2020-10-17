@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createBlockOfReals;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.spi.type.RealType.REAL;
@@ -40,7 +41,7 @@ public class TestRealAverageAggregation
     @BeforeClass
     public void setUp()
     {
-        avgFunction = metadata.resolveFunction(QualifiedName.of("avg"), fromTypes(REAL));
+        avgFunction = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("avg"), fromTypes(REAL));
     }
 
     @Test

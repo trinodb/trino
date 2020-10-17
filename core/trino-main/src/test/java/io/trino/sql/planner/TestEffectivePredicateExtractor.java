@@ -29,6 +29,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProperties;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.connector.ColumnHandle;
@@ -97,7 +98,6 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionId.toFunctionId;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -133,9 +133,10 @@ public class TestEffectivePredicateExtractor
     private static final Expression GE = G.toSymbolReference();
     private static final Session SESSION = TestingSession.testSessionBuilder().build();
 
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
     private final Metadata metadata = new AbstractMockMetadata()
     {
-        private final Metadata delegate = createTestMetadataManager();
+        private final Metadata delegate = functionResolution.getMetadata();
 
         @Override
         public BlockEncodingSerde getBlockEncodingSerde()
@@ -162,9 +163,9 @@ public class TestEffectivePredicateExtractor
         }
 
         @Override
-        public ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+        public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
         {
-            return delegate.resolveFunction(name, parameterTypes);
+            return delegate.resolveFunction(session, name, parameterTypes);
         }
 
         @Override
@@ -201,8 +202,8 @@ public class TestEffectivePredicateExtractor
     };
 
     private final TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), metadata);
-    private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(metadata), metadata, true);
-    private final EffectivePredicateExtractor effectivePredicateExtractorWithoutTableProperties = new EffectivePredicateExtractor(new DomainTranslator(metadata), metadata, false);
+    private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(SESSION, metadata), metadata, true);
+    private final EffectivePredicateExtractor effectivePredicateExtractorWithoutTableProperties = new EffectivePredicateExtractor(new DomainTranslator(SESSION, metadata), metadata, false);
 
     private Map<Symbol, ColumnHandle> scanAssignments;
     private TableScanNode baseTableScan;
@@ -306,8 +307,8 @@ public class TestEffectivePredicateExtractor
                 and(
                         greaterThan(
                                 AE,
-                                new FunctionCallBuilder(metadata)
-                                        .setName(QualifiedName.of("rand"))
+                                functionResolution
+                                        .functionCallBuilder(QualifiedName.of("rand"))
                                         .build()),
                         lessThan(BE, bigintLiteral(10))));
 
@@ -742,7 +743,7 @@ public class TestEffectivePredicateExtractor
                         or(new ComparisonExpression(EQUAL, BE, bigintLiteral(200)), new IsNullPredicate(BE))));
 
         // non-deterministic
-        ResolvedFunction rand = metadata.resolveFunction(QualifiedName.of("rand"), ImmutableList.of());
+        ResolvedFunction rand = functionResolution.resolveFunction(QualifiedName.of("rand"), ImmutableList.of());
         ValuesNode node = new ValuesNode(
                 newId(),
                 ImmutableList.of(A, B),

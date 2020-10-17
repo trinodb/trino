@@ -164,7 +164,7 @@ public class UnwrapCastInComparison
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.functionInvoker = new InterpretedFunctionInvoker(metadata);
-            this.literalEncoder = new LiteralEncoder(metadata);
+            this.literalEncoder = new LiteralEncoder(session, metadata);
         }
 
         @Override

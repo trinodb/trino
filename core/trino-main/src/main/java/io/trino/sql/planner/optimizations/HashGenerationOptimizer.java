@@ -114,7 +114,7 @@ public class HashGenerationOptimizer
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         if (SystemSessionProperties.isOptimizeHashGenerationEnabled(session)) {
-            PlanWithProperties result = plan.accept(new Rewriter(metadata, idAllocator, symbolAllocator, types), new HashComputationSet());
+            PlanWithProperties result = plan.accept(new Rewriter(session, metadata, idAllocator, symbolAllocator, types), new HashComputationSet());
             return result.getNode();
         }
         return plan;
@@ -123,13 +123,15 @@ public class HashGenerationOptimizer
     private static class Rewriter
             extends PlanVisitor<PlanWithProperties, HashComputationSet>
     {
+        private final Session session;
         private final Metadata metadata;
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
         private final TypeProvider types;
 
-        private Rewriter(Metadata metadata, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, TypeProvider types)
+        private Rewriter(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, TypeProvider types)
         {
+            this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -640,7 +642,7 @@ public class HashGenerationOptimizer
                 Expression hashExpression;
                 if (hashSymbol == null) {
                     hashSymbol = symbolAllocator.newHashSymbol();
-                    hashExpression = hashComputation.getHashExpression(metadata, types);
+                    hashExpression = hashComputation.getHashExpression(session, metadata, types);
                 }
                 else {
                     hashExpression = hashSymbol.toSymbolReference();
@@ -757,7 +759,7 @@ public class HashGenerationOptimizer
             // add new projections for hash symbols needed by the parent
             for (HashComputation hashComputation : requiredHashes.getHashes()) {
                 if (!planWithProperties.getHashSymbols().containsKey(hashComputation)) {
-                    Expression hashExpression = hashComputation.getHashExpression(metadata, types);
+                    Expression hashExpression = hashComputation.getHashExpression(session, metadata, types);
                     Symbol hashSymbol = symbolAllocator.newHashSymbol();
                     assignments.put(hashSymbol, hashExpression);
                     outputHashSymbols.put(hashComputation, hashSymbol);
@@ -864,7 +866,7 @@ public class HashGenerationOptimizer
         return Optional.of(new HashComputation(fields));
     }
 
-    public static Optional<Expression> getHashExpression(Metadata metadata, SymbolAllocator symbolAllocator, List<Symbol> symbols)
+    public static Optional<Expression> getHashExpression(Session session, Metadata metadata, SymbolAllocator symbolAllocator, List<Symbol> symbols)
     {
         if (symbols.isEmpty()) {
             return Optional.empty();
@@ -872,14 +874,14 @@ public class HashGenerationOptimizer
 
         Expression result = new GenericLiteral(StandardTypes.BIGINT, String.valueOf(INITIAL_HASH_VALUE));
         for (Symbol symbol : symbols) {
-            Expression hashField = new FunctionCallBuilder(metadata)
+            Expression hashField = FunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of(HASH_CODE))
                     .addArgument(symbolAllocator.getTypes().get(symbol), new SymbolReference(symbol.getName()))
                     .build();
 
             hashField = new CoalesceExpression(hashField, new LongLiteral(String.valueOf(NULL_HASH_CODE)));
 
-            result = new FunctionCallBuilder(metadata)
+            result = FunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of("combine_hash"))
                     .addArgument(BIGINT, result)
                     .addArgument(BIGINT, hashField)
@@ -922,23 +924,23 @@ public class HashGenerationOptimizer
             return availableFields.containsAll(fields);
         }
 
-        private Expression getHashExpression(Metadata metadata, TypeProvider types)
+        private Expression getHashExpression(Session session, Metadata metadata, TypeProvider types)
         {
             Expression hashExpression = new GenericLiteral(StandardTypes.BIGINT, Integer.toString(INITIAL_HASH_VALUE));
             for (Symbol field : fields) {
-                hashExpression = getHashFunctionCall(hashExpression, field, metadata, types);
+                hashExpression = getHashFunctionCall(session, hashExpression, field, metadata, types);
             }
             return hashExpression;
         }
 
-        private Expression getHashFunctionCall(Expression previousHashValue, Symbol symbol, Metadata metadata, TypeProvider types)
+        private static Expression getHashFunctionCall(Session session, Expression previousHashValue, Symbol symbol, Metadata metadata, TypeProvider types)
         {
-            FunctionCall functionCall = new FunctionCallBuilder(metadata)
+            FunctionCall functionCall = FunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of(HASH_CODE))
                     .addArgument(types.get(symbol), symbol.toSymbolReference())
                     .build();
 
-            return new FunctionCallBuilder(metadata)
+            return FunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of("combine_hash"))
                     .addArgument(BIGINT, previousHashValue)
                     .addArgument(BIGINT, orNullHashCode(functionCall))

@@ -284,7 +284,7 @@ public final class MetadataManager
                 .maximumSize(1000)
                 .build(CacheLoader.from(key -> {
                     String name = mangleOperatorName(key.getOperatorType());
-                    return resolveFunction(QualifiedName.of(name), fromTypes(key.getArgumentTypes()));
+                    return resolvedFunctionInternal(QualifiedName.of(name), fromTypes(key.getArgumentTypes()));
                 }));
 
         coercionCache = CacheBuilder.newBuilder()
@@ -2252,10 +2252,9 @@ public final class MetadataManager
     }
 
     @Override
-    public ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        return functionDecoder.fromQualifiedName(name)
-                .orElseGet(() -> resolve(functionResolver.resolveFunction(functions.get(name), name, parameterTypes)));
+        return resolvedFunctionInternal(name, parameterTypes);
     }
 
     @Override
@@ -2275,6 +2274,12 @@ public final class MetadataManager
             }
             throw e;
         }
+    }
+
+    private ResolvedFunction resolvedFunctionInternal(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    {
+        return functionDecoder.fromQualifiedName(name)
+                .orElseGet(() -> resolve(functionResolver.resolveFunction(functions.get(name), name, parameterTypes)));
     }
 
     @Override
@@ -2320,7 +2325,7 @@ public final class MetadataManager
                 .map(functionDependency -> {
                     try {
                         List<TypeSignature> argumentTypes = applyBoundVariables(functionDependency.getArgumentTypes(), functionBinding);
-                        return resolveFunction(functionDependency.getName(), fromTypeSignatures(argumentTypes));
+                        return resolvedFunctionInternal(functionDependency.getName(), fromTypeSignatures(argumentTypes));
                     }
                     catch (TrinoException e) {
                         if (functionDependency.isOptional()) {
@@ -2336,7 +2341,7 @@ public final class MetadataManager
                 .map(operatorDependency -> {
                     try {
                         List<TypeSignature> argumentTypes = applyBoundVariables(operatorDependency.getArgumentTypes(), functionBinding);
-                        return resolveFunction(QualifiedName.of(mangleOperatorName(operatorDependency.getOperatorType())), fromTypeSignatures(argumentTypes));
+                        return resolvedFunctionInternal(QualifiedName.of(mangleOperatorName(operatorDependency.getOperatorType())), fromTypeSignatures(argumentTypes));
                     }
                     catch (TrinoException e) {
                         if (operatorDependency.isOptional()) {

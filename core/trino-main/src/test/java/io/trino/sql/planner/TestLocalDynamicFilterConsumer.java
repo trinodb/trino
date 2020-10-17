@@ -219,7 +219,7 @@ public class TestLocalDynamicFilterConsumer
     public void testDynamicFilterPruning()
             throws Exception
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata());
+        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata(), getQueryRunner().getDefaultSession());
         Symbol left1 = planBuilder.symbol("left1", BIGINT);
         Symbol left2 = planBuilder.symbol("left2", INTEGER);
         Symbol left3 = planBuilder.symbol("left3", SMALLINT);

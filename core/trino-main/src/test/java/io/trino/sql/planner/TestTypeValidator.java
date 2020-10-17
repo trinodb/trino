@@ -21,6 +21,7 @@ import com.google.common.collect.ListMultimap;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeOperators;
@@ -69,7 +70,7 @@ public class TestTypeValidator
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final TypeValidator TYPE_VALIDATOR = new TypeValidator();
 
-    private final Metadata metadata = createTestMetadataManager();
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
     private final TypeOperators typeOperators = new TypeOperators();
     private SymbolAllocator symbolAllocator;
     private TableScanNode baseTableScan;
@@ -147,7 +148,7 @@ public class TestTypeValidator
     public void testValidWindow()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        ResolvedFunction resolvedFunction = metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
@@ -185,7 +186,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
+                        functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
                         ImmutableList.of(columnC.toSymbolReference()),
                         false,
                         Optional.empty(),
@@ -241,7 +242,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
+                        functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
                         ImmutableList.of(columnA.toSymbolReference()),
                         false,
                         Optional.empty(),
@@ -267,7 +268,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
+                        functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
                         ImmutableList.of(columnC.toSymbolReference()),
                         false,
                         Optional.empty(),
@@ -288,7 +289,7 @@ public class TestTypeValidator
     public void testInvalidWindowFunctionCall()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        ResolvedFunction resolvedFunction = metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
@@ -323,7 +324,7 @@ public class TestTypeValidator
     public void testInvalidWindowFunctionSignature()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", BIGINT);
-        ResolvedFunction resolvedFunction = metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,

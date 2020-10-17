@@ -133,7 +133,7 @@ public class TestBeginTableWrite
         Metadata metadata = new MockMetadata();
         new BeginTableWrite(metadata)
                 .optimize(
-                        planProvider.apply(new PlanBuilder(new PlanNodeIdAllocator(), metadata)),
+                        planProvider.apply(new PlanBuilder(new PlanNodeIdAllocator(), metadata, testSessionBuilder().build())),
                         testSessionBuilder().build(),
                         empty(),
                         new SymbolAllocator(),

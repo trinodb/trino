@@ -15,7 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -27,7 +27,6 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static io.trino.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -46,9 +45,9 @@ public class TestRealHistogramAggregation
 
     public TestRealHistogramAggregation()
     {
-        Metadata metadata = createTestMetadataManager();
-        InternalAggregationFunction function = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("numeric_histogram"), fromTypes(BIGINT, REAL, DOUBLE)));
+        InternalAggregationFunction function = new TestingFunctionResolution().getAggregateFunctionImplementation(
+                QualifiedName.of("numeric_histogram"),
+                fromTypes(BIGINT, REAL, DOUBLE));
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());
 
         input = makeInput(10);

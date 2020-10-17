@@ -62,10 +62,10 @@ public class HandTpchQuery1
         super(localQueryRunner, "hand_tpch_query_1", 1, 5);
 
         Metadata metadata = localQueryRunner.getMetadata();
-        longAverage = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("avg"), fromTypes(BIGINT)));
-        doubleAverage = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("avg"), fromTypes(DOUBLE)));
-        doubleSum = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
-        countFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of()));
+        longAverage = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(session, QualifiedName.of("avg"), fromTypes(BIGINT)));
+        doubleAverage = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(session, QualifiedName.of("avg"), fromTypes(DOUBLE)));
+        doubleSum = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(session, QualifiedName.of("sum"), fromTypes(DOUBLE)));
+        countFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(session, QualifiedName.of("count"), ImmutableList.of()));
     }
 
     @Override

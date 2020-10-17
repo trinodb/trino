@@ -268,7 +268,7 @@ public class IndexJoinOptimizer
                 Session session)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.domainTranslator = new DomainTranslator(metadata);
+            this.domainTranslator = new DomainTranslator(session, metadata);
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");

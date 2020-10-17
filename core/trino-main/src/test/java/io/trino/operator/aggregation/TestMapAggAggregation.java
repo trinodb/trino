@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createBooleansBlock;
 import static io.trino.block.BlockAssertions.createDoublesBlock;
 import static io.trino.block.BlockAssertions.createStringArraysBlock;
@@ -50,7 +51,7 @@ public class TestMapAggAggregation
     @Test
     public void testDuplicateKeysValues()
     {
-        ResolvedFunction aggFunc = metadata.resolveFunction(QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, VARCHAR));
+        ResolvedFunction aggFunc = metadata.resolveFunction(TEST_SESSION, QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, VARCHAR));
         assertAggregation(
                 metadata,
                 aggFunc,
@@ -58,7 +59,7 @@ public class TestMapAggAggregation
                 createDoublesBlock(1.0, 1.0, 1.0),
                 createStringsBlock("a", "b", "c"));
 
-        aggFunc = metadata.resolveFunction(QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, INTEGER));
+        aggFunc = metadata.resolveFunction(TEST_SESSION, QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, INTEGER));
         assertAggregation(
                 metadata,
                 aggFunc,
@@ -70,7 +71,7 @@ public class TestMapAggAggregation
     @Test
     public void testSimpleMaps()
     {
-        ResolvedFunction aggFunc = metadata.resolveFunction(QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, VARCHAR));
+        ResolvedFunction aggFunc = metadata.resolveFunction(TEST_SESSION, QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, VARCHAR));
         assertAggregation(
                 metadata,
                 aggFunc,
@@ -78,7 +79,7 @@ public class TestMapAggAggregation
                 createDoublesBlock(1.0, 2.0, 3.0),
                 createStringsBlock("a", "b", "c"));
 
-        aggFunc = metadata.resolveFunction(QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, INTEGER));
+        aggFunc = metadata.resolveFunction(TEST_SESSION, QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, INTEGER));
         assertAggregation(
                 metadata,
                 aggFunc,
@@ -86,7 +87,7 @@ public class TestMapAggAggregation
                 createDoublesBlock(1.0, 2.0, 3.0),
                 createTypedLongsBlock(INTEGER, ImmutableList.of(3L, 2L, 1L)));
 
-        aggFunc = metadata.resolveFunction(QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, BOOLEAN));
+        aggFunc = metadata.resolveFunction(TEST_SESSION, QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, BOOLEAN));
         assertAggregation(
                 metadata,
                 aggFunc,
@@ -98,7 +99,7 @@ public class TestMapAggAggregation
     @Test
     public void testNull()
     {
-        ResolvedFunction doubleDouble = metadata.resolveFunction(QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, DOUBLE));
+        ResolvedFunction doubleDouble = metadata.resolveFunction(TEST_SESSION, QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, DOUBLE));
         assertAggregation(
                 metadata,
                 doubleDouble,
@@ -129,7 +130,7 @@ public class TestMapAggAggregation
     public void testDoubleArrayMap()
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
-        ResolvedFunction aggFunc = metadata.resolveFunction(QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, arrayType));
+        ResolvedFunction aggFunc = metadata.resolveFunction(TEST_SESSION, QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, arrayType));
 
         assertAggregation(
                 metadata,
@@ -145,7 +146,7 @@ public class TestMapAggAggregation
     public void testDoubleMapMap()
     {
         MapType innerMapType = mapType(VARCHAR, VARCHAR);
-        ResolvedFunction aggFunc = metadata.resolveFunction(QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, innerMapType));
+        ResolvedFunction aggFunc = metadata.resolveFunction(TEST_SESSION, QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, innerMapType));
 
         BlockBuilder builder = innerMapType.createBlockBuilder(null, 3);
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
@@ -168,7 +169,7 @@ public class TestMapAggAggregation
         RowType innerRowType = RowType.from(ImmutableList.of(
                 RowType.field("f1", INTEGER),
                 RowType.field("f2", DOUBLE)));
-        ResolvedFunction aggFunc = metadata.resolveFunction(QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, innerRowType));
+        ResolvedFunction aggFunc = metadata.resolveFunction(TEST_SESSION, QualifiedName.of(MapAggregationFunction.NAME), fromTypes(DOUBLE, innerRowType));
 
         BlockBuilder builder = innerRowType.createBlockBuilder(null, 3);
         innerRowType.writeObject(builder, toRow(ImmutableList.of(INTEGER, DOUBLE), 1L, 1.0));
@@ -189,7 +190,7 @@ public class TestMapAggAggregation
     public void testArrayDoubleMap()
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
-        ResolvedFunction aggFunc = metadata.resolveFunction(QualifiedName.of(MapAggregationFunction.NAME), fromTypes(arrayType, DOUBLE));
+        ResolvedFunction aggFunc = metadata.resolveFunction(TEST_SESSION, QualifiedName.of(MapAggregationFunction.NAME), fromTypes(arrayType, DOUBLE));
 
         assertAggregation(
                 metadata,

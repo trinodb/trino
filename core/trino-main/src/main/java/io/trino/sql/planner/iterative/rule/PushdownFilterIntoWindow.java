@@ -18,7 +18,6 @@ import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.FunctionId;
 import io.trino.metadata.Metadata;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -37,7 +36,6 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -49,11 +47,10 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.DomainTranslator.fromPredicate;
+import static io.trino.sql.planner.iterative.rule.Util.toTopNRankingType;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.window;
-import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
-import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static java.lang.Math.toIntExact;
 
 public class PushdownFilterIntoWindow
@@ -63,17 +60,11 @@ public class PushdownFilterIntoWindow
 
     private final Pattern<FilterNode> pattern;
     private final Metadata metadata;
-    private final DomainTranslator domainTranslator;
-    private final FunctionId rowNumberFunctionId;
-    private final FunctionId rankFunctionId;
     private final TypeOperators typeOperators;
 
     public PushdownFilterIntoWindow(Metadata metadata, TypeOperators typeOperators)
     {
         this.metadata = metadata;
-        this.domainTranslator = new DomainTranslator(metadata);
-        this.rowNumberFunctionId = metadata.resolveFunction(QualifiedName.of("row_number"), ImmutableList.of()).getFunctionId();
-        this.rankFunctionId = metadata.resolveFunction(QualifiedName.of("rank"), ImmutableList.of()).getFunctionId();
         this.pattern = filter()
                 .with(source().matching(window()
                         .matching(window -> window.getOrderingScheme().isPresent())
@@ -136,7 +127,7 @@ public class PushdownFilterIntoWindow
         Expression newPredicate = ExpressionUtils.combineConjuncts(
                 metadata,
                 extractionResult.getRemainingExpression(),
-                domainTranslator.toPredicate(newTupleDomain));
+                new DomainTranslator(session, metadata).toPredicate(newTupleDomain));
 
         if (newPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
             return Result.ofPlanNode(newSource);
@@ -187,21 +178,5 @@ public class PushdownFilterIntoWindow
             return OptionalInt.of(toIntExact(upperBound));
         }
         return OptionalInt.empty();
-    }
-
-    private Optional<RankingType> toTopNRankingType(WindowNode node)
-    {
-        if (node.getWindowFunctions().size() != 1 || node.getOrderingScheme().isEmpty()) {
-            return Optional.empty();
-        }
-        Symbol rankingSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-        FunctionId functionId = node.getWindowFunctions().get(rankingSymbol).getResolvedFunction().getFunctionId();
-        if (functionId.equals(rowNumberFunctionId)) {
-            return Optional.of(ROW_NUMBER);
-        }
-        if (functionId.equals(rankFunctionId)) {
-            return Optional.of(RANK);
-        }
-        return Optional.empty();
     }
 }

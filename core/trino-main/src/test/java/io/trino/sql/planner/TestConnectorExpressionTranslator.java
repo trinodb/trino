@@ -47,7 +47,7 @@ public class TestConnectorExpressionTranslator
     private static final Metadata METADATA = createTestMetadataManager();
     private static final TypeAnalyzer TYPE_ANALYZER = new TypeAnalyzer(new SqlParser(), METADATA);
     private static final Type ROW_TYPE = rowType(field("int_symbol_1", INTEGER), field("varchar_symbol_1", createVarcharType(5)));
-    private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(METADATA);
+    private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(TEST_SESSION, METADATA);
 
     private static final Map<Symbol, Type> symbols = ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("double_symbol_1"), DOUBLE)
