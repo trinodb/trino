@@ -173,7 +173,7 @@ public abstract class BaseTestJdbcResultSet
                         .hasMessage("Expected value to be a date but is : 09:39:05.000");
                 assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(9, 39, 5)));
                 assertThatThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                         .hasMessage(serverSupportsVariablePrecisionTime()
                                 ? "Expected column to be a timestamp type but is time(3)"
                                 : "Expected column to be a timestamp type but is time");
