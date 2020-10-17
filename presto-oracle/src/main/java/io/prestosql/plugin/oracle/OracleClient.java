@@ -175,7 +175,7 @@ public class OracleClient
         requireNonNull(oracleConfig, "oracle config is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
 
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), 38, 0, Optional.empty(), Optional.empty());
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), 40, 0, Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
                 this::quoted,
                 ImmutableSet.<AggregateFunctionRule>builder()
@@ -312,7 +312,7 @@ public class OracleClient
                 int scale = max(decimalDigits, 0);
                 Optional<Integer> numberDefaultScale = getNumberDefaultScale(session);
                 RoundingMode roundingMode = getNumberRoundingMode(session);
-                if (precision == 38 && scale == 0) {
+                if (precision == 40 && scale == 0) {
                     return Optional.of(ColumnMapping.longMapping(
                             BIGINT,
                             ResultSet::getLong,
