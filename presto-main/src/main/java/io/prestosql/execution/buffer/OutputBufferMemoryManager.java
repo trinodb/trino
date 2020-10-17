@@ -127,11 +127,6 @@ class OutputBufferMemoryManager
         return bufferedBytes.get() / (double) maxBufferedBytes;
     }
 
-    public synchronized boolean isOverutilized()
-    {
-        return isBufferFull();
-    }
-
     private synchronized boolean isBufferFull()
     {
         return bufferedBytes.get() > maxBufferedBytes && blockOnFull.get();

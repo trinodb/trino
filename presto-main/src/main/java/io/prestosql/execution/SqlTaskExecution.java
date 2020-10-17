@@ -258,7 +258,7 @@ public class SqlTaskExecution
     {
         TaskHandle taskHandle = taskExecutor.addTask(
                 taskStateMachine.getTaskId(),
-                outputBuffer::getUtilization,
+                () -> outputBuffer.getUtilization().orElse(0),
                 getInitialSplitsPerNode(taskContext.getSession()),
                 getSplitConcurrencyAdjustmentInterval(taskContext.getSession()),
                 getMaxDriversPerTask(taskContext.getSession()));
