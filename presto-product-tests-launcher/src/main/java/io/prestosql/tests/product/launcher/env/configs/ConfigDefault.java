@@ -29,6 +29,24 @@ public class ConfigDefault
     }
 
     @Override
+    public String getPrestoBaseImage()
+    {
+        return EnvironmentDefaults.PRESTO_BASE_IMAGE;
+    }
+
+    @Override
+    public String getPrestoJavaVersion()
+    {
+        return EnvironmentDefaults.PRESTO_JAVA_VERSION;
+    }
+
+    @Override
+    public String getTestsBaseImage()
+    {
+        return EnvironmentDefaults.TESTS_BASE_IMAGE;
+    }
+
+    @Override
     public String getImagesVersion()
     {
         return EnvironmentDefaults.DOCKER_IMAGES_VERSION;

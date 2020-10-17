@@ -69,6 +69,9 @@ public final class Standard
     private final PortBinder portBinder;
 
     private final String imagesVersion;
+    private final String prestoBaseImage;
+    private final String javaHome;
+    private final String testsBaseImage;
     private final File serverPackage;
     private final boolean debug;
 
@@ -83,6 +86,9 @@ public final class Standard
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
+        this.prestoBaseImage = environmentConfig.getPrestoBaseImage();
+        this.javaHome = format("/usr/lib/jvm/zulu-%s", environmentConfig.getPrestoJavaVersion());
+        this.testsBaseImage = environmentConfig.getTestsBaseImage();
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
         this.debug = debug;
         checkArgument(serverPackage.getName().endsWith(".tar.gz"), "Currently only server .tar.gz package is supported");
@@ -98,7 +104,7 @@ public final class Standard
     private DockerContainer createPrestoMaster()
     {
         DockerContainer container =
-                createPrestoContainer(dockerFiles, serverPackage, debug, "prestodev/centos7-oj11:" + imagesVersion, COORDINATOR)
+                createPrestoContainer(dockerFiles, serverPackage, debug, javaHome, prestoBaseImage + ":" + imagesVersion, COORDINATOR)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/access-control.properties")), CONTAINER_PRESTO_ACCESS_CONTROL_PROPERTIES)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
 
@@ -109,7 +115,7 @@ public final class Standard
     @SuppressWarnings("resource")
     private DockerContainer createTestsContainer()
     {
-        DockerContainer container = new DockerContainer("prestodev/centos6-oj8:" + imagesVersion, TESTS)
+        DockerContainer container = new DockerContainer(testsBaseImage + ":" + imagesVersion, TESTS)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withCommand("bash", "-xeuc", "echo 'No command provided' >&2; exit 69")
                 .waitingFor(new WaitAllStrategy()) // don't wait
@@ -119,7 +125,7 @@ public final class Standard
     }
 
     @SuppressWarnings("resource")
-    public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, File serverPackage, boolean debug, String dockerImageName, String logicalName)
+    public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, File serverPackage, boolean debug, String javaHome, String dockerImageName, String logicalName)
     {
         DockerContainer container = new DockerContainer(dockerImageName, logicalName)
                 .withNetworkAliases(logicalName + ".docker.cluster")
@@ -132,7 +138,9 @@ public final class Standard
                 .withCommand("/docker/presto-product-tests/run-presto.sh")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingForAll(forLogMessage(".*======== SERVER STARTED ========.*", 1), forHealthcheck())
-                .withStartupTimeout(Duration.ofMinutes(5));
+                .withStartupTimeout(Duration.ofMinutes(5))
+                .withEnv("JAVA_HOME", javaHome);
+
         if (debug) {
             enablePrestoJavaDebugger(container);
         }
