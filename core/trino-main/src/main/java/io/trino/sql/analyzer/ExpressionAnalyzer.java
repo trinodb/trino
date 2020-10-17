@@ -1135,7 +1135,7 @@ public class ExpressionAnalyzer
 
             ResolvedFunction function;
             try {
-                function = metadata.resolveFunction(node.getName(), argumentTypes);
+                function = metadata.resolveFunction(session, node.getName(), argumentTypes);
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -1786,7 +1786,7 @@ public class ExpressionAnalyzer
 
             for (int i = 1; i < arguments.size(); i++) {
                 try {
-                    metadata.resolveFunction(QualifiedName.of(FormatFunction.NAME), fromTypes(arguments.get(0), RowType.anonymous(arguments.subList(1, arguments.size()))));
+                    metadata.resolveFunction(session, QualifiedName.of(FormatFunction.NAME), fromTypes(arguments.get(0), RowType.anonymous(arguments.subList(1, arguments.size()))));
                 }
                 catch (TrinoException e) {
                     ErrorCode errorCode = e.getErrorCode();

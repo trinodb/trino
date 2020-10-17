@@ -714,7 +714,7 @@ public class PlanOptimizers
                                 new EvaluateEmptyIntersect(),
                                 new RemoveEmptyExceptBranches(),
                                 new PushdownLimitIntoRowNumber(),
-                                new PushdownLimitIntoWindow(metadata),
+                                new PushdownLimitIntoWindow(),
                                 new PushdownFilterIntoRowNumber(metadata, typeOperators),
                                 new PushdownFilterIntoWindow(metadata, typeOperators),
                                 new ReplaceWindowWithRowNumber(metadata))),

@@ -19,8 +19,8 @@ import io.trino.RowPagesBuilder;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.memory.context.MemoryTrackingContext;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.OutputTableHandle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
 import io.trino.operator.DevNullOperator.DevNullOperatorFactory;
 import io.trino.operator.TableWriterOperator.TableWriterInfo;
@@ -55,7 +55,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -76,9 +75,7 @@ import static org.testng.Assert.assertTrue;
 public class TestTableWriterOperator
 {
     private static final CatalogName CONNECTOR_ID = new CatalogName("testConnectorId");
-    private static final Metadata METADATA = createTestMetadataManager();
-    private static final InternalAggregationFunction LONG_MAX = METADATA.getAggregateFunctionImplementation(
-            METADATA.resolveFunction(QualifiedName.of("max"), fromTypes(BIGINT)));
+    private static final InternalAggregationFunction LONG_MAX = new TestingFunctionResolution().getAggregateFunctionImplementation(QualifiedName.of("max"), fromTypes(BIGINT));
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
 

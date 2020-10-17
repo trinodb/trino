@@ -123,14 +123,12 @@ public class AddExchanges
     private final TypeAnalyzer typeAnalyzer;
     private final Metadata metadata;
     private final TypeOperators typeOperators;
-    private final DomainTranslator domainTranslator;
     private final StatsCalculator statsCalculator;
 
     public AddExchanges(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer, StatsCalculator statsCalculator)
     {
         this.metadata = metadata;
         this.typeOperators = typeOperators;
-        this.domainTranslator = new DomainTranslator(metadata);
         this.typeAnalyzer = typeAnalyzer;
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
     }
@@ -150,6 +148,7 @@ public class AddExchanges
         private final TypeProvider types;
         private final StatsProvider statsProvider;
         private final Session session;
+        private final DomainTranslator domainTranslator;
         private final boolean distributedIndexJoins;
         private final boolean preferStreamingOperators;
         private final boolean redistributeWrites;
@@ -162,6 +161,7 @@ public class AddExchanges
             this.types = symbolAllocator.getTypes();
             this.statsProvider = new CachingStatsProvider(statsCalculator, session, types);
             this.session = session;
+            this.domainTranslator = new DomainTranslator(session, metadata);
             this.distributedIndexJoins = SystemSessionProperties.isDistributedIndexJoinEnabled(session);
             this.redistributeWrites = SystemSessionProperties.isRedistributeWrites(session);
             this.scaleWriters = SystemSessionProperties.isScaleWriters(session);

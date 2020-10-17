@@ -107,10 +107,10 @@ public final class DomainTranslator
     private final Metadata metadata;
     private final LiteralEncoder literalEncoder;
 
-    public DomainTranslator(Metadata metadata)
+    public DomainTranslator(Session session, Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.literalEncoder = new LiteralEncoder(metadata);
+        this.literalEncoder = new LiteralEncoder(session, metadata);
     }
 
     public Expression toPredicate(TupleDomain<Symbol> tupleDomain)
@@ -317,7 +317,7 @@ public final class DomainTranslator
         private Visitor(Metadata metadata, TypeOperators typeOperators, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.literalEncoder = new LiteralEncoder(metadata);
+            this.literalEncoder = new LiteralEncoder(session, metadata);
             this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");

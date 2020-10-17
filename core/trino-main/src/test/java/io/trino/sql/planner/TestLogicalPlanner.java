@@ -79,6 +79,7 @@ import java.util.function.Predicate;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.DISTRIBUTED_SORT;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
@@ -274,7 +275,7 @@ public class TestLogicalPlanner
     public void testAllFieldsDereferenceFromNonDeterministic()
     {
         FunctionCall randomFunction = new FunctionCall(
-                getQueryRunner().getMetadata().resolveFunction(QualifiedName.of("rand"), ImmutableList.of()).toQualifiedName(),
+                getQueryRunner().getMetadata().resolveFunction(TEST_SESSION, QualifiedName.of("rand"), ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
 
         assertPlan("SELECT (x, x).* FROM (SELECT rand()) T(x)",

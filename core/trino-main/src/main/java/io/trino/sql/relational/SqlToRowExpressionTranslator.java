@@ -133,7 +133,11 @@ public final class SqlToRowExpressionTranslator
             Session session,
             boolean optimize)
     {
-        Visitor visitor = new Visitor(metadata, types, layout);
+        Visitor visitor = new Visitor(
+                metadata,
+                types,
+                layout,
+                session);
         RowExpression result = visitor.process(expression, null);
 
         requireNonNull(result, "result is null");
@@ -152,16 +156,19 @@ public final class SqlToRowExpressionTranslator
         private final Metadata metadata;
         private final Map<NodeRef<Expression>, Type> types;
         private final Map<Symbol, Integer> layout;
+        private final Session session;
         private final StandardFunctionResolution standardFunctionResolution;
 
         private Visitor(
                 Metadata metadata,
                 Map<NodeRef<Expression>, Type> types,
-                Map<Symbol, Integer> layout)
+                Map<Symbol, Integer> layout,
+                Session session)
         {
             this.metadata = metadata;
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.layout = layout;
+            this.session = session;
             standardFunctionResolution = new StandardFunctionResolution(metadata);
         }
 
@@ -241,7 +248,7 @@ public final class SqlToRowExpressionTranslator
 
             if (JSON.equals(type)) {
                 return call(
-                        metadata.resolveFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR)),
+                        metadata.resolveFunction(session, QualifiedName.of("json_parse"), fromTypes(VARCHAR)),
                         constant(utf8Slice(node.getValue()), VARCHAR));
             }
 
@@ -308,7 +315,7 @@ public final class SqlToRowExpressionTranslator
             switch (node.getOperator()) {
                 case NOT_EQUAL:
                     return new CallExpression(
-                            metadata.resolveFunction(QualifiedName.of("not"), fromTypes(BOOLEAN)),
+                            metadata.resolveFunction(session, QualifiedName.of("not"), fromTypes(BOOLEAN)),
                             ImmutableList.of(visitComparisonExpression(Operator.EQUAL, left, right)));
                 case GREATER_THAN:
                     return visitComparisonExpression(Operator.LESS_THAN, right, left);
@@ -648,7 +655,7 @@ public final class SqlToRowExpressionTranslator
         private RowExpression notExpression(RowExpression value)
         {
             return new CallExpression(
-                    metadata.resolveFunction(QualifiedName.of("not"), fromTypes(BOOLEAN)),
+                    metadata.resolveFunction(session, QualifiedName.of("not"), fromTypes(BOOLEAN)),
                     ImmutableList.of(value));
         }
 

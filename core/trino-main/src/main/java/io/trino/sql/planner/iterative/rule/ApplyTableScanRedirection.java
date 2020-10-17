@@ -63,13 +63,11 @@ public class ApplyTableScanRedirection
             .matching(node -> !node.isUpdateTarget());
 
     private final Metadata metadata;
-    private final DomainTranslator domainTranslator;
     private final TypeCoercion typeCoercion;
 
     public ApplyTableScanRedirection(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.domainTranslator = new DomainTranslator(metadata);
         this.typeCoercion = new TypeCoercion(metadata::getType);
     }
 
@@ -217,6 +215,7 @@ public class ApplyTableScanRedirection
                 scanNode.isUpdateTarget(),
                 Optional.empty());
 
+        DomainTranslator domainTranslator = new DomainTranslator(context.getSession(), metadata);
         FilterNode filterNode = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 applyProjection(

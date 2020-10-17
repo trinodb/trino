@@ -19,6 +19,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.SliceUtf8;
+import io.trino.Session;
 import io.trino.block.BlockSerdeUtil;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -74,10 +75,12 @@ import static java.util.Objects.requireNonNull;
 
 public final class LiteralEncoder
 {
+    private final Session session;
     private final Metadata metadata;
 
-    public LiteralEncoder(Metadata metadata)
+    public LiteralEncoder(Session session, Metadata metadata)
     {
+        this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
@@ -139,17 +142,17 @@ public final class LiteralEncoder
             // if you remove this, you will need to update the TupleDomainOrcPredicate
             // When changing this, don't forget about similar code for REAL below
             if (value.isNaN()) {
-                return new FunctionCallBuilder(metadata)
+                return FunctionCallBuilder.resolve(session, metadata)
                         .setName(QualifiedName.of("nan"))
                         .build();
             }
             if (value.equals(Double.NEGATIVE_INFINITY)) {
-                return ArithmeticUnaryExpression.negative(new FunctionCallBuilder(metadata)
+                return ArithmeticUnaryExpression.negative(FunctionCallBuilder.resolve(session, metadata)
                         .setName(QualifiedName.of("infinity"))
                         .build());
             }
             if (value.equals(Double.POSITIVE_INFINITY)) {
-                return new FunctionCallBuilder(metadata)
+                return FunctionCallBuilder.resolve(session, metadata)
                         .setName(QualifiedName.of("infinity"))
                         .build();
             }
@@ -161,21 +164,21 @@ public final class LiteralEncoder
             // WARNING for ORC predicate code as above (for double)
             if (value.isNaN()) {
                 return new Cast(
-                        new FunctionCallBuilder(metadata)
+                        FunctionCallBuilder.resolve(session, metadata)
                                 .setName(QualifiedName.of("nan"))
                                 .build(),
                         toSqlType(REAL));
             }
             if (value.equals(Float.NEGATIVE_INFINITY)) {
                 return ArithmeticUnaryExpression.negative(new Cast(
-                        new FunctionCallBuilder(metadata)
+                        FunctionCallBuilder.resolve(session, metadata)
                                 .setName(QualifiedName.of("infinity"))
                                 .build(),
                         toSqlType(REAL)));
             }
             if (value.equals(Float.POSITIVE_INFINITY)) {
                 return new Cast(
-                        new FunctionCallBuilder(metadata)
+                        FunctionCallBuilder.resolve(session, metadata)
                                 .setName(QualifiedName.of("infinity"))
                                 .build(),
                         toSqlType(REAL));
@@ -274,7 +277,7 @@ public final class LiteralEncoder
             // able to encode it in the plan that gets sent to workers.
             // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)
             Slice encoded = VarbinaryFunctions.toBase64((Slice) object);
-            argument = new FunctionCallBuilder(metadata)
+            argument = FunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of("from_base64"))
                     .addArgument(VARCHAR, new StringLiteral(encoded.toStringUtf8()))
                     .build();
@@ -284,7 +287,7 @@ public final class LiteralEncoder
         }
 
         ResolvedFunction resolvedFunction = metadata.getCoercion(QualifiedName.of(LITERAL_FUNCTION_NAME), argumentType, type);
-        return new FunctionCallBuilder(metadata)
+        return FunctionCallBuilder.resolve(session, metadata)
                 .setName(resolvedFunction.toQualifiedName())
                 .addArgument(argumentType, argument)
                 .build();

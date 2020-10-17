@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createArrayBigintBlock;
 import static io.trino.block.BlockAssertions.createBooleansBlock;
 import static io.trino.block.BlockAssertions.createDoublesBlock;
@@ -47,14 +48,14 @@ public class TestArbitraryAggregation
     public void testAllRegistered()
     {
         for (Type valueType : metadata.getTypes()) {
-            assertNotNull(metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(valueType))));
+            assertNotNull(metadata.getAggregateFunctionImplementation(metadata.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(valueType))));
         }
     }
 
     @Test
     public void testNullBoolean()
     {
-        ResolvedFunction booleanAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(BOOLEAN));
+        ResolvedFunction booleanAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(BOOLEAN));
         assertAggregation(
                 metadata,
                 booleanAgg,
@@ -65,7 +66,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidBoolean()
     {
-        ResolvedFunction booleanAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(BOOLEAN));
+        ResolvedFunction booleanAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(BOOLEAN));
         assertAggregation(
                 metadata,
                 booleanAgg,
@@ -76,7 +77,7 @@ public class TestArbitraryAggregation
     @Test
     public void testNullLong()
     {
-        ResolvedFunction longAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(BIGINT));
+        ResolvedFunction longAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(BIGINT));
         assertAggregation(
                 metadata,
                 longAgg,
@@ -87,7 +88,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidLong()
     {
-        ResolvedFunction longAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(BIGINT));
+        ResolvedFunction longAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(BIGINT));
         assertAggregation(
                 metadata,
                 longAgg,
@@ -98,7 +99,7 @@ public class TestArbitraryAggregation
     @Test
     public void testNullDouble()
     {
-        ResolvedFunction doubleAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(DOUBLE));
+        ResolvedFunction doubleAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(DOUBLE));
         assertAggregation(
                 metadata,
                 doubleAgg,
@@ -109,7 +110,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidDouble()
     {
-        ResolvedFunction doubleAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(DOUBLE));
+        ResolvedFunction doubleAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(DOUBLE));
         assertAggregation(
                 metadata,
                 doubleAgg,
@@ -120,7 +121,7 @@ public class TestArbitraryAggregation
     @Test
     public void testNullString()
     {
-        ResolvedFunction stringAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(VARCHAR));
+        ResolvedFunction stringAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(VARCHAR));
         assertAggregation(
                 metadata,
                 stringAgg,
@@ -131,7 +132,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidString()
     {
-        ResolvedFunction stringAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(VARCHAR));
+        ResolvedFunction stringAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(VARCHAR));
         assertAggregation(
                 metadata,
                 stringAgg,
@@ -142,7 +143,7 @@ public class TestArbitraryAggregation
     @Test
     public void testNullArray()
     {
-        ResolvedFunction arrayAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(new ArrayType(BIGINT)));
+        ResolvedFunction arrayAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(new ArrayType(BIGINT)));
         assertAggregation(
                 metadata,
                 arrayAgg,
@@ -153,7 +154,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidArray()
     {
-        ResolvedFunction arrayAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(new ArrayType(BIGINT)));
+        ResolvedFunction arrayAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(new ArrayType(BIGINT)));
         assertAggregation(
                 metadata,
                 arrayAgg,
@@ -164,7 +165,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidInt()
     {
-        ResolvedFunction arrayAgg = metadata.resolveFunction(QualifiedName.of("arbitrary"), fromTypes(INTEGER));
+        ResolvedFunction arrayAgg = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(INTEGER));
         assertAggregation(
                 metadata,
                 arrayAgg,

@@ -26,13 +26,12 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.operator.aggregation.AggregationTestUtils.createArgs;
@@ -45,25 +44,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestAggregationFunction
 {
-    protected Metadata metadata;
-
-    @BeforeClass
-    public final void initTestAggregationFunction()
-    {
-        metadata = createTestMetadataManager();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroyTestAggregationFunction()
-    {
-        metadata = null;
-    }
+    protected Metadata metadata = createTestMetadataManager();
 
     protected abstract Block[] getSequenceBlocks(int start, int length);
 
     protected final ResolvedFunction getFunction()
     {
         return metadata.resolveFunction(
+                TEST_SESSION,
                 QualifiedName.of(getFunctionName()),
                 fromTypes(getFunctionParameterTypes()));
     }

@@ -19,13 +19,13 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.analyzer.FeaturesConfig;
-import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
@@ -138,8 +138,8 @@ public class TestSetSessionTask
     {
         testSetSession("bar", new StringLiteral("baz"), "baz");
         testSetSession("bar",
-                new FunctionCallBuilder(metadata)
-                        .setName(QualifiedName.of("concat"))
+                new TestingFunctionResolution(transactionManager, metadata)
+                        .functionCallBuilder(QualifiedName.of("concat"))
                         .addArgument(VARCHAR, new StringLiteral("ban"))
                         .addArgument(VARCHAR, new StringLiteral("ana"))
                         .build(),
@@ -169,8 +169,8 @@ public class TestSetSessionTask
     @Test
     public void testSetSessionWithParameters()
     {
-        FunctionCall functionCall = new FunctionCallBuilder(metadata)
-                .setName(QualifiedName.of("concat"))
+        FunctionCall functionCall = new TestingFunctionResolution(transactionManager, metadata)
+                .functionCallBuilder(QualifiedName.of("concat"))
                 .addArgument(VARCHAR, new StringLiteral("ban"))
                 .addArgument(VARCHAR, new Parameter(0))
                 .build();

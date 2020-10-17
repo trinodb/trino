@@ -43,7 +43,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     @BeforeClass
     public void setup()
     {
-        rand = "\"" + tester().getMetadata().resolveFunction(QualifiedName.of("rand"), ImmutableList.of()).toQualifiedName() + "\"()";
+        rand = "\"" + tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("rand"), ImmutableList.of()).toQualifiedName() + "\"()";
     }
 
     @Test

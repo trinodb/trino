@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -43,7 +44,7 @@ public abstract class AbstractTestGeoAggregationFunctions
     public void registerFunctions()
     {
         functionAssertions.installPlugin(new GeoPlugin());
-        function = functionAssertions.getMetadata().resolveFunction(QualifiedName.of(getFunctionName()), fromTypes(GEOMETRY));
+        function = functionAssertions.getMetadata().resolveFunction(TEST_SESSION, QualifiedName.of(getFunctionName()), fromTypes(GEOMETRY));
     }
 
     protected void assertAggregatedGeometries(String testDescription, String expectedWkt, String... wkts)
