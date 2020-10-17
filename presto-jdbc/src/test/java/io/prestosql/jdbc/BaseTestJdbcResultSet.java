@@ -170,7 +170,7 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getObject(column, Time.class), Time.valueOf(LocalTime.of(9, 39, 5)));
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is : 09:39:05.000");
+                        .hasMessage("Expected value to be a date but is: 09:39:05.000");
                 assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(9, 39, 5)));
                 assertThatThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
@@ -190,8 +190,8 @@ public abstract class BaseTestJdbcResultSet
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage(serverSupportsVariablePrecisionTimeWithTimeZone()
-                                ? "Expected value to be a date but is : 09:39:07+01:00"
-                                : "Expected value to be a date but is : 09:39:07.000 +01:00");
+                                ? "Expected value to be a date but is: 09:39:07+01:00"
+                                : "Expected value to be a date but is: 09:39:07.000 +01:00");
                 assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(1, 39, 7))); // TODO this should fail, or represent TIME '09:39:07'
                 assertThatThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
@@ -210,8 +210,8 @@ public abstract class BaseTestJdbcResultSet
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage(serverSupportsVariablePrecisionTimeWithTimeZone()
-                                ? "Expected value to be a date but is : 01:39:07+01:00"
-                                : "Expected value to be a date but is : 01:39:07.000 +01:00");
+                                ? "Expected value to be a date but is: 01:39:07+01:00"
+                                : "Expected value to be a date but is: 01:39:07.000 +01:00");
                 assertEquals(rs.getTime(column), someBogusValue); // TODO this should fail, or represent TIME '01:39:07'
                 assertThatThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
@@ -230,8 +230,8 @@ public abstract class BaseTestJdbcResultSet
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage(serverSupportsVariablePrecisionTimeWithTimeZone()
-                                ? "Expected value to be a date but is : 00:39:07+01:00"
-                                : "Expected value to be a date but is : 00:39:07.000 +01:00");
+                                ? "Expected value to be a date but is: 00:39:07+01:00"
+                                : "Expected value to be a date but is: 00:39:07.000 +01:00");
                 assertEquals(rs.getTime(column), someBogusValue); // TODO this should fail, as there no java.sql.Time representation for TIME '00:39:07' in America/Bahia_Banderas
                 assertThatThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
@@ -252,7 +252,7 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getObject(column, Timestamp.class), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is : 2018-02-13 13:14:15.123");
+                        .hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.123");
                 assertThatThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                         .hasMessage(serverSupportsVariablePrecisionTimestamp()
@@ -266,7 +266,7 @@ public abstract class BaseTestJdbcResultSet
                     assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 111_111_111)));
                     assertThatThrownBy(() -> rs.getDate(column))
                             .isInstanceOf(SQLException.class)
-                            .hasMessage("Expected value to be a date but is : 2018-02-13 13:14:15.111111111111");
+                            .hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.111111111111");
                     assertThatThrownBy(() -> rs.getTime(column))
                             .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                             .hasMessage(serverSupportsVariablePrecisionTimestamp()
@@ -281,7 +281,7 @@ public abstract class BaseTestJdbcResultSet
                     assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 555_555_556)));
                     assertThatThrownBy(() -> rs.getDate(column))
                             .isInstanceOf(SQLException.class)
-                            .hasMessage("Expected value to be a date but is : 2018-02-13 13:14:15.555555555555");
+                            .hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.555555555555");
                     assertThatThrownBy(() -> rs.getTime(column))
                             .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                             .hasMessage(serverSupportsVariablePrecisionTimestamp()
@@ -297,8 +297,8 @@ public abstract class BaseTestJdbcResultSet
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage(serverSupportsVariablePrecisionTimestamp()
-                                ? "Expected value to be a date but is : 0001-01-01 00:00:00"
-                                : "Expected value to be a date but is : 0001-01-01 00:00:00.000");
+                                ? "Expected value to be a date but is: 0001-01-01 00:00:00"
+                                : "Expected value to be a date but is: 0001-01-01 00:00:00.000");
                 assertThatThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                         .hasMessage(serverSupportsVariablePrecisionTimestamp()
@@ -313,8 +313,8 @@ public abstract class BaseTestJdbcResultSet
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage(serverSupportsVariablePrecisionTimestamp()
-                                ? "Expected value to be a date but is : 1582-10-04 00:00:00"
-                                : "Expected value to be a date but is : 1582-10-04 00:00:00.000");
+                                ? "Expected value to be a date but is: 1582-10-04 00:00:00"
+                                : "Expected value to be a date but is: 1582-10-04 00:00:00.000");
                 assertThatThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                         .hasMessage(serverSupportsVariablePrecisionTimestamp()
@@ -329,8 +329,8 @@ public abstract class BaseTestJdbcResultSet
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage(serverSupportsVariablePrecisionTimestamp()
-                                ? "Expected value to be a date but is : 1582-10-10 00:00:00"
-                                : "Expected value to be a date but is : 1582-10-10 00:00:00.000");
+                                ? "Expected value to be a date but is: 1582-10-10 00:00:00"
+                                : "Expected value to be a date but is: 1582-10-10 00:00:00.000");
                 assertThatThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                         .hasMessage(serverSupportsVariablePrecisionTimestamp()
@@ -345,8 +345,8 @@ public abstract class BaseTestJdbcResultSet
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage(serverSupportsVariablePrecisionTimestamp()
-                                ? "Expected value to be a date but is : 1582-10-15 00:00:00"
-                                : "Expected value to be a date but is : 1582-10-15 00:00:00.000");
+                                ? "Expected value to be a date but is: 1582-10-15 00:00:00"
+                                : "Expected value to be a date but is: 1582-10-15 00:00:00.000");
                 assertThatThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                         .hasMessage(serverSupportsVariablePrecisionTimestamp()
@@ -360,8 +360,8 @@ public abstract class BaseTestJdbcResultSet
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage(serverSupportsVariablePrecisionTimestamp()
-                                ? "Expected value to be a date but is : 1583-01-01 00:00:00"
-                                : "Expected value to be a date but is : 1583-01-01 00:00:00.000");
+                                ? "Expected value to be a date but is: 1583-01-01 00:00:00"
+                                : "Expected value to be a date but is: 1583-01-01 00:00:00.000");
                 assertThatThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                         .hasMessage(serverSupportsVariablePrecisionTimestamp()
@@ -381,7 +381,7 @@ public abstract class BaseTestJdbcResultSet
                     assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(123456, 1, 23, 1, 23, 45, 123_456_789)));
                     assertThatThrownBy(() -> rs.getDate(column))
                             .isInstanceOf(SQLException.class)
-                            .hasMessage("Expected value to be a date but is : +123456-01-23 01:23:45.123456789");
+                            .hasMessage("Expected value to be a date but is: +123456-01-23 01:23:45.123456789");
                     assertThatThrownBy(() -> rs.getTime(column))
                             .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                             .hasMessage(serverSupportsVariablePrecisionTimestamp()
@@ -394,7 +394,7 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 6, 14, 15, 227_000_000))); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is : 2018-02-13 13:14:15.227 Europe/Warsaw");
+                        .hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.227 Europe/Warsaw");
                 assertThatThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                         .hasMessage(serverSupportsVariablePrecisionTimestampWithTimeZone()
@@ -407,7 +407,7 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 1, 14, 15, 227_000_000))); // TODO this should represent TIMESTAMP '1970-01-01 09:14:15.227 Europe/Warsaw'
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is : 1970-01-01 09:14:15.227 Europe/Warsaw");
+                        .hasMessage("Expected value to be a date but is: 1970-01-01 09:14:15.227 Europe/Warsaw");
                 assertThatThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                         .hasMessage(serverSupportsVariablePrecisionTimestampWithTimeZone()
@@ -420,7 +420,7 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1969, 12, 31, 15, 14, 15, 227_000_000))); // TODO this should represent TIMESTAMP '1970-01-01 00:14:15.227 Europe/Warsaw'
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is : 1970-01-01 00:14:15.227 Europe/Warsaw");
+                        .hasMessage("Expected value to be a date but is: 1970-01-01 00:14:15.227 Europe/Warsaw");
                 assertThatThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                         .hasMessage(serverSupportsVariablePrecisionTimestampWithTimeZone()
@@ -440,7 +440,7 @@ public abstract class BaseTestJdbcResultSet
                     assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(12345, 1, 22, 18, 23, 45, 123_456_789))); // TODO this should contain the zone
                     assertThatThrownBy(() -> rs.getDate(column))
                             .isInstanceOf(SQLException.class)
-                            .hasMessage("Expected value to be a date but is : +12345-01-23 01:23:45.123456789 Europe/Warsaw");
+                            .hasMessage("Expected value to be a date but is: +12345-01-23 01:23:45.123456789 Europe/Warsaw");
                     assertThatThrownBy(() -> rs.getTime(column))
                             .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                             .hasMessage(serverSupportsVariablePrecisionTimestampWithTimeZone()
