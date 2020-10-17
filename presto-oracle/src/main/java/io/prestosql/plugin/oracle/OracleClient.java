@@ -312,7 +312,7 @@ public class OracleClient
                 int scale = max(decimalDigits, 0);
                 Optional<Integer> numberDefaultScale = getNumberDefaultScale(session);
                 RoundingMode roundingMode = getNumberRoundingMode(session);
-                if (precision == 40 && scale == 0) {
+                if (precision == 40 && decimalDigits == 0) {
                     return Optional.of(ColumnMapping.longMapping(
                             BIGINT,
                             ResultSet::getLong,
