@@ -410,7 +410,7 @@ public class DynamicFilterService
         return PlanNodeSearcher.searchFrom(planNode)
                 .where(isInstanceOfAny(JoinNode.class, SemiJoinNode.class))
                 .findAll().stream()
-                .filter((JoinUtils::isBuildSideReplicated))
+                .filter(JoinUtils::isBuildSideReplicated)
                 .flatMap(node -> getDynamicFiltersProducedInPlanNode(node).stream())
                 .collect(toImmutableSet());
     }
