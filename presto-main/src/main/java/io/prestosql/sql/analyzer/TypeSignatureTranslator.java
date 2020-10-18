@@ -79,7 +79,7 @@ public class TypeSignatureTranslator
             return toTypeSignature((DateTimeDataType) type, typeVariables);
         }
         if (type instanceof IntervalDayTimeDataType) {
-            return toTypeSignature((IntervalDayTimeDataType) type, typeVariables);
+            return toTypeSignature((IntervalDayTimeDataType) type);
         }
         if (type instanceof RowDataType) {
             return toTypeSignature((RowDataType) type, typeVariables);
@@ -150,7 +150,7 @@ public class TypeSignatureTranslator
         return new TypeSignature(StandardTypes.ROW, parameters);
     }
 
-    private static TypeSignature toTypeSignature(IntervalDayTimeDataType type, Set<String> typeVariables)
+    private static TypeSignature toTypeSignature(IntervalDayTimeDataType type)
     {
         if (type.getFrom() == IntervalDayTimeDataType.Field.YEAR && type.getTo() == IntervalDayTimeDataType.Field.MONTH) {
             return INTERVAL_YEAR_MONTH.getTypeSignature();
