@@ -38,8 +38,6 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public final class DateTimeTestingUtils
 {
-    private static final int NANOSECONDS_PER_SECOND = 1_000_000_000;
-
     private DateTimeTestingUtils() {}
 
     public static SqlDate sqlDateOf(int year, int monthOfYear, int dayOfMonth)
