@@ -180,7 +180,7 @@ public class PushAggregationThroughOuterJoin
                     join.getReorderJoinStatsAndCost());
         }
 
-        Optional<PlanNode> resultNode = coalesceWithNullAggregation(rewrittenAggregation, rewrittenJoin, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup());
+        Optional<PlanNode> resultNode = coalesceWithNullAggregation(rewrittenAggregation, rewrittenJoin, context.getSymbolAllocator(), context.getIdAllocator());
         if (resultNode.isEmpty()) {
             return Result.empty();
         }
@@ -224,7 +224,7 @@ public class PushAggregationThroughOuterJoin
     // of an aggregation over a single null row is one or zero rather than null. In order to ensure correct results,
     // we add a coalesce function with the output of the new outer join and the aggregation performed over a single
     // null row.
-    private Optional<PlanNode> coalesceWithNullAggregation(AggregationNode aggregationNode, PlanNode outerJoin, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    private Optional<PlanNode> coalesceWithNullAggregation(AggregationNode aggregationNode, PlanNode outerJoin, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         // Create an aggregation node over a row of nulls.
         MappedAggregationInfo aggregationOverNullInfo = createAggregationOverNull(
