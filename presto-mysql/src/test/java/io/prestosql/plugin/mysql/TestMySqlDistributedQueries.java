@@ -41,6 +41,7 @@ public class TestMySqlDistributedQueries
         this.mysqlServer = new TestingMySqlServer();
         return createMySqlQueryRunner(
                 mysqlServer,
+                ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         // caching here speeds up tests highly, caching is not used in smoke tests
                         .put("metadata.cache-ttl", "10m")
