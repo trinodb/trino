@@ -15,6 +15,7 @@ package io.prestosql.tests.product.launcher.env.common;
 
 import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
+import io.prestosql.tests.product.launcher.env.Debug;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
@@ -68,18 +69,21 @@ public final class Standard
 
     private final String imagesVersion;
     private final File serverPackage;
+    private final boolean debug;
 
     @Inject
     public Standard(
             DockerFiles dockerFiles,
             PortBinder portBinder,
             EnvironmentConfig environmentConfig,
-            @ServerPackage File serverPackage)
+            @ServerPackage File serverPackage,
+            @Debug boolean debug)
     {
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
+        this.debug = debug;
         checkArgument(serverPackage.getName().endsWith(".tar.gz"), "Currently only server .tar.gz package is supported");
     }
 
@@ -93,7 +97,7 @@ public final class Standard
     private DockerContainer createPrestoMaster()
     {
         DockerContainer container =
-                createPrestoContainer(dockerFiles, serverPackage, "prestodev/centos7-oj11:" + imagesVersion, COORDINATOR)
+                createPrestoContainer(dockerFiles, serverPackage, debug, "prestodev/centos7-oj11:" + imagesVersion, COORDINATOR)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/access-control.properties")), CONTAINER_PRESTO_ACCESS_CONTROL_PROPERTIES)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
 
@@ -114,9 +118,9 @@ public final class Standard
     }
 
     @SuppressWarnings("resource")
-    public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, File serverPackage, String dockerImageName, String logicalName)
+    public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, File serverPackage, boolean debug, String dockerImageName, String logicalName)
     {
-        return new DockerContainer(dockerImageName, logicalName)
+        DockerContainer container = new DockerContainer(dockerImageName, logicalName)
                 .withNetworkAliases(logicalName + ".docker.cluster")
                 .withExposedLogPaths("/var/presto/var/log", "/var/log/container-health.log")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
@@ -129,9 +133,13 @@ public final class Standard
                 .waitingForAll(forLogMessage(".*======== SERVER STARTED ========.*", 1), forHealthcheck())
                 .withStartupTimeout(Duration.ofMinutes(5))
                 .withHealthCheck(dockerFiles.getDockerFilesHostPath("health-checks/health.sh"));
+        if (debug) {
+            enablePrestoJavaDebugger(container);
+        }
+        return container;
     }
 
-    public static void enablePrestoJavaDebugger(DockerContainer dockerContainer)
+    private static void enablePrestoJavaDebugger(DockerContainer dockerContainer)
     {
         String logicalName = dockerContainer.getLogicalName();
 
