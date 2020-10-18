@@ -84,6 +84,19 @@ plus additional columns at the start and end::
       another_orderdate date
     )
 
+Create the table ``orders`` and partition the data by the content of
+the ``orderdate`` and ``orderstatus`` columns::
+
+    CREATE TABLE orders (
+      orderkey bigint,
+      totalprice double,
+      orderdate date,
+      orderstatus varchar
+    )
+    WITH (partitioned_by = ARRAY['orderdate','orderstatus']);
+
+Partition columns need to be specified as the last columns in the DDL. All partition columns are specified in the ``ARRAY``.
+
 See Also
 --------
 
