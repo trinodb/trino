@@ -230,8 +230,7 @@ public class PushAggregationThroughOuterJoin
         MappedAggregationInfo aggregationOverNullInfo = createAggregationOverNull(
                 aggregationNode,
                 symbolAllocator,
-                idAllocator,
-                lookup);
+                idAllocator);
 
         AggregationNode aggregationOverNull = aggregationOverNullInfo.getAggregation();
         Map<Symbol, Symbol> sourceAggregationToOverNullMapping = aggregationOverNullInfo.getSymbolMapping();
@@ -266,7 +265,7 @@ public class PushAggregationThroughOuterJoin
         return Optional.of(new ProjectNode(idAllocator.getNextId(), crossJoin, assignmentsBuilder.build()));
     }
 
-    private MappedAggregationInfo createAggregationOverNull(AggregationNode referenceAggregation, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    private MappedAggregationInfo createAggregationOverNull(AggregationNode referenceAggregation, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         // Create a values node that consists of a single row of nulls.
         // Map the output symbols from the referenceAggregation's source
