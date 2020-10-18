@@ -13,7 +13,6 @@
  */
 package io.prestosql.jdbc;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
@@ -71,6 +70,10 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
+import static io.prestosql.jdbc.TestingJdbcUtils.array;
+import static io.prestosql.jdbc.TestingJdbcUtils.assertResultSet;
+import static io.prestosql.jdbc.TestingJdbcUtils.list;
+import static io.prestosql.jdbc.TestingJdbcUtils.readRows;
 import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
@@ -78,7 +81,6 @@ import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWit
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
-import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1419,87 +1421,9 @@ public class TestPrestoDatabaseMetaData
         return DriverManager.getConnection(url, "admin", null);
     }
 
-    private static List<List<Object>> readRows(ResultSet rs)
-            throws SQLException
-    {
-        ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
-        int columnCount = rs.getMetaData().getColumnCount();
-        while (rs.next()) {
-            List<Object> row = new ArrayList<>();
-            for (int i = 1; i <= columnCount; i++) {
-                row.add(rs.getObject(i));
-            }
-            rows.add(row);
-        }
-        return rows.build();
-    }
-
-    private static List<List<Object>> readRows(ResultSet rs, List<String> columns)
-            throws SQLException
-    {
-        ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
-        while (rs.next()) {
-            List<Object> row = new ArrayList<>();
-            for (String column : columns) {
-                row.add(rs.getObject(column));
-            }
-            rows.add(row);
-        }
-        return rows.build();
-    }
-
-    @SafeVarargs
-    private static <T> List<T> list(T... elements)
-    {
-        return asList(elements);
-    }
-
-    @SafeVarargs
-    private static <T> T[] array(T... elements)
-    {
-        return elements;
-    }
-
     private interface MetaDataCallback<T>
     {
         T apply(DatabaseMetaData metaData)
                 throws SQLException;
-    }
-
-    private static ResultSetAssert assertResultSet(ResultSet resultSet)
-    {
-        return new ResultSetAssert(resultSet);
-    }
-
-    private static class ResultSetAssert
-    {
-        private final ResultSet resultSet;
-
-        public ResultSetAssert(ResultSet resultSet)
-        {
-            this.resultSet = requireNonNull(resultSet, "resultSet is null");
-        }
-
-        public ResultSetAssert hasColumnCount(int expectedColumnCount)
-                throws SQLException
-        {
-            assertThat(resultSet.getMetaData().getColumnCount()).isEqualTo(expectedColumnCount);
-            return this;
-        }
-
-        public ResultSetAssert hasColumn(int columnIndex, String name, int sqlType)
-                throws SQLException
-        {
-            assertThat(resultSet.getMetaData().getColumnName(columnIndex)).isEqualTo(name);
-            assertThat(resultSet.getMetaData().getColumnType(columnIndex)).isEqualTo(sqlType);
-            return this;
-        }
-
-        public ResultSetAssert hasRows(List<List<?>> expected)
-                throws SQLException
-        {
-            assertThat(readRows(resultSet)).isEqualTo(expected);
-            return this;
-        }
     }
 }
