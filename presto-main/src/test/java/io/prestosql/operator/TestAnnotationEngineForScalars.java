@@ -465,6 +465,7 @@ public class TestAnnotationEngineForScalars
     @Description("Parametric scalar with type injected though constructor")
     public static class ConstructorInjectionScalarFunction
     {
+        @SuppressWarnings("unused")
         private final Type type;
 
         @TypeParameter("T")
