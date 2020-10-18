@@ -131,10 +131,12 @@ public final class Standard
                 .withCommand("/docker/presto-product-tests/run-presto.sh")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingForAll(forLogMessage(".*======== SERVER STARTED ========.*", 1), forHealthcheck())
-                .withStartupTimeout(Duration.ofMinutes(5))
-                .withHealthCheck(dockerFiles.getDockerFilesHostPath("health-checks/health.sh"));
+                .withStartupTimeout(Duration.ofMinutes(5));
         if (debug) {
             enablePrestoJavaDebugger(container);
+        }
+        else {
+            container.withHealthCheck(dockerFiles.getDockerFilesHostPath("health-checks/health.sh"));
         }
         return container;
     }
