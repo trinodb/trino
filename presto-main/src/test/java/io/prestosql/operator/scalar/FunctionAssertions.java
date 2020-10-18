@@ -288,7 +288,7 @@ public final class FunctionAssertions
 
     public void executeProjectionWithFullEngine(String projection)
     {
-        MaterializedResult result = runner.execute("SELECT " + projection);
+        runner.execute("SELECT " + projection);
     }
 
     private Object selectSingleValue(String projection, Type expectedType, ExpressionCompiler compiler)
