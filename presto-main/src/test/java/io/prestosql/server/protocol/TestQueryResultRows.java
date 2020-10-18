@@ -321,7 +321,7 @@ public class TestQueryResultRows
     public void shouldHandleNullValuesInMap()
     {
         List<Column> columns = ImmutableList.of(new Column("_col0", MAP, new ClientTypeSignature(MAP)));
-        List<Type> types = ImmutableList.of(createMapType(BigintType.BIGINT, BigintType.BIGINT));
+        List<Type> types = ImmutableList.of(createMapType(BigintType.BIGINT));
 
         List<Page> pages = rowPagesBuilder(types)
                 .row(singletonMap(10, null))
@@ -486,7 +486,7 @@ public class TestQueryResultRows
         }
     }
 
-    private static Type createMapType(Type keyType, Type valueType)
+    private static Type createMapType(Type keyType)
     {
         return METADATA.getType(mapType(keyType.getTypeSignature(), keyType.getTypeSignature()));
     }
