@@ -188,31 +188,6 @@ public abstract class BaseOracleIntegrationSmokeTest
         assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
 
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isNotFullyPushedDown(FilterNode.class);
-
-        try (AutoCloseable ignoreTable = withTable("tpch.test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
-            execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (100.000, 100000000.000000000)");
-            execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (123.321, 123456789.987654321)");
-
-            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-        }
-    }
-
-    private AutoCloseable withTable(String tableName, String tableDefinition)
-            throws Exception
-    {
-        execute(format("CREATE TABLE %s%s", tableName, tableDefinition));
-        return () -> {
-            try {
-                execute(format("DROP TABLE %s", tableName));
-            }
-            catch (RuntimeException e) {
-                throw new RuntimeException(e);
-            }
-        };
     }
 
     protected String getUser()
