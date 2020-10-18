@@ -97,7 +97,7 @@ public class TestMySqlTypeMapping
             throws Exception
     {
         mysqlServer = new TestingMySqlServer();
-        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableList.of());
+        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)
