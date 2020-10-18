@@ -43,6 +43,7 @@ import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COOR
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.WORKER_NTH;
+import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -145,18 +146,22 @@ public final class Standard
     {
         String logicalName = dockerContainer.getLogicalName();
 
+        int debugPort;
         if (logicalName.equals(COORDINATOR)) {
-            enablePrestoJavaDebugger(dockerContainer, logicalName, 5005);
+            debugPort = 5005;
+        }
+        else if (logicalName.equals(WORKER)) {
+            debugPort = 5009;
+        }
+        else if (logicalName.startsWith(WORKER_NTH)) {
+            int workerNumber = parseInt(logicalName.substring(WORKER_NTH.length()));
+            debugPort = 5008 + workerNumber;
+        }
+        else {
+            throw new IllegalStateException("Cannot enable Java debugger for: " + logicalName);
         }
 
-        if (logicalName.equals(WORKER)) {
-            enablePrestoJavaDebugger(dockerContainer, logicalName, 5009);
-        }
-
-        if (logicalName.startsWith(WORKER_NTH)) {
-            int workerNumber = Integer.valueOf(logicalName.substring(WORKER_NTH.length()));
-            enablePrestoJavaDebugger(dockerContainer, logicalName, 5008 + workerNumber);
-        }
+        enablePrestoJavaDebugger(dockerContainer, logicalName, debugPort);
     }
 
     private static void enablePrestoJavaDebugger(DockerContainer container, String containerName, int debugPort)
