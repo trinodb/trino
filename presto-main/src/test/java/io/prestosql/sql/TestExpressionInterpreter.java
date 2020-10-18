@@ -123,7 +123,6 @@ public class TestExpressionInterpreter
 
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Metadata METADATA = createTestMetadataManager();
-    private static final TypeAnalyzer TYPE_ANALYZER = new TypeAnalyzer(SQL_PARSER, METADATA);
 
     @Test
     public void testAnd()
