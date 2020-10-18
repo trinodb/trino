@@ -83,4 +83,12 @@ public final class EnvironmentModule
         // fallback to dummy - nonNull to prevent injection errors when listing environments
         return requireNonNullElse(options.serverPackage, new File("dummy.tar.gz"));
     }
+
+    @Provides
+    @Singleton
+    @Debug
+    public boolean provideDebug(EnvironmentOptions options)
+    {
+        return options.debug;
+    }
 }
