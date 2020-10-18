@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveMetastoreClosure;
 import io.prestosql.plugin.hive.PartitionStatistics;
@@ -32,11 +33,15 @@ import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreStats;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.predicate.ValueSet;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -45,8 +50,13 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
+import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
 import static io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
 import static io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_DATABASE;
@@ -59,6 +69,8 @@ import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClien
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION_VALUES1;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_ROLES;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_TABLE;
+import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.function.Function.identity;
@@ -223,6 +235,37 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 2);
         assertEquals(metastore.getPartitionFilterStats().getRequestCount(), 3);
         assertEquals(metastore.getPartitionFilterStats().getHitRate(), 1.0 / 3);
+
+        List<String> partitionColumnNames = ImmutableList.of("date_key", "key");
+        HiveColumnHandle dateKeyColumn = createBaseColumn(partitionColumnNames.get(0), 0, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
+        HiveColumnHandle keyColumn = createBaseColumn(partitionColumnNames.get(1), 1, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
+        List<HiveColumnHandle> partitionColumns = ImmutableList.of(dateKeyColumn, keyColumn);
+
+        TupleDomain withNoFilter = computePartitionKeyFilter(
+                partitionColumns,
+                TupleDomain.all());
+
+        TupleDomain withSingleValueFilter = computePartitionKeyFilter(
+                partitionColumns,
+                withColumnDomains(ImmutableMap.<HiveColumnHandle, Domain>builder()
+                        .put(dateKeyColumn, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARCHAR, utf8Slice("2020-10-01"))), false))
+                        .put(keyColumn, Domain.create(ValueSet.of(VARCHAR, utf8Slice("val")), false))
+                        .build()));
+
+        TupleDomain withNoSingleValueFilter = computePartitionKeyFilter(
+                partitionColumns,
+                withColumnDomains(ImmutableMap.<HiveColumnHandle, Domain>builder()
+                        .put(dateKeyColumn, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARCHAR, utf8Slice("2020-10-01"))), false))
+                        .put(keyColumn, Domain.create(ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("val1"), true, utf8Slice("val2"), true)), false))
+                        .build()));
+
+        assertEquals(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount(), 0.0);
+        metastore.getPartitionNamesByFilter(IDENTITY, TEST_DATABASE, TEST_TABLE, partitionColumnNames, withNoFilter);
+        assertEquals(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount(), 0.0);
+        metastore.getPartitionNamesByFilter(IDENTITY, TEST_DATABASE, TEST_TABLE, partitionColumnNames, withSingleValueFilter);
+        assertEquals(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount(), 1.0);
+        metastore.getPartitionNamesByFilter(IDENTITY, TEST_DATABASE, TEST_TABLE, partitionColumnNames, withNoSingleValueFilter);
+        assertEquals(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount(), 2.0);
     }
 
     @Test
