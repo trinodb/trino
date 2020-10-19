@@ -356,7 +356,8 @@ public class TestGeometryUnionGeoAggregation
         return "geometry_union_agg";
     }
 
-    private void assertArrayAggAndGeometryUnion(String testDescription, String expectedWkt, String[] wkts)
+    private void assertArrayAggAndGeometryUnion(
+            @SuppressWarnings("unused") String testDescription, String expectedWkt, String[] wkts)
     {
         List<String> wktList = Arrays.stream(wkts).map(wkt -> format("ST_GeometryFromText('%s')", wkt)).collect(toList());
         String wktArray = format("ARRAY[%s]", COMMA_JOINER.join(wktList));
