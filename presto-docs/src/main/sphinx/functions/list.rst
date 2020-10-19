@@ -96,6 +96,7 @@ C
 - :func:`combinations`
 - :func:`concat`
 - :func:`contains`
+- :func:`contains_sequence`
 - :func:`convex_hull_agg`
 - :func:`corr`
 - :func:`cos`
