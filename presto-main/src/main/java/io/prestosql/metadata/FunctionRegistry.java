@@ -79,6 +79,7 @@ import io.prestosql.operator.scalar.ArrayAnyMatchFunction;
 import io.prestosql.operator.scalar.ArrayCardinalityFunction;
 import io.prestosql.operator.scalar.ArrayCombinationsFunction;
 import io.prestosql.operator.scalar.ArrayContains;
+import io.prestosql.operator.scalar.ArrayContainsSequence;
 import io.prestosql.operator.scalar.ArrayDistinctFunction;
 import io.prestosql.operator.scalar.ArrayElementAtFunction;
 import io.prestosql.operator.scalar.ArrayExceptFunction;
@@ -501,6 +502,7 @@ public class FunctionRegistry
                 .scalars(DataSizeFunctions.class)
                 .scalar(ArrayCardinalityFunction.class)
                 .scalar(ArrayContains.class)
+                .scalar(ArrayContainsSequence.class)
                 .scalar(ArrayFilterFunction.class)
                 .scalar(ArrayPositionFunction.class)
                 .scalars(CombineHashFunction.class)
