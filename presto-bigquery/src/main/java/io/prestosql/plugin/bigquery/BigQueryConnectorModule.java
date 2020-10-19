@@ -32,6 +32,7 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 public class BigQueryConnectorModule
         implements Module
 {
+    @SuppressWarnings("unused")
     private final NodeManager nodeManager;
 
     public BigQueryConnectorModule(NodeManager nodeManager)
