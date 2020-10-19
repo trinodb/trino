@@ -43,6 +43,7 @@ import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
 import static io.prestosql.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
+import static java.lang.System.getenv;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Mixin;
 import static picocli.CommandLine.Option;
@@ -89,8 +90,8 @@ public final class EnvironmentUp
         @Option(names = "--background", description = "Keep containers running in the background once they are started")
         public boolean background;
 
-        @Option(names = "--environment", paramLabel = "<environment>", description = "Name of the environment to start", required = true)
-        public String environment;
+        @Option(names = "--environment", paramLabel = "<environment>", description = "Name of the environment to start")
+        public String environment = getenv("PT_ENVIRONMENT");
 
         @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory", converter = OptionalPathConverter.class, defaultValue = "")
         public Optional<Path> logsDirBase;
