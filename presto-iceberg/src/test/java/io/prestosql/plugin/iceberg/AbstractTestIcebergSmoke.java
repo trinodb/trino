@@ -1196,6 +1196,7 @@ public abstract class AbstractTestIcebergSmoke
 
         // This shows that Predicate<ColumnHandle, NullableValue> only filters rows for partitioned columns.
         predicate = new TestRelationalNumberPredicate("col2", 102, i -> i >= 0);
+        @SuppressWarnings("unused")
         IcebergColumnHandle col2Handle = getColumnHandleFromStatistics(tableStatistics, "col2");
         tableStatistics = getTableStatistics(tableName, new Constraint(TupleDomain.all(), Optional.of(predicate), Optional.empty()));
         assertEquals(tableStatistics.getRowCount().getValue(), 4.0);
