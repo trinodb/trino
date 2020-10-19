@@ -361,6 +361,12 @@
 
             <dependency>
                 <groupId>io.prestosql</groupId>
+                <artifactId>presto-product-tests-launcher</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
                 <artifactId>presto-raptor-legacy</artifactId>
                 <version>${project.version}</version>
             </dependency>
