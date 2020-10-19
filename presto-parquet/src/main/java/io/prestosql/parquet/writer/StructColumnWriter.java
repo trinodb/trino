@@ -36,6 +36,7 @@ public class StructColumnWriter
 
     private final List<ColumnWriter> columnWriters;
     private final int maxDefinitionLevel;
+    @SuppressWarnings("unused")
     private final int maxRepetitionLevel;
 
     public StructColumnWriter(List<ColumnWriter> columnWriters, int maxDefinitionLevel, int maxRepetitionLevel)
