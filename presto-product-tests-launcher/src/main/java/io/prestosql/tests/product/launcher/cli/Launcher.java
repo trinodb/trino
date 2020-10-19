@@ -22,6 +22,7 @@ import picocli.CommandLine.IFactory;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ListResourceBundle;
@@ -101,6 +102,7 @@ public class Launcher
                     EnvironmentUp.class,
                     EnvironmentDown.class,
                     EnvironmentList.class,
+                    EnvironmentRun.class,
             })
     public static class EnvironmentCommand
     {
@@ -157,8 +159,15 @@ public class Launcher
         @Override
         protected Object[][] getContents()
         {
+            File rootDir = new File("");
+            if (!new File(rootDir, "mvnw").isFile()) {
+                // try parent
+                rootDir = rootDir.getAbsoluteFile().getParentFile();
+                checkState(new File(rootDir, "mvnw").isFile(), "Unable to detect Presto root directory");
+            }
             return new Object[][] {
                     {"project.version", readProjectVersion()},
+                    {"rootdir", rootDir.getPath()},
                     {"product-tests.module", "presto-product-tests"},
                     {"server.module", "presto-server"},
                     {"server.name", "presto-server"},

@@ -229,7 +229,7 @@ public final class TestRun
             return environment;
         }
 
-        private Environment getEnvironment()
+        Environment getEnvironment()
         {
             Environment.Builder builder = environmentFactory.get(environment, environmentConfig)
                     .setContainerOutputMode(outputMode)
