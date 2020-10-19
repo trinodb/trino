@@ -25,6 +25,7 @@ public enum DruidErrorCode
     DRUID_DDL_NOT_SUPPORTED(0, EXTERNAL),
     DRUID_DML_NOT_SUPPORTED(1, EXTERNAL);
 
+    @SuppressWarnings("unused")
     private final ErrorCode errorCode;
 
     DruidErrorCode(int code, ErrorType type)
