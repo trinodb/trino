@@ -4554,14 +4554,14 @@ public abstract class AbstractTestHive
             if (hiveRecordCursor instanceof HiveCoercionRecordCursor) {
                 hiveRecordCursor = ((HiveCoercionRecordCursor) hiveRecordCursor).getRegularColumnRecordCursor();
             }
-            assertInstanceOf(hiveRecordCursor, recordCursorType(hiveStorageFormat), hiveStorageFormat.name());
+            assertInstanceOf(hiveRecordCursor, recordCursorType(), hiveStorageFormat.name());
         }
         else {
             assertInstanceOf(((HivePageSource) pageSource).getPageSource(), pageSourceType(hiveStorageFormat), hiveStorageFormat.name());
         }
     }
 
-    private static Class<? extends RecordCursor> recordCursorType(HiveStorageFormat hiveStorageFormat)
+    private static Class<? extends RecordCursor> recordCursorType()
     {
         return GenericHiveRecordCursor.class;
     }
