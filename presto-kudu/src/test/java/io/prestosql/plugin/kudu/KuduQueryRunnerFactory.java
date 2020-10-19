@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.prestosql.Session.SessionBuilder;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.QueryAssertions.copyTpchTables;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -77,17 +78,31 @@ public final class KuduQueryRunnerFactory
     public static QueryRunner createKuduQueryRunnerTpch(TestingKuduServer kuduServer, Optional<String> kuduSchemaEmulationPrefix, Iterable<TpchTable<?>> tables)
             throws Exception
     {
+        return createKuduQueryRunnerTpch(kuduServer, kuduSchemaEmulationPrefix, ImmutableMap.of(), ImmutableMap.of(), tables);
+    }
+
+    public static QueryRunner createKuduQueryRunnerTpch(
+            TestingKuduServer kuduServer,
+            Optional<String> kuduSchemaEmulationPrefix,
+            Map<String, String> kuduSessionProperties,
+            Map<String, String> extraProperties,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
         DistributedQueryRunner runner = null;
         try {
             String kuduSchema = kuduSchemaEmulationPrefix.isPresent() ? "tpch" : "default";
-            runner = DistributedQueryRunner.builder(createSession(kuduSchema)).build();
+            Session session = createSession(kuduSchema, kuduSessionProperties);
+            runner = DistributedQueryRunner.builder(session)
+                    .setExtraProperties(extraProperties)
+                    .build();
 
             runner.installPlugin(new TpchPlugin());
             runner.createCatalog("tpch", "tpch");
 
             installKuduConnector(kuduServer.getMasterAddress(), runner, kuduSchema, kuduSchemaEmulationPrefix);
 
-            copyTpchTables(runner, "tpch", TINY_SCHEMA_NAME, createSession(kuduSchema), tables);
+            copyTpchTables(runner, "tpch", TINY_SCHEMA_NAME, session, tables);
 
             return runner;
         }
@@ -119,6 +134,15 @@ public final class KuduQueryRunnerFactory
             runner.execute("DROP SCHEMA IF EXISTS " + kuduSchema);
             runner.execute("CREATE SCHEMA " + kuduSchema);
         }
+    }
+
+    public static Session createSession(String schema, Map<String, String> kuduSessionProperties)
+    {
+        SessionBuilder builder = testSessionBuilder()
+                .setCatalog("kudu")
+                .setSchema(schema);
+        kuduSessionProperties.forEach((k, v) -> builder.setCatalogSessionProperty("kudu", k, v));
+        return builder.build();
     }
 
     public static Session createSession(String schema)
