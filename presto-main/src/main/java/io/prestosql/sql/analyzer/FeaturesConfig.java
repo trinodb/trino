@@ -221,6 +221,7 @@ public class FeaturesConfig
     }
 
     @Config("deprecated.omit-datetime-type-precision")
+    @ConfigDescription("Enable compatibility mode for legacy clients when rendering datetime type names with default precision")
     public FeaturesConfig setOmitDateTimeTypePrecision(boolean value)
     {
         this.omitDateTimeTypePrecision = value;
