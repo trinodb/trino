@@ -95,7 +95,6 @@ import static org.testng.Assert.assertTrue;
 public class TestHivePageSink
 {
     private static final int NUM_ROWS = 1000;
-    private static final String CLIENT_ID = "client_id";
     private static final String SCHEMA_NAME = "test";
     private static final String TABLE_NAME = "test";
 
