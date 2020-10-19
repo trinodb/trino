@@ -708,9 +708,6 @@ public class HiveMetadata
             try {
                 columns.put(tableName, getTableMetadata(session, tableName).getColumns());
             }
-            catch (HiveViewNotSupportedException e) {
-                // view is not supported
-            }
             catch (TableNotFoundException e) {
                 // table disappeared during listing operation
             }
@@ -751,15 +748,7 @@ public class HiveMetadata
             return ImmutableList.of();
         }
 
-        Optional<Table> optionalTable;
-        try {
-            optionalTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName());
-        }
-        catch (HiveViewNotSupportedException e) {
-            // exists, would be returned by listTables from schema
-            return ImmutableList.of(tableName);
-        }
-        return optionalTable
+        return metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
                 .filter(table -> !hideDeltaLakeTables || !isDeltaLakeTable(table))
                 .map(table -> ImmutableList.of(tableName))
                 .orElseGet(ImmutableList::of);

@@ -29,7 +29,6 @@ import io.prestosql.plugin.hive.HiveBasicStatistics;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePartition;
 import io.prestosql.plugin.hive.HiveType;
-import io.prestosql.plugin.hive.HiveViewNotSupportedException;
 import io.prestosql.plugin.hive.PartitionNotFoundException;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.SchemaAlreadyExistsException;
@@ -339,7 +338,7 @@ public class ThriftHiveMetastore
     {
         try {
             return retry()
-                    .stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class)
+                    .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("getTable", stats.getGetTable().wrap(() -> {
                         Table table = getTableFromMetastore(identity, databaseName, tableName);
@@ -389,7 +388,7 @@ public class ThriftHiveMetastore
     {
         try {
             return retry()
-                    .stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class)
+                    .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("getTableColumnStatistics", stats.getGetTableColumnStatistics().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
@@ -484,7 +483,7 @@ public class ThriftHiveMetastore
     {
         try {
             return retry()
-                    .stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class)
+                    .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("getPartitionColumnStatistics", stats.getGetPartitionColumnStatistics().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
