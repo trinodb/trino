@@ -44,6 +44,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.type.JsonType.JSON;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -219,7 +220,8 @@ public class TestReadWrite
 
     private static long nextTimestamp(Random random)
     {
-        return MIN_GENERATED_TIMESTAMP + (long) (random.nextDouble() * (MAX_GENERATED_TIMESTAMP - MIN_GENERATED_TIMESTAMP));
+        long epochMillis = MIN_GENERATED_TIMESTAMP + (long) (random.nextDouble() * (MAX_GENERATED_TIMESTAMP - MIN_GENERATED_TIMESTAMP));
+        return epochMillis * MICROSECONDS_PER_MILLISECOND;
     }
 
     private static int nextDate(Random random)
