@@ -56,6 +56,7 @@ public class PrimitiveColumnWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(PrimitiveColumnWriter.class).instanceSize();
 
+    @SuppressWarnings("unused")
     private final Type type;
     private final ColumnDescriptor columnDescriptor;
     private final CompressionCodecName compressionCodec;
