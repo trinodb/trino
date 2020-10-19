@@ -62,6 +62,7 @@ class BigQueryClient
     }
 
     // return empty if no filters are used
+    @SuppressWarnings("unused")
     private static Optional<String> createWhereClause(String[] filters)
     {
         return Optional.empty();
