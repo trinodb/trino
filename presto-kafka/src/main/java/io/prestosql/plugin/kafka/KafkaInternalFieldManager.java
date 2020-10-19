@@ -87,6 +87,7 @@ public class KafkaInternalFieldManager
     public static class InternalField
     {
         private final String columnName;
+        @SuppressWarnings("unused")
         private final String comment;
         private final Type type;
 
