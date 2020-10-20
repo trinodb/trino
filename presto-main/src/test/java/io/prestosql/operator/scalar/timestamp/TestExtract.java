@@ -14,6 +14,7 @@
 package io.prestosql.operator.scalar.timestamp;
 
 import io.prestosql.Session;
+import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.query.QueryAssertions;
 import io.prestosql.testing.TestingSession;
 import org.testng.annotations.AfterClass;
@@ -22,6 +23,7 @@ import org.testng.annotations.Test;
 
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestExtract
 {
@@ -46,6 +48,20 @@ public class TestExtract
     @Test
     public void testYear()
     {
+        assertThat(assertions.expression("EXTRACT(YEAR FROM TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM TIMESTAMP '2020-05-10 12:34:56.123')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM TIMESTAMP '2020-05-10 12:34:56.1234')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM TIMESTAMP '2020-05-10 12:34:56.12345')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM TIMESTAMP '2020-05-10 12:34:56.123456')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM TIMESTAMP '2020-05-10 12:34:56.1234567')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM TIMESTAMP '2020-05-10 12:34:56.12345678')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM TIMESTAMP '2020-05-10 12:34:56.123456789')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM TIMESTAMP '2020-05-10 12:34:56.1234567890')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM TIMESTAMP '2020-05-10 12:34:56.12345678901')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM TIMESTAMP '2020-05-10 12:34:56.123456789012')")).matches("BIGINT '2020'");
+
         assertThat(assertions.expression("year(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '2020'");
         assertThat(assertions.expression("year(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '2020'");
         assertThat(assertions.expression("year(TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '2020'");
@@ -64,6 +80,20 @@ public class TestExtract
     @Test
     public void testMonth()
     {
+        assertThat(assertions.expression("EXTRACT(MONTH FROM TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '5'");
+        assertThat(assertions.expression("EXTRACT(MONTH FROM TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '5'");
+        assertThat(assertions.expression("EXTRACT(MONTH FROM TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '5'");
+        assertThat(assertions.expression("EXTRACT(MONTH FROM TIMESTAMP '2020-05-10 12:34:56.123')")).matches("BIGINT '5'");
+        assertThat(assertions.expression("EXTRACT(MONTH FROM TIMESTAMP '2020-05-10 12:34:56.1234')")).matches("BIGINT '5'");
+        assertThat(assertions.expression("EXTRACT(MONTH FROM TIMESTAMP '2020-05-10 12:34:56.12345')")).matches("BIGINT '5'");
+        assertThat(assertions.expression("EXTRACT(MONTH FROM TIMESTAMP '2020-05-10 12:34:56.123456')")).matches("BIGINT '5'");
+        assertThat(assertions.expression("EXTRACT(MONTH FROM TIMESTAMP '2020-05-10 12:34:56.1234567')")).matches("BIGINT '5'");
+        assertThat(assertions.expression("EXTRACT(MONTH FROM TIMESTAMP '2020-05-10 12:34:56.12345678')")).matches("BIGINT '5'");
+        assertThat(assertions.expression("EXTRACT(MONTH FROM TIMESTAMP '2020-05-10 12:34:56.123456789')")).matches("BIGINT '5'");
+        assertThat(assertions.expression("EXTRACT(MONTH FROM TIMESTAMP '2020-05-10 12:34:56.1234567890')")).matches("BIGINT '5'");
+        assertThat(assertions.expression("EXTRACT(MONTH FROM TIMESTAMP '2020-05-10 12:34:56.12345678901')")).matches("BIGINT '5'");
+        assertThat(assertions.expression("EXTRACT(MONTH FROM TIMESTAMP '2020-05-10 12:34:56.123456789012')")).matches("BIGINT '5'");
+
         assertThat(assertions.expression("month(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '5'");
         assertThat(assertions.expression("month(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '5'");
         assertThat(assertions.expression("month(TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '5'");
@@ -82,6 +112,20 @@ public class TestExtract
     @Test
     public void testDay()
     {
+        assertThat(assertions.expression("EXTRACT(DAY FROM TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '10'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '10'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '10'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM TIMESTAMP '2020-05-10 12:34:56.123')")).matches("BIGINT '10'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM TIMESTAMP '2020-05-10 12:34:56.1234')")).matches("BIGINT '10'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM TIMESTAMP '2020-05-10 12:34:56.12345')")).matches("BIGINT '10'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM TIMESTAMP '2020-05-10 12:34:56.123456')")).matches("BIGINT '10'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM TIMESTAMP '2020-05-10 12:34:56.1234567')")).matches("BIGINT '10'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM TIMESTAMP '2020-05-10 12:34:56.12345678')")).matches("BIGINT '10'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM TIMESTAMP '2020-05-10 12:34:56.123456789')")).matches("BIGINT '10'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM TIMESTAMP '2020-05-10 12:34:56.1234567890')")).matches("BIGINT '10'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM TIMESTAMP '2020-05-10 12:34:56.12345678901')")).matches("BIGINT '10'");
+        assertThat(assertions.expression("EXTRACT(DAY FROM TIMESTAMP '2020-05-10 12:34:56.123456789012')")).matches("BIGINT '10'");
+
         assertThat(assertions.expression("day(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '10'");
         assertThat(assertions.expression("day(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '10'");
         assertThat(assertions.expression("day(TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '10'");
@@ -100,6 +144,20 @@ public class TestExtract
     @Test
     public void testHour()
     {
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIMESTAMP '2020-05-10 12:34:56.123')")).matches("BIGINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIMESTAMP '2020-05-10 12:34:56.1234')")).matches("BIGINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIMESTAMP '2020-05-10 12:34:56.12345')")).matches("BIGINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIMESTAMP '2020-05-10 12:34:56.123456')")).matches("BIGINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIMESTAMP '2020-05-10 12:34:56.1234567')")).matches("BIGINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIMESTAMP '2020-05-10 12:34:56.12345678')")).matches("BIGINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIMESTAMP '2020-05-10 12:34:56.123456789')")).matches("BIGINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIMESTAMP '2020-05-10 12:34:56.1234567890')")).matches("BIGINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIMESTAMP '2020-05-10 12:34:56.12345678901')")).matches("BIGINT '12'");
+        assertThat(assertions.expression("EXTRACT(HOUR FROM TIMESTAMP '2020-05-10 12:34:56.123456789012')")).matches("BIGINT '12'");
+
         assertThat(assertions.expression("hour(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '12'");
         assertThat(assertions.expression("hour(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '12'");
         assertThat(assertions.expression("hour(TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '12'");
@@ -118,6 +176,20 @@ public class TestExtract
     @Test
     public void testMinute()
     {
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.123')")).matches("BIGINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.1234')")).matches("BIGINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.12345')")).matches("BIGINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.123456')")).matches("BIGINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.1234567')")).matches("BIGINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.12345678')")).matches("BIGINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.123456789')")).matches("BIGINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.1234567890')")).matches("BIGINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.12345678901')")).matches("BIGINT '34'");
+        assertThat(assertions.expression("EXTRACT(MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.123456789012')")).matches("BIGINT '34'");
+
         assertThat(assertions.expression("minute(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '34'");
         assertThat(assertions.expression("minute(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '34'");
         assertThat(assertions.expression("minute(TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '34'");
@@ -136,6 +208,20 @@ public class TestExtract
     @Test
     public void testSecond()
     {
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '2020-05-10 12:34:56.123')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '2020-05-10 12:34:56.1234')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '2020-05-10 12:34:56.12345')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '2020-05-10 12:34:56.123456')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '2020-05-10 12:34:56.1234567')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '2020-05-10 12:34:56.12345678')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '2020-05-10 12:34:56.123456789')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '2020-05-10 12:34:56.1234567890')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '2020-05-10 12:34:56.12345678901')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '2020-05-10 12:34:56.123456789012')")).matches("BIGINT '56'");
+
         assertThat(assertions.expression("second(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '56'");
         assertThat(assertions.expression("second(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '56'");
         assertThat(assertions.expression("second(TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '56'");
@@ -151,6 +237,20 @@ public class TestExtract
         assertThat(assertions.expression("second(TIMESTAMP '2020-05-10 12:34:56.123456789012')")).matches("BIGINT '56'");
 
         // negative epoch
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '1500-05-10 12:34:56')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '1500-05-10 12:34:56.1')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '1500-05-10 12:34:56.12')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '1500-05-10 12:34:56.123')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '1500-05-10 12:34:56.1234')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '1500-05-10 12:34:56.12345')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '1500-05-10 12:34:56.123456')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '1500-05-10 12:34:56.1234567')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '1500-05-10 12:34:56.12345678')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '1500-05-10 12:34:56.123456789')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '1500-05-10 12:34:56.1234567890')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '1500-05-10 12:34:56.12345678901')")).matches("BIGINT '56'");
+        assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '1500-05-10 12:34:56.123456789012')")).matches("BIGINT '56'");
+
         assertThat(assertions.expression("second(TIMESTAMP '1500-05-10 12:34:56')")).matches("BIGINT '56'");
         assertThat(assertions.expression("second(TIMESTAMP '1500-05-10 12:34:56.1')")).matches("BIGINT '56'");
         assertThat(assertions.expression("second(TIMESTAMP '1500-05-10 12:34:56.12')")).matches("BIGINT '56'");
@@ -169,6 +269,10 @@ public class TestExtract
     @Test
     public void testMillisecond()
     {
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(MILLISECOND FROM TIMESTAMP '2020-05-10 12:34:56')"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessage("line 1:8: Invalid EXTRACT field: MILLISECOND");
+
         assertThat(assertions.expression("millisecond(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '0'");
         assertThat(assertions.expression("millisecond(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '100'");
         assertThat(assertions.expression("millisecond(TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '120'");
@@ -187,6 +291,20 @@ public class TestExtract
     @Test
     public void testDayOfWeek()
     {
+        assertThat(assertions.expression("EXTRACT(DAY_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '7'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '7'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '7'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.123')")).matches("BIGINT '7'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.1234')")).matches("BIGINT '7'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.12345')")).matches("BIGINT '7'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.123456')")).matches("BIGINT '7'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.1234567')")).matches("BIGINT '7'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.12345678')")).matches("BIGINT '7'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.123456789')")).matches("BIGINT '7'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.1234567890')")).matches("BIGINT '7'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.12345678901')")).matches("BIGINT '7'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.123456789012')")).matches("BIGINT '7'");
+
         assertThat(assertions.expression("day_of_week(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '7'");
         assertThat(assertions.expression("day_of_week(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '7'");
         assertThat(assertions.expression("day_of_week(TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '7'");
@@ -205,6 +323,20 @@ public class TestExtract
     @Test
     public void testDayOfYear()
     {
+        assertThat(assertions.expression("EXTRACT(DAY_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '131'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '131'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '131'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56.123')")).matches("BIGINT '131'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56.1234')")).matches("BIGINT '131'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56.12345')")).matches("BIGINT '131'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56.123456')")).matches("BIGINT '131'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56.1234567')")).matches("BIGINT '131'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56.12345678')")).matches("BIGINT '131'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56.123456789')")).matches("BIGINT '131'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56.1234567890')")).matches("BIGINT '131'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56.12345678901')")).matches("BIGINT '131'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56.123456789012')")).matches("BIGINT '131'");
+
         assertThat(assertions.expression("day_of_year(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '131'");
         assertThat(assertions.expression("day_of_year(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '131'");
         assertThat(assertions.expression("day_of_year(TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '131'");
@@ -223,6 +355,20 @@ public class TestExtract
     @Test
     public void testQuarter()
     {
+        assertThat(assertions.expression("EXTRACT(QUARTER FROM TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '2'");
+        assertThat(assertions.expression("EXTRACT(QUARTER FROM TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '2'");
+        assertThat(assertions.expression("EXTRACT(QUARTER FROM TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '2'");
+        assertThat(assertions.expression("EXTRACT(QUARTER FROM TIMESTAMP '2020-05-10 12:34:56.123')")).matches("BIGINT '2'");
+        assertThat(assertions.expression("EXTRACT(QUARTER FROM TIMESTAMP '2020-05-10 12:34:56.1234')")).matches("BIGINT '2'");
+        assertThat(assertions.expression("EXTRACT(QUARTER FROM TIMESTAMP '2020-05-10 12:34:56.12345')")).matches("BIGINT '2'");
+        assertThat(assertions.expression("EXTRACT(QUARTER FROM TIMESTAMP '2020-05-10 12:34:56.123456')")).matches("BIGINT '2'");
+        assertThat(assertions.expression("EXTRACT(QUARTER FROM TIMESTAMP '2020-05-10 12:34:56.1234567')")).matches("BIGINT '2'");
+        assertThat(assertions.expression("EXTRACT(QUARTER FROM TIMESTAMP '2020-05-10 12:34:56.12345678')")).matches("BIGINT '2'");
+        assertThat(assertions.expression("EXTRACT(QUARTER FROM TIMESTAMP '2020-05-10 12:34:56.123456789')")).matches("BIGINT '2'");
+        assertThat(assertions.expression("EXTRACT(QUARTER FROM TIMESTAMP '2020-05-10 12:34:56.1234567890')")).matches("BIGINT '2'");
+        assertThat(assertions.expression("EXTRACT(QUARTER FROM TIMESTAMP '2020-05-10 12:34:56.12345678901')")).matches("BIGINT '2'");
+        assertThat(assertions.expression("EXTRACT(QUARTER FROM TIMESTAMP '2020-05-10 12:34:56.123456789012')")).matches("BIGINT '2'");
+
         assertThat(assertions.expression("quarter(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '2'");
         assertThat(assertions.expression("quarter(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '2'");
         assertThat(assertions.expression("quarter(TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '2'");
@@ -241,6 +387,10 @@ public class TestExtract
     @Test
     public void testWeekOfYear()
     {
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(WEEK_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56')"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessage("line 1:8: Invalid EXTRACT field: WEEK_OF_YEAR");
+
         assertThat(assertions.expression("week_of_year(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '19'");
         assertThat(assertions.expression("week_of_year(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '19'");
         assertThat(assertions.expression("week_of_year(TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '19'");
@@ -259,6 +409,20 @@ public class TestExtract
     @Test
     public void testYearOfWeek()
     {
+        assertThat(assertions.expression("EXTRACT(YEAR_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.123')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.1234')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.12345')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.123456')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.1234567')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.12345678')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.123456789')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.1234567890')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.12345678901')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YEAR_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56.123456789012')")).matches("BIGINT '2020'");
+
         assertThat(assertions.expression("year_of_week(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '2020'");
         assertThat(assertions.expression("year_of_week(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '2020'");
         assertThat(assertions.expression("year_of_week(TIMESTAMP '2020-05-10 12:34:56.12')")).matches("BIGINT '2020'");
