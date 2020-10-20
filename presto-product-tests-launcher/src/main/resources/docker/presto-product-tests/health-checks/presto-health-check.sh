@@ -6,6 +6,11 @@ if test $# -gt 0; then
     exit 32
 fi
 
+if [[ -f /tmp/presto_oom ]]; then
+    echo "Presto OOM exception occured"
+    exit 137
+fi
+
 # Check if PrestoServer is listed as running Java process
 PID=$(jps | grep Presto | cut -f1 -d ' ')
 

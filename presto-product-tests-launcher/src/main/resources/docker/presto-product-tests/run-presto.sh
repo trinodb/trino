@@ -21,8 +21,10 @@ fi
 export JAVA_HOME="/usr/lib/jvm/zulu-11"
 export PATH="${JAVA_HOME}/bin:${PATH}"
 
+# When Presto OOM exception occurs, mark Presto as tainted and wait for health check
 exec /docker/presto-server/bin/launcher \
   -Dnode.id="${HOSTNAME}" \
   --etc-dir="/docker/presto-product-tests/conf/presto/etc" \
   --data-dir=/var/presto \
+  -J "-XX:OnOutOfMemoryError=echo Out of memory occured in pid %p;touch /tmp/presto_oom;sleep 30d" \
   run

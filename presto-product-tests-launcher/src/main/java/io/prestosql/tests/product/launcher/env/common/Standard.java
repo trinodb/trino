@@ -123,7 +123,7 @@ public final class Standard
     {
         DockerContainer container = new DockerContainer(dockerImageName, logicalName)
                 .withNetworkAliases(logicalName + ".docker.cluster")
-                .withExposedLogPaths("/var/presto/var/log", "/var/log/container-health.log")
+                .withExposedLogPaths("/var/presto", "/var/log/container-health.log")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("health-checks/presto-health-check.sh")), CONTAINER_HEALTH_D + "presto-health-check.sh")
