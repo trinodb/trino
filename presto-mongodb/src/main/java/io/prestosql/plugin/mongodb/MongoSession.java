@@ -105,7 +105,6 @@ public class MongoSession
 
     private static final String EQ_OP = "$eq";
     private static final String NOT_EQ_OP = "$ne";
-    private static final String EXISTS_OP = "$exists";
     private static final String GTE_OP = "$gte";
     private static final String GT_OP = "$gt";
     private static final String LT_OP = "$lt";
@@ -435,7 +434,7 @@ public class MongoSession
 
     private static Document isNullPredicate()
     {
-        return documentOf(EXISTS_OP, true).append(EQ_OP, null);
+        return documentOf(EQ_OP, null);
     }
 
     private static Document isNotNullPredicate()
