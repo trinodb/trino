@@ -37,6 +37,10 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           ./bin/retry ./mvnw install -B -V -T C1 -DskipTests -P ci -pl '!presto-server-rpm'
+      - name: Build product tests launcher IntelliJ plugin
+        run: |
+          cd presto-product-tests-launcher-idea-plugin
+          ./gradlew build
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
