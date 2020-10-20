@@ -486,8 +486,7 @@ class StatementAnalyzer
                 throw semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Table '%s' does not exist", targetTable);
             }
 
-            Optional<TableHandle> materializedViewHandle = metadata.getTableHandle(session, name);
-            if (targetTableHandle.isPresent() && metadata.getMaterializedViewFreshness(session, materializedViewHandle.get()).isMaterializedViewFresh()) {
+            if (targetTableHandle.isPresent() && metadata.getMaterializedViewFreshness(session, name).isMaterializedViewFresh()) {
                 analysis.setSkipMaterializedViewRefresh(true);
             }
             else {
@@ -503,9 +502,8 @@ class StatementAnalyzer
             accessControl.checkCanInsertIntoTable(session.toSecurityContext(), targetTable);
 
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
-            checkState(materializedViewHandle.isPresent());
             analysis.setRefreshMaterializedView(new Analysis.RefreshMaterializedViewAnalysis(
-                    materializedViewHandle.get(),
+                    name,
                     targetTableHandle.get(), query,
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
 
@@ -1176,37 +1174,29 @@ class StatementAnalyzer
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
-            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
+            Optional<TableHandle> tableHandle = Optional.empty();
 
-            // If this is a materialized view, get the name of the storage table
-            Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(name);
-            Optional<TableHandle> storageHandle = Optional.empty();
-            if (storageName.isPresent()) {
-                storageHandle = metadata.getTableHandle(session, createQualifiedObjectName(session, table, storageName.get()));
-            }
-
-            // If materialized view is current, answer the query using the storage table
-            Identifier catalogName = new Identifier(name.getCatalogName());
-            Identifier schemaName = new Identifier(name.getSchemaName());
-            Identifier tableName = new Identifier(name.getObjectName());
-            QualifiedName materializedViewName = QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName));
-            Optional<TableHandle> materializedViewHandle = metadata.getTableHandle(session, createQualifiedObjectName(session, table, materializedViewName));
-            if (storageHandle.isPresent() && metadata.getMaterializedViewFreshness(session, materializedViewHandle.get()).isMaterializedViewFresh()) {
-                tableHandle = storageHandle;
-            }
-            else {
-                // This is a stale materialized view and should be expanded like a logical view
-                if (storageHandle.isPresent()) {
-                    Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
-                    if (optionalMaterializedView.isPresent()) {
-                        return createScopeForMaterializedView(table, name, scope, optionalMaterializedView.get());
+            Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
+            if (optionalMaterializedView.isPresent()) {
+                if (metadata.getMaterializedViewFreshness(session, name).isMaterializedViewFresh()) {
+                    // If materialized view is current, answer the query using the storage table
+                    Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(name);
+                    if (storageName.isPresent()) {
+                        tableHandle = metadata.getTableHandle(session, createQualifiedObjectName(session, table, storageName.get()));
                     }
                 }
-                // This is a reference to a logical view
+                else {
+                    // This is a stale materialized view and should be expanded like a logical view
+                    return createScopeForMaterializedView(table, name, scope, optionalMaterializedView.get());
+                }
+            }
+            else {
+                // This is could be a reference to a logical view or a table
                 Optional<ConnectorViewDefinition> optionalView = metadata.getView(session, name);
                 if (optionalView.isPresent()) {
                     return createScopeForView(table, name, scope, optionalView.get());
                 }
+                tableHandle = metadata.getTableHandle(session, name);
             }
 
             if (tableHandle.isEmpty()) {

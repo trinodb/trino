@@ -132,6 +132,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -844,13 +845,27 @@ public final class MetadataManager
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle)
+    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles)
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalogName);
-        ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
+
+        List<ConnectorTableHandle> sourceConnectorHandles = sourceTableHandles.stream()
+                .map(TableHandle::getConnectorHandle)
+                .collect(Collectors.toList());
+        sourceConnectorHandles.add(tableHandle.getConnectorHandle());
+
+        if (sourceConnectorHandles.stream()
+                .map(Object::getClass)
+                .distinct()
+                .count() > 1) {
+            throw new PrestoException(NOT_SUPPORTED, "Cross connector materialized views are not supported");
+        }
+
+        ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), sourceConnectorHandles);
+
         return new InsertTableHandle(tableHandle.getCatalogName(), transactionHandle, handle);
     }
 
@@ -864,10 +879,10 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
-        List<ConnectorTableHandle> sourceConnectorHandles = new ArrayList<>();
-        for (TableHandle handle : sourceTableHandles) {
-            sourceConnectorHandles.add(handle.getConnectorHandle());
-        }
+
+        List<ConnectorTableHandle> sourceConnectorHandles = sourceTableHandles.stream()
+                .map(TableHandle::getConnectorHandle)
+                .collect(toImmutableList());
         return metadata.finishRefreshMaterializedView(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), fragments, computedStatistics, sourceConnectorHandles);
     }
 
@@ -1145,12 +1160,18 @@ public final class MetadataManager
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, TableHandle tableHandle)
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName viewName)
     {
-        CatalogName catalogName = tableHandle.getCatalogName();
-        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
-        return metadata.getMaterializedViewFreshness(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            CatalogName catalogName = catalogMetadata.getConnectorId(session, viewName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+
+            ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+            return metadata.getMaterializedViewFreshness(connectorSession, viewName.asSchemaTableName());
+        }
+        return new MaterializedViewFreshness(false);
     }
 
     @Override

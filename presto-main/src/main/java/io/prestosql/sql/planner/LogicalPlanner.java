@@ -465,7 +465,7 @@ public class LogicalPlanner
         TableHandle tableHandle = viewAnalysis.getTarget();
         Query query = viewAnalysis.getQuery();
         Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, viewAnalysis.getTarget());
-        TableWriterNode.RefreshMaterializedViewReference writerTarget = new TableWriterNode.RefreshMaterializedViewReference(viewAnalysis.getMaterializedViewHandle(),
+        TableWriterNode.RefreshMaterializedViewReference writerTarget = new TableWriterNode.RefreshMaterializedViewReference(viewAnalysis.getMaterializedViewName(),
                 tableHandle, new ArrayList<>(analysis.getTables()));
         return getInsertPlan(analysis, query, tableHandle, viewAnalysis.getColumns(), newTableLayout, true, writerTarget);
     }

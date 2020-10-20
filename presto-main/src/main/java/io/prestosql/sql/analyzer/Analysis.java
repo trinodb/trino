@@ -1031,14 +1031,14 @@ public class Analysis
     @Immutable
     public static final class RefreshMaterializedViewAnalysis
     {
-        private final TableHandle materializedViewHandle;
+        private final QualifiedObjectName materializedViewName;
         private final TableHandle target;
         private final Query query;
         private final List<ColumnHandle> columns;
 
-        public RefreshMaterializedViewAnalysis(TableHandle materializedViewHandle, TableHandle target, Query query, List<ColumnHandle> columns)
+        public RefreshMaterializedViewAnalysis(QualifiedObjectName materializedViewName, TableHandle target, Query query, List<ColumnHandle> columns)
         {
-            this.materializedViewHandle = requireNonNull(materializedViewHandle, "Materialized view handle is null");
+            this.materializedViewName = requireNonNull(materializedViewName, "Materialized view handle is null");
             this.target = requireNonNull(target, "target is null");
             this.query = query;
             this.columns = requireNonNull(columns, "columns is null");
@@ -1060,9 +1060,9 @@ public class Analysis
             return target;
         }
 
-        public TableHandle getMaterializedViewHandle()
+        public QualifiedObjectName getMaterializedViewName()
         {
-            return materializedViewHandle;
+            return materializedViewName;
         }
     }
 

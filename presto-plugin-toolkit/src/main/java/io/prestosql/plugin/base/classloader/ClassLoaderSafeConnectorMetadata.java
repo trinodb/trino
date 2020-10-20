@@ -438,10 +438,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.beginRefreshMaterializedView(session, tableHandle);
+            return delegate.beginRefreshMaterializedView(session, tableHandle, sourceTableHandles);
         }
     }
 
@@ -789,10 +789,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getMaterializedViewFreshness(session, tableHandle);
+            return delegate.getMaterializedViewFreshness(session, name);
         }
     }
 }
