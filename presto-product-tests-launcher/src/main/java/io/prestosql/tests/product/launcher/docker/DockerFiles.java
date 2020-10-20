@@ -70,6 +70,17 @@ public final class DockerFiles
         return dockerFilesHostPath;
     }
 
+    public ResourceProvider getDockerFilesHostDirectory(String directory)
+    {
+        Path hostPath = getDockerFilesHostPath(directory);
+        return file -> {
+            checkArgument(file != null && !file.isEmpty() && !(file.charAt(0) == '/'), "Invalid file: %s", file);
+            Path filePath = hostPath.resolve(file);
+            checkArgument(Files.exists(filePath), "'%s' resolves to '%s', but it does not exist", file, filePath);
+            return filePath;
+        };
+    }
+
     public Path getDockerFilesHostPath(String file)
     {
         checkArgument(file != null && !file.isEmpty() && !(file.charAt(0) == '/'), "Invalid file: %s", file);
@@ -129,5 +140,10 @@ public final class DockerFiles
             }
         }));
         return temporaryDirectoryForDocker;
+    }
+
+    public interface ResourceProvider
+    {
+        Path getPath(String resourceName);
     }
 }
