@@ -17,8 +17,11 @@ public final class EnvironmentDefaults
 {
     public static final String DOCKER_IMAGES_VERSION = "34";
     public static final String HADOOP_BASE_IMAGE = "prestodev/hdp2.6-hive";
+    public static final String PRESTO_BASE_IMAGE = "prestodev/centos7-oj11";
+    public static final String TESTS_BASE_IMAGE = "prestodev/centos6-oj8";
     public static final String HADOOP_IMAGES_VERSION = DOCKER_IMAGES_VERSION;
     public static final String TEMPTO_ENVIRONMENT_CONFIG = "/dev/null";
+    public static final String PRESTO_JAVA_VERSION = "11";
 
     private EnvironmentDefaults() {}
 }

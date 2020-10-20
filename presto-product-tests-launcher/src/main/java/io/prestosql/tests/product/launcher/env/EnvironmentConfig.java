@@ -27,6 +27,12 @@ public interface EnvironmentConfig
 
     String getHadoopBaseImage();
 
+    String getPrestoBaseImage();
+
+    String getPrestoJavaVersion();
+
+    String getTestsBaseImage();
+
     String getHadoopImagesVersion();
 
     default List<String> getExcludedGroups()

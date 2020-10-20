@@ -18,8 +18,9 @@ if test -d /docker/presto-init.d; then
     done
 fi
 
-export JAVA_HOME="/usr/lib/jvm/zulu-11"
 export PATH="${JAVA_HOME}/bin:${PATH}"
+
+echo "Running Presto with JAVA_HOME: ${JAVA_HOME}"
 
 exec /docker/presto-server/bin/launcher \
   -Dnode.id="${HOSTNAME}" \
