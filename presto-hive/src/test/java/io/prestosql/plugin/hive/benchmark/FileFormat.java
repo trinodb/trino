@@ -400,7 +400,7 @@ public enum FileFormat
         ConnectorPageSource hivePageSource = factory.createPageSource(
                 TestingConnectorTransactionHandle.INSTANCE,
                 session, split,
-                new HiveTableHandle("schema_name", "table_name", ImmutableMap.of(), ImmutableList.of(), Optional.empty()),
+                new HiveTableHandle("schema_name", "table_name", ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty()),
                 readColumns,
                 DynamicFilter.EMPTY);
 

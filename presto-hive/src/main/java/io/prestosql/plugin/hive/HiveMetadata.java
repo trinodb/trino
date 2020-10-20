@@ -234,6 +234,7 @@ import static io.prestosql.plugin.hive.util.HiveBucketing.bucketedOnTimestamp;
 import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
 import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.prestosql.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
+import static io.prestosql.plugin.hive.util.HiveUtil.getRegularColumnHandles;
 import static io.prestosql.plugin.hive.util.HiveUtil.hiveColumnHandles;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.plugin.hive.util.HiveUtil.verifyPartitionTypeSupported;
@@ -389,6 +390,7 @@ public class HiveMetadata
                 tableName.getTableName(),
                 table.get().getParameters(),
                 getPartitionKeyColumnHandles(table.get(), typeManager),
+                getRegularColumnHandles(table.get(), typeManager, getTimestampPrecision(session).getPrecision()),
                 getHiveBucketHandle(session, table.get(), typeManager));
     }
 
@@ -2316,6 +2318,7 @@ public class HiveMetadata
                 hiveTable.getTableName(),
                 hiveTable.getTableParameters(),
                 hiveTable.getPartitionColumns(),
+                hiveTable.getDataColumns(),
                 hiveTable.getPartitions(),
                 hiveTable.getCompactEffectivePredicate(),
                 hiveTable.getEnforcedConstraint(),
