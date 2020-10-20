@@ -34,6 +34,50 @@
       "privileges": ["SELECT", "INSERT"]
     },
     {
+      "group": "guests",
+      "schema": "bobschema",
+      "table": "bobcolumns",
+      "privileges": ["SELECT"],
+      "columns" : [
+         {
+           "name": "private",
+           "allow": false
+         },
+         {
+           "name": "restricted",
+           "allow": false
+         },
+         {
+           "name": "masked",
+           "mask": "'mask'"
+         },
+         {
+           "name": "masked_with_user",
+           "mask": "'mask-with-user'",
+           "mask_environment": {
+             "user": "mask-user"
+           }
+         }
+      ],
+      "filter": "starts_with(value, 'filter')"
+    },
+    {
+      "group": "guests",
+      "schema": "bobschema",
+      "table": "bobcolumns_with_grant",
+      "privileges": ["GRANT_SELECT"],
+      "columns" : [
+         {
+           "name": "private",
+           "allow": false
+         }
+      ],
+      "filter": "starts_with(value, 'filter-with-user')",
+      "filter_environment": {
+        "user": "filter-user"
+      }
+    },
+    {
       "privileges": ["SELECT"]
     }
   ]

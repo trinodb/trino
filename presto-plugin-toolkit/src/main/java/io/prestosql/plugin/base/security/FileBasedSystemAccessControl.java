@@ -43,10 +43,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode.ALL;
@@ -561,7 +563,28 @@ public class FileBasedSystemAccessControl
             return ImmutableList.of();
         }
 
-        return columns;
+        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaTableName().getSchemaName())) {
+            return columns;
+        }
+
+        Identity identity = context.getIdentity();
+        CatalogTableAccessControlRule rule = tableRules.stream()
+                .filter(tableRule -> tableRule.matches(identity.getUser(), identity.getGroups(), tableName))
+                .findFirst()
+                .orElse(null);
+        if (rule == null || rule.getPrivileges().isEmpty()) {
+            return ImmutableList.of();
+        }
+
+        // if user has privileges other than select, show all columns
+        if (rule.getPrivileges().stream().anyMatch(privilege -> SELECT != privilege && GRANT_SELECT != privilege)) {
+            return columns;
+        }
+
+        Set<String> restrictedColumns = rule.getRestrictedColumns();
+        return columns.stream()
+                .filter(columnMetadata -> !restrictedColumns.contains(columnMetadata.getName()))
+                .collect(toImmutableList());
     }
 
     @Override
@@ -591,7 +614,21 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
-        if (!checkTablePermission(context, table, SELECT)) {
+        if (!canAccessCatalog(context, table.getCatalogName(), READ_ONLY)) {
+            denySelectTable(table.toString());
+        }
+
+        if (INFORMATION_SCHEMA_NAME.equals(table.getSchemaTableName().getSchemaName())) {
+            return;
+        }
+
+        Identity identity = context.getIdentity();
+        boolean allowed = tableRules.stream()
+                .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), table))
+                .map(rule -> rule.canSelectColumns(columns))
+                .findFirst()
+                .orElse(false);
+        if (!allowed) {
             denySelectTable(table.toString());
         }
     }
@@ -641,11 +678,23 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
-        // TODO: implement column level permissions
-        if (!checkTablePermission(context, table, SELECT)) {
+        if (!canAccessCatalog(context, table.getCatalogName(), ALL)) {
             denySelectTable(table.toString());
         }
-        if (!checkTablePermission(context, table, GRANT_SELECT)) {
+
+        if (INFORMATION_SCHEMA_NAME.equals(table.getSchemaTableName().getSchemaName())) {
+            return;
+        }
+
+        Identity identity = context.getIdentity();
+        CatalogTableAccessControlRule rule = tableRules.stream()
+                .filter(tableRule -> tableRule.matches(identity.getUser(), identity.getGroups(), table))
+                .findFirst()
+                .orElse(null);
+        if (rule == null || !rule.canSelectColumns(columns)) {
+            denySelectTable(table.toString());
+        }
+        if (!rule.getPrivileges().contains(GRANT_SELECT)) {
             denyCreateViewWithSelect(table.toString(), context.getIdentity());
         }
     }
@@ -708,15 +757,35 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getRowFilter(SystemSecurityContext context, CatalogSchemaTableName tableName)
+    public Optional<ViewExpression> getRowFilter(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        return Optional.empty();
+        SchemaTableName tableName = table.getSchemaTableName();
+        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+            return Optional.empty();
+        }
+
+        Identity identity = context.getIdentity();
+        return tableRules.stream()
+                .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), table))
+                .map(rule -> rule.getFilter(identity.getUser(), table.getCatalogName(), tableName.getSchemaName()))
+                .findFirst()
+                .flatMap(Function.identity());
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName table, String columnName, Type type)
     {
-        return Optional.empty();
+        SchemaTableName tableName = table.getSchemaTableName();
+        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+            return Optional.empty();
+        }
+
+        Identity identity = context.getIdentity();
+        return tableRules.stream()
+                .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), table))
+                .map(rule -> rule.getColumnMask(identity.getUser(), table.getCatalogName(), table.getSchemaTableName().getSchemaName(), columnName))
+                .findFirst()
+                .flatMap(Function.identity());
     }
 
     private boolean checkAnyCatalogAccess(SystemSecurityContext context, String catalogName)
@@ -788,9 +857,8 @@ public class FileBasedSystemAccessControl
 
         Identity identity = context.getIdentity();
         for (CatalogTableAccessControlRule rule : tableRules) {
-            Optional<Set<TableAccessControlRule.TablePrivilege>> tablePrivileges = rule.match(identity.getUser(), identity.getGroups(), table);
-            if (tablePrivileges.isPresent()) {
-                return checkPrivileges.test(tablePrivileges.get());
+            if (rule.matches(identity.getUser(), identity.getGroups(), table)) {
+                return checkPrivileges.test(rule.getPrivileges());
             }
         }
         return false;

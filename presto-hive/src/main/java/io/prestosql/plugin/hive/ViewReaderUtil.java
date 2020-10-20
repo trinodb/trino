@@ -150,7 +150,7 @@ public final class ViewReaderUtil
                         columns,
                         Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
                         Optional.empty(),
-                        true);
+                        false);
             }
             catch (RuntimeException e) {
                 throw new PrestoException(HIVE_VIEW_TRANSLATION_ERROR,

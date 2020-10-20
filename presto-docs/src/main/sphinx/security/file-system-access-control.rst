@@ -43,6 +43,10 @@ access to catalogs. They do not explicitly grant any specific schema or table pe
 The table and schema rules are used to specify who can can create, drop, alter, select, insert,
 delete, etc. for schemas and tables.
 
+.. note::
+
+    These rules do not apply to system defined table in the ``information_schema`` schema.
+
 For each rule set, permission is based on the first matching rule read from top to bottom.  If
 no rule matches, access is denied. If no rules are provided at all, then access is granted.
 
@@ -209,6 +213,24 @@ Each table rule is composed of the following fields:
 * ``table`` (optional): regex to match against table names. Defaults to ``.*``.
 * ``privileges`` (required): zero or more of ``SELECT``, ``INSERT``,
   ``DELETE``, ``OWNERSHIP``, ``GRANT_SELECT``
+* ``columns`` (optional): list of column constraints.
+* ``filter`` (optional): boolean filter expression for the table.
+* ``filter_environment`` (optional): environment use during filter evaluation.
+
+Column Constraint
+^^^^^^^^^^^^^^^^^
+
+These constraints can be used to restrict access to column data.
+
+* ``name``: name of the column.
+* ``allowed`` (optional): if false, column can not be accessed.
+* ``mask`` (optional): mask expression applied to column.
+* ``mask_environment`` (optional): environment use during mask evaluation.
+
+Filter and Mask Environment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* ``user`` (optional): username for checking permission of subqueries in mask.
 
 .. note::
 
@@ -218,7 +240,10 @@ The example below defines the following table access policy:
 
 * User ``admin`` has all privileges across all tables and schemas
 * User ``banned_user`` has no privileges
-* All users have ``SELECT`` privileges on all tables in the ``default.default`` schema
+* All users have ``SELECT`` privileges on ``default.hr.employees``, but the
+  table is filtered to only the row for the current user.
+* All users have ``SELECT`` privileges on all tables in the ``default.default``
+  schema, except for the ``address`` column which is blocked, and ``ssn`` which is masked.
 
 .. code-block:: json
 
@@ -234,9 +259,32 @@ The example below defines the following table access policy:
         },
         {
           "catalog": "default",
+          "schema": "hr",
+          "table": "employee",
+          "privileges": ["SELECT"],
+          "filter": "user = current_user"
+          "filter_environment": {
+            "user": "admin"
+          }
+        }
+        {
+          "catalog": "default",
           "schema": "default",
           "table": ".*",
-          "privileges": ["SELECT"]
+          "privileges": ["SELECT"],
+          "columns" : [
+             {
+                "name": "address",
+                "allow": false
+             },
+             {
+                "name": "SSN",
+                "mask": "'XXX-XX-' + substring(credit_card, -4)",
+                "mask_environment": {
+                  "user": "admin"
+                }
+             }
+          ]
         }
       ]
     }

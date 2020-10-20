@@ -20,7 +20,7 @@
   higher than 6. ({issue}`5310`)
 * Fix failure due to rounding error when casting between two `timestamp with time zone` types 
   with precision higher than 3. ({issue}`5371`)
-* Fix column pruning for `EXPLAIN ANALYZE`. ({issue} `4760`)
+* Fix column pruning for `EXPLAIN ANALYZE`. ({issue}`4760`)
 * Fix incorrect timestamp values returned by the `queries`, `transactions`,
   and `tasks` tables in `system.runtime`. ({issue}`5462`)
 
@@ -68,9 +68,9 @@ Please, read these release notes carefully.
 ## PostgreSQL Connector Changes
 
 * Add support for setting a column comment. ({issue}`5307`)
-* Add support for variable-precision `time` type. ({issue}`5432`)
+* Add support for variable-precision `time` type. ({issue}`5342`)
 * Allow `CREATE TABLE` and `CREATE TABLE AS` with `timestamp` and `timestamp with time zone` with precision higher than 6.
-  The resulting column will be declared with precision of 6, maximal supported by PostgreSQL. ({issue}`5432`)
+  The resulting column will be declared with precision of 6, maximal supported by PostgreSQL. ({issue}`5342`)
 
 ## SQL Server Connector Changes
 

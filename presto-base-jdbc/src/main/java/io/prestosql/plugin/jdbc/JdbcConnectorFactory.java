@@ -16,7 +16,6 @@ package io.prestosql.plugin.jdbc;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
-import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.VersionEmbedder;
 import io.prestosql.spi.connector.Connector;
@@ -29,7 +28,6 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.airlift.configuration.ConfigurationAwareModules.combine;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcConnectorFactory
@@ -40,9 +38,14 @@ public class JdbcConnectorFactory
 
     public JdbcConnectorFactory(String name, Module module)
     {
-        this(name, JdbcModuleProvider.withCredentialProvider(module));
+        this(name, catalogName -> module);
     }
 
+    /**
+     * @deprecated Prefer {@link JdbcConnectorFactory#JdbcConnectorFactory(String, Module)} instead.
+     * Notice that {@link io.prestosql.plugin.base.CatalogName} is available in guice context.
+     */
+    @Deprecated
     public JdbcConnectorFactory(String name, JdbcModuleProvider moduleProvider)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
@@ -83,14 +86,13 @@ public class JdbcConnectorFactory
         return injector.getInstance(JdbcConnector.class);
     }
 
+    /**
+     * @deprecated Prefer {@link JdbcConnectorFactory#JdbcConnectorFactory(String, Module)} instead.
+     * Notice that {@link io.prestosql.plugin.base.CatalogName} is available in guice context.
+     */
+    @Deprecated
     public interface JdbcModuleProvider
     {
         Module getModule(String catalogName);
-
-        static JdbcModuleProvider withCredentialProvider(Module module)
-        {
-            requireNonNull(module, "module is null");
-            return catalogName -> combine(new CredentialProviderModule(), module);
-        }
     }
 }

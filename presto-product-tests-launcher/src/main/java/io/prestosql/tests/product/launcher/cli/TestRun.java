@@ -26,7 +26,6 @@ import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
-import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.testcontainers.ExistingNetwork;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.Timeout;
@@ -235,10 +234,6 @@ public final class TestRun
                     .setContainerOutputMode(outputMode)
                     .setStartupRetries(startupRetries)
                     .setLogsBaseDir(logsDirBase);
-
-            if (debug) {
-                builder.configureContainers(Standard::enablePrestoJavaDebugger);
-            }
 
             builder.configureContainer(TESTS, this::mountReportsDir);
             builder.configureContainer(TESTS, container -> {

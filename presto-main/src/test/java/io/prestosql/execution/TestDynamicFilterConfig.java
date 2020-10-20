@@ -33,18 +33,18 @@ public class TestDynamicFilterConfig
                 .setEnableDynamicFiltering(true)
                 .setEnableLargeDynamicFilters(false)
                 .setServiceThreadCount(2)
-                .setSmallBroadcastMaxDistinctValuesPerDriver(100)
-                .setSmallBroadcastMaxSizePerDriver(DataSize.of(10, KILOBYTE))
-                .setSmallBroadcastRangeRowLimitPerDriver(0)
-                .setSmallPartitionedMaxDistinctValuesPerDriver(10)
+                .setSmallBroadcastMaxDistinctValuesPerDriver(200)
+                .setSmallBroadcastMaxSizePerDriver(DataSize.of(20, KILOBYTE))
+                .setSmallBroadcastRangeRowLimitPerDriver(400)
+                .setSmallPartitionedMaxDistinctValuesPerDriver(20)
                 .setSmallPartitionedMaxSizePerDriver(DataSize.of(10, KILOBYTE))
-                .setSmallPartitionedRangeRowLimitPerDriver(0)
+                .setSmallPartitionedRangeRowLimitPerDriver(100)
                 .setLargeBroadcastMaxDistinctValuesPerDriver(5000)
                 .setLargeBroadcastMaxSizePerDriver(DataSize.of(500, KILOBYTE))
-                .setLargeBroadcastRangeRowLimitPerDriver(0)
+                .setLargeBroadcastRangeRowLimitPerDriver(10_000)
                 .setLargePartitionedMaxDistinctValuesPerDriver(500)
                 .setLargePartitionedMaxSizePerDriver(DataSize.of(50, KILOBYTE))
-                .setLargePartitionedRangeRowLimitPerDriver(0));
+                .setLargePartitionedRangeRowLimitPerDriver(1_000));
     }
 
     @Test

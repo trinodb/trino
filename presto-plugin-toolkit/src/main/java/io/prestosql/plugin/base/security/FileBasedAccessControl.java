@@ -27,14 +27,14 @@ import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.ViewExpression;
 import io.prestosql.spi.type.Type;
 
-import javax.inject.Inject;
-
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
@@ -73,20 +73,23 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
+import static java.util.Objects.requireNonNull;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
 {
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
 
+    private final String catalogName;
     private final List<SchemaAccessControlRule> schemaRules;
     private final List<TableAccessControlRule> tableRules;
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
     private final Set<AnySchemaPermissionsRule> anySchemaPermissionsRules;
 
-    @Inject
-    public FileBasedAccessControl(FileBasedAccessControlConfig config)
+    public FileBasedAccessControl(String catalogName, FileBasedAccessControlConfig config)
     {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+
         AccessControlRules rules = parseJson(Paths.get(config.getConfigFile()), AccessControlRules.class);
 
         this.schemaRules = rules.getSchemaRules();
@@ -211,10 +214,28 @@ public class FileBasedAccessControl
     @Override
     public List<ColumnMetadata> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
     {
-        if (!checkAnyTablePermission(context, tableName)) {
+        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+            return columns;
+        }
+
+        ConnectorIdentity identity = context.getIdentity();
+        TableAccessControlRule rule = tableRules.stream()
+                .filter(tableRule -> tableRule.matches(identity.getUser(), identity.getGroups(), tableName))
+                .findFirst()
+                .orElse(null);
+        if (rule == null || rule.getPrivileges().isEmpty()) {
             return ImmutableList.of();
         }
-        return columns;
+
+        // if user has privileges other than select, show all columns
+        if (rule.getPrivileges().stream().anyMatch(privilege -> SELECT != privilege)) {
+            return columns;
+        }
+
+        Set<String> restrictedColumns = rule.getRestrictedColumns();
+        return columns.stream()
+                .filter(columnMetadata -> !restrictedColumns.contains(columnMetadata.getName()))
+                .collect(toImmutableList());
     }
 
     @Override
@@ -269,8 +290,17 @@ public class FileBasedAccessControl
     @Override
     public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
-        // TODO: Implement column level permissions
-        if (!checkTablePermission(context, tableName, SELECT)) {
+        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+            return;
+        }
+
+        ConnectorIdentity identity = context.getIdentity();
+        boolean allowed = tableRules.stream()
+                .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), tableName))
+                .map(rule -> rule.canSelectColumns(columnNames))
+                .findFirst()
+                .orElse(false);
+        if (!allowed) {
             denySelectTable(tableName.toString());
         }
     }
@@ -320,11 +350,19 @@ public class FileBasedAccessControl
     @Override
     public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
-        // TODO: implement column level permissions
-        if (!checkTablePermission(context, tableName, SELECT)) {
+        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+            return;
+        }
+
+        ConnectorIdentity identity = context.getIdentity();
+        TableAccessControlRule rule = tableRules.stream()
+                .filter(tableRule -> tableRule.matches(identity.getUser(), identity.getGroups(), tableName))
+                .findFirst()
+                .orElse(null);
+        if (rule == null || !rule.canSelectColumns(columnNames)) {
             denySelectTable(tableName.toString());
         }
-        if (!checkTablePermission(context, tableName, GRANT_SELECT)) {
+        if (!rule.getPrivileges().contains(GRANT_SELECT)) {
             denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
         }
     }
@@ -413,13 +451,31 @@ public class FileBasedAccessControl
     @Override
     public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        return Optional.empty();
+        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+            return Optional.empty();
+        }
+
+        ConnectorIdentity identity = context.getIdentity();
+        return tableRules.stream()
+                .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), tableName))
+                .map(rule -> rule.getFilter(identity.getUser(), catalogName, tableName.getSchemaName()))
+                .findFirst()
+                .flatMap(Function.identity());
     }
 
     @Override
     public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
-        return Optional.empty();
+        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+            return Optional.empty();
+        }
+
+        ConnectorIdentity identity = context.getIdentity();
+        return tableRules.stream()
+                .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), tableName))
+                .map(rule -> rule.getColumnMask(identity.getUser(), catalogName, tableName.getSchemaName(), columnName))
+                .findFirst()
+                .flatMap(Function.identity());
     }
 
     private boolean canSetSessionProperty(ConnectorSecurityContext context, String property)
@@ -452,9 +508,8 @@ public class FileBasedAccessControl
 
         ConnectorIdentity identity = context.getIdentity();
         for (TableAccessControlRule rule : tableRules) {
-            Optional<Set<TablePrivilege>> tablePrivileges = rule.match(identity.getUser(), identity.getGroups(), tableName);
-            if (tablePrivileges.isPresent()) {
-                return checkPrivileges.test(tablePrivileges.get());
+            if (rule.matches(identity.getUser(), identity.getGroups(), tableName)) {
+                return checkPrivileges.test(rule.getPrivileges());
             }
         }
         return false;
