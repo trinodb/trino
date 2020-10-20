@@ -1788,6 +1788,17 @@ public abstract class AbstractTestQueries
         assertAccessAllowed("SELECT name AS my_alias FROM nation", privilege("my_alias", SELECT_COLUMN));
         assertAccessAllowed("SELECT my_alias from (SELECT name AS my_alias FROM nation)", privilege("my_alias", SELECT_COLUMN));
         assertAccessDenied("SELECT name AS my_alias FROM nation", "Cannot select from columns \\[name\\] in table .*.nation.*", privilege("nation.name", SELECT_COLUMN));
+
+        assertAccessDenied(
+                "SELECT orders.custkey, lineitem.quantity FROM orders JOIN lineitem USING (orderkey)",
+                "Cannot select from columns \\[orderkey, custkey\\] in table .*",
+                privilege("orders.orderkey", SELECT_COLUMN));
+
+        assertAccessDenied(
+                "SELECT orders.custkey, lineitem.quantity FROM orders JOIN lineitem USING (orderkey)",
+                "Cannot select from columns \\[orderkey, quantity\\] in table .*",
+                privilege("lineitem.orderkey", SELECT_COLUMN));
+
         assertAccessDenied("SHOW CREATE TABLE orders", "Cannot show create table for .*.orders.*", privilege("orders", SHOW_CREATE_TABLE));
         assertAccessAllowed("SHOW CREATE TABLE lineitem", privilege("orders", SHOW_CREATE_TABLE));
         assertAccessDenied("SELECT abs(1)", "Cannot execute function abs", privilege("abs", EXECUTE_FUNCTION));
