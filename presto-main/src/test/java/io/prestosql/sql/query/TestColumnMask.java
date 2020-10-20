@@ -151,6 +151,25 @@ public class TestColumnMask
     }
 
     @Test
+    public void testReferenceInUsingClause()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "orderkey",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "IF(orderkey = 1, -orderkey)"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "lineitem"),
+                "orderkey",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "IF(orderkey = 1, -orderkey)"));
+
+        assertThat(assertions.query("SELECT count(*) FROM orders JOIN lineitem USING (orderkey)")).matches("VALUES BIGINT '6'");
+    }
+
+    @Test
     public void testCoercibleType()
     {
         accessControl.reset();
