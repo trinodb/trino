@@ -278,7 +278,9 @@ public class MongoSession
             output.append(column.getName(), 1);
         }
         MongoCollection<Document> collection = getCollection(tableHandle.getSchemaTableName());
-        FindIterable<Document> iterable = collection.find(buildQuery(tableHandle.getConstraint())).projection(output);
+        Document query = buildQuery(tableHandle.getConstraint());
+        FindIterable<Document> iterable = collection.find(query).projection(output);
+        log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.getSchemaTableName(), query.toJson(), output.toJson());
 
         if (cursorBatchSize != 0) {
             iterable.batchSize(cursorBatchSize);
