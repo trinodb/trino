@@ -462,7 +462,7 @@ public interface ConnectorMetadata
     /**
      * Begin materialized view query
      */
-    default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle)
+    default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support materialized views");
     }
@@ -1041,7 +1041,7 @@ public interface ConnectorMetadata
     /**
      * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
      */
-    default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, ConnectorTableHandle tableHandle)
+    default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
         return new MaterializedViewFreshness(false);
     }

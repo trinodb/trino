@@ -189,7 +189,8 @@ public class BeginTableWrite
             }
             if (target instanceof TableWriterNode.RefreshMaterializedViewReference) {
                 TableWriterNode.RefreshMaterializedViewReference refreshMV = (TableWriterNode.RefreshMaterializedViewReference) target;
-                return new TableWriterNode.RefreshMaterializedViewTarget(metadata.beginRefreshMaterializedView(session, refreshMV.getStorageTableHandle()),
+                return new TableWriterNode.RefreshMaterializedViewTarget(
+                        metadata.beginRefreshMaterializedView(session, refreshMV.getStorageTableHandle(), refreshMV.getSourceTableHandles()),
                         metadata.getTableMetadata(session, refreshMV.getStorageTableHandle()).getTable(), refreshMV.getSourceTableHandles());
             }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());

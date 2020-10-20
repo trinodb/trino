@@ -346,7 +346,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle)
+    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles)
     {
         throw new UnsupportedOperationException();
     }
@@ -807,7 +807,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, TableHandle tableHandle)
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name)
     {
         throw new UnsupportedOperationException();
     }
