@@ -27,14 +27,24 @@ final class Commands
 
     public static int runCommand(List<Module> modules, Class<? extends Callable<Integer>> commandExecution)
     {
+        return runCommand(modules, commandExecution, true);
+    }
+
+    public static int runCommand(List<Module> modules, Class<? extends Callable<Integer>> commandExecution, boolean loggingEnabled)
+    {
         Bootstrap app = new Bootstrap(
                 ImmutableList.<Module>builder()
                         .addAll(modules)
                         .add(binder -> binder.bind(commandExecution))
                         .build());
 
-        Injector injector = app
-                .strictConfig()
+        Bootstrap bootstrap = app
+                .strictConfig();
+        if (!loggingEnabled) {
+            //noinspection UnstableApiUsage
+            bootstrap.doNotInitializeLogging();
+        }
+        Injector injector = bootstrap
                 .initialize();
 
         try {
