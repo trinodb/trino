@@ -13,7 +13,11 @@
  */
 package io.prestosql.tests.product.launcher.cli;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.io.PatternFilenameFilter;
 import com.google.common.io.Resources;
+import com.google.inject.Module;
 import io.prestosql.tests.product.launcher.Extensions;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -26,8 +30,11 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ListResourceBundle;
+import java.util.ServiceLoader;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.prestosql.tests.product.launcher.cli.Launcher.EnvironmentCommand;
 import static io.prestosql.tests.product.launcher.cli.Launcher.SuiteCommand;
 import static io.prestosql.tests.product.launcher.cli.Launcher.TestCommand;
@@ -47,7 +54,7 @@ import static picocli.CommandLine.Spec;
                 SuiteCommand.class,
                 TestCommand.class,
         })
-public class Launcher
+public final class Launcher
 {
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
     public boolean usageHelpRequested;
@@ -88,9 +95,16 @@ public class Launcher
         };
     }
 
-    protected Extensions getExtensions()
+    private Extensions getExtensions()
     {
-        return new Extensions(binder -> {});
+        ImmutableList<Module> extensionModules = ServiceLoader.load(LauncherPlugin.class).stream()
+                .map(ServiceLoader.Provider::get)
+                .map(LauncherPlugin::getExtensions)
+                .map(Extensions::getAdditionalEnvironments)
+                .collect(toImmutableList());
+        // TODO workaround because of https://starburstdata.atlassian.net/browse/PRESTO-4502
+        //noinspection UnstableApiUsage
+        return new Extensions(combine(Iterables.concat(extensionModules, ImmutableList.of(b -> {}))));
     }
 
     @Command(
@@ -161,17 +175,17 @@ public class Launcher
         {
             File rootDir = new File("");
             if (!new File(rootDir, "mvnw").isFile()) {
-                // try parent
+                // can be run from non-root directory (eg when started from IntelliJ); try parent
                 rootDir = rootDir.getAbsoluteFile().getParentFile();
-                checkState(new File(rootDir, "mvnw").isFile(), "Unable to detect Presto root directory");
+                checkState(new File(rootDir, "mvnw").isFile(), "Unable to detect project root directory");
             }
             return new Object[][] {
                     {"project.version", readProjectVersion()},
                     {"rootdir", rootDir.getPath()},
-                    {"product-tests.module", "presto-product-tests"},
-                    {"server.module", "presto-server"},
+                    {"product-tests.module", findModuleName(rootDir, ".*-product-tests")},
+                    {"server.module", findModuleName(rootDir, ".*presto-server")},
                     {"server.name", "presto-server"},
-                    {"launcher.bin", "presto-product-tests-launcher/bin/run-launcher"},
+                    {"launcher.bin", findModuleName(rootDir, ".*-product-tests-launcher") + "/bin/run-launcher"},
             };
         }
     }
@@ -186,5 +200,18 @@ public class Launcher
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    private static String findModuleName(File rootDir, String pattern)
+    {
+        //noinspection UnstableApiUsage
+        File[] matches = requireNonNull(rootDir.listFiles(new PatternFilenameFilter(pattern)));
+        if (matches.length == 0) {
+            throw new IllegalStateException("No module matches " + pattern);
+        }
+        if (matches.length > 1) {
+            throw new IllegalStateException("More than one module matches pattern " + pattern);
+        }
+        return matches[0].getName();
     }
 }
