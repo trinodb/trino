@@ -44,6 +44,7 @@ public final class Multinode
         extends EnvironmentProvider
 {
     private final DockerFiles dockerFiles;
+    private final DockerFiles.ResourceProvider configDir;
 
     private final String imagesVersion;
     private final File serverPackage;
@@ -60,6 +61,7 @@ public final class Multinode
     {
         super(ImmutableList.of(standard, hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode");
         this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
         this.debug = debug;
@@ -70,8 +72,8 @@ public final class Multinode
     {
         builder.configureContainer(COORDINATOR, container -> {
             container
-                    .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode/multinode-master-jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
-                    .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode/multinode-master-config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-master-jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-master-config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
         });
 
         builder.addContainer(createPrestoWorker());
@@ -81,8 +83,8 @@ public final class Multinode
     private DockerContainer createPrestoWorker()
     {
         return createPrestoContainer(dockerFiles, serverPackage, debug, "prestodev/centos7-oj11:" + imagesVersion, WORKER)
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode/multinode-worker-jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode/multinode-worker-config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
+                .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-worker-jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
+                .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-worker-config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES);
     }
