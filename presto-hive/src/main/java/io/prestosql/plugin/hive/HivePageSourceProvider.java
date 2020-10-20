@@ -66,6 +66,8 @@ import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping.toCo
 import static io.prestosql.plugin.hive.HiveUpdatablePageSource.ACID_ROW_STRUCT_COLUMN_ID;
 import static io.prestosql.plugin.hive.HiveUpdatablePageSource.ORIGINAL_FILE_PATH_MATCHER;
 import static io.prestosql.plugin.hive.orc.OrcTypeToHiveTypeTranslator.fromOrcTypeToHiveType;
+import static io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
+import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.prestosql.plugin.hive.util.HiveUtil.getPrefilledColumnValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -123,12 +125,15 @@ public class HivePageSourceProvider
             DynamicFilter dynamicFilter)
     {
         HiveTableHandle hiveTable = (HiveTableHandle) tableHandle;
+        HiveSplit hiveSplit = (HiveSplit) split;
+
+        if (shouldSkipBucket(hiveTable, hiveSplit, dynamicFilter)) {
+            return new EmptyPageSource();
+        }
 
         List<HiveColumnHandle> hiveColumns = columns.stream()
                 .map(HiveColumnHandle.class::cast)
                 .collect(toList());
-
-        HiveSplit hiveSplit = (HiveSplit) split;
         Path path = new Path(hiveSplit.getPath());
         boolean originalFile = ORIGINAL_FILE_PATH_MATCHER.matcher(path.toString()).matches();
 
@@ -324,6 +329,15 @@ public class HivePageSourceProvider
         }
 
         return Optional.empty();
+    }
+
+    private static boolean shouldSkipBucket(HiveTableHandle hiveTable, HiveSplit hiveSplit, DynamicFilter dynamicFilter)
+    {
+        if (hiveSplit.getBucketNumber().isEmpty()) {
+            return false;
+        }
+        Optional<HiveBucketFilter> hiveBucketFilter = getHiveBucketFilter(hiveTable, dynamicFilter.getCurrentPredicate());
+        return hiveBucketFilter.map(filter -> !filter.getBucketsToKeep().contains(hiveSplit.getBucketNumber().getAsInt())).orElse(false);
     }
 
     public static class ColumnMapping

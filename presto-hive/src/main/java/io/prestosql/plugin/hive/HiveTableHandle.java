@@ -43,6 +43,7 @@ public class HiveTableHandle
     private final String tableName;
     private final Optional<Map<String, String>> tableParameters;
     private final List<HiveColumnHandle> partitionColumns;
+    private final List<HiveColumnHandle> dataColumns;
     private final Optional<List<HivePartition>> partitions;
     private final TupleDomain<HiveColumnHandle> compactEffectivePredicate;
     private final TupleDomain<ColumnHandle> enforcedConstraint;
@@ -58,6 +59,7 @@ public class HiveTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("partitionColumns") List<HiveColumnHandle> partitionColumns,
+            @JsonProperty("dataColumns") List<HiveColumnHandle> dataColumns,
             @JsonProperty("compactEffectivePredicate") TupleDomain<HiveColumnHandle> compactEffectivePredicate,
             @JsonProperty("enforcedConstraint") TupleDomain<ColumnHandle> enforcedConstraint,
             @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle,
@@ -71,6 +73,7 @@ public class HiveTableHandle
                 tableName,
                 Optional.empty(),
                 partitionColumns,
+                dataColumns,
                 Optional.empty(),
                 compactEffectivePredicate,
                 enforcedConstraint,
@@ -87,6 +90,7 @@ public class HiveTableHandle
             String tableName,
             Map<String, String> tableParameters,
             List<HiveColumnHandle> partitionColumns,
+            List<HiveColumnHandle> dataColumns,
             Optional<HiveBucketHandle> bucketHandle)
     {
         this(
@@ -94,6 +98,7 @@ public class HiveTableHandle
                 tableName,
                 Optional.of(tableParameters),
                 partitionColumns,
+                dataColumns,
                 Optional.empty(),
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -110,6 +115,7 @@ public class HiveTableHandle
             String tableName,
             Optional<Map<String, String>> tableParameters,
             List<HiveColumnHandle> partitionColumns,
+            List<HiveColumnHandle> dataColumns,
             Optional<List<HivePartition>> partitions,
             TupleDomain<HiveColumnHandle> compactEffectivePredicate,
             TupleDomain<ColumnHandle> enforcedConstraint,
@@ -124,6 +130,7 @@ public class HiveTableHandle
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableParameters = requireNonNull(tableParameters, "tableParameters is null").map(ImmutableMap::copyOf);
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
+        this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
         this.partitions = requireNonNull(partitions, "partitions is null").map(ImmutableList::copyOf);
         this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
@@ -142,6 +149,7 @@ public class HiveTableHandle
                 tableName,
                 tableParameters,
                 partitionColumns,
+                dataColumns,
                 partitions,
                 compactEffectivePredicate,
                 enforcedConstraint,
@@ -160,6 +168,7 @@ public class HiveTableHandle
                 tableName,
                 tableParameters,
                 partitionColumns,
+                dataColumns,
                 partitions,
                 compactEffectivePredicate,
                 enforcedConstraint,
@@ -178,6 +187,7 @@ public class HiveTableHandle
                 tableName,
                 tableParameters,
                 partitionColumns,
+                dataColumns,
                 partitions,
                 compactEffectivePredicate,
                 enforcedConstraint,
@@ -212,6 +222,12 @@ public class HiveTableHandle
     public List<HiveColumnHandle> getPartitionColumns()
     {
         return partitionColumns;
+    }
+
+    @JsonProperty
+    public List<HiveColumnHandle> getDataColumns()
+    {
+        return dataColumns;
     }
 
     // do not serialize partitions as they are not needed on workers

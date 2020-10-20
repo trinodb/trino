@@ -29,7 +29,7 @@ public class TestHiveTableHandle
     @Test
     public void testRoundTrip()
     {
-        HiveTableHandle expected = new HiveTableHandle("schema", "table", ImmutableMap.of(), ImmutableList.of(), Optional.empty());
+        HiveTableHandle expected = new HiveTableHandle("schema", "table", ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
 
         String json = codec.toJson(expected);
         HiveTableHandle actual = codec.fromJson(json);
