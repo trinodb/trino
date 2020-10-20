@@ -275,7 +275,7 @@ public interface Metadata
     /**
      * Begin refresh materialized view query
      */
-    InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle);
+    InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles);
 
     /**
      * Finish refresh materialized view query
@@ -586,5 +586,5 @@ public interface Metadata
      * Method to get difference between the states of table at two different points in time/or as of given token-ids.
      * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
      */
-    MaterializedViewFreshness getMaterializedViewFreshness(Session session, TableHandle tableHandle);
+    MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name);
 }

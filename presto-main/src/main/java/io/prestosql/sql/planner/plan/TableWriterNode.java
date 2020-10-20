@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import io.prestosql.metadata.InsertTableHandle;
 import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.OutputTableHandle;
+import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
@@ -332,20 +333,20 @@ public class TableWriterNode
     public static class RefreshMaterializedViewReference
             extends WriterTarget
     {
-        private final TableHandle materializedViewHandle;
+        private final QualifiedObjectName materializedViewName;
         private final TableHandle storageTableHandle;
         private final List<TableHandle> sourceTableHandles;
 
-        public RefreshMaterializedViewReference(TableHandle materializedViewHandle, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles)
+        public RefreshMaterializedViewReference(QualifiedObjectName materializedViewName, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles)
         {
-            this.materializedViewHandle = requireNonNull(materializedViewHandle, "Materialized view handle is null");
+            this.materializedViewName = requireNonNull(materializedViewName, "Materialized view handle is null");
             this.storageTableHandle = requireNonNull(storageTableHandle, "Storage table handle is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
         }
 
-        public TableHandle getMaterializedViewHandle()
+        public QualifiedObjectName getMaterializedViewName()
         {
-            return materializedViewHandle;
+            return materializedViewName;
         }
 
         public TableHandle getStorageTableHandle()
@@ -361,7 +362,7 @@ public class TableWriterNode
         @Override
         public String toString()
         {
-            return materializedViewHandle.toString();
+            return materializedViewName.toString();
         }
     }
 
