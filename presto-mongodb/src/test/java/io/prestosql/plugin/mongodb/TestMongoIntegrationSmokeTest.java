@@ -340,6 +340,23 @@ public class TestMongoIntegrationSmokeTest
         assertQueryFails("SELECT * FROM test.drop_table", ".*Table 'mongodb.test.drop_table' does not exist");
     }
 
+    @Test
+    public void testNullPredicates()
+    {
+        assertUpdate("CREATE TABLE test.null_predicates(name varchar, value integer)");
+
+        MongoCollection<Document> collection = client.getDatabase("test").getCollection("null_predicates");
+        collection.insertOne(new Document(ImmutableMap.of("name", "abc", "value", 1)));
+        collection.insertOne(new Document(ImmutableMap.of("name", "abcd")));
+        collection.insertOne(new Document(Document.parse("{\"name\": \"abcde\", \"value\": null}")));
+
+        assertQuery("SELECT count(*) FROM test.null_predicates WHERE value IS NULL OR rand() = 42", "SELECT 2");
+        assertQuery("SELECT count(*) FROM test.null_predicates WHERE value IS NULL", "SELECT 2");
+        assertQuery("SELECT count(*) FROM test.null_predicates WHERE value IS NOT NULL", "SELECT 1");
+
+        assertUpdate("DROP TABLE test.null_predicates");
+    }
+
     private void assertOneNotNullResult(String query)
     {
         MaterializedResult results = getQueryRunner().execute(getSession(), query).toTestTypes();
