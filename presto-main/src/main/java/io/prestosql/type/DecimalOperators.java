@@ -28,7 +28,6 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.UnscaledDecimal128Arithmetic;
 
 import java.math.BigInteger;
 import java.util.List;
@@ -45,10 +44,13 @@ import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 import static io.prestosql.spi.type.Decimals.encodeUnscaledValue;
 import static io.prestosql.spi.type.Decimals.longTenToNth;
 import static io.prestosql.spi.type.TypeSignatureParameter.typeVariable;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.add;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.divideRoundUp;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.isZero;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.multiply;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.remainder;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.rescale;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.subtract;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
@@ -142,7 +144,7 @@ public final class DecimalOperators
                 right = a;
             }
 
-            UnscaledDecimal128Arithmetic.add(left, right, left);
+            add(left, right, left);
             throwIfOverflows(left);
             return left;
         }
@@ -214,11 +216,11 @@ public final class DecimalOperators
             Slice tmp = unscaledDecimal();
             if (rescaleLeft) {
                 rescale(a, rescale, tmp);
-                UnscaledDecimal128Arithmetic.subtract(tmp, b, tmp);
+                subtract(tmp, b, tmp);
             }
             else {
                 rescale(b, rescale, tmp);
-                UnscaledDecimal128Arithmetic.subtract(a, tmp, tmp);
+                subtract(a, tmp, tmp);
             }
             throwIfOverflows(tmp);
             return tmp;
@@ -267,7 +269,7 @@ public final class DecimalOperators
     public static Slice multiplyLongLongLong(Slice a, Slice b)
     {
         try {
-            Slice result = UnscaledDecimal128Arithmetic.multiply(a, b);
+            Slice result = multiply(a, b);
             throwIfOverflows(result);
             return result;
         }
