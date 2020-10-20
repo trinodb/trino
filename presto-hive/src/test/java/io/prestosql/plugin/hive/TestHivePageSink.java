@@ -242,7 +242,7 @@ public class TestHivePageSink
                 Optional.empty(),
                 false,
                 Optional.empty());
-        ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableMap.of(), ImmutableList.of(), Optional.empty());
+        ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TYPE_MANAGER,
                 HDFS_ENVIRONMENT,
