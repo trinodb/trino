@@ -24,6 +24,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
 import static io.prestosql.spi.type.Decimals.longTenToNth;
 import static java.lang.Integer.toUnsignedLong;
+import static java.lang.Math.abs;
 import static java.lang.System.arraycopy;
 import static java.util.Arrays.fill;
 
@@ -587,7 +588,7 @@ public final class UnscaledDecimal128Arithmetic
         long l2 = toUnsignedLong(getInt(decimal, 2));
         long l3 = toUnsignedLong(getInt(decimal, 3));
 
-        long r0 = Math.abs(multiplier);
+        long r0 = abs(multiplier);
 
         long product;
 
@@ -1003,14 +1004,14 @@ public final class UnscaledDecimal128Arithmetic
     public static Slice divideRoundUp(long dividend, int dividendScaleFactor, long divisor)
     {
         return divideRoundUp(
-                Math.abs(dividend), dividend < 0 ? SIGN_LONG_MASK : 0, dividendScaleFactor,
-                Math.abs(divisor), divisor < 0 ? SIGN_LONG_MASK : 0);
+                abs(dividend), dividend < 0 ? SIGN_LONG_MASK : 0, dividendScaleFactor,
+                abs(divisor), divisor < 0 ? SIGN_LONG_MASK : 0);
     }
 
     public static Slice divideRoundUp(long dividend, int dividendScaleFactor, Slice divisor)
     {
         return divideRoundUp(
-                Math.abs(dividend), dividend < 0 ? SIGN_LONG_MASK : 0, dividendScaleFactor,
+                abs(dividend), dividend < 0 ? SIGN_LONG_MASK : 0, dividendScaleFactor,
                 getRawLong(divisor, 0), getRawLong(divisor, 1));
     }
 
@@ -1018,7 +1019,7 @@ public final class UnscaledDecimal128Arithmetic
     {
         return divideRoundUp(
                 getRawLong(dividend, 0), getRawLong(dividend, 1), dividendScaleFactor,
-                Math.abs(divisor), divisor < 0 ? SIGN_LONG_MASK : 0);
+                abs(divisor), divisor < 0 ? SIGN_LONG_MASK : 0);
     }
 
     public static Slice divideRoundUp(Slice dividend, int dividendScaleFactor, Slice divisor)
@@ -1114,14 +1115,14 @@ public final class UnscaledDecimal128Arithmetic
     public static Slice remainder(long dividend, int dividendScaleFactor, long divisor, int divisorScaleFactor)
     {
         return remainder(
-                Math.abs(dividend), dividend < 0 ? SIGN_LONG_MASK : 0, dividendScaleFactor,
-                Math.abs(divisor), divisor < 0 ? SIGN_LONG_MASK : 0, divisorScaleFactor);
+                abs(dividend), dividend < 0 ? SIGN_LONG_MASK : 0, dividendScaleFactor,
+                abs(divisor), divisor < 0 ? SIGN_LONG_MASK : 0, divisorScaleFactor);
     }
 
     public static Slice remainder(long dividend, int dividendScaleFactor, Slice divisor, int divisorScaleFactor)
     {
         return remainder(
-                Math.abs(dividend), dividend < 0 ? SIGN_LONG_MASK : 0, dividendScaleFactor,
+                abs(dividend), dividend < 0 ? SIGN_LONG_MASK : 0, dividendScaleFactor,
                 getRawLong(divisor, 0), getRawLong(divisor, 1), divisorScaleFactor);
     }
 
@@ -1129,7 +1130,7 @@ public final class UnscaledDecimal128Arithmetic
     {
         return remainder(
                 getRawLong(dividend, 0), getRawLong(dividend, 1), dividendScaleFactor,
-                Math.abs(divisor), divisor < 0 ? SIGN_LONG_MASK : 0, divisorScaleFactor);
+                abs(divisor), divisor < 0 ? SIGN_LONG_MASK : 0, divisorScaleFactor);
     }
 
     public static Slice remainder(Slice dividend, int dividendScaleFactor, Slice divisor, int divisorScaleFactor)
