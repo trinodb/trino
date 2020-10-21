@@ -288,6 +288,7 @@ public class BenchmarkGroupByHash
         @Param({"true", "false"})
         private boolean hashEnabled = true;
 
+        @SuppressWarnings("unused")
         @Param(GROUP_COUNT_STRING)
         private int groupCount = GROUP_COUNT;
 
