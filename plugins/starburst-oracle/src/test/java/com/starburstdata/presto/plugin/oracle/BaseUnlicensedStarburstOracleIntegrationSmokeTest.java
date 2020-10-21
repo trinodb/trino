@@ -55,11 +55,11 @@ public abstract class BaseUnlicensedStarburstOracleIntegrationSmokeTest
         // Non-aggregation query still works
         assertThat(query(session, "SELECT name FROM nation WHERE nationkey = 3"))
                 .matches("VALUES CAST('CANADA' AS varchar(25))")
-                .isCorrectlyPushedDown();
+                .isFullyPushedDown();
 
         // Simple aggregation queries still work
-        assertThat(query(session, "SELECT DISTINCT regionkey FROM nation")).isCorrectlyPushedDown();
-        assertThat(query(session, "SELECT regionkey FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query(session, "SELECT DISTINCT regionkey FROM nation")).isFullyPushedDown();
+        assertThat(query(session, "SELECT regionkey FROM nation GROUP BY regionkey")).isFullyPushedDown();
 
         // "normal" aggregation query (one using an aggregation function) requires a license
         assertThatThrownBy(() -> assertThat(query(session, "SELECT count(*) FROM nation")))

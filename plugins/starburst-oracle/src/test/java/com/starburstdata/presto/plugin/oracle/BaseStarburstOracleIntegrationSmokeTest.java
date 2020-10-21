@@ -103,8 +103,8 @@ public abstract class BaseStarburstOracleIntegrationSmokeTest
                 ImmutableList.of("'my_long_char', 'my_long_varchar'"))) {
             // Verify using a large value in WHERE, larger than the 2000 and 4000 bytes Oracle max
             // this does not work in Oracle 11
-            assertThat(query(format("SELECT c_long_char FROM %s WHERE c_long_char = '" + repeat("💩", 2000) + "'", table.getName()))).isCorrectlyPushedDown();
-            assertThat(query(format("SELECT c_long_varchar FROM %s WHERE c_long_varchar = '" + repeat("💩", 4000) + "'", table.getName()))).isCorrectlyPushedDown();
+            assertThat(query(format("SELECT c_long_char FROM %s WHERE c_long_char = '" + repeat("💩", 2000) + "'", table.getName()))).isFullyPushedDown();
+            assertThat(query(format("SELECT c_long_varchar FROM %s WHERE c_long_varchar = '" + repeat("💩", 4000) + "'", table.getName()))).isFullyPushedDown();
         }
     }
 
@@ -137,32 +137,32 @@ public abstract class BaseStarburstOracleIntegrationSmokeTest
                     "SELECT dummy_col FROM %s WHERE t_timestamp = %s",
                     table.getName(),
                     format("timestamp '%s'", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").format(date1950)))))
-                    .isCorrectlyPushedDown();
+                    .isFullyPushedDown();
 
             assertThat(query(format(
                     "SELECT dummy_col FROM %s WHERE t_timestamp3_with_tz = %s",
                     table.getName(),
                     prestoTimestampWithTimeZoneDataType().toLiteral(yakutat1978))))
-                    .isCorrectlyPushedDown();
+                    .isFullyPushedDown();
 
             assertThat(query(format(
                     "SELECT dummy_col FROM %s WHERE t_timestamp_with_tz = %s",
                     table.getName(),
                     prestoTimestampWithTimeZoneDataType().toLiteral(pacific1976))))
-                    .isCorrectlyPushedDown();
+                    .isFullyPushedDown();
         }
     }
 
     @Test
     public void testLimitPushdown()
     {
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isCorrectlyPushedDown(); // Use high limit for result determinism
+        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
 
         // with filter over numeric column
-        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isCorrectlyPushedDown();
+        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
 
         // with filter over varchar column
-        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isCorrectlyPushedDown();
+        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isFullyPushedDown();
     }
 
     @Test
