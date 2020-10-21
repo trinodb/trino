@@ -94,6 +94,7 @@ public class PinotClient
     private static final String QUERY_URL_TEMPLATE = "http://%s/query/sql";
 
     private final List<String> controllerUrls;
+    @SuppressWarnings("unused")
     private final PinotMetrics metrics;
     private final HttpClient httpClient;
     private final PinotHostMapper pinotHostMapper;
@@ -158,6 +159,7 @@ public class PinotClient
         Request request = requestBuilder.build();
         JsonResponseHandler<T> responseHandler = createJsonResponseHandler(codec);
         long startTime = ticker.read();
+        @SuppressWarnings("unused")
         long duration;
         T response = null;
         try {
