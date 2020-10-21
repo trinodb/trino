@@ -192,6 +192,19 @@ especially when a range of values is selected from the build side of the join.
 The limits for min-max filters collection are defined by the properties
 based on ``range-row-limit-per-driver``.
 
+Dimension tables layout
+-----------------------
+
+Dynamic filtering works best for dimension tables where
+table keys are correlated with columns.
+
+For example, a date dimension key column should be correlated with a date column,
+so the table keys monotonically increase with date values.
+An address dimension key can be composed of other columns such as
+``COUNTRY-STATE-ZIP-ADDRESS_ID`` with an example value of ``US-NY-10001-1234``.
+This usage allows dynamic filtering to succeed even with a large number
+of selected rows from the dimension table.
+
 Limitations
 -----------
 
