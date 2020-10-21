@@ -297,6 +297,7 @@ public final class KuduTableProperties
     {
         Map<String, Object> properties = new HashMap<>();
 
+        @SuppressWarnings("unused")
         LinkedHashMap<String, ColumnDesign> columns = getColumns(table);
 
         PartitionDesign partitionDesign = getPartitionDesign(table);
