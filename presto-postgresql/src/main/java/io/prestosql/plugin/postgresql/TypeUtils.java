@@ -196,6 +196,7 @@ final class TypeUtils
         }
 
         if (prestoType instanceof TimestampType && ((TimestampType) prestoType).isShort()) {
+            @SuppressWarnings("unused")
             TimestampType timestampType = (TimestampType) prestoType;
             return toPgTimestamp(fromPrestoTimestamp((long) prestoNative));
         }
