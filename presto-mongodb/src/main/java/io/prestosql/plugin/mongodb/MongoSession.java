@@ -99,8 +99,11 @@ public class MongoSession
     private static final String FIELDS_HIDDEN_KEY = "hidden";
 
     private static final String OR_OP = "$or";
+    @SuppressWarnings("unused")
     private static final String AND_OP = "$and";
+    @SuppressWarnings("unused")
     private static final String NOT_OP = "$not";
+    @SuppressWarnings("unused")
     private static final String NOR_OP = "$nor";
 
     private static final String EQ_OP = "$eq";
@@ -110,6 +113,7 @@ public class MongoSession
     private static final String LT_OP = "$lt";
     private static final String LTE_OP = "$lte";
     private static final String IN_OP = "$in";
+    @SuppressWarnings("unused")
     private static final String NOTIN_OP = "$nin";
 
     private final TypeManager typeManager;
