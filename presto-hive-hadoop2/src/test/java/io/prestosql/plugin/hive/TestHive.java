@@ -17,6 +17,7 @@ import org.apache.hadoop.net.NetUtils;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
+import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -79,5 +80,17 @@ public class TestHive
                         "but found.*");
 
         throw new SkipException("not supported");
+    }
+
+    @Test
+    public void testHiveViewTranslationError()
+    {
+        try (Transaction transaction = newTransaction()) {
+            assertThatThrownBy(() -> transaction.getMetadata().getView(newSession(), view))
+                    .isInstanceOf(HiveViewNotSupportedException.class)
+                    .hasMessageContaining("Hive views are not supported");
+
+            // TODO: combine this with tests for successful translation (currently in TestHiveViews product test)
+        }
     }
 }
