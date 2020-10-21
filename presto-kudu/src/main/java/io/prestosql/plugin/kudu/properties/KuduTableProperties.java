@@ -584,7 +584,7 @@ public final class KuduTableProperties
         }
         else if (obj instanceof String) {
             String s = (String) obj;
-            BigDecimal d = new BigDecimal((String) obj);
+            BigDecimal d = new BigDecimal(s);
             return d;
         }
         else {
