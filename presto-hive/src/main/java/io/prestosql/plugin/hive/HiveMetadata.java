@@ -1919,6 +1919,10 @@ public class HiveMetadata
         return metastore.getTable(new HiveIdentity(session), viewName.getSchemaName(), viewName.getTableName())
                 .filter(ViewReaderUtil::canDecodeView)
                 .map(view -> {
+                    if (!translateHiveViews && !isPrestoView(view)) {
+                        throw new HiveViewNotSupportedException(viewName);
+                    }
+
                     ConnectorViewDefinition definition = createViewReader(metastore, new HiveIdentity(session), view, typeManager)
                             .decodeViewData(view.getViewOriginalText().get(), view, catalogName);
                     // use owner from table metadata if it exists
