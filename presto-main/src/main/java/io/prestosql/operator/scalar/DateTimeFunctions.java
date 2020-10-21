@@ -79,7 +79,9 @@ public final class DateTimeFunctions
             new ThreadLocalCache<>(100, DateTimeFunctions::createDateTimeFormatter);
 
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
+    @SuppressWarnings("unused")
     private static final DateTimeField SECOND_OF_MINUTE = UTC_CHRONOLOGY.secondOfMinute();
+    @SuppressWarnings("unused")
     private static final DateTimeField MILLISECOND_OF_SECOND = UTC_CHRONOLOGY.millisOfSecond();
     private static final DateTimeField DAY_OF_WEEK = UTC_CHRONOLOGY.dayOfWeek();
     private static final DateTimeField DAY_OF_MONTH = UTC_CHRONOLOGY.dayOfMonth();
