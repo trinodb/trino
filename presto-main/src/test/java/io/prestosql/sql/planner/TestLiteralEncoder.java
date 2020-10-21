@@ -63,6 +63,7 @@ import static io.prestosql.type.LikePatternType.LIKE_PATTERN;
 import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestLiteralEncoder
@@ -85,21 +86,21 @@ public class TestLiteralEncoder
     @Test
     public void testEncode()
     {
-        assertEncode(utf8Slice("hello"), VARBINARY, literalVarbinary("hello".getBytes(UTF_8)));
+        assertEncodeCaseInsensitively(utf8Slice("hello"), VARBINARY, literalVarbinary("hello".getBytes(UTF_8)));
         assertEncode(null, UNKNOWN, "null");
         assertEncode(null, BIGINT, "CAST(null AS bigint)");
         assertEncode(123L, BIGINT, "BIGINT '123'");
 
         assertEncode(123L, createDecimalType(7, 1), "CAST(DECIMAL '12.3' AS decimal(7, 1))");
 
-        assertEncode(utf8Slice("hello"), createCharType(5), "CAST('hello' AS CHAR(5))");
-        assertEncode(utf8Slice("hello"), createCharType(13), "CAST('hello' AS CHAR(13))");
+        assertEncode(utf8Slice("hello"), createCharType(5), "CAST('hello' AS char(5))");
+        assertEncode(utf8Slice("hello"), createCharType(13), "CAST('hello' AS char(13))");
 
         assertEncode(utf8Slice("hello"), createVarcharType(5), "'hello'");
-        assertEncode(utf8Slice("hello"), createVarcharType(13), "CAST('hello' AS VARCHAR(13))");
+        assertEncode(utf8Slice("hello"), createVarcharType(13), "CAST('hello' AS varchar(13))");
         assertEncode(utf8Slice("hello"), VARCHAR, "CAST('hello' AS varchar)");
 
-        assertEncode(utf8Slice("hello"), VARBINARY, literalVarbinary("hello".getBytes(UTF_8)));
+        assertEncodeCaseInsensitively(utf8Slice("hello"), VARBINARY, literalVarbinary("hello".getBytes(UTF_8)));
 
         assertRoundTrip(castVarcharToJoniRegexp(utf8Slice("[a-z]")), LIKE_PATTERN, (left, right) -> left.pattern().equals(right.pattern()));
         assertRoundTrip(castVarcharToJoniRegexp(utf8Slice("[a-z]")), JONI_REGEXP, (left, right) -> left.pattern().equals(right.pattern()));
@@ -109,6 +110,16 @@ public class TestLiteralEncoder
     }
 
     private void assertEncode(Object value, Type type, String expected)
+    {
+        Expression expression = encoder.toExpression(value, type);
+        assertEquals(formatSql(expression), expected);
+    }
+
+    /**
+     * @deprecated Use {@link #assertEncode} instead.
+     */
+    @Deprecated
+    private void assertEncodeCaseInsensitively(Object value, Type type, String expected)
     {
         Expression expression = encoder.toExpression(value, type);
         assertEqualsIgnoreCase(formatSql(expression), expected);
