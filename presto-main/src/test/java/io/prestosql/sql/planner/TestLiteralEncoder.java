@@ -48,9 +48,12 @@ import static io.prestosql.operator.scalar.JoniRegexpCasts.castVarcharToJoniRege
 import static io.prestosql.operator.scalar.JsonFunctions.castVarcharToJsonPath;
 import static io.prestosql.operator.scalar.StringFunctions.castVarcharToCodePoints;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.CharType.createCharType;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TypeSignatureParameter.typeVariable;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.SqlFormatter.formatSql;
 import static io.prestosql.sql.planner.ExpressionInterpreter.expressionInterpreter;
 import static io.prestosql.type.CodePointsType.CODE_POINTS;
@@ -86,8 +89,18 @@ public class TestLiteralEncoder
         assertEncode(null, UNKNOWN, "null");
         assertEncode(null, BIGINT, "CAST(null AS bigint)");
         assertEncode(123L, BIGINT, "BIGINT '123'");
+
+        assertEncode(123L, createDecimalType(7, 1), "CAST(DECIMAL '12.3' AS decimal(7, 1))");
+
+        assertEncode(utf8Slice("hello"), createCharType(5), "CAST('hello' AS CHAR(5))");
+        assertEncode(utf8Slice("hello"), createCharType(13), "CAST('hello' AS CHAR(13))");
+
+        assertEncode(utf8Slice("hello"), createVarcharType(5), "'hello'");
+        assertEncode(utf8Slice("hello"), createVarcharType(13), "CAST('hello' AS VARCHAR(13))");
         assertEncode(utf8Slice("hello"), VARCHAR, "CAST('hello' AS varchar)");
+
         assertEncode(utf8Slice("hello"), VARBINARY, literalVarbinary("hello".getBytes(UTF_8)));
+
         assertRoundTrip(castVarcharToJoniRegexp(utf8Slice("[a-z]")), LIKE_PATTERN, (left, right) -> left.pattern().equals(right.pattern()));
         assertRoundTrip(castVarcharToJoniRegexp(utf8Slice("[a-z]")), JONI_REGEXP, (left, right) -> left.pattern().equals(right.pattern()));
         assertRoundTrip(castVarcharToRe2JRegexp(utf8Slice("[a-z]")), metadata.getType(RE2J_REGEXP_SIGNATURE), (left, right) -> left.pattern().equals(right.pattern()));
