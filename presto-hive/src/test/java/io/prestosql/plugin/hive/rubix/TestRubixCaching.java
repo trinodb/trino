@@ -328,7 +328,7 @@ public class TestRubixCaching
         cachingFileSystem = getCachingFileSystem();
 
         FileStatus file1 = new FileStatus(3, false, 0, 3, 0, new Path("aaa"));
-        FileStatus file2 = new FileStatus(3, false, 0, 3, 0, new Path("bbb"));
+        FileStatus file2 = new FileStatus(3, false, 0, 3, 0, new Path("zzzz"));
 
         BlockLocation[] file1Locations = cachingFileSystem.getFileBlockLocations(file1, 0, 3);
         BlockLocation[] file2Locations = cachingFileSystem.getFileBlockLocations(file2, 0, 3);

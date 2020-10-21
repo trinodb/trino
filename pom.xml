@@ -1034,7 +1034,7 @@
             <dependency>
                 <groupId>com.qubole.rubix</groupId>
                 <artifactId>rubix-presto-shaded</artifactId>
-                <version>0.3.16</version>
+                <version>0.3.18</version>
             </dependency>
 
             <dependency>
