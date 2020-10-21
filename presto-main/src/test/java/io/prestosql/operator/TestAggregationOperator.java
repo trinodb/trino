@@ -91,6 +91,7 @@ public class TestAggregationOperator
     public void testMaskWithDirtyNulls()
     {
         // Ensures that the operator properly tests for nulls in the mask channel before reading its value
+        @SuppressWarnings("unused")
         InternalAggregationFunction countBooleanColumn = metadata.getAggregateFunctionImplementation(
                 metadata.resolveFunction(QualifiedName.of("count"), fromTypes(BIGINT)));
 
