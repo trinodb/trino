@@ -87,26 +87,27 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
                 assertThatThrownBy(() -> rs.getLong(column))
                         .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a number: ");
-            });
+                        .hasMessage("Value is not a number: java.lang.String");
 
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR,
-                    (rs, column) -> assertEquals(rs.getLong(column), 12));
-
-            checkRepresentation(connectedStatement.getStatement(), "DOUBLE '123.456'", Types.DOUBLE,
-                    (rs, column) -> assertEquals(rs.getDouble(column), 123.456D));
-
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123'", Types.VARCHAR,
-                    (rs, column) -> assertEquals(rs.getDouble(column), 123D));
-
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
                 assertThatThrownBy(() -> rs.getDouble(column))
                         .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a number: ");
+                        .hasMessage("Value is not a number: java.lang.String");
             });
 
-            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR,
-                    (rs, column) -> assertEquals(rs.getDouble(column), 12.3D));
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR, (rs, column) -> {
+                        assertEquals(rs.getDouble(column), 12.3D);
+                        assertEquals(rs.getLong(column), 12);
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "DOUBLE '123.456'", Types.DOUBLE, (rs, column) -> {
+                assertEquals(rs.getDouble(column), 123.456D);
+                assertEquals(rs.getLong(column), 123);
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123'", Types.VARCHAR, (rs, column) -> {
+                assertEquals(rs.getDouble(column), 123D);
+                assertEquals(rs.getLong(column), 123);
+            });
         }
     }
 

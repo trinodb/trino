@@ -613,7 +613,8 @@ abstract class AbstractPrestoResultSet
             return null;
         }
 
-        return toBigDecimal(String.valueOf(value));
+        return toBigDecimal(String.valueOf(value))
+                .orElseThrow(() -> new SQLException("Value is not a number: " + value));
     }
 
     @Override
@@ -1751,18 +1752,21 @@ abstract class AbstractPrestoResultSet
             return ((Boolean) value) ? 1 : 0;
         }
         if (value instanceof String) {
-            return toBigDecimal((String) value);
+            Optional<BigDecimal> bigDecimal = toBigDecimal((String) value);
+            if (bigDecimal.isPresent()) {
+                return bigDecimal.get();
+            }
         }
         throw new SQLException("Value is not a number: " + value.getClass().getCanonicalName());
     }
 
-    private static BigDecimal toBigDecimal(String value) throws SQLException
+    private static Optional<BigDecimal> toBigDecimal(String value)
     {
         try {
-            return new BigDecimal(value);
+            return Optional.of(new BigDecimal(value));
         }
         catch (NumberFormatException ne) {
-            throw new SQLException("Value is not a number: " + value);
+            return Optional.empty();
         }
     }
 
