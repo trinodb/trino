@@ -81,6 +81,7 @@ public class MongoPageSink
         implements ConnectorPageSink
 {
     private final MongoSession mongoSession;
+    @SuppressWarnings("unused")
     private final ConnectorSession session;
     private final SchemaTableName schemaTableName;
     private final List<MongoColumnHandle> columns;
