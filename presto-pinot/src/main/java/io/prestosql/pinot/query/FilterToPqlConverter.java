@@ -34,6 +34,7 @@ public final class FilterToPqlConverter
 {
     private final FilterQueryMap filterQueryMap;
     private final Map<String, ColumnHandle> columnHandles;
+    @SuppressWarnings("unused")
     private final SchemaTableName schemaTableName;
 
     private static final char LOWER_OPEN = '(';
@@ -48,6 +49,7 @@ public final class FilterToPqlConverter
     private static final String GE = " >= ";
     private static final String BETWEEN = " between ";
     private static final String AND = " and ";
+    @SuppressWarnings("unused")
     private static final String OR = " or ";
 
     public FilterToPqlConverter(SchemaTableName schemaTableName, FilterQueryMap filterQueryMap, Map<String, ColumnHandle> columnHandles)
