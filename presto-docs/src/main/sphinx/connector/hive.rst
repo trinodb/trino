@@ -109,7 +109,7 @@ for your Hive metastore Thrift service:
 
 .. code-block:: none
 
-    connector.name=hive-hadoop2
+    connector.name=hive
     hive.metastore.uri=thrift://example.net:9083
 
 Multiple Hive Clusters

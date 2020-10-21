@@ -23,6 +23,9 @@ public class HiveHadoop2Plugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new HiveConnectorFactory("hive-hadoop2"));
+        return ImmutableList.of(
+                new HiveConnectorFactory("hive"),
+                // hive-hadoop2 is a legacy name
+                new HiveConnectorFactory("hive-hadoop2"));
     }
 }

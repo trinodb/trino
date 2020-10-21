@@ -58,7 +58,7 @@ public class ServerIT
                 // create Hive catalog file
                 "mkdir /etc/presto/catalog\n" +
                 "cat > /etc/presto/catalog/hive.properties <<\"EOT\"\n" +
-                "connector.name=hive-hadoop2\n" +
+                "connector.name=hive\n" +
                 "hive.metastore.uri=thrift://localhost:9083\n" +
                 "EOT\n" +
                 // create JMX catalog file
