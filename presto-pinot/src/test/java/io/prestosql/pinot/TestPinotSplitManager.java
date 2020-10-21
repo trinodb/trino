@@ -78,7 +78,7 @@ public class TestPinotSplitManager
         PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
-        splits.forEach(s -> assertSegmentSplitWellFormed(s, expectFilter));
+        splits.forEach(s -> assertSegmentSplitWellFormed(s));
     }
 
     private void testSegmentSplitsHelperWithFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
@@ -86,7 +86,7 @@ public class TestPinotSplitManager
         PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
-        splits.forEach(s -> assertSegmentSplitWellFormed(s, true));
+        splits.forEach(s -> assertSegmentSplitWellFormed(s));
     }
 
     @Test
@@ -102,7 +102,7 @@ public class TestPinotSplitManager
         splits.forEach(s -> assertEquals(s.getSplitType(), splitType));
     }
 
-    private void assertSegmentSplitWellFormed(PinotSplit split, boolean expectFilter)
+    private void assertSegmentSplitWellFormed(PinotSplit split)
     {
         assertEquals(split.getSplitType(), SEGMENT);
         assertTrue(split.getSegmentHost().isPresent());
