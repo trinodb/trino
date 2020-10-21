@@ -117,6 +117,19 @@
         </dependency>
 
         <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <!-- jline-terminal-jna depends on a different version of jna -->
+                <exclusion>
+                    <groupId>net.java.dev.jna</groupId>
+                    <artifactId>jna</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
             <scope>test</scope>
@@ -161,6 +174,100 @@
                         <phase>package</phase>
                         <goals>
                             <goal>really-executable-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>io.airlift.maven.plugins</groupId>
+                <artifactId>redlinerpm-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>package</goal>
+                        </goals>
+                    </execution>
+                </executions>
+
+                <configuration>
+                    <performCheckingForExtraFiles>false</performCheckingForExtraFiles>
+                    <buildPath>${project.build.directory}</buildPath>
+
+                    <packages>
+                        <package>
+                            <name>presto-cli-rpm</name>
+                            <nameOverride>presto-cli-rpm-${project.version}.noarch.rpm</nameOverride>
+                            <version>${project.version}</version>
+                            <release>1</release>
+
+                            <group>Applications/Databases</group>
+                            <description>Presto CLI RPM Package.</description>
+                            <architecture>noarch</architecture>
+
+                            <links>
+                                <link>
+                                    <path>/usr/local/bin/presto</path>
+                                    <target>/usr/lib/presto-cli/presto-cli-${project.version}-executable.jar</target>
+                                </link>
+                            </links>
+
+                            <rules>
+                                <rule>
+                                    <destination>/usr/lib/presto-cli</destination>
+                                    <!-- make sure jar is executable -->
+                                    <fileMode>0755</fileMode>
+                                    <includes>
+                                        <include>presto-cli-${project.version}-executable.jar</include>
+                                    </includes>
+                                </rule>
+                            </rules>
+                        </package>
+                    </packages>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-file-size</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireFilesSize>
+                                    <!-- we expect the RPM and executable JAR to not be too large (max 20MB) -->
+                                    <maxsize>20971520</maxsize>
+                                    <files>
+                                        <file>${project.build.directory}/presto-cli-rpm-${project.version}.noarch.rpm</file>
+                                        <file>${project.build.directory}/presto-cli-${project.version}-executable.jar</file>
+                                    </files>
+                                </requireFilesSize>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <rpm>${project.build.directory}/presto-cli-rpm-${project.version}.noarch.rpm</rpm>
+                    </systemPropertyVariables>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
                         </goals>
                     </execution>
                 </executions>

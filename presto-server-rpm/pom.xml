@@ -136,7 +136,6 @@
             <plugin>
                 <groupId>io.airlift.maven.plugins</groupId>
                 <artifactId>redlinerpm-maven-plugin</artifactId>
-                <version>2.1.7</version>
                 <extensions>true</extensions>
 
                 <configuration>
@@ -309,7 +308,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-failsafe-plugin</artifactId>
-                        <version>2.22.2</version>
                         <configuration>
                             <systemPropertyVariables>
                                 <rpm>${project.build.directory}/${project.build.finalName}.x86_64.rpm</rpm>

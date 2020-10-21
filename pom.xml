@@ -1411,6 +1411,18 @@
                     <artifactId>provisio-maven-plugin</artifactId>
                     <version>1.0.9</version>
                 </plugin>
+
+                <plugin>
+                    <groupId>io.airlift.maven.plugins</groupId>
+                    <artifactId>redlinerpm-maven-plugin</artifactId>
+                    <version>2.1.6</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>2.22.2</version>
+                </plugin>
             </plugins>
         </pluginManagement>
 
