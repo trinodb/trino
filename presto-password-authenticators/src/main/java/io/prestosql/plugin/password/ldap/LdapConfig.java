@@ -31,8 +31,6 @@ import static com.google.common.base.Strings.nullToEmpty;
 
 public class LdapConfig
 {
-    private static final Logger log = Logger.get(LdapConfig.class);
-
     private String ldapUrl;
     private boolean allowInsecure;
     private File trustCertificate;
