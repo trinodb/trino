@@ -15,6 +15,7 @@ import com.google.common.collect.Multiset;
 import com.google.common.math.IntMath;
 import com.starburstdata.presto.license.LicenseManager;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.spi.PrestoException;
@@ -40,6 +41,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.starburstdata.presto.license.StarburstPrestoFeature.ORACLE_EXTENSIONS;
+import static com.starburstdata.presto.plugin.jdbc.dynamicfiltering.DynamicFilteringSessionProperties.getDynamicFilteringDomainCompactionThreshold;
+import static com.starburstdata.presto.plugin.jdbc.dynamicfiltering.DynamicFilteringSplitManager.isColumnEligibleForDynamicFilter;
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.NO_PARALLELISM;
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.PARTITIONS;
 import static com.starburstdata.presto.plugin.oracle.StarburstOracleSessionProperties.getMaxSplitsPerScan;
@@ -79,7 +82,9 @@ public class OracleSplitManager
                 (JdbcTableHandle) table,
                 getParallelismType(session),
                 getMaxSplitsPerScan(session),
-                dynamicFilter.getCurrentPredicate()));
+                dynamicFilter.getCurrentPredicate()
+                        .filter((columnHandle, domain) -> isColumnEligibleForDynamicFilter((JdbcTableHandle) table, (JdbcColumnHandle) columnHandle))
+                        .simplify(getDynamicFilteringDomainCompactionThreshold(session))));
     }
 
     private List<OracleSplit> listSplits(
