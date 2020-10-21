@@ -138,7 +138,9 @@ public class PruneUnreferencedOutputs
     {
         private final Metadata metadata;
         private final TypeProvider types;
+        @SuppressWarnings("unused")
         private final TypeAnalyzer typeAnalyzer;
+        @SuppressWarnings("unused")
         private final SymbolAllocator symbolAllocator;
         private final Session session;
 
