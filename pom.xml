@@ -1411,6 +1411,12 @@
                     <artifactId>provisio-maven-plugin</artifactId>
                     <version>1.0.9</version>
                 </plugin>
+
+                <plugin>
+                    <groupId>pl.project13.maven</groupId>
+                    <artifactId>git-commit-id-plugin</artifactId>
+                    <version>4.0.0</version>
+                </plugin>
             </plugins>
         </pluginManagement>
 
