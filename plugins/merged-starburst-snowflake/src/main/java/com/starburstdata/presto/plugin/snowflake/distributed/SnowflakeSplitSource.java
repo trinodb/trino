@@ -78,6 +78,7 @@ import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDis
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeHiveTypeTranslator.toHiveType;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.prestosql.plugin.hive.HiveStorageFormat.PARQUET;
+import static io.prestosql.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -291,6 +292,7 @@ public class SnowflakeSplitSource
                 jdbcTableHandle.getSchemaName(),
                 jdbcTableHandle.getTableName(),
                 Optional.of(ImmutableMap.of()),
+                // TODO why are we passing all columns as `partitionColumns`?
                 getHiveColumnHandles(columns),
                 Optional.of(ImmutableList.of(new HivePartition(schemaTableName))),
                 all(),
@@ -299,7 +301,8 @@ public class SnowflakeSplitSource
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_ACID_TRANSACTION);
 
         return getHiveSplitManager().getSplits(
                 // no transaction is needed
@@ -359,7 +362,8 @@ public class SnowflakeSplitSource
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                OptionalLong.empty());
         HiveMetastore metastore = new SnowflakeHiveMetastore(table);
         return new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
