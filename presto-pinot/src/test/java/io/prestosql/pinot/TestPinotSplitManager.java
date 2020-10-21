@@ -70,10 +70,10 @@ public class TestPinotSplitManager
     @Test
     public void testRealtimeSegmentSplitsManySegmentPerServer()
     {
-        testSegmentSplitsHelperNoFilter(realtimeOnlyTable, Integer.MAX_VALUE, 2, false);
+        testSegmentSplitsHelperNoFilter(realtimeOnlyTable, Integer.MAX_VALUE, 2);
     }
 
-    private void testSegmentSplitsHelperNoFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits, boolean expectFilter)
+    private void testSegmentSplitsHelperNoFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
         PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
@@ -92,7 +92,7 @@ public class TestPinotSplitManager
     @Test
     public void testHybridSegmentSplitsOneSegmentPerServer()
     {
-        testSegmentSplitsHelperNoFilter(hybridTable, 1, 8, true);
+        testSegmentSplitsHelperNoFilter(hybridTable, 1, 8);
         testSegmentSplitsHelperWithFilter(hybridTable, 1, 8);
     }
 
