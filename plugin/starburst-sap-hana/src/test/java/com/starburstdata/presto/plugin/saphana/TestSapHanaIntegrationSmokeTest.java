@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestSapHanaIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private TestingSapHanaServer server;
+    protected TestingSapHanaServer server;
 
     @Override
     protected QueryRunner createQueryRunner()

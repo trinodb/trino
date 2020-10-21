@@ -24,7 +24,7 @@ import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createS
 public class TestSapHanaDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    private TestingSapHanaServer server;
+    protected TestingSapHanaServer server;
 
     @Override
     protected QueryRunner createQueryRunner()

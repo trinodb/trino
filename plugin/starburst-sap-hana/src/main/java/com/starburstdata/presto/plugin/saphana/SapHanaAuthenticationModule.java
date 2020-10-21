@@ -14,6 +14,8 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.sap.db.jdbc.Driver;
+import com.starburstdata.presto.plugin.jdbc.JdbcConnectionPoolConfig;
+import com.starburstdata.presto.plugin.jdbc.PoolingConnectionFactory;
 import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
@@ -24,6 +26,7 @@ import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
 public class SapHanaAuthenticationModule
@@ -50,36 +53,48 @@ public class SapHanaAuthenticationModule
                 new PasswordPassThroughModule()));
     }
 
-    private static class PasswordModule
+    private class PasswordModule
             extends AbstractConfigurationAwareModule
     {
         @Override
         protected void setup(Binder binder)
         {
             install(new CredentialProviderModule());
+            configBinder(binder).bindConfig(JdbcConnectionPoolConfig.class);
         }
 
         @Provides
         @Singleton
         @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider)
         {
-            return new DriverConnectionFactory(new Driver(), config, credentialProvider);
+            return createBasicConnectionFactory(config, poolConfig, credentialProvider);
         }
     }
 
-    private static class PasswordPassThroughModule
+    private class PasswordPassThroughModule
             implements Module
     {
         @Override
-        public void configure(Binder binder) {}
+        public void configure(Binder binder)
+        {
+            configBinder(binder).bindConfig(JdbcConnectionPoolConfig.class);
+        }
 
         @Provides
         @Singleton
         @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config)
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig)
         {
-            return new DriverConnectionFactory(new Driver(), config, new PassThroughCredentialProvider());
+            return createBasicConnectionFactory(config, poolConfig, new PassThroughCredentialProvider());
         }
+    }
+
+    private ConnectionFactory createBasicConnectionFactory(BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider)
+    {
+        if (poolConfig.isConnectionPoolEnabled()) {
+            return new PoolingConnectionFactory(catalogName, Driver.class, config, poolConfig, credentialProvider);
+        }
+        return new DriverConnectionFactory(new Driver(), config, credentialProvider);
     }
 }
