@@ -119,6 +119,7 @@ public class TestLiteralEncoder
     {
         Expression expression = encoder.toExpression(value, type);
         assertEquals(getExpressionType(expression), type);
+        assertEquals(getExpressionValue(expression), value);
         assertEquals(formatSql(expression), expected);
     }
 
@@ -130,6 +131,7 @@ public class TestLiteralEncoder
     {
         Expression expression = encoder.toExpression(value, type);
         assertEquals(getExpressionType(expression), type);
+        assertEquals(getExpressionValue(expression), value);
         assertEqualsIgnoreCase(formatSql(expression), expected);
     }
 
@@ -138,8 +140,13 @@ public class TestLiteralEncoder
         Expression expression = encoder.toExpression(value, type);
         assertEquals(getExpressionType(expression), type);
         @SuppressWarnings("unchecked")
-        T decodedValue = (T) expressionInterpreter(expression, metadata, TEST_SESSION, ImmutableMap.of(NodeRef.of(expression), type)).evaluate();
+        T decodedValue = (T) getExpressionValue(expression);
         assertTrue(predicate.test(value, decodedValue));
+    }
+
+    private Object getExpressionValue(Expression expression)
+    {
+        return expressionInterpreter(expression, metadata, TEST_SESSION, getExpressionTypes(expression)).evaluate();
     }
 
     private Type getExpressionType(Expression expression)
