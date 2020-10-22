@@ -80,7 +80,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
-import static io.prestosql.plugin.hive.HiveSessionProperties.isFailOnCorruptedParquetStatistics;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isParquetIgnoreStatistics;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
 import static io.prestosql.plugin.hive.ReaderProjections.projectSufficientColumns;
@@ -149,7 +149,7 @@ public class ParquetPageSourceFactory
                 session.getUser(),
                 timeZone,
                 stats,
-                options.withFailOnCorruptedStatistics(isFailOnCorruptedParquetStatistics(session))
+                options.withIgnoreStatistics(isParquetIgnoreStatistics(session))
                         .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))));
     }
 
@@ -210,12 +210,14 @@ public class ParquetPageSourceFactory
             }
 
             Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
-            TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate, fileSchema, useColumnNames);
+            TupleDomain<ColumnDescriptor> parquetTupleDomain = options.isIgnoreStatistics()
+                    ? TupleDomain.all()
+                    : getParquetTupleDomain(descriptorsByPath, effectivePredicate, fileSchema, useColumnNames);
 
             Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, timeZone);
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
             for (BlockMetaData block : footerBlocks.build()) {
-                if (predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, options.isFailOnCorruptedStatistics())) {
+                if (predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain)) {
                     blocks.add(block);
                 }
             }
