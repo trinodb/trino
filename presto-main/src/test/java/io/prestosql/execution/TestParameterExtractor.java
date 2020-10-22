@@ -44,4 +44,14 @@ public class TestParameterExtractor
                         new Parameter(new NodeLocation(1, 52), 1));
         assertThat(ParameterExtractor.getParameterCount(statement)).isEqualTo(2);
     }
+
+    @Test
+    public void testLambda()
+    {
+        Statement statement = sqlParser.createStatement("SELECT * FROM test_table WHERE any_match(items, x -> x > ?)", new ParsingOptions());
+        assertThat(ParameterExtractor.getParameters(statement))
+                .containsExactly(new Parameter(new NodeLocation(1, 58), 0));
+
+        assertThat(ParameterExtractor.getParameterCount(statement)).isEqualTo(1);
+    }
 }
