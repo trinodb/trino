@@ -3103,9 +3103,20 @@ class StatementAnalyzer
                     }
                 }
                 else if (item instanceof AllColumns) {
-                    ((AllColumns) item).getAliases().stream()
-                            .map(CanonicalizationAware::canonicalizationAwareKey)
-                            .forEach(aliases::add);
+                    AllColumns allColumns = (AllColumns) item;
+
+                    List<Field> fields = analysis.getSelectAllResultFields(allColumns);
+                    checkNotNull(fields, "output fields is null for select item %s", item);
+                    for (int i = 0; i < fields.size(); i++) {
+                        Field field = fields.get(i);
+
+                        if (!allColumns.getAliases().isEmpty()) {
+                            aliases.add(canonicalizationAwareKey(allColumns.getAliases().get(i)));
+                        }
+                        else if (field.getName().isPresent()) {
+                            aliases.add(canonicalizationAwareKey(new Identifier(field.getName().get())));
+                        }
+                    }
                 }
             }
 
