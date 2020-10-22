@@ -29,10 +29,12 @@ import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.SmallintType;
-import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.spi.type.VarcharType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -49,9 +51,10 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteralForJson;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.util.Objects.requireNonNull;
@@ -70,7 +73,7 @@ public enum CassandraType
     DECIMAL(DoubleType.DOUBLE),
 
     DATE(DateType.DATE),
-    TIMESTAMP(TimestampType.TIMESTAMP),
+    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS),
 
     ASCII(createUnboundedVarcharType()),
     TEXT(createUnboundedVarcharType()),
@@ -197,7 +200,7 @@ public enum CassandraType
             case TIMEUUID:
                 return NullableValue.of(prestoType, utf8Slice(row.getUUID(position).toString()));
             case TIMESTAMP:
-                return NullableValue.of(prestoType, row.getTimestamp(position).getTime());
+                return NullableValue.of(prestoType, packDateTimeWithZone(row.getTimestamp(position).getTime(), TimeZoneKey.UTC_KEY));
             case DATE:
                 return NullableValue.of(prestoType, (long) row.getDate(position).getDaysSinceEpoch());
             case INET:
@@ -315,6 +318,10 @@ public enum CassandraType
     // TODO unify with getColumnValueForCql
     public String toCqlLiteral(Object prestoNativeValue)
     {
+        if (this == TIMESTAMP) {
+            return String.valueOf(unpackMillisUtc((Long) prestoNativeValue));
+        }
+
         String value;
         if (prestoNativeValue instanceof Slice) {
             value = ((Slice) prestoNativeValue).toStringUtf8();
@@ -404,7 +411,7 @@ public enum CassandraType
                 // Otherwise partition id doesn't match
                 return new BigDecimal(prestoNativeValue.toString());
             case TIMESTAMP:
-                return new Date((Long) prestoNativeValue);
+                return new Date(unpackMillisUtc((Long) prestoNativeValue));
             case DATE:
                 return LocalDate.fromDaysSinceEpoch(((Long) prestoNativeValue).intValue());
             case UUID:
@@ -454,7 +461,7 @@ public enum CassandraType
 
     public static boolean isFullySupported(DataType dataType)
     {
-        if (!toCassandraType(dataType.getName()).isPresent()) {
+        if (toCassandraType(dataType.getName()).isEmpty()) {
             return false;
         }
 
@@ -485,7 +492,7 @@ public enum CassandraType
         if (type.equals(RealType.REAL)) {
             return FLOAT;
         }
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return TEXT;
         }
         if (type.equals(DateType.DATE)) {
@@ -494,7 +501,7 @@ public enum CassandraType
         if (type.equals(VarbinaryType.VARBINARY)) {
             return BLOB;
         }
-        if (type.equals(TimestampType.TIMESTAMP)) {
+        if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS)) {
             return TIMESTAMP;
         }
         throw new IllegalArgumentException("unsupported type: " + type);

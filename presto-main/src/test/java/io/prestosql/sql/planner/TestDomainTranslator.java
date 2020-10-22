@@ -28,6 +28,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.DomainTranslator.ExtractionResult;
 import io.prestosql.sql.tree.BetweenPredicate;
 import io.prestosql.sql.tree.Cast;
@@ -39,6 +40,7 @@ import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.InListExpression;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
+import io.prestosql.sql.tree.LikePredicate;
 import io.prestosql.sql.tree.Literal;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.NotExpression;
@@ -56,6 +58,7 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -73,10 +76,11 @@ import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.or;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -135,7 +139,7 @@ public class TestDomainTranslator
             .put(C_BIGINT_1, BIGINT)
             .put(C_DOUBLE_1, DOUBLE)
             .put(C_VARCHAR_1, VARCHAR)
-            .put(C_TIMESTAMP, TIMESTAMP)
+            .put(C_TIMESTAMP, TIMESTAMP_MILLIS)
             .put(C_DATE, DATE)
             .put(C_COLOR, COLOR) // Equatable, but not orderable
             .put(C_HYPER_LOG_LOG, HYPER_LOG_LOG) // Not Equatable or orderable
@@ -160,6 +164,7 @@ public class TestDomainTranslator
     private static final long COLOR_VALUE_2 = 2;
 
     private Metadata metadata;
+    private TypeOperators typeOperators;
     private LiteralEncoder literalEncoder;
     private DomainTranslator domainTranslator;
 
@@ -167,6 +172,7 @@ public class TestDomainTranslator
     public void setup()
     {
         metadata = createTestMetadataManager();
+        typeOperators = new TypeOperators();
         literalEncoder = new LiteralEncoder(metadata);
         domainTranslator = new DomainTranslator(metadata);
     }
@@ -208,7 +214,7 @@ public class TestDomainTranslator
                 .put(C_BIGINT_1, Domain.singleValue(BIGINT, 2L))
                 .put(C_DOUBLE_1, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(DOUBLE, 1.1), Range.equal(DOUBLE, 2.0), Range.range(DOUBLE, 3.0, false, 3.5, true)), true))
                 .put(C_VARCHAR_1, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(VARCHAR, utf8Slice("2013-01-01")), Range.greaterThan(VARCHAR, utf8Slice("2013-10-01"))), false))
-                .put(C_TIMESTAMP, Domain.singleValue(TIMESTAMP, TIMESTAMP_VALUE))
+                .put(C_TIMESTAMP, Domain.singleValue(TIMESTAMP_MILLIS, TIMESTAMP_VALUE))
                 .put(C_DATE, Domain.singleValue(DATE, DATE_VALUE))
                 .put(C_COLOR, Domain.singleValue(COLOR, COLOR_VALUE_1))
                 .put(C_HYPER_LOG_LOG, Domain.notNull(HYPER_LOG_LOG))
@@ -245,7 +251,7 @@ public class TestDomainTranslator
 
         tupleDomain = withColumnDomains(ImmutableMap.<Symbol, Domain>builder().put(C_BIGINT, testDomain).build());
         assertEquals(toPredicate(tupleDomain),
-                or(between(C_BIGINT, bigintLiteral(1L), bigintLiteral(3L)), (between(C_BIGINT, bigintLiteral(5L), bigintLiteral(7L))), (between(C_BIGINT, bigintLiteral(9L), bigintLiteral(11L)))));
+                or(between(C_BIGINT, bigintLiteral(1L), bigintLiteral(3L)), between(C_BIGINT, bigintLiteral(5L), bigintLiteral(7L)), between(C_BIGINT, bigintLiteral(9L), bigintLiteral(11L))));
 
         testDomain = Domain.create(
                 ValueSet.ofRanges(
@@ -1458,6 +1464,170 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testLikePredicate()
+    {
+        Type varcharType = createUnboundedVarcharType();
+
+        // constant
+        testSimpleComparison(
+                like(C_VARCHAR, stringLiteral("abc")),
+                C_VARCHAR,
+                Domain.multipleValues(varcharType, ImmutableList.of(utf8Slice("abc"))));
+
+        // starts with pattern
+        assertUnsupportedPredicate(like(C_VARCHAR, stringLiteral("_def")));
+        assertUnsupportedPredicate(like(C_VARCHAR, stringLiteral("%def")));
+
+        // _ pattern (unless escaped)
+        testSimpleComparison(
+                like(C_VARCHAR, stringLiteral("abc_def")),
+                C_VARCHAR,
+                like(C_VARCHAR, stringLiteral("abc_def")),
+                Domain.create(ValueSet.ofRanges(Range.range(varcharType, utf8Slice("abc"), true, utf8Slice("abd"), false)), false));
+
+        testSimpleComparison(
+                like(C_VARCHAR, stringLiteral("abc\\_def")),
+                C_VARCHAR,
+                like(C_VARCHAR, stringLiteral("abc\\_def")),
+                Domain.create(ValueSet.ofRanges(Range.range(varcharType, utf8Slice("abc\\"), true, utf8Slice("abc]"), false)), false));
+
+        testSimpleComparison(
+                like(C_VARCHAR, stringLiteral("abc\\_def"), stringLiteral("\\")),
+                C_VARCHAR,
+                Domain.multipleValues(varcharType, ImmutableList.of(utf8Slice("abc_def"))));
+
+        testSimpleComparison(
+                like(C_VARCHAR, stringLiteral("abc\\_def_"), stringLiteral("\\")),
+                C_VARCHAR,
+                like(C_VARCHAR, stringLiteral("abc\\_def_"), stringLiteral("\\")),
+                Domain.create(ValueSet.ofRanges(Range.range(varcharType, utf8Slice("abc_def"), true, utf8Slice("abc_deg"), false)), false));
+
+        testSimpleComparison(
+                like(C_VARCHAR, stringLiteral("abc^_def_"), stringLiteral("^")),
+                C_VARCHAR,
+                like(C_VARCHAR, stringLiteral("abc^_def_"), stringLiteral("^")),
+                Domain.create(ValueSet.ofRanges(Range.range(varcharType, utf8Slice("abc_def"), true, utf8Slice("abc_deg"), false)), false));
+
+        // % pattern (unless escaped)
+        testSimpleComparison(
+                like(C_VARCHAR, stringLiteral("abc%")),
+                C_VARCHAR,
+                like(C_VARCHAR, stringLiteral("abc%")),
+                Domain.create(ValueSet.ofRanges(Range.range(varcharType, utf8Slice("abc"), true, utf8Slice("abd"), false)), false));
+
+        testSimpleComparison(
+                like(C_VARCHAR, stringLiteral("abc%def")),
+                C_VARCHAR,
+                like(C_VARCHAR, stringLiteral("abc%def")),
+                Domain.create(ValueSet.ofRanges(Range.range(varcharType, utf8Slice("abc"), true, utf8Slice("abd"), false)), false));
+
+        testSimpleComparison(
+                like(C_VARCHAR, stringLiteral("abc\\%def")),
+                C_VARCHAR,
+                like(C_VARCHAR, stringLiteral("abc\\%def")),
+                Domain.create(ValueSet.ofRanges(Range.range(varcharType, utf8Slice("abc\\"), true, utf8Slice("abc]"), false)), false));
+
+        testSimpleComparison(
+                like(C_VARCHAR, stringLiteral("abc\\%def"), stringLiteral("\\")),
+                C_VARCHAR,
+                Domain.multipleValues(varcharType, ImmutableList.of(utf8Slice("abc%def"))));
+
+        testSimpleComparison(
+                like(C_VARCHAR, stringLiteral("abc\\%def_"), stringLiteral("\\")),
+                C_VARCHAR,
+                like(C_VARCHAR, stringLiteral("abc\\%def_"), stringLiteral("\\")),
+                Domain.create(ValueSet.ofRanges(Range.range(varcharType, utf8Slice("abc%def"), true, utf8Slice("abc%deg"), false)), false));
+
+        testSimpleComparison(
+                like(C_VARCHAR, stringLiteral("abc^%def_"), stringLiteral("^")),
+                C_VARCHAR,
+                like(C_VARCHAR, stringLiteral("abc^%def_"), stringLiteral("^")),
+                Domain.create(ValueSet.ofRanges(Range.range(varcharType, utf8Slice("abc%def"), true, utf8Slice("abc%deg"), false)), false));
+
+        // non-ASCII literal
+        testSimpleComparison(
+                like(C_VARCHAR, stringLiteral("abc\u007f\u0123\udbfe")),
+                C_VARCHAR,
+                Domain.multipleValues(varcharType, ImmutableList.of(utf8Slice("abc\u007f\u0123\udbfe"))));
+
+        // non-ASCII prefix
+        testSimpleComparison(
+                like(C_VARCHAR, stringLiteral("abc\u0123\ud83d\ude80def\u007e\u007f\u00ff\u0123\uccf0%")),
+                C_VARCHAR,
+                like(C_VARCHAR, stringLiteral("abc\u0123\ud83d\ude80def\u007e\u007f\u00ff\u0123\uccf0%")),
+                Domain.create(
+                        ValueSet.ofRanges(Range.range(varcharType,
+                                utf8Slice("abc\u0123\ud83d\ude80def\u007e\u007f\u00ff\u0123\uccf0"), true,
+                                utf8Slice("abc\u0123\ud83d\ude80def\u007f"), false)),
+                        false));
+
+        // dynamic escape
+        assertUnsupportedPredicate(like(C_VARCHAR, stringLiteral("abc\\_def"), C_VARCHAR_1.toSymbolReference()));
+
+        // negation with literal
+        testSimpleComparison(
+                not(like(C_VARCHAR, stringLiteral("abcdef"))),
+                C_VARCHAR,
+                Domain.create(ValueSet.ofRanges(
+                        Range.lessThan(varcharType, utf8Slice("abcdef")),
+                        Range.greaterThan(varcharType, utf8Slice("abcdef"))),
+                        false));
+
+        testSimpleComparison(
+                not(like(C_VARCHAR, stringLiteral("abc\\_def"), stringLiteral("\\"))),
+                C_VARCHAR,
+                Domain.create(ValueSet.ofRanges(
+                        Range.lessThan(varcharType, utf8Slice("abc_def")),
+                        Range.greaterThan(varcharType, utf8Slice("abc_def"))),
+                        false));
+
+        // negation with pattern
+        assertUnsupportedPredicate(not(like(C_VARCHAR, stringLiteral("abc\\_def"))));
+    }
+
+    @Test
+    public void testStartsWithFunction()
+    {
+        Type varcharType = createUnboundedVarcharType();
+
+        // constant
+        testSimpleComparison(
+                startsWith(C_VARCHAR, stringLiteral("abc")),
+                C_VARCHAR,
+                startsWith(C_VARCHAR, stringLiteral("abc")),
+                Domain.create(ValueSet.ofRanges(Range.range(varcharType, utf8Slice("abc"), true, utf8Slice("abd"), false)), false));
+
+        testSimpleComparison(
+                startsWith(C_VARCHAR, stringLiteral("_abc")),
+                C_VARCHAR,
+                startsWith(C_VARCHAR, stringLiteral("_abc")),
+                Domain.create(ValueSet.ofRanges(Range.range(varcharType, utf8Slice("_abc"), true, utf8Slice("_abd"), false)), false));
+
+        // empty
+        assertUnsupportedPredicate(startsWith(C_VARCHAR, stringLiteral("")));
+        // complement
+        assertUnsupportedPredicate(not(startsWith(C_VARCHAR, stringLiteral("abc"))));
+
+        // non-ASCII
+        testSimpleComparison(
+                startsWith(C_VARCHAR, stringLiteral("abc\u0123\ud83d\ude80def\u007e\u007f\u00ff\u0123\uccf0")),
+                C_VARCHAR,
+                startsWith(C_VARCHAR, stringLiteral("abc\u0123\ud83d\ude80def\u007e\u007f\u00ff\u0123\uccf0")),
+                Domain.create(
+                        ValueSet.ofRanges(Range.range(varcharType,
+                                utf8Slice("abc\u0123\ud83d\ude80def\u007e\u007f\u00ff\u0123\uccf0"), true,
+                                utf8Slice("abc\u0123\ud83d\ude80def\u007f"), false)),
+                        false));
+    }
+
+    @Test
+    public void testUnsupportedFunctions()
+    {
+        assertUnsupportedPredicate(new FunctionCall(QualifiedName.of("LENGTH"), ImmutableList.of(C_VARCHAR.toSymbolReference())));
+        assertUnsupportedPredicate(new FunctionCall(QualifiedName.of("REPLACE"), ImmutableList.of(C_VARCHAR.toSymbolReference(), stringLiteral("abc"))));
+    }
+
+    @Test
     public void testCharComparedToVarcharExpression()
     {
         Type charType = createCharType(10);
@@ -1506,7 +1676,7 @@ public class TestDomainTranslator
         return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, transactionSession -> {
-                    return DomainTranslator.fromPredicate(metadata, transactionSession, originalPredicate, TYPES);
+                    return DomainTranslator.fromPredicate(metadata, typeOperators, transactionSession, originalPredicate, TYPES);
                 });
     }
 
@@ -1566,6 +1736,21 @@ public class TestDomainTranslator
     private static ComparisonExpression isDistinctFrom(Symbol symbol, Expression expression)
     {
         return isDistinctFrom(symbol.toSymbolReference(), expression);
+    }
+
+    private static LikePredicate like(Symbol symbol, Expression expression)
+    {
+        return new LikePredicate(symbol.toSymbolReference(), expression, Optional.empty());
+    }
+
+    private static LikePredicate like(Symbol symbol, Expression expression, Expression escape)
+    {
+        return new LikePredicate(symbol.toSymbolReference(), expression, Optional.of(escape));
+    }
+
+    private static FunctionCall startsWith(Symbol symbol, Expression expression)
+    {
+        return new FunctionCall(QualifiedName.of("STARTS_WITH"), ImmutableList.of(symbol.toSymbolReference(), expression));
     }
 
     private static Expression isNotNull(Symbol symbol)
@@ -1733,14 +1918,19 @@ public class TestDomainTranslator
         testSimpleComparison(expression, symbol, Domain.create(ValueSet.ofRanges(expectedDomainRange), false));
     }
 
-    private void testSimpleComparison(Expression expression, Symbol symbol, Domain domain)
+    private void testSimpleComparison(Expression expression, Symbol symbol, Domain expectedDomain)
+    {
+        testSimpleComparison(expression, symbol, TRUE_LITERAL, expectedDomain);
+    }
+
+    private void testSimpleComparison(Expression expression, Symbol symbol, Expression expectedRemainingExpression, Domain expectedDomain)
     {
         ExtractionResult result = fromPredicate(expression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+        assertEquals(result.getRemainingExpression(), expectedRemainingExpression);
         TupleDomain<Symbol> actual = result.getTupleDomain();
-        TupleDomain<Symbol> expected = withColumnDomains(ImmutableMap.of(symbol, domain));
+        TupleDomain<Symbol> expected = withColumnDomains(ImmutableMap.of(symbol, expectedDomain));
         if (!actual.equals(expected)) {
-            fail(format("for comparison [%s] expected %s but found %s", expression.toString(), expected.toString(SESSION), actual.toString(SESSION)));
+            fail(format("for comparison [%s] expected [%s] but found [%s]", expression.toString(), expected.toString(SESSION), actual.toString(SESSION)));
         }
     }
 

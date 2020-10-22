@@ -18,12 +18,12 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.client.Announcer;
@@ -58,7 +58,6 @@ import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.GroupProviderManager;
@@ -67,10 +66,12 @@ import io.prestosql.server.PluginManager;
 import io.prestosql.server.ServerMainModule;
 import io.prestosql.server.SessionPropertyDefaults;
 import io.prestosql.server.ShutdownAction;
+import io.prestosql.server.security.CertificateAuthenticatorManager;
 import io.prestosql.server.security.ServerSecurityModule;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.security.GroupProvider;
+import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
 import io.prestosql.sql.planner.NodePartitioningManager;
@@ -83,6 +84,7 @@ import io.prestosql.transaction.TransactionManager;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.management.MBeanServer;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -92,6 +94,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -150,6 +153,7 @@ public class TestingPrestoServer
     private final TaskManager taskManager;
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
+    private final MBeanServer mBeanServer;
     private final boolean coordinator;
 
     public static class TestShutdownAction
@@ -186,8 +190,7 @@ public class TestingPrestoServer
             Optional<URI> discoveryUri,
             Module additionalModule,
             Optional<Path> baseDataDir,
-            String systemAccessControlName,
-            Map<String, String> systemAccessControlProperties)
+            List<SystemAccessControl> systemAccessControls)
     {
         this.coordinator = coordinator;
 
@@ -203,7 +206,6 @@ public class TestingPrestoServer
         ImmutableMap.Builder<String, String> serverProperties = ImmutableMap.<String, String>builder()
                 .putAll(properties)
                 .put("coordinator", String.valueOf(coordinator))
-                .put("presto.version", "testversion")
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
                 .put("exchange.client-threads", "4");
@@ -223,15 +225,9 @@ public class TestingPrestoServer
                 .add(new EventModule())
                 .add(new TraceTokenModule())
                 .add(new ServerSecurityModule())
-                .add(new ServerMainModule())
+                .add(new ServerMainModule("testversion"))
                 .add(new TestingWarningCollectorModule())
                 .add(binder -> {
-                    binder.bind(String.class)
-                            .annotatedWith(TestingAccessControlManager.ForSystemAccessControl.class)
-                            .toInstance(systemAccessControlName);
-                    binder.bind(new TypeLiteral<Map<String, String>>() {})
-                            .annotatedWith(TestingAccessControlManager.ForSystemAccessControl.class)
-                            .toInstance(ImmutableMap.copyOf(systemAccessControlProperties));
                     binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
@@ -293,6 +289,7 @@ public class TestingPrestoServer
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
             statsCalculator = injector.getInstance(StatsCalculator.class);
+            injector.getInstance(CertificateAuthenticatorManager.class).useDefaultAuthenticator();
         }
         else {
             dispatchManager = null;
@@ -309,11 +306,10 @@ public class TestingPrestoServer
         gracefulShutdownHandler = injector.getInstance(GracefulShutdownHandler.class);
         taskManager = injector.getInstance(TaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
+        mBeanServer = injector.getInstance(MBeanServer.class);
         announcer = injector.getInstance(Announcer.class);
 
-        accessControl.loadSystemAccessControl(
-                injector.getInstance(Key.get(String.class, TestingAccessControlManager.ForSystemAccessControl.class)),
-                injector.getInstance(Key.get(new TypeLiteral<Map<String, String>>() {}, TestingAccessControlManager.ForSystemAccessControl.class)));
+        accessControl.setSystemAccessControls(systemAccessControls);
 
         announcer.forceAnnounce();
 
@@ -324,15 +320,18 @@ public class TestingPrestoServer
     public void close()
             throws IOException
     {
-        try {
-            if (lifeCycleManager != null) {
-                lifeCycleManager.stop();
-            }
-        }
-        finally {
-            if (isDirectory(baseDataDir) && !preserveData) {
-                deleteRecursively(baseDataDir, ALLOW_INSECURE);
-            }
+        try (Closer closer = Closer.create()) {
+            closer.register(() -> {
+                if (isDirectory(baseDataDir) && !preserveData) {
+                    deleteRecursively(baseDataDir, ALLOW_INSECURE);
+                }
+            });
+
+            closer.register(() -> {
+                if (lifeCycleManager != null) {
+                    lifeCycleManager.stop();
+                }
+            });
         }
     }
 
@@ -354,6 +353,11 @@ public class TestingPrestoServer
     public Plan getQueryPlan(QueryId queryId)
     {
         return queryManager.getQueryPlan(queryId);
+    }
+
+    public QueryInfo getFullQueryInfo(QueryId queryId)
+    {
+        return queryManager.getFullQueryInfo(queryId);
     }
 
     public void addFinalQueryInfoListener(QueryId queryId, StateChangeListener<QueryInfo> stateChangeListener)
@@ -466,6 +470,11 @@ public class TestingPrestoServer
         return clusterMemoryManager;
     }
 
+    public MBeanServer getMbeanServer()
+    {
+        return mBeanServer;
+    }
+
     public GracefulShutdownHandler getGracefulShutdownHandler()
     {
         return gracefulShutdownHandler;
@@ -555,8 +564,7 @@ public class TestingPrestoServer
         private Optional<URI> discoveryUri = Optional.empty();
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
-        private String systemAccessControlName = AllowAllSystemAccessControl.NAME;
-        private Map<String, String> systemAccessControlProperties = ImmutableMap.of();
+        private List<SystemAccessControl> systemAccessControls = ImmutableList.of();
 
         public Builder setCoordinator(boolean coordinator)
         {
@@ -594,10 +602,9 @@ public class TestingPrestoServer
             return this;
         }
 
-        public Builder setSystemAccessControl(String name, Map<String, String> properties)
+        public Builder setSystemAccessControls(List<SystemAccessControl> systemAccessControls)
         {
-            this.systemAccessControlName = requireNonNull(name, "name is null");
-            this.systemAccessControlProperties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+            this.systemAccessControls = ImmutableList.copyOf(requireNonNull(systemAccessControls, "systemAccessControls is null"));
             return this;
         }
 
@@ -610,8 +617,7 @@ public class TestingPrestoServer
                     discoveryUri,
                     additionalModule,
                     baseDataDir,
-                    systemAccessControlName,
-                    systemAccessControlProperties);
+                    systemAccessControls);
         }
     }
 }

@@ -21,6 +21,7 @@ import io.prestosql.operator.LookupSourceProvider.LookupSourceLease;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.Immutable;
@@ -54,11 +55,14 @@ import static java.util.Objects.requireNonNull;
 public final class PartitionedLookupSourceFactory
         implements LookupSourceFactory
 {
+    public static final long NO_SPILL_EPOCH = 0;
+
     private final List<Type> types;
     private final List<Type> outputTypes;
     private final List<Type> hashChannelTypes;
     private final boolean outer;
     private final SpilledLookupSource spilledLookupSource;
+    private final BlockTypeOperators blockTypeOperators;
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -74,7 +78,7 @@ public final class PartitionedLookupSourceFactory
     private int partitionsSet;
 
     @GuardedBy("lock")
-    private SpillingInfo spillingInfo = new SpillingInfo(0, ImmutableSet.of());
+    private SpillingInfo spillingInfo = new SpillingInfo(NO_SPILL_EPOCH, ImmutableSet.of());
 
     @GuardedBy("lock")
     private final Map<Integer, SpilledLookupSourceHandle> spilledPartitions = new HashMap<>();
@@ -103,7 +107,7 @@ public final class PartitionedLookupSourceFactory
      */
     private final ConcurrentHashMap<SpillAwareLookupSourceProvider, LookupSource> suppliedLookupSources = new ConcurrentHashMap<>();
 
-    public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Type> hashChannelTypes, int partitionCount, boolean outer)
+    public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Type> hashChannelTypes, int partitionCount, boolean outer, BlockTypeOperators blockTypeOperators)
     {
         checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
 
@@ -115,6 +119,7 @@ public final class PartitionedLookupSourceFactory
         this.partitions = (Supplier<LookupSource>[]) new Supplier<?>[partitionCount];
         this.outer = outer;
         spilledLookupSource = new SpilledLookupSource(outputTypes.size());
+        this.blockTypeOperators = blockTypeOperators;
     }
 
     @Override
@@ -235,7 +240,7 @@ public final class PartitionedLookupSourceFactory
                 verify(!completed, "lookupSourceSupplier already exist when completing");
                 verify(!outer, "It is not possible to reset lookupSourceSupplier which is tracking for outer join");
                 verify(partitions.length > 1, "Spill occurred when only one partition");
-                lookupSourceSupplier = createPartitionedLookupSourceSupplier(ImmutableList.copyOf(partitions), hashChannelTypes, outer);
+                lookupSourceSupplier = createPartitionedLookupSourceSupplier(ImmutableList.copyOf(partitions), hashChannelTypes, outer, blockTypeOperators);
                 closeCachedLookupSources();
             }
             else {
@@ -268,7 +273,7 @@ public final class PartitionedLookupSourceFactory
 
             if (partitionsSet != 1) {
                 List<Supplier<LookupSource>> partitions = ImmutableList.copyOf(this.partitions);
-                this.lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer);
+                this.lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer, blockTypeOperators);
             }
             else if (outer) {
                 this.lookupSourceSupplier = createOuterLookupSourceSupplier(partitions[0]);
@@ -310,7 +315,7 @@ public final class PartitionedLookupSourceFactory
                     .orElseThrow(() -> new IllegalStateException("A fixed distribution is required for JOIN when spilling is enabled"));
             checkState(finishedProbeOperators < operatorsCount, "%s probe operators finished out of %s declared", finishedProbeOperators + 1, operatorsCount);
 
-            if (!partitionedConsumptionParticipants.isPresent()) {
+            if (partitionedConsumptionParticipants.isEmpty()) {
                 // This is the first probe to finish after anything has been spilled.
                 partitionedConsumptionParticipants = OptionalInt.of(operatorsCount - finishedProbeOperators);
             }

@@ -1,0 +1,12 @@
+{
+  "system_information": [
+    {
+      "user": "admin",
+      "allow": ["read", "write"]
+    },
+    {
+      "user": "alice",
+      "allow": ["read"]
+    }
+  ]
+}

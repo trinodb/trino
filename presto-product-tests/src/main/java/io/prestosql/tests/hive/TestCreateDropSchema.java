@@ -14,11 +14,10 @@
 package io.prestosql.tests.hive;
 
 import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
-
-import java.sql.SQLException;
 
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
@@ -33,14 +32,17 @@ public class TestCreateDropSchema
     @Inject
     private HdfsClient hdfsClient;
 
+    @javax.inject.Inject
+    @Named("databases.hive.warehouse_directory_path")
+    private String warehouseDirectory;
+
     @Test
     public void testCreateDropSchema()
-            throws SQLException
     {
         onHive().executeQuery("DROP DATABASE IF EXISTS test_drop_schema CASCADE");
 
         onPresto().executeQuery("CREATE SCHEMA test_drop_schema");
-        assertTrue(hdfsClient.exist("/user/hive/warehouse/test_drop_schema.db"));
+        assertTrue(hdfsClient.exist(warehouseDirectory + "/test_drop_schema.db"));
 
         onPresto().executeQuery("CREATE TABLE test_drop_schema.test_drop (col1 int)");
         assertThat(() -> query("DROP SCHEMA test_drop_schema"))
@@ -49,6 +51,6 @@ public class TestCreateDropSchema
         onPresto().executeQuery("DROP TABLE test_drop_schema.test_drop");
 
         onPresto().executeQuery("DROP SCHEMA test_drop_schema");
-        assertFalse(hdfsClient.exist("/user/hive/warehouse/test_drop_schema.db"));
+        assertFalse(hdfsClient.exist(warehouseDirectory + "/test_drop_schema.db"));
     }
 }

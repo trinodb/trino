@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
@@ -31,8 +32,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
-import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
-import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
+import static io.prestosql.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
@@ -89,6 +89,10 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
+    private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
+    private static final String TIMESTAMP_PRECISION = "timestamp_precision";
+    private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "experimental_parquet_optimized_writer_enabled";
+    private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -99,14 +103,16 @@ public final class HiveSessionProperties
         OVERWRITE,
         /**/;
 
-        public static InsertExistingPartitionsBehavior valueOf(String value, boolean immutablePartition)
+        public static InsertExistingPartitionsBehavior valueOf(String value, boolean immutablePartitions)
         {
             InsertExistingPartitionsBehavior enumValue = valueOf(value.toUpperCase(ENGLISH));
-            if (immutablePartition) {
-                checkArgument(enumValue != APPEND, "Presto is configured to treat Hive partitions as immutable. %s is not allowed to be set to %s", INSERT_EXISTING_PARTITIONS_BEHAVIOR, APPEND);
-            }
-
+            checkArgument(isValid(enumValue, immutablePartitions), "Presto is configured to treat Hive partitions as immutable. %s is not allowed to be set to %s", INSERT_EXISTING_PARTITIONS_BEHAVIOR, APPEND);
             return enumValue;
+        }
+
+        static boolean isValid(InsertExistingPartitionsBehavior value, boolean immutable)
+        {
+            return !(immutable && value == APPEND);
         }
     }
 
@@ -134,7 +140,7 @@ public final class HiveSessionProperties
                         "Behavior on insert existing partitions; this session property doesn't control behavior on insert existing unpartitioned table",
                         VARCHAR,
                         InsertExistingPartitionsBehavior.class,
-                        hiveConfig.isImmutablePartitions() ? ERROR : APPEND,
+                        hiveConfig.getInsertExistingPartitionsBehavior(),
                         false,
                         value -> InsertExistingPartitionsBehavior.valueOf((String) value, hiveConfig.isImmutablePartitions()),
                         InsertExistingPartitionsBehavior::toString),
@@ -196,7 +202,7 @@ public final class HiveSessionProperties
                         orcWriterConfig.getValidationPercentage(),
                         false,
                         value -> {
-                            double doubleValue = ((Number) value).doubleValue();
+                            double doubleValue = (double) value;
                             if (doubleValue < 0.0 || doubleValue > 100.0) {
                                 throw new PrestoException(
                                         INVALID_SESSION_PROPERTY,
@@ -357,6 +363,27 @@ public final class HiveSessionProperties
                         QUERY_PARTITION_FILTER_REQUIRED,
                         "Require filter on partition column",
                         hiveConfig.isQueryPartitionFilterRequired(),
+                        false),
+                booleanProperty(
+                        PROJECTION_PUSHDOWN_ENABLED,
+                        "Projection push down enabled for hive",
+                        hiveConfig.isProjectionPushdownEnabled(),
+                        false),
+                enumProperty(
+                        TIMESTAMP_PRECISION,
+                        "Precision for timestamp columns in Hive tables",
+                        HiveTimestampPrecision.class,
+                        hiveConfig.getTimestampPrecision(),
+                        false),
+                booleanProperty(
+                        PARQUET_OPTIMIZED_WRITER_ENABLED,
+                        "Experimental: Enable optimized writer",
+                        parquetWriterConfig.isParquetOptimizedWriterEnabled(),
+                        false),
+                durationProperty(
+                        DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT,
+                        "Duration to wait for completion of dynamic filters during split generation for probe side table",
+                        hiveConfig.getDynamicFilteringProbeBlockingTimeout(),
                         false));
     }
 
@@ -612,5 +639,25 @@ public final class HiveSessionProperties
     public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
     {
         return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
+    }
+
+    public static boolean isProjectionPushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static HiveTimestampPrecision getTimestampPrecision(ConnectorSession session)
+    {
+        return session.getProperty(TIMESTAMP_PRECISION, HiveTimestampPrecision.class);
+    }
+
+    public static boolean isParquetOptimizedWriterEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_OPTIMIZED_WRITER_ENABLED, Boolean.class);
+    }
+
+    public static Duration getDynamicFilteringProbeBlockingTimeout(ConnectorSession session)
+    {
+        return session.getProperty(DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT, Duration.class);
     }
 }

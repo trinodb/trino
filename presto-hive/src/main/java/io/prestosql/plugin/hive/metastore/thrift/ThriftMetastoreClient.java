@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.metastore.thrift;
 
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
@@ -26,6 +27,7 @@ import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.TxnToWriteId;
 import org.apache.thrift.TException;
 
 import java.io.Closeable;
@@ -68,7 +70,7 @@ public interface ThriftMetastoreClient
     void dropTable(String databaseName, String name, boolean deleteData)
             throws TException;
 
-    void alterTable(String databaseName, String tableName, Table newTable)
+    void alterTableWithEnvironmentContext(String databaseName, String tableName, Table newTable, EnvironmentContext context)
             throws TException;
 
     Table getTable(String databaseName, String tableName)
@@ -146,6 +148,9 @@ public interface ThriftMetastoreClient
     void revokeRole(String role, String granteeName, PrincipalType granteeType, boolean grantOption)
             throws TException;
 
+    List<RolePrincipalGrant> listGrantedPrincipals(String role)
+            throws TException;
+
     List<RolePrincipalGrant> listRoleGrants(String name, PrincipalType principalType)
             throws TException;
 
@@ -157,6 +162,12 @@ public interface ThriftMetastoreClient
 
     void commitTransaction(long transactionId)
             throws TException;
+
+    default void abortTransaction(long transactionId)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
 
     void sendTransactionHeartbeat(long transactionId)
             throws TException;
@@ -175,4 +186,10 @@ public interface ThriftMetastoreClient
 
     String getDelegationToken(String userName)
             throws TException;
+
+    default List<TxnToWriteId> allocateTableWriteIds(String database, String tableName, List<Long> transactionIds)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
 }

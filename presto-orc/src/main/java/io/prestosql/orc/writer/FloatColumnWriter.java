@@ -25,6 +25,7 @@ import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.RowGroupIndex;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.Stream.StreamKind;
+import io.prestosql.orc.metadata.statistics.BloomFilter;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import io.prestosql.orc.metadata.statistics.DoubleStatisticsBuilder;
 import io.prestosql.orc.stream.FloatOutputStream;
@@ -38,10 +39,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static java.lang.Float.intBitsToFloat;
@@ -61,17 +65,20 @@ public class FloatColumnWriter
 
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
 
-    private DoubleStatisticsBuilder statisticsBuilder = new DoubleStatisticsBuilder();
+    private final Supplier<DoubleStatisticsBuilder> statisticsBuilderSupplier;
+    private DoubleStatisticsBuilder statisticsBuilder;
 
     private boolean closed;
 
-    public FloatColumnWriter(OrcColumnId columnId, Type type, CompressionKind compression, int bufferSize)
+    public FloatColumnWriter(OrcColumnId columnId, Type type, CompressionKind compression, int bufferSize, Supplier<DoubleStatisticsBuilder> statisticsBuilderSupplier)
     {
         this.columnId = requireNonNull(columnId, "columnId is null");
         this.type = requireNonNull(type, "type is null");
         this.compressed = requireNonNull(compression, "compression is null") != NONE;
         this.dataStream = new FloatOutputStream(compression, bufferSize);
         this.presentStream = new PresentOutputStream(compression, bufferSize);
+        this.statisticsBuilderSupplier = requireNonNull(statisticsBuilderSupplier, "statisticsBuilderSupplier is null");
+        this.statisticsBuilder = statisticsBuilderSupplier.get();
     }
 
     @Override
@@ -115,7 +122,7 @@ public class FloatColumnWriter
         checkState(!closed);
         ColumnStatistics statistics = statisticsBuilder.buildColumnStatistics();
         rowGroupColumnStatistics.add(statistics);
-        statisticsBuilder = new DoubleStatisticsBuilder();
+        statisticsBuilder = statisticsBuilderSupplier.get();
         return ImmutableMap.of(columnId, statistics);
     }
 
@@ -170,6 +177,24 @@ public class FloatColumnWriter
     }
 
     @Override
+    public List<StreamDataOutput> getBloomFilters(CompressedMetadataWriter metadataWriter)
+            throws IOException
+    {
+        List<BloomFilter> bloomFilters = rowGroupColumnStatistics.stream()
+                .map(ColumnStatistics::getBloomFilter)
+                .filter(Objects::nonNull)
+                .collect(toImmutableList());
+
+        if (!bloomFilters.isEmpty()) {
+            Slice slice = metadataWriter.writeBloomFilters(bloomFilters);
+            Stream stream = new Stream(columnId, StreamKind.BLOOM_FILTER_UTF8, slice.length(), false);
+            return ImmutableList.of(new StreamDataOutput(slice, stream));
+        }
+
+        return ImmutableList.of();
+    }
+
+    @Override
     public List<StreamDataOutput> getDataStreams()
     {
         checkState(closed);
@@ -203,6 +228,6 @@ public class FloatColumnWriter
         dataStream.reset();
         presentStream.reset();
         rowGroupColumnStatistics.clear();
-        statisticsBuilder = new DoubleStatisticsBuilder();
+        statisticsBuilder = statisticsBuilderSupplier.get();
     }
 }

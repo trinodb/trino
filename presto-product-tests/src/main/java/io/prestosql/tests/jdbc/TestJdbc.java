@@ -14,7 +14,6 @@
 package io.prestosql.tests.jdbc;
 
 import io.prestosql.jdbc.PrestoConnection;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.Requirement;
 import io.prestosql.tempto.RequirementsProvider;
@@ -30,7 +29,6 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import static com.google.common.base.Strings.repeat;
 import static io.prestosql.tempto.Requirements.compose;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
@@ -173,8 +171,8 @@ public class TestJdbc
     public void testSessionProperties()
             throws SQLException
     {
-        final String joinDistributionType = "join_distribution_type";
-        final String defaultValue = new FeaturesConfig().getJoinDistributionType().name();
+        String joinDistributionType = "join_distribution_type";
+        String defaultValue = "AUTOMATIC";
 
         assertThat(getSessionProperty(connection(), joinDistributionType)).isEqualTo(defaultValue);
         setSessionProperty(connection(), joinDistributionType, "BROADCAST");
@@ -193,7 +191,7 @@ public class TestJdbc
         try (Connection connection = connection()) {
             for (int i = 0; i < 200; i++) {
                 try {
-                    try (PreparedStatement preparedStatement = connection.prepareStatement("SELECT '" + repeat("a", 300) + "'")) {
+                    try (PreparedStatement preparedStatement = connection.prepareStatement("SELECT '" + "a".repeat(300) + "'")) {
                         preparedStatement.executeQuery().close(); // Let's not assume when PREPARE actually happens
                     }
                 }

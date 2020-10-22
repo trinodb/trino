@@ -14,21 +14,20 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
+import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 
 import java.lang.invoke.MethodHandle;
 import java.util.function.LongUnaryOperator;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
@@ -45,7 +44,6 @@ public final class GenericLongFunction
         super(new FunctionMetadata(
                 new Signature(
                         "generic_long_" + requireNonNull(suffix, "suffix is null"),
-                        FunctionKind.SCALAR,
                         BIGINT.getTypeSignature(),
                         BIGINT.getTypeSignature()),
                 false,
@@ -58,10 +56,10 @@ public final class GenericLongFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(longUnaryOperator);
-        return new ScalarFunctionImplementation(false, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), methodHandle);
+        return new ChoicesScalarFunctionImplementation(functionBinding, FAIL_ON_NULL, ImmutableList.of(NEVER_NULL), methodHandle);
     }
 
     public static long apply(LongUnaryOperator longUnaryOperator, long value)

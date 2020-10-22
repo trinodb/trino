@@ -49,15 +49,13 @@ public class PlainTextKafkaConsumerFactory
     public Properties configure()
     {
         Properties properties = new Properties();
-        properties.put(
-                BOOTSTRAP_SERVERS_CONFIG,
-                nodes.stream()
-                        .map(HostAddress::toString)
-                        .collect(joining(",")));
-        properties.put(KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
-        properties.put(VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
-        properties.put(RECEIVE_BUFFER_CONFIG, Long.toString(kafkaBufferSize.toBytes()));
-        properties.put(ENABLE_AUTO_COMMIT_CONFIG, Boolean.toString(false));
+        properties.setProperty(BOOTSTRAP_SERVERS_CONFIG, nodes.stream()
+                .map(HostAddress::toString)
+                .collect(joining(",")));
+        properties.setProperty(KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        properties.setProperty(VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        properties.setProperty(RECEIVE_BUFFER_CONFIG, Long.toString(kafkaBufferSize.toBytes()));
+        properties.setProperty(ENABLE_AUTO_COMMIT_CONFIG, Boolean.toString(false));
         return properties;
     }
 }

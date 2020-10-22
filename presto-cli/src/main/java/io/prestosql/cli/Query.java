@@ -26,9 +26,9 @@ import io.prestosql.client.QueryStatusInfo;
 import io.prestosql.client.StatementClient;
 import io.prestosql.client.Warning;
 import org.jline.terminal.Terminal;
+import org.jline.terminal.Terminal.Signal;
+import org.jline.terminal.Terminal.SignalHandler;
 import org.jline.utils.AttributedStringBuilder;
-import sun.misc.Signal;
-import sun.misc.SignalHandler;
 
 import java.io.BufferedWriter;
 import java.io.Closeable;
@@ -63,8 +63,6 @@ import static org.jline.utils.AttributedStyle.RED;
 public class Query
         implements Closeable
 {
-    private static final Signal SIGINT = new Signal("INT");
-
     private static final Logger log = Logger.get(Query.class);
 
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
@@ -130,7 +128,7 @@ public class Query
     public boolean renderOutput(Terminal terminal, PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, boolean usePager, boolean showProgress)
     {
         Thread clientThread = Thread.currentThread();
-        SignalHandler oldHandler = Signal.handle(SIGINT, signal -> {
+        SignalHandler oldHandler = terminal.handle(Signal.INT, signal -> {
             if (ignoreUserInterrupt.get() || client.isClientAborted()) {
                 return;
             }
@@ -141,7 +139,7 @@ public class Query
             return renderQueryOutput(terminal, out, errorChannel, outputFormat, usePager, showProgress);
         }
         finally {
-            Signal.handle(SIGINT, oldHandler);
+            terminal.handle(Signal.INT, oldHandler);
             Thread.interrupted(); // clear interrupt status
         }
     }

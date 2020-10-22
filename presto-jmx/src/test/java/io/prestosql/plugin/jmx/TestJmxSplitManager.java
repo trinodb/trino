@@ -27,12 +27,12 @@ import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.TimestampType;
 import io.prestosql.testing.TestingNodeManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -50,6 +50,7 @@ import static io.prestosql.plugin.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
 import static io.prestosql.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
@@ -104,7 +105,7 @@ public class TestJmxSplitManager
             TupleDomain<ColumnHandle> nodeTupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(columnHandle, NullableValue.of(createUnboundedVarcharType(), utf8Slice(nodeIdentifier))));
             JmxTableHandle tableHandle = new JmxTableHandle(new SchemaTableName("schema", "tableName"), ImmutableList.of("objectName"), ImmutableList.of(columnHandle), true, nodeTupleDomain);
 
-            ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandle, UNGROUPED_SCHEDULING);
+            ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandle, UNGROUPED_SCHEDULING, DynamicFilter.EMPTY);
             List<ConnectorSplit> allSplits = getAllSplits(splitSource);
 
             assertEquals(allSplits.size(), 1);
@@ -118,7 +119,7 @@ public class TestJmxSplitManager
             throws Exception
     {
         JmxTableHandle tableHandle = new JmxTableHandle(new SchemaTableName("schema", "tableName"), ImmutableList.of("objectName"), ImmutableList.of(columnHandle), true, TupleDomain.all());
-        ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandle, UNGROUPED_SCHEDULING);
+        ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandle, UNGROUPED_SCHEDULING, DynamicFilter.EMPTY);
         List<ConnectorSplit> allSplits = getAllSplits(splitSource);
         assertEquals(allSplits.size(), nodes.size());
 
@@ -181,7 +182,7 @@ public class TestJmxSplitManager
                 if (cursor.isNull(0)) {
                     return result.build();
                 }
-                assertTrue(recordSet.getColumnTypes().get(0) instanceof TimestampType);
+                assertEquals(recordSet.getColumnTypes().get(0), createTimestampWithTimeZoneType(3));
                 result.add(cursor.getLong(0));
             }
         }
@@ -194,7 +195,7 @@ public class TestJmxSplitManager
         JmxTableHandle tableHandle = metadata.getTableHandle(SESSION, schemaTableName);
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
 
-        ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandle, UNGROUPED_SCHEDULING);
+        ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandle, UNGROUPED_SCHEDULING, DynamicFilter.EMPTY);
         List<ConnectorSplit> allSplits = getAllSplits(splitSource);
         assertEquals(allSplits.size(), nodes.size());
         ConnectorSplit split = allSplits.get(0);

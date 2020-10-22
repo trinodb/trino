@@ -27,8 +27,10 @@ import io.prestosql.operator.WorkProcessor.TransformationState;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.DynamicFilter;
+import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.connector.UpdatablePageSource;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.split.EmptySplit;
 import io.prestosql.split.PageSourceProvider;
 
 import javax.annotation.Nullable;
@@ -40,7 +42,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
 import static java.util.Objects.requireNonNull;
@@ -59,7 +60,7 @@ public class TableScanWorkProcessorOperator
             PageSourceProvider pageSourceProvider,
             TableHandle table,
             Iterable<ColumnHandle> columns,
-            Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
+            DynamicFilter dynamicFilter)
     {
         this.splitToPages = new SplitToPages(
                 session,
@@ -121,7 +122,6 @@ public class TableScanWorkProcessorOperator
 
     @Override
     public void close()
-            throws Exception
     {
         splitToPages.close();
     }
@@ -133,7 +133,7 @@ public class TableScanWorkProcessorOperator
         final PageSourceProvider pageSourceProvider;
         final TableHandle table;
         final List<ColumnHandle> columns;
-        final Supplier<TupleDomain<ColumnHandle>> dynamicFilter;
+        final DynamicFilter dynamicFilter;
         final AggregatedMemoryContext aggregatedMemoryContext;
 
         long processedBytes;
@@ -148,7 +148,7 @@ public class TableScanWorkProcessorOperator
                 PageSourceProvider pageSourceProvider,
                 TableHandle table,
                 Iterable<ColumnHandle> columns,
-                Supplier<TupleDomain<ColumnHandle>> dynamicFilter,
+                DynamicFilter dynamicFilter,
                 AggregatedMemoryContext aggregatedMemoryContext)
         {
             this.session = requireNonNull(session, "session is null");
@@ -166,11 +166,17 @@ public class TableScanWorkProcessorOperator
                 return TransformationState.finished();
             }
 
-            checkState(source == null, "Table scan split already set");
-            if (!dynamicFilter.get().isAll()) {
+            if (!dynamicFilter.getCurrentPredicate().isAll()) {
                 dynamicFilterSplitsProcessed++;
             }
-            source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);
+
+            if (split.getConnectorSplit() instanceof EmptySplit) {
+                source = new EmptyPageSource();
+            }
+            else {
+                source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);
+            }
+
             return TransformationState.ofResult(
                     WorkProcessor.create(new ConnectorPageSourceToPages(aggregatedMemoryContext, source))
                             .map(page -> {

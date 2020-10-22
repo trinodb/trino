@@ -23,9 +23,11 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
+import io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -35,6 +37,8 @@ import java.util.Optional;
 import java.util.TimeZone;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
+import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -45,12 +49,12 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "hive.bucket-writing",
         "hive.optimized-reader.enabled",
         "hive.rcfile-optimized-writer.enabled",
+        "hive.time-zone",
+        "hive.assume-canonical-partition-keys",
 })
 public class HiveConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
-
-    private String timeZone = TimeZone.getDefault().getID();
 
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
     private int maxPartitionsPerScan = 100_000;
@@ -80,17 +84,20 @@ public class HiveConfig
     private HiveCompressionCodec hiveCompressionCodec = HiveCompressionCodec.GZIP;
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
-    private boolean createEmptyBucketFiles = true;
+    private Optional<InsertExistingPartitionsBehavior> insertExistingPartitionsBehavior = Optional.empty();
+    private boolean createEmptyBucketFiles;
     private int maxPartitionsPerWriter = 100;
     private int maxOpenSortFiles = 50;
     private int writeValidationThreads = 16;
 
     private DataSize textMaxLineLength = DataSize.of(100, MEGABYTE);
 
+    private String orcLegacyTimeZone = TimeZone.getDefault().getID();
+
+    private String parquetTimeZone = TimeZone.getDefault().getID();
     private boolean useParquetColumnNames;
 
-    private boolean assumeCanonicalPartitionKeys;
-
+    private String rcfileTimeZone = TimeZone.getDefault().getID();
     private boolean rcfileWriterValidate;
 
     private boolean skipDeletionForAlter;
@@ -108,9 +115,6 @@ public class HiveConfig
     private boolean ignoreCorruptedStatistics;
     private boolean collectColumnStatisticsOnWrite = true;
 
-    private String recordingPath;
-    private boolean replay;
-    private Duration recordingDuration = new Duration(10, MINUTES);
     private boolean s3SelectPushdownEnabled;
     private int s3SelectPushdownMaxConnections = 500;
 
@@ -128,6 +132,12 @@ public class HiveConfig
     private boolean allowRegisterPartition;
     private boolean queryPartitionFilterRequired;
     private boolean partitionUseColumnNames;
+
+    private boolean projectionPushdownEnabled = true;
+
+    private Duration dynamicFilteringProbeBlockingTimeout = new Duration(0, MINUTES);
+
+    private HiveTimestampPrecision timestampPrecision = HiveTimestampPrecision.MILLISECONDS;
 
     public int getMaxInitialSplits()
     {
@@ -271,24 +281,6 @@ public class HiveConfig
     public HiveConfig setIgnoreAbsentPartitions(boolean ignoreAbsentPartitions)
     {
         this.ignoreAbsentPartitions = ignoreAbsentPartitions;
-        return this;
-    }
-
-    public DateTimeZone getDateTimeZone()
-    {
-        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZone));
-    }
-
-    @NotNull
-    public String getTimeZone()
-    {
-        return timeZone;
-    }
-
-    @Config("hive.time-zone")
-    public HiveConfig setTimeZone(String id)
-    {
-        this.timeZone = (id != null) ? id : TimeZone.getDefault().getID();
         return this;
     }
 
@@ -464,6 +456,27 @@ public class HiveConfig
         return this;
     }
 
+    public InsertExistingPartitionsBehavior getInsertExistingPartitionsBehavior()
+    {
+        return insertExistingPartitionsBehavior.orElse(immutablePartitions ? ERROR : APPEND);
+    }
+
+    @Config("hive.insert-existing-partitions-behavior")
+    @ConfigDescription("Default value for insert existing partitions behavior")
+    public HiveConfig setInsertExistingPartitionsBehavior(InsertExistingPartitionsBehavior insertExistingPartitionsBehavior)
+    {
+        this.insertExistingPartitionsBehavior = Optional.ofNullable(insertExistingPartitionsBehavior);
+        return this;
+    }
+
+    @AssertTrue(message = "insert-existing-partitions-behavior cannot be APPEND when immutable-partitions is true")
+    public boolean isInsertExistingPartitionsBehaviorValid()
+    {
+        return insertExistingPartitionsBehavior
+                .map(v -> InsertExistingPartitionsBehavior.isValid(v, immutablePartitions))
+                .orElse(true);
+    }
+
     public boolean isCreateEmptyBucketFiles()
     {
         return createEmptyBucketFiles;
@@ -519,6 +532,25 @@ public class HiveConfig
         return this;
     }
 
+    public DateTimeZone getRcfileDateTimeZone()
+    {
+        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(rcfileTimeZone));
+    }
+
+    @NotNull
+    public String getRcfileTimeZone()
+    {
+        return rcfileTimeZone;
+    }
+
+    @Config("hive.rcfile.time-zone")
+    @ConfigDescription("Time zone for RCFile binary read and write")
+    public HiveConfig setRcfileTimeZone(String rcfileTimeZone)
+    {
+        this.rcfileTimeZone = rcfileTimeZone;
+        return this;
+    }
+
     public boolean isRcfileWriterValidate()
     {
         return rcfileWriterValidate;
@@ -529,18 +561,6 @@ public class HiveConfig
     public HiveConfig setRcfileWriterValidate(boolean rcfileWriterValidate)
     {
         this.rcfileWriterValidate = rcfileWriterValidate;
-        return this;
-    }
-
-    public boolean isAssumeCanonicalPartitionKeys()
-    {
-        return assumeCanonicalPartitionKeys;
-    }
-
-    @Config("hive.assume-canonical-partition-keys")
-    public HiveConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
-    {
-        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         return this;
     }
 
@@ -557,6 +577,44 @@ public class HiveConfig
     public HiveConfig setTextMaxLineLength(DataSize textMaxLineLength)
     {
         this.textMaxLineLength = textMaxLineLength;
+        return this;
+    }
+
+    public DateTimeZone getOrcLegacyDateTimeZone()
+    {
+        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(orcLegacyTimeZone));
+    }
+
+    @NotNull
+    public String getOrcLegacyTimeZone()
+    {
+        return orcLegacyTimeZone;
+    }
+
+    @Config("hive.orc.time-zone")
+    @ConfigDescription("Time zone for legacy ORC files that do not contain a time zone")
+    public HiveConfig setOrcLegacyTimeZone(String orcLegacyTimeZone)
+    {
+        this.orcLegacyTimeZone = orcLegacyTimeZone;
+        return this;
+    }
+
+    public DateTimeZone getParquetDateTimeZone()
+    {
+        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(parquetTimeZone));
+    }
+
+    @NotNull
+    public String getParquetTimeZone()
+    {
+        return parquetTimeZone;
+    }
+
+    @Config("hive.parquet.time-zone")
+    @ConfigDescription("Time zone for Parquet read and write")
+    public HiveConfig setParquetTimeZone(String parquetTimeZone)
+    {
+        this.parquetTimeZone = parquetTimeZone;
         return this;
     }
 
@@ -766,43 +824,6 @@ public class HiveConfig
         return this;
     }
 
-    @Config("hive.metastore-recording-path")
-    public HiveConfig setRecordingPath(String recordingPath)
-    {
-        this.recordingPath = recordingPath;
-        return this;
-    }
-
-    public String getRecordingPath()
-    {
-        return recordingPath;
-    }
-
-    @Config("hive.replay-metastore-recording")
-    public HiveConfig setReplay(boolean replay)
-    {
-        this.replay = replay;
-        return this;
-    }
-
-    public boolean isReplay()
-    {
-        return replay;
-    }
-
-    @Config("hive.metastore-recording-duration")
-    public HiveConfig setRecordingDuration(Duration recordingDuration)
-    {
-        this.recordingDuration = recordingDuration;
-        return this;
-    }
-
-    @NotNull
-    public Duration getRecordingDuration()
-    {
-        return recordingDuration;
-    }
-
     public boolean isS3SelectPushdownEnabled()
     {
         return s3SelectPushdownEnabled;
@@ -883,18 +904,21 @@ public class HiveConfig
         return this;
     }
 
-    @Deprecated
     public boolean isAllowRegisterPartition()
     {
         return allowRegisterPartition;
     }
 
-    @Deprecated
     @Config("hive.allow-register-partition-procedure")
     public HiveConfig setAllowRegisterPartition(boolean allowRegisterPartition)
     {
         this.allowRegisterPartition = allowRegisterPartition;
         return this;
+    }
+
+    public boolean isQueryPartitionFilterRequired()
+    {
+        return queryPartitionFilterRequired;
     }
 
     @Config("hive.query-partition-filter-required")
@@ -903,11 +927,6 @@ public class HiveConfig
     {
         this.queryPartitionFilterRequired = queryPartitionFilterRequired;
         return this;
-    }
-
-    public boolean isQueryPartitionFilterRequired()
-    {
-        return queryPartitionFilterRequired;
     }
 
     public boolean getPartitionUseColumnNames()
@@ -920,6 +939,46 @@ public class HiveConfig
     public HiveConfig setPartitionUseColumnNames(boolean partitionUseColumnNames)
     {
         this.partitionUseColumnNames = partitionUseColumnNames;
+        return this;
+    }
+
+    public boolean isProjectionPushdownEnabled()
+    {
+        return projectionPushdownEnabled;
+    }
+
+    @Config("hive.projection-pushdown-enabled")
+    @ConfigDescription("Projection pushdown into hive is enabled through applyProjection")
+    public HiveConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
+    {
+        this.projectionPushdownEnabled = projectionPushdownEnabled;
+        return this;
+    }
+
+    @NotNull
+    public Duration getDynamicFilteringProbeBlockingTimeout()
+    {
+        return dynamicFilteringProbeBlockingTimeout;
+    }
+
+    @Config("hive.dynamic-filtering-probe-blocking-timeout")
+    @ConfigDescription("Duration to wait for completion of dynamic filters during split generation for probe side table")
+    public HiveConfig setDynamicFilteringProbeBlockingTimeout(Duration dynamicFilteringProbeBlockingTimeout)
+    {
+        this.dynamicFilteringProbeBlockingTimeout = dynamicFilteringProbeBlockingTimeout;
+        return this;
+    }
+
+    public HiveTimestampPrecision getTimestampPrecision()
+    {
+        return timestampPrecision;
+    }
+
+    @Config("hive.timestamp-precision")
+    @ConfigDescription("Precision used to represent timestamps")
+    public HiveConfig setTimestampPrecision(HiveTimestampPrecision timestampPrecision)
+    {
+        this.timestampPrecision = timestampPrecision;
         return this;
     }
 }

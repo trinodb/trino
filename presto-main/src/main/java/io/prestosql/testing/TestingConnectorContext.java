@@ -20,14 +20,15 @@ import io.prestosql.connector.ConnectorAwareNodeManager;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.PagesIndex;
-import io.prestosql.server.ServerConfig;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.VersionEmbedder;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.type.BlockTypeOperators;
 import io.prestosql.type.InternalTypeManager;
 import io.prestosql.version.EmbedVersion;
 
@@ -37,7 +38,7 @@ public final class TestingConnectorContext
         implements ConnectorContext
 {
     private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new CatalogName("test"));
-    private final VersionEmbedder versionEmbedder = new EmbedVersion(new ServerConfig());
+    private final VersionEmbedder versionEmbedder = new EmbedVersion("testversion");
     private final TypeManager typeManager;
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private final PageIndexerFactory pageIndexerFactory;
@@ -45,8 +46,9 @@ public final class TestingConnectorContext
     public TestingConnectorContext()
     {
         Metadata metadata = createTestMetadataManager();
-        pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(metadata));
-        typeManager = new InternalTypeManager(metadata);
+        TypeOperators typeOperators = new TypeOperators();
+        pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), new BlockTypeOperators(typeOperators));
+        typeManager = new InternalTypeManager(metadata, typeOperators);
     }
 
     @Override

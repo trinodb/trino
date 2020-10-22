@@ -39,6 +39,7 @@ import java.time.ZoneId;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.orc.OrcReader.ProjectedLayout.fullyProjectedLayout;
 import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.prestosql.orc.reader.ColumnReaders.createColumnReader;
@@ -85,8 +86,8 @@ public class MapColumnReader
 
         this.column = requireNonNull(column, "column is null");
         this.blockFactory = requireNonNull(blockFactory, "blockFactory is null");
-        this.keyColumnReader = createColumnReader(this.type.getKeyType(), column.getNestedColumns().get(0), systemMemoryContext, blockFactory);
-        this.valueColumnReader = createColumnReader(this.type.getValueType(), column.getNestedColumns().get(1), systemMemoryContext, blockFactory);
+        this.keyColumnReader = createColumnReader(this.type.getKeyType(), column.getNestedColumns().get(0), fullyProjectedLayout(), systemMemoryContext, blockFactory);
+        this.valueColumnReader = createColumnReader(this.type.getValueType(), column.getNestedColumns().get(1), fullyProjectedLayout(), systemMemoryContext, blockFactory);
     }
 
     @Override
@@ -224,7 +225,7 @@ public class MapColumnReader
     }
 
     @Override
-    public void startStripe(ZoneId fileTimeZone, ZoneId storageTimeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
+    public void startStripe(ZoneId fileTimeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -238,8 +239,8 @@ public class MapColumnReader
 
         rowGroupOpen = false;
 
-        keyColumnReader.startStripe(fileTimeZone, storageTimeZone, dictionaryStreamSources, encoding);
-        valueColumnReader.startStripe(fileTimeZone, storageTimeZone, dictionaryStreamSources, encoding);
+        keyColumnReader.startStripe(fileTimeZone, dictionaryStreamSources, encoding);
+        valueColumnReader.startStripe(fileTimeZone, dictionaryStreamSources, encoding);
     }
 
     @Override

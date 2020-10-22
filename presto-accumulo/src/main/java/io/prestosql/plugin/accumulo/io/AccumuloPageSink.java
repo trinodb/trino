@@ -57,7 +57,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.util.Objects.requireNonNull;
@@ -97,7 +97,7 @@ public class AccumuloPageSink
                 .map(AccumuloColumnHandle::getOrdinal)
                 .findAny();
 
-        if (!ordinal.isPresent()) {
+        if (ordinal.isEmpty()) {
             throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Row ID ordinal not found");
         }
 
@@ -211,7 +211,7 @@ public class AccumuloPageSink
             else if (type.equals(TINYINT)) {
                 serializer.setByte(value, field.getByte());
             }
-            else if (type.equals(TIMESTAMP)) {
+            else if (type.equals(TIMESTAMP_MILLIS)) {
                 serializer.setTimestamp(value, field.getTimestamp());
             }
             else if (type.equals(VARBINARY)) {

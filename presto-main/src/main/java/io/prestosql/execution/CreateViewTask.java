@@ -97,7 +97,7 @@ public class CreateViewTask
                 columns,
                 statement.getComment(),
                 owner,
-                !owner.isPresent());
+                owner.isEmpty());
 
         metadata.createView(session, name, definition, statement.isReplace());
 

@@ -37,6 +37,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Step;
+import io.prestosql.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.ints.AbstractIntIterator;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntIterators;
@@ -73,6 +74,7 @@ public class InMemoryHashAggregationBuilder
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
             JoinCompiler joinCompiler,
+            BlockTypeOperators blockTypeOperators,
             UpdateMemory updateMemory)
     {
         this(accumulatorFactories,
@@ -85,6 +87,7 @@ public class InMemoryHashAggregationBuilder
                 maxPartialMemory,
                 Optional.empty(),
                 joinCompiler,
+                blockTypeOperators,
                 updateMemory);
     }
 
@@ -99,6 +102,7 @@ public class InMemoryHashAggregationBuilder
             Optional<DataSize> maxPartialMemory,
             Optional<Integer> overwriteIntermediateChannelOffset,
             JoinCompiler joinCompiler,
+            BlockTypeOperators blockTypeOperators,
             UpdateMemory updateMemory)
     {
         this.groupByHash = createGroupByHash(
@@ -108,6 +112,7 @@ public class InMemoryHashAggregationBuilder
                 expectedGroups,
                 isDictionaryAggregationEnabled(operatorContext.getSession()),
                 joinCompiler,
+                blockTypeOperators,
                 updateMemory);
         this.partial = step.isOutputPartial();
         this.maxPartialMemory = maxPartialMemory.map(dataSize -> OptionalLong.of(dataSize.toBytes())).orElseGet(OptionalLong::empty);
@@ -202,7 +207,7 @@ public class InMemoryHashAggregationBuilder
 
     private void updateIsFull(long sizeInMemory)
     {
-        if (!partial || !maxPartialMemory.isPresent()) {
+        if (!partial || maxPartialMemory.isEmpty()) {
             return;
         }
 
@@ -266,7 +271,7 @@ public class InMemoryHashAggregationBuilder
 
     private WorkProcessor<Page> buildResult(IntIterator groupIds)
     {
-        final PageBuilder pageBuilder = new PageBuilder(buildTypes());
+        PageBuilder pageBuilder = new PageBuilder(buildTypes());
         return WorkProcessor.create(() -> {
             if (!groupIds.hasNext()) {
                 return ProcessState.finished();

@@ -13,14 +13,13 @@
  */
 package io.prestosql.parquet.reader;
 
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.prestosql.parquet.ParquetDataSource;
 import org.apache.parquet.CorruptStatistics;
 import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.format.ColumnChunk;
 import org.apache.parquet.format.ColumnMetaData;
-import org.apache.parquet.format.ConvertedType;
 import org.apache.parquet.format.Encoding;
 import org.apache.parquet.format.FileMetaData;
 import org.apache.parquet.format.KeyValue;
@@ -34,15 +33,13 @@ import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Type.Repetition;
 import org.apache.parquet.schema.Types;
 
-import java.io.ByteArrayInputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -58,28 +55,24 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.parquet.ParquetValidationUtils.validateParquet;
-import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.lang.Boolean.FALSE;
+import static java.lang.Boolean.TRUE;
+import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static org.apache.parquet.format.Util.readFileMetaData;
+import static org.apache.parquet.format.converter.ParquetMetadataConverterUtil.getLogicalTypeAnnotation;
 
 public final class MetadataReader
 {
-    private static final int PARQUET_METADATA_LENGTH = 4;
-    private static final byte[] MAGIC = "PAR1".getBytes(US_ASCII);
+    private static final Slice MAGIC = Slices.utf8Slice("PAR1");
+    private static final int POST_SCRIPT_SIZE = Integer.BYTES + MAGIC.length();
+    private static final int EXPECTED_FOOTER_SIZE = 16 * 1024;
     private static final ParquetMetadataConverter PARQUET_METADATA_CONVERTER = new ParquetMetadataConverter();
 
     private MetadataReader() {}
 
-    public static ParquetMetadata readFooter(FileSystem fileSystem, Path file, long fileSize)
+    public static ParquetMetadata readFooter(ParquetDataSource dataSource)
             throws IOException
-    {
-        try (FSDataInputStream inputStream = fileSystem.open(file)) {
-            return readFooter(inputStream, file, fileSize);
-        }
-    }
-
-    public static ParquetMetadata readFooter(FSDataInputStream inputStream, Path file, long fileSize)
-            throws IOException
-
     {
         // Parquet File Layout:
         //
@@ -89,26 +82,34 @@ public final class MetadataReader
         // 4 bytes: MetadataLength
         // MAGIC
 
-        validateParquet(fileSize >= MAGIC.length + PARQUET_METADATA_LENGTH + MAGIC.length, "%s is not a valid Parquet File", file);
-        long metadataLengthIndex = fileSize - PARQUET_METADATA_LENGTH - MAGIC.length;
+        validateParquet(dataSource.getEstimatedSize() >= MAGIC.length() + POST_SCRIPT_SIZE, "%s is not a valid Parquet File", dataSource.getId());
 
-        InputStream footerStream = readFully(inputStream, metadataLengthIndex, PARQUET_METADATA_LENGTH + MAGIC.length);
-        int metadataLength = readIntLittleEndian(footerStream);
+        // Read the tail of the file
+        long estimatedFileSize = dataSource.getEstimatedSize();
+        long expectedReadSize = min(estimatedFileSize, EXPECTED_FOOTER_SIZE);
+        Slice buffer = dataSource.readTail(toIntExact(expectedReadSize));
 
-        byte[] magic = new byte[MAGIC.length];
-        footerStream.read(magic);
-        validateParquet(Arrays.equals(MAGIC, magic), "Not valid Parquet file: %s expected magic number: %s got: %s", file, Arrays.toString(MAGIC), Arrays.toString(magic));
+        Slice magic = buffer.slice(buffer.length() - MAGIC.length(), MAGIC.length());
+        validateParquet(MAGIC.equals(magic), "Not valid Parquet file: %s expected magic number: %s got: %s", dataSource.getId(), MAGIC.toStringUtf8(), magic.toStringUtf8());
 
-        long metadataIndex = metadataLengthIndex - metadataLength;
+        int metadataLength = buffer.getInt(buffer.length() - POST_SCRIPT_SIZE);
+        long metadataIndex = estimatedFileSize - POST_SCRIPT_SIZE - metadataLength;
         validateParquet(
-                metadataIndex >= MAGIC.length && metadataIndex < metadataLengthIndex,
+                metadataIndex >= MAGIC.length() && metadataIndex < estimatedFileSize - POST_SCRIPT_SIZE,
                 "Corrupted Parquet file: %s metadata index: %s out of range",
-                file,
+                dataSource.getId(),
                 metadataIndex);
-        InputStream metadataStream = readFully(inputStream, metadataIndex, metadataLength);
+
+        int completeFooterSize = metadataLength + POST_SCRIPT_SIZE;
+        if (completeFooterSize > buffer.length()) {
+            // initial read was not large enough, so just read again with the correct size
+            buffer = dataSource.readTail(completeFooterSize);
+        }
+        InputStream metadataStream = buffer.slice(buffer.length() - completeFooterSize, metadataLength).getInput();
+
         FileMetaData fileMetaData = readFileMetaData(metadataStream);
         List<SchemaElement> schema = fileMetaData.getSchema();
-        validateParquet(!schema.isEmpty(), "Empty Parquet schema in file: %s", file);
+        validateParquet(!schema.isEmpty(), "Empty Parquet schema in file: %s", dataSource.getId());
 
         MessageType messageType = readParquetSchema(schema);
         List<BlockMetaData> blocks = new ArrayList<>();
@@ -194,7 +195,7 @@ public final class MetadataReader
             }
 
             if (element.isSetConverted_type()) {
-                typeBuilder.as(getOriginalType(element.converted_type));
+                typeBuilder.as(getLogicalTypeAnnotation(new ParquetMetadataConverter(), element.converted_type, element));
             }
             if (element.isSetField_id()) {
                 typeBuilder.id(element.field_id);
@@ -208,7 +209,7 @@ public final class MetadataReader
         Statistics statistics = statisticsFromFile.orElse(null);
         org.apache.parquet.column.statistics.Statistics<?> columnStatistics = new ParquetMetadataConverter().fromParquetStatistics(fileCreatedBy.orElse(null), statistics, type);
 
-        if (type.getOriginalType() == OriginalType.UTF8
+        if (isStringType(type)
                 && statistics != null
                 && !statistics.isSetMin_value() && !statistics.isSetMax_value() // the min,max fields used for UTF8 since Parquet PARQUET-1025
                 && statistics.isSetMin() && statistics.isSetMax()  // the min,max fields used for UTF8 before Parquet PARQUET-1025
@@ -218,6 +219,24 @@ public final class MetadataReader
         }
 
         return columnStatistics;
+    }
+
+    private static boolean isStringType(PrimitiveType type)
+    {
+        if (type.getLogicalTypeAnnotation() == null) {
+            return false;
+        }
+
+        return type.getLogicalTypeAnnotation()
+                .accept(new LogicalTypeAnnotation.LogicalTypeAnnotationVisitor<Boolean>()
+                {
+                    @Override
+                    public Optional<Boolean> visit(LogicalTypeAnnotation.StringLogicalTypeAnnotation stringLogicalType)
+                    {
+                        return Optional.of(TRUE);
+                    }
+                })
+                .orElse(FALSE);
     }
 
     private static void tryReadOldUtf8Stats(Statistics statistics, BinaryStatistics columnStatistics)
@@ -231,18 +250,31 @@ public final class MetadataReader
             max = min;
         }
         else {
-            // For min it's enough to retain leading all-ASCII, because this produces a strictly lower value.
-            int minFirstNonAsciiOffset = firstOutsideRange(min, 0, 128);
-            min = Arrays.copyOf(min, minFirstNonAsciiOffset);
+            int commonPrefix = commonPrefix(min, max);
 
-            // For max we chop away everything at the first non-ASCII, then increment last character.
-            int maxFirstBadCharacter = firstOutsideRange(max, 0, 127); // last ASCII is also bad because we can't increment it
-            if (maxFirstBadCharacter == 0) {
-                // We can't help.
+            // For min we can retain all-ASCII, because this produces a strictly lower value.
+            int minGoodLength = commonPrefix;
+            while (minGoodLength < min.length && isAscii(min[minGoodLength])) {
+                minGoodLength++;
+            }
+
+            // For max we can be sure only of the part matching the min. When they differ, we can consider only one next, and only if both are ASCII
+            int maxGoodLength = commonPrefix;
+            if (maxGoodLength < max.length && maxGoodLength < min.length && isAscii(min[maxGoodLength]) && isAscii(max[maxGoodLength])) {
+                maxGoodLength++;
+            }
+            // Incrementing 127 would overflow. Incrementing within non-ASCII can have side-effects.
+            while (maxGoodLength > 0 && (max[maxGoodLength - 1] == 127 || !isAscii(max[maxGoodLength - 1]))) {
+                maxGoodLength--;
+            }
+            if (maxGoodLength == 0) {
+                // We can return just min bound, but code downstream likely expects both are present or both are absent.
                 return;
             }
-            max[maxFirstBadCharacter - 1]++;
-            max = Arrays.copyOf(max, maxFirstBadCharacter);
+
+            min = Arrays.copyOf(min, minGoodLength);
+            max = Arrays.copyOf(max, maxGoodLength);
+            max[maxGoodLength - 1]++;
         }
 
         columnStatistics.setMinMaxFromBytes(min, max);
@@ -251,13 +283,18 @@ public final class MetadataReader
         }
     }
 
-    private static int firstOutsideRange(byte[] bytes, int rangeStartInclusive, int rangeEndExclusive)
+    private static boolean isAscii(byte b)
     {
-        int offset = 0;
-        while (offset < bytes.length && rangeStartInclusive <= bytes[offset] && bytes[offset] < rangeEndExclusive) {
-            offset++;
+        return 0 <= b;
+    }
+
+    private static int commonPrefix(byte[] a, byte[] b)
+    {
+        int commonPrefixLength = 0;
+        while (commonPrefixLength < a.length && commonPrefixLength < b.length && a[commonPrefixLength] == b[commonPrefixLength]) {
+            commonPrefixLength++;
         }
-        return offset;
+        return commonPrefixLength;
     }
 
     private static Set<org.apache.parquet.column.Encoding> readEncodings(List<Encoding> encodings)
@@ -291,78 +328,5 @@ public final class MetadataReader
             default:
                 throw new IllegalArgumentException("Unknown type " + type);
         }
-    }
-
-    private static OriginalType getOriginalType(ConvertedType type)
-    {
-        switch (type) {
-            case UTF8:
-                return OriginalType.UTF8;
-            case MAP:
-                return OriginalType.MAP;
-            case MAP_KEY_VALUE:
-                return OriginalType.MAP_KEY_VALUE;
-            case LIST:
-                return OriginalType.LIST;
-            case ENUM:
-                return OriginalType.ENUM;
-            case DECIMAL:
-                return OriginalType.DECIMAL;
-            case DATE:
-                return OriginalType.DATE;
-            case TIME_MILLIS:
-                return OriginalType.TIME_MILLIS;
-            case TIMESTAMP_MILLIS:
-                return OriginalType.TIMESTAMP_MILLIS;
-            case INTERVAL:
-                return OriginalType.INTERVAL;
-            case INT_8:
-                return OriginalType.INT_8;
-            case INT_16:
-                return OriginalType.INT_16;
-            case INT_32:
-                return OriginalType.INT_32;
-            case INT_64:
-                return OriginalType.INT_64;
-            case UINT_8:
-                return OriginalType.UINT_8;
-            case UINT_16:
-                return OriginalType.UINT_16;
-            case UINT_32:
-                return OriginalType.UINT_32;
-            case UINT_64:
-                return OriginalType.UINT_64;
-            case JSON:
-                return OriginalType.JSON;
-            case BSON:
-                return OriginalType.BSON;
-            case TIMESTAMP_MICROS:
-                return OriginalType.TIMESTAMP_MICROS;
-            case TIME_MICROS:
-                return OriginalType.TIME_MICROS;
-            default:
-                throw new IllegalArgumentException("Unknown converted type " + type);
-        }
-    }
-
-    private static int readIntLittleEndian(InputStream in)
-            throws IOException
-    {
-        int ch1 = in.read();
-        int ch2 = in.read();
-        int ch3 = in.read();
-        int ch4 = in.read();
-        if ((ch1 | ch2 | ch3 | ch4) < 0) {
-            throw new EOFException();
-        }
-        return ((ch4 << 24) + (ch3 << 16) + (ch2 << 8) + (ch1));
-    }
-
-    private static InputStream readFully(FSDataInputStream from, long position, int length)
-            throws IOException
-    {
-        byte[] buffer = new byte[length];
-        from.readFully(position, buffer);
-        return new ByteArrayInputStream(buffer);
     }
 }

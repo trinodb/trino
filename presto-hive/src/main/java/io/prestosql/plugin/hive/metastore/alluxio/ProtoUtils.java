@@ -152,7 +152,7 @@ public final class ProtoUtils
                 .map(ProtoUtils::fromProto)
                 .collect(toImmutableList());
         return Optional.of(new HiveBucketProperty(property.getBucketedByList(), HiveBucketing.BucketingVersion.BUCKETING_V1,
-            (int) property.getBucketCount(), sortedBy));
+                (int) property.getBucketCount(), sortedBy));
     }
 
     static StorageFormat fromProto(alluxio.grpc.table.layout.hive.StorageFormat format)
@@ -273,7 +273,7 @@ public final class ProtoUtils
                 .setStorageFormat(fromProto(info.getStorage().getStorageFormat()))
                 .setLocation(info.getStorage().getLocation())
                 .setBucketProperty(info.getStorage().hasBucketProperty()
-                    ? fromProto(info.getStorage().getBucketProperty()) : Optional.empty())
+                        ? fromProto(info.getStorage().getBucketProperty()) : Optional.empty())
                 .setSerdeParameters(info.getStorage().getStorageFormat().getSerdelibParametersMap());
 
         return builder.build();

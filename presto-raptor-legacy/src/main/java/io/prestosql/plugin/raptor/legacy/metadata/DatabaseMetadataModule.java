@@ -87,7 +87,7 @@ public class DatabaseMetadataModule
     private static <T> TypeLiteral<DaoSupplier<? extends T>> daoSupplierTypeToken(Class<T> type)
     {
         Type javaType = new TypeToken<DaoSupplier<T>>() {}
-                .where(new TypeParameter<T>() {}, TypeToken.of(type))
+                .where(new TypeParameter<>() {}, TypeToken.of(type))
                 .getType();
         return (TypeLiteral<DaoSupplier<? extends T>>) TypeLiteral.get(javaType);
     }

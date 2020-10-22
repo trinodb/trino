@@ -18,6 +18,7 @@ import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.type.Type;
 
 import java.security.Principal;
@@ -29,6 +30,7 @@ import java.util.Set;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCatalogAccess;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
@@ -54,14 +56,17 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePri
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
+import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 import static java.lang.String.format;
+import static java.util.Collections.emptySet;
 
 public interface SystemAccessControl
 {
@@ -129,11 +134,37 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to read system information such as statistics,
+     * service registry, thread stacks, etc.  This is typically allowed for administrators
+     * and management tools.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanReadSystemInformation(SystemSecurityContext context)
+    {
+        AccessDeniedException.denyReadSystemInformationAccess();
+    }
+
+    /**
+     * Check if identity is allowed to write system information such as marking nodes
+     * offline, or changing runtime flags.  This is typically allowed for administrators.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanWriteSystemInformation(SystemSecurityContext context)
+    {
+        AccessDeniedException.denyReadSystemInformationAccess();
+    }
+
+    /**
      * Check if identity is allowed to set the specified system property.
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName);
+    default void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
+    {
+        denySetSystemSessionProperty(propertyName);
+    }
 
     /**
      * Check if identity is allowed to access the specified catalog
@@ -216,7 +247,17 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to execute SHOW CREATE TABLE or SHOW CREATE VIEW.
+     * Check if identity is allowed to execute SHOW CREATE SCHEMA.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowCreateSchema(SystemSecurityContext context, CatalogSchemaName schemaName)
+    {
+        denyShowCreateSchema(schemaName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to execute SHOW CREATE TABLE, SHOW CREATE VIEW or SHOW CREATE MATERIALIZED VIEW
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
@@ -263,6 +304,16 @@ public interface SystemAccessControl
     default void checkCanSetTableComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         denyCommentTable(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to set comment to column in the specified table in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetColumnComment(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        denyCommentColumn(table.toString());
     }
 
     /**
@@ -482,7 +533,7 @@ public interface SystemAccessControl
 
     /**
      * Get a row filter associated with the given table and identity.
-     *
+     * <p>
      * The filter must be a scalar SQL expression of boolean type over the columns in the table.
      *
      * @return the filter, or {@link Optional#empty()} if not applicable
@@ -494,7 +545,7 @@ public interface SystemAccessControl
 
     /**
      * Get a column mask associated with the given table, column and identity.
-     *
+     * <p>
      * The mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
      * must be written in terms of columns in the table.
      *
@@ -503,5 +554,13 @@ public interface SystemAccessControl
     default Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
         return Optional.empty();
+    }
+
+    /**
+     * @return the event listeners provided by this system access control
+     */
+    default Iterable<EventListener> getEventListeners()
+    {
+        return emptySet();
     }
 }

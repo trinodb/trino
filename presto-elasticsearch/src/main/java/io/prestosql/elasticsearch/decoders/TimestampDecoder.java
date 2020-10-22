@@ -15,18 +15,19 @@ package io.prestosql.elasticsearch.decoders;
 
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.ConnectorSession;
 import org.elasticsearch.common.document.DocumentField;
 import org.elasticsearch.search.SearchHit;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.function.Supplier;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 import static java.util.Objects.requireNonNull;
@@ -36,12 +37,10 @@ public class TimestampDecoder
 {
     private static final ZoneId ZULU = ZoneId.of("Z");
     private final String path;
-    private final ZoneId zoneId;
 
-    public TimestampDecoder(ConnectorSession session, String path)
+    public TimestampDecoder(String path)
     {
         this.path = requireNonNull(path, "path is null");
-        this.zoneId = ZoneId.of(session.getTimeZoneKey().getId());
     }
 
     @Override
@@ -79,11 +78,9 @@ public class TimestampDecoder
                         value.getClass().getSimpleName()));
             }
 
-            long epochMillis = timestamp.atZone(zoneId)
-                    .toInstant()
-                    .toEpochMilli();
+            long epochMicros = timestamp.atOffset(ZoneOffset.UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
 
-            TIMESTAMP.writeLong(output, epochMillis);
+            TIMESTAMP_MILLIS.writeLong(output, epochMicros);
         }
     }
 }

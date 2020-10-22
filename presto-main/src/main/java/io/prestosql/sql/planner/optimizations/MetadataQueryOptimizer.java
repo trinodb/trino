@@ -111,7 +111,7 @@ public class MetadataQueryOptimizer
             }
 
             Optional<TableScanNode> result = findTableScan(node.getSource());
-            if (!result.isPresent()) {
+            if (result.isEmpty()) {
                 return context.defaultRewrite(node);
             }
 
@@ -136,7 +136,7 @@ public class MetadataQueryOptimizer
             // Materialize the list of partitions and replace the TableScan node
             // with a Values node
             TableProperties layout = metadata.getTableProperties(session, tableScan.getTable());
-            if (!layout.getDiscretePredicates().isPresent()) {
+            if (layout.getDiscretePredicates().isEmpty()) {
                 return context.defaultRewrite(node);
             }
             DiscretePredicates predicates = layout.getDiscretePredicates().get();

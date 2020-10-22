@@ -16,10 +16,10 @@ package io.prestosql.operator.index;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Iterator;
@@ -28,7 +28,9 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
 
@@ -41,9 +43,8 @@ public class FieldSetFilteringRecordSet
     private final RecordSet delegate;
     private final List<Set<Field>> fieldSets;
 
-    public FieldSetFilteringRecordSet(Metadata metadata, RecordSet delegate, List<Set<Integer>> fieldSets)
+    public FieldSetFilteringRecordSet(TypeOperators typeOperators, RecordSet delegate, List<Set<Integer>> fieldSets)
     {
-        requireNonNull(metadata, "metadata is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
 
         ImmutableList.Builder<Set<Field>> fieldSetsBuilder = ImmutableList.builder();
@@ -51,9 +52,8 @@ public class FieldSetFilteringRecordSet
         for (Set<Integer> fieldSet : requireNonNull(fieldSets, "fieldSets is null")) {
             ImmutableSet.Builder<Field> fieldSetBuilder = ImmutableSet.builder();
             for (int field : fieldSet) {
-                fieldSetBuilder.add(new Field(
-                        field,
-                        metadata.getScalarFunctionImplementation(metadata.resolveOperator(EQUAL, ImmutableList.of(columnTypes.get(field), columnTypes.get(field)))).getMethodHandle()));
+                MethodHandle methodHandle = typeOperators.getEqualOperator(columnTypes.get(field), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
+                fieldSetBuilder.add(new Field(field, methodHandle));
             }
             fieldSetsBuilder.add(fieldSetBuilder.build());
         }

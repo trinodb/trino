@@ -23,6 +23,7 @@ import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.DECIMAL;
 import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
+import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP_INSTANT;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
@@ -70,9 +71,12 @@ public final class ValueStreams
                 case BINARY:
                     return new ByteArrayInputStream(new OrcInputStream(chunkLoader));
                 case TIMESTAMP:
+                case TIMESTAMP_INSTANT:
                     return createLongStream(new OrcInputStream(chunkLoader), encoding, true);
                 case DECIMAL:
                     return new DecimalInputStream(chunkLoader);
+                case UNION:
+                    return new ByteInputStream(new OrcInputStream(chunkLoader));
             }
         }
 
@@ -90,7 +94,7 @@ public final class ValueStreams
         }
 
         // length (nanos) of a timestamp column
-        if (type == TIMESTAMP && streamId.getStreamKind() == SECONDARY) {
+        if ((type == TIMESTAMP || type == TIMESTAMP_INSTANT) && streamId.getStreamKind() == SECONDARY) {
             return createLongStream(new OrcInputStream(chunkLoader), encoding, false);
         }
 

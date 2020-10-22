@@ -19,9 +19,11 @@ import io.prestosql.spi.PrestoException;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -30,11 +32,9 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static java.lang.Character.isDigit;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class TimeZoneKey
@@ -49,6 +49,47 @@ public final class TimeZoneKey
     private static final short OFFSET_TIME_ZONE_MIN = -14 * 60;
     private static final short OFFSET_TIME_ZONE_MAX = 14 * 60;
     private static final TimeZoneKey[] OFFSET_TIME_ZONE_KEYS = new TimeZoneKey[OFFSET_TIME_ZONE_MAX - OFFSET_TIME_ZONE_MIN + 1];
+
+    private static final Set<String> UTC_EQUIVALENTS = Set.of(
+            "GMT",
+            "GMT0",
+            "GMT+0",
+            "GMT-0",
+            "Etc/GMT",
+            "Etc/GMT0",
+            "Etc/GMT+0",
+            "Etc/GMT-0",
+            "UT",
+            "UT+0",
+            "UT-0",
+            "Etc/UT",
+            "Etc/UT+0",
+            "Etc/UT-0",
+            "UTC",
+            "UTC+0",
+            "UTC-0",
+            "Etc/UTC",
+            "Etc/UTC+0",
+            "Etc/UTC-0",
+            "+0000",
+            "+00:00",
+            "-0000",
+            "-00:00",
+            "Z",
+            "Zulu",
+            "UCT",
+            "Greenwich",
+            "Universal",
+            "Etc/Universal",
+            "Etc/UCT");
+
+    private static final List<String> UTC_OFFSET_PREFIXES = List.of(
+            "Etc/GMT",
+            "Etc/UTC",
+            "Etc/UT",
+            "GMT",
+            "UTC",
+            "UT");
 
     static {
         try (InputStream in = TimeZoneKey.class.getResourceAsStream("zone-index.properties")) {
@@ -73,7 +114,7 @@ public final class TimeZoneKey
             }
 
             Map<String, TimeZoneKey> zoneIdToKey = new TreeMap<>();
-            zoneIdToKey.put(UTC_KEY.getId().toLowerCase(ENGLISH), UTC_KEY);
+            zoneIdToKey.put(UTC_KEY.getId(), UTC_KEY);
 
             short maxZoneKey = 0;
             for (Entry<Object, Object> entry : data.entrySet()) {
@@ -81,7 +122,7 @@ public final class TimeZoneKey
                 String zoneId = ((String) entry.getValue()).trim();
 
                 maxZoneKey = (short) max(maxZoneKey, zoneKey);
-                zoneIdToKey.put(zoneId.toLowerCase(ENGLISH), new TimeZoneKey(zoneId, zoneKey));
+                zoneIdToKey.put(zoneId, new TimeZoneKey(zoneId, zoneKey));
             }
 
             MAX_TIME_ZONE_KEY = maxZoneKey;
@@ -119,12 +160,15 @@ public final class TimeZoneKey
         return TIME_ZONE_KEYS[timeZoneKey];
     }
 
+    /**
+     * @throws TimeZoneNotSupportedException when {@code zoneId} does not identity a time zone
+     */
     public static TimeZoneKey getTimeZoneKey(String zoneId)
     {
         requireNonNull(zoneId, "Zone id is null");
         checkArgument(!zoneId.isEmpty(), "Zone id is an empty string");
 
-        TimeZoneKey zoneKey = ZONE_ID_TO_KEY.get(zoneId.toLowerCase(ENGLISH));
+        TimeZoneKey zoneKey = ZONE_ID_TO_KEY.get(zoneId);
         if (zoneKey == null) {
             zoneKey = ZONE_ID_TO_KEY.get(normalizeZoneId(zoneId));
         }
@@ -168,6 +212,11 @@ public final class TimeZoneKey
         return id;
     }
 
+    public ZoneId getZoneId()
+    {
+        return ZoneId.of(id);
+    }
+
     @JsonValue
     public short getKey()
     {
@@ -201,105 +250,97 @@ public final class TimeZoneKey
 
     public static boolean isUtcZoneId(String zoneId)
     {
-        return normalizeZoneId(zoneId).equals("utc");
+        return normalizeZoneId(zoneId).equals("UTC");
     }
 
-    private static String normalizeZoneId(String originalZoneId)
+    private static String normalizeZoneId(String zoneId)
     {
-        String zoneId = originalZoneId.toLowerCase(ENGLISH);
-
-        boolean startsWithEtc = zoneId.startsWith("etc/");
-        if (startsWithEtc) {
-            zoneId = zoneId.substring(4);
-        }
-
         if (isUtcEquivalentName(zoneId)) {
-            return "utc";
+            return "UTC";
         }
 
-        //
-        // Normalize fixed offset time zones.
-        //
+        // The JDK doesn't understand legacy timezones such as Etc/GMT+00:00, GMT-7
+        for (String prefix : UTC_OFFSET_PREFIXES) {
+            if (zoneId.startsWith(prefix)) {
+                int offset = prefix.length();
+                if (offset == zoneId.length() || zoneId.charAt(offset) != '+' && zoneId.charAt(offset) != '-') {
+                    // It must be something like GMT7, or Etc/UTC4, which are invalid. Unsupported timezones are handled by the caller.
+                    return zoneId;
+                }
 
-        // In some zones systems, these will start with UTC, GMT or UT.
-        int length = zoneId.length();
-        boolean startsWithEtcGmt = false;
-        if (length > 3 && (zoneId.startsWith("utc") || zoneId.startsWith("gmt"))) {
-            if (startsWithEtc && zoneId.startsWith("gmt")) {
-                startsWithEtcGmt = true;
+                int colon = zoneId.indexOf(':', offset);
+                int hour;
+                int minute = 0;
+                try {
+                    if (colon != -1) {
+                        hour = Integer.parseInt(zoneId, offset, colon, 10);
+                        minute = Integer.parseInt(zoneId, colon + 1, zoneId.length(), 10);
+                    }
+                    else if (zoneId.length() - offset <= 3) {
+                        // +H or +HH
+                        hour = Integer.parseInt(zoneId, offset, zoneId.length(), 10);
+                    }
+                    else {
+                        // let the JDK handle it below
+                        break;
+                    }
+                }
+                catch (NumberFormatException e) {
+                    // Invalid time zone is handled by the caller
+                    return zoneId;
+                }
+
+                if (hour == 0 && minute == 0) {
+                    return "UTC";
+                }
+
+                if (prefix.equals("Etc/GMT")) {
+                    hour = -hour;
+                }
+
+                return formatZoneOffset(hour, minute);
             }
-            zoneId = zoneId.substring(3);
-            length = zoneId.length();
-        }
-        else if (length > 2 && zoneId.startsWith("ut")) {
-            zoneId = zoneId.substring(2);
-            length = zoneId.length();
         }
 
-        // (+/-)00:00 is UTC
-        if ("+00:00".equals(zoneId) || "-00:00".equals(zoneId)) {
-            return "utc";
+        // Normalize using JDK rules. In particular, normalize forms such as +0735, +7, +073521
+        try {
+            zoneId = ZoneId.of(zoneId).getId();
         }
-
-        // if zoneId matches XXX:XX, it is likely +HH:mm, so just return it
-        // since only offset time zones will contain a `:` character
-        if (length == 6 && zoneId.charAt(3) == ':') {
+        catch (Exception e) {
             return zoneId;
         }
 
-        //
-        // Rewrite (+/-)H[H] to (+/-)HH:00
-        //
-        if (length != 2 && length != 3) {
-            return originalZoneId;
+        if (isUtcEquivalentName(zoneId)) {
+            return "UTC";
         }
 
-        // zone must start with a plus or minus sign
-        char signChar = zoneId.charAt(0);
-        if (signChar != '+' && signChar != '-') {
-            return originalZoneId;
-        }
-        if (startsWithEtcGmt) {
-            // Flip sign for Etc/GMT(+/-)H[H]
-            signChar = signChar == '-' ? '+' : '-';
-        }
+        return zoneId;
+    }
 
-        // extract the tens and ones characters for the hour
-        char hourTens;
-        char hourOnes;
-        if (length == 2) {
-            hourTens = '0';
-            hourOnes = zoneId.charAt(1);
-        }
-        else {
-            hourTens = zoneId.charAt(1);
-            hourOnes = zoneId.charAt(2);
-        }
+    private static String formatZoneOffset(int hour, int minute)
+    {
+        StringBuilder builder = new StringBuilder();
 
-        // do we have a valid hours offset time zone?
-        if (!isDigit(hourTens) || !isDigit(hourOnes)) {
-            return originalZoneId;
-        }
+        builder.append(hour >= 0 ? '+' : '-');
 
-        // is this offset 0 (e.g., UTC)?
-        if (hourTens == '0' && hourOnes == '0') {
-            return "utc";
+        hour = abs(hour);
+        if (hour < 10) {
+            builder.append('0');
         }
+        builder.append(hour);
+        builder.append(':');
 
-        return "" + signChar + hourTens + hourOnes + ":00";
+        if (minute < 10) {
+            builder.append('0');
+        }
+        builder.append(minute);
+
+        return builder.toString();
     }
 
     private static boolean isUtcEquivalentName(String zoneId)
     {
-        return zoneId.equals("utc") ||
-                zoneId.equals("z") ||
-                zoneId.equals("ut") ||
-                zoneId.equals("uct") ||
-                zoneId.equals("gmt") ||
-                zoneId.equals("gmt0") ||
-                zoneId.equals("greenwich") ||
-                zoneId.equals("universal") ||
-                zoneId.equals("zulu");
+        return UTC_EQUIVALENTS.contains(zoneId);
     }
 
     private static String zoneIdForOffset(long offset)

@@ -224,7 +224,7 @@ public class DictionaryAwarePageProjection
 
         private Work<Block> createDictionaryBlockProjection(Optional<Block> dictionary)
         {
-            if (!dictionary.isPresent()) {
+            if (dictionary.isEmpty()) {
                 lastOutputDictionary = Optional.empty();
                 return null;
             }

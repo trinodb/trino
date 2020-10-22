@@ -41,7 +41,7 @@ import static io.prestosql.operator.scalar.StringFunctions.length;
 import static io.prestosql.operator.scalar.StringFunctions.lower;
 import static io.prestosql.operator.scalar.StringFunctions.reverse;
 import static io.prestosql.operator.scalar.StringFunctions.rightTrim;
-import static io.prestosql.operator.scalar.StringFunctions.substr;
+import static io.prestosql.operator.scalar.StringFunctions.substring;
 import static io.prestosql.operator.scalar.StringFunctions.trim;
 import static io.prestosql.operator.scalar.StringFunctions.upper;
 import static java.lang.Character.MAX_CODE_POINT;
@@ -72,7 +72,7 @@ public class BenchmarkStringFunctions
     {
         Slice slice = data.getSlice();
         int length = data.getLength();
-        return substr(slice, (length / 2) - 1);
+        return substring(slice, (length / 2) - 1);
     }
 
     @Benchmark
@@ -80,7 +80,7 @@ public class BenchmarkStringFunctions
     {
         Slice slice = data.getSlice();
         int length = data.getLength();
-        return substr(slice, (length / 2) - 1, length / 2);
+        return substring(slice, (length / 2) - 1, length / 2);
     }
 
     @Benchmark
@@ -88,7 +88,7 @@ public class BenchmarkStringFunctions
     {
         Slice slice = data.getSlice();
         int length = data.getLength();
-        return substr(slice, -((length / 2) + 1));
+        return substring(slice, -((length / 2) + 1));
     }
 
     @Benchmark
@@ -96,7 +96,7 @@ public class BenchmarkStringFunctions
     {
         Slice slice = data.getSlice();
         int length = data.getLength();
-        return substr(slice, -((length / 2) + 1), length / 2);
+        return substring(slice, -((length / 2) + 1), length / 2);
     }
 
     @Benchmark

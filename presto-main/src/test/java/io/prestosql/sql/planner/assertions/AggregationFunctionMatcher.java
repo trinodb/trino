@@ -21,14 +21,14 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.ExpressionTestUtils.getFunctionName;
+import static io.prestosql.metadata.ResolvedFunction.extractFunctionName;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationFunctionMatcher
@@ -55,7 +55,7 @@ public class AggregationFunctionMatcher
         for (Map.Entry<Symbol, Aggregation> assignment : aggregationNode.getAggregations().entrySet()) {
             Aggregation aggregation = assignment.getValue();
             if (aggregationMatches(aggregation, expectedCall)) {
-                checkState(!result.isPresent(), "Ambiguous function calls in %s", aggregationNode);
+                checkState(result.isEmpty(), "Ambiguous function calls in %s", aggregationNode);
                 result = Optional.of(assignment.getKey());
             }
         }
@@ -68,8 +68,9 @@ public class AggregationFunctionMatcher
         if (expectedCall.getWindow().isPresent()) {
             return false;
         }
-        return Objects.equals(getFunctionName(expectedCall), QualifiedName.of(aggregation.getResolvedFunction().getSignature().getName())) &&
-                Objects.equals(expectedCall.getFilter(), aggregation.getFilter()) &&
+        checkArgument(aggregation.getFilter().isEmpty(), "Cannot match filters");
+        return Objects.equals(extractFunctionName(expectedCall.getName()), aggregation.getResolvedFunction().getSignature().getName()) &&
+                aggregation.getFilter().isEmpty() &&
                 Objects.equals(expectedCall.getOrderBy().map(OrderingScheme::fromOrderBy), aggregation.getOrderingScheme()) &&
                 Objects.equals(expectedCall.isDistinct(), aggregation.isDistinct()) &&
                 Objects.equals(expectedCall.getArguments(), aggregation.getArguments());

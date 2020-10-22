@@ -35,11 +35,11 @@ with a few notable exceptions:
   * Binary properties must be specified directly, without the ``Is``.
     Example: ``\p{NoncharacterCodePoint}``
 
-    .. _Java pattern: http://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html
+    .. _Java pattern: https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/regex/Pattern.html
 
-    .. _capturing group number: http://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html#gnumber
+    .. _capturing group number: https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/regex/Pattern.html#gnumber
 
-    .. _Capturing groups: http://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html#cg
+    .. _Capturing groups: https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/regex/Pattern.html#cg
 
 .. function:: regexp_count(string, pattern) -> bigint
 
@@ -55,6 +55,7 @@ with a few notable exceptions:
         SELECT regexp_extract_all('1a 2b 14m', '\d+'); -- [1, 2, 14]
 
 .. function:: regexp_extract_all(string, pattern, group) -> array(varchar)
+    :noindex:
 
     Finds all occurrences of the regular expression ``pattern`` in ``string``
     and returns the `capturing group number`_ ``group``::
@@ -69,6 +70,7 @@ with a few notable exceptions:
         SELECT regexp_extract('1a 2b 14m', '\d+'); -- 1
 
 .. function:: regexp_extract(string, pattern, group) -> varchar
+    :noindex:
 
     Finds the first occurrence of the regular expression ``pattern`` in
     ``string`` and returns the `capturing group number`_ ``group``::
@@ -96,6 +98,7 @@ with a few notable exceptions:
         SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b'); -- 8
 
 .. function:: regexp_position(string, pattern, start) -> integer
+    :noindex:
 
     Returns the index of the first occurrence of ``pattern`` in ``string``,
     starting from ``start`` (include ``start``). Returns -1 if not found::
@@ -104,6 +107,7 @@ with a few notable exceptions:
         SELECT regexp_position('I have 23 apples, 5 pears and 13 oranges', '\b\d+\b', 12); -- 19
 
 .. function:: regexp_position(string, pattern, start, occurrence) -> integer
+    :noindex:
 
     Returns the index of the nth ``occurrence`` of ``pattern`` in ``string``,
     starting from ``start`` (include ``start``). Returns -1 if not found::
@@ -120,6 +124,7 @@ with a few notable exceptions:
         SELECT regexp_replace('1a 2b 14m', '\d+[ab] '); -- '14m'
 
 .. function:: regexp_replace(string, pattern, replacement) -> varchar
+    :noindex:
 
     Replaces every instance of the substring matched by the regular expression
     ``pattern`` in ``string`` with ``replacement``. `Capturing groups`_ can be
@@ -130,6 +135,7 @@ with a few notable exceptions:
         SELECT regexp_replace('1a 2b 14m', '(\d+)([ab]) ', '3c$2 '); -- '3ca 3cb 14m'
 
 .. function:: regexp_replace(string, pattern, function) -> varchar
+    :noindex:
 
     Replaces every instance of the substring matched by the regular expression
     ``pattern`` in ``string`` using ``function``. The :doc:`lambda expression <lambda>`

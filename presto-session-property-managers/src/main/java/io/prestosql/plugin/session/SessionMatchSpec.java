@@ -150,7 +150,7 @@ public class SessionMatchSpec
 
         private static Map<String, String> getProperties(Optional<String> names, Optional<String> values)
         {
-            if (!names.isPresent()) {
+            if (names.isEmpty()) {
                 return ImmutableMap.of();
             }
 

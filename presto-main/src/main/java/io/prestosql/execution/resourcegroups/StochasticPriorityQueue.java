@@ -206,7 +206,7 @@ final class StochasticPriorityQueue<E>
 
         public boolean isLeaf()
         {
-            return !left.isPresent() && !right.isPresent();
+            return left.isEmpty() && right.isEmpty();
         }
 
         public Node<E> findLeaf()

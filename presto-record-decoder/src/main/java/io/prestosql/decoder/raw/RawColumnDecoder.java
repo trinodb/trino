@@ -22,6 +22,7 @@ import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.spi.type.Varchars;
 
 import java.nio.ByteBuffer;
@@ -41,7 +42,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -107,7 +107,7 @@ public class RawColumnDecoder
                 end = OptionalInt.of(parseInt(mappingMatcher.group(2)));
             }
             else {
-                if (!isVarcharType(columnType)) {
+                if (!(columnType instanceof VarcharType)) {
                     end = OptionalInt.of(start + fieldType.getSize());
                 }
                 else {
@@ -141,12 +141,12 @@ public class RawColumnDecoder
             if (columnType == DOUBLE) {
                 checkFieldTypeOneOf(fieldType, columnName, FieldType.DOUBLE, FieldType.FLOAT);
             }
-            if (isVarcharType(columnType)) {
+            if (columnType instanceof VarcharType) {
                 checkFieldTypeOneOf(fieldType, columnName, FieldType.BYTE);
             }
 
-            if (!isVarcharType(columnType)) {
-                checkArgument(!end.isPresent() || end.getAsInt() - start == fieldType.getSize(),
+            if (!(columnType instanceof VarcharType)) {
+                checkArgument(end.isEmpty() || end.getAsInt() - start == fieldType.getSize(),
                         "Bytes mapping for column '%s' does not match dataFormat '%s'; expected %s bytes but got %s",
                         columnName,
                         fieldType.getSize(),
@@ -160,7 +160,7 @@ public class RawColumnDecoder
 
     private static boolean isSupportedType(Type type)
     {
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return true;
         }
         if (ImmutableList.of(BIGINT, INTEGER, SMALLINT, TINYINT, BOOLEAN, DOUBLE).contains(type)) {
@@ -213,6 +213,7 @@ public class RawColumnDecoder
         private final String columnName;
         private final Type columnType;
         private final int size;
+        private final int start;
 
         public RawValueProvider(ByteBuffer value, FieldType fieldType, String columnName, Type columnType)
         {
@@ -221,6 +222,7 @@ public class RawColumnDecoder
             this.columnName = columnName;
             this.columnType = columnType;
             this.size = value.limit() - value.position();
+            this.start = value.position();
         }
 
         @Override
@@ -235,13 +237,13 @@ public class RawColumnDecoder
             checkEnoughBytes();
             switch (fieldType) {
                 case BYTE:
-                    return value.get() != 0;
+                    return value.get(start) != 0;
                 case SHORT:
-                    return value.getShort() != 0;
+                    return value.getShort(start) != 0;
                 case INT:
-                    return value.getInt() != 0;
+                    return value.getInt(start) != 0;
                 case LONG:
-                    return value.getLong() != 0;
+                    return value.getLong(start) != 0;
                 default:
                     throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("conversion '%s' to boolean not supported", fieldType));
             }
@@ -253,13 +255,13 @@ public class RawColumnDecoder
             checkEnoughBytes();
             switch (fieldType) {
                 case BYTE:
-                    return value.get();
+                    return value.get(start);
                 case SHORT:
-                    return value.getShort();
+                    return value.getShort(start);
                 case INT:
-                    return value.getInt();
+                    return value.getInt(start);
                 case LONG:
-                    return value.getLong();
+                    return value.getLong(start);
                 default:
                     throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("conversion '%s' to long not supported", fieldType));
             }
@@ -271,9 +273,9 @@ public class RawColumnDecoder
             checkEnoughBytes();
             switch (fieldType) {
                 case FLOAT:
-                    return value.getFloat();
+                    return value.getFloat(start);
                 case DOUBLE:
-                    return value.getDouble();
+                    return value.getDouble(start);
                 default:
                     throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("conversion '%s' to double not supported", fieldType));
             }

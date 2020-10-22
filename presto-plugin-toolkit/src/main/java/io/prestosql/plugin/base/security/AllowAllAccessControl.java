@@ -62,6 +62,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanShowCreateSchema(ConnectorSecurityContext context, String schemaName)
+    {
+    }
+
+    @Override
     public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }
@@ -83,6 +88,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }
 
@@ -195,6 +205,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanSetRole(ConnectorSecurityContext context, String role, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
     {
     }
 

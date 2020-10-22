@@ -62,12 +62,12 @@ public class SchemaTablePrefix
             return false;
         }
 
-        return !tableName.isPresent() || tableName.get().equals(schemaTableName.getTableName());
+        return tableName.isEmpty() || tableName.get().equals(schemaTableName.getTableName());
     }
 
     public boolean isEmpty()
     {
-        return !schemaName.isPresent();
+        return schemaName.isEmpty();
     }
 
     public SchemaTableName toSchemaTableName()
@@ -99,7 +99,7 @@ public class SchemaTablePrefix
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final SchemaTablePrefix other = (SchemaTablePrefix) obj;
+        SchemaTablePrefix other = (SchemaTablePrefix) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName);
     }

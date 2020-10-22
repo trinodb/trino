@@ -16,7 +16,7 @@ package io.prestosql.tests.product.launcher.env.environment;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
+import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Kerberos;
 import io.prestosql.tests.product.launcher.env.common.Standard;
@@ -24,14 +24,16 @@ import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class SinglenodeKerberosHdfsImpersonationWithWireEncryption
-        extends AbstractEnvironmentProvider
+        extends EnvironmentProvider
 {
     private final DockerFiles dockerFiles;
 
@@ -44,30 +46,26 @@ public final class SinglenodeKerberosHdfsImpersonationWithWireEncryption
 
     @Override
     @SuppressWarnings("resource")
-    protected void extendEnvironment(Environment.Builder builder)
+    public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer("hadoop-master", container -> {
+        builder.configureContainer(HADOOP, container -> {
             container
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-with-wire-encryption/core-site.xml"),
-                            "/etc/hadoop/conf/core-site.xml",
-                            READ_ONLY)
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-with-wire-encryption/hdfs-site.xml"),
-                            "/etc/hadoop/conf/hdfs-site.xml",
-                            READ_ONLY);
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-with-wire-encryption/core-site.xml")),
+                            "/etc/hadoop/conf/core-site.xml")
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-with-wire-encryption/hdfs-site.xml")),
+                            "/etc/hadoop/conf/hdfs-site.xml");
         });
 
-        builder.configureContainer("presto-master", container -> {
+        builder.configureContainer(COORDINATOR, container -> {
             container
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-with-wire-encryption/hive.properties"),
-                            CONTAINER_PRESTO_HIVE_PROPERTIES,
-                            READ_ONLY)
-                    .withFileSystemBind(
-                    dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-with-wire-encryption/iceberg.properties"),
-                    CONTAINER_PRESTO_ICEBERG_PROPERTIES,
-                    READ_ONLY);
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-with-wire-encryption/hive.properties")),
+                            CONTAINER_PRESTO_HIVE_PROPERTIES)
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-with-wire-encryption/iceberg.properties")),
+                            CONTAINER_PRESTO_ICEBERG_PROPERTIES);
         });
     }
 }

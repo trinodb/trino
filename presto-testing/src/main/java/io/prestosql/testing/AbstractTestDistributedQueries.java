@@ -13,8 +13,6 @@
  */
 package io.prestosql.testing;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -22,14 +20,13 @@ import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.testing.Assertions;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
-import io.prestosql.SystemSessionProperties;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.server.BasicQueryInfo;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.sql.TestTable;
+import io.prestosql.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -37,18 +34,20 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.prestosql.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.DataProviders.toDataProvider;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.QueryAssertions.assertContains;
+import static io.prestosql.testing.QueryAssertions.getPrestoExceptionCause;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
@@ -69,7 +68,7 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.lang.Thread.currentThread;
-import static java.util.Collections.nCopies;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -80,15 +79,35 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+/**
+ * Generic test for connectors exercising connector's read and write capabilities.
+ *
+ * @see AbstractTestIntegrationSmokeTest
+ */
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
+    protected boolean supportsDelete()
+    {
+        return true;
+    }
+
     protected boolean supportsViews()
     {
         return true;
     }
 
     protected boolean supportsArrays()
+    {
+        return true;
+    }
+
+    protected boolean supportsCommentOnTable()
+    {
+        return true;
+    }
+
+    protected boolean supportsCommentOnColumn()
     {
         return true;
     }
@@ -155,41 +174,45 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCreateTable()
     {
-        assertUpdate("CREATE TABLE test_create (a bigint, b double, c varchar)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create"));
-        assertTableColumnNames("test_create", "a", "b", "c");
+        String tableName = "test_create_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double, c varchar)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertTableColumnNames(tableName, "a", "b", "c");
 
-        assertUpdate("DROP TABLE test_create");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create"));
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
 
-        assertQueryFails("CREATE TABLE test_create (a bad_type)", ".* Unknown type 'bad_type' for column 'a'");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create"));
+        assertQueryFails("CREATE TABLE " + tableName + " (a bad_type)", ".* Unknown type 'bad_type' for column 'a'");
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
 
-        assertUpdate("CREATE TABLE test_create_table_if_not_exists (a bigint, b varchar, c double)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_if_not_exists"));
-        assertTableColumnNames("test_create_table_if_not_exists", "a", "b", "c");
+        tableName = "test_create_table_if_not_exists_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b varchar, c double)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertTableColumnNames(tableName, "a", "b", "c");
 
-        assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_if_not_exists (d bigint, e varchar)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_if_not_exists"));
-        assertTableColumnNames("test_create_table_if_not_exists", "a", "b", "c");
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " (d bigint, e varchar)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertTableColumnNames(tableName, "a", "b", "c");
 
-        assertUpdate("DROP TABLE test_create_table_if_not_exists");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_table_if_not_exists"));
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
 
         // Test CREATE TABLE LIKE
-        assertUpdate("CREATE TABLE test_create_original (a bigint, b double, c varchar)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_original"));
-        assertTableColumnNames("test_create_original", "a", "b", "c");
+        tableName = "test_create_original_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double, c varchar)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertTableColumnNames(tableName, "a", "b", "c");
 
-        assertUpdate("CREATE TABLE test_create_like (LIKE test_create_original, d boolean, e varchar)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_like"));
-        assertTableColumnNames("test_create_like", "a", "b", "c", "d", "e");
+        String tableNameLike = "test_create_like_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableNameLike + " (LIKE " + tableName + ", d boolean, e varchar)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableNameLike));
+        assertTableColumnNames(tableNameLike, "a", "b", "c", "d", "e");
 
-        assertUpdate("DROP TABLE test_create_original");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_original"));
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
 
-        assertUpdate("DROP TABLE test_create_like");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_like"));
+        assertUpdate("DROP TABLE " + tableNameLike);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableNameLike));
     }
 
     @Test
@@ -263,60 +286,6 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
-    public void testExplainAnalyze()
-    {
-        assertExplainAnalyze("EXPLAIN ANALYZE SELECT * FROM orders");
-        assertExplainAnalyze("EXPLAIN ANALYZE SELECT count(*), clerk FROM orders GROUP BY clerk");
-        assertExplainAnalyze(
-                "EXPLAIN ANALYZE SELECT x + y FROM (" +
-                        "   SELECT orderdate, COUNT(*) x FROM orders GROUP BY orderdate) a JOIN (" +
-                        "   SELECT orderdate, COUNT(*) y FROM orders GROUP BY orderdate) b ON a.orderdate = b.orderdate");
-        assertExplainAnalyze("" +
-                "EXPLAIN ANALYZE SELECT *, o2.custkey\n" +
-                "  IN (\n" +
-                "    SELECT orderkey\n" +
-                "    FROM lineitem\n" +
-                "    WHERE orderkey % 5 = 0)\n" +
-                "FROM (SELECT * FROM orders WHERE custkey % 256 = 0) o1\n" +
-                "JOIN (SELECT * FROM orders WHERE custkey % 256 = 0) o2\n" +
-                "  ON (o1.orderkey IN (SELECT orderkey FROM lineitem WHERE orderkey % 4 = 0)) = (o2.orderkey IN (SELECT orderkey FROM lineitem WHERE orderkey % 4 = 0))\n" +
-                "WHERE o1.orderkey\n" +
-                "  IN (\n" +
-                "    SELECT orderkey\n" +
-                "    FROM lineitem\n" +
-                "    WHERE orderkey % 4 = 0)\n" +
-                "ORDER BY o1.orderkey\n" +
-                "  IN (\n" +
-                "    SELECT orderkey\n" +
-                "    FROM lineitem\n" +
-                "    WHERE orderkey % 7 = 0)");
-        assertExplainAnalyze("EXPLAIN ANALYZE SELECT count(*), clerk FROM orders GROUP BY clerk UNION ALL SELECT sum(orderkey), clerk FROM orders GROUP BY clerk");
-
-        assertExplainAnalyze("EXPLAIN ANALYZE SHOW COLUMNS FROM orders");
-        assertExplainAnalyze("EXPLAIN ANALYZE EXPLAIN SELECT count(*) FROM orders");
-        assertExplainAnalyze("EXPLAIN ANALYZE EXPLAIN ANALYZE SELECT count(*) FROM orders");
-        assertExplainAnalyze("EXPLAIN ANALYZE SHOW FUNCTIONS");
-        assertExplainAnalyze("EXPLAIN ANALYZE SHOW TABLES");
-        assertExplainAnalyze("EXPLAIN ANALYZE SHOW SCHEMAS");
-        assertExplainAnalyze("EXPLAIN ANALYZE SHOW CATALOGS");
-        assertExplainAnalyze("EXPLAIN ANALYZE SHOW SESSION");
-    }
-
-    @Test
-    public void testExplainAnalyzeVerbose()
-    {
-        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT * FROM orders");
-        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders");
-        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0");
-    }
-
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "EXPLAIN ANALYZE doesn't support statement type: DropTable")
-    public void testExplainAnalyzeDDL()
-    {
-        computeActual("EXPLAIN ANALYZE DROP TABLE orders");
-    }
-
     protected void assertExplainAnalyze(@Language("SQL") String query)
     {
         String value = (String) computeActual(query).getOnlyValue();
@@ -350,94 +319,221 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testRenameTable()
     {
-        assertUpdate("CREATE TABLE test_rename AS SELECT 123 x", 1);
+        String tableName = "test_rename_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
 
-        assertUpdate("ALTER TABLE test_rename RENAME TO test_rename_new");
-        assertQuery("SELECT x FROM test_rename_new", "VALUES 123");
+        String renamedTable = "test_rename_new_" + randomTableSuffix();
+        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
+        assertQuery("SELECT x FROM " + renamedTable, "VALUES 123");
 
-        assertUpdate("ALTER TABLE test_rename_new RENAME TO TEST_RENAME"); // 'TEST_RENAME' is upper-case, not delimited
+        String testExistsTableName = "test_rename_new_exists_" + randomTableSuffix();
+        assertUpdate("ALTER TABLE IF EXISTS " + renamedTable + " RENAME TO " + testExistsTableName);
+        assertQuery("SELECT x FROM " + testExistsTableName, "VALUES 123");
+
+        String uppercaseName = "TEST_RENAME_" + randomTableSuffix(); // Test an upper-case, not delimited identifier
+        assertUpdate("ALTER TABLE " + testExistsTableName + " RENAME TO " + uppercaseName);
         assertQuery(
-                "SELECT x FROM test_rename", // 'test_rename' is lower-case, not delimited
+                "SELECT x FROM " + uppercaseName.toLowerCase(ENGLISH), // Ensure select allows for lower-case, not delimited identifier
                 "VALUES 123");
 
-        assertUpdate("DROP TABLE test_rename");
+        assertUpdate("DROP TABLE " + uppercaseName);
 
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename"));
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename_new"));
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertFalse(getQueryRunner().tableExists(getSession(), renamedTable));
+
+        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME TO " + renamedTable);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertFalse(getQueryRunner().tableExists(getSession(), renamedTable));
     }
 
     @Test
     public void testCommentTable()
     {
-        assertUpdate("CREATE TABLE test_comment(id integer)");
+        String tableName = "test_comment_" + randomTableSuffix();
+        if (!supportsCommentOnTable()) {
+            assertUpdate("CREATE TABLE " + tableName + "(a integer)");
+            assertQueryFails("COMMENT ON TABLE " + tableName + " IS 'new comment'", "This connector does not support setting table comments");
+            assertUpdate("DROP TABLE " + tableName);
+            return;
+        }
 
-        assertUpdate("COMMENT ON TABLE test_comment IS 'new comment'");
-        MaterializedResult materializedRows = computeActual("SHOW CREATE TABLE test_comment");
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'new comment'"));
+        assertUpdate("CREATE TABLE " + tableName + "(a integer)");
 
-        assertUpdate("COMMENT ON TABLE test_comment IS ''");
-        materializedRows = computeActual("SHOW CREATE TABLE test_comment");
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT ''"));
+        // comment set
+        assertUpdate("COMMENT ON TABLE " + tableName + " IS 'new comment'");
+        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).contains("COMMENT 'new comment'");
+        assertThat(getTableComment(tableName)).isEqualTo("new comment");
 
-        assertUpdate("COMMENT ON TABLE test_comment IS NULL");
-        materializedRows = computeActual("SHOW CREATE TABLE test_comment");
-        assertFalse(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT"));
+        // comment updated
+        assertUpdate("COMMENT ON TABLE " + tableName + " IS 'updated comment'");
+        assertThat(getTableComment(tableName)).isEqualTo("updated comment");
 
-        assertUpdate("DROP TABLE test_comment");
+        // comment set to empty or deleted
+        assertUpdate("COMMENT ON TABLE " + tableName + " IS ''");
+        assertThat(getTableComment(tableName)).isIn("", null); // Some storages do not preserve empty comment
+
+        // comment deleted
+        assertUpdate("COMMENT ON TABLE " + tableName + " IS 'a comment'");
+        assertThat(getTableComment(tableName)).isEqualTo("a comment");
+        assertUpdate("COMMENT ON TABLE " + tableName + " IS NULL");
+        assertThat(getTableComment(tableName)).isEqualTo(null);
+
+        assertUpdate("DROP TABLE " + tableName);
+
+        // comment set when creating a table
+        assertUpdate("CREATE TABLE " + tableName + "(key integer) COMMENT 'new table comment'");
+        assertThat(getTableComment(tableName)).isEqualTo("new table comment");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private String getTableComment(String tableName)
+    {
+        // TODO use information_schema.tables.table_comment
+        String result = (String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue();
+        Matcher matcher = Pattern.compile("COMMENT '([^']*)'").matcher(result);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
+    }
+
+    @Test
+    public void testCommentColumn()
+    {
+        String tableName = "test_comment_column_" + randomTableSuffix();
+        if (!supportsCommentOnColumn()) {
+            assertUpdate("CREATE TABLE " + tableName + "(a integer)");
+            assertQueryFails("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'", "This connector does not support setting column comments");
+            assertUpdate("DROP TABLE " + tableName);
+            return;
+        }
+
+        assertUpdate("CREATE TABLE " + tableName + "(a integer)");
+
+        // comment set
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'");
+        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).contains("COMMENT 'new comment'");
+        assertThat(getColumnComment(tableName, "a")).isEqualTo("new comment");
+
+        // comment updated
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'updated comment'");
+        assertThat(getColumnComment(tableName, "a")).isEqualTo("updated comment");
+
+        // comment set to empty or deleted
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS ''");
+        assertThat(getColumnComment(tableName, "a")).isIn("", null); // Some storages do not preserve empty comment
+
+        // comment deleted
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'a comment'");
+        assertThat(getColumnComment(tableName, "a")).isEqualTo("a comment");
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS NULL");
+        assertThat(getColumnComment(tableName, "a")).isEqualTo(null);
+
+        assertUpdate("DROP TABLE " + tableName);
+
+        // TODO: comment set when creating a table
+//        assertUpdate("CREATE TABLE " + tableName + "(a integer COMMENT 'new column comment')");
+//        assertThat(getColumnComment(tableName, "a")).isEqualTo("new column comment");
+//        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private String getColumnComment(String tableName, String columnName)
+    {
+        MaterializedResult materializedResult = computeActual(format(
+                "SELECT comment FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'",
+                getSession().getSchema().orElseThrow(),
+                tableName,
+                columnName));
+        return (String) materializedResult.getOnlyValue();
     }
 
     @Test
     public void testRenameColumn()
     {
-        assertUpdate("CREATE TABLE test_rename_column AS SELECT 'some value' x", 1);
+        String tableName = "test_rename_column_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 'some value' x", 1);
 
-        assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN x TO y");
-        assertQuery("SELECT y FROM test_rename_column", "VALUES 'some value'");
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO before_y");
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS before_y TO y");
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS columnNotExists TO y");
+        assertQuery("SELECT y FROM " + tableName, "VALUES 'some value'");
 
-        assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN y TO Z"); // 'Z' is upper-case, not delimited
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN y TO Z"); // 'Z' is upper-case, not delimited
         assertQuery(
-                "SELECT z FROM test_rename_column", // 'z' is lower-case, not delimited
+                "SELECT z FROM " + tableName, // 'z' is lower-case, not delimited
+                "VALUES 'some value'");
+
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS z TO a");
+        assertQuery(
+                "SELECT a FROM " + tableName,
                 "VALUES 'some value'");
 
         // There should be exactly one column
-        assertQuery("SELECT * FROM test_rename_column", "VALUES 'some value'");
+        assertQuery("SELECT * FROM " + tableName, "VALUES 'some value'");
 
-        assertUpdate("DROP TABLE test_rename_column");
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME COLUMN columnNotExists TO y");
+        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME COLUMN IF EXISTS columnNotExists TO y");
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Test
     public void testDropColumn()
     {
-        assertUpdate("CREATE TABLE test_drop_column AS SELECT 123 x, 111 a", 1);
+        String tableName = "test_drop_column_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x, 456 y, 111 a", 1);
 
-        assertUpdate("ALTER TABLE test_drop_column DROP COLUMN x");
-        assertQueryFails("SELECT x FROM test_drop_column", ".* Column 'x' cannot be resolved");
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN x");
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS y");
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
+        assertQueryFails("SELECT x FROM " + tableName, ".* Column 'x' cannot be resolved");
+        assertQueryFails("SELECT y FROM " + tableName, ".* Column 'y' cannot be resolved");
 
-        assertQueryFails("ALTER TABLE test_drop_column DROP COLUMN a", ".* Cannot drop the only column in a table");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", ".* Cannot drop the only column in a table");
+
+        assertUpdate("DROP TABLE " + tableName);
+
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " DROP COLUMN notExistColumn");
+        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Test
     public void testAddColumn()
     {
-        assertUpdate("CREATE TABLE test_add_column AS SELECT CAST('first' AS varchar) x", 1);
+        String tableName = "test_add_column_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT CAST('first' AS varchar) x", 1);
 
-        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN x bigint", ".* Column 'x' already exists");
-        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN X bigint", ".* Column 'X' already exists");
-        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
+        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN x bigint", ".* Column 'x' already exists");
+        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN X bigint", ".* Column 'X' already exists");
+        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
 
-        assertUpdate("ALTER TABLE test_add_column ADD COLUMN a varchar");
-        assertUpdate("INSERT INTO test_add_column SELECT 'second', 'xxx'", 1);
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a varchar");
+        assertUpdate("INSERT INTO " + tableName + " SELECT 'second', 'xxx'", 1);
         assertQuery(
-                "SELECT x, a FROM test_add_column",
+                "SELECT x, a FROM " + tableName,
                 "VALUES ('first', NULL), ('second', 'xxx')");
 
-        assertUpdate("ALTER TABLE test_add_column ADD COLUMN b double");
-        assertUpdate("INSERT INTO test_add_column SELECT 'third', 'yyy', 33.3E0", 1);
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b double");
+        assertUpdate("INSERT INTO " + tableName + " SELECT 'third', 'yyy', 33.3E0", 1);
         assertQuery(
-                "SELECT x, a, b FROM test_add_column",
+                "SELECT x, a, b FROM " + tableName,
                 "VALUES ('first', NULL, NULL), ('second', 'xxx', NULL), ('third', 'yyy', 33.3)");
 
-        assertUpdate("DROP TABLE test_add_column");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS c varchar");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS c varchar");
+        assertUpdate("INSERT INTO " + tableName + " SELECT 'fourth', 'zzz', 55.3E0, 'newColumn'", 1);
+        assertQuery(
+                "SELECT x, a, b, c FROM " + tableName,
+                "VALUES ('first', NULL, NULL, NULL), ('second', 'xxx', NULL, NULL), ('third', 'yyy', 33.3, NULL), ('fourth', 'zzz', 55.3, 'newColumn')");
+        assertUpdate("DROP TABLE " + tableName);
+
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN x bigint");
+        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN IF NOT EXISTS x bigint");
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Test
@@ -445,21 +541,22 @@ public abstract class AbstractTestDistributedQueries
     {
         @Language("SQL") String query = "SELECT orderdate, orderkey, totalprice FROM orders";
 
-        assertUpdate("CREATE TABLE test_insert AS " + query + " WITH NO DATA", 0);
-        assertQuery("SELECT count(*) FROM test_insert", "SELECT 0");
+        String tableName = "test_insert_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS " + query + " WITH NO DATA", 0);
+        assertQuery("SELECT count(*) FROM " + tableName + "", "SELECT 0");
 
-        assertUpdate("INSERT INTO test_insert " + query, "SELECT count(*) FROM orders");
+        assertUpdate("INSERT INTO " + tableName + " " + query, "SELECT count(*) FROM orders");
 
-        assertQuery("SELECT * FROM test_insert", query);
+        assertQuery("SELECT * FROM " + tableName + "", query);
 
-        assertUpdate("INSERT INTO test_insert (orderkey) VALUES (-1)", 1);
-        assertUpdate("INSERT INTO test_insert (orderkey) VALUES (null)", 1);
-        assertUpdate("INSERT INTO test_insert (orderdate) VALUES (DATE '2001-01-01')", 1);
-        assertUpdate("INSERT INTO test_insert (orderkey, orderdate) VALUES (-2, DATE '2001-01-02')", 1);
-        assertUpdate("INSERT INTO test_insert (orderdate, orderkey) VALUES (DATE '2001-01-03', -3)", 1);
-        assertUpdate("INSERT INTO test_insert (totalprice) VALUES (1234)", 1);
+        assertUpdate("INSERT INTO " + tableName + " (orderkey) VALUES (-1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " (orderkey) VALUES (null)", 1);
+        assertUpdate("INSERT INTO " + tableName + " (orderdate) VALUES (DATE '2001-01-01')", 1);
+        assertUpdate("INSERT INTO " + tableName + " (orderkey, orderdate) VALUES (-2, DATE '2001-01-02')", 1);
+        assertUpdate("INSERT INTO " + tableName + " (orderdate, orderkey) VALUES (DATE '2001-01-03', -3)", 1);
+        assertUpdate("INSERT INTO " + tableName + " (totalprice) VALUES (1234)", 1);
 
-        assertQuery("SELECT * FROM test_insert", query
+        assertQuery("SELECT * FROM " + tableName + "", query
                 + " UNION ALL SELECT null, -1, null"
                 + " UNION ALL SELECT null, null, null"
                 + " UNION ALL SELECT DATE '2001-01-01', null, null"
@@ -470,13 +567,13 @@ public abstract class AbstractTestDistributedQueries
         // UNION query produces columns in the opposite order
         // of how they are declared in the table schema
         assertUpdate(
-                "INSERT INTO test_insert (orderkey, orderdate, totalprice) " +
+                "INSERT INTO " + tableName + " (orderkey, orderdate, totalprice) " +
                         "SELECT orderkey, orderdate, totalprice FROM orders " +
                         "UNION ALL " +
                         "SELECT orderkey, orderdate, totalprice FROM orders",
                 "SELECT 2 * count(*) FROM orders");
 
-        assertUpdate("DROP TABLE test_insert");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -567,6 +664,13 @@ public abstract class AbstractTestDistributedQueries
     {
         // delete half the table, then delete the rest
         String tableName = "test_delete_" + randomTableSuffix();
+
+        if (!supportsDelete()) {
+            assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders WITH NO DATA", 0);
+            assertQueryFails("DELETE FROM " + tableName, "This connector does not support updates or deletes");
+            assertUpdate("DROP TABLE " + tableName);
+            return;
+        }
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
 
@@ -684,8 +788,8 @@ public abstract class AbstractTestDistributedQueries
 
         // Test DELETE access control
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-        assertAccessDenied("DELETE FROM " + tableName + " where orderkey < 12", "Cannot select from columns \\[orderkey\\] in table or view .*." + tableName + ".*", privilege("orderkey", SELECT_COLUMN));
-        assertAccessAllowed("DELETE FROM " + tableName + " where orderkey < 12", privilege("orderdate", SELECT_COLUMN));
+        assertAccessDenied("DELETE FROM " + tableName + " where orderkey < 12", "Cannot select from columns \\[orderkey\\] in table or view .*." + tableName + ".*", privilege(tableName + ".orderkey", SELECT_COLUMN));
+        assertAccessAllowed("DELETE FROM " + tableName + " where orderkey < 12", privilege(tableName + ".orderdate", SELECT_COLUMN));
         assertAccessAllowed("DELETE FROM " + tableName, privilege("orders", SELECT_COLUMN));
     }
 
@@ -713,7 +817,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("CREATE OR REPLACE VIEW " + testViewWithComment + " COMMENT 'orders' AS " + query);
 
         MaterializedResult materializedRows = computeActual("SHOW CREATE VIEW " + testViewWithComment);
-        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'orders'"));
+        assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT 'orders'");
 
         assertQuery("SELECT * FROM " + testView, query);
         assertQuery("SELECT * FROM " + testViewWithComment, query);
@@ -971,42 +1075,10 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
-    public void testLargeQuerySuccess()
-    {
-        assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(500, "1 = 1")), "SELECT true");
-    }
-
-    @Test
     public void testShowSchemasFromOther()
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS FROM tpch");
         assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "tiny", "sf1")));
-    }
-
-    @Test
-    public void testTableSampleSystem()
-    {
-        MaterializedResult fullSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (100)");
-        MaterializedResult emptySample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (0)");
-        MaterializedResult randomSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (50)");
-        MaterializedResult all = computeActual("SELECT orderkey FROM orders");
-
-        assertContains(all, fullSample);
-        assertEquals(emptySample.getMaterializedRows().size(), 0);
-        assertTrue(all.getMaterializedRows().size() >= randomSample.getMaterializedRows().size());
-    }
-
-    @Test
-    public void testTableSampleWithFiltering()
-    {
-        MaterializedResult emptySample = computeActual("SELECT DISTINCT orderkey, orderdate FROM orders TABLESAMPLE SYSTEM (99) WHERE orderkey BETWEEN 0 AND 0");
-        MaterializedResult halfSample = computeActual("SELECT DISTINCT orderkey, orderdate FROM orders TABLESAMPLE SYSTEM (50) WHERE orderkey BETWEEN 0 AND 9999999999");
-        MaterializedResult all = computeActual("SELECT orderkey, orderdate FROM orders");
-
-        assertEquals(emptySample.getMaterializedRows().size(), 0);
-        // Assertions need to be loose here because SYSTEM sampling random selects data on split boundaries. In this case either all the data will be selected, or
-        // none of it. Sampling with a 100% ratio is ignored, so that also cannot be used to guarantee results.
-        assertTrue(all.getMaterializedRows().size() >= halfSample.getMaterializedRows().size());
     }
 
     @Test
@@ -1056,31 +1128,33 @@ public abstract class AbstractTestDistributedQueries
                 .setSchema(getSession().getSchema().get())
                 .build();
 
+        String columnAccessViewName = "test_view_column_access_" + randomTableSuffix();
+
         // TEST COLUMN-LEVEL PRIVILEGES
         // view creation permissions are only checked at query time, not at creation
         assertAccessAllowed(
                 viewOwnerSession,
-                "CREATE VIEW test_view_column_access AS SELECT * FROM orders",
+                "CREATE VIEW " + columnAccessViewName + " AS SELECT * FROM orders",
                 privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a table requires the view owner to have special view creation privileges for the table
         assertAccessDenied(
-                "SELECT * FROM test_view_column_access",
-                "View owner 'test_view_access_owner' cannot create view that selects from .*.orders.*",
+                "SELECT * FROM " + columnAccessViewName,
+                "View owner does not have sufficient privileges: View owner 'test_view_access_owner' cannot create view that selects from \\w+.\\w+.orders\\w*",
                 privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify the view owner can select from the view even without special view creation privileges
         assertAccessAllowed(
                 viewOwnerSession,
-                "SELECT * FROM test_view_column_access",
+                "SELECT * FROM " + columnAccessViewName,
                 privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a table does not require the session user to have SELECT privileges on the underlying table
         assertAccessAllowed(
-                "SELECT * FROM test_view_column_access",
+                "SELECT * FROM " + columnAccessViewName,
                 privilege(getSession().getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
         assertAccessAllowed(
-                "SELECT * FROM test_view_column_access",
+                "SELECT * FROM " + columnAccessViewName,
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
         Session nestedViewOwnerSession = TestingSession.testSessionBuilder()
@@ -1089,46 +1163,48 @@ public abstract class AbstractTestDistributedQueries
                 .setSchema(getSession().getSchema().get())
                 .build();
 
+        String nestedViewName = "test_nested_view_column_access_" + randomTableSuffix();
         // view creation permissions are only checked at query time, not at creation
         assertAccessAllowed(
                 nestedViewOwnerSession,
-                "CREATE VIEW test_nested_view_column_access AS SELECT * FROM test_view_column_access",
-                privilege("test_view_column_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                "CREATE VIEW " + nestedViewName + " AS SELECT * FROM " + columnAccessViewName,
+                privilege(columnAccessViewName, CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a view requires the view owner of the outer view to have special view creation privileges for the inner view
         assertAccessDenied(
-                "SELECT * FROM test_nested_view_column_access",
-                "View owner 'test_nested_view_access_owner' cannot create view that selects from .*.test_view_column_access.*",
-                privilege(nestedViewOwnerSession.getUser(), "test_view_column_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                "SELECT * FROM " + nestedViewName,
+                "View owner does not have sufficient privileges: View owner 'test_nested_view_access_owner' cannot create view that selects from \\w+.\\w+.test_view_column_access\\w*",
+                privilege(nestedViewOwnerSession.getUser(), columnAccessViewName, CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a view does not require the session user to have SELECT privileges for the inner view
         assertAccessAllowed(
-                "SELECT * FROM test_nested_view_column_access",
-                privilege(getSession().getUser(), "test_view_column_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                "SELECT * FROM " + nestedViewName,
+                privilege(getSession().getUser(), columnAccessViewName, CREATE_VIEW_WITH_SELECT_COLUMNS));
         assertAccessAllowed(
-                "SELECT * FROM test_nested_view_column_access",
-                privilege(getSession().getUser(), "test_view_column_access", SELECT_COLUMN));
+                "SELECT * FROM " + nestedViewName,
+                privilege(getSession().getUser(), columnAccessViewName, SELECT_COLUMN));
 
         // verify that INVOKER security runs as session user
+        String invokerViewName = "test_invoker_view_column_access_" + randomTableSuffix();
         assertAccessAllowed(
                 viewOwnerSession,
-                "CREATE VIEW test_invoker_view_column_access SECURITY INVOKER AS SELECT * FROM orders",
+                "CREATE VIEW " + invokerViewName + " SECURITY INVOKER AS SELECT * FROM orders",
                 privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
         assertAccessAllowed(
-                "SELECT * FROM test_invoker_view_column_access",
+                "SELECT * FROM " + invokerViewName,
                 privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
         assertAccessDenied(
-                "SELECT * FROM test_invoker_view_column_access",
+                "SELECT * FROM " + invokerViewName,
                 "Cannot select from columns \\[.*\\] in table .*.orders.*",
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
         // change access denied exception to view
-        assertAccessDenied("SHOW CREATE VIEW test_nested_view_column_access", "Cannot show create table for .*test_nested_view_column_access.*", privilege("test_nested_view_column_access", SHOW_CREATE_TABLE));
-        assertAccessAllowed("SHOW CREATE VIEW test_nested_view_column_access", privilege("test_denied_access_view", SHOW_CREATE_TABLE));
+        assertAccessDenied("SHOW CREATE VIEW " + nestedViewName, "Cannot show create table for .*test_nested_view_column_access.*", privilege(nestedViewName, SHOW_CREATE_TABLE));
+        assertAccessAllowed("SHOW CREATE VIEW " + nestedViewName, privilege("test_denied_access_view", SHOW_CREATE_TABLE));
 
-        assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_column_access");
-        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_column_access");
-        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_invoker_view_column_access");
+        assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW " + nestedViewName);
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + columnAccessViewName);
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + invokerViewName);
     }
 
     @Test
@@ -1144,40 +1220,43 @@ public abstract class AbstractTestDistributedQueries
 
         // TEST FUNCTION PRIVILEGES
         // view creation permissions are only checked at query time, not at creation
+        String functionAccessViewName = "test_view_function_access_" + randomTableSuffix();
         assertAccessAllowed(
                 viewOwnerSession,
-                "CREATE VIEW test_view_function_access AS SELECT abs(1) AS c",
+                "CREATE VIEW " + functionAccessViewName + " AS SELECT abs(1) AS c",
                 privilege("abs", GRANT_EXECUTE_FUNCTION));
 
         assertAccessDenied(
-                "SELECT * FROM test_view_function_access",
-                "'test_view_access_owner' cannot grant 'abs' execution to user '\\w*'",
+                "SELECT * FROM " + functionAccessViewName,
+                "View owner does not have sufficient privileges: 'test_view_access_owner' cannot grant 'abs' execution to user '\\w*'",
                 privilege(viewOwnerSession.getUser(), "abs", GRANT_EXECUTE_FUNCTION));
 
         // verify executing from a view over a function does not require the session user to have execute privileges on the underlying function
         assertAccessAllowed(
-                "SELECT * FROM test_view_function_access",
+                "SELECT * FROM " + functionAccessViewName,
                 privilege(getSession().getUser(), "abs", EXECUTE_FUNCTION));
 
         // TEST SECURITY INVOKER
         // view creation permissions are only checked at query time, not at creation
+        String invokerFunctionAccessViewName = "test_invoker_view_function_access_" + randomTableSuffix();
         assertAccessAllowed(
                 viewOwnerSession,
-                "CREATE VIEW test_invoker_view_function_access SECURITY INVOKER AS SELECT abs(1) AS c",
+                "CREATE VIEW " + invokerFunctionAccessViewName + " SECURITY INVOKER AS SELECT abs(1) AS c",
                 privilege("abs", GRANT_EXECUTE_FUNCTION));
         assertAccessAllowed(
-                "SELECT * FROM test_invoker_view_function_access",
+                "SELECT * FROM " + invokerFunctionAccessViewName,
                 privilege(viewOwnerSession.getUser(), "abs", EXECUTE_FUNCTION));
         assertAccessDenied(
-                "SELECT * FROM test_invoker_view_function_access",
+                "SELECT * FROM " + invokerFunctionAccessViewName,
                 "Cannot execute function abs",
                 privilege(getSession().getUser(), "abs", EXECUTE_FUNCTION));
 
-        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_function_access");
-        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_invoker_view_function_access");
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + functionAccessViewName);
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + invokerFunctionAccessViewName);
     }
 
     @Test
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/5172", match = "AssertionError: expected \\[.*\\] but found \\[.*\\]")
     public void testWrittenStats()
     {
         String tableName = "test_written_stats_" + randomTableSuffix();
@@ -1202,26 +1281,15 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
-    public void testComplexCast()
-    {
-        Session session = Session.builder(getSession())
-                .setSystemProperty(SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
-                .build();
-        // This is optimized using CAST(null AS interval day to second) which may be problematic to deserialize on worker
-        assertQuery(session, "WITH t(a, b) AS (VALUES (1, INTERVAL '1' SECOND)) " +
-                        "SELECT count(DISTINCT a), CAST(max(b) AS VARCHAR) FROM t",
-                "VALUES (1, '0 00:00:01.000')");
-    }
-
-    @Test
     public void testCreateSchema()
     {
-        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain("test_schema_create");
-        assertUpdate("CREATE SCHEMA test_schema_create");
-        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains("test_schema_create");
-        assertQueryFails("CREATE SCHEMA test_schema_create", "line 1:1: Schema '.*\\.test_schema_create' already exists");
-        assertUpdate("DROP SCHEMA test_schema_create");
-        assertQueryFails("DROP SCHEMA test_schema_create", "line 1:1: Schema '.*\\.test_schema_create' does not exist");
+        String schemaName = "test_schema_create_" + randomTableSuffix();
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(schemaName);
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(schemaName);
+        assertQueryFails("CREATE SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' already exists", schemaName));
+        assertUpdate("DROP SCHEMA " + schemaName);
+        assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' does not exist", schemaName));
     }
 
     @Test
@@ -1239,6 +1307,105 @@ public abstract class AbstractTestDistributedQueries
 
     protected abstract TestTable createTableWithDefaultColumns();
 
+    @Test(dataProvider = "testColumnNameDataProvider")
+    public void testColumnName(String columnName)
+    {
+        if (!requiresDelimiting(columnName)) {
+            testColumnName(columnName, false);
+        }
+        testColumnName(columnName, true);
+    }
+
+    private void testColumnName(String columnName, boolean delimited)
+    {
+        String nameInSql = columnName;
+        if (delimited) {
+            nameInSql = "\"" + columnName.replace("\"", "\"\"") + "\"";
+        }
+        String tableName = "test_column_names_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "_") + "_" + randomTableSuffix();
+
+        try {
+            // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
+            assertUpdate("CREATE TABLE " + tableName + "(key varchar, " + nameInSql + " varchar)");
+        }
+        catch (RuntimeException e) {
+            if (isColumnNameRejected(e, columnName, delimited)) {
+                // It is OK if give column name is not allowed and is clearly rejected by the connector.
+                return;
+            }
+            throw e;
+        }
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')", 3);
+
+        // SELECT *
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')");
+
+        // projection
+        assertQuery("SELECT " + nameInSql + " FROM " + tableName, "VALUES (NULL), ('abc'), ('xyz')");
+
+        // predicate
+        assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " IS NULL", "VALUES ('null value')");
+        assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " = 'abc'", "VALUES ('sample value')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
+    {
+        return false;
+    }
+
+    private static boolean requiresDelimiting(String identifierName)
+    {
+        return !identifierName.matches("[a-zA-Z][a-zA-Z0-9_]*");
+    }
+
+    @DataProvider
+    public Object[][] testColumnNameDataProvider()
+    {
+        return testColumnNameTestData().stream()
+                .map(this::filterColumnNameTestData)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toDataProvider());
+    }
+
+    private List<String> testColumnNameTestData()
+    {
+        return ImmutableList.<String>builder()
+                .add("lowercase")
+                .add("UPPERCASE")
+                .add("MixedCase")
+                .add("an_underscore")
+                .add("a-hyphen-minus") // ASCII '-' is HYPHEN-MINUS in Unicode
+                .add("a space")
+                .add("atrailingspace ")
+                .add(" aleadingspace")
+                .add("a.dot")
+                .add("a,comma")
+                .add("a:colon")
+                .add("a;semicolon")
+                .add("an@at")
+                .add("a\"quote")
+                .add("an'apostrophe")
+                .add("a`backtick`")
+                .add("a/slash`")
+                .add("a\\backslash`")
+                .add("adigit0")
+                .add("0startwithdigit")
+                .build();
+    }
+
+    protected Optional<String> filterColumnNameTestData(String columnName)
+    {
+        return Optional.of(columnName);
+    }
+
+    protected String dataMappingTableName(String prestoTypeName)
+    {
+        return "test_data_mapping_smoke_" + prestoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomTableSuffix();
+    }
+
     @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
     public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
     {
@@ -1246,14 +1413,19 @@ public abstract class AbstractTestDistributedQueries
         String sampleValueLiteral = dataMappingTestSetup.getSampleValueLiteral();
         String highValueLiteral = dataMappingTestSetup.getHighValueLiteral();
 
-        String tableName = "test_data_mapping_smoke_" + prestoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomTableSuffix();
+        String tableName = dataMappingTableName(prestoTypeName);
 
         Runnable setup = () -> {
-            String createTable = format("CREATE TABLE %s(id varchar, value %s)", tableName, prestoTypeName);
-            assertUpdate(createTable);
-            assertUpdate(
-                    format("INSERT INTO %s VALUES ('null value', NULL), ('sample value', %s), ('high value', %s)", tableName, sampleValueLiteral, highValueLiteral),
-                    3);
+            // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
+            String createTable = "" +
+                    "CREATE TABLE " + tableName + " AS " +
+                    "SELECT CAST(row_id AS varchar) row_id, CAST(value AS " + prestoTypeName + ") value " +
+                    "FROM (VALUES " +
+                    "  ('null value', NULL), " +
+                    "  ('sample value', " + sampleValueLiteral + "), " +
+                    "  ('high value', " + highValueLiteral + ")) " +
+                    " t(row_id, value)";
+            assertUpdate(createTable, 3);
         };
         if (dataMappingTestSetup.isUnsupportedType()) {
             String typeNameBase = prestoTypeName.replaceFirst("\\(.*", "");
@@ -1266,18 +1438,24 @@ public abstract class AbstractTestDistributedQueries
         setup.run();
 
         // without pushdown, i.e. test read data mapping
-        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value IS NULL", "VALUES 'null value'");
-        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value IS NOT NULL", "VALUES ('sample value'), ('high value')");
-        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value = " + sampleValueLiteral, "VALUES 'sample value'");
-        assertQuery("SELECT id FROM " + tableName + " WHERE rand() = 42 OR value = " + highValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value IS NULL", "VALUES 'null value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value IS NOT NULL", "VALUES ('sample value'), ('high value')");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value = " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value = " + highValueLiteral, "VALUES 'high value'");
 
-        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NULL", "VALUES 'null value'");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value IS NOT NULL", "VALUES ('sample value'), ('high value')");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value = " + sampleValueLiteral, "VALUES 'sample value'");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value != " + sampleValueLiteral, "VALUES 'high value'");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value <= " + sampleValueLiteral, "VALUES 'sample value'");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value > " + sampleValueLiteral, "VALUES 'high value'");
-        assertQuery("SELECT id FROM " + tableName + " WHERE value <= " + highValueLiteral, "VALUES ('sample value'), ('high value')");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL", "VALUES 'null value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NOT NULL", "VALUES ('sample value'), ('high value')");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value = " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value != " + sampleValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value <= " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value > " + sampleValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value <= " + highValueLiteral, "VALUES ('sample value'), ('high value')");
+
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value = " + sampleValueLiteral, "VALUES ('null value'), ('sample value')");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value != " + sampleValueLiteral, "VALUES ('null value'), ('high value')");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value <= " + sampleValueLiteral, "VALUES ('null value'), ('sample value')");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value > " + sampleValueLiteral, "VALUES ('null value'), ('high value')");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value <= " + highValueLiteral, "VALUES ('null value'), ('sample value'), ('high value')");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1307,7 +1485,7 @@ public abstract class AbstractTestDistributedQueries
                 .add(new DataMappingTestSetup("date", "DATE '2020-02-12'", "DATE '9999-12-31'"))
                 .add(new DataMappingTestSetup("time", "TIME '15:03:00'", "TIME '23:59:59.999'"))
                 .add(new DataMappingTestSetup("timestamp", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2199-12-31 23:59:59.999'"))
-                .add(new DataMappingTestSetup("timestamp with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '9999-12-31 23:59:59.999 +12:00'"))
+                .add(new DataMappingTestSetup("timestamp(3) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '9999-12-31 23:59:59.999 +12:00'"))
                 .add(new DataMappingTestSetup("char(3)", "'ab'", "'zzz'"))
                 .add(new DataMappingTestSetup("varchar(3)", "'de'", "'zzz'"))
                 .add(new DataMappingTestSetup("varchar", "'łąka for the win'", "'ŻŻŻŻŻŻŻŻŻŻ'"))
@@ -1318,15 +1496,6 @@ public abstract class AbstractTestDistributedQueries
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         return Optional.of(dataMappingTestSetup);
-    }
-
-    private static RuntimeException getPrestoExceptionCause(Throwable e)
-    {
-        return Throwables.getCausalChain(e).stream()
-                .filter(cause -> cause.toString().startsWith(PrestoException.class.getName() + ": ")) // e.g. io.prestosql.client.FailureInfo
-                .map(RuntimeException.class::cast)
-                .collect(toOptional())
-                .orElseThrow(() -> new IllegalArgumentException("Exception does not have PrestoException cause", e));
     }
 
     protected static final class DataMappingTestSetup

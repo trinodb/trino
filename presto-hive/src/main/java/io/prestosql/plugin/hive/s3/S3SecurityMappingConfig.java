@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.s3;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 
 import java.io.File;
@@ -27,7 +28,7 @@ public class S3SecurityMappingConfig
     private Duration refreshPeriod;
     private String colonReplacement;
 
-    public Optional<File> getConfigFile()
+    public Optional<@FileExists File> getConfigFile()
     {
         return Optional.ofNullable(configFile);
     }

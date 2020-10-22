@@ -21,16 +21,19 @@ import io.prestosql.type.JoniRegexp;
 import io.prestosql.type.LikeFunctions;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.type.LikeFunctions.isLikePattern;
 import static io.prestosql.type.LikeFunctions.likeChar;
 import static io.prestosql.type.LikeFunctions.likePattern;
 import static io.prestosql.type.LikeFunctions.likeVarchar;
+import static io.prestosql.type.LikeFunctions.patternConstantPrefixBytes;
 import static io.prestosql.type.LikeFunctions.unescapeLiteralLikePattern;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 public class TestLikeFunctions
@@ -143,33 +146,67 @@ public class TestLikeFunctions
     @Test
     public void testInvalidLikePattern()
     {
-        assertThrows(PrestoException.class, () -> likePattern(utf8Slice("#"), utf8Slice("#")));
-        assertThrows(PrestoException.class, () -> likePattern(utf8Slice("abc#abc"), utf8Slice("#")));
-        assertThrows(PrestoException.class, () -> likePattern(utf8Slice("abc#"), utf8Slice("#")));
+        assertThatThrownBy(() -> likePattern(utf8Slice("#"), utf8Slice("#")))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
+        assertThatThrownBy(() -> likePattern(utf8Slice("abc#abc"), utf8Slice("#")))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
+        assertThatThrownBy(() -> likePattern(utf8Slice("abc#"), utf8Slice("#")))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
     }
 
     @Test
     public void testIsLikePattern()
     {
-        assertFalse(isLikePattern(utf8Slice("abc"), null));
-        assertFalse(isLikePattern(utf8Slice("abc#_def"), utf8Slice("#")));
-        assertFalse(isLikePattern(utf8Slice("abc##def"), utf8Slice("#")));
-        assertFalse(isLikePattern(utf8Slice("abc#%def"), utf8Slice("#")));
-        assertTrue(isLikePattern(utf8Slice("abc%def"), null));
-        assertTrue(isLikePattern(utf8Slice("abcdef_"), null));
-        assertTrue(isLikePattern(utf8Slice("abcdef##_"), utf8Slice("#")));
-        assertTrue(isLikePattern(utf8Slice("%abcdef#_"), utf8Slice("#")));
-        assertThrows(PrestoException.class, () -> isLikePattern(utf8Slice("#"), utf8Slice("#")));
-        assertThrows(PrestoException.class, () -> isLikePattern(utf8Slice("abc#abc"), utf8Slice("#")));
-        assertThrows(PrestoException.class, () -> isLikePattern(utf8Slice("abc#"), utf8Slice("#")));
+        assertFalse(isLikePattern(utf8Slice("abc"), Optional.empty()));
+        assertFalse(isLikePattern(utf8Slice("abc#_def"), Optional.of(utf8Slice("#"))));
+        assertFalse(isLikePattern(utf8Slice("abc##def"), Optional.of(utf8Slice("#"))));
+        assertFalse(isLikePattern(utf8Slice("abc#%def"), Optional.of(utf8Slice("#"))));
+        assertTrue(isLikePattern(utf8Slice("abc%def"), Optional.empty()));
+        assertTrue(isLikePattern(utf8Slice("abcdef_"), Optional.empty()));
+        assertTrue(isLikePattern(utf8Slice("abcdef##_"), Optional.of(utf8Slice("#"))));
+        assertTrue(isLikePattern(utf8Slice("%abcdef#_"), Optional.of(utf8Slice("#"))));
+        assertThatThrownBy(() -> isLikePattern(utf8Slice("#"), Optional.of(utf8Slice("#"))))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
+        assertThatThrownBy(() -> isLikePattern(utf8Slice("abc#abc"), Optional.of(utf8Slice("#"))))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
+        assertThatThrownBy(() -> isLikePattern(utf8Slice("abc#"), Optional.of(utf8Slice("#"))))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
+    }
+
+    @Test
+    public void testPatternConstantPrefixBytes()
+    {
+        assertEquals(patternConstantPrefixBytes(utf8Slice("abc"), Optional.empty()), 3);
+        assertEquals(patternConstantPrefixBytes(utf8Slice("abc#_def"), Optional.of(utf8Slice("#"))), 8);
+        assertEquals(patternConstantPrefixBytes(utf8Slice("abc##def"), Optional.of(utf8Slice("#"))), 8);
+        assertEquals(patternConstantPrefixBytes(utf8Slice("abc#%def"), Optional.of(utf8Slice("#"))), 8);
+        assertEquals(patternConstantPrefixBytes(utf8Slice("abc%def"), Optional.empty()), 3);
+        assertEquals(patternConstantPrefixBytes(utf8Slice("abcdef_"), Optional.empty()), 6);
+        assertEquals(patternConstantPrefixBytes(utf8Slice("abcdef##_"), Optional.of(utf8Slice("#"))), 8);
+        assertEquals(patternConstantPrefixBytes(utf8Slice("%abcdef#_"), Optional.of(utf8Slice("#"))), 0);
+        assertThatThrownBy(() -> patternConstantPrefixBytes(utf8Slice("#"), Optional.of(utf8Slice("#"))))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
+        assertThatThrownBy(() -> patternConstantPrefixBytes(utf8Slice("abc#abc"), Optional.of(utf8Slice("#"))))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
+        assertThatThrownBy(() -> patternConstantPrefixBytes(utf8Slice("abc#"), Optional.of(utf8Slice("#"))))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
     }
 
     @Test
     public void testUnescapeValidLikePattern()
     {
-        assertEquals(unescapeLiteralLikePattern(utf8Slice("abc"), null), utf8Slice("abc"));
-        assertEquals(unescapeLiteralLikePattern(utf8Slice("abc#_"), utf8Slice("#")), utf8Slice("abc_"));
-        assertEquals(unescapeLiteralLikePattern(utf8Slice("a##bc#_"), utf8Slice("#")), utf8Slice("a#bc_"));
-        assertEquals(unescapeLiteralLikePattern(utf8Slice("a###_bc"), utf8Slice("#")), utf8Slice("a#_bc"));
+        assertEquals(unescapeLiteralLikePattern(utf8Slice("abc"), Optional.empty()), utf8Slice("abc"));
+        assertEquals(unescapeLiteralLikePattern(utf8Slice("abc#_"), Optional.of(utf8Slice("#"))), utf8Slice("abc_"));
+        assertEquals(unescapeLiteralLikePattern(utf8Slice("a##bc#_"), Optional.of(utf8Slice("#"))), utf8Slice("a#bc_"));
+        assertEquals(unescapeLiteralLikePattern(utf8Slice("a###_bc"), Optional.of(utf8Slice("#"))), utf8Slice("a#_bc"));
     }
 }

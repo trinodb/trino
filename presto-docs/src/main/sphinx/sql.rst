@@ -4,11 +4,9 @@ SQL Statement Syntax
 
 This chapter describes the SQL syntax used in Presto.
 
-A :doc:`reference to the supported SQL data types</language>` and other
-general characteristics is available in a separate chapter.
+A :doc:`reference to the supported SQL data types</language>` is available.
 
-Advanced users can take it to the next level by :doc:`using numerous SQL
-functions and operators</functions>`.
+Presto also provides :doc:`numerous SQL functions and operators<functions>`.
 
 .. toctree::
     :maxdepth: 1
@@ -50,6 +48,7 @@ functions and operators</functions>`.
     sql/set-session
     sql/show-catalogs
     sql/show-columns
+    sql/show-create-schema
     sql/show-create-table
     sql/show-create-view
     sql/show-functions

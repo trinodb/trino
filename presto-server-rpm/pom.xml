@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>333-SNAPSHOT</version>
+        <version>345-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-server-rpm</artifactId>
@@ -21,8 +21,8 @@
     <dependencies>
         <!-- for testing -->
         <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-jdbc</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -34,19 +34,31 @@
 
         <dependency>
             <groupId>io.prestosql</groupId>
-            <artifactId>presto-jdbc</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <artifactId>presto-testing</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -61,6 +73,9 @@
                         <excludes combine.children="append">
                             <exclude>src/main/rpm/**</exclude>
                         </excludes>
+                        <mapping>
+                            <groovy>SLASHSTAR_STYLE</groovy>
+                        </mapping>
                     </configuration>
                 </plugin>
             </plugins>
@@ -97,11 +112,31 @@
                 </executions>
             </plugin>
 
+            <plugin>
+                <groupId>org.codehaus.gmaven</groupId>
+                <artifactId>groovy-maven-plugin</artifactId>
+                <version>2.1.1</version>
+                <executions>
+                    <execution>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>execute</goal>
+                        </goals>
+                        <configuration>
+                            <source>${project.basedir}/src/main/script/symlink.groovy</source>
+                            <properties>
+                                <root>${project.build.outputDirectory}/${server.tar.package}</root>
+                            </properties>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- Build presto-server rpm using the untarred artifacts -->
             <plugin>
-                <groupId>com.teradata</groupId>
-                <artifactId>redlinerpm-maven-plugin-td</artifactId>
-                <version>2.1.5</version>
+                <groupId>io.airlift.maven.plugins</groupId>
+                <artifactId>redlinerpm-maven-plugin</artifactId>
+                <version>2.1.7</version>
                 <extensions>true</extensions>
 
                 <configuration>
@@ -181,6 +216,14 @@
                                 </rule>
 
                                 <rule>
+                                    <destination>/usr/lib/presto/shared</destination>
+                                    <base>${server.tar.package}/shared</base>
+                                    <includes>
+                                        <include>*</include>
+                                    </includes>
+                                </rule>
+
+                                <rule>
                                     <!-- This should go to just /usr/lib/presto eventually. But that needs modifying
                                     launcher.py in airlift, to have a configurable option for install_path -->
                                     <destination>/usr/lib/presto/lib</destination>
@@ -229,6 +272,31 @@
                         </package>
                     </packages>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-file-size</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireFilesSize>
+                                    <!-- Maven Central has a 1GB limit -->
+                                    <maxsize>1106000000</maxsize>
+                                    <files>
+                                        <file>${project.build.directory}/${project.build.finalName}.x86_64.rpm</file>
+                                    </files>
+                                </requireFilesSize>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

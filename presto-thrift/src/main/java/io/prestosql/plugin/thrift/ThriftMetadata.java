@@ -28,6 +28,7 @@ import io.prestosql.plugin.thrift.api.PrestoThriftSchemaTableName;
 import io.prestosql.plugin.thrift.api.PrestoThriftService;
 import io.prestosql.plugin.thrift.api.PrestoThriftServiceException;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.Assignment;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -39,7 +40,6 @@ import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
-import io.prestosql.spi.connector.ProjectionApplicationResult.Assignment;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -224,7 +224,7 @@ public class ThriftMetadata
     private ThriftTableMetadata getRequiredTableMetadata(SchemaTableName schemaTableName)
     {
         Optional<ThriftTableMetadata> table = tableCache.getUnchecked(schemaTableName);
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             throw new TableNotFoundException(schemaTableName);
         }
         else {

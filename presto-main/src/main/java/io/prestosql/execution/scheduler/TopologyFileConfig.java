@@ -14,6 +14,7 @@
 package io.prestosql.execution.scheduler;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -26,6 +27,7 @@ public class TopologyFileConfig
     private File networkTopologyFile;
     private Duration refreshPeriod = new Duration(5, MINUTES);
 
+    @FileExists
     public File getNetworkTopologyFile()
     {
         return networkTopologyFile;

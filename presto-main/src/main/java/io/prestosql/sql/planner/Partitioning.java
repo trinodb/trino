@@ -93,7 +93,7 @@ public final class Partitioning
             Metadata metadata,
             Session session)
     {
-        if (!handle.equals(right.handle) && !metadata.getCommonPartitioning(session, handle, right.handle).isPresent()) {
+        if (!handle.equals(right.handle) && metadata.getCommonPartitioning(session, handle, right.handle).isEmpty()) {
             return false;
         }
 
@@ -108,7 +108,7 @@ public final class Partitioning
             Metadata metadata,
             Session session)
     {
-        if (!handle.equals(right.handle) && !metadata.getCommonPartitioning(session, handle, right.handle).isPresent()) {
+        if (!handle.equals(right.handle) && metadata.getCommonPartitioning(session, handle, right.handle).isEmpty()) {
             return false;
         }
 
@@ -210,7 +210,7 @@ public final class Partitioning
         ImmutableList.Builder<ArgumentBinding> newArguments = ImmutableList.builder();
         for (ArgumentBinding argument : arguments) {
             Optional<ArgumentBinding> newArgument = argument.translate(translator);
-            if (!newArgument.isPresent()) {
+            if (newArgument.isEmpty()) {
                 return Optional.empty();
             }
             newArguments.add(newArgument.get());
@@ -239,7 +239,7 @@ public final class Partitioning
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final Partitioning other = (Partitioning) obj;
+        Partitioning other = (Partitioning) obj;
         return Objects.equals(this.handle, other.handle) &&
                 Objects.equals(this.arguments, other.arguments);
     }

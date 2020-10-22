@@ -39,13 +39,14 @@ public class TestThrottledAsyncQueue
     @BeforeClass
     public void setUpClass()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-async-queue-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("TestThrottledAsyncQueue-%s"));
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDownClass()
     {
         executor.shutdownNow();
+        executor = null;
     }
 
     @Test(timeOut = 10_000)
@@ -108,10 +109,9 @@ public class TestThrottledAsyncQueue
         assertFalse(future2.isDone());
 
         assertTrue(queue.offer(3).isDone());
-        assertTrue(queue.offer(4).isDone());
         queue.finish();
 
-        assertEquals(getFutureValue(future2), ImmutableList.of(3, 4));
+        assertEquals(getFutureValue(future2), ImmutableList.of(3));
 
         assertTrue(queue.isFinished());
     }

@@ -27,6 +27,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
@@ -38,11 +39,14 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestInformationSchemaTableHandle
 {
-    private static final Map<String, Object> SCHEMA_AS_MAP = ImmutableMap.of(
-            "@type", "$info_schema",
-            "catalogName", "information_schema_catalog",
-            "table", "COLUMNS",
-            "prefixes", ImmutableList.of(ImmutableMap.of("catalogName", "abc", "schemaName", INFORMATION_SCHEMA)));
+    private static final Map<String, Object> SCHEMA_AS_MAP = new ImmutableMap.Builder<String, Object>()
+            .put("@type", "$info_schema")
+            .put("catalogName", "information_schema_catalog")
+            .put("table", "COLUMNS")
+            .put("prefixes", ImmutableList.of(ImmutableMap.of("catalogName", "abc", "schemaName", INFORMATION_SCHEMA)))
+            .put("roles", ImmutableList.of("role"))
+            .put("grantees", ImmutableList.of("grantee"))
+            .build();
 
     private ObjectMapper objectMapper;
 
@@ -62,6 +66,8 @@ public class TestInformationSchemaTableHandle
                 "information_schema_catalog",
                 COLUMNS,
                 ImmutableSet.of(new QualifiedTablePrefix("abc", INFORMATION_SCHEMA)),
+                Optional.of(ImmutableSet.of("role")),
+                Optional.of(ImmutableSet.of("grantee")),
                 OptionalLong.empty());
 
         assertTrue(objectMapper.canSerialize(InformationSchemaTableHandle.class));
@@ -86,7 +92,7 @@ public class TestInformationSchemaTableHandle
     private void testJsonEquals(String json, Map<String, Object> expectedMap)
             throws Exception
     {
-        Map<String, Object> jsonMap = objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+        Map<String, Object> jsonMap = objectMapper.readValue(json, new TypeReference<>() {});
         assertEqualsIgnoreOrder(jsonMap.entrySet(), expectedMap.entrySet());
     }
 }

@@ -215,7 +215,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(AvroRequirements.class)
-    @Test(groups = {JDBC, SKIP_ON_CDH})
+    @Test(groups = {JDBC, SKIP_ON_CDH /* CDH 5's Avro does not support date type */})
     public void testSelectAllDatatypesAvro()
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_AVRO).getNameInDatabase();
@@ -244,7 +244,7 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_double", "double"),
                 row("c_decimal", "decimal(10,0)"),
                 row("c_decimal_w_params", "decimal(10,5)"),
-                row("c_timestamp", "timestamp"),
+                row("c_timestamp", "timestamp(3)"),
                 row("c_date", "date"),
                 row("c_string", "varchar"),
                 row("c_varchar", "varchar(10)"),
@@ -276,10 +276,10 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        getHiveVersionMajor() < 3
-                                ? Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000))
+                        isHiveWithBrokenAvroTimestamps()
                                 // TODO (https://github.com/prestosql/presto/issues/1218) requires https://issues.apache.org/jira/browse/HIVE-21002
-                                : Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 18, 0, 35, 123_000_000)),
+                                ? Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 18, 0, 35, 123_000_000))
+                                : Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
@@ -299,7 +299,7 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_double", "double"),
                 row("c_decimal", "decimal(10,0)"),
                 row("c_decimal_w_params", "decimal(10,5)"),
-                row("c_timestamp", "timestamp"),
+                row("c_timestamp", "timestamp(3)"),
                 row("c_date", "date"),
                 row("c_string", "varchar"),
                 row("c_varchar", "varchar(10)"),
@@ -379,7 +379,7 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_double", "double"),
                 row("c_decimal", "decimal(10,0)"),
                 row("c_decimal_w_params", "decimal(10,5)"),
-                row("c_timestamp", "timestamp"),
+                row("c_timestamp", "timestamp(3)"),
                 row("c_string", "varchar"),
                 row("c_varchar", "varchar(10)"),
                 row("c_char", "char(10)"),
@@ -398,15 +398,23 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        getHiveVersionMajor() < 3
-                                ? Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000))
-                                // TODO (https://github.com/prestosql/presto/issues/1218) requires https://issues.apache.org/jira/browse/HIVE-21002
-                                : Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 18, 0, 35, 123_000_000)),
+                        Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
                         "ala ma kota",
                         "ala ma kot",
                         "ala ma    ",
                         true,
                         "kot binarny".getBytes(UTF_8)));
+    }
+
+    private boolean isHiveWithBrokenAvroTimestamps()
+    {
+        // In 3.1.0 timestamp semantics in hive changed in backward incompatible way,
+        // which was fixed for Parquet and Avro in 3.1.2 (https://issues.apache.org/jira/browse/HIVE-21002)
+        // we do have a work-around for Parquet, but still need this for Avro until
+        // https://github.com/prestosql/presto/issues/5144 is addressed
+        return getHiveVersionMajor() == 3 &&
+                getHiveVersionMinor() == 1 &&
+                (getHiveVersionPatch() == 0 || getHiveVersionPatch() == 1);
     }
 
     private static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition)

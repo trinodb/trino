@@ -16,6 +16,7 @@ package io.prestosql.server;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.resourcegroups.ResourceGroupManager;
 import io.prestosql.security.AccessControl;
+import io.prestosql.server.security.ResourceSecurity;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.security.AccessDeniedException;
@@ -47,6 +48,7 @@ import static io.prestosql.security.AccessControlUtil.filterQueries;
 import static io.prestosql.server.HttpRequestSessionContext.extractAuthorizedIdentity;
 import static io.prestosql.server.QueryStateInfo.createQueryStateInfo;
 import static io.prestosql.server.QueryStateInfo.createQueuedQueryStateInfo;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
@@ -71,6 +73,7 @@ public class QueryStateInfoResource
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
     }
 
+    @ResourceSecurity(AUTHENTICATED_USER)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public List<QueryStateInfo> getQueryStateInfos(@QueryParam("user") String user, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
@@ -103,6 +106,7 @@ public class QueryStateInfoResource
         return createQueryStateInfo(queryInfo, groupId);
     }
 
+    @ResourceSecurity(AUTHENTICATED_USER)
     @GET
     @Path("{queryId}")
     @Produces(MediaType.APPLICATION_JSON)

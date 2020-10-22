@@ -17,8 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.ExceededMemoryLimitException;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.MaterializedResult;
 import org.testng.annotations.AfterMethod;
@@ -33,8 +34,8 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.operator.OperatorAssertion.assertOperatorEquals;
-import static io.prestosql.spi.block.SortOrder.ASC_NULLS_LAST;
-import static io.prestosql.spi.block.SortOrder.DESC_NULLS_LAST;
+import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_LAST;
+import static io.prestosql.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -53,12 +54,13 @@ public class TestTopNOperator
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
+    private final TypeOperators typeOperators = new TypeOperators();
 
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
         driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
@@ -217,6 +219,7 @@ public class TestTopNOperator
                 types,
                 n,
                 sortChannels,
-                sortOrders);
+                sortOrders,
+                typeOperators);
     }
 }

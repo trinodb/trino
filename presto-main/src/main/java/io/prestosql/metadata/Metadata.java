@@ -17,25 +17,31 @@ import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.connector.AggregateFunction;
+import io.prestosql.spi.connector.AggregationApplicationResult;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorCapabilities;
+import io.prestosql.spi.connector.ConnectorMaterializedViewDefinition;
 import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
+import io.prestosql.spi.connector.MaterializedViewFreshness;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SampleType;
+import io.prestosql.spi.connector.SortItem;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.connector.TopNApplicationResult;
 import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
@@ -141,6 +147,7 @@ public interface Metadata
 
     /**
      * Creates a schema.
+     *
      * @param principal TODO
      */
     void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, PrestoPrincipal principal);
@@ -176,6 +183,11 @@ public interface Metadata
      * Comments to the specified table.
      */
     void setTableComment(Session session, TableHandle tableHandle, Optional<String> comment);
+
+    /**
+     * Comments to the specified column.
+     */
+    void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment);
 
     /**
      * Rename the specified column.
@@ -255,6 +267,21 @@ public interface Metadata
     Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     /**
+     * Begin refresh materialized view query
+     */
+    InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle);
+
+    /**
+     * Finish refresh materialized view query
+     */
+    Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+            Session session,
+            InsertTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<TableHandle> sourceTableHandles);
+
+    /**
      * Get the row ID column handle used with UpdatablePageSource.
      */
     ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle);
@@ -312,6 +339,16 @@ public interface Metadata
     Optional<ConnectorViewDefinition> getView(Session session, QualifiedObjectName viewName);
 
     /**
+     * Gets the schema properties for the specified schema.
+     */
+    Map<String, Object> getSchemaProperties(Session session, CatalogSchemaName schemaName);
+
+    /**
+     * Gets the schema owner for the specified schema.
+     */
+    Optional<PrestoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName);
+
+    /**
      * Creates the specified view with the specified view definition.
      */
     void createView(Session session, QualifiedObjectName viewName, ConnectorViewDefinition definition, boolean replace);
@@ -342,6 +379,20 @@ public interface Metadata
 
     Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio);
 
+    Optional<AggregationApplicationResult<TableHandle>> applyAggregation(
+            Session session,
+            TableHandle table,
+            List<AggregateFunction> aggregations,
+            Map<String, ColumnHandle> assignments,
+            List<List<ColumnHandle>> groupingSets);
+
+    Optional<TopNApplicationResult<TableHandle>> applyTopN(
+            Session session,
+            TableHandle handle,
+            long topNCount,
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments);
+
     default void validateScan(Session session, TableHandle table) {}
 
     //
@@ -364,6 +415,12 @@ public interface Metadata
      * List available roles in specified catalog.
      */
     Set<String> listRoles(Session session, String catalog);
+
+    /**
+     * List all role grants in the specified catalog,
+     * optionally filtered by passed role, grantee, and limit predicates.
+     */
+    Set<RoleGrant> listAllRoleGrants(Session session, String catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit);
 
     /**
      * List roles grants in the specified catalog for a given principal, not recursively.
@@ -428,7 +485,7 @@ public interface Metadata
 
     Collection<ParametricType> getParametricTypes();
 
-    void verifyComparableOrderableContract();
+    void verifyTypes();
 
     //
     // Functions
@@ -438,7 +495,7 @@ public interface Metadata
 
     List<FunctionMetadata> listFunctions();
 
-    FunctionInvokerProvider getFunctionInvokerProvider();
+    ResolvedFunction decodeFunction(QualifiedName name);
 
     ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
 
@@ -468,7 +525,7 @@ public interface Metadata
 
     InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction);
 
-    ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction);
+    FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention);
 
     ProcedureRegistry getProcedureRegistry();
 
@@ -493,4 +550,25 @@ public interface Metadata
     ColumnPropertyManager getColumnPropertyManager();
 
     AnalyzePropertyManager getAnalyzePropertyManager();
+
+    /**
+     * Creates the specified materialized view with the specified view definition.
+     */
+    void createMaterializedView(Session session, QualifiedObjectName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting);
+
+    /**
+     * Drops the specified materialized view.
+     */
+    void dropMaterializedView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Returns the materialized view definition for the specified view name.
+     */
+    Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Method to get difference between the states of table at two different points in time/or as of given token-ids.
+     * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
+     */
+    MaterializedViewFreshness getMaterializedViewFreshness(Session session, TableHandle tableHandle);
 }

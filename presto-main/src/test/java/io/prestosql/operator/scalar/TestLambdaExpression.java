@@ -15,7 +15,6 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import org.testng.annotations.BeforeClass;
@@ -39,12 +38,7 @@ public class TestLambdaExpression
 {
     public TestLambdaExpression()
     {
-        this(testSessionBuilder().setTimeZoneKey(getTimeZoneKey("Pacific/Kiritimati")).build());
-    }
-
-    private TestLambdaExpression(Session session)
-    {
-        super(session);
+        super(testSessionBuilder().setTimeZoneKey(getTimeZoneKey("Pacific/Kiritimati")).build());
     }
 
     @BeforeClass
@@ -58,6 +52,14 @@ public class TestLambdaExpression
     {
         assertFunction("apply(5, x -> x + 1)", INTEGER, 6);
         assertFunction("apply(5 + RANDOM(1), x -> x + 1)", INTEGER, 6);
+    }
+
+    @Test
+    public void testParameterName()
+    {
+        // parameter which is not valid identifier in Java
+        String nonLetters = "a.b c; d ' \n \\n \"";
+        assertFunction("apply(5, " + quote(nonLetters) + " -> " + quote(nonLetters) + " * 2)", INTEGER, 10);
     }
 
     @Test
@@ -163,5 +165,10 @@ public class TestLambdaExpression
         assertFunction("apply(ARRAY['abc', NULL, '123'], x -> x[2] IS NULL)", BOOLEAN, true);
         assertFunction("apply(ARRAY['abc', NULL, '123'], x -> x[2])", createVarcharType(3), null);
         assertFunction("apply(MAP(ARRAY['abc', 'def'], ARRAY[123, 456]), x -> map_keys(x))", new ArrayType(createVarcharType(3)), ImmutableList.of("abc", "def"));
+    }
+
+    private static String quote(String identifier)
+    {
+        return "\"" + identifier.replace("\"", "\"\"") + "\"";
     }
 }

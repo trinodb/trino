@@ -15,6 +15,7 @@ package io.prestosql.server;
 
 import com.google.common.collect.Maps;
 import io.prestosql.failuredetector.HeartbeatFailureDetector;
+import io.prestosql.server.security.ResourceSecurity;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;
@@ -23,6 +24,7 @@ import javax.ws.rs.Path;
 import java.util.Collection;
 
 import static com.google.common.base.Predicates.in;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 
 @Path("/v1/node")
 public class NodeResource
@@ -35,12 +37,14 @@ public class NodeResource
         this.failureDetector = failureDetector;
     }
 
+    @ResourceSecurity(MANAGEMENT_READ)
     @GET
     public Collection<HeartbeatFailureDetector.Stats> getNodeStats()
     {
         return failureDetector.getStats().values();
     }
 
+    @ResourceSecurity(MANAGEMENT_READ)
     @GET
     @Path("failed")
     public Collection<HeartbeatFailureDetector.Stats> getFailed()

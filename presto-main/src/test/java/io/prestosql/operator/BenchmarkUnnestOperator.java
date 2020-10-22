@@ -114,8 +114,8 @@ public class BenchmarkUnnestOperator
         @Setup
         public void setup()
         {
-            executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+            executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
             Metadata metadata = createTestMetadataManager();
 
             InputGenerator inputGenerator = new InputGenerator(0, nestedLengths, stringLengths);
@@ -141,17 +141,17 @@ public class BenchmarkUnnestOperator
             List<Integer> channels = channelsBuilder.build();
 
             this.pages = createInputPages(positionsPerPage, typesBuilder.build(), inputGenerator,
-                primitiveNullsRatioNestedOne, rowNullsRatioNestedOne);
+                    primitiveNullsRatioNestedOne, rowNullsRatioNestedOne);
 
             operatorFactory = new UnnestOperatorFactory(
-                        0,
-                        new PlanNodeId("test"),
-                        channels.subList(0, 1),
-                        types.subList(0, 1),
-                        channels.subList(1, channels.size()),
-                        types.subList(1, types.size()),
-                        true,
-                        false);
+                    0,
+                    new PlanNodeId("test"),
+                    channels.subList(0, 1),
+                    types.subList(0, 1),
+                    channels.subList(1, channels.size()),
+                    types.subList(1, types.size()),
+                    true,
+                    false);
         }
 
         public Optional<Type> getType(Metadata metadata, String typeString)
@@ -260,17 +260,16 @@ public class BenchmarkUnnestOperator
 
         /**
          * Generates a block with {@code entries} positions given an input {@code type}.
-         *
+         * <p>
          * {@code primitiveNullsRatio} indicates what percentage of primitive elements
          * (VARCHAR or INT) should be null. Similarly, the value {@code rowNullsRatio}
          * indicates the percentage for Row elements.
-         *
+         * <p>
          * The null percentages are not propagated inside a MapBlock's keyBlock. Everything
          * is always non-null inside the returned keyBlock.
-         *
+         * <p>
          * The set S of valid input for {@code type} can be defined as:
          * S = {VARCHAR, INTEGER, ROW(x), ARRAY(x), MAP(x, x)} where x belongs to S
-         *
          */
         public Block produceBlock(Type type, int entries, double primitiveNullsRatio, double rowNullsRatio)
         {

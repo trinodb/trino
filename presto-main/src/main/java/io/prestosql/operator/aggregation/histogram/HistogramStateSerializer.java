@@ -23,12 +23,10 @@ import static io.prestosql.operator.aggregation.histogram.Histogram.EXPECTED_SIZ
 public class HistogramStateSerializer
         implements AccumulatorStateSerializer<HistogramState>
 {
-    private final Type type;
     private final Type serializedType;
 
-    public HistogramStateSerializer(Type type, Type serializedType)
+    public HistogramStateSerializer(Type serializedType)
     {
-        this.type = type;
         this.serializedType = serializedType;
     }
 
@@ -47,6 +45,6 @@ public class HistogramStateSerializer
     @Override
     public void deserialize(Block block, int index, HistogramState state)
     {
-        state.deserialize((Block) serializedType.getObject(block, index), type, EXPECTED_SIZE_FOR_HASHING);
+        state.deserialize((Block) serializedType.getObject(block, index), EXPECTED_SIZE_FOR_HASHING);
     }
 }

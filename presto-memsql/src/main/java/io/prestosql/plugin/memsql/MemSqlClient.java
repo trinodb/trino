@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
 
@@ -46,7 +47,7 @@ public class MemSqlClient
             while (resultSet.next()) {
                 String schemaName = resultSet.getString("TABLE_CAT");
                 // skip internal schemas
-                if (!schemaName.equalsIgnoreCase("information_schema") && !schemaName.equalsIgnoreCase("memsql")) {
+                if (filterSchema(schemaName)) {
                     schemaNames.add(schemaName);
                 }
             }
@@ -55,6 +56,15 @@ public class MemSqlClient
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    protected boolean filterSchema(String schemaName)
+    {
+        if (schemaName.equalsIgnoreCase("memsql")) {
+            return false;
+        }
+        return super.filterSchema(schemaName);
     }
 
     @Override
@@ -85,7 +95,7 @@ public class MemSqlClient
     }
 
     @Override
-    public boolean isLimitGuaranteed()
+    public boolean isLimitGuaranteed(ConnectorSession session)
     {
         return true;
     }

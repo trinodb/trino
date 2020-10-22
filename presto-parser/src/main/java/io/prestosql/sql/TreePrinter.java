@@ -71,7 +71,7 @@ public class TreePrinter
 
     public void print(Node root)
     {
-        AstVisitor<Void, Integer> printer = new DefaultTraversalVisitor<Void, Integer>()
+        AstVisitor<Void, Integer> printer = new DefaultTraversalVisitor<Integer>()
         {
             @Override
             protected Void visitNode(Node node, Integer indentLevel)

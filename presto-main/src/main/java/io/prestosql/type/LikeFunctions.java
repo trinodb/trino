@@ -18,6 +18,7 @@ import io.airlift.joni.Matcher;
 import io.airlift.joni.Option;
 import io.airlift.joni.Regex;
 import io.airlift.joni.Syntax;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.PrestoException;
@@ -27,10 +28,14 @@ import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 
+import java.util.Optional;
+
 import static io.airlift.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
 import static io.airlift.joni.constants.SyntaxProperties.OP_ASTERISK_ZERO_INF;
 import static io.airlift.joni.constants.SyntaxProperties.OP_DOT_ANYCHAR;
 import static io.airlift.joni.constants.SyntaxProperties.OP_LINE_ANCHOR;
+import static io.airlift.slice.SliceUtf8.getCodePointAt;
+import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.util.Failures.checkCondition;
@@ -112,20 +117,21 @@ public final class LikeFunctions
         return likePattern(pattern.toStringUtf8(), getEscapeChar(escape), true);
     }
 
-    public static boolean isLikePattern(Slice pattern, Slice escape)
+    public static boolean isLikePattern(Slice pattern, Optional<Slice> escape)
     {
-        String stringPattern = pattern.toStringUtf8();
-        if (escape == null) {
-            return stringPattern.contains("%") || stringPattern.contains("_");
-        }
+        return patternConstantPrefixBytes(pattern, escape) < pattern.length();
+    }
 
-        String stringEscape = escape.toStringUtf8();
-        checkCondition(stringEscape.length() == 1, INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
+    public static int patternConstantPrefixBytes(Slice pattern, Optional<Slice> escape)
+    {
+        int escapeChar = getEscapeCharacter(escape)
+                .map(c -> (int) c)
+                .orElse(-1);
 
-        char escapeChar = stringEscape.charAt(0);
         boolean escaped = false;
-        boolean isLikePattern = false;
-        for (int currentChar : stringPattern.codePoints().toArray()) {
+        int position = 0;
+        while (position < pattern.length()) {
+            int currentChar = getCodePointAt(pattern, position);
             if (!escaped && (currentChar == escapeChar)) {
                 escaped = true;
             }
@@ -134,34 +140,53 @@ public final class LikeFunctions
                 escaped = false;
             }
             else if ((currentChar == '%') || (currentChar == '_')) {
-                isLikePattern = true;
+                return position;
             }
+            position += lengthOfCodePoint(currentChar);
         }
         checkEscape(!escaped);
-        return isLikePattern;
+        return position;
     }
 
-    public static Slice unescapeLiteralLikePattern(Slice pattern, Slice escape)
+    public static Slice unescapeLiteralLikePattern(Slice pattern, Optional<Slice> escape)
     {
-        if (escape == null) {
+        if (escape.isEmpty()) {
             return pattern;
         }
 
-        String stringEscape = escape.toStringUtf8();
-        char escapeChar = stringEscape.charAt(0);
-        String stringPattern = pattern.toStringUtf8();
-        StringBuilder unescapedPattern = new StringBuilder(stringPattern.length());
+        int escapeChar = getEscapeCharacter(escape)
+                .map(c -> (int) c)
+                .orElse(-1);
+
+        @SuppressWarnings("resource")
+        DynamicSliceOutput output = new DynamicSliceOutput(pattern.length());
         boolean escaped = false;
-        for (int currentChar : stringPattern.codePoints().toArray()) {
+        int position = 0;
+        while (position < pattern.length()) {
+            int currentChar = getCodePointAt(pattern, position);
+            int lengthOfCodePoint = lengthOfCodePoint(currentChar);
             if (!escaped && (currentChar == escapeChar)) {
                 escaped = true;
             }
             else {
-                unescapedPattern.append(Character.toChars(currentChar));
+                output.writeBytes(pattern, position, lengthOfCodePoint);
                 escaped = false;
             }
+            position += lengthOfCodePoint;
         }
-        return Slices.utf8Slice(unescapedPattern.toString());
+        checkEscape(!escaped);
+        return output.slice();
+    }
+
+    private static Optional<Character> getEscapeCharacter(Optional<Slice> escape)
+    {
+        if (escape.isEmpty()) {
+            return Optional.empty();
+        }
+        String stringEscape = escape.get().toStringUtf8();
+        // non-BMP escape is not supported
+        checkCondition(stringEscape.length() == 1, INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
+        return Optional.of(stringEscape.charAt(0));
     }
 
     private static void checkEscape(boolean condition)

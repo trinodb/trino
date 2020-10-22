@@ -81,7 +81,8 @@ public final class Range
 
     public static Range equal(Type type, Object value)
     {
-        return new Range(Marker.exactly(type, value), Marker.exactly(type, value));
+        Marker marker = Marker.exactly(type, value);
+        return new Range(marker, marker);
     }
 
     public static Range range(Type type, Object low, boolean lowInclusive, Object high, boolean highInclusive)
@@ -195,24 +196,38 @@ public final class Range
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final Range other = (Range) obj;
+        Range other = (Range) obj;
         return Objects.equals(this.low, other.low) &&
                 Objects.equals(this.high, other.high);
     }
 
+    @Override
+    public String toString()
+    {
+        if (isSingleValue()) {
+            return "?";
+        }
+
+        StringBuilder buffer = new StringBuilder();
+        buffer.append((low.getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
+        buffer.append(low.isLowerUnbounded() ? "<min>" : "?");
+        buffer.append(", ");
+        buffer.append(high.isUpperUnbounded() ? "<max>" : "?");
+        buffer.append((high.getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
+        return buffer.toString();
+    }
+
     public String toString(ConnectorSession session)
     {
-        StringBuilder buffer = new StringBuilder();
         if (isSingleValue()) {
-            buffer.append('[').append(low.getPrintableValue(session)).append(']');
+            return "[" + low.getPrintableValue(session) + "]";
         }
-        else {
-            buffer.append((low.getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
-            buffer.append(low.isLowerUnbounded() ? "<min>" : low.getPrintableValue(session));
-            buffer.append(", ");
-            buffer.append(high.isUpperUnbounded() ? "<max>" : high.getPrintableValue(session));
-            buffer.append((high.getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
-        }
+        StringBuilder buffer = new StringBuilder();
+        buffer.append((low.getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
+        buffer.append(low.isLowerUnbounded() ? "<min>" : low.getPrintableValue(session));
+        buffer.append(", ");
+        buffer.append(high.isUpperUnbounded() ? "<max>" : high.getPrintableValue(session));
+        buffer.append((high.getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
         return buffer.toString();
     }
 }

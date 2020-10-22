@@ -16,6 +16,7 @@ package io.prestosql.security;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.NotNull;
 
@@ -30,7 +31,7 @@ public class AccessControlConfig
     private List<File> accessControlFiles = ImmutableList.of();
 
     @NotNull
-    public List<File> getAccessControlFiles()
+    public List<@FileExists File> getAccessControlFiles()
     {
         return accessControlFiles;
     }

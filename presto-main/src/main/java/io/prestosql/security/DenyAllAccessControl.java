@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
@@ -51,6 +52,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePriv
 import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyKillQuery;
+import static io.prestosql.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
@@ -64,13 +66,16 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAutho
 import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCurrentRoles;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
+import static io.prestosql.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
 
 public class DenyAllAccessControl
         implements AccessControl
@@ -85,6 +90,18 @@ public class DenyAllAccessControl
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
         denySetUser(principal, userName);
+    }
+
+    @Override
+    public void checkCanReadSystemInformation(Identity identity)
+    {
+        denyReadSystemInformationAccess();
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(Identity identity)
+    {
+        denyWriteSystemInformationAccess();
     }
 
     @Override
@@ -136,6 +153,12 @@ public class DenyAllAccessControl
     }
 
     @Override
+    public void checkCanShowCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
+    {
+        denyShowCreateSchema(schemaName.toString());
+    }
+
+    @Override
     public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
     {
         denyShowCreateTable(tableName.toString());
@@ -169,6 +192,12 @@ public class DenyAllAccessControl
     public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName)
     {
         denyCommentTable(tableName.toString());
+    }
+
+    @Override
+    public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName)
+    {
+        denyCommentColumn(tableName.toString());
     }
 
     @Override
@@ -325,6 +354,12 @@ public class DenyAllAccessControl
     public void checkCanSetRole(SecurityContext context, String role, String catalog)
     {
         denySetRole(role);
+    }
+
+    @Override
+    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, String catalogName)
+    {
+        denyShowRoleAuthorizationDescriptors(catalogName);
     }
 
     @Override

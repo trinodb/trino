@@ -31,13 +31,15 @@ public class CassandraInsertTableHandle
     private final String tableName;
     private final List<String> columnNames;
     private final List<Type> columnTypes;
+    private final boolean generateUuid;
 
     @JsonCreator
     public CassandraInsertTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnNames") List<String> columnNames,
-            @JsonProperty("columnTypes") List<Type> columnTypes)
+            @JsonProperty("columnTypes") List<Type> columnTypes,
+            @JsonProperty("generateUuid") boolean generateUuid)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -47,6 +49,7 @@ public class CassandraInsertTableHandle
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.columnTypes = ImmutableList.copyOf(columnTypes);
+        this.generateUuid = generateUuid;
     }
 
     @JsonProperty
@@ -71,6 +74,12 @@ public class CassandraInsertTableHandle
     public List<Type> getColumnTypes()
     {
         return columnTypes;
+    }
+
+    @JsonProperty
+    public boolean isGenerateUuid()
+    {
+        return generateUuid;
     }
 
     @Override

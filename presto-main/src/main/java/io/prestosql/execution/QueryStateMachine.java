@@ -41,6 +41,7 @@ import io.prestosql.spi.QueryId;
 import io.prestosql.spi.eventlistener.RoutineInfo;
 import io.prestosql.spi.eventlistener.StageGcStatistics;
 import io.prestosql.spi.eventlistener.TableInfo;
+import io.prestosql.spi.resourcegroups.QueryType;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.type.Type;
@@ -69,6 +70,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -87,6 +89,7 @@ import static io.prestosql.execution.QueryState.TERMINAL_QUERY_STATES;
 import static io.prestosql.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.prestosql.execution.StageInfo.getAllStages;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.USER_CANCELED;
 import static io.prestosql.util.Failures.toFailure;
@@ -115,6 +118,7 @@ public class QueryStateMachine
 
     private final AtomicLong currentRevocableMemory = new AtomicLong();
     private final AtomicLong peakRevocableMemory = new AtomicLong();
+    private final AtomicLong peakNonRevocableMemory = new AtomicLong();
 
     // peak of the user + system + revocable memory reservation
     private final AtomicLong currentTotalMemory = new AtomicLong();
@@ -156,6 +160,12 @@ public class QueryStateMachine
 
     private final WarningCollector warningCollector;
 
+    private final Optional<QueryType> queryType;
+
+    @GuardedBy("dynamicFiltersStatsSupplierLock")
+    private Supplier<DynamicFiltersStats> dynamicFiltersStatsSupplier = () -> DynamicFiltersStats.EMPTY;
+    private final Object dynamicFiltersStatsSupplierLock = new Object();
+
     private QueryStateMachine(
             String query,
             Optional<String> preparedQuery,
@@ -166,7 +176,8 @@ public class QueryStateMachine
             Executor executor,
             Ticker ticker,
             Metadata metadata,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            Optional<QueryType> queryType)
     {
         this.query = requireNonNull(query, "query is null");
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
@@ -182,6 +193,7 @@ public class QueryStateMachine
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
         this.outputManager = new QueryOutputManager(executor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.queryType = requireNonNull(queryType, "queryType is null");
     }
 
     /**
@@ -198,7 +210,8 @@ public class QueryStateMachine
             AccessControl accessControl,
             Executor executor,
             Metadata metadata,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            Optional<QueryType> queryType)
     {
         return beginWithTicker(
                 query,
@@ -212,7 +225,8 @@ public class QueryStateMachine
                 executor,
                 Ticker.systemTicker(),
                 metadata,
-                warningCollector);
+                warningCollector,
+                queryType);
     }
 
     static QueryStateMachine beginWithTicker(
@@ -227,10 +241,11 @@ public class QueryStateMachine
             Executor executor,
             Ticker ticker,
             Metadata metadata,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            Optional<QueryType> queryType)
     {
         // If there is not an existing transaction, begin an auto commit transaction
-        if (!session.getTransactionId().isPresent() && !transactionControl) {
+        if (session.getTransactionId().isEmpty() && !transactionControl) {
             // TODO: make autocommit isolation level a session parameter
             TransactionId transactionId = transactionManager.beginTransaction(true);
             session = session.beginTransactionId(transactionId, transactionManager, accessControl);
@@ -246,7 +261,8 @@ public class QueryStateMachine
                 executor,
                 ticker,
                 metadata,
-                warningCollector);
+                warningCollector,
+                queryType);
         queryStateMachine.addStateChangeListener(newState -> QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState));
 
         return queryStateMachine;
@@ -270,6 +286,11 @@ public class QueryStateMachine
     public long getPeakRevocableMemoryInBytes()
     {
         return peakRevocableMemory.get();
+    }
+
+    public long getPeakNonRevocableMemoryInBytes()
+    {
+        return peakNonRevocableMemory.get();
     }
 
     public long getPeakTotalMemoryInBytes()
@@ -310,6 +331,7 @@ public class QueryStateMachine
         currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
         peakUserMemory.updateAndGet(currentPeakValue -> Math.max(currentUserMemory.get(), currentPeakValue));
         peakRevocableMemory.updateAndGet(currentPeakValue -> Math.max(currentRevocableMemory.get(), currentPeakValue));
+        peakNonRevocableMemory.updateAndGet(currentPeakValue -> Math.max(currentTotalMemory.get() - currentRevocableMemory.get(), currentPeakValue));
         peakTotalMemory.updateAndGet(currentPeakValue -> Math.max(currentTotalMemory.get(), currentPeakValue));
         peakTaskUserMemory.accumulateAndGet(taskUserMemoryInBytes, Math::max);
         peakTaskRevocableMemory.accumulateAndGet(taskRevocableMemoryInBytes, Math::max);
@@ -347,6 +369,7 @@ public class QueryStateMachine
 
                 stageStats.getRawInputDataSize(),
                 stageStats.getRawInputPositions(),
+                stageStats.getPhysicalInputDataSize(),
 
                 stageStats.getCumulativeUserMemory(),
                 stageStats.getUserMemoryReservation(),
@@ -374,7 +397,8 @@ public class QueryStateMachine
                 preparedQuery,
                 queryStats,
                 errorCode == null ? null : errorCode.getType(),
-                errorCode);
+                errorCode,
+                queryType);
     }
 
     @VisibleForTesting
@@ -429,7 +453,8 @@ public class QueryStateMachine
                 referencedTables.get(),
                 routines.get(),
                 completeInfo,
-                Optional.of(resourceGroup));
+                Optional.of(resourceGroup),
+                queryType);
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage)
@@ -565,6 +590,7 @@ public class QueryStateMachine
                 succinctBytes(totalMemoryReservation),
                 succinctBytes(getPeakUserMemoryInBytes()),
                 succinctBytes(getPeakRevocableMemoryInBytes()),
+                succinctBytes(getPeakNonRevocableMemoryInBytes()),
                 succinctBytes(getPeakTotalMemoryInBytes()),
                 succinctBytes(getPeakTaskUserMemory()),
                 succinctBytes(getPeakTaskRevocableMemory()),
@@ -593,6 +619,8 @@ public class QueryStateMachine
                 succinctBytes(physicalWrittenDataSize),
 
                 stageGcStatistics.build(),
+
+                getDynamicFiltersStats(),
 
                 operatorStatsSummary.build());
     }
@@ -644,6 +672,20 @@ public class QueryStateMachine
     {
         requireNonNull(routines, "routines is null");
         this.routines.set(ImmutableList.copyOf(routines));
+    }
+
+    private DynamicFiltersStats getDynamicFiltersStats()
+    {
+        synchronized (dynamicFiltersStatsSupplierLock) {
+            return dynamicFiltersStatsSupplier.get();
+        }
+    }
+
+    public void setDynamicFiltersStatsSupplier(Supplier<DynamicFiltersStats> dynamicFiltersStatsSupplier)
+    {
+        synchronized (dynamicFiltersStatsSupplierLock) {
+            this.dynamicFiltersStatsSupplier = requireNonNull(dynamicFiltersStatsSupplier, "dynamicFiltersStatsSupplier is null");
+        }
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -844,12 +886,17 @@ public class QueryStateMachine
         try {
             QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
             session.getTransactionId().ifPresent(transactionId -> {
-                if (transactionManager.isAutoCommit(transactionId)) {
-                    transactionManager.asyncAbort(transactionId);
+                try {
+                    if (transactionManager.transactionExists(transactionId) && transactionManager.isAutoCommit(transactionId)) {
+                        transactionManager.asyncAbort(transactionId);
+                        return;
+                    }
                 }
-                else {
-                    transactionManager.fail(transactionId);
+                catch (RuntimeException e) {
+                    // This shouldn't happen but be safe and just fail the transaction directly
+                    QUERY_STATE_LOG.error(e, "Error aborting transaction for failed query. Transaction will be failed directly");
                 }
+                transactionManager.fail(transactionId);
             });
         }
         finally {
@@ -973,12 +1020,12 @@ public class QueryStateMachine
 
     private static boolean isScheduled(Optional<StageInfo> rootStage)
     {
-        if (!rootStage.isPresent()) {
+        if (rootStage.isEmpty()) {
             return false;
         }
         return getAllStages(rootStage).stream()
                 .map(StageInfo::getState)
-                .allMatch(state -> (state == StageState.RUNNING) || state.isDone());
+                .allMatch(state -> state == StageState.RUNNING || state == StageState.FLUSHING || state.isDone());
     }
 
     public Optional<ExecutionFailureInfo> getFailureInfo()
@@ -1006,7 +1053,7 @@ public class QueryStateMachine
     public void pruneQueryInfo()
     {
         Optional<QueryInfo> finalInfo = finalQueryInfo.get();
-        if (!finalInfo.isPresent() || !finalInfo.get().getOutputStage().isPresent()) {
+        if (finalInfo.isEmpty() || finalInfo.get().getOutputStage().isEmpty()) {
             return;
         }
 
@@ -1053,7 +1100,8 @@ public class QueryStateMachine
                 queryInfo.getReferencedTables(),
                 queryInfo.getRoutines(),
                 queryInfo.isCompleteInfo(),
-                queryInfo.getResourceGroupId());
+                queryInfo.getResourceGroupId(),
+                queryInfo.getQueryType());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 
@@ -1086,6 +1134,7 @@ public class QueryStateMachine
                 queryStats.getTotalMemoryReservation(),
                 queryStats.getPeakUserMemoryReservation(),
                 queryStats.getPeakRevocableMemoryReservation(),
+                queryStats.getPeakNonRevocableMemoryReservation(),
                 queryStats.getPeakTotalMemoryReservation(),
                 queryStats.getPeakTaskUserMemory(),
                 queryStats.getPeakTaskRevocableMemory(),
@@ -1109,6 +1158,7 @@ public class QueryStateMachine
                 queryStats.getOutputPositions(),
                 queryStats.getPhysicalWrittenDataSize(),
                 queryStats.getStageGcStatistics(),
+                queryStats.getDynamicFiltersStats(),
                 ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially ExchangeClientStatus) can hold onto a large amount of memory
     }
 

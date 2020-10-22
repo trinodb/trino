@@ -19,6 +19,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedSplitSource;
 import io.prestosql.spi.connector.TableNotFoundException;
 
@@ -47,13 +48,14 @@ public class SheetsSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle connectorTableHandle,
-            SplitSchedulingStrategy splitSchedulingStrategy)
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter)
     {
         SheetsTableHandle tableHandle = (SheetsTableHandle) connectorTableHandle;
         Optional<SheetsTable> table = sheetsClient.getTable(tableHandle.getTableName());
 
         // this can happen if table is removed during a query
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             throw new TableNotFoundException(tableHandle.toSchemaTableName());
         }
 

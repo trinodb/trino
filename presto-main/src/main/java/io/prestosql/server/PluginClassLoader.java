@@ -51,7 +51,7 @@ class PluginClassLoader
             Iterable<String> spiResources)
     {
         // plugins should not have access to the system (application) class loader
-        super(urls.toArray(new URL[0]), getSystemClassLoader().getParent());
+        super(urls.toArray(new URL[0]), getPlatformClassLoader());
         this.spiClassLoader = requireNonNull(spiClassLoader, "spiClassLoader is null");
         this.spiPackages = ImmutableList.copyOf(spiPackages);
         this.spiResources = ImmutableList.copyOf(spiResources);

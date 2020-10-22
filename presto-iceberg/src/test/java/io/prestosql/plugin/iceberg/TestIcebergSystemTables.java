@@ -22,7 +22,9 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
+import io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
@@ -59,7 +61,12 @@ public class TestIcebergSystemTables
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
 
-        HiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
+        HiveMetastore metastore = new FileHiveMetastore(
+                hdfsEnvironment,
+                new MetastoreConfig(),
+                new FileHiveMetastoreConfig()
+                        .setCatalogDirectory(baseDir.toURI().toString())
+                        .setMetastoreUser("test"));
 
         queryRunner.installPlugin(new TestingIcebergPlugin(metastore));
         queryRunner.createCatalog("iceberg", "iceberg");
@@ -71,11 +78,14 @@ public class TestIcebergSystemTables
     public void setUp()
     {
         assertUpdate("CREATE SCHEMA test_schema");
-        // "$partitions" tables with ORC file format are not fully supported yet. So we use Parquet here for testing
-        assertUpdate("CREATE TABLE test_schema.test_table (_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'], format = 'Parquet')");
+        assertUpdate("CREATE TABLE test_schema.test_table (_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
         assertUpdate("INSERT INTO test_schema.test_table VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
         assertUpdate("INSERT INTO test_schema.test_table VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
         assertQuery("SELECT count(*) FROM test_schema.test_table", "VALUES 6");
+
+        assertUpdate("CREATE TABLE test_schema.test_table_multilevel_partitions (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
+        assertUpdate("INSERT INTO test_schema.test_table_multilevel_partitions VALUES ('a', 0, CAST('2019-09-08' AS DATE)), ('a', 1, CAST('2019-09-08' AS DATE)), ('a', 0, CAST('2019-09-09' AS DATE))", 3);
+        assertQuery("SELECT count(*) FROM test_schema.test_table_multilevel_partitions", "VALUES 3");
     }
 
     @Test
@@ -110,7 +120,7 @@ public class TestIcebergSystemTables
     public void testHistoryTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$history\"",
-                "VALUES ('made_current_at', 'timestamp with time zone', '', '')," +
+                "VALUES ('made_current_at', 'timestamp(3) with time zone', '', '')," +
                         "('snapshot_id', 'bigint', '', '')," +
                         "('parent_id', 'bigint', '', '')," +
                         "('is_current_ancestor', 'boolean', '', '')");
@@ -123,7 +133,7 @@ public class TestIcebergSystemTables
     public void testSnapshotsTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$snapshots\"",
-                "VALUES ('committed_at', 'timestamp with time zone', '', '')," +
+                "VALUES ('committed_at', 'timestamp(3) with time zone', '', '')," +
                         "('snapshot_id', 'bigint', '', '')," +
                         "('parent_id', 'bigint', '', '')," +
                         "('operation', 'varchar', '', '')," +
@@ -145,8 +155,10 @@ public class TestIcebergSystemTables
                         "('added_data_files_count', 'integer', '', '')," +
                         "('existing_data_files_count', 'integer', '', '')," +
                         "('deleted_data_files_count', 'integer', '', '')," +
-                        "('partitions', 'row(contains_null boolean, lower_bound varchar, upper_bound varchar)', '', '')");
+                        "('partitions', 'array(row(contains_null boolean, lower_bound varchar, upper_bound varchar))', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$manifests\"");
+
+        assertQuerySucceeds("SELECT * FROM test_schema.\"test_table_multilevel_partitions$manifests\"");
     }
 
     @Test
@@ -171,6 +183,7 @@ public class TestIcebergSystemTables
     public void tearDown()
     {
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table");
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multilevel_partitions");
         assertUpdate("DROP SCHEMA IF EXISTS test_schema");
     }
 }

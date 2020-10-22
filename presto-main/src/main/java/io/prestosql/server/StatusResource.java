@@ -17,16 +17,20 @@ import com.sun.management.OperatingSystemMXBean;
 import io.airlift.node.NodeInfo;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.memory.LocalMemoryManager;
+import io.prestosql.server.security.ResourceSecurity;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;
+import javax.ws.rs.HEAD;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.core.Response;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
@@ -61,6 +65,15 @@ public class StatusResource
         }
     }
 
+    @ResourceSecurity(PUBLIC)
+    @HEAD
+    @Produces(APPLICATION_JSON) // to match the GET route
+    public Response statusPing()
+    {
+        return Response.ok().build();
+    }
+
+    @ResourceSecurity(PUBLIC)
     @GET
     @Produces(APPLICATION_JSON)
     public NodeStatus getStatus()

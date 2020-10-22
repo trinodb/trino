@@ -20,6 +20,10 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimeWithTimeZoneType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
@@ -41,9 +45,12 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.RowType.Field;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimeType.createTimeType;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.type.CodePointsType.CODE_POINTS;
@@ -154,6 +161,22 @@ public final class TypeCoercion
             }
             if (fromTypeBaseName.equals(StandardTypes.ROW)) {
                 return typeCompatibilityForRow((RowType) fromType, (RowType) toType);
+            }
+            if (fromTypeBaseName.equals(StandardTypes.TIMESTAMP)) {
+                Type commonSuperType = createTimestampType(Math.max(((TimestampType) fromType).getPrecision(), ((TimestampType) toType).getPrecision()));
+                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
+            }
+            if (fromTypeBaseName.equals(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)) {
+                Type commonSuperType = createTimestampWithTimeZoneType(Math.max(((TimestampWithTimeZoneType) fromType).getPrecision(), ((TimestampWithTimeZoneType) toType).getPrecision()));
+                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
+            }
+            if (fromTypeBaseName.equals(StandardTypes.TIME)) {
+                Type commonSuperType = createTimeType(Math.max(((TimeType) fromType).getPrecision(), ((TimeType) toType).getPrecision()));
+                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
+            }
+            if (fromTypeBaseName.equals(StandardTypes.TIME_WITH_TIME_ZONE)) {
+                Type commonSuperType = createTimeWithTimeZoneType(Math.max(((TimeWithTimeZoneType) fromType).getPrecision(), ((TimeWithTimeZoneType) toType).getPrecision()));
+                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
             }
 
             if (isCovariantParametrizedType(fromType)) {
@@ -385,7 +408,7 @@ public final class TypeCoercion
             case StandardTypes.DATE: {
                 switch (resultTypeBase) {
                     case StandardTypes.TIMESTAMP:
-                        return Optional.of(TIMESTAMP);
+                        return Optional.of(createTimestampType(0));
                     case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
                         return Optional.of(TIMESTAMP_WITH_TIME_ZONE);
                     default:
@@ -403,7 +426,7 @@ public final class TypeCoercion
             case StandardTypes.TIMESTAMP: {
                 switch (resultTypeBase) {
                     case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
-                        return Optional.of(TIMESTAMP_WITH_TIME_ZONE);
+                        return Optional.of(createTimestampWithTimeZoneType(((TimestampType) sourceType).getPrecision()));
                     default:
                         return Optional.empty();
                 }
@@ -432,6 +455,9 @@ public final class TypeCoercion
             case StandardTypes.CHAR: {
                 switch (resultTypeBase) {
                     case StandardTypes.VARCHAR:
+                        // CHAR could be coercible to VARCHAR, but they cannot be both coercible to each other.
+                        // VARCHAR to CHAR coercion provides natural semantics when comparing VARCHAR literals to CHAR columns.
+                        // WITH CHAR to VARCHAR coercion one would need to pad literals with spaces: char_column_len_5 = 'abc  ', so we would not run unmodified TPC-DS queries.
                         return Optional.empty();
                     case JoniRegexpType.NAME:
                         return Optional.of(JONI_REGEXP);

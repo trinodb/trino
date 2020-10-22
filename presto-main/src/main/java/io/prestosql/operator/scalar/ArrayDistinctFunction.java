@@ -18,22 +18,24 @@ import io.prestosql.operator.aggregation.TypedSet;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
+import io.prestosql.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 
-import java.lang.invoke.MethodHandle;
-
-import static com.google.common.base.Defaults.defaultValue;
+import static io.prestosql.operator.aggregation.TypedSet.createDistinctTypedSet;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TypeUtils.readNativeValue;
-import static io.prestosql.util.Failures.internalError;
 
 @ScalarFunction("array_distinct")
 @Description("Remove duplicate values from the given array")
@@ -51,7 +53,14 @@ public final class ArrayDistinctFunction
     @SqlType("array(E)")
     public Block distinct(
             @TypeParameter("E") Type type,
-            @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"E", "E"}) MethodHandle elementIsDistinctFrom,
+            @OperatorDependency(
+                    operator = IS_DISTINCT_FROM,
+                    argumentTypes = {"E", "E"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsDistinctFrom elementIsDistinctFrom,
+            @OperatorDependency(
+                    operator = HASH_CODE,
+                    argumentTypes = "E",
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode elementHashCode,
             @SqlType("array(E)") Block array)
     {
         if (array.getPositionCount() < 2) {
@@ -59,24 +68,14 @@ public final class ArrayDistinctFunction
         }
 
         if (array.getPositionCount() == 2) {
-            boolean firstValueNull = array.isNull(0);
-            Object firstValue = firstValueNull ? defaultValue(type.getJavaType()) : readNativeValue(type, array, 0);
-            boolean secondValueNull = array.isNull(1);
-            Object secondValue = secondValueNull ? defaultValue(type.getJavaType()) : readNativeValue(type, array, 1);
-            boolean distinct;
-            try {
-                distinct = (boolean) elementIsDistinctFrom.invoke(firstValue, firstValueNull, secondValue, secondValueNull);
-            }
-            catch (Throwable t) {
-                throw internalError(t);
-            }
+            boolean distinct = elementIsDistinctFrom.isDistinctFrom(array, 0, array, 1);
             if (distinct) {
                 return array;
             }
             return array.getSingleValueBlock(0);
         }
 
-        TypedSet typedSet = new TypedSet(type, elementIsDistinctFrom, array.getPositionCount(), "array_distinct");
+        TypedSet typedSet = createDistinctTypedSet(type, elementIsDistinctFrom, elementHashCode, array.getPositionCount(), "array_distinct");
         int distinctCount = 0;
 
         if (pageBuilder.isFull()) {

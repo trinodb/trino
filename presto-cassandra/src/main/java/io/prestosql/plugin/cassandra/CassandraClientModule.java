@@ -122,13 +122,13 @@ public class CassandraClientModule
             loadPolicy = new TokenAwarePolicy(loadPolicy, config.isTokenAwareShuffleReplicas());
         }
 
-        if (config.isUseWhiteList()) {
-            checkArgument(!config.getWhiteListAddresses().isEmpty(), "empty WhiteListAddresses");
-            List<InetSocketAddress> whiteList = new ArrayList<>();
-            for (String point : config.getWhiteListAddresses()) {
-                whiteList.add(new InetSocketAddress(point, config.getNativeProtocolPort()));
+        if (!config.getAllowedAddresses().isEmpty()) {
+            checkArgument(!config.getAllowedAddresses().isEmpty(), "empty AllowListAddresses");
+            List<InetSocketAddress> allowList = new ArrayList<>();
+            for (String point : config.getAllowedAddresses()) {
+                allowList.add(new InetSocketAddress(point, config.getNativeProtocolPort()));
             }
-            loadPolicy = new WhiteListPolicy(loadPolicy, whiteList);
+            loadPolicy = new WhiteListPolicy(loadPolicy, allowList);
         }
 
         clusterBuilder.withLoadBalancingPolicy(loadPolicy);
@@ -175,7 +175,7 @@ public class CassandraClientModule
             Optional<File> truststorePath,
             Optional<String> truststorePassword)
     {
-        if (!keystorePath.isPresent() && !truststorePath.isPresent()) {
+        if (keystorePath.isEmpty() && truststorePath.isEmpty()) {
             return Optional.empty();
         }
 
@@ -217,14 +217,12 @@ public class CassandraClientModule
 
             // get X509TrustManager
             TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
-            if ((trustManagers.length != 1) || !(trustManagers[0] instanceof X509TrustManager)) {
+            if (trustManagers.length != 1 || !(trustManagers[0] instanceof X509TrustManager)) {
                 throw new RuntimeException("Unexpected default trust managers:" + Arrays.toString(trustManagers));
             }
-            X509TrustManager trustManager = (X509TrustManager) trustManagers[0];
-
             // create SSLContext
             SSLContext result = SSLContext.getInstance("SSL");
-            result.init(keyManagers, new TrustManager[] {trustManager}, null);
+            result.init(keyManagers, trustManagers, null);
             return Optional.of(result);
         }
         catch (GeneralSecurityException | IOException e) {

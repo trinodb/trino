@@ -26,14 +26,13 @@ import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.http.BaseHttpServiceException;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.StreamSupport;
@@ -91,7 +90,7 @@ class BigQueryClient
 
     Iterable<Dataset> listDatasets(String projectId)
     {
-        final Iterator<Dataset> datasets = bigQuery.listDatasets(projectId).iterateAll().iterator();
+        Iterator<Dataset> datasets = bigQuery.listDatasets(projectId).iterateAll().iterator();
         return () -> Iterators.transform(datasets, this::addDataSetMappingIfNeeded);
     }
 
@@ -118,7 +117,6 @@ class BigQueryClient
         String project = viewMaterializationProject.orElse(tableId.getProject());
         String dataset = viewMaterializationDataset.orElse(tableId.getDataset());
         DatasetId datasetId = mapIfNeeded(project, dataset);
-        UUID uuid = randomUUID();
         String name = format("_pbc_%s", randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
         return TableId.of(datasetId.getProject(), datasetId.getDataset(), name);
     }
@@ -150,20 +148,16 @@ class BigQueryClient
         }
     }
 
-    String createSql(TableId table, ImmutableList<String> requiredColumns, String[] filters)
+    String selectSql(TableId table, List<String> requiredColumns)
     {
         String columns = requiredColumns.isEmpty() ? "*" :
                 requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
 
-        String whereClause = createWhereClause(filters)
-                .map(clause -> "WHERE " + clause)
-                .orElse("");
-
-        return createSql(table, columns, filters);
+        return selectSql(table, columns, new String[] {});
     }
 
     // assuming the SELECT part is properly formatted, can be used to call functions such as COUNT and SUM
-    String createSql(TableId table, String formatedQuery, String[] filters)
+    String selectSql(TableId table, String formattedColumns, String[] filters)
     {
         String tableName = fullTableName(table);
 
@@ -171,10 +165,10 @@ class BigQueryClient
                 .map(clause -> "WHERE " + clause)
                 .orElse("");
 
-        return format("SELECT %s FROM `%s` %s", formatedQuery, tableName, whereClause);
+        return format("SELECT %s FROM `%s` %s", formattedColumns, tableName, whereClause);
     }
 
-    String fullTableName(TableId tableId)
+    private String fullTableName(TableId tableId)
     {
         tableId = tableIds.getOrDefault(tableId, tableId);
         return format("%s.%s.%s", tableId.getProject(), tableId.getDataset(), tableId.getTable());

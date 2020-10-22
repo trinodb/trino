@@ -60,6 +60,8 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.expressionOrNullSymbols;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
@@ -178,10 +180,27 @@ public class EffectivePredicateExtractor
         {
             // TODO: add simple algebraic solver for projection translation (right now only considers identity projections)
 
+            // Clear predicates involving symbols which are keys to non-identity assignments.
+            // Assignment such as `s -> x + 1` establishes new semantics for symbol `s`.
+            // If symbol `s` was present is the source plan and was included in underlying predicate, the predicate is no more valid.
+            // Also, if symbol `s` is present in a project assignment's value, e.g. `s1 -> s + 1`, this assignment should't be used to derive equality.
+
             Expression underlyingPredicate = node.getSource().accept(this, context);
 
-            List<Expression> projectionEqualities = node.getAssignments().entrySet().stream()
+            List<Map.Entry<Symbol, Expression>> nonIdentityAssignments = node.getAssignments().entrySet().stream()
                     .filter(SYMBOL_MATCHES_EXPRESSION.negate())
+                    .collect(toImmutableList());
+
+            Set<Symbol> newlyAssignedSymbols = nonIdentityAssignments.stream()
+                    .map(Map.Entry::getKey)
+                    .collect(toImmutableSet());
+
+            List<Expression> validUnderlyingEqualities = extractConjuncts(underlyingPredicate).stream()
+                    .filter(expression -> Sets.intersection(SymbolsExtractor.extractUnique(expression), newlyAssignedSymbols).isEmpty())
+                    .collect(toImmutableList());
+
+            List<Expression> projectionEqualities = nonIdentityAssignments.stream()
+                    .filter(assignment -> Sets.intersection(SymbolsExtractor.extractUnique(assignment.getValue()), newlyAssignedSymbols).isEmpty())
                     .map(ENTRY_TO_EQUALITY)
                     .collect(toImmutableList());
 
@@ -189,7 +208,7 @@ public class EffectivePredicateExtractor
                     metadata,
                     ImmutableList.<Expression>builder()
                             .addAll(projectionEqualities)
-                            .add(underlyingPredicate)
+                            .addAll(validUnderlyingEqualities)
                             .build()),
                     node.getOutputSymbols());
         }
@@ -224,8 +243,7 @@ public class EffectivePredicateExtractor
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
             TupleDomain<ColumnHandle> predicate = node.getEnforcedConstraint();
-            if (useTableProperties && !node.getEnforcedConstraint().isAll()) {
-                // extract table properties only when predicate has been pushed to table scan at least once
+            if (useTableProperties) {
                 predicate = metadata.getTableProperties(session, node.getTable()).getPredicate();
             }
 
@@ -333,6 +351,7 @@ public class EffectivePredicateExtractor
 
                 ImmutableList.Builder<Object> builder = ImmutableList.builder();
                 boolean hasNull = false;
+                boolean hasNaN = false;
                 boolean nonDeterministic = false;
                 for (int row = 0; row < node.getRows().size(); row++) {
                     Expression value = node.getRows().get(row).get(column);
@@ -353,6 +372,9 @@ public class EffectivePredicateExtractor
                         hasNull = true;
                     }
                     else {
+                        if (isFloatingPointNaN(type, evaluated)) {
+                            hasNaN = true;
+                        }
                         builder.add(evaluated);
                     }
                 }
@@ -365,10 +387,15 @@ public class EffectivePredicateExtractor
 
                 List<Object> values = builder.build();
 
-                Domain domain = Domain.none(type);
-
-                if (!values.isEmpty()) {
-                    domain = domain.union(Domain.multipleValues(type, values));
+                Domain domain;
+                if (values.isEmpty()) {
+                    domain = Domain.none(type);
+                }
+                else if (hasNaN) {
+                    domain = Domain.notNull(type);
+                }
+                else {
+                    domain = Domain.multipleValues(type, values);
                 }
 
                 if (hasNull) {

@@ -15,12 +15,10 @@ package io.prestosql.server;
 
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableSet;
+import com.sun.management.UnixOperatingSystemMXBean;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
-
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
 
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
@@ -28,10 +26,10 @@ import java.nio.ByteOrder;
 import java.util.List;
 import java.util.Locale;
 import java.util.OptionalLong;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
-import static java.lang.management.ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME;
 
 final class PrestoSystemRequirements
 {
@@ -94,32 +92,9 @@ final class PrestoSystemRequirements
 
     private static void verifyJavaVersion()
     {
-        String javaVersion = StandardSystemProperty.JAVA_VERSION.value();
-        if (javaVersion == null) {
-            failRequirement("Java version not defined");
+        if (Runtime.version().feature() < 11) {
+            failRequirement("Presto requires Java 11+ (found %s)", Runtime.version());
         }
-
-        JavaVersion version = JavaVersion.parse(javaVersion);
-
-        if (version.getMajor() >= 11) {
-            return;
-        }
-
-        if (!Boolean.getBoolean("presto-temporarily-allow-java8")) {
-            failRequirement("" +
-                    "Future versions of Presto will require Java 11 after March 2020.\n\n" +
-                    "You may temporarily continue running on Java 8 by adding the following\n" +
-                    "JVM config option:\n\n" +
-                    "    -Dpresto-temporarily-allow-java8=true\n");
-        }
-
-        if ((version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 161) ||
-                (version.getMajor() > 8 && version.getMajor() < 11)) {
-            warnRequirement("Future versions of Presto will require Java 11+ (found: %s)", javaVersion);
-            return;
-        }
-
-        failRequirement("Presto requires Java 8u161+ (found %s)", javaVersion);
     }
 
     private static void verifyUsingG1Gc()
@@ -142,7 +117,7 @@ final class PrestoSystemRequirements
     private static void verifyFileDescriptor()
     {
         OptionalLong maxFileDescriptorCount = getMaxFileDescriptorCount();
-        if (!maxFileDescriptorCount.isPresent()) {
+        if (maxFileDescriptorCount.isEmpty()) {
             // This should never happen since we have verified the OS and JVM above
             failRequirement("Cannot read OS file descriptor limit");
         }
@@ -156,14 +131,11 @@ final class PrestoSystemRequirements
 
     private static OptionalLong getMaxFileDescriptorCount()
     {
-        try {
-            MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-            Object maxFileDescriptorCount = mbeanServer.getAttribute(ObjectName.getInstance(OPERATING_SYSTEM_MXBEAN_NAME), "MaxFileDescriptorCount");
-            return OptionalLong.of(((Number) maxFileDescriptorCount).longValue());
-        }
-        catch (Exception e) {
-            return OptionalLong.empty();
-        }
+        return Stream.of(ManagementFactory.getOperatingSystemMXBean())
+                .filter(UnixOperatingSystemMXBean.class::isInstance)
+                .map(UnixOperatingSystemMXBean.class::cast)
+                .mapToLong(UnixOperatingSystemMXBean::getMaxFileDescriptorCount)
+                .findFirst();
     }
 
     private static void verifySlice()

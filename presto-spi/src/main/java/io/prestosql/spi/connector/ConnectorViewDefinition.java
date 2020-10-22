@@ -17,12 +17,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.type.TypeId;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.StringJoiner;
 
-import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorViewDefinition
@@ -48,11 +46,11 @@ public class ConnectorViewDefinition
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
-        this.columns = unmodifiableList(new ArrayList<>(requireNonNull(columns, "columns is null")));
+        this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
         this.comment = requireNonNull(comment, "comment is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.runAsInvoker = runAsInvoker;
-        if (!catalog.isPresent() && schema.isPresent()) {
+        if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
         }
         if (runAsInvoker && owner.isPresent()) {

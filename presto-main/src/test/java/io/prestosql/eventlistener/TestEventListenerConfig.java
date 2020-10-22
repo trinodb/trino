@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -35,13 +37,17 @@ public class TestEventListenerConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path config1 = Files.createTempFile(null, null);
+        Path config2 = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("event-listener.config-files", "a,b,c")
+                .put("event-listener.config-files", config1.toString() + "," + config2.toString())
                 .build();
 
         EventListenerConfig expected = new EventListenerConfig()
-                .setEventListenerFiles(ImmutableList.of(new File("a"), new File("b"), new File("c")));
+                .setEventListenerFiles(ImmutableList.of(config1.toFile(), config2.toFile()));
 
         assertFullMapping(properties, expected);
     }

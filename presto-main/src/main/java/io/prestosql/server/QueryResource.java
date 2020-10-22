@@ -18,6 +18,7 @@ import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryState;
 import io.prestosql.security.AccessControl;
+import io.prestosql.server.security.ResourceSecurity;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.security.AccessDeniedException;
@@ -48,6 +49,7 @@ import static io.prestosql.security.AccessControlUtil.checkCanKillQueryOwnedBy;
 import static io.prestosql.security.AccessControlUtil.checkCanViewQueryOwnedBy;
 import static io.prestosql.security.AccessControlUtil.filterQueries;
 import static io.prestosql.server.HttpRequestSessionContext.extractAuthorizedIdentity;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -68,6 +70,7 @@ public class QueryResource
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
     }
 
+    @ResourceSecurity(AUTHENTICATED_USER)
     @GET
     public List<BasicQueryInfo> getAllQueryInfo(@QueryParam("state") String stateFilter, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
     {
@@ -85,6 +88,7 @@ public class QueryResource
         return builder.build();
     }
 
+    @ResourceSecurity(AUTHENTICATED_USER)
     @GET
     @Path("{queryId}")
     public Response getQueryInfo(@PathParam("queryId") QueryId queryId, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
@@ -92,7 +96,7 @@ public class QueryResource
         requireNonNull(queryId, "queryId is null");
 
         Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
-        if (!queryInfo.isPresent()) {
+        if (queryInfo.isEmpty()) {
             return Response.status(Status.GONE).build();
         }
         try {
@@ -104,6 +108,7 @@ public class QueryResource
         }
     }
 
+    @ResourceSecurity(AUTHENTICATED_USER)
     @DELETE
     @Path("{queryId}")
     public void cancelQuery(@PathParam("queryId") QueryId queryId, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
@@ -122,6 +127,7 @@ public class QueryResource
         }
     }
 
+    @ResourceSecurity(AUTHENTICATED_USER)
     @PUT
     @Path("{queryId}/killed")
     public Response killQuery(@PathParam("queryId") QueryId queryId, String message, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
@@ -129,6 +135,7 @@ public class QueryResource
         return failQuery(queryId, createKillQueryException(message), servletRequest, httpHeaders);
     }
 
+    @ResourceSecurity(AUTHENTICATED_USER)
     @PUT
     @Path("{queryId}/preempted")
     public Response preemptQuery(@PathParam("queryId") QueryId queryId, String message, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)

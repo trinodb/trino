@@ -16,11 +16,16 @@ package io.prestosql.metadata;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.operator.aggregation.AggregationFromAnnotationsParser;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public abstract class SqlAggregationFunction
@@ -39,7 +44,7 @@ public abstract class SqlAggregationFunction
     {
         return AggregationFromAnnotationsParser.parseFunctionDefinitions(aggregationDefinition)
                 .stream()
-                .map(x -> (SqlAggregationFunction) x)
+                .map(SqlAggregationFunction.class::cast)
                 .collect(toImmutableList());
     }
 
@@ -57,15 +62,37 @@ public abstract class SqlAggregationFunction
         return functionMetadata;
     }
 
-    public boolean isOrderSensitive()
+    public AggregationFunctionMetadata getAggregationMetadata(FunctionBinding functionBinding)
     {
-        return orderSensitive;
+        if (!decomposable) {
+            return new AggregationFunctionMetadata(orderSensitive, Optional.empty());
+        }
+
+        List<TypeSignature> intermediateTypes = getIntermediateTypes(functionBinding);
+        TypeSignature intermediateType;
+        if (intermediateTypes.size() == 1) {
+            intermediateType = getOnlyElement(intermediateTypes);
+        }
+        else {
+            intermediateType = new TypeSignature(StandardTypes.ROW, intermediateTypes.stream()
+                    .map(TypeSignatureParameter::anonymousField)
+                    .collect(toImmutableList()));
+        }
+        return new AggregationFunctionMetadata(orderSensitive, Optional.of(intermediateType));
     }
 
-    public boolean isDecomposable()
+    protected List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
     {
-        return decomposable;
+        throw new UnsupportedOperationException();
     }
 
-    public abstract InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata);
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        return specialize(functionBinding);
+    }
+
+    protected InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

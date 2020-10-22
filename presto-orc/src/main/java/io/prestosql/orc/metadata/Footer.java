@@ -22,15 +22,17 @@ import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.transformValues;
 import static java.util.Objects.requireNonNull;
 
 public class Footer
 {
     private final long numberOfRows;
-    private final int rowsInRowGroup;
+    private final OptionalInt rowsInRowGroup;
     private final List<StripeInformation> stripes;
     private final ColumnMetadata<OrcType> types;
     private final Optional<ColumnMetadata<ColumnStatistics>> fileStats;
@@ -38,13 +40,14 @@ public class Footer
 
     public Footer(
             long numberOfRows,
-            int rowsInRowGroup,
+            OptionalInt rowsInRowGroup,
             List<StripeInformation> stripes,
             ColumnMetadata<OrcType> types,
             Optional<ColumnMetadata<ColumnStatistics>> fileStats,
             Map<String, Slice> userMetadata)
     {
         this.numberOfRows = numberOfRows;
+        rowsInRowGroup.ifPresent(value -> checkArgument(value > 0, "rowsInRowGroup must be at least 1"));
         this.rowsInRowGroup = rowsInRowGroup;
         this.stripes = ImmutableList.copyOf(requireNonNull(stripes, "stripes is null"));
         this.types = requireNonNull(types, "types is null");
@@ -58,7 +61,7 @@ public class Footer
         return numberOfRows;
     }
 
-    public int getRowsInRowGroup()
+    public OptionalInt getRowsInRowGroup()
     {
         return rowsInRowGroup;
     }

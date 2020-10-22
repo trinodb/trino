@@ -16,7 +16,12 @@ package io.prestosql.type;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import java.lang.invoke.MethodHandle;
+
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -130,6 +135,7 @@ public class TestDoubleOperators
         assertFunction("37.7E0 = 17.1E0", BOOLEAN, false);
         assertFunction("17.1E0 = 37.7E0", BOOLEAN, false);
         assertFunction("17.1E0 = 17.1E0", BOOLEAN, true);
+        assertFunction("0E0 = -0E0", BOOLEAN, true);
         assertFunction("DOUBLE 'NaN' = 37.7E0", BOOLEAN, false);
         assertFunction("37.7E0 = DOUBLE 'NaN'", BOOLEAN, false);
         assertFunction("DOUBLE 'NaN' = DOUBLE 'NaN'", BOOLEAN, false);
@@ -315,6 +321,7 @@ public class TestDoubleOperators
 
     @Test
     public void testNanHash()
+            throws Throwable
     {
         long[] nanRepresentations = new long[] {doubleToLongBits(Double.NaN), 0xfff8000000000000L, 0x7ff8123412341234L, 0xfff8123412341234L};
         for (long nanRepresentation : nanRepresentations) {
@@ -323,7 +330,35 @@ public class TestDoubleOperators
             assertTrue(nanRepresentation == nanRepresentations[0]
                     || doubleToRawLongBits(longBitsToDouble(nanRepresentation)) != doubleToRawLongBits(longBitsToDouble(nanRepresentations[0])));
 
-            assertEquals(DoubleOperators.hashCode(longBitsToDouble(nanRepresentation)), DoubleOperators.hashCode(longBitsToDouble(nanRepresentations[0])));
+            assertEquals(executeHashOperator(longBitsToDouble(nanRepresentation)), executeHashOperator(longBitsToDouble(nanRepresentations[0])));
+            assertEquals(executeXxHash64Operator(longBitsToDouble(nanRepresentation)), executeXxHash64Operator(longBitsToDouble(nanRepresentations[0])));
         }
+    }
+
+    @Test
+    public void testZeroHash()
+            throws Throwable
+    {
+        double[] zeroes = {0.0, -0.0};
+        for (double zero : zeroes) {
+            //noinspection SimplifiedTestNGAssertion
+            assertTrue(zero == 0);
+            assertEquals(executeHashOperator(zero), executeHashOperator(zeroes[0]));
+            assertEquals(executeXxHash64Operator(zero), executeXxHash64Operator(zeroes[0]));
+        }
+    }
+
+    private long executeHashOperator(double value)
+            throws Throwable
+    {
+        MethodHandle hashCodeOperator = functionAssertions.getTypeOperators().getHashCodeOperator(DOUBLE, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+        return (long) hashCodeOperator.invokeExact(value);
+    }
+
+    private long executeXxHash64Operator(double value)
+            throws Throwable
+    {
+        MethodHandle xxHash64Operator = functionAssertions.getTypeOperators().getXxHash64Operator(DOUBLE, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+        return (long) xxHash64Operator.invokeExact(value);
     }
 }

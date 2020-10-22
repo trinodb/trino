@@ -48,8 +48,6 @@ import static org.testng.Assert.assertNotNull;
 
 public class TestJdbcRecordSetProvider
 {
-    private static final JdbcIdentity IDENTITY = JdbcIdentity.from(SESSION);
-
     private TestingDatabase database;
     private JdbcClient jdbcClient;
     private JdbcSplit split;
@@ -182,12 +180,11 @@ public class TestJdbcRecordSetProvider
     {
         jdbcTableHandle = new JdbcTableHandle(
                 jdbcTableHandle.getSchemaTableName(),
-                jdbcTableHandle.getCatalogName(),
-                jdbcTableHandle.getSchemaName(),
-                jdbcTableHandle.getTableName(),
-                Optional.empty(),
+                jdbcTableHandle.getRemoteTableName(),
                 domain,
-                OptionalLong.empty());
+                Optional.empty(),
+                OptionalLong.empty(),
+                Optional.empty());
 
         ConnectorSplitSource splits = jdbcClient.getSplits(SESSION, jdbcTableHandle);
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());

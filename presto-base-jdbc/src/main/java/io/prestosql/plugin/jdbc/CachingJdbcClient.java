@@ -20,6 +20,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -37,6 +38,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -46,7 +48,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.Objects.requireNonNull;
 
-public final class CachingJdbcClient
+public class CachingJdbcClient
         implements JdbcClient
 {
     private final JdbcClient delegate;
@@ -121,9 +123,27 @@ public final class CachingJdbcClient
     }
 
     @Override
+    public List<ColumnMapping> getColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles)
+    {
+        return delegate.getColumnMappings(session, typeHandles);
+    }
+
+    @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         return delegate.toWriteMapping(session, type);
+    }
+
+    @Override
+    public boolean supportsGroupingSets()
+    {
+        return delegate.supportsGroupingSets();
+    }
+
+    @Override
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        return delegate.implementAggregation(session, aggregate, assignments);
     }
 
     @Override
@@ -160,9 +180,9 @@ public final class CachingJdbcClient
     }
 
     @Override
-    public boolean isLimitGuaranteed()
+    public boolean isLimitGuaranteed(ConnectorSession session)
     {
-        return delegate.isLimitGuaranteed();
+        return delegate.isLimitGuaranteed(session);
     }
 
     @Override
@@ -175,7 +195,7 @@ public final class CachingJdbcClient
             return cachedTableHandle;
         }
         Optional<JdbcTableHandle> tableHandle = delegate.getTableHandle(identity, schemaTableName);
-        if (!tableHandle.isPresent() || cacheMissing) {
+        if (tableHandle.isEmpty() || cacheMissing) {
             tableHandleCache.put(key, tableHandle);
         }
         return tableHandle;
@@ -255,6 +275,13 @@ public final class CachingJdbcClient
     }
 
     @Override
+    public void setColumnComment(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        delegate.setColumnComment(identity, handle, column, comment);
+        invalidateColumnsCache(identity, handle.getSchemaTableName());
+    }
+
+    @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         delegate.addColumn(session, handle, column);
@@ -299,6 +326,24 @@ public final class CachingJdbcClient
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         return delegate.getSystemTable(session, tableName);
+    }
+
+    @Override
+    public String quoted(String name)
+    {
+        return delegate.quoted(name);
+    }
+
+    @Override
+    public String quoted(RemoteTableName remoteTableName)
+    {
+        return delegate.quoted(remoteTableName);
+    }
+
+    @Override
+    public Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle tableHandle)
+    {
+        return delegate.getTableProperties(identity, tableHandle);
     }
 
     private void invalidateSchemasCache()

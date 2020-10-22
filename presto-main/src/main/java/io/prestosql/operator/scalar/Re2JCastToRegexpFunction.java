@@ -17,20 +17,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.type.Re2JRegexp;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.Chars.padSpaces;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.insertArguments;
@@ -64,12 +63,13 @@ public class Re2JCastToRegexpFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        return new ScalarFunctionImplementation(
-                false,
-                ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                insertArguments(METHOD_HANDLE, 0, dfaStatesLimit, dfaRetries, padSpaces, boundVariables.getLongVariable("x")));
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL),
+                insertArguments(METHOD_HANDLE, 0, dfaStatesLimit, dfaRetries, padSpaces, functionBinding.getLongVariable("x")));
     }
 
     @UsedByGeneratedCode

@@ -49,7 +49,7 @@ public class BlackHoleConnectorFactory
                 new BlackHoleSplitManager(),
                 new BlackHolePageSourceProvider(executorService),
                 new BlackHolePageSinkProvider(executorService),
-                new BlackHoleNodePartitioningProvider(context.getNodeManager()),
+                new BlackHoleNodePartitioningProvider(context.getNodeManager(), context.getTypeManager().getTypeOperators()),
                 context.getTypeManager(),
                 executorService);
     }

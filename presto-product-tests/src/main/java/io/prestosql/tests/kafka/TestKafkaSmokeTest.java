@@ -38,6 +38,7 @@ import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableT
 import static io.prestosql.tempto.fulfillment.table.kafka.KafkaMessageContentsBuilder.contentsBuilder;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.KAFKA;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
@@ -76,7 +77,7 @@ public class TestKafkaSmokeTest
         }
     }
 
-    @Test(groups = KAFKA)
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     @Requires(SimpleKeyAndValueTable.class)
     public void testSelectSimpleKeyAndValue()
     {
@@ -128,7 +129,7 @@ public class TestKafkaSmokeTest
         }
     }
 
-    @Test(groups = KAFKA)
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     @Requires(AllDataTypesRawTable.class)
     public void testSelectAllRawTable()
     {
@@ -199,7 +200,7 @@ public class TestKafkaSmokeTest
         }
     }
 
-    @Test(groups = KAFKA)
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     @Requires(AllDataTypesCsvTable.class)
     public void testSelectAllCsvTable()
     {
@@ -252,12 +253,10 @@ public class TestKafkaSmokeTest
                                     "\"j_timestamp_rfc2822\"                    : \"Fri Feb 09 13:15:19 Z 2018\"     ," +
                                     "\"j_timestamp_custom\"                     : \"02/2018/09 13:15:20\"            ," +
                                     "\"j_date_iso8601\"                         : \"2018-02-11\"                     ," +
-                                    "\"j_date_rfc2822\"                         : \"Mon Feb 12 13:15:16 Z 2018\"     ," +
                                     "\"j_date_custom\"                          : \"2018/13/02\"                     ," +
                                     "\"j_time_milliseconds_since_epoch\"        : \"47716000\"                       ," +
                                     "\"j_time_seconds_since_epoch\"             : \"47717\"                          ," +
                                     "\"j_time_iso8601\"                         : \"13:15:18\"                       ," +
-                                    "\"j_time_rfc2822\"                         : \"Thu Jan 01 13:15:19 Z 1970\"     ," +
                                     "\"j_time_custom\"                          : \"15:13:20\"                       ," +
                                     "\"j_timestamptz_milliseconds_since_epoch\" : \"1518182116000\"                  ," +
                                     "\"j_timestamptz_seconds_since_epoch\"      : \"1518182117\"                     ," +
@@ -267,14 +266,13 @@ public class TestKafkaSmokeTest
                                     "\"j_timetz_milliseconds_since_epoch\"      : \"47716000\"                       ," +
                                     "\"j_timetz_seconds_since_epoch\"           : \"47717\"                          ," +
                                     "\"j_timetz_iso8601\"                       : \"13:15:18Z\"                      ," +
-                                    "\"j_timetz_rfc2822\"                       : \"Thu Jan 01 13:15:19 Z 1970\"     ," +
                                     "\"j_timetz_custom\"                        : \"15:13:20\"                       }"))),
                     1,
                     1));
         }
     }
 
-    @Test(groups = KAFKA)
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     @Requires(AllDataTypesJsonTable.class)
     public void testSelectAllJsonTable()
     {
@@ -291,29 +289,26 @@ public class TestKafkaSmokeTest
                 row("c_tinyint", "tinyint"),
                 row("c_double", "double"),
                 row("c_boolean", "boolean"),
-                row("c_timestamp_milliseconds_since_epoch", "timestamp"),
-                row("c_timestamp_seconds_since_epoch", "timestamp"),
-                row("c_timestamp_iso8601", "timestamp"),
-                row("c_timestamp_rfc2822", "timestamp"),
-                row("c_timestamp_custom", "timestamp"),
+                row("c_timestamp_milliseconds_since_epoch", "timestamp(3)"),
+                row("c_timestamp_seconds_since_epoch", "timestamp(3)"),
+                row("c_timestamp_iso8601", "timestamp(3)"),
+                row("c_timestamp_rfc2822", "timestamp(3)"),
+                row("c_timestamp_custom", "timestamp(3)"),
                 row("c_date_iso8601", "date"),
-                row("c_date_rfc2822", "date"),
                 row("c_date_custom", "date"),
-                row("c_time_milliseconds_since_epoch", "time"),
-                row("c_time_seconds_since_epoch", "time"),
-                row("c_time_iso8601", "time"),
-                row("c_time_rfc2822", "time"),
-                row("c_time_custom", "time"),
-                row("c_timestamptz_milliseconds_since_epoch", "timestamp with time zone"),
-                row("c_timestamptz_seconds_since_epoch", "timestamp with time zone"),
-                row("c_timestamptz_iso8601", "timestamp with time zone"),
-                row("c_timestamptz_rfc2822", "timestamp with time zone"),
-                row("c_timestamptz_custom", "timestamp with time zone"),
-                row("c_timetz_milliseconds_since_epoch", "time with time zone"),
-                row("c_timetz_seconds_since_epoch", "time with time zone"),
-                row("c_timetz_iso8601", "time with time zone"),
-                row("c_timetz_rfc2822", "time with time zone"),
-                row("c_timetz_custom", "time with time zone"));
+                row("c_time_milliseconds_since_epoch", "time(3)"),
+                row("c_time_seconds_since_epoch", "time(3)"),
+                row("c_time_iso8601", "time(3)"),
+                row("c_time_custom", "time(3)"),
+                row("c_timestamptz_milliseconds_since_epoch", "timestamp(3) with time zone"),
+                row("c_timestamptz_seconds_since_epoch", "timestamp(3) with time zone"),
+                row("c_timestamptz_iso8601", "timestamp(3) with time zone"),
+                row("c_timestamptz_rfc2822", "timestamp(3) with time zone"),
+                row("c_timestamptz_custom", "timestamp(3) with time zone"),
+                row("c_timetz_milliseconds_since_epoch", "time(3) with time zone"),
+                row("c_timetz_seconds_since_epoch", "time(3) with time zone"),
+                row("c_timetz_iso8601", "time(3) with time zone"),
+                row("c_timetz_custom", "time(3) with time zone"));
 
         assertThat(query(format("select * from %s.%s.%s", KAFKA_CATALOG, SCHEMA_NAME, ALL_DATATYPES_JSON_TABLE_NAME))).containsOnly(row(
                 "ala ma kota",
@@ -323,28 +318,26 @@ public class TestKafkaSmokeTest
                 127,
                 1234567890.123456789,
                 true,
-                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 16)),
-                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 17)),
-                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 18)),
-                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 19)),
-                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 20)),
+                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 13, 15, 16)),
+                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 13, 15, 17)),
+                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 13, 15, 18)),
+                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 13, 15, 19)),
+                Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 13, 15, 20)),
                 Date.valueOf(LocalDate.of(2018, 2, 11)),
-                Date.valueOf(LocalDate.of(2018, 2, 12)),
                 Date.valueOf(LocalDate.of(2018, 2, 13)),
-                Time.valueOf(LocalTime.of(18, 45, 16)), // different due to broken TIME datatype semantics
-                Time.valueOf(LocalTime.of(18, 45, 17)),
-                Time.valueOf(LocalTime.of(18, 45, 18)),
-                Time.valueOf(LocalTime.of(18, 45, 19)),
-                Time.valueOf(LocalTime.of(18, 45, 20)),
+                Time.valueOf(LocalTime.of(13, 15, 16)),
+                Time.valueOf(LocalTime.of(13, 15, 17)),
+                Time.valueOf(LocalTime.of(13, 15, 18)),
+                Time.valueOf(LocalTime.of(13, 15, 20)),
+                // different because product test framework converts to java.sql.Timestamp
                 Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 16)),
                 Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 17)),
                 Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 18)),
                 Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 19)),
                 Timestamp.valueOf(LocalDateTime.of(2018, 2, 9, 19, 0, 20)),
-                Time.valueOf(LocalTime.of(18, 45, 16)), // different due to broken TIME datatype semantics
+                Time.valueOf(LocalTime.of(18, 45, 16)),
                 Time.valueOf(LocalTime.of(18, 45, 17)),
                 Time.valueOf(LocalTime.of(18, 45, 18)),
-                Time.valueOf(LocalTime.of(18, 45, 19)),
                 Time.valueOf(LocalTime.of(18, 45, 20))));
     }
 

@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
@@ -50,6 +51,7 @@ public class LegacyAccessControl
     private final boolean allowDropTable;
     private final boolean allowRenameTable;
     private final boolean allowCommentTable;
+    private final boolean allowCommentColumn;
     private final boolean allowAddColumn;
     private final boolean allowDropColumn;
     private final boolean allowRenameColumn;
@@ -65,6 +67,7 @@ public class LegacyAccessControl
         allowDropTable = securityConfig.getAllowDropTable();
         allowRenameTable = securityConfig.getAllowRenameTable();
         allowCommentTable = securityConfig.getAllowCommentTable();
+        allowCommentColumn = securityConfig.getAllowCommentColumn();
         allowAddColumn = securityConfig.getAllowAddColumn();
         allowDropColumn = securityConfig.getAllowDropColumn();
         allowRenameColumn = securityConfig.getAllowRenameColumn();
@@ -102,6 +105,11 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanShowCreateSchema(ConnectorSecurityContext context, String schemaName)
+    {
+    }
+
+    @Override
     public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }
@@ -120,7 +128,7 @@ public class LegacyAccessControl
 
         Optional<Table> target = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle())).getTable(new HiveIdentity(context.getIdentity()), tableName.getSchemaName(), tableName.getTableName());
 
-        if (!target.isPresent()) {
+        if (target.isEmpty()) {
             denyDropTable(tableName.toString(), "Table not found");
         }
 
@@ -142,6 +150,14 @@ public class LegacyAccessControl
     {
         if (!allowCommentTable) {
             denyCommentTable(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        if (!allowCommentColumn) {
+            denyCommentColumn(tableName.toString());
         }
     }
 
@@ -263,6 +279,11 @@ public class LegacyAccessControl
 
     @Override
     public void checkCanSetRole(ConnectorSecurityContext context, String role, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
     {
     }
 

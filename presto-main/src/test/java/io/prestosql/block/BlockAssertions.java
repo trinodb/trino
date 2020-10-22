@@ -41,11 +41,12 @@ import static io.prestosql.spi.type.Decimals.writeBigDecimal;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.prestosql.type.ColorType.COLOR;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -439,7 +440,7 @@ public final class BlockAssertions
         return createBlockOfReals(Arrays.asList(values));
     }
 
-    private static Block createBlockOfReals(Iterable<Float> values)
+    public static Block createBlockOfReals(Iterable<Float> values)
     {
         BlockBuilder builder = REAL.createBlockBuilder(null, 100);
         for (Float value : values) {
@@ -528,10 +529,10 @@ public final class BlockAssertions
 
     public static Block createTimestampSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = TIMESTAMP.createFixedSizeBlockBuilder(end - start);
+        BlockBuilder builder = TIMESTAMP_MILLIS.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
-            TIMESTAMP.writeLong(builder, i);
+            TIMESTAMP_MILLIS.writeLong(builder, i);
         }
 
         return builder.build();
@@ -558,6 +559,24 @@ public final class BlockAssertions
             type.writeSlice(builder, encodeUnscaledValue(BigInteger.valueOf(i).multiply(base)));
         }
 
+        return builder.build();
+    }
+
+    public static Block createColorRepeatBlock(int value, int length)
+    {
+        BlockBuilder builder = COLOR.createFixedSizeBlockBuilder(length);
+        for (int i = 0; i < length; i++) {
+            COLOR.writeLong(builder, value);
+        }
+        return builder.build();
+    }
+
+    public static Block createColorSequenceBlock(int start, int end)
+    {
+        BlockBuilder builder = COLOR.createBlockBuilder(null, end - start);
+        for (int i = start; i < end; ++i) {
+            COLOR.writeLong(builder, i);
+        }
         return builder.build();
     }
 

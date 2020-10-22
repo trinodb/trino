@@ -14,6 +14,7 @@
 package io.prestosql.tests.hive;
 
 import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.assertions.QueryAssert;
 import io.prestosql.tempto.fulfillment.table.hive.HiveDataSource;
@@ -29,11 +30,15 @@ import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_PARTITIONING;
 import static io.prestosql.tests.TestGroups.PRESTO_JDBC;
 import static io.prestosql.tests.TestGroups.SMOKE;
+import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSyncPartitionMetadata
         extends ProductTest
 {
-    private static final String WAREHOUSE_DIRECTORY_PATH = "/user/hive/warehouse/";
+    @Inject
+    @Named("databases.hive.warehouse_directory_path")
+    private String warehouseDirectory;
 
     @Inject
     private HdfsClient hdfsClient;
@@ -49,8 +54,8 @@ public class TestSyncPartitionMetadata
 
         query("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD')");
         assertPartitions(tableName, row("a", "1"), row("b", "2"), row("f", "9"));
-        assertThat(() -> query("SELECT payload, x, y FROM " + tableName + " ORDER BY 1, 2, 3 ASC"))
-                .failsWithMessage("Partition location does not exist: hdfs://hadoop-master:9000/user/hive/warehouse/" + tableName + "/x=b/y=2");
+        assertThat(() -> query("SELECT payload, col_x, col_y FROM " + tableName + " ORDER BY 1, 2, 3 ASC"))
+                .failsWithMessage(format("Partition location does not exist: hdfs://hadoop-master:9000%s/%s/col_x=b/col_y=2", warehouseDirectory, tableName));
         cleanup(tableName);
     }
 
@@ -92,25 +97,63 @@ public class TestSyncPartitionMetadata
         cleanup(tableName);
     }
 
-    private static void prepare(HdfsClient hdfsClient, HdfsDataSourceWriter hdfsDataSourceWriter, String tableName)
+    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    public void testMixedCasePartitionNames()
+    {
+        String tableName = "test_sync_partition_mixed_case";
+        prepare(hdfsClient, hdfsDataSourceWriter, tableName);
+        String tableLocation = tableLocation(tableName);
+        HiveDataSource dataSource = createResourceDataSource(tableName, "io/prestosql/tests/hive/data/single_int_column/data.orc");
+        hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/col_x=h/col_Y=11", dataSource);
+        hdfsClient.createDirectory(tableLocation + "/COL_X=UPPER/COL_Y=12");
+        hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/COL_X=UPPER/COL_Y=12", dataSource);
+
+        query("CALL system.sync_partition_metadata('default', '" + tableName + "', 'FULL', false)");
+        assertPartitions(tableName, row("UPPER", "12"), row("a", "1"), row("f", "9"), row("g", "10"), row("h", "11"));
+        assertData(tableName, row(1, "a", "1"), row(42, "UPPER", "12"), row(42, "f", "9"), row(42, "g", "10"), row(42, "h", "11"));
+    }
+
+    @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    public void testConflictingMixedCasePartitionNames()
+    {
+        String tableName = "test_sync_partition_mixed_case";
+        prepare(hdfsClient, hdfsDataSourceWriter, tableName);
+        HiveDataSource dataSource = createResourceDataSource(tableName, "io/prestosql/tests/hive/data/single_int_column/data.orc");
+        // this conflicts with a partition that already exits in the metastore
+        hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation(tableName) + "/COL_X=a/cOl_y=1", dataSource);
+
+        assertThatThrownBy(() -> query("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD', false)"))
+                .hasMessageContaining(format("One or more partitions already exist for table 'default.%s'", tableName));
+        assertPartitions(tableName, row("a", "1"), row("b", "2"));
+    }
+
+    private String tableLocation(String tableName)
+    {
+        return warehouseDirectory + '/' + tableName;
+    }
+
+    private void prepare(HdfsClient hdfsClient, HdfsDataSourceWriter hdfsDataSourceWriter, String tableName)
     {
         query("DROP TABLE IF EXISTS " + tableName);
 
-        query("CREATE TABLE " + tableName + " (payload bigint, x varchar, y varchar) WITH (format = 'ORC', partitioned_by = ARRAY[ 'x', 'y' ])");
+        query("CREATE TABLE " + tableName + " (payload bigint, col_x varchar, col_y varchar) WITH (format = 'ORC', partitioned_by = ARRAY[ 'col_x', 'col_y' ])");
         query("INSERT INTO " + tableName + " VALUES (1, 'a', '1'), (2, 'b', '2')");
 
-        String tableLocation = WAREHOUSE_DIRECTORY_PATH + tableName;
-        // remove partition x=b/y=2
-        hdfsClient.delete(tableLocation + "/x=b/y=2");
-        // add partition directory x=f/y=9 with single_int_column/data.orc file
-        hdfsClient.createDirectory(tableLocation + "/x=f/y=9");
+        String tableLocation = tableLocation(tableName);
+        // remove partition col_x=b/col_y=2
+        hdfsClient.delete(tableLocation + "/col_x=b/col_y=2");
+        // add partition directory col_x=f/col_y=9 with single_int_column/data.orc file
+        hdfsClient.createDirectory(tableLocation + "/col_x=f/col_y=9");
         HiveDataSource dataSource = createResourceDataSource(tableName, "io/prestosql/tests/hive/data/single_int_column/data.orc");
-        hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/x=f/y=9", dataSource);
+        hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/col_x=f/col_y=9", dataSource);
+        // should only be picked up when not in case sensitive mode
+        hdfsClient.createDirectory(tableLocation + "/COL_X=g/col_y=10");
+        hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/COL_X=g/col_y=10", dataSource);
 
         // add invalid partition path
-        hdfsClient.createDirectory(tableLocation + "/x=d");
-        hdfsClient.createDirectory(tableLocation + "/y=3/x=h");
-        hdfsClient.createDirectory(tableLocation + "/y=3");
+        hdfsClient.createDirectory(tableLocation + "/col_x=d");
+        hdfsClient.createDirectory(tableLocation + "/col_y=3/col_x=h");
+        hdfsClient.createDirectory(tableLocation + "/col_y=3");
         hdfsClient.createDirectory(tableLocation + "/xyz");
 
         assertPartitions(tableName, row("a", "1"), row("b", "2"));
@@ -123,13 +166,13 @@ public class TestSyncPartitionMetadata
 
     private static void assertPartitions(String tableName, QueryAssert.Row... rows)
     {
-        QueryResult partitionListResult = query("SELECT * FROM \"" + tableName + "$partitions\"");
+        QueryResult partitionListResult = query("SELECT * FROM \"" + tableName + "$partitions\" ORDER BY 1, 2");
         assertThat(partitionListResult).containsExactly(rows);
     }
 
     private static void assertData(String tableName, QueryAssert.Row... rows)
     {
-        QueryResult dataResult = query("SELECT payload, x, y FROM " + tableName + " ORDER BY 1, 2, 3 ASC");
+        QueryResult dataResult = query("SELECT payload, col_x, col_y FROM " + tableName + " ORDER BY 1, 2, 3 ASC");
         assertThat(dataResult).containsExactly(rows);
     }
 }

@@ -19,23 +19,29 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.log.Logger;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
+import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
+import io.prestosql.plugin.base.classloader.ForClassLoaderSafe;
 import io.prestosql.plugin.base.util.LoggingInvocationHandler;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForwardingJdbcClient;
 import io.prestosql.plugin.jdbc.JdbcClient;
+import io.prestosql.plugin.jdbc.JdbcMetadataConfig;
+import io.prestosql.plugin.jdbc.JdbcMetadataSessionProperties;
 import io.prestosql.plugin.jdbc.JdbcPageSinkProvider;
 import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
 import io.prestosql.plugin.jdbc.TypeHandlingJdbcConfig;
-import io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider;
+import io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties;
 import io.prestosql.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.prestosql.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.prestosql.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.phoenix.jdbc.PhoenixDriver;
@@ -50,6 +56,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.reflect.Reflection.newProxy;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
+import static io.prestosql.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 import static io.prestosql.plugin.phoenix.PhoenixErrorCode.PHOENIX_CONFIG_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -58,31 +65,37 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 public class PhoenixClientModule
         extends AbstractConfigurationAwareModule
 {
-    private final TypeManager typeManager;
     private final String catalogName;
 
-    public PhoenixClientModule(TypeManager typeManager, String catalogName)
+    public PhoenixClientModule(String catalogName)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(ConnectorSplitManager.class).to(PhoenixSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).to(ClassLoaderSafeConnectorSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorRecordSetProvider.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
-        binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorPageSinkProvider.class).to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSinkProvider.class).annotatedWith(ForClassLoaderSafe.class).to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSinkProvider.class).to(ClassLoaderSafeConnectorPageSinkProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
-        bindSessionPropertiesProvider(binder, TypeHandlingJdbcPropertiesProvider.class);
+        bindSessionPropertiesProvider(binder, TypeHandlingJdbcSessionProperties.class);
+        bindSessionPropertiesProvider(binder, JdbcMetadataSessionProperties.class);
+
+        configBinder(binder).bindConfig(JdbcMetadataConfig.class);
+        configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setAllowDropTable(true));
 
         binder.bind(PhoenixClient.class).in(Scopes.SINGLETON);
-        binder.bind(PhoenixMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(PhoenixTableProperties.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorMetadata.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixMetadata.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorMetadata.class).to(ClassLoaderSafeConnectorMetadata.class).in(Scopes.SINGLETON);
+
+        bindTablePropertiesProvider(binder, PhoenixTableProperties.class);
         binder.bind(PhoenixColumnProperties.class).in(Scopes.SINGLETON);
-        binder.bind(TypeManager.class).toInstance(typeManager);
+
+        binder.bind(PhoenixConnector.class).in(Scopes.SINGLETON);
 
         checkConfiguration(buildConfigObject(PhoenixConfig.class).getConnectionUrl());
 
@@ -143,11 +156,11 @@ public class PhoenixClientModule
         Configuration resourcesConfig = readConfig(config);
         Properties connectionProperties = new Properties();
         for (Map.Entry<String, String> entry : resourcesConfig) {
-            connectionProperties.put(entry.getKey(), entry.getValue());
+            connectionProperties.setProperty(entry.getKey(), entry.getValue());
         }
 
         PhoenixEmbeddedDriver.ConnectionInfo connectionInfo = PhoenixEmbeddedDriver.ConnectionInfo.create(config.getConnectionUrl());
-        connectionProperties.putAll(connectionInfo.asProps().asMap());
+        connectionInfo.asProps().asMap().forEach(connectionProperties::setProperty);
         return connectionProperties;
     }
 

@@ -14,19 +14,23 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.operator.ParametricImplementationsGroup;
+import io.prestosql.operator.annotations.ImplementationDependency;
 import io.prestosql.operator.scalar.annotations.ParametricScalarImplementation;
+import io.prestosql.operator.scalar.annotations.ParametricScalarImplementation.ParametricScalarImplementationChoice;
 import io.prestosql.spi.PrestoException;
 
+import java.util.Collection;
 import java.util.Optional;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_IMPLEMENTATION;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
@@ -37,7 +41,6 @@ import static java.util.Objects.requireNonNull;
 public class ParametricScalar
         extends SqlScalarFunction
 {
-    private final ScalarHeader details;
     private final ParametricImplementationsGroup<ParametricScalarImplementation> implementations;
 
     public ParametricScalar(
@@ -55,7 +58,6 @@ public class ParametricScalar
                 details.getDescription().orElse(""),
                 SCALAR,
                 deprecated));
-        this.details = requireNonNull(details);
         this.implementations = requireNonNull(implementations);
     }
 
@@ -66,21 +68,46 @@ public class ParametricScalar
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        Signature boundSignature = applyBoundVariables(getFunctionMetadata().getSignature(), boundVariables, arity);
+        FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
+        declareDependencies(builder, implementations.getExactImplementations().values());
+        declareDependencies(builder, implementations.getSpecializedImplementations());
+        declareDependencies(builder, implementations.getGenericImplementations());
+        return builder.build();
+    }
+
+    private static void declareDependencies(FunctionDependencyDeclarationBuilder builder,
+            Collection<ParametricScalarImplementation> implementations)
+    {
+        for (ParametricScalarImplementation implementation : implementations) {
+            for (ParametricScalarImplementationChoice choice : implementation.getChoices()) {
+                for (ImplementationDependency dependency : choice.getDependencies()) {
+                    dependency.declareDependencies(builder);
+                }
+                for (ImplementationDependency dependency : choice.getConstructorDependencies()) {
+                    dependency.declareDependencies(builder);
+                }
+            }
+        }
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        Signature boundSignature = functionBinding.getBoundSignature().toSignature();
         if (implementations.getExactImplementations().containsKey(boundSignature)) {
             ParametricScalarImplementation implementation = implementations.getExactImplementations().get(boundSignature);
-            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, metadata);
+            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(functionBinding, functionDependencies);
             checkCondition(scalarFunctionImplementation.isPresent(), FUNCTION_IMPLEMENTATION_ERROR, format("Exact implementation of %s do not match expected java types.", boundSignature.getName()));
             return scalarFunctionImplementation.get();
         }
 
         ScalarFunctionImplementation selectedImplementation = null;
         for (ParametricScalarImplementation implementation : implementations.getSpecializedImplementations()) {
-            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, metadata);
+            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(functionBinding, functionDependencies);
             if (scalarFunctionImplementation.isPresent()) {
-                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getFunctionMetadata().getSignature(), boundVariables.getTypeVariables());
+                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getFunctionMetadata().getSignature(), functionBinding.getBoundSignature());
                 selectedImplementation = scalarFunctionImplementation.get();
             }
         }
@@ -88,9 +115,9 @@ public class ParametricScalar
             return selectedImplementation;
         }
         for (ParametricScalarImplementation implementation : implementations.getGenericImplementations()) {
-            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, metadata);
+            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(functionBinding, functionDependencies);
             if (scalarFunctionImplementation.isPresent()) {
-                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getFunctionMetadata().getSignature(), boundVariables.getTypeVariables());
+                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getFunctionMetadata().getSignature(), functionBinding.getBoundSignature());
                 selectedImplementation = scalarFunctionImplementation.get();
             }
         }
@@ -98,6 +125,6 @@ public class ParametricScalar
             return selectedImplementation;
         }
 
-        throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", boundVariables, getFunctionMetadata().getSignature()));
+        throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported binding %s for signature %s", functionBinding.getBoundSignature(), getFunctionMetadata().getSignature()));
     }
 }

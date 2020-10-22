@@ -19,7 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spiller.Spiller;
 import io.prestosql.spiller.SpillerFactory;
@@ -278,7 +278,7 @@ public class OrderByOperator
         }
 
         Optional<Page> next = sortedPages.next();
-        if (!next.isPresent()) {
+        if (next.isEmpty()) {
             return null;
         }
         Page nextPage = next.get();
@@ -308,7 +308,7 @@ public class OrderByOperator
 
         // TODO try pageIndex.compact(); before spilling, as in com.facebook.presto.operator.HashBuilderOperator.startMemoryRevoke
 
-        if (!spiller.isPresent()) {
+        if (spiller.isEmpty()) {
             spiller = Optional.of(spillerFactory.get().create(
                     sourceTypes,
                     operatorContext.getSpillContext(),
@@ -334,7 +334,7 @@ public class OrderByOperator
 
     private List<WorkProcessor<Page>> getSpilledPages()
     {
-        if (!spiller.isPresent()) {
+        if (spiller.isEmpty()) {
             return ImmutableList.of();
         }
 

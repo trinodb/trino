@@ -28,7 +28,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.Lists.transform;
-import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
@@ -40,6 +39,7 @@ import static io.prestosql.spi.type.TypeSignatureParameter.typeVariable;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -65,9 +65,6 @@ public class TestTypeSignature
         assertRowSignature(
                 "row(a bigint,b varchar)",
                 rowSignature(namedParameter("a", signature("bigint")), namedParameter("b", varchar())));
-        assertRowSignature(
-                "row(__a__ bigint,_b@_: _varchar)",
-                rowSignature(namedParameter("__a__", signature("bigint")), namedParameter("_b@_:", signature("_varchar"))));
         assertRowSignature(
                 "row(a bigint,b array(bigint),c row(a bigint))",
                 rowSignature(
@@ -133,7 +130,7 @@ public class TestTypeSignature
                 rowSignature(namedParameter("interval", signature("interval year to month"))));
         assertRowSignature(
                 "row(double double precision)",
-                rowSignature(namedParameter("double", signature("double precision"))));
+                rowSignature(namedParameter("double", signature("double"))));
 
         // unnamed fields of types with spaces
         assertRowSignature(
@@ -150,7 +147,7 @@ public class TestTypeSignature
                 rowSignature(unnamedParameter(signature("interval year to month"))));
         assertRowSignature(
                 "row(double precision)",
-                rowSignature(unnamedParameter(signature("double precision"))));
+                rowSignature(unnamedParameter(signature("double"))));
         assertRowSignature(
                 "row(array(time with time zone))",
                 rowSignature(unnamedParameter(array(signature("time with time zone")))));
@@ -167,20 +164,15 @@ public class TestTypeSignature
 
         // allow spaces
         assertSignature(
-                "row( time  time with time zone, array( interval day to seconds ) )",
+                "row( time  time with time zone, array( interval day to second ) )",
                 "row",
-                ImmutableList.of("\"time\" time with time zone", "array(interval day to seconds)"),
-                "row(\"time\" time with time zone,array(interval day to seconds))");
+                ImmutableList.of("\"time\" time with time zone", "array(interval day to second)"),
+                "row(\"time\" time with time zone,array(interval day to second))");
 
         // preserve base name case
         assertRowSignature(
                 "RoW(a bigint,b varchar)",
                 rowSignature(namedParameter("a", signature("bigint")), namedParameter("b", varchar())));
-
-        // signature with invalid type
-        assertRowSignature(
-                "row(\"time\" with time zone)",
-                rowSignature(namedParameter("time", signature("with time zone"))));
     }
 
     private TypeSignature varchar()

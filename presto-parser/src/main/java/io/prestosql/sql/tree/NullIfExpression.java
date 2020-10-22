@@ -87,4 +87,10 @@ public class NullIfExpression
     {
         return Objects.hash(first, second);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

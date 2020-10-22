@@ -56,6 +56,7 @@ public class GlueMetastoreApiStats
 
     public interface ThrowingCallable<V, E extends Exception>
     {
-        V call() throws E;
+        V call()
+                throws E;
     }
 }

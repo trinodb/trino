@@ -2,11 +2,6 @@
 Presto Concepts
 ===============
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Overview
 --------
 
@@ -23,6 +18,14 @@ of drivers which process data.
 This section provides a solid definition for the core concepts
 referenced throughout Presto, and these sections are sorted from most
 general to most specific.
+
+.. note::
+
+    The book `Presto: The Definitive Guide
+    <https://prestosql.io/presto-the-definitive-guide.html>`_ and the research
+    paper `Presto: SQL on Everything <https://prestosql.io/paper.html>`_ can
+    provide further information about Presto and the concepts in use.
+
 
 Server Types
 ------------

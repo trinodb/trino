@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.jdbc;
 
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.Page;
@@ -37,7 +36,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class JdbcPageSink
@@ -70,7 +68,7 @@ public class JdbcPageSink
 
         columnTypes = handle.getColumnTypes();
 
-        if (!handle.getJdbcColumnTypes().isPresent()) {
+        if (handle.getJdbcColumnTypes().isEmpty()) {
             columnWriters = columnTypes.stream()
                     .map(type -> {
                         WriteMapping writeMapping = jdbcClient.toWriteMapping(session, type);
@@ -147,11 +145,8 @@ public class JdbcPageSink
         else if (javaType == Slice.class) {
             ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, type.getSlice(block, position));
         }
-        else if (javaType == Block.class) {
-            ((BlockWriteFunction) writeFunction).set(statement, parameterIndex, (Block) type.getObject(block, position));
-        }
         else {
-            throw new VerifyException(format("Unexpected type %s with java type %s", type, javaType.getName()));
+            ((ObjectWriteFunction) writeFunction).set(statement, parameterIndex, type.getObject(block, position));
         }
     }
 

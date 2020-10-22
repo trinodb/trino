@@ -41,35 +41,35 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
+import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static io.prestosql.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
-import static io.prestosql.spi.function.OperatorType.BETWEEN;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static java.lang.String.CASE_INSENSITIVE_ORDER;
 
 public final class FunctionsParserHelper
 {
-    private static final Set<OperatorType> COMPARABLE_TYPE_OPERATORS = ImmutableSet.of(EQUAL, NOT_EQUAL, HASH_CODE, XX_HASH_64, IS_DISTINCT_FROM, INDETERMINATE);
-    private static final Set<OperatorType> ORDERABLE_TYPE_OPERATORS = ImmutableSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, BETWEEN);
+    private static final Set<OperatorType> COMPARABLE_TYPE_OPERATORS = ImmutableSet.of(EQUAL, HASH_CODE, XX_HASH_64, IS_DISTINCT_FROM, INDETERMINATE);
+    private static final Set<OperatorType> ORDERABLE_TYPE_OPERATORS = ImmutableSet.of(COMPARISON, LESS_THAN, LESS_THAN_OR_EQUAL);
 
     private FunctionsParserHelper()
     {}
@@ -88,10 +88,10 @@ public final class FunctionsParserHelper
     {
         Set<String> typeParameterNames = typeParameters.stream()
                 .map(TypeParameter::value)
-                .collect(toImmutableSet());
+                .collect(toImmutableSortedSet(CASE_INSENSITIVE_ORDER));
 
-        Set<String> orderableRequired = new HashSet<>();
-        Set<String> comparableRequired = new HashSet<>();
+        Set<String> orderableRequired = new TreeSet<>(CASE_INSENSITIVE_ORDER);
+        Set<String> comparableRequired = new TreeSet<>(CASE_INSENSITIVE_ORDER);
         HashMultimap<String, String> castableTo = HashMultimap.create();
         HashMultimap<String, String> castableFrom = HashMultimap.create();
         for (ImplementationDependency dependency : dependencies) {
@@ -130,11 +130,11 @@ public final class FunctionsParserHelper
                 TypeSignature toType = castImplementationDependency.getToType();
                 if (typeParameterNames.contains(fromType.getBase())) {
                     // fromType is a type parameter, so it must be castable to the toType, which might also be a type parameter
-                    castableTo.put(fromType.toString(), toType.toString());
+                    castableTo.put(fromType.toString().toLowerCase(Locale.ENGLISH), toType.toString());
                 }
                 else if (typeParameterNames.contains(toType.getBase())) {
                     // toType is a type parameter, so it must be castable from the toType, which is not a type parameter
-                    castableFrom.put(toType.toString(), fromType.toString());
+                    castableFrom.put(toType.toString().toLowerCase(Locale.ENGLISH), fromType.toString());
                 }
                 else {
                     verifyTypeSignatureDoesNotContainAnyTypeParameters(fromType, fromType, typeParameterNames);
@@ -191,7 +191,7 @@ public final class FunctionsParserHelper
 
     public static void validateSignaturesCompatibility(Optional<Signature> signatureOld, Signature signatureNew)
     {
-        if (!signatureOld.isPresent()) {
+        if (signatureOld.isEmpty()) {
             return;
         }
         checkArgument(signatureOld.get().equals(signatureNew), "Implementations with type parameters must all have matching signatures. %s does not match %s", signatureOld.get(), signatureNew);
@@ -245,7 +245,9 @@ public final class FunctionsParserHelper
             return ImmutableSet.of();
         }
 
-        return ImmutableSet.copyOf(literalParametersAnnotation.value());
+        Set<String> result = new TreeSet<>(CASE_INSENSITIVE_ORDER);
+        result.addAll(Arrays.asList(literalParametersAnnotation.value()));
+        return result;
     }
 
     public static boolean containsLegacyNullable(Annotation[] annotations)

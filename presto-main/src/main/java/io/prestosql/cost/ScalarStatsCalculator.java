@@ -50,6 +50,7 @@ import java.util.Map;
 import java.util.OptionalDouble;
 
 import static io.prestosql.cost.StatsUtil.toStatsRepresentation;
+import static io.prestosql.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.prestosql.sql.planner.LiteralInterpreter.evaluate;
 import static io.prestosql.util.MoreMath.max;
 import static io.prestosql.util.MoreMath.min;
@@ -112,8 +113,10 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitLiteral(Literal node, Void context)
         {
-            Object value = evaluate(metadata, session.toConnectorSession(), node);
-            Type type = ExpressionAnalyzer.createConstantAnalyzer(metadata, new AllowAllAccessControl(), session, ImmutableMap.of(), WarningCollector.NOOP).analyze(node, Scope.create());
+            ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, new AllowAllAccessControl(), session, ImmutableMap.of(), WarningCollector.NOOP);
+            Type type = analyzer.analyze(node, Scope.create());
+            Object value = evaluate(metadata, session.toConnectorSession(), analyzer.getExpressionTypes(), node);
+
             OptionalDouble doubleValue = toStatsRepresentation(metadata, session, type, value);
             SymbolStatsEstimate.Builder estimate = SymbolStatsEstimate.builder()
                     .setNullsFraction(0)

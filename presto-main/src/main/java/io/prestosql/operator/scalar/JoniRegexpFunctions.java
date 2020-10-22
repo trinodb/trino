@@ -332,9 +332,10 @@ public final class JoniRegexpFunctions
     @Description("Returns the index of the matched substring starting from the specified position")
     @LiteralParameters("x")
     @SqlType(StandardTypes.INTEGER)
-    public static long regexpPosition(@SqlType("varchar(x)") Slice source,
-                                      @SqlType(JoniRegexpType.NAME) JoniRegexp pattern,
-                                      @SqlType(StandardTypes.INTEGER) long start)
+    public static long regexpPosition(
+            @SqlType("varchar(x)") Slice source,
+            @SqlType(JoniRegexpType.NAME) JoniRegexp pattern,
+            @SqlType(StandardTypes.INTEGER) long start)
     {
         return regexpPosition(source, pattern, start, 1);
     }
@@ -343,10 +344,11 @@ public final class JoniRegexpFunctions
     @Description("Returns the index of the n-th matched substring starting from the specified position")
     @LiteralParameters("x")
     @SqlType(StandardTypes.INTEGER)
-    public static long regexpPosition(@SqlType("varchar(x)") Slice source,
-                                      @SqlType(JoniRegexpType.NAME) JoniRegexp pattern,
-                                      @SqlType(StandardTypes.INTEGER) long start,
-                                      @SqlType(StandardTypes.INTEGER) long occurrence)
+    public static long regexpPosition(
+            @SqlType("varchar(x)") Slice source,
+            @SqlType(JoniRegexpType.NAME) JoniRegexp pattern,
+            @SqlType(StandardTypes.INTEGER) long start,
+            @SqlType(StandardTypes.INTEGER) long occurrence)
     {
         // start position cannot be smaller than 1
         if (start < 1) {

@@ -152,5 +152,8 @@ public interface ValueSet
         return this.union(other).equals(this);
     }
 
+    @Override
+    String toString();
+
     String toString(ConnectorSession session);
 }

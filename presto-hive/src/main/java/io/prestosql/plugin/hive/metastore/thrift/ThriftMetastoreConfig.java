@@ -17,12 +17,16 @@ import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 import io.prestosql.plugin.hive.util.RetryDriver;
 
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.io.File;
 import java.util.concurrent.TimeUnit;
 
 public class ThriftMetastoreConfig
@@ -35,8 +39,17 @@ public class ThriftMetastoreConfig
     private Duration maxBackoffDelay = RetryDriver.DEFAULT_SLEEP_TIME;
     private Duration maxRetryTime = RetryDriver.DEFAULT_MAX_RETRY_TIME;
     private boolean impersonationEnabled;
+    private Duration delegationTokenCacheTtl = new Duration(1, TimeUnit.HOURS); // The default lifetime in Hive is 7 days (metastore.cluster.delegation.token.max-lifetime)
+    private long delegationTokenCacheMaximumSize = 1000;
     private boolean deleteFilesOnDrop;
     private Duration maxWaitForTransactionLock = new Duration(10, TimeUnit.MINUTES);
+
+    private boolean tlsEnabled;
+    private File keystorePath;
+    private String keystorePassword;
+    private File truststorePath;
+    private String trustStorePassword;
+    private boolean assumeCanonicalPartitionKeys;
 
     @NotNull
     public Duration getMetastoreTimeout()
@@ -144,6 +157,36 @@ public class ThriftMetastoreConfig
         return this;
     }
 
+    @NotNull
+    @MinDuration("0ms")
+    public Duration getDelegationTokenCacheTtl()
+    {
+        return delegationTokenCacheTtl;
+    }
+
+    @Config("hive.metastore.thrift.delegation-token.cache-ttl")
+    @ConfigDescription("Time to live delegation token cache for metastore")
+    public ThriftMetastoreConfig setDelegationTokenCacheTtl(Duration delegationTokenCacheTtl)
+    {
+        this.delegationTokenCacheTtl = delegationTokenCacheTtl;
+        return this;
+    }
+
+    @NotNull
+    @Min(0)
+    public long getDelegationTokenCacheMaximumSize()
+    {
+        return delegationTokenCacheMaximumSize;
+    }
+
+    @Config("hive.metastore.thrift.delegation-token.cache-maximum-size")
+    @ConfigDescription("Delegation token cache maximum size")
+    public ThriftMetastoreConfig setDelegationTokenCacheMaximumSize(long delegationTokenCacheMaximumSize)
+    {
+        this.delegationTokenCacheMaximumSize = delegationTokenCacheMaximumSize;
+        return this;
+    }
+
     public boolean isDeleteFilesOnDrop()
     {
         return deleteFilesOnDrop;
@@ -167,6 +210,91 @@ public class ThriftMetastoreConfig
     public ThriftMetastoreConfig setMaxWaitForTransactionLock(Duration maxWaitForTransactionLock)
     {
         this.maxWaitForTransactionLock = maxWaitForTransactionLock;
+        return this;
+    }
+
+    public boolean isTlsEnabled()
+    {
+        return tlsEnabled;
+    }
+
+    @Config("hive.metastore.thrift.client.ssl.enabled")
+    @ConfigDescription("Whether TLS security is enabled")
+    public ThriftMetastoreConfig setTlsEnabled(boolean tlsEnabled)
+    {
+        this.tlsEnabled = tlsEnabled;
+        return this;
+    }
+
+    @FileExists
+    public File getKeystorePath()
+    {
+        return keystorePath;
+    }
+
+    @Config("hive.metastore.thrift.client.ssl.key")
+    @ConfigDescription("Path to the key store")
+    public ThriftMetastoreConfig setKeystorePath(File keystorePath)
+    {
+        this.keystorePath = keystorePath;
+        return this;
+    }
+
+    public String getKeystorePassword()
+    {
+        return keystorePassword;
+    }
+
+    @Config("hive.metastore.thrift.client.ssl.key-password")
+    @ConfigDescription("Password for the key store")
+    public ThriftMetastoreConfig setKeystorePassword(String keystorePassword)
+    {
+        this.keystorePassword = keystorePassword;
+        return this;
+    }
+
+    @FileExists
+    public File getTruststorePath()
+    {
+        return truststorePath;
+    }
+
+    @Config("hive.metastore.thrift.client.ssl.trust-certificate")
+    @ConfigDescription("Path to the trust store")
+    public ThriftMetastoreConfig setTruststorePath(File truststorePath)
+    {
+        this.truststorePath = truststorePath;
+        return this;
+    }
+
+    public String getTruststorePassword()
+    {
+        return trustStorePassword;
+    }
+
+    @Config("hive.metastore.thrift.client.ssl.trust-certificate-password")
+    @ConfigDescription("Password for the trust store")
+    public ThriftMetastoreConfig setTruststorePassword(String trustStorePassword)
+    {
+        this.trustStorePassword = trustStorePassword;
+        return this;
+    }
+
+    @AssertTrue(message = "Trust store must be provided when TLS is enabled")
+    public boolean isTruststorePathValid()
+    {
+        return !tlsEnabled || getTruststorePath() != null;
+    }
+
+    public boolean isAssumeCanonicalPartitionKeys()
+    {
+        return assumeCanonicalPartitionKeys;
+    }
+
+    @Config("hive.metastore.thrift.assume-canonical-partition-keys")
+    public ThriftMetastoreConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
+    {
+        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         return this;
     }
 }

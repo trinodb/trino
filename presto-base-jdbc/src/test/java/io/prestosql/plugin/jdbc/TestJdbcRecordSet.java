@@ -23,6 +23,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
@@ -63,31 +64,31 @@ public class TestJdbcRecordSet
     @Test
     public void testGetColumnTypes()
     {
-        RecordSet recordSet = new JdbcRecordSet(jdbcClient, SESSION, split, table, ImmutableList.of(
+        RecordSet recordSet = createRecordSet(ImmutableList.of(
                 new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR),
                 new JdbcColumnHandle("text_short", JDBC_VARCHAR, createVarcharType(32)),
                 new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(VARCHAR, createVarcharType(32), BIGINT));
 
-        recordSet = new JdbcRecordSet(jdbcClient, SESSION, split, table, ImmutableList.of(
+        recordSet = createRecordSet(ImmutableList.of(
                 new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
                 new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, VARCHAR));
 
-        recordSet = new JdbcRecordSet(jdbcClient, SESSION, split, table, ImmutableList.of(
+        recordSet = createRecordSet(ImmutableList.of(
                 new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
                 new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
                 new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, VARCHAR));
 
-        recordSet = new JdbcRecordSet(jdbcClient, SESSION, split, table, ImmutableList.of());
+        recordSet = createRecordSet(ImmutableList.of());
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
     }
 
     @Test
     public void testCursorSimple()
     {
-        RecordSet recordSet = new JdbcRecordSet(jdbcClient, SESSION, split, table, ImmutableList.of(
+        RecordSet recordSet = createRecordSet(ImmutableList.of(
                 columnHandles.get("text"),
                 columnHandles.get("text_short"),
                 columnHandles.get("value")));
@@ -120,7 +121,7 @@ public class TestJdbcRecordSet
     @Test
     public void testCursorMixedOrder()
     {
-        RecordSet recordSet = new JdbcRecordSet(jdbcClient, SESSION, split, table, ImmutableList.of(
+        RecordSet recordSet = createRecordSet(ImmutableList.of(
                 columnHandles.get("value"),
                 columnHandles.get("value"),
                 columnHandles.get("text")));
@@ -150,7 +151,7 @@ public class TestJdbcRecordSet
     @Test
     public void testIdempotentClose()
     {
-        RecordSet recordSet = new JdbcRecordSet(jdbcClient, SESSION, split, table, ImmutableList.of(
+        RecordSet recordSet = createRecordSet(ImmutableList.of(
                 columnHandles.get("value"),
                 columnHandles.get("value"),
                 columnHandles.get("text")));
@@ -158,5 +159,10 @@ public class TestJdbcRecordSet
         RecordCursor cursor = recordSet.cursor();
         cursor.close();
         cursor.close();
+    }
+
+    private JdbcRecordSet createRecordSet(List<JdbcColumnHandle> columnHandles)
+    {
+        return new JdbcRecordSet(jdbcClient, SESSION, split, table, columnHandles);
     }
 }

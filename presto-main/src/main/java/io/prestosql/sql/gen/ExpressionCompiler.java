@@ -20,6 +20,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.CompilationException;
+import io.airlift.jmx.CacheStatsMBean;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.project.CursorProcessor;
 import io.prestosql.operator.project.PageFilter;

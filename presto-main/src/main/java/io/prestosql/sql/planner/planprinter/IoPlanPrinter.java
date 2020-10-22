@@ -31,6 +31,7 @@ import io.prestosql.spi.predicate.Marker;
 import io.prestosql.spi.predicate.Marker.Bound;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.plan.FilterNode;
@@ -38,6 +39,7 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
+import io.prestosql.sql.planner.plan.TableWriterNode;
 import io.prestosql.sql.planner.plan.TableWriterNode.CreateReference;
 import io.prestosql.sql.planner.plan.TableWriterNode.CreateTarget;
 import io.prestosql.sql.planner.plan.TableWriterNode.DeleteTarget;
@@ -64,13 +66,15 @@ public class IoPlanPrinter
 {
     private final Plan plan;
     private final Metadata metadata;
+    private final TypeOperators typeOperators;
     private final Session session;
     private final ValuePrinter valuePrinter;
 
-    private IoPlanPrinter(Plan plan, Metadata metadata, Session session)
+    private IoPlanPrinter(Plan plan, Metadata metadata, TypeOperators typeOperators, Session session)
     {
         this.plan = requireNonNull(plan, "plan is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
         this.valuePrinter = new ValuePrinter(metadata, session);
     }
@@ -78,9 +82,9 @@ public class IoPlanPrinter
     /**
      * @throws io.prestosql.NotInTransactionException if called without an active transaction
      */
-    public static String textIoPlan(Plan plan, Metadata metadata, Session session)
+    public static String textIoPlan(Plan plan, Metadata metadata, TypeOperators typeOperators, Session session)
     {
-        return new IoPlanPrinter(plan, metadata, session).print();
+        return new IoPlanPrinter(plan, metadata, typeOperators, session).print();
     }
 
     private String print()
@@ -609,6 +613,7 @@ public class IoPlanPrinter
                 TableScanNode tableScanNode = (TableScanNode) source;
                 DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
                         metadata,
+                        typeOperators,
                         session,
                         node.getPredicate(),
                         plan.getTypes());
@@ -648,6 +653,13 @@ public class IoPlanPrinter
             }
             else if (writerTarget instanceof DeleteTarget) {
                 DeleteTarget target = (DeleteTarget) writerTarget;
+                context.setOutputTable(new CatalogSchemaTableName(
+                        target.getHandle().getCatalogName().getCatalogName(),
+                        target.getSchemaTableName().getSchemaName(),
+                        target.getSchemaTableName().getTableName()));
+            }
+            else if (writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget) {
+                TableWriterNode.RefreshMaterializedViewTarget target = (TableWriterNode.RefreshMaterializedViewTarget) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
                         target.getHandle().getCatalogName().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),
@@ -732,7 +744,7 @@ public class IoPlanPrinter
 
         private FormattedMarker formatMarker(Marker marker)
         {
-            if (!marker.getValueBlock().isPresent()) {
+            if (marker.getValueBlock().isEmpty()) {
                 return new FormattedMarker(Optional.empty(), marker.getBound());
             }
             return new FormattedMarker(Optional.of(valuePrinter.castToVarcharOrFail(marker.getType(), marker.getValue())), marker.getBound());

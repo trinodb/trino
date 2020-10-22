@@ -50,6 +50,8 @@ import java.util.concurrent.Executor;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.execution.QueryState.QUEUED;
+import static io.prestosql.execution.QueryState.RUNNING;
 import static io.prestosql.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static io.prestosql.util.StatementUtils.getQueryType;
 import static io.prestosql.util.StatementUtils.isTransactionControlStatement;
@@ -138,7 +140,7 @@ public class DispatchManager
         requireNonNull(sessionContext, "sessionFactory is null");
         requireNonNull(query, "query is null");
         checkArgument(!query.isEmpty(), "query must not be empty string");
-        checkArgument(!queryTracker.tryGetQuery(queryId).isPresent(), "query %s already exists", queryId);
+        checkArgument(queryTracker.tryGetQuery(queryId).isEmpty(), "query %s already exists", queryId);
 
         DispatchQueryCreationFuture queryCreationFuture = new DispatchQueryCreationFuture();
         queryExecutor.execute(() -> {
@@ -153,8 +155,8 @@ public class DispatchManager
     }
 
     /**
-     *  Creates and registers a dispatch query with the query tracker.  This method will never fail to register a query with the query
-     *  tracker.  If an error occurs while creating a dispatch query, a failed dispatch will be created and registered.
+     * Creates and registers a dispatch query with the query tracker.  This method will never fail to register a query with the query
+     * tracker.  If an error occurs while creating a dispatch query, a failed dispatch will be created and registered.
      */
     private <C> void createQueryInternal(QueryId queryId, Slug slug, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
     {
@@ -259,6 +261,22 @@ public class DispatchManager
         return queryTracker.getAllQueries().stream()
                 .map(DispatchQuery::getBasicQueryInfo)
                 .collect(toImmutableList());
+    }
+
+    @Managed
+    public long getQueuedQueries()
+    {
+        return queryTracker.getAllQueries().stream()
+                .filter(query -> query.getState() == QUEUED)
+                .count();
+    }
+
+    @Managed
+    public long getRunningQueries()
+    {
+        return queryTracker.getAllQueries().stream()
+                .filter(query -> query.getState() == RUNNING && !query.getBasicQueryInfo().getQueryStats().isFullyBlocked())
+                .count();
     }
 
     public boolean isQueryRegistered(QueryId queryId)

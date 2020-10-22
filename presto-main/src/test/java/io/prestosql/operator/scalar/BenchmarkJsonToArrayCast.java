@@ -113,7 +113,6 @@ public class BenchmarkJsonToArrayCast
             Metadata metadata = createTestMetadataManager();
             List<RowExpression> projections = ImmutableList.of(new CallExpression(
                     metadata.getCoercion(JSON, new ArrayType(elementType)),
-                    new ArrayType(elementType),
                     ImmutableList.of(field(0, JSON))));
 
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
@@ -188,7 +187,7 @@ public class BenchmarkJsonToArrayCast
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();

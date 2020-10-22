@@ -18,6 +18,8 @@ import io.prestosql.operator.aggregation.histogram.TypedHistogram;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.TypeOperators;
+import io.prestosql.type.BlockTypeOperators;
 import org.testng.annotations.Test;
 
 import java.util.function.IntUnaryOperator;
@@ -34,7 +36,12 @@ public class TestTypedHistogram
     {
         BlockBuilder inputBlockBuilder = BIGINT.createBlockBuilder(null, 5000);
 
-        TypedHistogram typedHistogram = new SingleTypedHistogram(BIGINT, 1000);
+        BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
+        TypedHistogram typedHistogram = new SingleTypedHistogram(
+                BIGINT,
+                blockTypeOperators.getEqualOperator(BIGINT),
+                blockTypeOperators.getHashCodeOperator(BIGINT),
+                1000);
         IntStream.range(1, 2000)
                 .flatMap(i -> IntStream.iterate(i, IntUnaryOperator.identity()).limit(i))
                 .forEach(j -> BIGINT.writeLong(inputBlockBuilder, j));

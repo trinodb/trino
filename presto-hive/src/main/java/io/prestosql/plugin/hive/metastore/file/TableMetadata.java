@@ -83,7 +83,7 @@ public class TableMetadata
             checkArgument(externalLocation.isPresent(), "External location is required for external tables");
         }
         else {
-            checkArgument(!externalLocation.isPresent(), "External location is only allowed for external tables");
+            checkArgument(externalLocation.isEmpty(), "External location is only allowed for external tables");
         }
 
         this.viewOriginalText = requireNonNull(viewOriginalText, "viewOriginalText is null");

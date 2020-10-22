@@ -26,26 +26,40 @@ public class ShowColumns
         extends Statement
 {
     private final QualifiedName table;
+    private final Optional<String> likePattern;
+    private final Optional<String> escape;
 
-    public ShowColumns(QualifiedName table)
+    public ShowColumns(QualifiedName table, Optional<String> likePattern, Optional<String> escape)
     {
-        this(Optional.empty(), table);
+        this(Optional.empty(), table, likePattern, escape);
     }
 
-    public ShowColumns(NodeLocation location, QualifiedName table)
+    public ShowColumns(NodeLocation location, QualifiedName table, Optional<String> likePattern, Optional<String> escape)
     {
-        this(Optional.of(location), table);
+        this(Optional.of(location), table, likePattern, escape);
     }
 
-    private ShowColumns(Optional<NodeLocation> location, QualifiedName table)
+    private ShowColumns(Optional<NodeLocation> location, QualifiedName table, Optional<String> likePattern, Optional<String> escape)
     {
         super(location);
         this.table = requireNonNull(table, "table is null");
+        this.likePattern = requireNonNull(likePattern, "likePattern is null");
+        this.escape = requireNonNull(escape, "escape is null");
     }
 
     public QualifiedName getTable()
     {
         return table;
+    }
+
+    public Optional<String> getLikePattern()
+    {
+        return likePattern;
+    }
+
+    public Optional<String> getEscape()
+    {
+        return escape;
     }
 
     @Override
@@ -63,7 +77,7 @@ public class ShowColumns
     @Override
     public int hashCode()
     {
-        return Objects.hash(table);
+        return Objects.hash(table, likePattern, escape);
     }
 
     @Override
@@ -76,7 +90,9 @@ public class ShowColumns
             return false;
         }
         ShowColumns o = (ShowColumns) obj;
-        return Objects.equals(table, o.table);
+        return Objects.equals(table, o.table) &&
+                Objects.equals(likePattern, o.likePattern) &&
+                Objects.equals(escape, o.escape);
     }
 
     @Override
@@ -84,6 +100,8 @@ public class ShowColumns
     {
         return toStringHelper(this)
                 .add("table", table)
+                .add("likePattern", likePattern)
+                .add("escape", escape)
                 .toString();
     }
 }

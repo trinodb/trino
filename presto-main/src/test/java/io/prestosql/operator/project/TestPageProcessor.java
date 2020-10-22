@@ -79,7 +79,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestPageProcessor
 {
-    private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("test-%s"));
+    private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
@@ -424,7 +424,6 @@ public class TestPageProcessor
         Metadata metadata = createTestMetadataManager();
         CallExpression add10Expression = call(
                 metadata.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
-                BIGINT,
                 field(0, BIGINT),
                 constant(10L, BIGINT));
 

@@ -81,9 +81,9 @@ public final class PushDownNegationsExpressionRewriter
                 checkState(leftType != null && rightType != null, "missing type for expression");
                 if ((typeHasNaN(leftType) || typeHasNaN(rightType)) && (
                         operator == GREATER_THAN_OR_EQUAL ||
-                        operator == GREATER_THAN ||
-                        operator == LESS_THAN_OR_EQUAL ||
-                        operator == LESS_THAN)) {
+                                operator == GREATER_THAN ||
+                                operator == LESS_THAN_OR_EQUAL ||
+                                operator == LESS_THAN)) {
                     return new NotExpression(new ComparisonExpression(operator, treeRewriter.rewrite(left, context), treeRewriter.rewrite(right, context)));
                 }
                 return new ComparisonExpression(operator.negate(), treeRewriter.rewrite(left, context), treeRewriter.rewrite(right, context));

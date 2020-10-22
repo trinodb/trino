@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.bigquery;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -29,19 +28,21 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class BigQueryPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private static final Logger log = Logger.get(BigQueryPageSourceProvider.class);
+
     private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
     private final int maxReadRowsRetries;
 
     @Inject
     public BigQueryPageSourceProvider(BigQueryStorageClientFactory bigQueryStorageClientFactory, BigQueryConfig config)
     {
-        this.bigQueryStorageClientFactory = bigQueryStorageClientFactory;
-        this.maxReadRowsRetries = config.getMaxReadRowsRetries();
+        this.bigQueryStorageClientFactory = requireNonNull(bigQueryStorageClientFactory, "bigQueryStorageClientFactory is null");
+        this.maxReadRowsRetries = requireNonNull(config, "config is null").getMaxReadRowsRetries();
     }
 
     @Override
@@ -60,11 +61,10 @@ public class BigQueryPageSourceProvider
         }
 
         // not empty projection
-        BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) table;
-        ImmutableList<BigQueryColumnHandle> bigQueryColumnHandles = columns.stream()
+        List<BigQueryColumnHandle> bigQueryColumnHandles = columns.stream()
                 .map(BigQueryColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        return new BigQueryResultPageSource(bigQueryStorageClientFactory, maxReadRowsRetries, bigQuerySplit, bigQueryTableHandle, bigQueryColumnHandles);
+        return new BigQueryResultPageSource(bigQueryStorageClientFactory, maxReadRowsRetries, bigQuerySplit, bigQueryColumnHandles);
     }
 }

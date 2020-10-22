@@ -120,7 +120,7 @@ public class MultipleDistinctAggregationToMarkDistinct
         for (Map.Entry<Symbol, Aggregation> entry : parent.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
 
-            if (aggregation.isDistinct() && !aggregation.getFilter().isPresent() && !aggregation.getMask().isPresent()) {
+            if (aggregation.isDistinct() && aggregation.getFilter().isEmpty() && aggregation.getMask().isEmpty()) {
                 Set<Symbol> inputs = aggregation.getArguments().stream()
                         .map(Symbol::from)
                         .collect(toSet());

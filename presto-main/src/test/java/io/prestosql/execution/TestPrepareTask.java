@@ -45,6 +45,7 @@ import static io.prestosql.sql.QueryUtil.identifier;
 import static io.prestosql.sql.QueryUtil.selectList;
 import static io.prestosql.sql.QueryUtil.simpleQuery;
 import static io.prestosql.sql.QueryUtil.table;
+import static io.prestosql.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -55,12 +56,13 @@ import static org.testng.Assert.assertEquals;
 public class TestPrepareTask
 {
     private final Metadata metadata = createTestMetadataManager();
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+    private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
+        executor = null;
     }
 
     @Test
@@ -106,10 +108,11 @@ public class TestPrepareTask
                 new ResourceGroupId("test"),
                 false,
                 transactionManager,
-                new AccessControlManager(transactionManager, new AccessControlConfig()),
+                new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig()),
                 executor,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                Optional.empty());
         Prepare prepare = new Prepare(identifier(statementName), statement);
         new PrepareTask(new SqlParser()).execute(prepare, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
         return stateMachine.getAddedPreparedStatements();

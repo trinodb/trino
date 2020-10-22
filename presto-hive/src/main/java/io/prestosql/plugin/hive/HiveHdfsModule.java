@@ -33,6 +33,7 @@ public class HiveHdfsModule
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
 
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConfigurationInitializer.class);
         newSetBinder(binder, DynamicConfigurationProvider.class);
 
         binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);

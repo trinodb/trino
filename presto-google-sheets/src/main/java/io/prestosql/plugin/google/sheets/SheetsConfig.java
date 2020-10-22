@@ -15,6 +15,7 @@ package io.prestosql.plugin.google.sheets;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -31,6 +32,7 @@ public class SheetsConfig
     private Duration sheetsDataExpireAfterWrite = new Duration(5, TimeUnit.MINUTES);
 
     @NotNull
+    @FileExists
     public String getCredentialsFilePath()
     {
         return credentialsFilePath;

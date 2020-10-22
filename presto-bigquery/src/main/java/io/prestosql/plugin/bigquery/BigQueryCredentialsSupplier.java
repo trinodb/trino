@@ -27,16 +27,16 @@ import java.io.UncheckedIOException;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static java.util.Objects.requireNonNull;
+
 class BigQueryCredentialsSupplier
 {
-    private final Optional<String> credentialsKey;
-    private final Optional<String> credentialsFile;
     private final Supplier<Optional<Credentials>> credentialsCreator;
 
     public BigQueryCredentialsSupplier(Optional<String> credentialsKey, Optional<String> credentialsFile)
     {
-        this.credentialsKey = credentialsKey;
-        this.credentialsFile = credentialsFile;
+        requireNonNull(credentialsKey, "credentialsKey is null");
+        requireNonNull(credentialsFile, "credentialsFile is null");
         // lazy creation, cache once it's created
         this.credentialsCreator = Suppliers.memoize(() -> {
             Optional<Credentials> credentialsFromKey = credentialsKey.map(BigQueryCredentialsSupplier::createCredentialsFromKey);

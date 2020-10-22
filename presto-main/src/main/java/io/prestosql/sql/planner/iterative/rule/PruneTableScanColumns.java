@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
+import io.prestosql.spi.connector.Assignment;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.expression.Variable;
 import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
@@ -46,13 +46,11 @@ public class PruneTableScanColumns
         extends ProjectOffPushDownRule<TableScanNode>
 {
     private final Metadata metadata;
-    private final TypeAnalyzer typeAnalyzer;
 
-    public PruneTableScanColumns(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public PruneTableScanColumns(Metadata metadata)
     {
         super(tableScan());
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     @Override
@@ -61,10 +59,10 @@ public class PruneTableScanColumns
         Session session = context.getSession();
         TypeProvider types = context.getSymbolAllocator().getTypes();
 
-        return pruneColumns(metadata, typeAnalyzer, types, session, node, referencedOutputs);
+        return pruneColumns(metadata, types, session, node, referencedOutputs);
     }
 
-    public static Optional<PlanNode> pruneColumns(Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, Session session, TableScanNode node, Set<Symbol> referencedOutputs)
+    public static Optional<PlanNode> pruneColumns(Metadata metadata, TypeProvider types, Session session, TableScanNode node, Set<Symbol> referencedOutputs)
     {
         List<Symbol> newOutputs = filteredCopy(node.getOutputSymbols(), referencedOutputs::contains);
 
@@ -91,7 +89,7 @@ public class PruneTableScanColumns
             handle = result.get().getHandle();
 
             Map<String, ColumnHandle> assignments = result.get().getAssignments().stream()
-                    .collect(toImmutableMap(ProjectionApplicationResult.Assignment::getVariable, ProjectionApplicationResult.Assignment::getColumn));
+                    .collect(toImmutableMap(Assignment::getVariable, Assignment::getColumn));
 
             ImmutableMap.Builder<Symbol, ColumnHandle> builder = ImmutableMap.builder();
             for (int i = 0; i < newOutputs.size(); i++) {

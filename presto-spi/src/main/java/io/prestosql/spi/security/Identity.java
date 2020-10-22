@@ -22,8 +22,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static java.util.Collections.unmodifiableMap;
-import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
 public class Identity
@@ -44,10 +42,10 @@ public class Identity
             Optional<Runnable> onDestroy)
     {
         this.user = requireNonNull(user, "user is null");
-        this.groups = unmodifiableSet(new HashSet<>(requireNonNull(groups, "groups is null")));
+        this.groups = Set.copyOf(requireNonNull(groups, "groups is null"));
         this.principal = requireNonNull(principal, "principal is null");
-        this.roles = unmodifiableMap(new HashMap<>(requireNonNull(roles, "roles is null")));
-        this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
+        this.roles = Map.copyOf(requireNonNull(roles, "roles is null"));
+        this.extraCredentials = Map.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.onDestroy = requireNonNull(onDestroy, "onDestroy is null");
     }
 

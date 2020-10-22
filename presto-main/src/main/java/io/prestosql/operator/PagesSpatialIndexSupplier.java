@@ -124,7 +124,7 @@ public class PagesSpatialIndexSupplier
                 continue;
             }
 
-            if (!radiusChannel.isPresent()) {
+            if (radiusChannel.isEmpty()) {
                 // If radiusChannel is supplied, this is a distance query, for which our acceleration won't help.
                 accelerateGeometry(ogcGeometry, relateOperator);
             }

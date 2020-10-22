@@ -22,7 +22,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Generic Unnester implementation for nested columns.
- *
+ * <p>
  * This is a layer of abstraction between {@link UnnestOperator} and {@link UnnestBlockBuilder} to enable
  * translation of indices from input nested blocks to underlying element blocks.
  */

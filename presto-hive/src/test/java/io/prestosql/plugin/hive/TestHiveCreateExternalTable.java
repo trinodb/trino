@@ -31,6 +31,7 @@ import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveCreateExternalTable
         extends AbstractTestQueryFramework
@@ -50,12 +51,13 @@ public class TestHiveCreateExternalTable
             throws IOException
     {
         File tempDir = createTempDir();
+        File tableLocation = new File(tempDir, "data");
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE test_create_external " +
                         "WITH (external_location = '%s') AS " +
                         "SELECT * FROM tpch.tiny.nation",
-                tempDir.toURI().toASCIIString());
+                tableLocation.toURI().toASCIIString());
 
         assertUpdate(createTableSql, 25);
 
@@ -63,7 +65,25 @@ public class TestHiveCreateExternalTable
         MaterializedResult actual = computeActual("SELECT * FROM test_create_external");
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
 
+        MaterializedResult result = computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '/') FROM test_create_external");
+        String tablePath = (String) result.getOnlyValue();
+        assertThat(tablePath).startsWith(tableLocation.toURI().toString());
+
         assertUpdate("DROP TABLE test_create_external");
         deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testCreateExternalTableAsWithExistingDirectory()
+    {
+        File tempDir = createTempDir();
+
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE test_create_external_exists " +
+                        "WITH (external_location = '%s') AS " +
+                        "SELECT * FROM tpch.tiny.nation",
+                tempDir.toURI().toASCIIString());
+
+        assertQueryFails(createTableSql, "Target directory for table '.*' already exists:.*");
     }
 }

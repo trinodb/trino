@@ -102,7 +102,7 @@ public class KinesisMetadata
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         for (SchemaTableName tableName : tableDescriptionSupplier.get().keySet()) {
-            if ((!schemaName.isPresent()) || tableName.getSchemaName().equals(schemaName.get())) {
+            if ((schemaName.isEmpty()) || tableName.getSchemaName().equals(schemaName.get())) {
                 builder.add(tableName);
             }
         }
@@ -160,7 +160,7 @@ public class KinesisMetadata
             tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchema().get(), prefix.getTable().get()));
         }
         else {
-            tableNames = listTables(session, null);
+            tableNames = listTables(session, Optional.empty());
         }
 
         for (SchemaTableName tableName : tableNames) {

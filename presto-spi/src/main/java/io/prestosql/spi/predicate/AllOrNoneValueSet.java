@@ -152,9 +152,15 @@ public class AllOrNoneValueSet
     }
 
     @Override
-    public String toString(ConnectorSession session)
+    public String toString()
     {
         return "[" + (all ? "ALL" : "NONE") + "]";
+    }
+
+    @Override
+    public String toString(ConnectorSession session)
+    {
+        return toString();
     }
 
     @Override
@@ -172,7 +178,7 @@ public class AllOrNoneValueSet
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final AllOrNoneValueSet other = (AllOrNoneValueSet) obj;
+        AllOrNoneValueSet other = (AllOrNoneValueSet) obj;
         return Objects.equals(this.type, other.type)
                 && this.all == other.all;
     }

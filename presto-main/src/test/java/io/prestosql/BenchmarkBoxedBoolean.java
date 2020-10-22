@@ -141,7 +141,7 @@ public class BenchmarkBoxedBoolean
                 boxed[i] = value;
 
                 constants[i] = isNull ? null : value;
-                objects[i] = isNull ? null : new Boolean(value);
+                objects[i] = isNull ? null : value;
             }
         }
     }

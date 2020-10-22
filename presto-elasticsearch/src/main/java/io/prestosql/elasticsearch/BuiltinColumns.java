@@ -13,7 +13,7 @@
  */
 package io.prestosql.elasticsearch;
 
-import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.Type;
 
@@ -21,7 +21,6 @@ import java.util.Arrays;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.elasticsearch.ElasticsearchMetadata.SUPPORTS_PREDICATES;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
@@ -62,7 +61,11 @@ enum BuiltinColumns
                 .setName(name)
                 .setType(type)
                 .setHidden(true)
-                .setProperties(ImmutableMap.of(SUPPORTS_PREDICATES, supportsPredicates))
                 .build();
+    }
+
+    public ColumnHandle getColumnHandle()
+    {
+        return new ElasticsearchColumnHandle(name, type, supportsPredicates);
     }
 }

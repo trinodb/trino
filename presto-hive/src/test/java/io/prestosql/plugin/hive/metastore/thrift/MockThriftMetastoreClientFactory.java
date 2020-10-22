@@ -15,7 +15,6 @@ package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.hive.authentication.NoHiveMetastoreAuthentication;
 import org.apache.thrift.transport.TTransportException;
 
 import java.net.URI;
@@ -26,7 +25,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class MockThriftMetastoreClientFactory
-        extends ThriftMetastoreClientFactory
+        extends DefaultThriftMetastoreClientFactory
 {
     private Map<HostAndPort, Optional<ThriftMetastoreClient>> clients;
 
@@ -40,9 +39,9 @@ public class MockThriftMetastoreClientFactory
     public ThriftMetastoreClient create(HostAndPort address, Optional<String> delegationToken)
             throws TTransportException
     {
-        checkArgument(!delegationToken.isPresent(), "delegation token is not supported");
+        checkArgument(delegationToken.isEmpty(), "delegation token is not supported");
         Optional<ThriftMetastoreClient> client = clients.getOrDefault(address, Optional.empty());
-        if (!client.isPresent()) {
+        if (client.isEmpty()) {
             throw new TTransportException(TTransportException.TIMED_OUT);
         }
         return client.get();

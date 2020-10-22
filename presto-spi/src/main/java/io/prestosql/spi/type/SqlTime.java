@@ -15,101 +15,89 @@ package io.prestosql.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.Objects;
-import java.util.Optional;
+
+import static io.prestosql.spi.type.TimeType.MAX_PRECISION;
+import static io.prestosql.spi.type.Timestamps.MINUTES_PER_HOUR;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_HOUR;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.POWERS_OF_TEN;
+import static io.prestosql.spi.type.Timestamps.SECONDS_PER_MINUTE;
+import static io.prestosql.spi.type.Timestamps.rescale;
+import static io.prestosql.spi.type.Timestamps.round;
+import static java.lang.String.format;
 
 public final class SqlTime
 {
-    private static final DateTimeFormatter JSON_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
+    private final int precision;
+    private final long picos;
 
-    private final long millis;
-    private final Optional<TimeZoneKey> sessionTimeZoneKey;
-
-    public SqlTime(long millis)
+    public static SqlTime newInstance(int precision, long picos)
     {
-        this.millis = millis;
-        this.sessionTimeZoneKey = Optional.empty();
+        if (rescale(rescale(picos, 12, precision), precision, 12) != picos) {
+            throw new IllegalArgumentException("picos contains data beyond specified precision: " + precision);
+        }
+        if (picos < 0 || picos > PICOSECONDS_PER_DAY) {
+            throw new IllegalArgumentException("picos is out of range: " + picos);
+        }
+
+        return new SqlTime(precision, picos);
     }
 
-    @Deprecated
-    public SqlTime(long millisUtc, TimeZoneKey sessionTimeZoneKey)
+    private SqlTime(int precision, long picos)
     {
-        this.millis = millisUtc;
-        this.sessionTimeZoneKey = Optional.of(sessionTimeZoneKey);
+        this.precision = precision;
+        this.picos = picos;
     }
 
-    public long getMillis()
+    public long getPicos()
     {
-        checkState(!isLegacyTimestamp(), "getMillis() can be called in new timestamp semantics only");
-        return millis;
+        return picos;
     }
 
-    /**
-     * @deprecated applicable in legacy timestamp semantics only
-     */
-    @Deprecated
-    public long getMillisUtc()
+    public SqlTime roundTo(int precision)
     {
-        checkState(isLegacyTimestamp(), "getMillisUtc() can be called in legacy timestamp semantics only");
-        return millis;
+        return new SqlTime(precision, round(picos, 12 - precision));
     }
 
-    /**
-     * @deprecated applicable in legacy timestamp semantics only
-     */
-    @Deprecated
-    public Optional<TimeZoneKey> getSessionTimeZoneKey()
+    @Override
+    public boolean equals(Object o)
     {
-        return sessionTimeZoneKey;
-    }
-
-    public boolean isLegacyTimestamp()
-    {
-        return sessionTimeZoneKey.isPresent();
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        SqlTime sqlTime = (SqlTime) o;
+        return precision == sqlTime.precision &&
+                picos == sqlTime.picos;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(millis, sessionTimeZoneKey);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        SqlTime other = (SqlTime) obj;
-        return Objects.equals(this.millis, other.millis) &&
-                Objects.equals(this.sessionTimeZoneKey, other.sessionTimeZoneKey);
+        return Objects.hash(precision, picos);
     }
 
     @JsonValue
     @Override
     public String toString()
     {
-        ZoneId zoneId = sessionTimeZoneKey
-                .map(TimeZoneKey::getId)
-                .map(ZoneId::of)
-                .orElse(ZoneOffset.UTC);
+        StringBuilder builder = new StringBuilder();
+        builder.append(format(
+                "%02d:%02d:%02d",
+                picos / PICOSECONDS_PER_HOUR,
+                (picos / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR,
+                (picos / PICOSECONDS_PER_SECOND) % SECONDS_PER_MINUTE));
 
-        return Instant.ofEpochMilli(millis)
-                .atZone(zoneId)
-                .format(JSON_FORMATTER);
-    }
-
-    private static void checkState(boolean condition, String message)
-    {
-        if (!condition) {
-            throw new IllegalStateException(message);
+        if (precision > 0) {
+            long scaledFraction = (picos % PICOSECONDS_PER_SECOND) / POWERS_OF_TEN[MAX_PRECISION - precision];
+            builder.append(".");
+            builder.append(format("%0" + precision + "d", scaledFraction));
         }
+        return builder.toString();
     }
 }

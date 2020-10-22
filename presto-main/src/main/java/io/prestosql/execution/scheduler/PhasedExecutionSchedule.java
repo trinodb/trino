@@ -50,6 +50,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.execution.StageState.FLUSHING;
 import static io.prestosql.execution.StageState.RUNNING;
 import static io.prestosql.execution.StageState.SCHEDULED;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
@@ -92,7 +93,7 @@ public class PhasedExecutionSchedule
     {
         for (Iterator<SqlStageExecution> stageIterator = activeSources.iterator(); stageIterator.hasNext(); ) {
             StageState state = stageIterator.next().getState();
-            if (state == SCHEDULED || state == RUNNING || state.isDone()) {
+            if (state == SCHEDULED || state == RUNNING || state == FLUSHING || state.isDone()) {
                 stageIterator.remove();
             }
         }

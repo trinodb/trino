@@ -26,9 +26,7 @@ public final class ParameterExtractor
 
     public static int getParameterCount(Statement statement)
     {
-        ParameterExtractingVisitor parameterExtractingVisitor = new ParameterExtractingVisitor();
-        parameterExtractingVisitor.process(statement, null);
-        return parameterExtractingVisitor.getParameters().size();
+        return getParameters(statement).size();
     }
 
     public static List<Parameter> getParameters(Statement statement)
@@ -39,7 +37,7 @@ public final class ParameterExtractor
     }
 
     private static class ParameterExtractingVisitor
-            extends DefaultTraversalVisitor<Void, Void>
+            extends DefaultTraversalVisitor<Void>
     {
         private final List<Parameter> parameters = new ArrayList<>();
 

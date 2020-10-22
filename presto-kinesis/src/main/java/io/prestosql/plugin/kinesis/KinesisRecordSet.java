@@ -307,7 +307,7 @@ public class KinesisRecordSet
 
             log.debug("Fetching %d bytes from current record. %d messages read so far", messageData.length, totalMessages);
 
-            Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = messageDecoder.decodeRow(messageData, null);
+            Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = messageDecoder.decodeRow(messageData);
 
             Map<ColumnHandle, FieldValueProvider> currentRowValuesMap = new HashMap<>();
             for (DecoderColumnHandle columnHandle : columnHandles) {
@@ -333,7 +333,7 @@ public class KinesisRecordSet
                             currentRowValuesMap.put(columnHandle, longValueProvider(messageData.length));
                             break;
                         case MESSAGE_VALID_FIELD:
-                            currentRowValuesMap.put(columnHandle, booleanValueProvider(!decodedValue.isPresent()));
+                            currentRowValuesMap.put(columnHandle, booleanValueProvider(decodedValue.isEmpty()));
                             break;
                         default:
                             throw new IllegalArgumentException("unknown internal field " + fieldDescription);

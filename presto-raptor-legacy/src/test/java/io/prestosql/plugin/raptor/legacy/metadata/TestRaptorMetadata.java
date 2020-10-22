@@ -39,6 +39,7 @@ import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.testing.TestingConnectorSession;
 import io.prestosql.testing.TestingNodeManager;
 import io.prestosql.type.InternalTypeManager;
@@ -46,7 +47,6 @@ import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.util.BooleanMapper;
 import org.skife.jdbi.v2.util.LongMapper;
-import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -77,6 +77,7 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -101,7 +102,7 @@ public class TestRaptorMetadata
     @BeforeMethod
     public void setupDatabase()
     {
-        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager());
+        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dbi.registerMapper(new TableColumn.Mapper(typeManager));
         dbi.registerMapper(new Distribution.Mapper(typeManager));
@@ -217,20 +218,24 @@ public class TestRaptorMetadata
 
         // disallow dropping bucket, sort, temporal and highest-id columns
         ColumnHandle bucketColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("orderkey");
-        assertThrows("Cannot drop bucket columns", () ->
-                metadata.dropColumn(SESSION, ordersTableHandle, bucketColumn));
+        assertThatThrownBy(() -> metadata.dropColumn(SESSION, ordersTableHandle, bucketColumn))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Cannot drop bucket columns");
 
         ColumnHandle sortColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("totalprice");
-        assertThrows("Cannot drop sort columns", () ->
-                metadata.dropColumn(SESSION, ordersTableHandle, sortColumn));
+        assertThatThrownBy(() -> metadata.dropColumn(SESSION, ordersTableHandle, sortColumn))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Cannot drop sort columns");
 
         ColumnHandle temporalColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("orderdate");
-        assertThrows("Cannot drop the temporal column", () ->
-                metadata.dropColumn(SESSION, ordersTableHandle, temporalColumn));
+        assertThatThrownBy(() -> metadata.dropColumn(SESSION, ordersTableHandle, temporalColumn))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Cannot drop the temporal column");
 
         ColumnHandle highestColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("highestid");
-        assertThrows("Cannot drop the column which has the largest column ID in the table", () ->
-                metadata.dropColumn(SESSION, ordersTableHandle, highestColumn));
+        assertThatThrownBy(() -> metadata.dropColumn(SESSION, ordersTableHandle, highestColumn))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Cannot drop the column which has the largest column ID in the table");
     }
 
     @Test
@@ -883,17 +888,6 @@ public class TestRaptorMetadata
         assertEquals(actual.size(), expected.size());
         for (int i = 0; i < actual.size(); i++) {
             assertTableColumnEqual(actual.get(i), expected.get(i));
-        }
-    }
-
-    private static void assertThrows(String message, ThrowingRunnable runnable)
-    {
-        try {
-            runnable.run();
-            fail("expected exception");
-        }
-        catch (Throwable t) {
-            assertEquals(t.getMessage(), message);
         }
     }
 }

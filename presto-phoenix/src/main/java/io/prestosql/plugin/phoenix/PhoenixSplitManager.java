@@ -25,8 +25,9 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedSplitSource;
 import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.TableName;
@@ -39,7 +40,6 @@ import org.apache.phoenix.jdbc.PhoenixConnection;
 import org.apache.phoenix.jdbc.PhoenixPreparedStatement;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
 import org.apache.phoenix.query.KeyRange;
-import org.apache.phoenix.util.SchemaUtil;
 
 import javax.inject.Inject;
 
@@ -71,23 +71,25 @@ public class PhoenixSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter)
     {
-        PhoenixTableLayoutHandle layoutHandle = (PhoenixTableLayoutHandle) layout;
-        JdbcTableHandle handle = layoutHandle.getTable();
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         try (PhoenixConnection connection = phoenixClient.getConnection(JdbcIdentity.from(session))) {
-            List<JdbcColumnHandle> columns = layoutHandle.getDesiredColumns()
+            List<JdbcColumnHandle> columns = tableHandle.getColumns()
                     .map(columnSet -> columnSet.stream().map(JdbcColumnHandle.class::cast).collect(toList()))
-                    .orElseGet(() -> phoenixClient.getColumns(session, handle));
-            PhoenixPreparedStatement inputQuery = (PhoenixPreparedStatement) new QueryBuilder(SchemaUtil.ESCAPE_CHARACTER).buildSql(
-                    phoenixClient,
+                    .orElseGet(() -> phoenixClient.getColumns(session, tableHandle));
+            PhoenixPreparedStatement inputQuery = (PhoenixPreparedStatement) new QueryBuilder(phoenixClient).buildSql(
                     session,
                     connection,
-                    handle.getCatalogName(),
-                    handle.getSchemaName(),
-                    handle.getTableName(),
+                    tableHandle.getRemoteTableName(),
+                    tableHandle.getGroupingSets(),
                     columns,
-                    layoutHandle.getTupleDomain(),
+                    tableHandle.getConstraint(),
                     Optional.empty(),
                     Function.identity());
 
@@ -96,7 +98,7 @@ public class PhoenixSplitManager
                     .map(split -> new PhoenixSplit(
                             getSplitAddresses(split),
                             new WrappedPhoenixInputSplit(split),
-                            layoutHandle.getTupleDomain()))
+                            tableHandle.getConstraint()))
                     .collect(toImmutableList());
             return new FixedSplitSource(splits);
         }

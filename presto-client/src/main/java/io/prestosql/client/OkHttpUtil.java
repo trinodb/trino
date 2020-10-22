@@ -16,12 +16,14 @@ package io.prestosql.client;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.base.StandardSystemProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.security.pem.PemReader;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
 import okhttp3.Request;
 
 import javax.net.ssl.KeyManager;
@@ -179,8 +181,10 @@ public final class OkHttpUtil
             OkHttpClient.Builder clientBuilder,
             Optional<String> keyStorePath,
             Optional<String> keyStorePassword,
+            Optional<String> keyStoreType,
             Optional<String> trustStorePath,
-            Optional<String> trustStorePassword)
+            Optional<String> trustStorePassword,
+            Optional<String> trustStoreType)
     {
         if (!keyStorePath.isPresent() && !trustStorePath.isPresent()) {
             return;
@@ -201,7 +205,7 @@ public final class OkHttpUtil
                 catch (IOException | GeneralSecurityException ignored) {
                     keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
 
-                    keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+                    keyStore = KeyStore.getInstance(keyStoreType.orElse(KeyStore.getDefaultType()));
                     try (InputStream in = new FileInputStream(keyStorePath.get())) {
                         keyStore.load(in, keyManagerPassword);
                     }
@@ -215,7 +219,7 @@ public final class OkHttpUtil
             // load TrustStore if configured, otherwise use KeyStore
             KeyStore trustStore = keyStore;
             if (trustStorePath.isPresent()) {
-                trustStore = loadTrustStore(new File(trustStorePath.get()), trustStorePassword);
+                trustStore = loadTrustStore(new File(trustStorePath.get()), trustStorePassword, trustStoreType);
             }
 
             // create TrustManagerFactory
@@ -224,7 +228,7 @@ public final class OkHttpUtil
 
             // get X509TrustManager
             TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
-            if ((trustManagers.length != 1) || !(trustManagers[0] instanceof X509TrustManager)) {
+            if (trustManagers.length != 1 || !(trustManagers[0] instanceof X509TrustManager)) {
                 throw new RuntimeException("Unexpected default trust managers:" + Arrays.toString(trustManagers));
             }
             X509TrustManager trustManager = (X509TrustManager) trustManagers[0];
@@ -245,6 +249,7 @@ public final class OkHttpUtil
         // Enable socket factory only for pre JDK 11
         if (!isAtLeastJava11()) {
             clientBuilder.socketFactory(new SocketChannelSocketFactory());
+            clientBuilder.protocols(ImmutableList.of(Protocol.HTTP_1_1));
         }
     }
 
@@ -283,10 +288,10 @@ public final class OkHttpUtil
         }
     }
 
-    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword)
+    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword, Optional<String> trustStoreType)
             throws IOException, GeneralSecurityException
     {
-        KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        KeyStore trustStore = KeyStore.getInstance(trustStoreType.orElse(KeyStore.getDefaultType()));
         try {
             // attempt to read the trust store as a PEM file
             List<X509Certificate> certificateChain = PemReader.readCertificateChain(trustStorePath);

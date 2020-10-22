@@ -22,6 +22,7 @@ import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -68,9 +69,7 @@ public interface ThriftMetastore
 
     void alterPartition(HiveIdentity identity, String databaseName, String tableName, PartitionWithStatistics partition);
 
-    Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName);
-
-    Optional<List<String>> getPartitionNamesByParts(HiveIdentity identity, String databaseName, String tableName, List<String> parts);
+    Optional<List<String>> getPartitionNamesByFilter(HiveIdentity identity, String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter);
 
     Optional<Partition> getPartition(HiveIdentity identity, String databaseName, String tableName, List<String> partitionValues);
 
@@ -98,6 +97,8 @@ public interface ThriftMetastore
 
     void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor);
 
+    Set<RoleGrant> listGrantedPrincipals(String role);
+
     Set<RoleGrant> listRoleGrants(HivePrincipal principal);
 
     void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges);
@@ -114,7 +115,7 @@ public interface ThriftMetastore
     default Optional<List<FieldSchema>> getFields(HiveIdentity identity, String databaseName, String tableName)
     {
         Optional<Table> table = getTable(identity, databaseName, tableName);
-        if (!table.isPresent()) {
+        if (table.isEmpty()) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
 

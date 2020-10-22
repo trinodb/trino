@@ -15,6 +15,7 @@ package io.prestosql.plugin.jdbc.credential.keystore;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.NotNull;
 
@@ -36,6 +37,7 @@ public class KeyStoreBasedCredentialProviderConfig
     }
 
     @NotNull
+    @FileExists
     public String getKeyStoreFilePath()
     {
         return keyStoreFilePath;

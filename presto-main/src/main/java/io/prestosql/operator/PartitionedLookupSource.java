@@ -18,6 +18,7 @@ import io.prestosql.operator.exchange.LocalPartitionGenerator;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -41,7 +42,7 @@ import static java.lang.Math.toIntExact;
 public class PartitionedLookupSource
         implements LookupSource
 {
-    public static TrackingLookupSourceSupplier createPartitionedLookupSourceSupplier(List<Supplier<LookupSource>> partitions, List<Type> hashChannelTypes, boolean outer)
+    public static TrackingLookupSourceSupplier createPartitionedLookupSourceSupplier(List<Supplier<LookupSource>> partitions, List<Type> hashChannelTypes, boolean outer, BlockTypeOperators blockTypeOperators)
     {
         if (outer) {
             OuterPositionTracker.Factory outerPositionTrackerFactory = new OuterPositionTracker.Factory(partitions);
@@ -56,7 +57,8 @@ public class PartitionedLookupSource
                                     .map(Supplier::get)
                                     .collect(toImmutableList()),
                             hashChannelTypes,
-                            Optional.of(outerPositionTrackerFactory.create()));
+                            Optional.of(outerPositionTrackerFactory.create()),
+                            blockTypeOperators);
                 }
 
                 @Override
@@ -73,7 +75,8 @@ public class PartitionedLookupSource
                                     .map(Supplier::get)
                                     .collect(toImmutableList()),
                             hashChannelTypes,
-                            Optional.empty()));
+                            Optional.empty(),
+                            blockTypeOperators));
         }
     }
 
@@ -86,7 +89,7 @@ public class PartitionedLookupSource
 
     private boolean closed;
 
-    private PartitionedLookupSource(List<? extends LookupSource> lookupSources, List<Type> hashChannelTypes, Optional<OuterPositionTracker> outerPositionTracker)
+    private PartitionedLookupSource(List<? extends LookupSource> lookupSources, List<Type> hashChannelTypes, Optional<OuterPositionTracker> outerPositionTracker, BlockTypeOperators blockTypeOperators)
     {
         this.lookupSources = lookupSources.toArray(new LookupSource[lookupSources.size()]);
 
@@ -96,7 +99,7 @@ public class PartitionedLookupSource
         for (int i = 0; i < hashChannels.length; i++) {
             hashChannels[i] = i;
         }
-        this.partitionGenerator = new LocalPartitionGenerator(new InterpretedHashGenerator(hashChannelTypes, hashChannels), lookupSources.size());
+        this.partitionGenerator = new LocalPartitionGenerator(new InterpretedHashGenerator(hashChannelTypes, hashChannels, blockTypeOperators), lookupSources.size());
 
         this.partitionMask = lookupSources.size() - 1;
         this.shiftSize = numberOfTrailingZeros(lookupSources.size()) + 1;

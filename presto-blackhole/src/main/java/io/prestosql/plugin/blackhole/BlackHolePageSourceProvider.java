@@ -49,7 +49,6 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.math.BigDecimal.ZERO;
 import static java.util.Objects.requireNonNull;
 
@@ -105,7 +104,7 @@ public final class BlackHolePageSourceProvider
 
         Slice slice;
         // do not exceed varchar limit
-        if (isVarcharType(type) && !((VarcharType) type).isUnbounded()) {
+        if (type instanceof VarcharType && !((VarcharType) type).isUnbounded()) {
             slice = constantSlice.slice(0, Math.min(((VarcharType) type).getBoundedLength(), constantSlice.length()));
         }
         else if (isLongDecimal(type)) {

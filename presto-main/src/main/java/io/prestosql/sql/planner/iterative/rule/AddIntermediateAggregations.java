@@ -98,7 +98,7 @@ public class AddIntermediateAggregations
 
         Optional<PlanNode> rewrittenSource = recurseToPartial(lookup.resolve(aggregation.getSource()), lookup, idAllocator);
 
-        if (!rewrittenSource.isPresent()) {
+        if (rewrittenSource.isEmpty()) {
             return Result.empty();
         }
 
@@ -141,7 +141,7 @@ public class AddIntermediateAggregations
         ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
         for (PlanNode source : node.getSources()) {
             Optional<PlanNode> planNode = recurseToPartial(lookup.resolve(source), lookup, idAllocator);
-            if (!planNode.isPresent()) {
+            if (planNode.isEmpty()) {
                 return Optional.empty();
             }
             builder.add(planNode.get());
@@ -177,7 +177,7 @@ public class AddIntermediateAggregations
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             Symbol output = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
-            checkState(!aggregation.getOrderingScheme().isPresent(), "Intermediate aggregation does not support ORDER BY");
+            checkState(aggregation.getOrderingScheme().isEmpty(), "Intermediate aggregation does not support ORDER BY");
             builder.put(
                     output,
                     new AggregationNode.Aggregation(

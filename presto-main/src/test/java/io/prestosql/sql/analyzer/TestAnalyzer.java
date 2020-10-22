@@ -20,6 +20,7 @@ import io.prestosql.SystemSessionProperties;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.informationschema.InformationSchemaConnector;
 import io.prestosql.connector.system.SystemConnector;
+import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.execution.warnings.WarningCollector;
@@ -80,18 +81,22 @@ import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_AGGREGATE;
 import static io.prestosql.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static io.prestosql.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
+import static io.prestosql.spi.StandardErrorCode.INVALID_RECURSIVE_REFERENCE;
 import static io.prestosql.spi.StandardErrorCode.INVALID_VIEW;
 import static io.prestosql.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.prestosql.spi.StandardErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static io.prestosql.spi.StandardErrorCode.MISSING_CATALOG_NAME;
+import static io.prestosql.spi.StandardErrorCode.MISSING_COLUMN_ALIASES;
 import static io.prestosql.spi.StandardErrorCode.MISSING_COLUMN_NAME;
 import static io.prestosql.spi.StandardErrorCode.MISSING_GROUP_BY;
 import static io.prestosql.spi.StandardErrorCode.MISSING_ORDER_BY;
 import static io.prestosql.spi.StandardErrorCode.MISSING_OVER;
 import static io.prestosql.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
 import static io.prestosql.spi.StandardErrorCode.NESTED_AGGREGATION;
+import static io.prestosql.spi.StandardErrorCode.NESTED_RECURSIVE;
 import static io.prestosql.spi.StandardErrorCode.NESTED_WINDOW;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.NULL_TREATMENT_NOT_ALLOWED;
@@ -119,6 +124,9 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
+import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static io.prestosql.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -202,6 +210,15 @@ public class TestAnalyzer
                 .hasErrorCode(TYPE_MISMATCH);
         assertFails("SELECT DISTINCT ROW(1, approx_set(1)).* from t1")
                 .hasErrorCode(TYPE_MISMATCH);
+    }
+
+    @Test
+    public void testNonAggregationDistinct()
+    {
+        assertFails("SELECT lower(DISTINCT a) FROM (VALUES('foo')) AS t1(a)")
+                .hasErrorCode(FUNCTION_NOT_AGGREGATE);
+        assertFails("SELECT lower(DISTINCT max(a)) FROM (VALUES('foo')) AS t1(a)")
+                .hasErrorCode(FUNCTION_NOT_AGGREGATE);
     }
 
     @Test
@@ -486,17 +503,8 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testOffsetInvalidRowCount()
-    {
-        assertFails("SELECT * FROM t1 OFFSET 987654321098765432109876543210 ROWS")
-                .hasErrorCode(TYPE_MISMATCH);
-    }
-
-    @Test
     public void testFetchFirstInvalidRowCount()
     {
-        assertFails("SELECT * FROM t1 FETCH FIRST 987654321098765432109876543210 ROWS ONLY")
-                .hasErrorCode(TYPE_MISMATCH);
         assertFails("SELECT * FROM t1 FETCH FIRST 0 ROWS ONLY")
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
@@ -510,13 +518,6 @@ public class TestAnalyzer
         // ORDER BY clause must be in the same scope as FETCH FIRST WITH TIES
         assertFails("SELECT * FROM (SELECT * FROM (values 1, 3, 2) t(a) ORDER BY a) FETCH FIRST 5 ROWS WITH TIES")
                 .hasErrorCode(MISSING_ORDER_BY);
-    }
-
-    @Test
-    public void testLimitInvalidRowCount()
-    {
-        assertFails("SELECT * FROM t1 LIMIT 987654321098765432109876543210")
-                .hasErrorCode(TYPE_MISMATCH);
     }
 
     @Test
@@ -772,7 +773,8 @@ public class TestAnalyzer
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
                 new FeaturesConfig().setMaxGroupingSets(2048),
-                new NodeMemoryConfig()))).build();
+                new NodeMemoryConfig(),
+                new DynamicFilterConfig()))).build();
         analyze(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)" +
                 "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))\n" +
                 "t (a, b, c, d, e, f, g, h, i, j, k, l)\n" +
@@ -1127,6 +1129,11 @@ public class TestAnalyzer
                 "     a AS (SELECT * FROM t1)" +
                 "SELECT * FROM a")
                 .hasErrorCode(DUPLICATE_NAMED_QUERY);
+
+        assertFails("WITH RECURSIVE a(w, x, y, z) AS (SELECT * FROM t1)," +
+                "     a(a, b, c, d) AS (SELECT * FROM t1)" +
+                "SELECT * FROM a")
+                .hasErrorCode(DUPLICATE_NAMED_QUERY);
     }
 
     @Test
@@ -1134,6 +1141,11 @@ public class TestAnalyzer
     {
         assertFails("WITH a AS (SELECT * FROM t1)," +
                 "     A AS (SELECT * FROM t1)" +
+                "SELECT * FROM a")
+                .hasErrorCode(DUPLICATE_NAMED_QUERY);
+
+        assertFails("WITH RECURSIVE a(w, x, y, z) AS (SELECT * FROM t1)," +
+                "     A(a, b, c, d) AS (SELECT * FROM t1)" +
                 "SELECT * FROM a")
                 .hasErrorCode(DUPLICATE_NAMED_QUERY);
     }
@@ -1145,6 +1157,475 @@ public class TestAnalyzer
                 "     b AS (SELECT * FROM t1)" +
                 "SELECT * FROM a")
                 .hasErrorCode(TABLE_NOT_FOUND);
+    }
+
+    @Test
+    public void testMultipleWithListEntries()
+    {
+        analyze("WITH a(x) AS (SELECT 1)," +
+                "   b(y) AS (SELECT x + 1 FROM a)," +
+                "   c(z) AS (SELECT y * 10 FROM b)" +
+                "SELECT * FROM a, b, c");
+
+        analyze("WITH RECURSIVE a(x) AS (SELECT 1)," +
+                "   b(y) AS (" +
+                "       SELECT x FROM a" +
+                "       UNION ALL" +
+                "       SELECT y + 1 FROM b WHERE y < 3)," +
+                "   c(z) AS (" +
+                "       SELECT y FROM b" +
+                "       UNION ALL" +
+                "       SELECT z - 1 FROM c WHERE z > 0)" +
+                "SELECT * FROM a, b, c");
+    }
+
+    @Test
+    public void testWithQueryInvalidAliases()
+    {
+        assertFails("WITH a(x) AS (SELECT * FROM t1)" +
+                "SELECT * FROM a")
+                .hasErrorCode(MISMATCHED_COLUMN_ALIASES);
+
+        assertFails("WITH a(x, y, z, x) AS (SELECT * FROM t1)" +
+                "SELECT * FROM a")
+                .hasErrorCode(DUPLICATE_COLUMN_NAME);
+
+        // effectively non recursive
+        assertFails("WITH RECURSIVE a(x) AS (SELECT * FROM t1)" +
+                "SELECT * FROM a")
+                .hasErrorCode(MISMATCHED_COLUMN_ALIASES);
+
+        assertFails("WITH RECURSIVE a(x, y, z, x) AS (SELECT * FROM t1)" +
+                "SELECT * FROM a")
+                .hasErrorCode(DUPLICATE_COLUMN_NAME);
+
+        assertFails("WITH RECURSIVE a AS (SELECT * FROM t1)" +
+                "SELECT * FROM a")
+                .hasErrorCode(MISSING_COLUMN_ALIASES);
+
+        // effectively recursive
+        assertFails("WITH RECURSIVE t(n, m) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT n + 2 FROM t WHERE n < 6" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(MISMATCHED_COLUMN_ALIASES);
+
+        assertFails("WITH RECURSIVE t(n, n) AS (" +
+                "          SELECT 1, 2" +
+                "          UNION ALL" +
+                "          SELECT n + 2, m - 2 FROM t WHERE n < 6" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(DUPLICATE_COLUMN_NAME);
+
+        assertFails("WITH RECURSIVE t AS (" +
+                "          SELECT 1, 2" +
+                "          UNION ALL" +
+                "          SELECT n + 2, m - 2 FROM t WHERE n < 6" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(MISSING_COLUMN_ALIASES);
+    }
+
+    @Test
+    public void testRecursiveBaseRelationAliasing()
+    {
+        // base relation anonymous
+        analyze("WITH RECURSIVE t(n, m) AS (" +
+                "          SELECT * FROM (VALUES(1, 2), (4, 100))" +
+                "          UNION ALL" +
+                "          SELECT n + 1, m - 1 FROM t WHERE n < 5" +
+                "          )" +
+                "          SELECT * from t");
+
+        // base relation aliased same as WITH query resulting table
+        analyze("WITH RECURSIVE t(n, m) AS (" +
+                "          SELECT * FROM (VALUES(1, 2), (4, 100)) AS T(n, m)" +
+                "          UNION ALL" +
+                "          SELECT n + 1, m - 1 FROM t WHERE n < 5" +
+                "          )" +
+                "          SELECT * from t");
+
+        // base relation aliased different than WITH query resulting table
+        analyze("WITH RECURSIVE t(n, m) AS (" +
+                "          SELECT * FROM (VALUES(1, 2), (4, 100)) AS T1(x1, y1)" +
+                "          UNION ALL" +
+                "          SELECT n + 1, m - 1 FROM t WHERE n < 5" +
+                "          )" +
+                "          SELECT * from t");
+
+        // same aliases for base relation and WITH query resulting table, different order
+        analyze("WITH RECURSIVE t(n, m) AS (" +
+                "          SELECT * FROM (VALUES(1, 2), (4, 100)) AS T(m, n)" +
+                "          UNION ALL" +
+                "          SELECT n + 1, m - 1 FROM t WHERE n < 5" +
+                "          )" +
+                "          SELECT * from t");
+    }
+
+    @Test
+    public void testColumnNumberMismatch()
+    {
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT n + 2, n + 10 FROM t WHERE n < 6" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(TYPE_MISMATCH);
+
+        assertFails("WITH RECURSIVE t(n, m) AS (" +
+                "          SELECT 1, 2" +
+                "          UNION ALL" +
+                "          SELECT n + 2 FROM t WHERE n < 6" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(TYPE_MISMATCH);
+    }
+
+    @Test
+    public void testNestedWith()
+    {
+        // effectively non recursive
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT * FROM (WITH RECURSIVE t2(m) AS (SELECT 1) SELECT m FROM t2)" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(NESTED_RECURSIVE);
+
+        analyze("WITH t(n) AS (" +
+                "          SELECT * FROM (WITH RECURSIVE t2(m) AS (SELECT 1) SELECT m FROM t2)" +
+                "          )" +
+                "          SELECT * from t");
+
+        analyze("WITH RECURSIVE t(n) AS (" +
+                "          SELECT * FROM (WITH t2(m) AS (SELECT 1) SELECT m FROM t2)" +
+                "          )" +
+                "          SELECT * from t");
+
+        // effectively recursive
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT * FROM (WITH RECURSIVE t2(m) AS (SELECT 4) SELECT m FROM t2 UNION SELECT n + 1 FROM t) t(n) WHERE n < 4" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(NESTED_RECURSIVE);
+
+        analyze("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT * FROM (WITH t2(m) AS (SELECT 4) SELECT m FROM t2 UNION SELECT n + 1 FROM t) t(n) WHERE n < 4" +
+                "          )" +
+                "          SELECT * from t");
+    }
+
+    @Test
+    public void testParenthesedRecursionStep()
+    {
+        analyze("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          (((SELECT n + 2 FROM t WHERE n < 6)))" +
+                "          )" +
+                "          SELECT * from t");
+
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          (((TABLE t)))" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(INVALID_RECURSIVE_REFERENCE);
+
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          (((SELECT n + 2 FROM t WHERE n < 6) LIMIT 1))" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(INVALID_LIMIT_CLAUSE);
+    }
+
+    @Test
+    public void testInvalidRecursiveReference()
+    {
+        // WITH table name is referenced in the base relation of recursion
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1 FROM T" +
+                "          UNION ALL" +
+                "          SELECT n + 2 FROM t WHERE n < 6" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(INVALID_RECURSIVE_REFERENCE);
+
+        // multiple recursive references in the step relation of recursion
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT a.n + 2 FROM t AS a, t AS b WHERE n < 6" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(INVALID_RECURSIVE_REFERENCE);
+
+        // step relation of recursion is not a query specification
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          TABLE T" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(INVALID_RECURSIVE_REFERENCE);
+
+        // step relation of recursion is a query specification without FROM clause
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT 2 WHERE (SELECT true FROM t)" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(INVALID_RECURSIVE_REFERENCE);
+
+        // step relation of recursion is a query specification with a FROM clause, but the recursive reference is not in the FROM clause
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT m FROM (VALUES 2) t2(m) WHERE (SELECT true FROM t)" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(INVALID_RECURSIVE_REFERENCE);
+
+        // not a well-formed RECURSIVE query with recursive reference
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          INTERSECT" +
+                "          SELECT n + 2 FROM t WHERE n < 6" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(INVALID_RECURSIVE_REFERENCE);
+    }
+
+    @Test
+    public void testWithRecursiveUnsupportedClauses()
+    {
+        // immediate WITH clause in recursive query
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          WITH t2(m) AS (SELECT 1)" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT n + 2 FROM t WHERE n < 6" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(NOT_SUPPORTED);
+
+        // immediate ORDER BY clause in recursive query
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT n + 2 FROM t WHERE n < 6" +
+                "          ORDER BY 1" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(NOT_SUPPORTED);
+
+        // immediate OFFSET clause in recursive query
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT n + 2 FROM t WHERE n < 6" +
+                "          OFFSET 1" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(NOT_SUPPORTED);
+
+        // immediate LIMIT clause in recursive query
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT n + 2 FROM t WHERE n < 6" +
+                "          LIMIT 1" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(INVALID_LIMIT_CLAUSE);
+
+        // immediate FETCH FIRST clause in recursive query
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT n + 2 FROM t WHERE n < 6" +
+                "          FETCH FIRST 1 ROW ONLY" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(INVALID_LIMIT_CLAUSE);
+    }
+
+    @Test
+    public void testIllegalClausesInRecursiveTerm()
+    {
+        // recursive reference in inner source of outer join
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT n + 2 FROM (SELECT 10) u LEFT JOIN t ON true WHERE n < 6" +
+                "          )" +
+                "          SELECT * FROM t")
+                .hasErrorCode(INVALID_RECURSIVE_REFERENCE)
+                .hasMessage("line 1:114: recursive reference in right source of LEFT join");
+
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT n + 2 FROM t RIGHT JOIN (SELECT 10) u ON true WHERE n < 6" +
+                "          )" +
+                "          SELECT * FROM t")
+                .hasErrorCode(INVALID_RECURSIVE_REFERENCE)
+                .hasMessage("line 1:90: recursive reference in left source of RIGHT join");
+
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT n + 2 FROM t FULL JOIN (SELECT 10) u ON true WHERE n < 6" +
+                "          )" +
+                "          SELECT * FROM t")
+                .hasErrorCode(INVALID_RECURSIVE_REFERENCE)
+                .hasMessage("line 1:90: recursive reference in left source of FULL join");
+
+        // recursive reference in INTERSECT
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          (SELECT n + 2 FROM ((SELECT 10) INTERSECT ALL (TABLE t)) u(n))" +
+                "          )" +
+                "          SELECT * FROM t")
+                .hasErrorCode(INVALID_RECURSIVE_REFERENCE)
+                .hasMessage("line 1:119: recursive reference in INTERSECT ALL");
+
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          (SELECT n + 2 FROM ((TABLE t) INTERSECT ALL (SELECT 10)) u(n))" +
+                "          )" +
+                "          SELECT * FROM t")
+                .hasErrorCode(INVALID_RECURSIVE_REFERENCE)
+                .hasMessage("line 1:93: recursive reference in INTERSECT ALL");
+
+        // recursive reference in EXCEPT
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          (SELECT n + 2 FROM ((SELECT 10) EXCEPT (TABLE t)) u(n))" +
+                "          )" +
+                "          SELECT * FROM t")
+                .hasErrorCode(INVALID_RECURSIVE_REFERENCE)
+                .hasMessage("line 1:112: recursive reference in right relation of EXCEPT DISTINCT");
+
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          (SELECT n + 2 FROM ((SELECT 10) EXCEPT ALL (TABLE t)) u(n))" +
+                "          )" +
+                "          SELECT * FROM t")
+                .hasErrorCode(INVALID_RECURSIVE_REFERENCE)
+                .hasMessage("line 1:116: recursive reference in right relation of EXCEPT ALL");
+
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          (SELECT n + 2 FROM ((TABLE t) EXCEPT ALL (SELECT 10)) u(n))" +
+                "          )" +
+                "          SELECT * FROM t")
+                .hasErrorCode(INVALID_RECURSIVE_REFERENCE)
+                .hasMessage("line 1:93: recursive reference in left relation of EXCEPT ALL");
+    }
+
+    @Test
+    public void testRecursiveReferenceShadowing()
+    {
+        // table 't' in subquery refers to WITH-query defined in subquery, so it is not a recursive reference to 't' in the top-level WITH-list
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT * FROM (WITH t(m) AS (SELECT 4) SELECT n + 1 FROM t)" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(COLUMN_NOT_FOUND);
+
+        // table 't' in subquery refers to WITH-query defined in subquery, so it is not a recursive reference to 't' in the top-level WITH-list
+        // the top-level WITH-query is effectively not recursive
+        analyze("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT * FROM (WITH t(n) AS (SELECT 4) SELECT n + 1 FROM t)" +
+                "          )" +
+                "          SELECT * from t");
+
+        // the inner WITH-clause does not define a table with conflicting name 't'. Recursive reference is found in the subquery
+        analyze("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT * FROM (WITH t2(m) AS (SELECT 4) SELECT m FROM t2 UNION SELECT n + 1 FROM t) t(n) WHERE n < 4" +
+                "          )" +
+                "          SELECT * from t");
+
+        // the inner WITH-clause defines a table with conflicting name 't'. Recursive reference in the subquery is not found even though it is before the point of shadowing
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT * FROM (WITH t2(m) AS (TABLE t), t(p) AS (SELECT 1) SELECT m + 1 FROM t2) t(n) WHERE n < 4" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(TABLE_NOT_FOUND);
+    }
+
+    @Test
+    public void testWithRecursiveUncoercibleTypes()
+    {
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT BIGINT '9' FROM t WHERE n < 7" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:72: recursion step relation output type (bigint) is not coercible to recursion base relation output type (integer) at column 1");
+
+        assertFails("WITH RECURSIVE t(n, m, p) AS (" +
+                "          SELECT * FROM (VALUES(1, 2, 3))" +
+                "          UNION ALL" +
+                "          SELECT n + 1, BIGINT '9', BIGINT '9' FROM t WHERE n < 7" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:101: recursion step relation output type (bigint) is not coercible to recursion base relation output type (integer) at column 2");
+
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT DECIMAL '1'" +
+                "          UNION ALL" +
+                "          SELECT n * 0.9 FROM t WHERE n > 0.7" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:82: recursion step relation output type (decimal(2,1)) is not coercible to recursion base relation output type (decimal(1,0)) at column 1");
+
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT * FROM (VALUES('a'), ('b')) AS T(n)" +
+                "          UNION ALL" +
+                "          SELECT n || 'x' FROM t WHERE n < 'axxxx'" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:106: recursion step relation output type (varchar) is not coercible to recursion base relation output type (varchar(1)) at column 1");
+
+        assertFails("WITH RECURSIVE t(n, m, o) AS (" +
+                "          SELECT * FROM (VALUES(1, 2, ROW('a', 4)), (5, 6, ROW('a', 8)))" +
+                "          UNION ALL" +
+                "          SELECT t.o.*, ROW('a', 10) FROM t WHERE m < 3" +
+                "          )" +
+                "          SELECT * from t")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:132: recursion step relation output type (varchar(1)) is not coercible to recursion base relation output type (integer) at column 1");
     }
 
     @Test
@@ -2030,7 +2511,10 @@ public class TestAnalyzer
     {
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
-        accessControl = new AccessControlManager(transactionManager, new AccessControlConfig());
+        accessControl = new AccessControlManager(
+                transactionManager,
+                emptyEventListenerManager(),
+                new AccessControlConfig());
 
         metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
         metadata.addFunctions(ImmutableList.of(APPLY_FUNCTION));
@@ -2254,7 +2738,8 @@ public class TestAnalyzer
                 .readUncommitted()
                 .execute(clientSession, session -> {
                     Analyzer analyzer = createAnalyzer(session, metadata);
-                    Statement statement = SQL_PARSER.createStatement(query, new ParsingOptions());
+                    Statement statement = SQL_PARSER.createStatement(query, new ParsingOptions(
+                            new FeaturesConfig().isParseDecimalLiteralsAsDouble() ? AS_DOUBLE : AS_DECIMAL));
                     analyzer.analyze(statement);
                 });
     }

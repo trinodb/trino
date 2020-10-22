@@ -28,7 +28,6 @@ import io.prestosql.execution.StageInfo;
 import io.prestosql.execution.StageStats;
 import io.prestosql.execution.TableInfo;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -57,6 +56,7 @@ import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExceptNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
@@ -126,6 +126,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.execution.StageInfo.getAllStages;
+import static io.prestosql.metadata.ResolvedFunction.extractFunctionName;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 import static io.prestosql.sql.ExpressionUtils.combineConjunctsWithDuplicates;
@@ -448,6 +449,7 @@ public class PlanPrinter
                             node.getFilteringSourceJoinSymbol(),
                             formatHash(node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol())));
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
+            node.getDynamicFilterId().ifPresent(dynamicFilterId -> nodeOutput.appendDetailsLine("dynamicFilterId: %s", dynamicFilterId));
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);
 
@@ -822,7 +824,7 @@ public class PlanPrinter
                     .collect(Collectors.joining(", ", "{", "}"));
         }
 
-        private String printDynamicFilterAssignments(Map<String, Symbol> filters)
+        private String printDynamicFilterAssignments(Map<DynamicFilterId, Symbol> filters)
         {
             return filters.entrySet().stream()
                     .map(filter -> filter.getValue() + " -> " + filter.getKey())
@@ -873,10 +875,15 @@ public class PlanPrinter
             else {
                 name = "Unnest";
             }
+
+            List<Symbol> unnestInputs = node.getMappings().stream()
+                    .map(UnnestNode.Mapping::getInput)
+                    .collect(toImmutableList());
+
             addNode(
                     node,
                     name,
-                    format("[replicate=%s, unnest=%s", formatOutputs(types, node.getReplicateSymbols()), formatOutputs(types, node.getUnnestSymbols().keySet()))
+                    format("[replicate=%s, unnest=%s", formatOutputs(types, node.getReplicateSymbols()), formatOutputs(types, unnestInputs))
                             + (node.getFilter().isPresent() ? format(", filter=%s]", node.getFilter().get().toString()) : "]"));
             return processChildren(node, context);
         }
@@ -1133,7 +1140,7 @@ public class PlanPrinter
         public Void visitCorrelatedJoin(CorrelatedJoinNode node, Void context)
         {
             addNode(node,
-                    "Lateral",
+                    "CorrelatedJoin",
                     format("[%s%s]",
                             node.getCorrelation(),
                             node.getFilter().equals(TRUE_LITERAL) ? "" : " " + node.getFilter()));
@@ -1171,7 +1178,7 @@ public class PlanPrinter
         {
             checkArgument(!constraint.isNone());
             Map<ColumnHandle, Domain> domains = constraint.getDomains().get();
-            if (!constraint.isAll() && domains.containsKey(column)) {
+            if (domains.containsKey(column)) {
                 nodeOutput.appendDetailsLine("    :: %s", formatDomain(domains.get(column).simplify()));
             }
         }
@@ -1352,24 +1359,22 @@ public class PlanPrinter
 
     private static Expression unresolveFunctions(Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
         {
             @Override
             public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
 
-                return ResolvedFunction.fromQualifiedName(node.getName())
-                        .map(function -> new FunctionCall(
-                                rewritten.getLocation(),
-                                QualifiedName.of(function.getSignature().getName()),
-                                rewritten.getWindow(),
-                                rewritten.getFilter(),
-                                rewritten.getOrderBy(),
-                                rewritten.isDistinct(),
-                                rewritten.getNullTreatment(),
-                                rewritten.getArguments()))
-                        .orElse(rewritten);
+                return new FunctionCall(
+                        rewritten.getLocation(),
+                        QualifiedName.of(extractFunctionName(node.getName())),
+                        rewritten.getWindow(),
+                        rewritten.getFilter(),
+                        rewritten.getOrderBy(),
+                        rewritten.isDistinct(),
+                        rewritten.getNullTreatment(),
+                        rewritten.getArguments());
             }
         }, expression);
     }

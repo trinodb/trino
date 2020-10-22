@@ -58,13 +58,17 @@ import static io.prestosql.jdbc.ConnectionProperties.PASSWORD;
 import static io.prestosql.jdbc.ConnectionProperties.ROLES;
 import static io.prestosql.jdbc.ConnectionProperties.SESSION_PROPERTIES;
 import static io.prestosql.jdbc.ConnectionProperties.SOCKS_PROXY;
+import static io.prestosql.jdbc.ConnectionProperties.SOURCE;
 import static io.prestosql.jdbc.ConnectionProperties.SSL;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_KEY_STORE_PASSWORD;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_KEY_STORE_PATH;
+import static io.prestosql.jdbc.ConnectionProperties.SSL_KEY_STORE_TYPE;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
+import static io.prestosql.jdbc.ConnectionProperties.SSL_TRUST_STORE_TYPE;
 import static io.prestosql.jdbc.ConnectionProperties.TRACE_TOKEN;
 import static io.prestosql.jdbc.ConnectionProperties.USER;
+import static io.prestosql.jdbc.ConnectionProperties.USE_SESSION_TIMEZONE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -176,10 +180,22 @@ final class PrestoDriverUri
         return TRACE_TOKEN.getValue(properties);
     }
 
+    public Optional<Boolean> useSessionTimezone()
+            throws SQLException
+    {
+        return USE_SESSION_TIMEZONE.getValue(properties);
+    }
+
     public Map<String, String> getSessionProperties()
             throws SQLException
     {
         return SESSION_PROPERTIES.getValue(properties).orElse(ImmutableMap.of());
+    }
+
+    public Optional<String> getSource()
+            throws SQLException
+    {
+        return SOURCE.getValue(properties);
     }
 
     public void setupClient(OkHttpClient.Builder builder)
@@ -204,8 +220,10 @@ final class PrestoDriverUri
                         builder,
                         SSL_KEY_STORE_PATH.getValue(properties),
                         SSL_KEY_STORE_PASSWORD.getValue(properties),
+                        SSL_KEY_STORE_TYPE.getValue(properties),
                         SSL_TRUST_STORE_PATH.getValue(properties),
-                        SSL_TRUST_STORE_PASSWORD.getValue(properties));
+                        SSL_TRUST_STORE_PASSWORD.getValue(properties),
+                        SSL_TRUST_STORE_TYPE.getValue(properties));
             }
 
             if (KERBEROS_REMOTE_SERVICE_NAME.getValue(properties).isPresent()) {

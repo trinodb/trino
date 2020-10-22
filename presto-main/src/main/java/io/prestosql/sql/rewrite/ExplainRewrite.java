@@ -39,8 +39,8 @@ import java.util.Optional;
 import static io.prestosql.sql.QueryUtil.singleValueQuery;
 import static io.prestosql.sql.tree.ExplainFormat.Type.JSON;
 import static io.prestosql.sql.tree.ExplainFormat.Type.TEXT;
+import static io.prestosql.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.prestosql.sql.tree.ExplainType.Type.IO;
-import static io.prestosql.sql.tree.ExplainType.Type.LOGICAL;
 import static io.prestosql.sql.tree.ExplainType.Type.VALIDATE;
 import static java.util.Objects.requireNonNull;
 
@@ -90,7 +90,7 @@ final class ExplainRewrite
                 return new Explain(statement, node.isAnalyze(), node.isVerbose(), node.getOptions());
             }
 
-            ExplainType.Type planType = LOGICAL;
+            ExplainType.Type planType = DISTRIBUTED;
             ExplainFormat.Type planFormat = TEXT;
             List<ExplainOption> options = node.getOptions();
 

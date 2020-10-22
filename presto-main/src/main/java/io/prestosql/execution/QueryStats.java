@@ -33,6 +33,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
@@ -69,6 +70,7 @@ public class QueryStats
     private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
     private final DataSize peakRevocableMemoryReservation;
+    private final DataSize peakNonRevocableMemoryReservation;
     private final DataSize peakTotalMemoryReservation;
     private final DataSize peakTaskUserMemory;
     private final DataSize peakTaskRevocableMemory;
@@ -100,6 +102,8 @@ public class QueryStats
     private final DataSize physicalWrittenDataSize;
 
     private final List<StageGcStatistics> stageGcStatistics;
+
+    private final DynamicFiltersStats dynamicFiltersStats;
 
     private final List<OperatorStats> operatorSummaries;
 
@@ -135,6 +139,7 @@ public class QueryStats
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("peakRevocableMemoryReservation") DataSize peakRevocableMemoryReservation,
+            @JsonProperty("peakNonRevocableMemoryReservation") DataSize peakNonRevocableMemoryReservation,
             @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
             @JsonProperty("peakTaskUserMemory") DataSize peakTaskUserMemory,
             @JsonProperty("peakTaskRevocableMemory") DataSize peakTaskRevocableMemory,
@@ -166,6 +171,8 @@ public class QueryStats
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
 
             @JsonProperty("stageGcStatistics") List<StageGcStatistics> stageGcStatistics,
+
+            @JsonProperty("dynamicFiltersStats") DynamicFiltersStats dynamicFiltersStats,
 
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries)
     {
@@ -207,6 +214,7 @@ public class QueryStats
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
         this.peakRevocableMemoryReservation = requireNonNull(peakRevocableMemoryReservation, "peakRevocableMemoryReservation is null");
+        this.peakNonRevocableMemoryReservation = requireNonNull(peakNonRevocableMemoryReservation, "peakNonRevocableMemoryReservation is null");
         this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
         this.peakTaskUserMemory = requireNonNull(peakTaskUserMemory, "peakTaskUserMemory is null");
         this.peakTaskRevocableMemory = requireNonNull(peakTaskRevocableMemory, "peakTaskRevocableMemory is null");
@@ -242,6 +250,8 @@ public class QueryStats
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
         this.stageGcStatistics = ImmutableList.copyOf(requireNonNull(stageGcStatistics, "stageGcStatistics is null"));
+
+        this.dynamicFiltersStats = requireNonNull(dynamicFiltersStats, "dynamicFiltersStats is null");
 
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
     }
@@ -404,6 +414,12 @@ public class QueryStats
     }
 
     @JsonProperty
+    public DataSize getPeakNonRevocableMemoryReservation()
+    {
+        return peakNonRevocableMemoryReservation;
+    }
+
+    @JsonProperty
     public DataSize getPeakTotalMemoryReservation()
     {
         return peakTotalMemoryReservation;
@@ -558,6 +574,12 @@ public class QueryStats
     public List<StageGcStatistics> getStageGcStatistics()
     {
         return stageGcStatistics;
+    }
+
+    @JsonProperty
+    public DynamicFiltersStats getDynamicFiltersStats()
+    {
+        return dynamicFiltersStats;
     }
 
     @JsonProperty

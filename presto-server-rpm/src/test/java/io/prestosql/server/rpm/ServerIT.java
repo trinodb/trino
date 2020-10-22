@@ -13,10 +13,10 @@
  */
 package io.prestosql.server.rpm;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
@@ -43,13 +43,6 @@ public class ServerIT
 {
     @Parameters("rpm")
     @Test
-    public void testWithJava8(String rpm)
-    {
-        testServer("prestodev/centos7-oj8", rpm, "1.8");
-    }
-
-    @Parameters("rpm")
-    @Test
     public void testWithJava11(String rpm)
     {
         testServer("prestodev/centos7-oj11", rpm, "11");
@@ -62,8 +55,6 @@ public class ServerIT
         String command = "" +
                 // install RPM
                 "yum localinstall -q -y " + rpm + "\n" +
-                // temporary hack to allow Java 8
-                "#JAVA8\n" +
                 // create Hive catalog file
                 "mkdir /etc/presto/catalog\n" +
                 "cat > /etc/presto/catalog/hive.properties <<\"EOT\"\n" +
@@ -79,12 +70,9 @@ public class ServerIT
                 // allow tail to work with Docker's non-local file system
                 "tail ---disable-inotify -F /var/log/presto/server.log\n";
 
-        if (expectedJavaVersion.equals("1.8")) {
-            command = command.replace("#JAVA8", "echo '-Dpresto-temporarily-allow-java8=true' >> /etc/presto/jvm.config");
-        }
-
         try (GenericContainer<?> container = new GenericContainer<>(baseImage)) {
             container.withExposedPorts(8080)
+                    // the RPM is hundreds MB and file system bind is much more efficient
                     .withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
                     .withCommand("sh", "-xeuc", command)
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
@@ -115,7 +103,7 @@ public class ServerIT
                     Statement statement = connection.createStatement()) {
                 try (ResultSet resultSet = statement.executeQuery(sql)) {
                     ImmutableSet.Builder<List<String>> rows = ImmutableSet.builder();
-                    final int columnCount = resultSet.getMetaData().getColumnCount();
+                    int columnCount = resultSet.getMetaData().getColumnCount();
                     while (resultSet.next()) {
                         ImmutableList.Builder<String> row = ImmutableList.builder();
                         for (int column = 1; column <= columnCount; column++) {

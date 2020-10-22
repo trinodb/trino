@@ -43,7 +43,8 @@ public class TempFileReader
         requireNonNull(types, "types is null");
 
         try {
-            OrcReader orcReader = new OrcReader(dataSource, new OrcReaderOptions());
+            OrcReader orcReader = OrcReader.createOrcReader(dataSource, new OrcReaderOptions())
+                    .orElseThrow(() -> new PrestoException(HIVE_WRITER_DATA_ERROR, "Temporary data file is empty"));
             reader = orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     types,

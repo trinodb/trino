@@ -20,7 +20,7 @@ import io.prestosql.spi.predicate.Domain;
 
 import java.util.Objects;
 
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.util.Objects.requireNonNull;
 
 public class AtopTableHandle
@@ -33,7 +33,7 @@ public class AtopTableHandle
 
     public AtopTableHandle(String schema, AtopTable table)
     {
-        this(schema, table, Domain.all(TIMESTAMP_WITH_TIME_ZONE), Domain.all(TIMESTAMP_WITH_TIME_ZONE));
+        this(schema, table, Domain.all(TIMESTAMP_TZ_MILLIS), Domain.all(TIMESTAMP_TZ_MILLIS));
     }
 
     @JsonCreator
@@ -76,7 +76,7 @@ public class AtopTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schema, table);
+        return Objects.hash(schema, table, startTimeConstraint, endTimeConstraint);
     }
 
     @Override
@@ -90,7 +90,9 @@ public class AtopTableHandle
         }
         AtopTableHandle other = (AtopTableHandle) obj;
         return Objects.equals(this.schema, other.schema) &&
-                this.table == other.table;
+                this.table == other.table &&
+                Objects.equals(startTimeConstraint, other.startTimeConstraint) &&
+                Objects.equals(endTimeConstraint, other.endTimeConstraint);
     }
 
     @Override

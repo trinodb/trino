@@ -16,6 +16,9 @@ package io.prestosql.plugin.jdbc.credential.file;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -33,13 +36,16 @@ public class TestConfigFileBasedCredentialProviderConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path credentialFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("connection-credential-file", "/presto/credentials")
+                .put("connection-credential-file", credentialFile.toString())
                 .build();
 
         ConfigFileBasedCredentialProviderConfig expected = new ConfigFileBasedCredentialProviderConfig()
-                .setCredentialFile("/presto/credentials");
+                .setCredentialFile(credentialFile.toString());
 
         assertFullMapping(properties, expected);
     }

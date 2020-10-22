@@ -22,9 +22,11 @@ import io.prestosql.execution.Lifespan;
 import io.prestosql.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spiller.SingleStreamSpillerFactory;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.TestingTaskContext;
+import io.prestosql.type.BlockTypeOperators;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -81,6 +83,7 @@ public class BenchmarkHashBuildAndJoinOperators
     private static final int HASH_JOIN_OPERATOR_ID = 2;
     private static final PlanNodeId TEST_PLAN_NODE_ID = new PlanNodeId("test");
     private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators();
+    private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
 
     @State(Thread)
     public static class BuildContext
@@ -120,8 +123,8 @@ public class BenchmarkHashBuildAndJoinOperators
                 default:
                     throw new UnsupportedOperationException(format("Unknown hashColumns value [%s]", hashColumns));
             }
-            executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+            executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
 
             initializeBuildPages();
         }
@@ -218,7 +221,8 @@ public class BenchmarkHashBuildAndJoinOperators
                     hashChannel,
                     Optional.of(outputChannels),
                     OptionalInt.empty(),
-                    unsupportedPartitioningSpillerFactory());
+                    unsupportedPartitioningSpillerFactory(),
+                    TYPE_OPERATOR_FACTORY);
             buildHash(this, lookupSourceFactory, outputChannels);
             initializeProbePages();
         }
@@ -301,7 +305,8 @@ public class BenchmarkHashBuildAndJoinOperators
                         .map(buildContext.getTypes()::get)
                         .collect(toImmutableList()),
                 1,
-                false));
+                false,
+                TYPE_OPERATOR_FACTORY));
     }
 
     private static void buildHash(BuildContext buildContext, JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager, List<Integer> outputChannels)

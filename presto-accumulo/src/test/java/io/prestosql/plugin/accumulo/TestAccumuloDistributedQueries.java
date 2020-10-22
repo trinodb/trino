@@ -50,6 +50,24 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
+    }
+
+    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Accumulo connector does not support column default values");
@@ -105,12 +123,6 @@ public class TestAccumuloDistributedQueries
                 "SELECT * FROM orders WITH NO DATA",
                 "SELECT * FROM orders LIMIT 0",
                 "SELECT 0");
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // Deletes are not supported by the connector
     }
 
     @Override
@@ -340,18 +352,11 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
-    public void testCommentTable()
-    {
-        // Accumulo connector currently does not support comment on table
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
-    }
-
-    @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getPrestoTypeName();
         if (typeName.startsWith("decimal(")
-                || typeName.equals("timestamp with time zone")
+                || typeName.equals("timestamp(3) with time zone")
                 || typeName.startsWith("char(")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }

@@ -60,17 +60,17 @@ public class TestDecimalParametricType
     @Test
     public void decimalIsNotCreatedWhenScaleExceedsPrecision()
     {
-        assertInvalidFunction("CAST(1 AS DECIMAL(1,2))", "DECIMAL scale must be in range [0, precision]");
-        assertInvalidFunction("CAST(-22 AS DECIMAL(20,21))", "DECIMAL scale must be in range [0, precision]");
-        assertInvalidFunction("CAST(31.41 AS DECIMAL(0,1))", "DECIMAL precision must be in range [1, 38]");
+        assertInvalidFunction("CAST(1 AS DECIMAL(1,2))", "DECIMAL scale must be in range [0, precision (1)]: 2");
+        assertInvalidFunction("CAST(-22 AS DECIMAL(20,21))", "DECIMAL scale must be in range [0, precision (20)]: 21");
+        assertInvalidFunction("CAST(31.41 AS DECIMAL(0,1))", "DECIMAL precision must be in range [1, 38]: 0");
     }
 
     @Test
     public void decimalWithZeroLengthCannotBeCreated()
     {
-        assertInvalidFunction("CAST(1 AS DECIMAL(0,0))", "DECIMAL precision must be in range [1, 38]");
-        assertInvalidFunction("CAST(0 AS DECIMAL(0,0))", "DECIMAL precision must be in range [1, 38]");
-        assertInvalidFunction("CAST(1 AS DECIMAL(0))", "DECIMAL precision must be in range [1, 38]");
-        assertInvalidFunction("CAST(0 AS DECIMAL(0))", "DECIMAL precision must be in range [1, 38]");
+        assertInvalidFunction("CAST(1 AS DECIMAL(0,0))", "DECIMAL precision must be in range [1, 38]: 0");
+        assertInvalidFunction("CAST(0 AS DECIMAL(0,0))", "DECIMAL precision must be in range [1, 38]: 0");
+        assertInvalidFunction("CAST(1 AS DECIMAL(0))", "DECIMAL precision must be in range [1, 38]: 0");
+        assertInvalidFunction("CAST(0 AS DECIMAL(0))", "DECIMAL precision must be in range [1, 38]: 0");
     }
 }

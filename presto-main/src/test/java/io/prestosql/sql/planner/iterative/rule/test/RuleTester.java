@@ -71,14 +71,14 @@ public class RuleTester
 
         LocalQueryRunner queryRunner = nodeCountForStats
                 .map(nodeCount -> LocalQueryRunner.builder(session)
-                    .withNodeCountForStats(nodeCount)
-                    .build())
+                        .withNodeCountForStats(nodeCount)
+                        .build())
                 .orElseGet(() -> LocalQueryRunner.create(session));
 
         queryRunner.createCatalog(session.getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
-        plugins.stream().forEach(queryRunner::installPlugin);
+        plugins.forEach(queryRunner::installPlugin);
 
         return new RuleTester(queryRunner);
     }

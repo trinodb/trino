@@ -22,12 +22,10 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test
 public class TestBigQueryConnectorModule
 {
     @Test
     public void testConfigurationOnly()
-            throws Exception
     {
         String projectId = BigQueryConnectorModule.calculateBillingProjectId(Optional.of("pid"), Optional.empty());
         assertThat(projectId).isEqualTo("pid");

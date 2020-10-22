@@ -432,7 +432,7 @@ public class FilterStatsCalculator
 
         private OptionalDouble doubleValueFromLiteral(Type type, Literal literal)
         {
-            Object literalValue = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), literal);
+            Object literalValue = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), getExpressionTypes(session, literal, types), literal);
             return toStatsRepresentation(metadata, session, type, literalValue);
         }
     }

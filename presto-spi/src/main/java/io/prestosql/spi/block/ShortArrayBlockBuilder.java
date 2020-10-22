@@ -102,7 +102,7 @@ public class ShortArrayBlockBuilder
         if (!hasNonNullValue) {
             return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
         }
-        return new ShortArrayBlock(0, positionCount, valueIsNull, values);
+        return new ShortArrayBlock(0, positionCount, hasNullValue ? valueIsNull : null, values);
     }
 
     @Override

@@ -13,6 +13,7 @@
  */
 package io.prestosql.testing;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.prestosql.eventlistener.EventListenerConfig;
@@ -30,6 +31,11 @@ import java.util.Set;
 public class TestingEventListenerManager
         extends EventListenerManager
 {
+    public static TestingEventListenerManager emptyEventListenerManager()
+    {
+        return new TestingEventListenerManager(new EventListenerConfig());
+    }
+
     private final Set<EventListener> configuredEventListeners = Collections.synchronizedSet(new HashSet<>());
 
     @Inject
@@ -72,5 +78,11 @@ public class TestingEventListenerManager
         for (EventListener listener : configuredEventListeners) {
             listener.splitCompleted(splitCompletedEvent);
         }
+    }
+
+    @VisibleForTesting
+    public Set<EventListener> getConfiguredEventListeners()
+    {
+        return configuredEventListeners;
     }
 }

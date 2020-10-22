@@ -19,16 +19,26 @@ import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.block.ByteArrayBlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.type.AbstractType;
 import io.prestosql.spi.type.FixedWidthType;
+import io.prestosql.spi.type.TypeOperatorDeclaration;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spi.type.TypeSignature;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
+import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.invoke.MethodHandles.lookup;
 
 public final class UnknownType
         extends AbstractType
         implements FixedWidthType
 {
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(UnknownType.class, lookup(), boolean.class);
+
     public static final UnknownType UNKNOWN = new UnknownType();
     public static final String NAME = "unknown";
 
@@ -86,29 +96,9 @@ public final class UnknownType
     }
 
     @Override
-    public long hash(Block block, int position)
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
     {
-        // Check that the position is valid
-        checkArgument(block.isNull(position), "Expected NULL value for UnknownType");
-        return 0;
-    }
-
-    @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        // Check that the position is valid
-        checkArgument(leftBlock.isNull(leftPosition), "Expected NULL value for UnknownType");
-        checkArgument(rightBlock.isNull(rightPosition), "Expected NULL value for UnknownType");
-        return true;
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        // Check that the position is valid
-        checkArgument(leftBlock.isNull(leftPosition), "Expected NULL value for UnknownType");
-        checkArgument(rightBlock.isNull(rightPosition), "Expected NULL value for UnknownType");
-        return 0;
+        return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override
@@ -142,5 +132,23 @@ public final class UnknownType
         // However, some logic (e.g. AbstractMinMaxBy) rely on writing a default value before the null check.
         checkArgument(!value);
         blockBuilder.appendNull();
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(boolean left, boolean right)
+    {
+        throw new AssertionError("value of unknown type should all be NULL");
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(boolean value)
+    {
+        throw new AssertionError("value of unknown type should all be NULL");
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(boolean left, boolean right)
+    {
+        throw new AssertionError("value of unknown type should all be NULL");
     }
 }

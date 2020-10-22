@@ -15,15 +15,16 @@ package io.prestosql.sql.query;
 
 import org.testng.annotations.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 public class TestAggregationOverJoin
 {
     @Test
     public void test()
     {
         // https://github.com/prestodb/presto/issues/10592
-        try (QueryAssertions queryAssertions = new QueryAssertions()) {
-            queryAssertions
-                    .assertQuery(
+        try (QueryAssertions assertions = new QueryAssertions()) {
+            assertThat(assertions.query(
                             "WITH " +
                                     "    t (a, b) AS (VALUES (1, 'a'), (1, 'b')), " +
                                     "    u (a) AS (VALUES 1) " +
@@ -31,8 +32,8 @@ public class TestAggregationOverJoin
                                     "FROM ( " +
                                     "    SELECT DISTINCT a, b " +
                                     "    FROM t) v " +
-                                    "LEFT JOIN u on v.a = u.a",
-                            "VALUES 1");
+                                    "LEFT JOIN u on v.a = u.a"))
+                    .matches("VALUES 1");
         }
     }
 }

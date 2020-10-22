@@ -15,13 +15,20 @@ package io.prestosql.plugin.hive.rubix;
 
 import com.google.common.collect.ImmutableMap;
 import com.qubole.rubix.spi.CacheConfig;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
+
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
 
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRubixConfig
 {
@@ -32,25 +39,66 @@ public class TestRubixConfig
                 .setBookKeeperServerPort(CacheConfig.DEFAULT_BOOKKEEPER_SERVER_PORT)
                 .setDataTransferServerPort(CacheConfig.DEFAULT_DATA_TRANSFER_SERVER_PORT)
                 .setCacheLocation(null)
-                .setParallelWarmupEnabled(true));
+                .setCacheTtl(Duration.valueOf("7d"))
+                .setDiskUsagePercentage(CacheConfig.DEFAULT_DATA_CACHE_FULLNESS)
+                .setReadMode(RubixConfig.ReadMode.ASYNC)
+                .setStartServerOnCoordinator(false));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("hive.cache.parallel-warmup-enabled", "false")
+                .put("hive.cache.read-mode", "read-through")
                 .put("hive.cache.location", "/some-directory")
+                .put("hive.cache.ttl", "5h")
+                .put("hive.cache.disk-usage-percentage", "90")
                 .put("hive.cache.bookkeeper-port", "1234")
                 .put("hive.cache.data-transfer-port", "1235")
+                .put("hive.cache.start-server-on-coordinator", "true")
                 .build();
 
         RubixConfig expected = new RubixConfig()
-                .setParallelWarmupEnabled(false)
+                .setReadMode(RubixConfig.ReadMode.READ_THROUGH)
                 .setCacheLocation("/some-directory")
+                .setCacheTtl(Duration.valueOf("5h"))
+                .setDiskUsagePercentage(90)
                 .setBookKeeperServerPort(1234)
-                .setDataTransferServerPort(1235);
+                .setDataTransferServerPort(1235)
+                .setStartServerOnCoordinator(true);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testReadModeFromString()
+    {
+        assertThat(RubixConfig.ReadMode.fromString("async")).isEqualTo(RubixConfig.ReadMode.ASYNC);
+        assertThat(RubixConfig.ReadMode.fromString("read-through")).isEqualTo(RubixConfig.ReadMode.READ_THROUGH);
+    }
+
+    @Test
+    public void testValidation()
+    {
+        assertFailsValidation(
+                new RubixConfig()
+                        .setDiskUsagePercentage(-1),
+                "diskUsagePercentage",
+                "must be greater than or equal to 0",
+                Min.class);
+
+        assertFailsValidation(
+                new RubixConfig()
+                        .setDiskUsagePercentage(200),
+                "diskUsagePercentage",
+                "must be less than or equal to 100",
+                Max.class);
+
+        assertFailsValidation(
+                new RubixConfig()
+                        .setCacheTtl(null),
+                "cacheTtl",
+                "may not be null",
+                NotNull.class);
     }
 }

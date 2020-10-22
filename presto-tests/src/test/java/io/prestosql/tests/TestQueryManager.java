@@ -13,28 +13,35 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.Session;
+import io.prestosql.client.ClientCapabilities;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.QueryState;
-import io.prestosql.execution.TestingSessionContext;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.testing.DistributedQueryRunner;
+import io.prestosql.testing.TestingSessionContext;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.RUNNING;
 import static io.prestosql.execution.TestQueryRunnerUtil.createQuery;
 import static io.prestosql.execution.TestQueryRunnerUtil.waitForQueryState;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
+import static io.prestosql.spi.StandardErrorCode.EXCEEDED_SCAN_LIMIT;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static java.util.Arrays.stream;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.fail;
@@ -104,6 +111,40 @@ public class TestQueryManager
             BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
             assertEquals(queryInfo.getState(), FAILED);
             assertEquals(queryInfo.getErrorCode(), EXCEEDED_CPU_LIMIT.toErrorCode());
+        }
+    }
+
+    @Test(timeOut = 60_000L)
+    public void testQueryScanExceeded() throws Exception
+    {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().setSingleExtraProperty("query.max-scan-physical-bytes", "0B").build()) {
+            QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT * FROM system.runtime.nodes");
+            waitForQueryState(queryRunner, queryId, FAILED);
+            QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+            BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            assertEquals(queryInfo.getState(), FAILED);
+            assertEquals(queryInfo.getErrorCode(), EXCEEDED_SCAN_LIMIT.toErrorCode());
+        }
+    }
+
+    @Test(timeOut = 60_000L)
+    public void testQueryScanExceededSession() throws Exception
+    {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
+            Session session = testSessionBuilder()
+                    .setCatalog("tpch")
+                    .setSchema(TINY_SCHEMA_NAME)
+                    .setClientCapabilities(stream(ClientCapabilities.values())
+                        .map(ClientCapabilities::toString)
+                        .collect(toImmutableSet()))
+                    .setSystemProperty("query_max_scan_physical_bytes", "0B")
+                    .build();
+            QueryId queryId = createQuery(queryRunner, session, "SELECT * FROM system.runtime.nodes");
+            waitForQueryState(queryRunner, queryId, FAILED);
+            QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+            BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            assertEquals(queryInfo.getState(), FAILED);
+            assertEquals(queryInfo.getErrorCode(), EXCEEDED_SCAN_LIMIT.toErrorCode());
         }
     }
 }

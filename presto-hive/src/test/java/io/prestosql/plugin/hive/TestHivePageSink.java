@@ -30,9 +30,10 @@ import io.prestosql.spi.connector.ConnectorPageSink;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.TestingNodeManager;
@@ -41,6 +42,7 @@ import io.prestosql.tpch.LineItemColumn;
 import io.prestosql.tpch.LineItemGenerator;
 import io.prestosql.tpch.TpchColumnType;
 import io.prestosql.tpch.TpchColumnTypes;
+import io.prestosql.type.BlockTypeOperators;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
@@ -58,7 +60,6 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveCompressionCodec.NONE;
@@ -242,12 +243,12 @@ public class TestHivePageSink
         ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableMap.of(), ImmutableList.of(), Optional.empty());
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TYPE_MANAGER,
-                config,
                 HDFS_ENVIRONMENT,
-                getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT),
+                config,
+                getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, config),
                 getDefaultHiveRecordCursorProviders(config, HDFS_ENVIRONMENT),
                 new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, config));
-        return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()), TupleDomain.all());
+        return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()), DynamicFilter.EMPTY);
     }
 
     private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveConfig config, HiveMetastore metastore, Path outputPath, HiveWriterStats stats)
@@ -266,14 +267,18 @@ public class TestHivePageSink
                 ImmutableList.of(),
                 Optional.empty(),
                 "test",
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false,
+                false);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
+        TypeOperators typeOperators = new TypeOperators();
+        BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
         HivePageSinkProvider provider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, HDFS_ENVIRONMENT),
                 HDFS_ENVIRONMENT,
                 PAGE_SORTER,
                 metastore,
-                new GroupByHashPageIndexerFactory(new JoinCompiler(createTestMetadataManager())),
+                new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), blockTypeOperators),
                 TYPE_MANAGER,
                 config,
                 new HiveLocationService(HDFS_ENVIRONMENT),

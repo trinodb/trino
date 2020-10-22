@@ -10,7 +10,7 @@ setup is as follows: a single Docker container runs Hadoop in pseudo-distributed
 mode and Presto runs either in Docker container(s) (both pseudo-distributed
 and distributed setups are possible) or manually from IntelliJ (for
 debugging Presto). The tests run in a separate JVM and they can be started
-using the scripts found in `presto-product-tests/bin`. The product
+using the launcher found in `presto-product-tests-launcher/bin/run-launcher`. The product
 tests are run using the [Tempto](https://github.com/prestosql/tempto) harness.
 
 Developers should consider writing product tests in addition to any unit tests
@@ -52,11 +52,12 @@ groups run the following command:
 
 ```
 ./mvnw install -DskipTests
-presto-product-tests-launcher/bin/run-launcher test run --environment <profile> <tempto arguments>
+presto-product-tests-launcher/bin/run-launcher test run --environment <environment> \ 
+[--config <environment config>] \
+-- <tempto arguments>
 ```
 
-where profile is one of either:
-#### Profiles
+#### Environments
 - **multinode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a distributed Presto installation running on
  multiple Docker containers. For multinode the default configuration is
@@ -91,10 +92,33 @@ where profile is one of either:
  a single Docker containers. Both Hadoop (Hive) installations are kerberized.
  A single node installation of kerberized Presto also
  running on a single Docker container.
+ 
+You can obtain list of available environments using command:
+ 
+```
+./mvnw install -DskipTests
+presto-product-tests-launcher/bin/run-launcher env list
+```
+
+#### Environment config
+
+Most of the Hadoop-based environments can be run in multiple configurations that use different Hadoop distribution:
+
+- **config-default** - executes tests against vanilla Hadoop distribution
+- **config-cdh5** - executes tests against CDH5 distribution of Hadoop
+- **config-hdp3** - executes tests against HDP3 distribution of Hadoop
+
+You can obtain list of available environment configurations using command:
+
+```
+presto-product-tests-launcher/bin/run-launcher env list
+```
+
+All of `test run`, `env up` and `suite run` commands accept `--config <environment config>` setting.
 
 ### Running a single test
 
-The `run_on_docker.sh` script can also run individual product tests. Presto
+The `run-launcher` script can also run individual product tests. Presto
 product tests are either [Java based](https://github.com/prestosql/tempto#java-based-tests)
 or [convention based](https://github.com/prestosql/tempto#convention-based-sql-query-tests)
 and each type can be run individually with the following commands:
@@ -102,11 +126,14 @@ and each type can be run individually with the following commands:
 ```
 # Run single Java based test
 presto-product-tests-launcher/bin/run-launcher test run \
-            --environment <profile> \
+            --environment <environment> \
+            [--config <environment config>] \
             -t io.prestosql.tests.functions.operators.Comparison.testLessThanOrEqualOperatorExists
+
 # Run single convention based test
 presto-product-tests-launcher/bin/run-launcher test run \
-            --environment <profile> \
+            --environment <environment> \
+            [--config <environment config>] \
             -t sql_tests.testcases.system.selectInformationSchemaTables
 ```
 
@@ -122,7 +149,8 @@ particular group, use the `-g` argument as shown:
 ```
 # Run all tests in the string_functions and create_table groups
 presto-product-tests-launcher/bin/run-launcher test run \
-            --environment <profile> \
+            --environment <environment> \
+            [--config <environment config>] \
             -g string_functions,create_tables
 ```
 
@@ -150,6 +178,28 @@ and also the entire test suite:
 Note: SQL Server product-tests use `microsoft/mssql-server-linux` docker container.
 By running SQL Server product tests you accept the license [ACCEPT_EULA](https://go.microsoft.com/fwlink/?LinkId=746388)
 
+### Running test suites
+
+Tests are further organized into suites which contain execution of multiple test groups in multiple different environments.
+
+You can obtain list of available test suites using command:
+
+```
+presto-product-tests-launcher/bin/run-launcher suite list
+```
+
+Command `presto-product-tests-launcher/bin/run-launcher/suite describe --suite <suite name>` shows list of tests that will be executed and environments 
+that will be used when `suite run` is invoked.
+
+You can execute single suite using command:
+
+```
+presto-product-tests-launcher/bin/run-launcher suite run --suite <suite name> \
+    [--config <environment config>]
+```
+
+Test runs are executed sequentially, one by one.
+
 ### Interrupting a test run
 
 To interrupt a product test run, send a single `Ctrl-C` signal. The scripts
@@ -170,7 +220,7 @@ You can override the default socks proxy port (1180) used by dockerized Hive dep
 `HIVE_PROXY_PORT` environment variable, e.g. `export HIVE_PROXY_PORT=1180`. This will run all of the dockerized tests using the custom port for the socks proxy.
 When you change the default socks proxy port (1180) and want to use Hive provided by product tests from outside docker (e.g. access it from Presto running in your IDE),
 you have to modify the property `hive.metastore.thrift.client.socks-proxy` and `hive.hdfs.socks-proxy` in your `hive.properties` file accordingly.
-Presto inside docker (used while starting tests using `run_on_docker.sh`) will still use default port (1180) though.
+Presto inside docker (used while starting tests using `run-launcher`) will still use default port (1180) though.
 
 ### Malformed reply from SOCKS server
 

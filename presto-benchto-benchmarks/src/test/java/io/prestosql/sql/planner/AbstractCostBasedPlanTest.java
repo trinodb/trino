@@ -14,7 +14,6 @@
 
 package io.prestosql.sql.planner;
 
-import com.google.common.base.Strings;
 import com.google.common.base.VerifyException;
 import com.google.common.io.Resources;
 import io.prestosql.plugin.tpcds.TpcdsTableHandle;
@@ -44,7 +43,7 @@ import static com.google.common.io.Resources.getResource;
 import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
-import static io.prestosql.testing.TestngUtils.toDataProvider;
+import static io.prestosql.testing.DataProviders.toDataProvider;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.isDirectory;
@@ -76,7 +75,6 @@ public abstract class AbstractCostBasedPlanTest
     }
 
     protected void generate()
-            throws Exception
     {
         initPlanTest();
         try {
@@ -216,7 +214,7 @@ public abstract class AbstractCostBasedPlanTest
         }
 
         @Override
-        public Void visitSemiJoin(final SemiJoinNode node, Integer indent)
+        public Void visitSemiJoin(SemiJoinNode node, Integer indent)
         {
             output(indent, "semijoin (%s):", node.getDistributionType().get());
 
@@ -234,7 +232,7 @@ public abstract class AbstractCostBasedPlanTest
         private void output(int indent, String message, Object... args)
         {
             String formattedMessage = format(message, args);
-            result.append(format("%s%s\n", Strings.repeat("    ", indent), formattedMessage));
+            result.append(format("%s%s\n", "    ".repeat(indent), formattedMessage));
         }
     }
 }

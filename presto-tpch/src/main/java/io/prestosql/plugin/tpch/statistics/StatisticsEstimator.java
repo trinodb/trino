@@ -55,7 +55,7 @@ public class StatisticsEstimator
                 Slice value = checkType(partitionValue, Slice.class, "Only string (Slice) partition values supported for now");
                 Optional<TableStatisticsData> tableStatisticsData = tableStatisticsDataRepository
                         .load(schemaName, tpchTable, Optional.of(partitionColumn), Optional.of(value.toStringUtf8()));
-                if (!tableStatisticsData.isPresent()) {
+                if (tableStatisticsData.isEmpty()) {
                     return Optional.empty();
                 }
                 result = addPartitionStats(result, tableStatisticsData.get(), partitionColumn);
@@ -90,7 +90,7 @@ public class StatisticsEstimator
     {
         //unique values count can't be added between different partitions
         //for columns other than the partition column (because almost certainly there are duplicates)
-        return combine(leftStats.getDistinctValuesCount(), rightStats.getDistinctValuesCount(), (a, b) -> a + b)
+        return combine(leftStats.getDistinctValuesCount(), rightStats.getDistinctValuesCount(), Long::sum)
                 .filter(v -> columnName.equals(partitionColumn.getColumnName()));
     }
 

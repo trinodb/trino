@@ -15,12 +15,11 @@ package io.prestosql.cli;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.airline.Command;
-import io.airlift.airline.HelpOption;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import io.airlift.units.Duration;
 import io.prestosql.cli.ClientOptions.OutputFormat;
+import io.prestosql.cli.Presto.VersionProvider;
 import io.prestosql.client.ClientSelectedRole;
 import io.prestosql.client.ClientSession;
 import io.prestosql.sql.parser.StatementSplitter;
@@ -31,8 +30,9 @@ import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.UserInterruptException;
 import org.jline.terminal.Terminal;
 import org.jline.utils.AttributedStringBuilder;
-
-import javax.inject.Inject;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 import java.io.File;
 import java.io.IOException;
@@ -44,6 +44,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -70,22 +71,35 @@ import static org.jline.terminal.TerminalBuilder.terminal;
 import static org.jline.utils.AttributedStyle.CYAN;
 import static org.jline.utils.AttributedStyle.DEFAULT;
 
-@Command(name = "presto", description = "Presto command line interface")
+@Command(
+        name = "presto",
+        header = "Presto command line interface",
+        synopsisHeading = "%nUSAGE:%n%n",
+        optionListHeading = "%nOPTIONS:%n",
+        usageHelpAutoWidth = true,
+        versionProvider = VersionProvider.class)
 public class Console
+        implements Callable<Integer>
 {
     public static final Set<String> STATEMENT_DELIMITERS = ImmutableSet.of(";", "\\G");
 
     private static final String PROMPT_NAME = "presto";
     private static final Duration EXIT_DELAY = new Duration(3, SECONDS);
 
-    @Inject
-    public HelpOption helpOption;
+    @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+    public boolean usageHelpRequested;
 
-    @Inject
-    public VersionOption versionOption = new VersionOption();
+    @Option(names = "--version", versionHelp = true, description = "Print version information and exit")
+    public boolean versionInfoRequested;
 
-    @Inject
-    public ClientOptions clientOptions = new ClientOptions();
+    @Mixin
+    public ClientOptions clientOptions;
+
+    @Override
+    public Integer call()
+    {
+        return run() ? 0 : 1;
+    }
 
     public boolean run()
     {
@@ -130,8 +144,10 @@ public class Console
                 Optional.ofNullable(clientOptions.httpProxy),
                 Optional.ofNullable(clientOptions.keystorePath),
                 Optional.ofNullable(clientOptions.keystorePassword),
+                Optional.ofNullable(clientOptions.keystoreType),
                 Optional.ofNullable(clientOptions.truststorePath),
                 Optional.ofNullable(clientOptions.truststorePassword),
+                Optional.ofNullable(clientOptions.truststoreType),
                 clientOptions.insecure,
                 Optional.ofNullable(clientOptions.accessToken),
                 Optional.ofNullable(clientOptions.user),
@@ -315,6 +331,7 @@ public class Console
         String finalSql;
         try {
             finalSql = preprocessQuery(
+                    terminal,
                     Optional.ofNullable(queryRunner.getSession().getCatalog()),
                     Optional.ofNullable(queryRunner.getSession().getSchema()),
                     sql);

@@ -16,7 +16,6 @@ package io.prestosql.plugin.hive.metastore.thrift;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.authentication.HiveMetastoreAuthentication;
-import io.prestosql.plugin.hive.authentication.NoHiveMetastoreAuthentication;
 import org.apache.thrift.TException;
 
 import java.util.Optional;
@@ -30,12 +29,12 @@ public class TestingMetastoreLocator
     private static final HiveMetastoreAuthentication AUTHENTICATION = new NoHiveMetastoreAuthentication();
     private static final Duration TIMEOUT = new Duration(10, SECONDS);
 
-    private final ThriftMetastoreClientFactory factory;
+    private final DefaultThriftMetastoreClientFactory factory;
     private final HostAndPort address;
 
     public TestingMetastoreLocator(Optional<HostAndPort> socksProxy, HostAndPort address)
     {
-        this.factory = new ThriftMetastoreClientFactory(Optional.empty(), socksProxy, TIMEOUT, AUTHENTICATION, "localhost");
+        this.factory = new DefaultThriftMetastoreClientFactory(Optional.empty(), socksProxy, TIMEOUT, AUTHENTICATION, "localhost");
         this.address = requireNonNull(address, "address is null");
     }
 

@@ -17,8 +17,6 @@ import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public abstract class AbstractType
@@ -54,7 +52,7 @@ public abstract class AbstractType
     @Override
     public List<Type> getTypeParameters()
     {
-        return Collections.unmodifiableList(new ArrayList<>());
+        return List.of();
     }
 
     @Override
@@ -67,24 +65,6 @@ public abstract class AbstractType
     public boolean isOrderable()
     {
         return false;
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        throw new UnsupportedOperationException(getTypeSignature() + " type is not comparable");
-    }
-
-    @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        throw new UnsupportedOperationException(getTypeSignature() + " type is not comparable");
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        throw new UnsupportedOperationException(getTypeSignature() + " type is not orderable");
     }
 
     @Override

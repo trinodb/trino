@@ -16,7 +16,7 @@ package io.prestosql.plugin.hive.metastore;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -24,8 +24,8 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
-import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
-import static io.prestosql.spi.block.SortOrder.DESC_NULLS_LAST;
+import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_FIRST;
+import static io.prestosql.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

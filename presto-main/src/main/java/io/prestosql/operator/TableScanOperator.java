@@ -24,16 +24,15 @@ import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.connector.UpdatablePageSource;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.split.EmptySplit;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -46,7 +45,7 @@ import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
 
 public class TableScanOperator
-        implements SourceOperator, Closeable
+        implements SourceOperator
 {
     public static class TableScanOperatorFactory
             implements SourceOperatorFactory, WorkProcessorSourceOperatorFactory
@@ -56,7 +55,7 @@ public class TableScanOperator
         private final PageSourceProvider pageSourceProvider;
         private final TableHandle table;
         private final List<ColumnHandle> columns;
-        private final Supplier<TupleDomain<ColumnHandle>> dynamicFilter;
+        private final DynamicFilter dynamicFilter;
         private boolean closed;
 
         public TableScanOperatorFactory(
@@ -65,7 +64,7 @@ public class TableScanOperator
                 PageSourceProvider pageSourceProvider,
                 TableHandle table,
                 Iterable<ColumnHandle> columns,
-                Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
+                DynamicFilter dynamicFilter)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
@@ -142,7 +141,7 @@ public class TableScanOperator
     private final PageSourceProvider pageSourceProvider;
     private final TableHandle table;
     private final List<ColumnHandle> columns;
-    private final Supplier<TupleDomain<ColumnHandle>> dynamicFilter;
+    private final DynamicFilter dynamicFilter;
     private final LocalMemoryContext systemMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
 
@@ -162,7 +161,7 @@ public class TableScanOperator
             PageSourceProvider pageSourceProvider,
             TableHandle table,
             Iterable<ColumnHandle> columns,
-            Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
+            DynamicFilter dynamicFilter)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -293,7 +292,7 @@ public class TableScanOperator
             return null;
         }
         if (source == null) {
-            if (!dynamicFilter.get().isAll()) {
+            if (!dynamicFilter.getCurrentPredicate().isAll()) {
                 operatorContext.recordDynamicFilterSplitProcessed(1L);
             }
             source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, dynamicFilter);

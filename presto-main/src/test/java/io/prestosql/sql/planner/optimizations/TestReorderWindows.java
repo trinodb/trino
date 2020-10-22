@@ -16,7 +16,7 @@ package io.prestosql.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.sql.planner.RuleStatsRecorder;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
@@ -224,8 +224,9 @@ public class TestReorderWindows
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(windowA)
                                                 .addFunction(functionCall("lag", commonFrame, ImmutableList.of(QUANTITY_ALIAS, "ONE"))),
-                                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)")),
-                                                LINEITEM_TABLESCAN_DOQRST))))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
+                                        project(ImmutableMap.of("ONE", expression("CAST(expr AS bigint)")),
+                                                project(ImmutableMap.of("expr", expression("1")),
+                                                        LINEITEM_TABLESCAN_DOQRST)))))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
     }
 
     @Test
@@ -247,12 +248,11 @@ public class TestReorderWindows
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowA)
                                         .addFunction(functionCall("avg", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
-                                project(
                                         filter("NOT (" + RECEIPTDATE_ALIAS + " IS NULL)",
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(windowApp)
                                                                 .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
-                                                        LINEITEM_TABLESCAN_DOQRST)))))); // should be anyTree(LINEITEM_TABLESCAN_DOQPRSST) but anyTree does not handle zero nodes case correctly
+                                                        LINEITEM_TABLESCAN_DOQRST))))); // should be anyTree(LINEITEM_TABLESCAN_DOQPRSST) but anyTree does not handle zero nodes case correctly
     }
 
     @Test
@@ -323,7 +323,12 @@ public class TestReorderWindows
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
-                new PredicatePushDown(getQueryRunner().getMetadata(), new TypeAnalyzer(getQueryRunner().getSqlParser(), getQueryRunner().getMetadata()), false, false),
+                new PredicatePushDown(
+                        getQueryRunner().getMetadata(),
+                        getQueryRunner().getTypeOperators(),
+                        new TypeAnalyzer(getQueryRunner().getSqlParser(), getQueryRunner().getMetadata()),
+                        false,
+                        false),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),

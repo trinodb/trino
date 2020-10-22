@@ -56,7 +56,7 @@ public class PruneOrderByInAggregation
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
-            if (!aggregation.getOrderingScheme().isPresent()) {
+            if (aggregation.getOrderingScheme().isEmpty()) {
                 aggregations.put(entry);
             }
             // getAggregateFunctionImplementation can be expensive, so check it last.

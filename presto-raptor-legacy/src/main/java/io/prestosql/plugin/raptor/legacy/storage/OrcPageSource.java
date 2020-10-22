@@ -205,7 +205,7 @@ public class OrcPageSource
 
         static ColumnAdaptation bucketNumberColumn(OptionalInt bucketNumber)
         {
-            if (!bucketNumber.isPresent()) {
+            if (bucketNumber.isEmpty()) {
                 return nullColumn(INTEGER);
             }
             return new BucketNumberColumn(bucketNumber.getAsInt());

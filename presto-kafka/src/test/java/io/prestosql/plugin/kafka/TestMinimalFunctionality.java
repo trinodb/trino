@@ -15,10 +15,10 @@ package io.prestosql.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.plugin.kafka.util.TestingKafka;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.testng.annotations.AfterClass;
@@ -50,7 +50,7 @@ public class TestMinimalFunctionality
                         .put("kafka.messages-per-split", "100")
                         .build())
                 .build();
-        testingKafka.createTopics(topicName);
+        testingKafka.createTopic(topicName);
         return queryRunner;
     }
 

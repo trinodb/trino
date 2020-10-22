@@ -1,27 +1,22 @@
 {
-    "catalogs": [
-        {
-            "allow": true
-        }
-    ],
     "impersonation": [
         {
-            "originalUser": "alice",
-            "newUser": "bob",
+            "original_user": "alice",
+            "new_user": "bob",
             "allow": false
         },
         {
-            "originalUser": "bob",
-            "newUser": "alice",
+            "original_user": "bob",
+            "new_user": "alice",
             "allow": false
         },
         {
-            "originalUser": "alice|bob",
-            "newUser": ".*"
+            "original_user": "alice|bob",
+            "new_user": ".*"
         },
         {
-            "originalUser": ".*",
-            "newUser": "test"
+            "original_user": ".*",
+            "new_user": "test"
         }
     ]
 }

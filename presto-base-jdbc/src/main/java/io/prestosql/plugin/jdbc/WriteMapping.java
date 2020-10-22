@@ -38,7 +38,12 @@ public final class WriteMapping
         return new WriteMapping(dataType, writeFunction);
     }
 
-    public static WriteMapping blockMapping(String dataType, BlockWriteFunction writeFunction)
+    public static <T> WriteMapping objectMapping(String dataType, Class<T> javaType, ObjectWriteFunction.ObjectWriteFunctionImplementation<T> writeFunction)
+    {
+        return objectMapping(dataType, ObjectWriteFunction.of(javaType, writeFunction));
+    }
+
+    public static WriteMapping objectMapping(String dataType, ObjectWriteFunction writeFunction)
     {
         return new WriteMapping(dataType, writeFunction);
     }

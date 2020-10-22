@@ -14,7 +14,6 @@
 package io.prestosql.util;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.prestosql.sql.planner.Partitioning.ArgumentBinding;
@@ -68,6 +67,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -127,7 +127,7 @@ public final class GraphvizPrinter
             .build());
 
     static {
-        Preconditions.checkState(NODE_COLORS.size() == NodeType.values().length);
+        checkState(NODE_COLORS.size() == NodeType.values().length);
     }
 
     private GraphvizPrinter() {}
@@ -398,7 +398,12 @@ public final class GraphvizPrinter
             else {
                 label.append("Unnest");
             }
-            label.append(format(" [%s", node.getUnnestSymbols().keySet()))
+
+            List<Symbol> unnestInputs = node.getMappings().stream()
+                    .map(UnnestNode.Mapping::getInput)
+                    .collect(toImmutableList());
+
+            label.append(format(" [%s", unnestInputs))
                     .append(node.getOrdinalitySymbol().isPresent() ? " (ordinality)]" : "]");
 
             String details = node.getFilter().isPresent() ? " filter " + node.getFilter().get().toString() : "";
@@ -408,7 +413,7 @@ public final class GraphvizPrinter
         }
 
         @Override
-        public Void visitTopN(final TopNNode node, Void context)
+        public Void visitTopN(TopNNode node, Void context)
         {
             String keys = node.getOrderingScheme()
                     .getOrderBy().stream()

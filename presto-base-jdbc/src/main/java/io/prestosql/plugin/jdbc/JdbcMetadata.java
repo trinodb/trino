@@ -17,7 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.prestosql.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.AggregateFunction;
+import io.prestosql.spi.connector.AggregationApplicationResult;
+import io.prestosql.spi.connector.Assignment;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
@@ -33,32 +37,40 @@ import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
-import io.prestosql.spi.connector.ProjectionApplicationResult.Assignment;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.expression.Variable;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.statistics.TableStatistics;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.Functions.identity;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.plugin.jdbc.JdbcMetadataSessionProperties.isAggregationPushdownEnabled;
 import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcMetadata
         implements ConnectorMetadata
 {
+    private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_presto_generated_";
+
     private final JdbcClient jdbcClient;
     private final boolean allowDropTable;
 
@@ -100,22 +112,57 @@ public class JdbcMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
+        if (handle.getGroupingSets().isPresent()) {
+            // handle's aggregations are applied after constraint, so we cannot apply filter if aggregates is already set
+            // TODO (https://github.com/prestosql/presto/issues/4112) allow filter pushdown after aggregation pushdown
+            return Optional.empty();
+        }
+
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+
+        TupleDomain<ColumnHandle> remainingFilter;
+        if (newDomain.isNone()) {
+            remainingFilter = TupleDomain.all();
+        }
+        else {
+            Map<ColumnHandle, Domain> domains = newDomain.getDomains().orElseThrow();
+            List<JdbcColumnHandle> columnHandles = domains.keySet().stream()
+                    .map(JdbcColumnHandle.class::cast)
+                    .collect(toImmutableList());
+            List<ColumnMapping> columnMappings = jdbcClient.getColumnMappings(
+                    session,
+                    columnHandles.stream()
+                            .map(JdbcColumnHandle::getJdbcTypeHandle)
+                            .collect(toImmutableList()));
+
+            Map<ColumnHandle, Domain> supported = new HashMap<>();
+            Map<ColumnHandle, Domain> unsupported = new HashMap<>();
+            for (int i = 0; i < columnHandles.size(); i++) {
+                JdbcColumnHandle column = columnHandles.get(i);
+                ColumnMapping mapping = columnMappings.get(i);
+                DomainPushdownResult pushdownResult = mapping.getPredicatePushdownController().apply(domains.get(column));
+                supported.put(column, pushdownResult.getPushedDown());
+                unsupported.put(column, pushdownResult.getRemainingFilter());
+            }
+
+            newDomain = TupleDomain.withColumnDomains(supported);
+            remainingFilter = TupleDomain.withColumnDomains(unsupported);
+        }
+
         if (oldDomain.equals(newDomain)) {
             return Optional.empty();
         }
 
         handle = new JdbcTableHandle(
                 handle.getSchemaTableName(),
-                handle.getCatalogName(),
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.getColumns(),
+                handle.getRemoteTableName(),
                 newDomain,
-                handle.getLimit());
+                Optional.empty(), // groupBy
+                handle.getLimit(),
+                handle.getColumns());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter));
     }
 
     @Override
@@ -138,12 +185,11 @@ public class JdbcMetadata
         return Optional.of(new ProjectionApplicationResult<>(
                 new JdbcTableHandle(
                         handle.getSchemaTableName(),
-                        handle.getCatalogName(),
-                        handle.getSchemaName(),
-                        handle.getTableName(),
-                        Optional.of(newColumns),
+                        handle.getRemoteTableName(),
                         handle.getConstraint(),
-                        handle.getLimit()),
+                        handle.getGroupingSets(),
+                        handle.getLimit(),
+                        Optional.of(newColumns)),
                 projections,
                 assignments.entrySet().stream()
                         .map(assignment -> new Assignment(
@@ -151,6 +197,85 @@ public class JdbcMetadata
                                 assignment.getValue(),
                                 ((JdbcColumnHandle) assignment.getValue()).getColumnType()))
                         .collect(toImmutableList())));
+    }
+
+    @Override
+    public Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            List<AggregateFunction> aggregates,
+            Map<String, ColumnHandle> assignments,
+            List<List<ColumnHandle>> groupingSets)
+    {
+        if (!isAggregationPushdownEnabled(session)) {
+            return Optional.empty();
+        }
+
+        JdbcTableHandle handle = (JdbcTableHandle) table;
+
+        if (handle.getLimit().isPresent()) {
+            // handle's limit is applied after aggregations, so we cannot apply aggregations if limit is already set
+            return Optional.empty();
+        }
+
+        if (handle.getGroupingSets().isPresent()) {
+            // table handle cannot express aggregation on top of aggregation
+            return Optional.empty();
+        }
+
+        // Global aggregation is represented by [[]]
+        verify(!groupingSets.isEmpty(), "No grouping sets provided");
+
+        if (groupingSets.size() > 1 && !jdbcClient.supportsGroupingSets()) {
+            return Optional.empty();
+        }
+
+        List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, handle);
+        Map<String, JdbcColumnHandle> columnByName = columns.stream()
+                .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
+
+        int syntheticNextIdentifier = 1;
+
+        ImmutableList.Builder<JdbcColumnHandle> newColumns = ImmutableList.builder();
+        ImmutableList.Builder<ConnectorExpression> projections = ImmutableList.builder();
+        ImmutableList.Builder<Assignment> resultAssignments = ImmutableList.builder();
+        for (AggregateFunction aggregate : aggregates) {
+            Optional<JdbcExpression> expression = jdbcClient.implementAggregation(session, aggregate, assignments);
+            if (expression.isEmpty()) {
+                return Optional.empty();
+            }
+
+            while (columnByName.containsKey(SYNTHETIC_COLUMN_NAME_PREFIX + syntheticNextIdentifier)) {
+                syntheticNextIdentifier++;
+            }
+
+            JdbcColumnHandle newColumn = JdbcColumnHandle.builder()
+                    .setExpression(Optional.of(expression.get().getExpression()))
+                    .setColumnName(SYNTHETIC_COLUMN_NAME_PREFIX + syntheticNextIdentifier)
+                    .setJdbcTypeHandle(expression.get().getJdbcTypeHandle())
+                    .setColumnType(aggregate.getOutputType())
+                    .setComment(Optional.of("synthetic"))
+                    .build();
+            syntheticNextIdentifier++;
+
+            newColumns.add(newColumn);
+            projections.add(new Variable(newColumn.getColumnName(), aggregate.getOutputType()));
+            resultAssignments.add(new Assignment(newColumn.getColumnName(), newColumn, aggregate.getOutputType()));
+        }
+
+        handle = new JdbcTableHandle(
+                handle.getSchemaTableName(),
+                handle.getRemoteTableName(),
+                handle.getConstraint(),
+                Optional.of(groupingSets.stream()
+                        .map(groupingSet -> groupingSet.stream()
+                                .map(JdbcColumnHandle.class::cast)
+                                .collect(toImmutableList()))
+                        .collect(toImmutableList())),
+                OptionalLong.empty(), // limit
+                Optional.of(newColumns.build()));
+
+        return Optional.of(new AggregationApplicationResult<>(handle, projections.build(), resultAssignments.build(), ImmutableMap.of()));
     }
 
     @Override
@@ -168,14 +293,13 @@ public class JdbcMetadata
 
         handle = new JdbcTableHandle(
                 handle.getSchemaTableName(),
-                handle.getCatalogName(),
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.getColumns(),
+                handle.getRemoteTableName(),
                 handle.getConstraint(),
-                OptionalLong.of(limit));
+                handle.getGroupingSets(),
+                OptionalLong.of(limit),
+                handle.getColumns());
 
-        return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed()));
+        return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session)));
     }
 
     @Override
@@ -199,7 +323,7 @@ public class JdbcMetadata
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, handle)) {
             columnMetadata.add(column.getColumnMetadata());
         }
-        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build());
+        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build(), jdbcClient.getTableProperties(JdbcIdentity.from(session), handle));
     }
 
     @Override
@@ -212,6 +336,7 @@ public class JdbcMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandle;
+        verify(!jdbcTableHandle.isSynthetic(), "Not a table reference: %s", jdbcTableHandle);
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, jdbcTableHandle)) {
@@ -252,6 +377,7 @@ public class JdbcMetadata
             throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this catalog");
         }
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
+        verify(!handle.isSynthetic(), "Not a table reference: %s", handle);
         jdbcClient.dropTable(JdbcIdentity.from(session), handle);
     }
 
@@ -274,18 +400,12 @@ public class JdbcMetadata
     {
         JdbcOutputTableHandle handle = (JdbcOutputTableHandle) tableHandle;
         jdbcClient.commitCreateTable(JdbcIdentity.from(session), handle);
-        clearRollback();
         return Optional.empty();
     }
 
     private void setRollback(Runnable action)
     {
         checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
-    }
-
-    private void clearRollback()
-    {
-        rollbackAction.set(null);
     }
 
     public void rollback()
@@ -296,7 +416,12 @@ public class JdbcMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
     {
-        JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(session, (JdbcTableHandle) tableHandle, columns.stream().map(JdbcColumnHandle.class::cast).collect(toImmutableList()));
+        verify(!((JdbcTableHandle) tableHandle).isSynthetic(), "Not a table reference: %s", tableHandle);
+        List<JdbcColumnHandle> columnHandles = columns.stream()
+                .map(JdbcColumnHandle.class::cast)
+                .peek(columnHandle -> verify(!columnHandle.isSynthetic(), "Not a column reference: %s", columnHandle))
+                .collect(toImmutableList());
+        JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(session, (JdbcTableHandle) tableHandle, columnHandles);
         setRollback(() -> jdbcClient.rollbackCreateTable(JdbcIdentity.from(session), handle));
         return handle;
     }
@@ -316,9 +441,20 @@ public class JdbcMetadata
     }
 
     @Override
+    public void setColumnComment(ConnectorSession session, ConnectorTableHandle table, ColumnHandle column, Optional<String> comment)
+    {
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
+        verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
+        verify(!columnHandle.isSynthetic(), "Not a column reference: %s", columnHandle);
+        jdbcClient.setColumnComment(JdbcIdentity.from(session), tableHandle, columnHandle, comment);
+    }
+
+    @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle table, ColumnMetadata columnMetadata)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
         jdbcClient.addColumn(session, tableHandle, columnMetadata);
     }
 
@@ -327,6 +463,8 @@ public class JdbcMetadata
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
+        verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
+        verify(!columnHandle.isSynthetic(), "Not a column reference: %s", columnHandle);
         jdbcClient.dropColumn(JdbcIdentity.from(session), tableHandle, columnHandle);
     }
 
@@ -335,6 +473,8 @@ public class JdbcMetadata
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
+        verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
+        verify(!columnHandle.isSynthetic(), "Not a column reference: %s", columnHandle);
         jdbcClient.renameColumn(JdbcIdentity.from(session), tableHandle, columnHandle, target);
     }
 
@@ -342,6 +482,7 @@ public class JdbcMetadata
     public void renameTable(ConnectorSession session, ConnectorTableHandle table, SchemaTableName newTableName)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
         jdbcClient.renameTable(JdbcIdentity.from(session), tableHandle, newTableName);
     }
 

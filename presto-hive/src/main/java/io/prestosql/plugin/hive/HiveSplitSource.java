@@ -61,7 +61,6 @@ import static io.prestosql.plugin.hive.HiveSplitSource.StateKind.FAILED;
 import static io.prestosql.plugin.hive.HiveSplitSource.StateKind.INITIAL;
 import static io.prestosql.plugin.hive.HiveSplitSource.StateKind.NO_MORE_SPLITS;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -146,7 +145,7 @@ class HiveSplitSource
                     @Override
                     public <O> ListenableFuture<O> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, O>> function)
                     {
-                        checkArgument(!bucketNumber.isPresent());
+                        checkArgument(bucketNumber.isEmpty());
                         return queue.borrowBatchAsync(maxSize, function);
                     }
 
@@ -159,7 +158,7 @@ class HiveSplitSource
                     @Override
                     public boolean isFinished(OptionalInt bucketNumber)
                     {
-                        checkArgument(!bucketNumber.isPresent());
+                        checkArgument(bucketNumber.isEmpty());
                         return queue.isFinished();
                     }
                 },
@@ -347,7 +346,17 @@ class HiveSplitSource
                 InternalHiveBlock block = internalSplit.currentBlock();
                 long splitBytes;
                 if (internalSplit.isSplittable()) {
-                    splitBytes = min(maxSplitBytes, block.getEnd() - internalSplit.getStart());
+                    long remainingBlockBytes = block.getEnd() - internalSplit.getStart();
+                    if (remainingBlockBytes <= maxSplitBytes) {
+                        splitBytes = remainingBlockBytes;
+                    }
+                    else if (maxSplitBytes * 2 >= remainingBlockBytes) {
+                        //  Second to last split in this block, generate two evenly sized splits
+                        splitBytes = remainingBlockBytes / 2;
+                    }
+                    else {
+                        splitBytes = maxSplitBytes;
+                    }
                 }
                 else {
                     splitBytes = internalSplit.getEnd() - internalSplit.getStart();
@@ -360,7 +369,7 @@ class HiveSplitSource
                         internalSplit.getPath(),
                         internalSplit.getStart(),
                         splitBytes,
-                        internalSplit.getFileSize(),
+                        internalSplit.getEstimatedFileSize(),
                         internalSplit.getFileModifiedTime(),
                         internalSplit.getSchema(),
                         internalSplit.getPartitionKeys(),
@@ -370,7 +379,7 @@ class HiveSplitSource
                         internalSplit.getTableToPartitionMapping(),
                         internalSplit.getBucketConversion(),
                         internalSplit.isS3SelectPushdownEnabled(),
-                        internalSplit.getDeleteDeltaLocations()));
+                        internalSplit.getAcidInfo()));
 
                 internalSplit.increaseStart(splitBytes);
 

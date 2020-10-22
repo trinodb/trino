@@ -40,6 +40,12 @@ public class TestIcebergDistributed
     }
 
     @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
+    }
+
+    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Iceberg connector does not support column default values");
@@ -48,14 +54,7 @@ public class TestIcebergDistributed
     @Override
     public void testDelete()
     {
-        // Neither row delete nor partition delete is supported yet
-    }
-
-    @Override
-    public void testCommentTable()
-    {
-        // Iceberg connector does not support comment on table
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
+        // TODO (https://github.com/prestosql/presto/pull/4639#issuecomment-700737583)
     }
 
     @Override
@@ -76,16 +75,22 @@ public class TestIcebergDistributed
         String typeName = dataMappingTestSetup.getPrestoTypeName();
         if (typeName.equals("tinyint")
                 || typeName.equals("smallint")
-                || typeName.equals("timestamp")
                 || typeName.startsWith("char(")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
         if (typeName.startsWith("decimal(")
-                || typeName.equals("time")
-                || typeName.equals("timestamp with time zone")) {
+                || typeName.equals("time")) {
             // TODO this should either work or fail cleanly
             return Optional.empty();
+        }
+
+        if (typeName.equals("timestamp")) {
+            return Optional.of(new DataMappingTestSetup("timestamp(6)", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2199-12-31 23:59:59.999999'"));
+        }
+
+        if (typeName.equals("timestamp(3) with time zone")) {
+            return Optional.of(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '9999-12-31 23:59:59.999999 +12:00'"));
         }
 
         return Optional.of(dataMappingTestSetup);

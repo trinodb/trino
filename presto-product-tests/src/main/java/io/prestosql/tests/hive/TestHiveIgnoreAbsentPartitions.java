@@ -28,6 +28,7 @@ import static io.prestosql.tempto.fulfillment.table.MutableTableRequirement.Stat
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
+import static io.prestosql.tests.hive.util.TableLocationUtils.getTablePath;
 import static java.lang.String.format;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -50,9 +51,11 @@ public class TestHiveIgnoreAbsentPartitions
 
     @Test
     public void testIgnoreAbsentPartitions()
+            throws Exception
     {
         String tableNameInDatabase = tablesState.get("test_table").getNameInDatabase();
-        String partitionPath = format("/user/hive/warehouse/%s/p_regionkey=9999", tableNameInDatabase);
+        String tablePath = getTablePath(tableNameInDatabase, 1);
+        String partitionPath = format("%s/p_regionkey=9999", tablePath);
 
         assertThat(query("SELECT count(*) FROM " + tableNameInDatabase)).containsOnly(row(15));
 
@@ -70,15 +73,16 @@ public class TestHiveIgnoreAbsentPartitions
 
     @Test
     public void testShouldThrowErrorOnUnpartitionedTableMissingData()
+            throws Exception
     {
         String tableName = "unpartitioned_absent_table_data";
-        String tablePath = "/user/hive/warehouse/" + tableName;
 
         assertThat(query("DROP TABLE IF EXISTS " + tableName));
 
         assertThat(query(format("CREATE TABLE %s AS SELECT * FROM (VALUES 1,2,3) t(dummy_col)", tableName))).containsOnly(row(3));
         assertThat(query("SELECT count(*) FROM " + tableName)).containsOnly(row(3));
 
+        String tablePath = getTablePath(tableName, 0);
         assertTrue(hdfsClient.exist(tablePath));
         hdfsClient.delete(tablePath);
 

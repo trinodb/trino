@@ -46,7 +46,7 @@ public class TestStatisticAggregationsDescriptor
     @Test
     public void testSerializationRoundTrip()
     {
-        JsonCodec<StatisticAggregationsDescriptor<Symbol>> codec = JsonCodec.jsonCodec(new TypeToken<StatisticAggregationsDescriptor<Symbol>>() {});
+        JsonCodec<StatisticAggregationsDescriptor<Symbol>> codec = JsonCodec.jsonCodec(new TypeToken<>() {});
         assertSerializationRoundTrip(codec, StatisticAggregationsDescriptor.<Symbol>builder().build());
         assertSerializationRoundTrip(codec, createTestDescriptor());
     }

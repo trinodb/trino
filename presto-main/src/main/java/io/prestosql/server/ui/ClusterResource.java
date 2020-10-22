@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import io.prestosql.client.NodeVersion;
+import io.prestosql.server.security.ResourceSecurity;
 
 import javax.annotation.concurrent.Immutable;
 import javax.inject.Inject;
@@ -25,6 +26,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
@@ -42,6 +44,7 @@ public class ClusterResource
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
     }
 
+    @ResourceSecurity(WEB_UI)
     @GET
     @Produces(APPLICATION_JSON)
     public ClusterInfo getInfo()

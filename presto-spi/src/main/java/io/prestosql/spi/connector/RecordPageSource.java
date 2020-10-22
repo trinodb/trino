@@ -19,10 +19,8 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public class RecordPageSource
@@ -42,7 +40,7 @@ public class RecordPageSource
     public RecordPageSource(List<Type> types, RecordCursor cursor)
     {
         this.cursor = requireNonNull(cursor, "cursor is null");
-        this.types = unmodifiableList(new ArrayList<>(requireNonNull(types, "types is null")));
+        this.types = List.copyOf(requireNonNull(types, "types is null"));
         this.pageBuilder = new PageBuilder(this.types);
     }
 

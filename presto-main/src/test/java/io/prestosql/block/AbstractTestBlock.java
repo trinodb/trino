@@ -311,6 +311,8 @@ public abstract class AbstractTestBlock
                 assertEquals(block.getSliceLength(position), expectedSliceValue.length());
                 assertSlicePosition(block, position, expectedSliceValue);
             }
+
+            assertPositionEquals(block, position, expectedSliceValue);
         }
         else if (expectedValue instanceof long[]) {
             Block actual = block.getObject(position, Block.class);
@@ -398,6 +400,12 @@ public abstract class AbstractTestBlock
     protected boolean isSliceAccessSupported()
     {
         return true;
+    }
+
+    // Subclasses can implement this method to customize how the position is compared
+    // with the expected bytes
+    protected void assertPositionEquals(Block block, int position, Slice expectedBytes)
+    {
     }
 
     private static Block copyBlockViaBlockSerde(Block block)

@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -42,6 +44,8 @@ public class TestElasticsearchConfig
                 .setConnectTimeout(new Duration(1, SECONDS))
                 .setMaxRetryTime(new Duration(30, SECONDS))
                 .setNodeRefreshInterval(new Duration(1, MINUTES))
+                .setMaxHttpConnections(25)
+                .setHttpThreadCount(Runtime.getRuntime().availableProcessors())
                 .setTlsEnabled(false)
                 .setKeystorePath(null)
                 .setKeystorePassword(null)
@@ -54,7 +58,11 @@ public class TestElasticsearchConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path keystoreFile = Files.createTempFile(null, null);
+        Path truststoreFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("elasticsearch.host", "example.com")
                 .put("elasticsearch.port", "9999")
@@ -65,10 +73,12 @@ public class TestElasticsearchConfig
                 .put("elasticsearch.connect-timeout", "10s")
                 .put("elasticsearch.max-retry-time", "10s")
                 .put("elasticsearch.node-refresh-interval", "10m")
+                .put("elasticsearch.max-http-connections", "100")
+                .put("elasticsearch.http-thread-count", "30")
                 .put("elasticsearch.tls.enabled", "true")
-                .put("elasticsearch.tls.keystore-path", "/tmp/keystore")
+                .put("elasticsearch.tls.keystore-path", keystoreFile.toString())
                 .put("elasticsearch.tls.keystore-password", "keystore-password")
-                .put("elasticsearch.tls.truststore-path", "/tmp/truststore")
+                .put("elasticsearch.tls.truststore-path", truststoreFile.toString())
                 .put("elasticsearch.tls.truststore-password", "truststore-password")
                 .put("elasticsearch.tls.verify-hostnames", "false")
                 .put("elasticsearch.ignore-publish-address", "true")
@@ -85,10 +95,12 @@ public class TestElasticsearchConfig
                 .setConnectTimeout(new Duration(10, SECONDS))
                 .setMaxRetryTime(new Duration(10, SECONDS))
                 .setNodeRefreshInterval(new Duration(10, MINUTES))
+                .setMaxHttpConnections(100)
+                .setHttpThreadCount(30)
                 .setTlsEnabled(true)
-                .setKeystorePath(new File("/tmp/keystore"))
+                .setKeystorePath(keystoreFile.toFile())
                 .setKeystorePassword("keystore-password")
-                .setTrustStorePath(new File("/tmp/truststore"))
+                .setTrustStorePath(truststoreFile.toFile())
                 .setTruststorePassword("truststore-password")
                 .setVerifyHostnames(false)
                 .setIgnorePublishAddress(true)

@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.jdbc;
 
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -28,8 +30,11 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface JdbcClient
 {
@@ -48,7 +53,22 @@ public interface JdbcClient
 
     Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle);
 
+    /**
+     * Bulk variant of {@link #toPrestoType(ConnectorSession, Connection, JdbcTypeHandle)}.
+     */
+    List<ColumnMapping> getColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles);
+
     WriteMapping toWriteMapping(ConnectorSession session, Type type);
+
+    default boolean supportsGroupingSets()
+    {
+        return true;
+    }
+
+    default Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        return Optional.empty();
+    }
 
     ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle);
 
@@ -66,7 +86,12 @@ public interface JdbcClient
 
     boolean supportsLimit();
 
-    boolean isLimitGuaranteed();
+    boolean isLimitGuaranteed(ConnectorSession session);
+
+    default void setColumnComment(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting column comments");
+    }
 
     void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column);
 
@@ -108,4 +133,10 @@ public interface JdbcClient
     {
         return Optional.empty();
     }
+
+    String quoted(String name);
+
+    String quoted(RemoteTableName remoteTableName);
+
+    Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle tableHandle);
 }

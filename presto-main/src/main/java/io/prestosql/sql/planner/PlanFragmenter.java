@@ -397,7 +397,7 @@ public class PlanFragmenter
                 return this;
             }
 
-            checkState(!partitioningHandle.isPresent(),
+            checkState(partitioningHandle.isEmpty(),
                     "Cannot overwrite partitioning with %s (currently set to %s)",
                     SINGLE_DISTRIBUTION,
                     partitioningHandle);
@@ -409,7 +409,7 @@ public class PlanFragmenter
 
         public FragmentProperties setDistribution(PartitioningHandle distribution, Metadata metadata, Session session)
         {
-            if (!partitioningHandle.isPresent()) {
+            if (partitioningHandle.isEmpty()) {
                 partitioningHandle = Optional.of(distribution);
                 return this;
             }
@@ -466,7 +466,7 @@ public class PlanFragmenter
             }
 
             // only system SINGLE can be upgraded to COORDINATOR_ONLY
-            checkState(!partitioningHandle.isPresent() || partitioningHandle.get().equals(SINGLE_DISTRIBUTION),
+            checkState(partitioningHandle.isEmpty() || partitioningHandle.get().equals(SINGLE_DISTRIBUTION),
                     "Cannot overwrite partitioning with %s (currently set to %s)",
                     COORDINATOR_DISTRIBUTION,
                     partitioningHandle);
@@ -483,7 +483,7 @@ public class PlanFragmenter
 
             partitionedSources.add(source);
 
-            if (!partitioningHandle.isPresent()) {
+            if (partitioningHandle.isEmpty()) {
                 partitioningHandle = Optional.of(distribution);
                 return this;
             }
@@ -562,7 +562,7 @@ public class PlanFragmenter
             GroupedExecutionProperties left = node.getLeft().accept(this, null);
             GroupedExecutionProperties right = node.getRight().accept(this, null);
 
-            if (!node.getDistributionType().isPresent()) {
+            if (node.getDistributionType().isEmpty()) {
                 // This is possible when the optimizers is invoked with `forceSingleNode` set to true.
                 return GroupedExecutionProperties.notCapable();
             }
@@ -669,7 +669,7 @@ public class PlanFragmenter
         public GroupedExecutionProperties visitTableScan(TableScanNode node, Void context)
         {
             Optional<TablePartitioning> tablePartitioning = metadata.getTableProperties(session, node.getTable()).getTablePartitioning();
-            if (!tablePartitioning.isPresent()) {
+            if (tablePartitioning.isEmpty()) {
                 return GroupedExecutionProperties.notCapable();
             }
             List<ConnectorPartitionHandle> partitionHandles = nodePartitioningManager.listPartitionHandles(session, tablePartitioning.get().getPartitioningHandle());

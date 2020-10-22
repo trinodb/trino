@@ -119,7 +119,7 @@ public class PushAggregationThroughOuterJoin
     public Result apply(AggregationNode aggregation, Captures captures, Context context)
     {
         // This rule doesn't deal with AggregationNode's hash symbol. Hash symbols are not yet present at this stage of optimization.
-        checkArgument(!aggregation.getHashSymbol().isPresent(), "unexpected hash symbol");
+        checkArgument(aggregation.getHashSymbol().isEmpty(), "unexpected hash symbol");
 
         JoinNode join = captures.get(JOIN);
 
@@ -181,7 +181,7 @@ public class PushAggregationThroughOuterJoin
         }
 
         Optional<PlanNode> resultNode = coalesceWithNullAggregation(rewrittenAggregation, rewrittenJoin, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup());
-        if (!resultNode.isPresent()) {
+        if (resultNode.isEmpty()) {
             return Result.empty();
         }
 

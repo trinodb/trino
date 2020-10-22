@@ -69,7 +69,7 @@ final class ExchangeMatcher
         ExchangeNode exchangeNode = (ExchangeNode) node;
 
         if (!orderBy.isEmpty()) {
-            if (!exchangeNode.getOrderingScheme().isPresent()) {
+            if (exchangeNode.getOrderingScheme().isEmpty()) {
                 return NO_MATCH;
             }
 

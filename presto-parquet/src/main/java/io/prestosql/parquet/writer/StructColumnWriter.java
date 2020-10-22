@@ -20,6 +20,7 @@ import io.prestosql.parquet.writer.repdef.RepLevelIterable;
 import io.prestosql.parquet.writer.repdef.RepLevelIterables;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.ColumnarRow;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.List;
@@ -31,6 +32,8 @@ import static org.apache.parquet.Preconditions.checkArgument;
 public class StructColumnWriter
         implements ColumnWriter
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructColumnWriter.class).instanceSize();
+
     private final List<ColumnWriter> columnWriters;
     private final int maxDefinitionLevel;
     private final int maxRepetitionLevel;
@@ -86,6 +89,13 @@ public class StructColumnWriter
     public long getBufferedBytes()
     {
         return columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum();
+    }
+
+    @Override
+    public long getRetainedBytes()
+    {
+        return INSTANCE_SIZE +
+                columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
     }
 
     @Override

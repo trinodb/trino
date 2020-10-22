@@ -41,6 +41,16 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanReadSystemInformation(Identity identity)
+    {
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(Identity identity)
+    {
+    }
+
+    @Override
     public void checkCanExecuteQuery(Identity identity)
     {
     }
@@ -99,6 +109,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanShowCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
+    {
+    }
+
+    @Override
     public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
     {
     }
@@ -120,6 +135,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName)
     {
     }
 
@@ -242,6 +262,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanSetRole(SecurityContext context, String role, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, String catalogName)
     {
     }
 

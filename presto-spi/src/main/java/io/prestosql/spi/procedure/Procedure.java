@@ -19,13 +19,11 @@ import io.prestosql.spi.type.Type;
 import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import static java.lang.String.format;
-import static java.util.Collections.unmodifiableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -41,7 +39,7 @@ public class Procedure
     {
         this.schema = checkNotNullOrEmpty(schema, "schema").toLowerCase(ENGLISH);
         this.name = checkNotNullOrEmpty(name, "name").toLowerCase(ENGLISH);
-        this.arguments = unmodifiableList(new ArrayList<>(arguments));
+        this.arguments = List.copyOf(requireNonNull(arguments, "arguments is null"));
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
 
         Set<String> names = new HashSet<>();

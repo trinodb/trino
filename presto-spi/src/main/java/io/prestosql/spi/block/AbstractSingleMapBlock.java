@@ -18,9 +18,6 @@ import io.airlift.slice.Slice;
 
 import java.util.List;
 
-import static java.util.Arrays.asList;
-import static java.util.Collections.unmodifiableList;
-
 public abstract class AbstractSingleMapBlock
         implements Block
 {
@@ -29,7 +26,7 @@ public abstract class AbstractSingleMapBlock
     @Override
     public final List<Block> getChildren()
     {
-        return unmodifiableList(asList(getRawKeyBlock(), getRawValueBlock()));
+        return List.of(getRawKeyBlock(), getRawValueBlock());
     }
 
     abstract Block getRawKeyBlock();

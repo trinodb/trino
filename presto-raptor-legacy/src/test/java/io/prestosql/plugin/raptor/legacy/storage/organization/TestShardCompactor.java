@@ -27,10 +27,11 @@ import io.prestosql.plugin.raptor.legacy.storage.StoragePageSink;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import org.skife.jdbi.v2.DBI;
@@ -54,11 +55,11 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.plugin.raptor.legacy.storage.TestOrcStorageManager.createOrcStorageManager;
-import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.MaterializedResult.materializeSourceDataStream;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -91,7 +92,7 @@ public class TestShardCompactor
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dummyHandle = dbi.open();
         storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS);
-        compactor = new ShardCompactor(storageManager, READER_OPTIONS);
+        compactor = new ShardCompactor(storageManager, READER_OPTIONS, new TypeOperators());
     }
 
     @AfterMethod(alwaysRun = true)
@@ -109,7 +110,7 @@ public class TestShardCompactor
             throws Exception
     {
         List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
-        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), DOUBLE, DATE, TIMESTAMP);
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), DOUBLE, DATE, TIMESTAMP_MILLIS);
 
         List<ShardInfo> inputShards = createShards(storageManager, columnIds, columnTypes, 3);
         assertEquals(inputShards.size(), 3);
@@ -133,7 +134,7 @@ public class TestShardCompactor
     public void testShardCompactorSorted()
             throws Exception
     {
-        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), DATE, TIMESTAMP, DOUBLE);
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), DATE, TIMESTAMP_MILLIS, DOUBLE);
         List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
         List<Long> sortColumnIds = ImmutableList.of(1L, 2L, 3L, 5L, 7L);
         List<SortOrder> sortOrders = nCopies(sortColumnIds.size(), ASC_NULLS_FIRST);

@@ -67,7 +67,7 @@ public class TestTypeConversions
     @Test
     public void testConvertDateTimeField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.DATETIME, TimestampType.TIMESTAMP);
+        assertSimpleFieldTypeConversion(LegacySQLTypeName.DATETIME, TimestampType.TIMESTAMP_MILLIS);
     }
 
     @Test
@@ -158,17 +158,6 @@ public class TestTypeConversions
         assertThat(metadata.getType()).isEqualTo(new ArrayType(VarcharType.VARCHAR));
     }
 
-    void assertSimpleFieldTypeConversion(LegacySQLTypeName from, Type to)
-    {
-        ColumnMetadata metadata = Conversions.toColumnMetadata(createField(from));
-        assertThat(metadata.getType()).isEqualTo(to);
-    }
-
-    private Field createField(LegacySQLTypeName type)
-    {
-        return Field.of("test", type);
-    }
-
     @Test
     public void testConvertBooleanColumn()
     {
@@ -190,7 +179,7 @@ public class TestTypeConversions
     @Test
     public void testConvertDateTimeColumn()
     {
-        assertSimpleColumnTypeConversion(LegacySQLTypeName.DATETIME, TimestampType.TIMESTAMP);
+        assertSimpleColumnTypeConversion(LegacySQLTypeName.DATETIME, TimestampType.TIMESTAMP_MILLIS);
     }
 
     @Test
@@ -278,17 +267,6 @@ public class TestTypeConversions
         assertThat(metadata.getType()).isEqualTo(new ArrayType(VarcharType.VARCHAR));
     }
 
-    void assertSimpleColumnTypeConversion(LegacySQLTypeName from, Type to)
-    {
-        ColumnMetadata metadata = createColumn(from).getColumnMetadata();
-        assertThat(metadata.getType()).isEqualTo(to);
-    }
-
-    private BigQueryColumnHandle createColumn(LegacySQLTypeName type)
-    {
-        return new BigQueryColumnHandle("test", BigQueryType.valueOf(type.name()), Field.Mode.NULLABLE, ImmutableList.of(), null);
-    }
-
     @Test
     public void testBigQueryDateTimeToJavaConversion()
     {
@@ -298,5 +276,27 @@ public class TestTypeConversions
         assertThat(toLocalDateTime("2004-04-04T04:04:04.4444")).isEqualTo(LocalDateTime.of(2004, APRIL, 4, 4, 4, 4, 444_400_000));
         assertThat(toLocalDateTime("2005-05-05T05:05:05.55555")).isEqualTo(LocalDateTime.of(2005, MAY, 5, 5, 5, 5, 555_550_000));
         assertThat(toLocalDateTime("2006-06-06T06:06:06.666666")).isEqualTo(LocalDateTime.of(2006, JUNE, 6, 6, 6, 6, 666_666_000));
+    }
+
+    private static void assertSimpleFieldTypeConversion(LegacySQLTypeName from, Type to)
+    {
+        ColumnMetadata metadata = Conversions.toColumnMetadata(createField(from));
+        assertThat(metadata.getType()).isEqualTo(to);
+    }
+
+    private static Field createField(LegacySQLTypeName type)
+    {
+        return Field.of("test", type);
+    }
+
+    private static void assertSimpleColumnTypeConversion(LegacySQLTypeName from, Type to)
+    {
+        ColumnMetadata metadata = createColumn(from).getColumnMetadata();
+        assertThat(metadata.getType()).isEqualTo(to);
+    }
+
+    private static BigQueryColumnHandle createColumn(LegacySQLTypeName type)
+    {
+        return new BigQueryColumnHandle("test", BigQueryType.valueOf(type.name()), Field.Mode.NULLABLE, ImmutableList.of(), null);
     }
 }

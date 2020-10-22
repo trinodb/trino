@@ -25,10 +25,9 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.block.Block;
@@ -41,9 +40,7 @@ import io.prestosql.sql.gen.CallSiteBinder;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
 import java.util.List;
-import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
@@ -57,9 +54,9 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.prestosql.util.CompilerUtils.defineClass;
@@ -94,13 +91,11 @@ public final class ArrayConstructor
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        Map<String, Type> types = boundVariables.getTypeVariables();
-        checkArgument(types.size() == 1, "Can only construct arrays from exactly matching types");
         ImmutableList.Builder<Class<?>> builder = ImmutableList.builder();
-        Type type = types.get("E");
-        for (int i = 0; i < arity; i++) {
+        Type type = functionBinding.getTypeVariable("E");
+        for (int i = 0; i < functionBinding.getArity(); i++) {
             if (type.getJavaType().isPrimitive()) {
                 builder.add(Primitives.wrap(type.getJavaType()));
             }
@@ -118,9 +113,10 @@ public final class ArrayConstructor
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
-        return new ScalarFunctionImplementation(
-                false,
-                nCopies(stackTypes.size(), valueTypeArgumentProperty(USE_BOXED_TYPE)),
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
+                FAIL_ON_NULL,
+                nCopies(stackTypes.size(), BOXED_NULLABLE),
                 methodHandle);
     }
 

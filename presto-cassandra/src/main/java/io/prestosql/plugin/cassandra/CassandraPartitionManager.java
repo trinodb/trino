@@ -70,7 +70,7 @@ public class CassandraPartitionManager
             }
             else {
                 List<ColumnHandle> partitionColumns = ImmutableList.copyOf(partitionKeys);
-                remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains().get(), not(in(partitionColumns))));
+                remainingTupleDomain = tupleDomain.filter((column, domain) -> !partitionColumns.contains(column));
             }
         }
 
@@ -154,7 +154,7 @@ public class CassandraPartitionManager
                         return columnValues.build();
                     },
                     discreteValues -> {
-                        if (discreteValues.isWhiteList()) {
+                        if (discreteValues.isInclusive()) {
                             return ImmutableSet.copyOf(discreteValues.getValues());
                         }
                         return ImmutableSet.of();

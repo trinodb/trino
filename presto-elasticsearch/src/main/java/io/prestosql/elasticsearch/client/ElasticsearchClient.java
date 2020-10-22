@@ -20,7 +20,9 @@ import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.ObjectMapperProvider;
@@ -30,10 +32,21 @@ import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.prestosql.elasticsearch.AwsSecurityConfig;
 import io.prestosql.elasticsearch.ElasticsearchConfig;
+import io.prestosql.elasticsearch.PasswordConfig;
 import io.prestosql.spi.PrestoException;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.apache.http.impl.nio.reactor.IOReactorConfig;
+import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.search.ClearScrollRequest;
@@ -83,6 +96,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -94,6 +109,7 @@ import static io.prestosql.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_QU
 import static io.prestosql.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_SSL_INITIALIZATION_FAILURE;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -106,7 +122,10 @@ public class ElasticsearchClient
 
     private static final JsonCodec<SearchShardsResponse> SEARCH_SHARDS_RESPONSE_CODEC = jsonCodec(SearchShardsResponse.class);
     private static final JsonCodec<NodesResponse> NODES_RESPONSE_CODEC = jsonCodec(NodesResponse.class);
+    private static final JsonCodec<CountResponse> COUNT_RESPONSE_CODEC = jsonCodec(CountResponse.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+
+    private static final Pattern ADDRESS_PATTERN = Pattern.compile("((?<cname>[^/]+)/)?(?<ip>.+):(?<port>\\d+)");
 
     private final RestHighLevelClient client;
     private final int scrollSize;
@@ -121,13 +140,17 @@ public class ElasticsearchClient
 
     private final TimeStat searchStats = new TimeStat(MILLISECONDS);
     private final TimeStat nextPageStats = new TimeStat(MILLISECONDS);
+    private final TimeStat countStats = new TimeStat(MILLISECONDS);
 
     @Inject
-    public ElasticsearchClient(ElasticsearchConfig config, Optional<AwsSecurityConfig> awsSecurityConfig)
+    public ElasticsearchClient(
+            ElasticsearchConfig config,
+            Optional<AwsSecurityConfig> awsSecurityConfig,
+            Optional<PasswordConfig> passwordConfig)
     {
         requireNonNull(config, "config is null");
 
-        client = createClient(config, awsSecurityConfig);
+        client = createClient(config, awsSecurityConfig, passwordConfig);
 
         this.ignorePublishAddress = config.isIgnorePublishAddress();
         this.scrollSize = config.getScrollSize();
@@ -181,17 +204,32 @@ public class ElasticsearchClient
         }
     }
 
-    private static RestHighLevelClient createClient(ElasticsearchConfig config, Optional<AwsSecurityConfig> awsSecurityConfig)
+    private static RestHighLevelClient createClient(
+            ElasticsearchConfig config,
+            Optional<AwsSecurityConfig> awsSecurityConfig,
+            Optional<PasswordConfig> passwordConfig)
     {
         RestClientBuilder builder = RestClient.builder(
                 new HttpHost(config.getHost(), config.getPort(), config.isTlsEnabled() ? "https" : "http"))
-                .setRequestConfigCallback(
-                        configBuilder -> configBuilder
-                                .setConnectTimeout(toIntExact(config.getConnectTimeout().toMillis()))
-                                .setSocketTimeout(toIntExact(config.getRequestTimeout().toMillis())))
                 .setMaxRetryTimeoutMillis(toIntExact(config.getMaxRetryTime().toMillis()));
 
-        builder.setHttpClientConfigCallback(clientBuilder -> {
+        builder.setHttpClientConfigCallback(ignored -> {
+            RequestConfig requestConfig = RequestConfig.custom()
+                    .setConnectTimeout(toIntExact(config.getConnectTimeout().toMillis()))
+                    .setSocketTimeout(toIntExact(config.getRequestTimeout().toMillis()))
+                    .build();
+
+            IOReactorConfig reactorConfig = IOReactorConfig.custom()
+                    .setIoThreadCount(config.getHttpThreadCount())
+                    .build();
+
+            // the client builder passed to the call-back is configured to use system properties, which makes it
+            // impossible to configure concurrency settings, so we need to build a new one from scratch
+            HttpAsyncClientBuilder clientBuilder = HttpAsyncClientBuilder.create()
+                    .setDefaultRequestConfig(requestConfig)
+                    .setDefaultIOReactorConfig(reactorConfig)
+                    .setMaxConnPerRoute(config.getMaxHttpConnections())
+                    .setMaxConnTotal(config.getMaxHttpConnections());
             if (config.isTlsEnabled()) {
                 buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTrustStorePath(), config.getTruststorePassword())
                         .ifPresent(clientBuilder::setSSLContext);
@@ -200,6 +238,12 @@ public class ElasticsearchClient
                     clientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
                 }
             }
+
+            passwordConfig.ifPresent(securityConfig -> {
+                CredentialsProvider credentials = new BasicCredentialsProvider();
+                credentials.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(securityConfig.getUser(), securityConfig.getPassword()));
+                clientBuilder.setDefaultCredentialsProvider(credentials);
+            });
 
             awsSecurityConfig.ifPresent(securityConfig -> clientBuilder.addInterceptorLast(new AwsRequestSigner(
                     securityConfig.getRegion(),
@@ -227,7 +271,7 @@ public class ElasticsearchClient
             Optional<File> trustStorePath,
             Optional<String> trustStorePassword)
     {
-        if (!keyStorePath.isPresent() && !trustStorePath.isPresent()) {
+        if (keyStorePath.isEmpty() && trustStorePath.isEmpty()) {
             return Optional.empty();
         }
 
@@ -269,14 +313,12 @@ public class ElasticsearchClient
 
             // get X509TrustManager
             TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
-            if ((trustManagers.length != 1) || !(trustManagers[0] instanceof X509TrustManager)) {
+            if (trustManagers.length != 1 || !(trustManagers[0] instanceof X509TrustManager)) {
                 throw new RuntimeException("Unexpected default trust managers:" + Arrays.toString(trustManagers));
             }
-            X509TrustManager trustManager = (X509TrustManager) trustManagers[0];
-
             // create SSLContext
             SSLContext result = SSLContext.getInstance("SSL");
-            result.init(keyManagers, new TrustManager[] {trustManager}, null);
+            result.init(keyManagers, trustManagers, null);
             return Optional.of(result);
         }
         catch (GeneralSecurityException | IOException e) {
@@ -343,7 +385,10 @@ public class ElasticsearchClient
             NodesResponse.Node node = entry.getValue();
 
             if (node.getRoles().contains("data")) {
-                result.add(new ElasticsearchNode(nodeId, node.getAddress()));
+                Optional<String> address = node.getAddress()
+                        .flatMap(ElasticsearchClient::extractAddress);
+
+                result.add(new ElasticsearchNode(nodeId, address));
             }
         }
 
@@ -372,7 +417,7 @@ public class ElasticsearchClient
 
             SearchShardsResponse.Shard chosen;
             ElasticsearchNode node;
-            if (!candidate.isPresent()) {
+            if (candidate.isEmpty()) {
                 // pick an arbitrary shard with and assign to an arbitrary node
                 chosen = shardGroup.stream()
                         .min(this::shardPreference)
@@ -402,12 +447,22 @@ public class ElasticsearchClient
 
     public List<String> getIndexes()
     {
-        return doRequest("/_cat/indices?h=index&format=json&s=index:asc", body -> {
+        return doRequest("/_cat/indices?h=index,docs.count,docs.deleted&format=json&s=index:asc", body -> {
             try {
                 ImmutableList.Builder<String> result = ImmutableList.builder();
                 JsonNode root = OBJECT_MAPPER.readTree(body);
                 for (int i = 0; i < root.size(); i++) {
-                    result.add(root.get(i).get("index").asText());
+                    String index = root.get(i).get("index").asText();
+                    // make sure the index has mappings we can use to derive the schema
+                    int docsCount = root.get(i).get("docs.count").asInt();
+                    int deletedDocsCount = root.get(i).get("docs.deleted").asInt();
+                    if (docsCount == 0 && deletedDocsCount == 0) {
+                        // without documents, the index won't have any dynamic mappings, but maybe there are some explicit ones
+                        if (getIndexMetadata(index).getSchema().getFields().isEmpty()) {
+                            continue;
+                        }
+                    }
+                    result.add(index);
                 }
                 return result.build();
             }
@@ -417,18 +472,21 @@ public class ElasticsearchClient
         });
     }
 
-    public List<String> getAliases()
+    public Map<String, List<String>> getAliases()
     {
         return doRequest("/_aliases", body -> {
             try {
-                ImmutableList.Builder<String> result = ImmutableList.builder();
+                ImmutableMap.Builder<String, List<String>> result = ImmutableMap.builder();
                 JsonNode root = OBJECT_MAPPER.readTree(body);
 
-                Iterator<JsonNode> elements = root.elements();
+                Iterator<Map.Entry<String, JsonNode>> elements = root.fields();
                 while (elements.hasNext()) {
-                    JsonNode element = elements.next();
-                    JsonNode aliases = element.get("aliases");
-                    result.addAll(aliases.fieldNames());
+                    Map.Entry<String, JsonNode> element = elements.next();
+                    JsonNode aliases = element.getValue().get("aliases");
+                    Iterator<String> aliasNames = aliases.fieldNames();
+                    if (aliasNames.hasNext()) {
+                        result.put(element.getKey(), ImmutableList.copyOf(aliasNames));
+                    }
                 }
                 return result.build();
             }
@@ -448,6 +506,9 @@ public class ElasticsearchClient
                         .elements().next()
                         .get("mappings");
 
+                if (!mappings.elements().hasNext()) {
+                    return new IndexMetadata(new IndexMetadata.ObjectType(ImmutableList.of()));
+                }
                 if (!mappings.has("properties")) {
                     // Older versions of ElasticSearch supported multiple "type" mappings
                     // for a given index. Newer versions support only one and don't
@@ -519,6 +580,36 @@ public class ElasticsearchClient
         return jsonNode.get(name);
     }
 
+    public String executeQuery(String index, String query)
+    {
+        String path = format("/%s/_search", index);
+
+        Response response;
+        try {
+            response = client.getLowLevelClient()
+                    .performRequest(
+                            "GET",
+                            path,
+                            ImmutableMap.of(),
+                            new ByteArrayEntity(query.getBytes(UTF_8)),
+                            new BasicHeader("Content-Type", "application/json"),
+                            new BasicHeader("Accept-Encoding", "application/json"));
+        }
+        catch (IOException e) {
+            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+
+        String body;
+        try {
+            body = EntityUtils.toString(response.getEntity());
+        }
+        catch (IOException e) {
+            throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+        }
+
+        return body;
+    }
+
     public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort, OptionalLong limit)
     {
         SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
@@ -564,20 +655,7 @@ public class ElasticsearchClient
             if (suppressed.length > 0) {
                 Throwable cause = suppressed[0];
                 if (cause instanceof ResponseException) {
-                    HttpEntity entity = ((ResponseException) cause).getResponse().getEntity();
-                    try {
-                        JsonNode reason = OBJECT_MAPPER.readTree(entity.getContent()).path("error")
-                                .path("root_cause")
-                                .path(0)
-                                .path("reason");
-
-                        if (!reason.isMissingNode()) {
-                            throw new PrestoException(ELASTICSEARCH_QUERY_FAILURE, reason.asText(), e);
-                        }
-                    }
-                    catch (IOException ex) {
-                        e.addSuppressed(ex);
-                    }
+                    throw propagate((ResponseException) cause);
                 }
             }
 
@@ -607,6 +685,45 @@ public class ElasticsearchClient
         }
     }
 
+    public long count(String index, int shard, QueryBuilder query)
+    {
+        SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
+                .query(query);
+
+        LOG.debug("Count: %s:%s, query: %s", index, shard, sourceBuilder);
+
+        long start = System.nanoTime();
+        try {
+            Response response;
+            try {
+                response = client.getLowLevelClient()
+                        .performRequest(
+                                "GET",
+                                format("/%s/_count?preference=_shards:%s", index, shard),
+                                ImmutableMap.of(),
+                                new StringEntity(sourceBuilder.toString()),
+                                new BasicHeader("Content-Type", "application/json"));
+            }
+            catch (ResponseException e) {
+                throw propagate(e);
+            }
+            catch (IOException e) {
+                throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            }
+
+            try {
+                return COUNT_RESPONSE_CODEC.fromJson(EntityUtils.toByteArray(response.getEntity()))
+                        .getCount();
+            }
+            catch (IOException e) {
+                throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+            }
+        }
+        finally {
+            countStats.add(Duration.nanosSince(start));
+        }
+    }
+
     public void clearScroll(String scrollId)
     {
         ClearScrollRequest request = new ClearScrollRequest();
@@ -633,6 +750,13 @@ public class ElasticsearchClient
         return nextPageStats;
     }
 
+    @Managed
+    @Nested
+    public TimeStat getCountStats()
+    {
+        return countStats;
+    }
+
     private <T> T doRequest(String path, ResponseHandler<T> handler)
     {
         checkArgument(path.startsWith("/"), "path must be an absolute path");
@@ -655,6 +779,51 @@ public class ElasticsearchClient
         }
 
         return handler.process(body);
+    }
+
+    private static PrestoException propagate(ResponseException exception)
+    {
+        HttpEntity entity = exception.getResponse().getEntity();
+
+        if (entity != null && entity.getContentType() != null) {
+            try {
+                JsonNode reason = OBJECT_MAPPER.readTree(entity.getContent()).path("error")
+                        .path("root_cause")
+                        .path(0)
+                        .path("reason");
+
+                if (!reason.isMissingNode()) {
+                    throw new PrestoException(ELASTICSEARCH_QUERY_FAILURE, reason.asText(), exception);
+                }
+            }
+            catch (IOException e) {
+                PrestoException result = new PrestoException(ELASTICSEARCH_QUERY_FAILURE, exception);
+                result.addSuppressed(e);
+                throw result;
+            }
+        }
+
+        throw new PrestoException(ELASTICSEARCH_QUERY_FAILURE, exception);
+    }
+
+    @VisibleForTesting
+    static Optional<String> extractAddress(String address)
+    {
+        Matcher matcher = ADDRESS_PATTERN.matcher(address);
+
+        if (!matcher.matches()) {
+            return Optional.empty();
+        }
+
+        String cname = matcher.group("cname");
+        String ip = matcher.group("ip");
+        String port = matcher.group("port");
+
+        if (cname != null) {
+            return Optional.of(cname + ":" + port);
+        }
+
+        return Optional.of(ip + ":" + port);
     }
 
     private interface ResponseHandler<T>

@@ -13,6 +13,11 @@ General Changes
   ``ORDER BY`` clauses. (:issue:`2044`)
 * Improve performance when processing columns of ``map`` type. (:issue:`2015`)
 
+Server RPM Changes
+------------------
+
+* Allow running Presto with :ref:`Java 11 or above <requirements-java>`. (:issue:`2057`)
+
 Security Changes
 ----------------
 
@@ -26,11 +31,6 @@ Hive Changes
   not being recorded for :doc:`/sql/analyze`. (:issue:`973`)
 * Improve performance for Glue metastore by fetching partitions in parallel. (:issue:`1465`)
 * Improve performance of ``sql-standard`` security. (:issue:`1922`, :issue:`1929`)
-
-RPM Changes
------------
-
-* Allow running Presto with Java 11 or newer. (:issue:`2057`)
 
 Phoenix Connector Changes
 -------------------------

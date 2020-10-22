@@ -46,10 +46,10 @@ public class MetricComparison
     {
         requireNonNull(metricComparisonStrategy, "metricComparisonStrategy is null");
 
-        if (!estimatedValue.isPresent() && !actualValue.isPresent()) {
+        if (estimatedValue.isEmpty() && actualValue.isEmpty()) {
             return MATCH;
         }
-        if (!estimatedValue.isPresent()) {
+        if (estimatedValue.isEmpty()) {
             return NO_ESTIMATE;
         }
         checkState(actualValue.isPresent(), "actual value is not present");
@@ -58,7 +58,7 @@ public class MetricComparison
 
     private String print(OptionalDouble value)
     {
-        if (!value.isPresent()) {
+        if (value.isEmpty()) {
             return "UNKNOWN";
         }
         return String.valueOf(value.getAsDouble());

@@ -27,9 +27,9 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.BucketFunction;
 import io.prestosql.spi.connector.ConnectorPageSink;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -45,7 +45,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.allAsList;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -66,14 +66,12 @@ public class RaptorPageSink
     private final long maxBufferBytes;
     private final OptionalInt temporalColumnIndex;
     private final Optional<Type> temporalColumnType;
-    private final TemporalFunction temporalFunction;
 
     private final PageWriter pageWriter;
 
     public RaptorPageSink(
             PageSorter pageSorter,
             StorageManager storageManager,
-            TemporalFunction temporalFunction,
             long transactionId,
             List<Long> columnIds,
             List<Type> columnTypes,
@@ -86,7 +84,6 @@ public class RaptorPageSink
     {
         this.transactionId = transactionId;
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
-        this.temporalFunction = requireNonNull(temporalFunction, "temporalFunction is null");
         this.columnIds = ImmutableList.copyOf(requireNonNull(columnIds, "columnIds is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.storageManager = requireNonNull(storageManager, "storageManager is null");
@@ -101,7 +98,7 @@ public class RaptorPageSink
         if (temporalColumnHandle.isPresent() && columnIds.contains(temporalColumnHandle.get().getColumnId())) {
             temporalColumnIndex = OptionalInt.of(columnIds.indexOf(temporalColumnHandle.get().getColumnId()));
             temporalColumnType = Optional.of(columnTypes.get(temporalColumnIndex.getAsInt()));
-            checkArgument(temporalColumnType.get() == DATE || temporalColumnType.get() == TIMESTAMP,
+            checkArgument(temporalColumnType.get() == DATE || temporalColumnType.get().equals(TIMESTAMP_MILLIS),
                     "temporalColumnType can only be DATE or TIMESTAMP");
         }
         else {
@@ -222,7 +219,7 @@ public class RaptorPageSink
 
             for (int position = 0; position < page.getPositionCount(); position++) {
                 int bucket = bucketFunction.isPresent() ? bucketFunction.get().getBucket(bucketArgs, position) : 0;
-                int day = temporalColumnType.isPresent() ? temporalFunction.getDay(temporalColumnType.get(), temporalBlock, position) : 0;
+                int day = temporalColumnType.isPresent() ? TemporalFunction.getDay(temporalColumnType.get(), temporalBlock, position) : 0;
 
                 long partition = (((long) bucket) << 32) | (day & 0xFFFF_FFFFL);
                 PageStore store = pageStores.get(partition);

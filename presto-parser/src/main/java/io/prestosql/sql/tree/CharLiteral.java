@@ -80,4 +80,14 @@ public class CharLiteral
     {
         return Objects.hash(value);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return Objects.equals(value, ((CharLiteral) other).value);
+    }
 }

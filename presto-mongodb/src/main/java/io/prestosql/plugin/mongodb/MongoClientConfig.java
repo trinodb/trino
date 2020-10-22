@@ -37,6 +37,7 @@ public class MongoClientConfig
     private static final Splitter PORT_SPLITTER = Splitter.on(':').trimResults().omitEmptyStrings();
 
     private String schemaCollection = "_schema";
+    private boolean caseInsensitiveNameMatching;
     private List<ServerAddress> seeds = ImmutableList.of();
     private List<MongoCredential> credentials = ImmutableList.of();
 
@@ -45,6 +46,7 @@ public class MongoClientConfig
     private int maxWaitTime = 120_000;
     private int connectionTimeout = 10_000;
     private int socketTimeout;
+    private int maxConnectionIdleTime;
     private boolean socketKeepAlive;
     private boolean sslEnabled;
 
@@ -66,6 +68,18 @@ public class MongoClientConfig
     public MongoClientConfig setSchemaCollection(String schemaCollection)
     {
         this.schemaCollection = schemaCollection;
+        return this;
+    }
+
+    public boolean isCaseInsensitiveNameMatching()
+    {
+        return caseInsensitiveNameMatching;
+    }
+
+    @Config("mongodb.case-insensitive-name-matching")
+    public MongoClientConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
+    {
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
         return this;
     }
 
@@ -292,6 +306,19 @@ public class MongoClientConfig
     public MongoClientConfig setSslEnabled(boolean sslEnabled)
     {
         this.sslEnabled = sslEnabled;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxConnectionIdleTime()
+    {
+        return maxConnectionIdleTime;
+    }
+
+    @Config("mongodb.max-connection-idle-time")
+    public MongoClientConfig setMaxConnectionIdleTime(int maxConnectionIdleTime)
+    {
+        this.maxConnectionIdleTime = maxConnectionIdleTime;
         return this;
     }
 }

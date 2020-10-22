@@ -14,11 +14,13 @@
 package io.prestosql.security;
 
 import io.prestosql.Session;
+import io.prestosql.spi.QueryId;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SystemSecurityContext;
 import io.prestosql.transaction.TransactionId;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -27,16 +29,18 @@ public class SecurityContext
     public static SecurityContext of(Session session)
     {
         requireNonNull(session, "session is null");
-        return new SecurityContext(session.getRequiredTransactionId(), session.getIdentity());
+        return new SecurityContext(session.getRequiredTransactionId(), session.getIdentity(), session.getQueryId());
     }
 
     private final TransactionId transactionId;
     private final Identity identity;
+    private final QueryId queryId;
 
-    public SecurityContext(TransactionId transactionId, Identity identity)
+    public SecurityContext(TransactionId transactionId, Identity identity, QueryId queryId)
     {
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.identity = requireNonNull(identity, "identity is null");
+        this.queryId = requireNonNull(queryId, "queryId is null");
     }
 
     public TransactionId getTransactionId()
@@ -49,9 +53,14 @@ public class SecurityContext
         return identity;
     }
 
+    public QueryId getQueryId()
+    {
+        return queryId;
+    }
+
     public SystemSecurityContext toSystemSecurityContext()
     {
-        return new SystemSecurityContext(identity);
+        return new SystemSecurityContext(identity, Optional.of(queryId));
     }
 
     @Override
@@ -66,13 +75,14 @@ public class SecurityContext
         }
         SecurityContext that = (SecurityContext) o;
         return Objects.equals(transactionId, that.transactionId) &&
-                Objects.equals(identity, that.identity);
+                Objects.equals(identity, that.identity) &&
+                Objects.equals(queryId, that.queryId);
     }
 
     @Override
     public int hashCode()
     {
         // this is needed by io.prestosql.sql.analyzer.Analysis.AccessControlInfo
-        return Objects.hash(transactionId, identity);
+        return Objects.hash(transactionId, identity, queryId);
     }
 }

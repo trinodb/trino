@@ -17,6 +17,9 @@ clause to specify the window. A window has three components:
   to ``RANGE UNBOUNDED PRECEDING``, which is the same as
   ``RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW``. This frame contains all
   rows from the start of the partition up to the last peer of the current row.
+  In the absence of ``ORDER BY``, all rows are considered peers, so ``RANGE
+  BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`` is equivalent to ``BETWEEN
+  UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING``
 
 For example, the following query ranks orders for each clerk by price::
 

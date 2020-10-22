@@ -90,4 +90,10 @@ public class CoalesceExpression
     {
         return operands.hashCode();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

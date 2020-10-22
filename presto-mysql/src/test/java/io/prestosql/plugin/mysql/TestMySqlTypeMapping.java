@@ -17,6 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.RealType;
+import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.testing.AbstractTestQueryFramework;
@@ -37,19 +42,20 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Objects;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
-import static io.prestosql.plugin.jdbc.DecimalSessionPropertiesProvider.DECIMAL_DEFAULT_SCALE;
-import static io.prestosql.plugin.jdbc.DecimalSessionPropertiesProvider.DECIMAL_MAPPING;
-import static io.prestosql.plugin.jdbc.DecimalSessionPropertiesProvider.DECIMAL_ROUNDING_MODE;
-import static io.prestosql.plugin.jdbc.TypeHandlingJdbcPropertiesProvider.UNSUPPORTED_TYPE_HANDLING;
+import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_DEFAULT_SCALE;
+import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_MAPPING;
+import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_ROUNDING_MODE;
+import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -174,7 +180,7 @@ public class TestMySqlTypeMapping
                 .addRoundTrip(charDataType(1), "a")
                 .addRoundTrip(charDataType(8), "abc")
                 .addRoundTrip(charDataType(8), "12345678")
-                .addRoundTrip(charDataType(255), repeat("a", 255));
+                .addRoundTrip(charDataType(255), "a".repeat(255));
     }
 
     @Test
@@ -376,7 +382,7 @@ public class TestMySqlTypeMapping
 
     private Session sessionWithDecimalMappingAllowOverflow(RoundingMode roundingMode, int scale)
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setCatalogSessionProperty("mysql", DECIMAL_MAPPING, ALLOW_OVERFLOW.name())
                 .setCatalogSessionProperty("mysql", DECIMAL_ROUNDING_MODE, roundingMode.name())
                 .setCatalogSessionProperty("mysql", DECIMAL_DEFAULT_SCALE, Integer.valueOf(scale).toString())
@@ -385,7 +391,7 @@ public class TestMySqlTypeMapping
 
     private Session sessionWithDecimalMappingStrict(UnsupportedTypeHandling unsupportedTypeHandling)
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getSession())
                 .setCatalogSessionProperty("mysql", DECIMAL_MAPPING, STRICT.name())
                 .setCatalogSessionProperty("mysql", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
                 .build();
@@ -418,18 +424,20 @@ public class TestMySqlTypeMapping
                 .addRoundTrip(dateDataType(), dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
 
         for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
-            Session session = Session.builder(getQueryRunner().getDefaultSession())
+            Session session = Session.builder(getSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
                     .build();
             testCases.execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_date"));
-            testCases.execute(getQueryRunner(), session, prestoCreateAsSelect("test_date"));
+            testCases.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_date"));
+            testCases.execute(getQueryRunner(), session, prestoCreateAsSelect(getSession(), "test_date"));
+            testCases.execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_date"));
         }
     }
 
     @Test
     public void testDatetime()
     {
-        // TODO MySQL datetime is not correctly read (see comment in StandardColumnMappings.timestampColumnMappingUsingSqlTimestamp)
+        // TODO (https://github.com/prestosql/presto/issues/5449) MySQL datetime is not correctly read (see comment in StandardColumnMappings.timestampColumnMappingUsingSqlTimestamp)
         // testing this is hard because of https://github.com/prestosql/presto/issues/37
     }
 
@@ -464,6 +472,59 @@ public class TestMySqlTypeMapping
                 .addRoundTrip(jsonDataType, "[]");
     }
 
+    @Test
+    public void testFloat()
+    {
+        singlePrecisionFloatingPointTests(realDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_float"));
+        singlePrecisionFloatingPointTests(mysqlFloatDataType())
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_float"));
+    }
+
+    @Test
+    public void testDouble()
+    {
+        doublePrecisionFloatingPointTests(doubleDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_double"));
+        doublePrecisionFloatingPointTests(mysqlDoubleDataType())
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_double"));
+    }
+
+    @Test
+    public void testUnsignedTypes()
+    {
+        DataType<Short> mysqlUnsignedTinyInt = DataType.dataType("TINYINT UNSIGNED", SmallintType.SMALLINT, Objects::toString);
+        DataType<Integer> mysqlUnsignedSmallInt = DataType.dataType("SMALLINT UNSIGNED", IntegerType.INTEGER, Objects::toString);
+        DataType<Long> mysqlUnsignedInt = DataType.dataType("INT UNSIGNED", BigintType.BIGINT, Objects::toString);
+        DataType<Long> mysqlUnsignedInteger = DataType.dataType("INTEGER UNSIGNED", BigintType.BIGINT, Objects::toString);
+        DataType<BigDecimal> mysqlUnsignedBigint = DataType.dataType("BIGINT UNSIGNED", createDecimalType(20), Objects::toString);
+
+        DataTypeTest.create()
+                .addRoundTrip(mysqlUnsignedTinyInt, (short) 255)
+                .addRoundTrip(mysqlUnsignedSmallInt, 65_535)
+                .addRoundTrip(mysqlUnsignedInt, 4_294_967_295L)
+                .addRoundTrip(mysqlUnsignedInteger, 4_294_967_295L)
+                .addRoundTrip(mysqlUnsignedBigint, new BigDecimal("18446744073709551615"))
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_unsigned"));
+    }
+
+    private static DataTypeTest singlePrecisionFloatingPointTests(DataType<Float> floatType)
+    {
+        // we are not testing Nan/-Infinity/+Infinity as those are not supported by MySQL
+        return DataTypeTest.create()
+                .addRoundTrip(floatType, 3.14f)
+                // .addRoundTrip(floatType, 3.1415927f) // Overeagerly rounded by mysql to 3.14159
+                .addRoundTrip(floatType, null);
+    }
+
+    private static DataTypeTest doublePrecisionFloatingPointTests(DataType<Double> doubleType)
+    {
+        // we are not testing Nan/-Infinity/+Infinity as those are not supported by MySQL
+        return DataTypeTest.create()
+                .addRoundTrip(doubleType, 1.0e100d)
+                .addRoundTrip(doubleType, null);
+    }
+
     private void testUnsupportedDataType(String databaseDataType)
     {
         SqlExecutor jdbcSqlExecutor = mysqlServer::execute;
@@ -480,7 +541,17 @@ public class TestMySqlTypeMapping
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner()), tableNamePrefix);
+        return prestoCreateAsSelect(getSession(), tableNamePrefix);
+    }
+
+    private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)
+    {
+        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+    }
+
+    private DataSetup prestoCreateAndInsert(Session session, String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup mysqlCreateAndInsert(String tableNamePrefix)
@@ -495,5 +566,15 @@ public class TestMySqlTypeMapping
                 JSON,
                 toLiteral,
                 identity());
+    }
+
+    private static DataType<Float> mysqlFloatDataType()
+    {
+        return dataType("float", RealType.REAL, Object::toString);
+    }
+
+    private static DataType<Double> mysqlDoubleDataType()
+    {
+        return dataType("double precision", DoubleType.DOUBLE, Object::toString);
     }
 }

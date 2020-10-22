@@ -203,22 +203,22 @@ public class TestSimplifyExpressions
     private static Map<Symbol, Type> numericAndBooleanSymbolTypeMapFor(Expression expression)
     {
         return SymbolsExtractor.extractUnique(expression).stream()
-            .collect(Collectors.toMap(
-                symbol -> symbol,
-                symbol -> {
-                    switch (symbol.getName().charAt(0)) {
-                        case 'I':
-                            return INTEGER;
-                        case 'D':
-                            return DOUBLE;
-                        case 'R':
-                            return REAL;
-                        case 'B':
-                            return BOOLEAN;
-                        default:
-                            return BIGINT;
-                    }
-                }));
+                .collect(Collectors.toMap(
+                        symbol -> symbol,
+                        symbol -> {
+                            switch (symbol.getName().charAt(0)) {
+                                case 'I':
+                                    return INTEGER;
+                                case 'D':
+                                    return DOUBLE;
+                                case 'R':
+                                    return REAL;
+                                case 'B':
+                                    return BOOLEAN;
+                                default:
+                                    return BIGINT;
+                            }
+                        }));
     }
 
     private static Expression normalize(Expression expression)

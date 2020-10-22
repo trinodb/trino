@@ -50,6 +50,7 @@ import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.session.PropertyMetadata;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.split.PageSinkManager;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.RecordPageSourceProvider;
@@ -103,6 +104,7 @@ public class ConnectorManager
     private final VersionEmbedder versionEmbedder;
     private final TransactionManager transactionManager;
     private final EventListenerManager eventListenerManager;
+    private final TypeOperators typeOperators;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, InternalConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -129,7 +131,8 @@ public class ConnectorManager
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager,
-            EventListenerManager eventListenerManager)
+            EventListenerManager eventListenerManager,
+            TypeOperators typeOperators)
     {
         this.metadataManager = metadataManager;
         this.catalogManager = catalogManager;
@@ -147,6 +150,7 @@ public class ConnectorManager
         this.versionEmbedder = embedVersion;
         this.transactionManager = transactionManager;
         this.eventListenerManager = eventListenerManager;
+        this.typeOperators = typeOperators;
     }
 
     @PreDestroy
@@ -192,7 +196,7 @@ public class ConnectorManager
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(properties, "properties is null");
         requireNonNull(connectorFactory, "connectorFactory is null");
-        checkArgument(!catalogManager.getCatalog(catalogName).isPresent(), "Catalog '%s' already exists", catalogName);
+        checkArgument(catalogManager.getCatalog(catalogName).isEmpty(), "Catalog '%s' already exists", catalogName);
 
         CatalogName catalog = new CatalogName(catalogName);
         checkState(!connectors.containsKey(catalog), "Catalog '%s' already exists", catalog);
@@ -340,12 +344,12 @@ public class ConnectorManager
         ConnectorContext context = new ConnectorContextInstance(
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogName),
                 versionEmbedder,
-                new InternalTypeManager(metadataManager),
+                new InternalTypeManager(metadataManager, typeOperators),
                 pageSorter,
                 pageIndexerFactory,
                 factory.getDuplicatePluginClassLoaderFactory());
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getConnectorFactory().getClass().getClassLoader())) {
             return factory.getConnectorFactory().create(catalogName.getCatalogName(), properties, context);
         }
     }

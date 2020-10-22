@@ -34,7 +34,6 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.Type;
-import org.joda.time.DateTimeZone;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -72,10 +71,11 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static java.lang.Math.floorDiv;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class Statistics
 {
@@ -83,6 +83,13 @@ public final class Statistics
 
     public static PartitionStatistics merge(PartitionStatistics first, PartitionStatistics second)
     {
+        if (first.getBasicStatistics().getRowCount().isPresent() && first.getBasicStatistics().getRowCount().getAsLong() == 0) {
+            return second;
+        }
+        if (second.getBasicStatistics().getRowCount().isPresent() && second.getBasicStatistics().getRowCount().getAsLong() == 0) {
+            return first;
+        }
+
         return new PartitionStatistics(
                 reduce(first.getBasicStatistics(), second.getBasicStatistics(), ADD),
                 merge(first.getColumnStatistics(), second.getColumnStatistics()));
@@ -299,7 +306,7 @@ public final class Statistics
         else if (type.equals(DATE)) {
             result.setDateStatistics(new DateStatistics(Optional.empty(), Optional.empty()));
         }
-        else if (type.equals(TIMESTAMP)) {
+        else if (type.equals(TIMESTAMP_MILLIS)) {
             result.setIntegerStatistics(new IntegerStatistics(OptionalLong.empty(), OptionalLong.empty()));
         }
         else if (type instanceof DecimalType) {
@@ -333,13 +340,12 @@ public final class Statistics
 
     public static Map<String, HiveColumnStatistics> fromComputedStatistics(
             ConnectorSession session,
-            DateTimeZone timeZone,
             Map<ColumnStatisticMetadata, Block> computedStatistics,
             Map<String, Type> columnTypes,
             long rowCount)
     {
         return createColumnToComputedStatisticsMap(computedStatistics).entrySet().stream()
-                .collect(toImmutableMap(Entry::getKey, entry -> createHiveColumnStatistics(session, timeZone, entry.getValue(), columnTypes.get(entry.getKey()), rowCount)));
+                .collect(toImmutableMap(Entry::getKey, entry -> createHiveColumnStatistics(session, entry.getValue(), columnTypes.get(entry.getKey()), rowCount)));
     }
 
     private static Map<String, Map<ColumnStatisticType, Block>> createColumnToComputedStatisticsMap(Map<ColumnStatisticMetadata, Block> computedStatistics)
@@ -357,7 +363,6 @@ public final class Statistics
     @VisibleForTesting
     static HiveColumnStatistics createHiveColumnStatistics(
             ConnectorSession session,
-            DateTimeZone timeZone,
             Map<ColumnStatisticType, Block> computedStatistics,
             Type columnType,
             long rowCount)
@@ -368,7 +373,7 @@ public final class Statistics
         // We ask the engine to compute either both or neither
         verify(computedStatistics.containsKey(MIN_VALUE) == computedStatistics.containsKey(MAX_VALUE));
         if (computedStatistics.containsKey(MIN_VALUE)) {
-            setMinMax(session, timeZone, columnType, computedStatistics.get(MIN_VALUE), computedStatistics.get(MAX_VALUE), result);
+            setMinMax(session, columnType, computedStatistics.get(MIN_VALUE), computedStatistics.get(MAX_VALUE), result);
         }
 
         // MAX_VALUE_SIZE_IN_BYTES
@@ -408,7 +413,7 @@ public final class Statistics
         return result.build();
     }
 
-    private static void setMinMax(ConnectorSession session, DateTimeZone timeZone, Type type, Block min, Block max, HiveColumnStatistics.Builder result)
+    private static void setMinMax(ConnectorSession session, Type type, Block min, Block max, HiveColumnStatistics.Builder result)
     {
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
             result.setIntegerStatistics(new IntegerStatistics(getIntegerValue(session, type, min), getIntegerValue(session, type, max)));
@@ -419,8 +424,8 @@ public final class Statistics
         else if (type.equals(DATE)) {
             result.setDateStatistics(new DateStatistics(getDateValue(session, type, min), getDateValue(session, type, max)));
         }
-        else if (type.equals(TIMESTAMP)) {
-            result.setIntegerStatistics(new IntegerStatistics(getTimestampValue(timeZone, min), getTimestampValue(timeZone, max)));
+        else if (type.equals(TIMESTAMP_MILLIS)) {
+            result.setIntegerStatistics(new IntegerStatistics(getTimestampValue(min), getTimestampValue(max)));
         }
         else if (type instanceof DecimalType) {
             result.setDecimalStatistics(new DecimalStatistics(getDecimalValue(session, type, min), getDecimalValue(session, type, max)));
@@ -453,10 +458,9 @@ public final class Statistics
         return block.isNull(0) ? Optional.empty() : Optional.of(LocalDate.ofEpochDay(((SqlDate) type.getObjectValue(session, block, 0)).getDays()));
     }
 
-    private static OptionalLong getTimestampValue(DateTimeZone timeZone, Block block)
+    private static OptionalLong getTimestampValue(Block block)
     {
-        // TODO https://github.com/prestosql/presto/issues/37
-        return block.isNull(0) ? OptionalLong.empty() : OptionalLong.of(MILLISECONDS.toSeconds(timeZone.convertUTCToLocal(block.getLong(0, 0))));
+        return block.isNull(0) ? OptionalLong.empty() : OptionalLong.of(floorDiv(block.getLong(0, 0), MICROSECONDS_PER_SECOND));
     }
 
     private static Optional<BigDecimal> getDecimalValue(ConnectorSession session, Type type, Block block)

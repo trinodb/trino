@@ -14,6 +14,8 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.spi.session.PropertyMetadata;
 
 import java.util.List;
@@ -34,6 +36,14 @@ public final class HiveSchemaProperties
                     false));
 
     private HiveSchemaProperties() {}
+
+    public static Map<String, Object> fromDatabase(Database db)
+    {
+        ImmutableMap.Builder<String, Object> result = ImmutableMap.builder();
+        db.getLocation().ifPresent(location -> result.put(HiveSchemaProperties.LOCATION_PROPERTY, location));
+
+        return result.build();
+    }
 
     public static Optional<String> getLocation(Map<String, Object> schemaProperties)
     {

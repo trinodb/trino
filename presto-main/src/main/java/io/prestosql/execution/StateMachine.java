@@ -97,8 +97,8 @@ public class StateMachine<T>
      * Sets the state.
      * If the new state does not {@code .equals()} the current state, listeners and waiters will be notified.
      *
-     * @throws IllegalStateException if state change would cause a transition from a terminal state
      * @return the old state
+     * @throws IllegalStateException if state change would cause a transition from a terminal state
      */
     public T set(T newState)
     {

@@ -24,8 +24,8 @@ import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMo
 import static io.prestosql.sql.planner.plan.Patterns.limit;
 
 /**
- *  Remove Limit node when the subplan is guaranteed to produce fewer rows than the limit and
- *  replace the plan with empty values if the limit count is 0.
+ * Remove Limit node when the subplan is guaranteed to produce fewer rows than the limit and
+ * replace the plan with empty values if the limit count is 0.
  */
 public class RemoveRedundantLimit
         implements Rule<LimitNode>

@@ -11,11 +11,11 @@
  json_array_get | json | varchar(x), bigint | scalar | true | |
  json_array_length | bigint | json | scalar | true | |
  json_array_length | bigint | varchar(x) | scalar | true | |
- json_extract | json | json, JsonPath | scalar | true | |
- json_extract | json | varchar(x), JsonPath | scalar | true | |
- json_extract_scalar | varchar | json, JsonPath | scalar | true | |
- json_extract_scalar | varchar(x) | varchar(x), JsonPath | scalar | true | |
+ json_extract | json | json, jsonpath | scalar | true | |
+ json_extract | json | varchar(x), jsonpath | scalar | true | |
+ json_extract_scalar | varchar | json, jsonpath | scalar | true | |
+ json_extract_scalar | varchar(x) | varchar(x), jsonpath | scalar | true | |
  json_format | varchar | json | scalar | true | |
  json_parse | json | varchar(x) | scalar | true | |
- json_size | bigint | json, JsonPath | scalar | true | |
- json_size | bigint | varchar(x), JsonPath | scalar | true | |
+ json_size | bigint | json, jsonpath | scalar | true | |
+ json_size | bigint | varchar(x), jsonpath | scalar | true | |

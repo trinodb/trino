@@ -62,6 +62,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -101,7 +102,6 @@ public class ClusterMemoryManager
     private final JsonCodec<MemoryPoolAssignmentsRequest> assignmentsRequestJsonCodec;
     private final DataSize maxQueryMemory;
     private final DataSize maxQueryTotalMemory;
-    private final boolean enabled;
     private final LowMemoryKiller lowMemoryKiller;
     private final Duration killOnOutOfMemoryDelay;
     private final String coordinatorId;
@@ -147,6 +147,8 @@ public class ClusterMemoryManager
         requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
         requireNonNull(serverConfig, "serverConfig is null");
         requireNonNull(schedulerConfig, "schedulerConfig is null");
+        checkState(serverConfig.isCoordinator(), "ClusterMemoryManager must not be bound on worker");
+
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -157,7 +159,6 @@ public class ClusterMemoryManager
         this.maxQueryMemory = config.getMaxQueryMemory();
         this.maxQueryTotalMemory = config.getMaxQueryTotalMemory();
         this.coordinatorId = queryIdGenerator.getCoordinatorId();
-        this.enabled = serverConfig.isCoordinator();
         this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
         this.isWorkScheduledOnCoordinator = schedulerConfig.isIncludeCoordinator();
 
@@ -203,10 +204,6 @@ public class ClusterMemoryManager
 
     public synchronized void process(Iterable<QueryExecution> runningQueries, Supplier<List<BasicQueryInfo>> allQueryInfoSupplier)
     {
-        if (!enabled) {
-            return;
-        }
-
         // TODO revocable memory reservations can also leak and may need to be detected in the future
         // We are only concerned about the leaks in general pool.
         memoryLeakDetector.checkForMemoryLeaks(allQueryInfoSupplier, pools.get(GENERAL_POOL).getQueryMemoryReservations());

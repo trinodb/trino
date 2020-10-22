@@ -19,15 +19,20 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.sql.tree.Comment;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.transaction.TransactionManager;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.spi.StandardErrorCode.COLUMN_NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.MISSING_TABLE;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
@@ -49,13 +54,35 @@ public class CommentTask
         if (statement.getType() == Comment.Type.TABLE) {
             QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-            if (!tableHandle.isPresent()) {
+            if (tableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", tableName);
             }
 
             accessControl.checkCanSetTableComment(session.toSecurityContext(), tableName);
 
             metadata.setTableComment(session, tableHandle.get(), statement.getComment());
+        }
+        else if (statement.getType() == Comment.Type.COLUMN) {
+            Optional<QualifiedName> prefix = statement.getName().getPrefix();
+            if (prefix.isEmpty()) {
+                throw semanticException(MISSING_TABLE, statement, "Table must be specified");
+            }
+
+            QualifiedObjectName tableName = createQualifiedObjectName(session, statement, prefix.get());
+            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+            if (tableHandle.isEmpty()) {
+                throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: " + tableName);
+            }
+
+            String columnName = statement.getName().getSuffix();
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
+            if (!columnHandles.containsKey(columnName)) {
+                throw semanticException(COLUMN_NOT_FOUND, statement, "Column does not exist: " + columnName);
+            }
+
+            accessControl.checkCanSetColumnComment(session.toSecurityContext(), tableName);
+
+            metadata.setColumnComment(session, tableHandle.get(), columnHandles.get(columnName), statement.getComment());
         }
         else {
             throw semanticException(NOT_SUPPORTED, statement, "Unsupported comment type: %s", statement.getType());

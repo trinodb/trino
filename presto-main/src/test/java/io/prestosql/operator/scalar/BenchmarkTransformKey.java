@@ -127,12 +127,12 @@ public class BenchmarkTransformKey
                     QualifiedName.of(name),
                     fromTypes(mapType, new FunctionType(ImmutableList.of(elementType, elementType), elementType)));
             ResolvedFunction add = metadata.resolveOperator(ADD, ImmutableList.of(elementType, elementType));
-            projectionsBuilder.add(call(resolvedFunction, mapType, ImmutableList.of(
+            projectionsBuilder.add(call(resolvedFunction, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(
                             ImmutableList.of(elementType, elementType),
                             ImmutableList.of("x", "y"),
-                            call(add, elementType, ImmutableList.of(
+                            call(add, ImmutableList.of(
                                     new VariableReferenceExpression("x", elementType),
                                     constant(increment, elementType)))))));
             Block block = createChannel(POSITIONS, mapType, elementType);
@@ -177,7 +177,7 @@ public class BenchmarkTransformKey
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();

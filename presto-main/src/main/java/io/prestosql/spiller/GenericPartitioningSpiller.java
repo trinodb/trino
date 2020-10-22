@@ -182,7 +182,7 @@ public class GenericPartitioningSpiller
     private synchronized SingleStreamSpiller getSpiller(int partition)
     {
         Optional<SingleStreamSpiller> spiller = spillers.get(partition);
-        if (!spiller.isPresent()) {
+        if (spiller.isEmpty()) {
             spiller = Optional.of(closer.register(spillerFactory.create(types, spillContext, memoryContext.newLocalMemoryContext(GenericPartitioningSpiller.class.getSimpleName()))));
             spillers.set(partition, spiller);
         }

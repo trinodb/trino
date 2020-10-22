@@ -13,51 +13,34 @@
  */
 package io.prestosql.tests;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.connector.MockConnectorFactory;
-import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.CountingMockConnector;
+import io.prestosql.testing.CountingMockConnector.MetadataCallsCount;
 import io.prestosql.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.IntStream;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.connector.MockConnectorFactory.Builder.defaultGetColumns;
-import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 @Test(singleThreaded = true)
 public class TestInformationSchemaConnector
         extends AbstractTestQueryFramework
 {
-    private static final AtomicLong LIST_SCHEMAS_CALLS_COUNTER = new AtomicLong();
-    private static final AtomicLong LIST_TABLES_CALLS_COUNTER = new AtomicLong();
-    private static final AtomicLong GET_COLUMNS_CALLS_COUNTER = new AtomicLong();
+    private final CountingMockConnector countingMockConnector = new CountingMockConnector();
 
     @Test
     public void testBasic()
     {
         assertQuery("SELECT count(*) FROM tpch.information_schema.schemata", "VALUES 10");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.tables", "VALUES 80");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns", "VALUES 583");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.tables", "VALUES 81");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns", "VALUES 589");
         assertQuery("SELECT * FROM tpch.information_schema.schemata ORDER BY 1 DESC, 2 DESC LIMIT 1", "VALUES ('tpch', 'tiny')");
         assertQuery("SELECT * FROM tpch.information_schema.tables ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('tpch', 'tiny', 'supplier', 'BASE TABLE')");
         assertQuery("SELECT * FROM tpch.information_schema.columns ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('tpch', 'tiny', 'supplier', 'suppkey', 1, NULL, 'YES', 'bigint')");
-        assertQuery("SELECT count(*) FROM test_catalog.information_schema.columns", "VALUES 3000034");
+        assertQuery("SELECT count(*) FROM test_catalog.information_schema.columns", "VALUES 300040");
     }
 
     @Test
@@ -66,9 +49,9 @@ public class TestInformationSchemaConnector
         assertQuery("SELECT count(*) FROM tpch.information_schema.schemata WHERE schema_name = 'sf1'", "VALUES 1");
         assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_schema = 'sf1'", "VALUES 8");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema = 'sf1'", "VALUES 61");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema = 'information_schema'", "VALUES 34");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema = 'information_schema'", "VALUES 40");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema > 'sf100'", "VALUES 427");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema != 'sf100'", "VALUES 522");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema != 'sf100'", "VALUES 528");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema LIKE 'sf100'", "VALUES 61");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema LIKE 'sf%'", "VALUES 488");
     }
@@ -111,7 +94,56 @@ public class TestInformationSchemaConnector
     {
         assertQuery("SELECT count(*) FROM (SELECT * from tpch.information_schema.columns LIMIT 1)", "VALUES 1");
         assertQuery("SELECT count(*) FROM (SELECT * FROM tpch.information_schema.columns LIMIT 100)", "VALUES 100");
-        assertQuery("SELECT count(*) FROM (SELECT * FROM test_catalog.information_schema.tables LIMIT 10000)", "VALUES 10000");
+        assertQuery("SELECT count(*) FROM (SELECT * FROM test_catalog.information_schema.tables LIMIT 1000)", "VALUES 1000");
+    }
+
+    @Test
+    public void testRoleAuthorizationDescriptor()
+    {
+        assertQuery("SELECT count(*) FROM test_catalog.information_schema.role_authorization_descriptors", "VALUES 100");
+        assertQuery("SELECT count(*) FROM test_catalog.information_schema.roles", "VALUES 50");
+        assertQuery("SELECT count(*) FROM test_catalog.information_schema.enabled_roles", "VALUES 50");
+        assertQuery("SELECT count(*) FROM test_catalog.information_schema.applicable_roles", "VALUES 1");
+        assertQuery("SELECT role_name FROM test_catalog.information_schema.role_authorization_descriptors WHERE grantee = 'user5'", "VALUES ('role2')");
+        assertQuery("SELECT grantee FROM test_catalog.information_schema.role_authorization_descriptors WHERE role_name = 'role2'", "VALUES ('user4'), ('user5')");
+
+        assertMetadataCalls(
+                "SELECT count(*) FROM test_catalog.information_schema.role_authorization_descriptors", "VALUES 100",
+                new MetadataCallsCount()
+                        .withListRoleGrantsCount(1));
+
+        assertMetadataCalls(
+                "SELECT role_name FROM test_catalog.information_schema.role_authorization_descriptors WHERE grantee = 'user5'", "VALUES ('role2')",
+                new MetadataCallsCount()
+                        .withListRoleGrantsCount(1)
+                        .withGranteesPushedCount(1));
+
+        assertMetadataCalls(
+                "SELECT grantee FROM test_catalog.information_schema.role_authorization_descriptors WHERE role_name = 'role2'", "VALUES ('user4'), ('user5')",
+                new MetadataCallsCount()
+                        .withListRoleGrantsCount(1)
+                        .withRolesPushedCount(1));
+
+        assertMetadataCalls(
+                "SELECT grantee FROM test_catalog.information_schema.role_authorization_descriptors WHERE role_name = 'role2' AND grantee = 'user4'", "VALUES 'user4'",
+                new MetadataCallsCount()
+                        .withListRoleGrantsCount(1)
+                        .withRolesPushedCount(1)
+                        .withGranteesPushedCount(1));
+
+        assertMetadataCalls(
+                "SELECT count(*) FROM (SELECT * FROM test_catalog.information_schema.role_authorization_descriptors LIMIT 1)", "VALUES 1",
+                new MetadataCallsCount()
+                        .withListRoleGrantsCount(1)
+                        .withLimitPushedCount(1));
+
+        // verify that predicate and LIMIT are not pushed down together
+        assertMetadataCalls(
+                "SELECT count(*) FROM (SELECT * FROM test_catalog.information_schema.role_authorization_descriptors WHERE grantee = 'user5' LIMIT 1)", "VALUES 1",
+                new MetadataCallsCount()
+                        .withListRoleGrantsCount(1)
+                        .withGranteesPushedCount(1)
+                        .withLimitPushedCount(0));
     }
 
     @Test(timeOut = 60_000)
@@ -129,31 +161,31 @@ public class TestInformationSchemaConnector
                         .withListSchemasCount(1));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables",
-                "VALUES 30008",
+                "VALUES 3009",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
                         .withListTablesCount(2));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = 'test_schema1'",
-                "VALUES 10000",
+                "VALUES 1000",
                 new MetadataCallsCount()
                         .withListTablesCount(1));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema LIKE 'test_sch_ma1'",
-                "VALUES 10000",
+                "VALUES 1000",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
                         .withListTablesCount(1));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema LIKE 'test_sch_ma1' AND table_schema IN ('test_schema1', 'test_schema2')",
-                "VALUES 10000",
+                "VALUES 1000",
                 new MetadataCallsCount()
                         .withListTablesCount(2));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name = 'test_table1'",
                 "VALUES 2",
                 new MetadataCallsCount()
-                        .withListSchemasCount(3));
+                        .withListSchemasCount(1));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1'",
                 "VALUES 2",
@@ -171,14 +203,17 @@ public class TestInformationSchemaConnector
                 new MetadataCallsCount()
                         .withListTablesCount(1)
                         .withGetColumnsCount(1));
-        assertNoMetadataCalls("SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'wrong'", "VALUES 0");
         assertMetadataCalls(
-                "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'test_catalog' AND table_schema = 'table_schema1' AND table_name = 'test_table1'",
+                "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'wrong'",
+                "VALUES 0",
+                new MetadataCallsCount());
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'test_catalog' AND table_schema = 'wrong_schema1' AND table_name = 'test_table1'",
                 "VALUES 0",
                 new MetadataCallsCount()
                         .withListTablesCount(1));
         assertMetadataCalls(
-                "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog IN ('wrong', 'test_catalog') AND table_schema = 'table_schema1' AND table_name = 'test_table1'",
+                "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog IN ('wrong', 'test_catalog') AND table_schema = 'wrong_schema1' AND table_name = 'test_table1'",
                 "VALUES 0",
                 new MetadataCallsCount()
                         .withListTablesCount(1));
@@ -190,20 +225,32 @@ public class TestInformationSchemaConnector
                         .withListTablesCount(1)
                         .withGetColumnsCount(0));
         assertMetadataCalls(
-                "SELECT count(*) FROM (SELECT * from test_catalog.information_schema.columns LIMIT 10000)",
-                "VALUES 10000",
+                "SELECT count(*) FROM (SELECT * from test_catalog.information_schema.columns LIMIT 1000)",
+                "VALUES 1000",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
                         .withListTablesCount(2)
-                        .withGetColumnsCount(10000));
-        assertNoMetadataCalls("SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = ''", "VALUES 0");
-    }
+                        .withGetColumnsCount(1000));
 
-    @Test
-    public void testInformationForEmptyNames()
-    {
-        assertNoTableScan("SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = ''");
-        assertNoTableScan("SELECT count(*) from test_catalog.information_schema.tables WHERE table_name = ''");
+        // Empty table schema and table name
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = '' AND table_name = ''",
+                "VALUES 0",
+                new MetadataCallsCount());
+
+        // Empty table schema
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = ''",
+                "VALUES 0",
+                new MetadataCallsCount()
+                        .withListTablesCount(1));
+
+        // Empty table name
+        assertMetadataCalls(
+                "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name = ''",
+                "VALUES 0",
+                new MetadataCallsCount()
+                        .withListSchemasCount(1));
     }
 
     @Override
@@ -218,40 +265,7 @@ public class TestInformationSchemaConnector
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            queryRunner.installPlugin(new Plugin()
-            {
-                @Override
-                public Iterable<ConnectorFactory> getConnectorFactories()
-                {
-                    List<SchemaTableName> tablesTestSchema1 = IntStream.range(0, 10000)
-                            .mapToObj(i -> new SchemaTableName("test_schema1", "test_table" + i))
-                            .collect(toImmutableList());
-                    List<SchemaTableName> tablesTestSchema2 = IntStream.range(0, 20000)
-                            .mapToObj(i -> new SchemaTableName("test_schema2", "test_table" + i))
-                            .collect(toImmutableList());
-                    MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
-                            .withListSchemaNames(connectorSession -> {
-                                LIST_SCHEMAS_CALLS_COUNTER.incrementAndGet();
-                                return ImmutableList.of("test_schema1", "test_schema2");
-                            })
-                            .withListTables((connectorSession, schemaName) -> {
-                                LIST_TABLES_CALLS_COUNTER.incrementAndGet();
-                                if (schemaName.equals("test_schema1")) {
-                                    return tablesTestSchema1;
-                                }
-                                if (schemaName.equals("test_schema2")) {
-                                    return tablesTestSchema2;
-                                }
-                                return ImmutableList.of();
-                            })
-                            .withGetColumns(schemaTableName -> {
-                                GET_COLUMNS_CALLS_COUNTER.incrementAndGet();
-                                return defaultGetColumns().apply(schemaTableName);
-                            })
-                            .build();
-                    return ImmutableList.of(mockConnectorFactory);
-                }
-            });
+            queryRunner.installPlugin(countingMockConnector.getPlugin());
             queryRunner.createCatalog("test_catalog", "mock", ImmutableMap.of());
             return queryRunner;
         }
@@ -261,96 +275,13 @@ public class TestInformationSchemaConnector
         }
     }
 
-    private void assertNoMetadataCalls(String actualSql, String expectedSql)
-    {
-        assertMetadataCalls(actualSql, expectedSql, new MetadataCallsCount());
-    }
-
     private void assertMetadataCalls(String actualSql, String expectedSql, MetadataCallsCount expectedMetadataCallsCount)
     {
-        long listSchemasCallsCountBefore = LIST_SCHEMAS_CALLS_COUNTER.get();
-        long listTablesCallsCountBefore = LIST_TABLES_CALLS_COUNTER.get();
-        long getColumnsCallsCountBefore = GET_COLUMNS_CALLS_COUNTER.get();
-        assertQuery(actualSql, expectedSql);
-        MetadataCallsCount actualMetadataCallsCount = new MetadataCallsCount()
-                .withListSchemasCount(LIST_SCHEMAS_CALLS_COUNTER.get() - listSchemasCallsCountBefore)
-                .withListTablesCount(LIST_TABLES_CALLS_COUNTER.get() - listTablesCallsCountBefore)
-                .withGetColumnsCount(GET_COLUMNS_CALLS_COUNTER.get() - getColumnsCallsCountBefore);
+        MetadataCallsCount actualMetadataCallsCount = countingMockConnector.runCounting(() -> {
+            // expectedSql is run on H2, so does not affect counts.
+            assertQuery(actualSql, expectedSql);
+        });
 
         assertEquals(actualMetadataCallsCount, expectedMetadataCallsCount);
-    }
-
-    private void assertNoTableScan(String query)
-    {
-        assertFalse(searchFrom(getQueryRunner().createPlan(getSession(), query, WarningCollector.NOOP).getRoot())
-                        .where(TableScanNode.class::isInstance)
-                        .findFirst()
-                        .isPresent(),
-                "TableScanNode was not expected");
-    }
-
-    private static class MetadataCallsCount
-    {
-        private final long listSchemasCount;
-        private final long listTablesCount;
-        private final long getColumnsCount;
-
-        private MetadataCallsCount()
-        {
-            this(0, 0, 0);
-        }
-
-        private MetadataCallsCount(long listSchemasCount, long listTablesCount, long getColumnsCount)
-        {
-            this.listSchemasCount = listSchemasCount;
-            this.listTablesCount = listTablesCount;
-            this.getColumnsCount = getColumnsCount;
-        }
-
-        public MetadataCallsCount withListSchemasCount(long listSchemasCount)
-        {
-            return new MetadataCallsCount(listSchemasCount, listTablesCount, getColumnsCount);
-        }
-
-        public MetadataCallsCount withListTablesCount(long listTablesCount)
-        {
-            return new MetadataCallsCount(listSchemasCount, listTablesCount, getColumnsCount);
-        }
-
-        public MetadataCallsCount withGetColumnsCount(long getColumnsCount)
-        {
-            return new MetadataCallsCount(listSchemasCount, listTablesCount, getColumnsCount);
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            MetadataCallsCount that = (MetadataCallsCount) o;
-            return listSchemasCount == that.listSchemasCount &&
-                    listTablesCount == that.listTablesCount &&
-                    getColumnsCount == that.getColumnsCount;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(listSchemasCount, listTablesCount, getColumnsCount);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("listSchemasCount", listSchemasCount)
-                    .add("listTablesCount", listTablesCount)
-                    .add("getColumnsCount", getColumnsCount)
-                    .toString();
-        }
     }
 }

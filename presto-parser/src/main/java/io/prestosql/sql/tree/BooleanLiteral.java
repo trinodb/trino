@@ -13,11 +13,10 @@
  */
 package io.prestosql.sql.tree;
 
-import com.google.common.base.Preconditions;
-
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -43,7 +42,7 @@ public class BooleanLiteral
     {
         super(location);
         requireNonNull(value, "value is null");
-        Preconditions.checkArgument(value.toLowerCase(ENGLISH).equals("true") || value.toLowerCase(ENGLISH).equals("false"));
+        checkArgument(value.toLowerCase(ENGLISH).equals("true") || value.toLowerCase(ENGLISH).equals("false"));
 
         this.value = value.toLowerCase(ENGLISH).equals("true");
     }
@@ -76,5 +75,15 @@ public class BooleanLiteral
         }
         BooleanLiteral other = (BooleanLiteral) obj;
         return Objects.equals(this.value, other.value);
+    }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return value == ((BooleanLiteral) other).value;
     }
 }

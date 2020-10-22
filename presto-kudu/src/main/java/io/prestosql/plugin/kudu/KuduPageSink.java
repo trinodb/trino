@@ -25,6 +25,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduSession;
 import org.apache.kudu.client.KuduTable;
@@ -49,10 +50,10 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.truncateEpochMicrosToMillis;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -140,8 +141,8 @@ public class KuduPageSink
         if (block.isNull(position)) {
             row.setNull(destChannel);
         }
-        else if (TIMESTAMP.equals(type)) {
-            row.addLong(destChannel, type.getLong(block, position) * 1000);
+        else if (TIMESTAMP_MILLIS.equals(type)) {
+            row.addLong(destChannel, truncateEpochMicrosToMillis(type.getLong(block, position)));
         }
         else if (REAL.equals(type)) {
             row.addFloat(destChannel, intBitsToFloat(toIntExact(type.getLong(block, position))));
@@ -164,7 +165,7 @@ public class KuduPageSink
         else if (DOUBLE.equals(type)) {
             row.addDouble(destChannel, type.getDouble(block, position));
         }
-        else if (isVarcharType(type)) {
+        else if (type instanceof VarcharType) {
             Type originalType = originalColumnTypes.get(destChannel);
             if (DATE.equals(originalType)) {
                 SqlDate date = (SqlDate) originalType.getObjectValue(connectorSession, block, position);

@@ -23,8 +23,6 @@ import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchTableHandle;
 import io.prestosql.plugin.tpch.TpchTransactionHandle;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
@@ -37,7 +35,6 @@ import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
-import static io.prestosql.spi.predicate.NullableValue.asNull;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.constrainedIndexSource;
@@ -57,10 +54,7 @@ public class TestPruneIndexSourceColumns
                                 ImmutableMap.of("x", expression("orderkey")),
                                 constrainedIndexSource(
                                         "orders",
-                                        ImmutableMap.of("totalprice", Domain.onlyNull(DOUBLE)),
-                                        ImmutableMap.of(
-                                                "orderkey", "orderkey",
-                                                "totalprice", "totalprice"))));
+                                        ImmutableMap.of("orderkey", "orderkey"))));
     }
 
     @Test
@@ -96,7 +90,6 @@ public class TestPruneIndexSourceColumns
                         ImmutableMap.of(
                                 orderkey, orderkeyHandle,
                                 custkey, custkeyHandle,
-                                totalprice, totalpriceHandle),
-                        TupleDomain.fromFixedValues(ImmutableMap.of(totalpriceHandle, asNull(DOUBLE)))));
+                                totalprice, totalpriceHandle)));
     }
 }

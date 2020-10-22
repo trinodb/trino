@@ -2,11 +2,6 @@
 Elasticsearch Connector
 =======================
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Overview
 --------
 
@@ -36,24 +31,10 @@ Configuration Properties
 
 The following configuration properties are available:
 
-============================================= ==============================================================================
-Property Name                                 Description
-============================================= ==============================================================================
-``elasticsearch.host``                        Host name of the Elasticsearch server.
-``elasticsearch.port``                        Port of the Elasticsearch server.
-``elasticsearch.default-schema-name``         Default schema name for tables.
-``elasticsearch.scroll-size``                 Maximum number of hits to be returned with each Elasticsearch scroll request.
-``elasticsearch.scroll-timeout``              Timeout for keeping the search context alive for scroll requests.
-``elasticsearch.request-timeout``             Timeout for Elasticsearch requests.
-``elasticsearch.connect-timeout``             Timeout for connections to Elasticsearch hosts.
-``elasticsearch.max-retry-time``              Maximum duration across all retry attempts for a single request.
-``elasticsearch.node-refresh-interval``       How often to refresh the list of available Elasticsearch nodes.
-============================================= ==============================================================================
-
 ``elasticsearch.host``
 ^^^^^^^^^^^^^^^^^^^^^^
 
-Specifies the hostname of the Elasticsearch node to connect to.
+Hostname of the Elasticsearch node to connect to.
 
 This property is required.
 
@@ -117,23 +98,33 @@ This property controls how often the list of available Elasticsearch nodes is re
 
 This property is optional; the default is ``1m``.
 
+``elasticsearch.ignore-publish-address``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Enable or disable using the address published by Elasticsearch to connect for
+queries.
+
+``elasticsearch.security``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Allows setting ``password`` security to authenticate to Elasticsearch.
+
+``elasticsearch.auth.user``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+User name to use to authenticate to Elasticsearch nodes.
+
+``elasticsearch.auth.password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Password to use to authenticate to Elasticsearch nodes.
+
 TLS Security
 ------------
 
 The Elasticsearch connector provides additional security options to support Elasticsearch clusters that have been configured to use TLS.
 
 The connector supports key stores and trust stores in PEM or Java Key Store (JKS) format. The allowed configuration values are:
-
-===================================================== ==============================================================================
-Property Name                                         Description
-===================================================== ==============================================================================
-``elasticsearch.tls.enabled``                         Whether TLS security is enabled.
-``elasticsearch.tls.verify-hostnames``                Whether to verify Elasticsearch server hostnames.
-``elasticsearch.tls.keystore-path``                   Path to the PEM or JKS key store.
-``elasticsearch.tls.truststore-path``                 Path to the PEM or JKS trust store.
-``elasticsearch.tls.keystore-password``               Password for the key store.
-``elasticsearch.tls.truststore-password``             Password for the trust store.
-===================================================== ==============================================================================
 
 ``elasticsearch.tls.keystore-path``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -261,6 +252,28 @@ as part of the table name, separated by a colon. For example:
 
 .. _full text query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax
 
+
+Pass-through Queries
+--------------------
+
+The Elasticsearch connector allows you to embed any valid Elasticsearch query,
+that uses the `Elasticsearch Query DSL
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl.html>`_
+in your SQL query.
+
+The results can then be used in any SQL statement, wrapping the Elasticsearch
+query. The syntax extends the syntax of the enhanced Elasticsearch table names
+with the following::
+
+    SELECT * FROM es.default."<index>$query:<es-query>"
+
+The Elasticsearch query string ``es-query`` is base32-encoded to avoid having to
+deal with escaping quotes and case sensitivity issues in table identifiers.
+
+The result of these query tables is a table with a single row and a single
+column named ``result`` of type VARCHAR. It contains the JSON payload returned
+by Elasticsearch, and can be processed with the :doc:`built-in JSON functions
+</functions/json>`.
 
 AWS Authorization
 -----------------

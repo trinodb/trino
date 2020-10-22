@@ -20,7 +20,10 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 
 @Test
 public class TestRedisIntegrationSmokeTest
@@ -33,12 +36,11 @@ public class TestRedisIntegrationSmokeTest
             throws Exception
     {
         redisServer = new RedisServer();
-        return createRedisQueryRunner(redisServer, "string", ORDERS);
+        return createRedisQueryRunner(redisServer, "string", CUSTOMER, NATION, ORDERS, REGION);
     }
 
     @AfterClass(alwaysRun = true)
     public void destroy()
-            throws Exception
     {
         redisServer.close();
     }

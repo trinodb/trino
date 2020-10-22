@@ -15,7 +15,6 @@ package io.prestosql.sql.planner;
 
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
@@ -34,12 +33,7 @@ public final class DeterminismEvaluator
 
     public static boolean isDeterministic(Expression expression, Metadata metadata)
     {
-        return isDeterministic(
-                expression, functionCall -> {
-                    ResolvedFunction resolvedFunction = ResolvedFunction.fromQualifiedName(functionCall.getName())
-                            .orElseThrow(() -> new IllegalArgumentException("Function call is not resolved: " + functionCall));
-                    return metadata.getFunctionMetadata(resolvedFunction);
-                });
+        return isDeterministic(expression, functionCall -> metadata.getFunctionMetadata(metadata.decodeFunction(functionCall.getName())));
     }
 
     public static boolean isDeterministic(Expression expression, Function<FunctionCall, FunctionMetadata> functionMetadataSupplier)
@@ -53,7 +47,7 @@ public final class DeterminismEvaluator
     }
 
     private static class Visitor
-            extends DefaultExpressionTraversalVisitor<Void, AtomicBoolean>
+            extends DefaultExpressionTraversalVisitor<AtomicBoolean>
     {
         private final Function<FunctionCall, FunctionMetadata> functionMetadataSupplier;
 

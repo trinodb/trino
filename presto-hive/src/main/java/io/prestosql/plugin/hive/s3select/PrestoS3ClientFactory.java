@@ -20,15 +20,14 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.s3.HiveS3Config;
+import io.prestosql.plugin.hive.s3.PrestoS3FileSystem;
 import io.prestosql.plugin.hive.s3.PrestoS3FileSystemMetricCollector;
-import io.prestosql.plugin.hive.s3.PrestoS3FileSystemStats;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -106,13 +105,11 @@ public class PrestoS3ClientFactory
                 .withUserAgentPrefix(userAgentPrefix)
                 .withUserAgentSuffix(enabled ? "presto-select" : "presto");
 
-        PrestoS3FileSystemStats stats = new PrestoS3FileSystemStats();
-        RequestMetricCollector metricCollector = new PrestoS3FileSystemMetricCollector(stats);
         AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(config, defaults);
         AmazonS3Builder<? extends AmazonS3Builder<?, ?>, ? extends AmazonS3> clientBuilder = AmazonS3Client.builder()
                 .withCredentials(awsCredentialsProvider)
                 .withClientConfiguration(clientConfiguration)
-                .withMetricsCollector(metricCollector)
+                .withMetricsCollector(new PrestoS3FileSystemMetricCollector(PrestoS3FileSystem.getFileSystemStats()))
                 .enablePathStyleAccess();
 
         boolean regionOrEndpointSet = false;

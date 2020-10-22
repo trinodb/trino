@@ -20,6 +20,7 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.PageIndexer;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
@@ -35,7 +36,7 @@ public class GroupByHashPageIndexer
 {
     private final GroupByHash hash;
 
-    public GroupByHashPageIndexer(List<? extends Type> hashTypes, JoinCompiler joinCompiler)
+    public GroupByHashPageIndexer(List<? extends Type> hashTypes, JoinCompiler joinCompiler, BlockTypeOperators blockTypeOperators)
     {
         this(GroupByHash.createGroupByHash(
                 hashTypes,
@@ -44,6 +45,7 @@ public class GroupByHashPageIndexer
                 20,
                 false,
                 joinCompiler,
+                blockTypeOperators,
                 NOOP));
     }
 

@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import io.airlift.slice.XxHash64;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -20,17 +21,27 @@ import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.block.ByteArrayBlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.ScalarOperator;
 
 import java.util.Optional;
 
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static java.lang.Long.rotateLeft;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
+import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 
 public final class TinyintType
         extends AbstractType
         implements FixedWidthType
 {
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(TinyintType.class, lookup(), long.class);
+
     public static final TinyintType TINYINT = new TinyintType();
 
     private TinyintType()
@@ -84,6 +95,12 @@ public final class TinyintType
     }
 
     @Override
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        return TYPE_OPERATOR_DECLARATION;
+    }
+
+    @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         if (block.isNull(position)) {
@@ -91,30 +108,6 @@ public final class TinyintType
         }
 
         return block.getByte(position, 0);
-    }
-
-    @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        int leftValue = leftBlock.getByte(leftPosition, 0);
-        int rightValue = rightBlock.getByte(rightPosition, 0);
-        return leftValue == rightValue;
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        return hash(block.getByte(position, 0));
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        // WARNING: the correctness of InCodeGenerator is dependent on the implementation of this
-        // function being the equivalence of internal long representation.
-        byte leftValue = leftBlock.getByte(leftPosition, 0);
-        byte rightValue = rightBlock.getByte(rightPosition, 0);
-        return Byte.compare(leftValue, rightValue);
     }
 
     @Override
@@ -165,9 +158,39 @@ public final class TinyintType
         return getClass().hashCode();
     }
 
-    public static long hash(byte value)
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(long left, long right)
     {
-        // xxhash64 mix
-        return rotateLeft(value * 0xC2B2AE3D27D4EB4FL, 31) * 0x9E3779B185EBCA87L;
+        return left == right;
+    }
+
+    @ScalarOperator(HASH_CODE)
+    private static long hashCodeOperator(long value)
+    {
+        return AbstractLongType.hash((byte) value);
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(long value)
+    {
+        return XxHash64.hash((byte) value);
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(long left, long right)
+    {
+        return Byte.compare((byte) left, (byte) right);
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(long left, long right)
+    {
+        return ((byte) left) < ((byte) right);
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(long left, long right)
+    {
+        return ((byte) left) <= ((byte) right);
     }
 }

@@ -15,6 +15,7 @@ package io.prestosql.server.security;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.LegacyConfig;
+import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.NotNull;
 
@@ -36,6 +37,7 @@ public class KerberosConfig
     private Optional<File> userMappingFile = Optional.empty();
 
     @NotNull
+    @FileExists
     public File getKerberosConfig()
     {
         return kerberosConfig;
@@ -63,6 +65,7 @@ public class KerberosConfig
         return this;
     }
 
+    @FileExists
     public File getKeytab()
     {
         return keytab;
@@ -115,7 +118,7 @@ public class KerberosConfig
         return this;
     }
 
-    public Optional<File> getUserMappingFile()
+    public Optional<@FileExists File> getUserMappingFile()
     {
         return userMappingFile;
     }

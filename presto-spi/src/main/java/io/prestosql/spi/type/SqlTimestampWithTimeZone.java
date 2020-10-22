@@ -17,43 +17,85 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.time.Instant;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
+import java.time.ZonedDateTime;
 import java.util.Objects;
-import java.util.TimeZone;
 
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.formatTimestampWithTimeZone;
+import static io.prestosql.spi.type.Timestamps.round;
+import static io.prestosql.spi.type.Timestamps.roundDiv;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
+import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public final class SqlTimestampWithTimeZone
 {
-    // This needs to be Locale-independent, Java Time's DateTimeFormatter compatible and should never change, as it defines the external API data format.
-    public static final String JSON_FORMAT = "uuuu-MM-dd HH:mm:ss.SSS VV";
-    private static final DateTimeFormatter JSON_FORMATTER = DateTimeFormatter.ofPattern(JSON_FORMAT);
+    private static final int NANOSECONDS_PER_MILLISECOND = 1_000_000;
+    private static final int PICOSECONDS_PER_NANOSECOND = 1_000;
 
-    private final long millisUtc;
+    private final int precision;
+    private final long epochMillis;
+    private final int picosOfMilli;
     private final TimeZoneKey timeZoneKey;
 
-    public SqlTimestampWithTimeZone(long timestampWithTimeZone)
+    public static SqlTimestampWithTimeZone newInstance(int precision, Instant instant, ZoneId zoneId)
     {
-        millisUtc = unpackMillisUtc(timestampWithTimeZone);
-        timeZoneKey = unpackZoneKey(timestampWithTimeZone);
+        return newInstanceWithRounding(precision, instant.toEpochMilli(), (instant.getNano() % NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_NANOSECOND, TimeZoneKey.getTimeZoneKey(zoneId.getId()));
     }
 
-    public SqlTimestampWithTimeZone(long millisUtc, TimeZoneKey timeZoneKey)
+    public static SqlTimestampWithTimeZone newInstance(int precision, long epochMillis, int picosOfMilli, TimeZoneKey timeZoneKey)
     {
-        this.millisUtc = millisUtc;
-        this.timeZoneKey = timeZoneKey;
+        return newInstanceWithRounding(precision, epochMillis, picosOfMilli, timeZoneKey);
     }
 
-    public SqlTimestampWithTimeZone(long millisUtc, TimeZone timeZone)
+    private static SqlTimestampWithTimeZone newInstanceWithRounding(int precision, long epochMillis, int picosOfMilli, TimeZoneKey sessionTimeZoneKey)
     {
-        this.millisUtc = millisUtc;
-        this.timeZoneKey = TimeZoneKey.getTimeZoneKey(timeZone.getID());
+        if (precision < 3) {
+            epochMillis = round(epochMillis, 3 - precision);
+            picosOfMilli = 0;
+        }
+        else if (precision == 3) {
+            if (round(picosOfMilli, 12 - precision) == PICOSECONDS_PER_MILLISECOND) {
+                epochMillis++;
+            }
+            picosOfMilli = 0;
+        }
+        else {
+            picosOfMilli = (int) round(picosOfMilli, 12 - precision);
+        }
+
+        return new SqlTimestampWithTimeZone(precision, epochMillis, picosOfMilli, sessionTimeZoneKey);
+    }
+
+    // visible for testing
+    SqlTimestampWithTimeZone(int precision, long epochMillis, int picosOfMilli, TimeZoneKey timeZoneKey)
+    {
+        this.precision = precision;
+        this.epochMillis = epochMillis;
+        this.picosOfMilli = picosOfMilli;
+        this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
+    }
+
+    public int getPrecision()
+    {
+        return precision;
+    }
+
+    public long getEpochMillis()
+    {
+        return epochMillis;
+    }
+
+    public int getPicosOfMilli()
+    {
+        return picosOfMilli;
     }
 
     public long getMillisUtc()
     {
-        return millisUtc;
+        return epochMillis;
     }
 
     public TimeZoneKey getTimeZoneKey()
@@ -61,32 +103,51 @@ public final class SqlTimestampWithTimeZone
         return timeZoneKey;
     }
 
-    @Override
-    public int hashCode()
+    public SqlTimestampWithTimeZone roundTo(int precision)
     {
-        return Objects.hash(millisUtc, timeZoneKey);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        SqlTimestampWithTimeZone other = (SqlTimestampWithTimeZone) obj;
-        return this.millisUtc == other.millisUtc &&
-                this.timeZoneKey == other.timeZoneKey;
+        return newInstanceWithRounding(precision, epochMillis, picosOfMilli, timeZoneKey);
     }
 
     @JsonValue
     @Override
     public String toString()
     {
-        return Instant.ofEpochMilli(millisUtc)
-                .atZone(ZoneId.of(timeZoneKey.getId()))
-                .format(JSON_FORMATTER);
+        return formatTimestampWithTimeZone(precision, epochMillis, picosOfMilli, timeZoneKey.getZoneId());
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        SqlTimestampWithTimeZone that = (SqlTimestampWithTimeZone) o;
+        return precision == that.precision &&
+                epochMillis == that.epochMillis &&
+                picosOfMilli == that.picosOfMilli &&
+                timeZoneKey.equals(that.timeZoneKey);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(precision, epochMillis, picosOfMilli, timeZoneKey);
+    }
+
+    /**
+     * @return timestamp with time zone rounded to nanosecond precision
+     */
+    public ZonedDateTime toZonedDateTime()
+    {
+        long epochSecond = floorDiv(epochMillis, MILLISECONDS_PER_SECOND);
+        int nanosOfSecond = floorMod(epochMillis, MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND +
+                toIntExact(roundDiv(picosOfMilli, PICOSECONDS_PER_NANOSECOND));
+
+        // nanosOfSecond overflowing NANOSECONDS_PER_SECOND case is handled by Instant.ofEpochSecond
+        return Instant.ofEpochSecond(epochSecond, nanosOfSecond)
+                .atZone(timeZoneKey.getZoneId());
     }
 }

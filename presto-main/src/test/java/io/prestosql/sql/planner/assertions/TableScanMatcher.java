@@ -60,7 +60,7 @@ final class TableScanMatcher
         String actualTableName = tableMetadata.getTable().getTableName();
         return new MatchResult(
                 expectedTableName.equalsIgnoreCase(actualTableName) &&
-                        ((!expectedConstraint.isPresent()) ||
+                        ((expectedConstraint.isEmpty()) ||
                                 domainsMatch(expectedConstraint, tableScanNode.getEnforcedConstraint(), tableScanNode.getTable(), session, metadata)));
     }
 
@@ -110,12 +110,11 @@ final class TableScanMatcher
 
         PlanMatchPattern build()
         {
-            PlanMatchPattern result = node(TableScanNode.class).with(
+            return node(TableScanNode.class).with(
                     new TableScanMatcher(
                             expectedTableName,
                             expectedConstraint,
                             hasTableLayout));
-            return result;
         }
     }
 }

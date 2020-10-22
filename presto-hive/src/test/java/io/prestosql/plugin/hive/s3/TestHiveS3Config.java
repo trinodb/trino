@@ -21,6 +21,9 @@ import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -68,7 +71,10 @@ public class TestHiveS3Config
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path stagingDirectory = Files.createTempDirectory(null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.s3.aws-access-key", "abc123")
                 .put("hive.s3.aws-secret-key", "secret")
@@ -94,7 +100,7 @@ public class TestHiveS3Config
                 .put("hive.s3.multipart.min-file-size", "32MB")
                 .put("hive.s3.multipart.min-part-size", "15MB")
                 .put("hive.s3.max-connections", "77")
-                .put("hive.s3.staging-directory", "/s3-staging")
+                .put("hive.s3.staging-directory", stagingDirectory.toString())
                 .put("hive.s3.pin-client-to-current-region", "true")
                 .put("hive.s3.user-agent-prefix", "user-agent-prefix")
                 .put("hive.s3.upload-acl-type", "PUBLIC_READ")
@@ -127,7 +133,7 @@ public class TestHiveS3Config
                 .setS3MultipartMinFileSize(DataSize.of(32, Unit.MEGABYTE))
                 .setS3MultipartMinPartSize(DataSize.of(15, Unit.MEGABYTE))
                 .setS3MaxConnections(77)
-                .setS3StagingDirectory(new File("/s3-staging"))
+                .setS3StagingDirectory(stagingDirectory.toFile())
                 .setPinS3ClientToCurrentRegion(true)
                 .setS3UserAgentPrefix("user-agent-prefix")
                 .setS3AclType(PrestoS3AclType.PUBLIC_READ)

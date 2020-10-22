@@ -50,7 +50,9 @@ public class TestTypeSignatureTranslator
     public void testDayTimeTypes()
     {
         assertRoundTrip("TIMESTAMP");
+        assertRoundTrip("TIMESTAMP(1)");
         assertRoundTrip("TIMESTAMP WITHOUT TIME ZONE");
+        assertRoundTrip("TIMESTAMP(1) WITHOUT TIME ZONE");
         assertRoundTrip("TIMESTAMP WITH TIME ZONE");
         assertRoundTrip("TIME");
         assertRoundTrip("TIME WITHOUT TIME ZONE");
@@ -88,6 +90,7 @@ public class TestTypeSignatureTranslator
         assertRoundTrip("ROW(a BIGINT, b VARCHAR)");
         assertRoundTrip("ROW(a BIGINT,b VARCHAR)");
         assertRoundTrip("ROW(\"a\" BIGINT, \"from\" VARCHAR)");
+        assertRoundTrip("ROW(\"$x\" BIGINT, \"$y\" VARCHAR)");
     }
 
     @Test

@@ -44,6 +44,7 @@ import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.PrimitiveColumnIO;
+import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -72,6 +73,7 @@ public class ParquetReader
     private final List<BlockMetaData> blocks;
     private final List<PrimitiveColumnIO> columns;
     private final ParquetDataSource dataSource;
+    private final DateTimeZone timeZone;
     private final AggregatedMemoryContext systemMemoryContext;
 
     private int currentRowGroup = -1;
@@ -94,19 +96,21 @@ public class ParquetReader
             MessageColumnIO messageColumnIO,
             List<BlockMetaData> blocks,
             ParquetDataSource dataSource,
+            DateTimeZone timeZone,
             AggregatedMemoryContext systemMemoryContext,
             ParquetReaderOptions options)
             throws IOException
     {
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
-        this.blocks = blocks;
+        this.columns = requireNonNull(messageColumnIO, "messageColumnIO is null").getLeaves();
+        this.blocks = requireNonNull(blocks, "blocks is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
-        columns = messageColumnIO.getLeaves();
         this.options = requireNonNull(options, "options is null");
-        columnReaders = new PrimitiveColumnReader[columns.size()];
-        maxBytesPerCell = new long[columns.size()];
+        this.columnReaders = new PrimitiveColumnReader[columns.size()];
+        this.maxBytesPerCell = new long[columns.size()];
 
         Map<ChunkKey, DiskRange> ranges = new HashMap<>();
         for (int rowGroup = 0; rowGroup < blocks.size(); rowGroup++) {
@@ -119,7 +123,7 @@ public class ParquetReader
             }
         }
 
-        chunkReaders = dataSource.planRead(ranges);
+        this.chunkReaders = dataSource.planRead(ranges);
     }
 
     @Override
@@ -283,7 +287,7 @@ public class ParquetReader
     {
         for (PrimitiveColumnIO columnIO : columns) {
             RichColumnDescriptor column = new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
-            columnReaders[columnIO.getId()] = PrimitiveColumnReader.createReader(column);
+            columnReaders[columnIO.getId()] = PrimitiveColumnReader.createReader(column, timeZone);
         }
     }
 

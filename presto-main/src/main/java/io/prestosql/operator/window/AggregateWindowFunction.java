@@ -18,6 +18,7 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.Accumulator;
 import io.prestosql.operator.aggregation.AccumulatorFactory;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.operator.aggregation.LambdaProvider;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.WindowFunction;
 import io.prestosql.spi.function.WindowIndex;
@@ -41,10 +42,22 @@ public class AggregateWindowFunction
     private int currentStart;
     private int currentEnd;
 
-    private AggregateWindowFunction(InternalAggregationFunction function, List<Integer> argumentChannels)
+    private AggregateWindowFunction(InternalAggregationFunction function, List<Integer> argumentChannels, List<LambdaProvider> lambdaProviders)
     {
         this.argumentChannels = ImmutableList.copyOf(argumentChannels);
-        this.accumulatorFactory = function.bind(createArgs(function), Optional.empty());
+        this.accumulatorFactory = function.bind(
+                argumentChannels,
+                Optional.empty(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                null,
+                false,
+                null,
+                null,
+                lambdaProviders,
+                null);
+
         this.accumulatorHasRemoveInput = accumulatorFactory.hasRemoveInput();
     }
 
@@ -133,25 +146,16 @@ public class AggregateWindowFunction
         }
     }
 
-    public static WindowFunctionSupplier supplier(Signature signature, final InternalAggregationFunction function)
+    public static WindowFunctionSupplier supplier(Signature signature, InternalAggregationFunction function)
     {
         requireNonNull(function, "function is null");
-        return new AbstractWindowFunctionSupplier(signature, null)
+        return new AbstractWindowFunctionSupplier(signature, null, function.getLambdaInterfaces())
         {
             @Override
-            protected WindowFunction newWindowFunction(List<Integer> inputs, boolean ignoreNulls)
+            protected WindowFunction newWindowFunction(List<Integer> inputs, boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
             {
-                return new AggregateWindowFunction(function, inputs);
+                return new AggregateWindowFunction(function, inputs, lambdaProviders);
             }
         };
-    }
-
-    private static List<Integer> createArgs(InternalAggregationFunction function)
-    {
-        ImmutableList.Builder<Integer> list = ImmutableList.builder();
-        for (int i = 0; i < function.getParameterTypes().size(); i++) {
-            list.add(i);
-        }
-        return list.build();
     }
 }

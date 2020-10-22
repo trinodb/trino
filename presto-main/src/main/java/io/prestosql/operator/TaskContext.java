@@ -23,6 +23,8 @@ import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
+import io.prestosql.execution.DynamicFiltersCollector;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskState;
@@ -32,12 +34,15 @@ import io.prestosql.memory.QueryContext;
 import io.prestosql.memory.QueryContextVisitor;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.memory.context.MemoryTrackingContext;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -100,6 +105,7 @@ public class TaskContext
     private long lastTaskStatCallNanos;
 
     private final MemoryTrackingContext taskMemoryContext;
+    private final DynamicFiltersCollector dynamicFiltersCollector;
 
     public static TaskContext createTaskContext(
             QueryContext queryContext,
@@ -109,11 +115,23 @@ public class TaskContext
             ScheduledExecutorService yieldExecutor,
             Session session,
             MemoryTrackingContext taskMemoryContext,
+            Runnable notifyStatusChanged,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
             OptionalInt totalPartitions)
     {
-        TaskContext taskContext = new TaskContext(queryContext, taskStateMachine, gcMonitor, notificationExecutor, yieldExecutor, session, taskMemoryContext, perOperatorCpuTimerEnabled, cpuTimerEnabled, totalPartitions);
+        TaskContext taskContext = new TaskContext(
+                queryContext,
+                taskStateMachine,
+                gcMonitor,
+                notificationExecutor,
+                yieldExecutor,
+                session,
+                taskMemoryContext,
+                notifyStatusChanged,
+                perOperatorCpuTimerEnabled,
+                cpuTimerEnabled,
+                totalPartitions);
         taskContext.initialize();
         return taskContext;
     }
@@ -126,6 +144,7 @@ public class TaskContext
             ScheduledExecutorService yieldExecutor,
             Session session,
             MemoryTrackingContext taskMemoryContext,
+            Runnable notifyStatusChanged,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
             OptionalInt totalPartitions)
@@ -139,6 +158,7 @@ public class TaskContext
         this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
         // Initialize the local memory contexts with the LazyOutputBuffer tag as LazyOutputBuffer will do the local memory allocations
         taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
+        this.dynamicFiltersCollector = new DynamicFiltersCollector(notifyStatusChanged);
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         this.cpuTimerEnabled = cpuTimerEnabled;
         this.totalPartitions = requireNonNull(totalPartitions, "totalPartitions is null");
@@ -372,6 +392,21 @@ public class TaskContext
             endFullGcCount = gcMonitor.getMajorGcCount();
         }
         return toIntExact(max(0, endFullGcCount - startFullGcCount));
+    }
+
+    public void updateDomains(Map<DynamicFilterId, Domain> dynamicFilterDomains)
+    {
+        dynamicFiltersCollector.updateDomains(dynamicFilterDomains);
+    }
+
+    public long getDynamicFiltersVersion()
+    {
+        return dynamicFiltersCollector.getDynamicFiltersVersion();
+    }
+
+    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersCurrentVersion)
+    {
+        return dynamicFiltersCollector.acknowledgeAndGetNewDomains(callersCurrentVersion);
     }
 
     public TaskStats getTaskStats()

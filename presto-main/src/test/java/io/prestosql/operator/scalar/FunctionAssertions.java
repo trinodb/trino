@@ -47,16 +47,17 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.connector.InMemoryRecordSet;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.Utils;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.ExpressionCompiler;
@@ -71,6 +72,7 @@ import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.type.BlockTypeOperators;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -141,8 +143,8 @@ import static org.testng.Assert.fail;
 public final class FunctionAssertions
         implements Closeable
 {
-    private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-%s"));
-    private static final ScheduledExecutorService SCHEDULED_EXECUTOR = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+    private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("FunctionAssertions-%s"));
+    private static final ScheduledExecutorService SCHEDULED_EXECUTOR = newScheduledThreadPool(2, daemonThreadsNamed("FunctionAssertions-scheduledExecutor-%s"));
 
     // Increase the number of fields to generate a wide column
     private static final int TEST_ROW_NUMBER_OF_FIELDS = 2500;
@@ -233,6 +235,16 @@ public final class FunctionAssertions
         return metadata;
     }
 
+    public TypeOperators getTypeOperators()
+    {
+        return runner.getTypeOperators();
+    }
+
+    public BlockTypeOperators getBlockTypeOperators()
+    {
+        return runner.getBlockTypeOperators();
+    }
+
     public void installPlugin(Plugin plugin)
     {
         runner.installPlugin(plugin);
@@ -259,7 +271,7 @@ public final class FunctionAssertions
         tryEvaluate(expression, expectedType, session);
     }
 
-    private void tryEvaluate(String expression, Type expectedType, Session session)
+    public void tryEvaluate(String expression, Type expectedType, Session session)
     {
         selectUniqueValue(expression, expectedType, session, compiler);
     }
@@ -678,8 +690,8 @@ public final class FunctionAssertions
 
     private static boolean needsBoundValue(Expression projectionExpression)
     {
-        final AtomicBoolean hasSymbolReferences = new AtomicBoolean();
-        new DefaultTraversalVisitor<Void, Void>()
+        AtomicBoolean hasSymbolReferences = new AtomicBoolean();
+        new DefaultTraversalVisitor<Void>()
         {
             @Override
             protected Void visitSymbolReference(SymbolReference node, Void context)
@@ -784,7 +796,7 @@ public final class FunctionAssertions
                     pageProcessor,
                     TEST_TABLE_HANDLE,
                     ImmutableList.of(),
-                    TupleDomain::all,
+                    DynamicFilter.EMPTY,
                     ImmutableList.of(projection.getType()),
                     DataSize.ofBytes(0),
                     0);
@@ -859,7 +871,7 @@ public final class FunctionAssertions
             implements PageSourceProvider
     {
         @Override
-        public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns, Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
+        public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
         {
             assertInstanceOf(split.getConnectorSplit(), FunctionAssertions.TestSplit.class);
             FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split.getConnectorSplit();
@@ -928,7 +940,7 @@ public final class FunctionAssertions
                 Slices.wrappedBuffer((byte) 0xab),
                 createRowBlock(ImmutableList.of(VARCHAR), Collections.singleton("innerFieldValue").toArray()).getObject(0, Block.class)).iterator();
 
-        final int numFields = rowType.getFields().size();
+        int numFields = rowType.getFields().size();
         Object[] rowValues = new Object[numFields];
         for (int fieldIdx = 0; fieldIdx < numFields; fieldIdx++) {
             rowValues[fieldIdx] = values.next();

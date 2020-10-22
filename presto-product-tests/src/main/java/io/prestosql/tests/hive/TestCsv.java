@@ -25,13 +25,12 @@ import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
+import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
 public class TestCsv
         extends ProductTest
 {
-    private static final String TPCH_SCHEMA = "tiny";
-
     @Test(groups = STORAGE_FORMATS)
     public void testInsertIntoCsvTable()
     {
@@ -50,17 +49,14 @@ public class TestCsv
 
         query(format(
                 "CREATE TABLE %s(" +
-                        "   linestatus    varchar," +
-                        "   shipinstruct  varchar," +
-                        "   shipmode      varchar," +
-                        "   comment       varchar," +
-                        "   returnflag    varchar" +
+                        "  name varchar, " +
+                        "  comment varchar " +
                         ") WITH (format='CSV' %s)",
                 tableName, additionalTableProperties));
 
-        query(format("INSERT INTO %s SELECT linestatus, shipinstruct, shipmode, comment, returnflag FROM tpch.%s.lineitem", tableName, TPCH_SCHEMA));
+        query(format("INSERT INTO %s SELECT name, comment FROM tpch.tiny.nation", tableName));
 
-        assertSelect("select max(linestatus), max(shipinstruct), max(shipmode) from %s", tableName);
+        assertSelect("SELECT max(name), max(comment) FROM %s", tableName);
 
         query("DROP TABLE " + tableName);
     }
@@ -85,12 +81,12 @@ public class TestCsv
         query(format(
                 "CREATE TABLE %s WITH (format='CSV' %s) AS " +
                         "SELECT " +
-                        "cast(linestatus AS varchar) AS linestatus, cast(shipmode AS varchar) AS shipmode, cast(returnflag AS varchar) AS returnflag " +
-                        "FROM tpch.tiny.lineitem",
+                        "CAST(nationkey AS varchar) AS nationkey, CAST(name AS varchar) AS name, CAST(comment AS varchar) AS comment " +
+                        "FROM tpch.tiny.nation",
                 tableName,
                 additionalParameters));
 
-        assertSelect("select max(linestatus), max(shipmode), count(returnflag) from %s", tableName);
+        assertSelect("SELECT max(name), max(comment) FROM %s", tableName);
 
         query("DROP TABLE " + tableName);
     }
@@ -113,23 +109,16 @@ public class TestCsv
 
         query(format(
                 "CREATE TABLE %s(" +
-                        "   linestatus    varchar," +
-                        "   shipinstruct  varchar," +
-                        "   shipmode      varchar," +
-                        "   comment       varchar," +
-                        "   returnflag    varchar," +
-                        "   suppkey       bigint" +
-                        ") WITH (format='CSV' %s, partitioned_by = ARRAY['suppkey'])",
+                        "  name varchar, " +
+                        "  comment varchar, " +
+                        "  regionkey bigint " +
+                        ") WITH (format='CSV' %s, partitioned_by = ARRAY['regionkey'])",
                 tableName,
                 additionalParameters));
 
-        query(format(
-                "INSERT INTO %s " +
-                        "SELECT " +
-                        "linestatus, shipinstruct, shipmode, comment, returnflag, suppkey " +
-                        "FROM tpch.%s.lineitem", tableName, TPCH_SCHEMA));
+        query(format("INSERT INTO %s SELECT name, comment, regionkey FROM tpch.tiny.nation", tableName));
 
-        assertSelect("select max(linestatus), max(shipinstruct), max(shipmode), max(suppkey) from %s", tableName);
+        assertSelect("SELECT max(name), max(comment), max(regionkey) FROM %s", tableName);
 
         query("DROP TABLE " + tableName);
     }
@@ -153,19 +142,19 @@ public class TestCsv
         query("DROP TABLE IF EXISTS " + tableName);
 
         query(format(
-                "CREATE TABLE %s WITH (format='CSV', partitioned_by = ARRAY['suppkey'] %s) AS " +
-                        "SELECT cast(shipmode AS varchar) AS shipmode, cast(comment AS varchar) AS comment, suppkey FROM tpch.tiny.lineitem",
+                "CREATE TABLE %s WITH (format='CSV', partitioned_by = ARRAY['regionkey'] %s) AS " +
+                        "SELECT cast(nationkey AS varchar) AS nationkey, cast(name AS varchar) AS name, regionkey FROM tpch.tiny.nation",
                 tableName,
                 additionalParameters));
 
-        assertSelect("select max(shipmode), max(comment), sum(suppkey) from %s", tableName);
+        assertSelect("SELECT max(name), max(regionkey) FROM %s", tableName);
 
         query("DROP TABLE " + tableName);
     }
 
     private static void assertSelect(String query, String tableName)
     {
-        QueryResult expected = query(format(query, "tpch." + TPCH_SCHEMA + ".lineitem"));
+        QueryResult expected = query(format(query, "tpch.tiny.nation"));
         List<Row> expectedRows = expected.rows().stream()
                 .map((columns) -> row(columns.toArray()))
                 .collect(toImmutableList());
@@ -173,5 +162,68 @@ public class TestCsv
         assertThat(actual)
                 .hasColumns(expected.getColumnTypes())
                 .containsOnly(expectedRows);
+    }
+
+    @Test(groups = STORAGE_FORMATS)
+    public void testReadCsvTableWithMultiCharProperties()
+    {
+        String tableName = "storage_formats_test_read_csv_table_with_multi_char_properties";
+        onHive().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        onHive().executeQuery(format(
+                "CREATE TABLE %s(" +
+                        "   a  string," +
+                        "   b  string," +
+                        "   c  string" +
+                        ") ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' " +
+                        "WITH SERDEPROPERTIES ('escapeChar'='ee','separatorChar'='ss','quoteChar'='qq') " +
+                        "STORED AS " +
+                        "INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' " +
+                        "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'",
+                tableName));
+
+        onHive().executeQuery(format(
+                "INSERT INTO %s(a, b, c) VALUES " +
+                        "('1', 'a', 'A'), " +
+                        "('2', 'b', 'B'), " +
+                        "('3', 'c', 'C')",
+                tableName));
+
+        assertThat(query(format("SELECT * FROM %s", tableName)))
+                .containsOnly(
+                        row("1", "a", "A"),
+                        row("2", "b", "B"),
+                        row("3", "c", "C"));
+        onHive().executeQuery(format("DROP TABLE %s", tableName));
+    }
+
+    @Test(groups = STORAGE_FORMATS)
+    public void testWriteCsvTableWithMultiCharProperties()
+    {
+        String tableName = "storage_formats_test_write_csv_table_with_multi_char_properties";
+        onHive().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        onHive().executeQuery(format(
+                "CREATE TABLE %s(" +
+                        "   a  string," +
+                        "   b  string," +
+                        "   c  string" +
+                        ") ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' " +
+                        "WITH SERDEPROPERTIES ('escapeChar'='ee','separatorChar'='ss','quoteChar'='qq') " +
+                        "STORED AS " +
+                        "INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat' " +
+                        "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'",
+                tableName));
+
+        query(format(
+                "INSERT INTO %s(a, b, c) VALUES " +
+                        "('1', 'a', 'A'), " +
+                        "('2', 'b', 'B'), " +
+                        "('3', 'c', 'C')",
+                tableName));
+        assertThat(query(format("SELECT * FROM %s", tableName)))
+                .containsOnly(
+                        row("1", "a", "A"),
+                        row("2", "b", "B"),
+                        row("3", "c", "C"));
+        onHive().executeQuery(format("DROP TABLE %s", tableName));
     }
 }

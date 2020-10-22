@@ -14,6 +14,7 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
@@ -31,8 +32,11 @@ import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static io.prestosql.matching.Capture.newCapture;
+import static io.prestosql.sql.planner.iterative.rule.DereferencePushdown.exclusiveDereferences;
+import static io.prestosql.sql.planner.iterative.rule.DereferencePushdown.extractDereferences;
 import static io.prestosql.sql.planner.plan.Patterns.project;
 import static io.prestosql.sql.planner.plan.Patterns.source;
 import static io.prestosql.sql.planner.plan.Patterns.topN;
@@ -77,6 +81,14 @@ public final class PushTopNThroughProject
     {
         ProjectNode projectNode = captures.get(PROJECT_CHILD);
 
+        // Do not push down if the projection is made up of symbol references and exclusive dereferences. This prevents
+        // undoing of PushDownDereferencesThroughTopN. We still push topN in the case of overlapping dereferences since
+        // it enables PushDownDereferencesThroughTopN rule to push optimal dereferences.
+        Set<Expression> projections = ImmutableSet.copyOf(projectNode.getAssignments().getExpressions());
+        if (!extractDereferences(projections, false).isEmpty() && exclusiveDereferences(projections)) {
+            return Result.empty();
+        }
+
         // do not push topN between projection and filter(table scan) so that they can be merged into a PageProcessor
         PlanNode projectSource = context.getLookup().resolve(projectNode.getSource());
         if (projectSource instanceof FilterNode) {
@@ -87,7 +99,7 @@ public final class PushTopNThroughProject
         }
 
         Optional<SymbolMapper> symbolMapper = symbolMapper(parent.getOrderingScheme().getOrderBy(), projectNode.getAssignments());
-        if (!symbolMapper.isPresent()) {
+        if (symbolMapper.isEmpty()) {
             return Result.empty();
         }
 

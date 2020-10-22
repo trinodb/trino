@@ -23,7 +23,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 
 public final class ColumnIndexStatsUtils
 {
@@ -34,7 +34,7 @@ public final class ColumnIndexStatsUtils
         if (type.equals(BOOLEAN)) {
             return JDBCType.BOOLEAN;
         }
-        if (type.equals(BIGINT) || type.equals(TIMESTAMP)) {
+        if (type.equals(BIGINT) || type.equals(TIMESTAMP_MILLIS)) {
             return JDBCType.BIGINT;
         }
         if (type.equals(INTEGER)) {

@@ -19,7 +19,11 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import io.prestosql.Session;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolAllocator;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
@@ -76,6 +80,18 @@ public class Assignments
     public static Assignments of(Symbol symbol1, Expression expression1, Symbol symbol2, Expression expression2)
     {
         return builder().put(symbol1, expression1).put(symbol2, expression2).build();
+    }
+
+    public static Assignments of(Collection<? extends Expression> expressions, Session session, SymbolAllocator symbolAllocator, TypeAnalyzer typeAnalyzer)
+    {
+        Assignments.Builder assignments = Assignments.builder();
+
+        for (Expression expression : expressions) {
+            Type type = typeAnalyzer.getType(session, symbolAllocator.getTypes(), expression);
+            assignments.put(symbolAllocator.newSymbol(expression, type), expression);
+        }
+
+        return assignments.build();
     }
 
     private final Map<Symbol, Expression> assignments;
@@ -217,9 +233,9 @@ public class Assignments
             return putAll(assignments.getMap());
         }
 
-        public Builder putAll(Map<Symbol, Expression> assignments)
+        public Builder putAll(Map<Symbol, ? extends Expression> assignments)
         {
-            for (Entry<Symbol, Expression> assignment : assignments.entrySet()) {
+            for (Entry<Symbol, ? extends Expression> assignment : assignments.entrySet()) {
                 put(assignment.getKey(), assignment.getValue());
             }
             return this;

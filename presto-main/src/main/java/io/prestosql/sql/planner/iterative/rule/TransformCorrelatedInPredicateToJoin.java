@@ -139,7 +139,7 @@ public class TransformCorrelatedInPredicateToJoin
         Optional<Decorrelated> decorrelated = new DecorrelatingVisitor(lookup, apply.getCorrelation())
                 .decorrelate(apply.getSubquery());
 
-        if (!decorrelated.isPresent()) {
+        if (decorrelated.isEmpty()) {
             return Result.empty();
         }
 

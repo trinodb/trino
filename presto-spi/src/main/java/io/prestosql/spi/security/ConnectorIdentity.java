@@ -15,15 +15,12 @@ package io.prestosql.spi.security;
 
 import java.security.Principal;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
-import static java.util.Collections.unmodifiableMap;
-import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorIdentity
@@ -54,10 +51,10 @@ public class ConnectorIdentity
             Map<String, String> extraCredentials)
     {
         this.user = requireNonNull(user, "user is null");
-        this.groups = unmodifiableSet(new HashSet<>(requireNonNull(groups, "groups is null")));
+        this.groups = Set.copyOf(requireNonNull(groups, "groups is null"));
         this.principal = requireNonNull(principal, "principal is null");
         this.role = requireNonNull(role, "role is null");
-        this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
+        this.extraCredentials = Map.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
     }
 
     public String getUser()
@@ -123,7 +120,7 @@ public class ConnectorIdentity
 
         public Builder withGroups(Set<String> groups)
         {
-            this.groups = unmodifiableSet(new HashSet<>(requireNonNull(groups, "groups is null")));
+            this.groups = Set.copyOf(requireNonNull(groups, "groups is null"));
             return this;
         }
 

@@ -53,7 +53,7 @@ public class DistinctLimitNode
         this.partial = partial;
         this.distinctSymbols = ImmutableList.copyOf(distinctSymbols);
         this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
-        checkArgument(!hashSymbol.isPresent() || !distinctSymbols.contains(hashSymbol.get()), "distinctSymbols should not contain hash symbol");
+        checkArgument(hashSymbol.isEmpty() || !distinctSymbols.contains(hashSymbol.get()), "distinctSymbols should not contain hash symbol");
     }
 
     @Override

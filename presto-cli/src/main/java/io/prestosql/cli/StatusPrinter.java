@@ -38,6 +38,7 @@ import static io.prestosql.cli.FormatUtils.formatCount;
 import static io.prestosql.cli.FormatUtils.formatCountRate;
 import static io.prestosql.cli.FormatUtils.formatDataRate;
 import static io.prestosql.cli.FormatUtils.formatDataSize;
+import static io.prestosql.cli.FormatUtils.formatFinalTime;
 import static io.prestosql.cli.FormatUtils.formatProgressBar;
 import static io.prestosql.cli.FormatUtils.formatTime;
 import static io.prestosql.cli.FormatUtils.pluralize;
@@ -219,7 +220,7 @@ Spilled: 20GB
 
         // 0:32 [2.12GB, 15M rows] [67MB/s, 463K rows/s]
         String statsLine = format("%s [%s rows, %s] [%s rows/s, %s]",
-                formatTime(wallTime),
+                formatFinalTime(wallTime),
                 formatCount(stats.getProcessedRows()),
                 formatDataSize(bytes(stats.getProcessedBytes()), true),
                 formatCountRate(stats.getProcessedRows(), wallTime, false),

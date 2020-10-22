@@ -13,8 +13,7 @@
  */
 package io.prestosql.verifier;
 
-import io.airlift.airline.Cli;
-import io.airlift.airline.Help;
+import picocli.CommandLine;
 
 public final class PrestoVerifier
 {
@@ -22,13 +21,6 @@ public final class PrestoVerifier
 
     public static void main(String[] args)
     {
-        Cli<Runnable> verifierParser = Cli.<Runnable>builder("verifier")
-                .withDescription("Presto Verifier")
-                .withDefaultCommand(Help.class)
-                .withCommand(Help.class)
-                .withCommand(VerifyCommand.class)
-                .build();
-
-        verifierParser.parse(args).run();
+        new CommandLine(new VerifyCommand()).execute(args);
     }
 }

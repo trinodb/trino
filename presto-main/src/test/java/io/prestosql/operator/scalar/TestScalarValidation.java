@@ -306,7 +306,7 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Expected type parameter not to take parameters, but got E on method .*")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Expected type parameter not to take parameters, but got 'e' on method .*")
     public void testNonPrimitiveTypeParameters()
     {
         extractScalars(TypeParameterWithNonPrimitiveAnnotation.class);
@@ -358,7 +358,7 @@ public class TestScalarValidation
         extractParametricScalar(ConstructorWithValidTypeParameters.class);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Expected type parameter not to take parameters, but got K on method .*")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Expected type parameter not to take parameters, but got 'k' on method .*")
     public void testInvalidTypeParametersForConstructors()
     {
         extractParametricScalar(ConstructorWithInvalidTypeParameters.class);

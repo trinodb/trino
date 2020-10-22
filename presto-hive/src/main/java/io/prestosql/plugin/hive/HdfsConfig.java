@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -38,6 +39,7 @@ public class HdfsConfig
 
     private List<File> resourceConfigFiles = ImmutableList.of();
     private String newDirectoryPermissions = "0777";
+    private boolean newFileInheritOwnership;
     private boolean verifyChecksum = true;
     private Duration ipcPingInterval = new Duration(10, TimeUnit.SECONDS);
     private Duration dfsTimeout = new Duration(60, TimeUnit.SECONDS);
@@ -50,7 +52,7 @@ public class HdfsConfig
     private int fileSystemMaxCacheSize = 1000;
 
     @NotNull
-    public List<File> getResourceConfigFiles()
+    public List<@FileExists File> getResourceConfigFiles()
     {
         return resourceConfigFiles;
     }
@@ -82,6 +84,19 @@ public class HdfsConfig
     public HdfsConfig setNewDirectoryPermissions(String newDirectoryPermissions)
     {
         this.newDirectoryPermissions = requireNonNull(newDirectoryPermissions, "newDirectoryPermissions is null");
+        return this;
+    }
+
+    public boolean isNewFileInheritOwnership()
+    {
+        return newFileInheritOwnership;
+    }
+
+    @Config("hive.fs.new-file-inherit-ownership")
+    @ConfigDescription("File system permissions for new directories")
+    public HdfsConfig setNewFileInheritOwnership(boolean newFileInheritOwnership)
+    {
+        this.newFileInheritOwnership = newFileInheritOwnership;
         return this;
     }
 

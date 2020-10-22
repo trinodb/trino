@@ -15,6 +15,7 @@ package io.prestosql.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation;
 import io.prestosql.operator.scalar.CustomFunctions;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.function.OperatorType;
@@ -31,7 +32,6 @@ import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -40,13 +40,13 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.metadata.Signature.unmangleOperator;
-import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -60,14 +60,8 @@ public class TestFunctionRegistry
     @Test
     public void testIdentityCast()
     {
-        Signature exactOperator = createTestMetadataManager().getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG).getSignature();
-        assertEquals(exactOperator.getName(), mangleOperatorName(OperatorType.CAST));
-        assertEquals(
-                exactOperator.getArgumentTypes().stream()
-                        .map(Object::toString)
-                        .collect(Collectors.toList()),
-                ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
-        assertEquals(exactOperator.getReturnType().getBase(), StandardTypes.HYPER_LOG_LOG);
+        BoundSignature exactOperator = createTestMetadataManager().getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG).getSignature();
+        assertEquals(exactOperator, new BoundSignature(mangleOperatorName(OperatorType.CAST), HYPER_LOG_LOG, ImmutableList.of(HYPER_LOG_LOG)));
     }
 
     @Test
@@ -89,8 +83,8 @@ public class TestFunctionRegistry
             List<Type> argumentTypes = function.getSignature().getArgumentTypes().stream()
                     .map(metadata::getType)
                     .collect(toImmutableList());
-            Signature exactOperator = metadata.resolveOperator(operatorType, argumentTypes).getSignature();
-            assertEquals(exactOperator, function.getSignature());
+            BoundSignature exactOperator = metadata.resolveOperator(operatorType, argumentTypes).getSignature();
+            assertEquals(exactOperator.toSignature(), function.getSignature());
             foundOperator = true;
         }
         assertTrue(foundOperator);
@@ -251,7 +245,7 @@ public class TestFunctionRegistry
                         functionSignature(ImmutableList.of("integer"), "boolean"))
                 .forParameters(UNKNOWN)
                 // any function can be selected, but to make it deterministic we sort function signatures alphabetically
-                .returns(functionSignature("integer"));
+                .returns(functionSignature("JoniRegExp"));
 
         // when the return type is different
         assertThatResolveFunction()
@@ -292,8 +286,7 @@ public class TestFunctionRegistry
         return new SignatureBuilder()
                 .returnType(parseTypeSignature(returnType, literalParameters))
                 .argumentTypes(argumentSignatures)
-                .typeVariableConstraints(typeVariableConstraints)
-                .kind(SCALAR);
+                .typeVariableConstraints(typeVariableConstraints);
     }
 
     private static ResolveFunctionAssertion assertThatResolveFunction()
@@ -323,7 +316,7 @@ public class TestFunctionRegistry
         public ResolveFunctionAssertion returns(SignatureBuilder functionSignature)
         {
             Signature expectedSignature = functionSignature.name(TEST_FUNCTION_NAME).build();
-            Signature actualSignature = resolveSignature();
+            Signature actualSignature = resolveSignature().toSignature();
             assertEquals(actualSignature, expectedSignature);
             return this;
         }
@@ -345,7 +338,7 @@ public class TestFunctionRegistry
             return this;
         }
 
-        private Signature resolveSignature()
+        private BoundSignature resolveSignature()
         {
             Metadata metadata = createTestMetadataManager();
             metadata.addFunctions(createFunctionsFromSignatures());
@@ -368,11 +361,12 @@ public class TestFunctionRegistry
                 functions.add(new SqlScalarFunction(functionMetadata)
                 {
                     @Override
-                    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+                    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
                     {
-                        return new ScalarFunctionImplementation(
-                                false,
-                                nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                        return new ChoicesScalarFunctionImplementation(
+                                functionBinding,
+                                FAIL_ON_NULL,
+                                nCopies(functionBinding.getArity(), NEVER_NULL),
                                 MethodHandles.identity(Void.class));
                     }
                 });

@@ -16,9 +16,8 @@ package io.prestosql.plugin.hive.metastore.thrift;
 import com.google.common.base.Ticker;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig.HiveMetastoreAuthenticationType;
 import io.prestosql.plugin.hive.metastore.thrift.FailureAwareThriftMetastoreClient.Callback;
+import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
 import org.apache.thrift.TException;
 
 import javax.annotation.Nullable;
@@ -52,15 +51,15 @@ public class StaticMetastoreLocator
     private final String metastoreUsername;
 
     @Inject
-    public StaticMetastoreLocator(StaticMetastoreConfig config, HiveAuthenticationConfig hiveAuthenticationConfig, ThriftMetastoreClientFactory clientFactory)
+    public StaticMetastoreLocator(StaticMetastoreConfig config, ThriftMetastoreAuthenticationConfig authenticationConfig, ThriftMetastoreClientFactory clientFactory)
     {
         this(config.getMetastoreUris(), config.getMetastoreUsername(), clientFactory);
 
         checkArgument(
-                isNullOrEmpty(metastoreUsername) || hiveAuthenticationConfig.getHiveMetastoreAuthenticationType() == HiveMetastoreAuthenticationType.NONE,
+                isNullOrEmpty(metastoreUsername) || authenticationConfig.getAuthenticationType() == ThriftMetastoreAuthenticationType.NONE,
                 "%s cannot be used together with %s authentication",
                 HIVE_METASTORE_USERNAME,
-                hiveAuthenticationConfig.getHiveMetastoreAuthenticationType());
+                authenticationConfig.getAuthenticationType());
     }
 
     public StaticMetastoreLocator(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory)
@@ -89,7 +88,7 @@ public class StaticMetastoreLocator
             throws TException
     {
         List<Integer> indices = backoffs.stream()
-                .sorted(Comparator.comparingLong(backoff -> backoff.getBackoffDuration()))
+                .sorted(Comparator.comparingLong(Backoff::getBackoffDuration))
                 .map(backoffs::indexOf)
                 .collect(toImmutableList());
 

@@ -17,17 +17,13 @@ import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 
-import static com.google.common.base.Strings.isNullOrEmpty;
-
 public class LocalCoordinatorLocation
         implements CoordinatorLocation
 {
     @Override
-    public URI getUri(UriInfo uriInfo, String xForwardedProto)
+    public URI getUri(UriInfo uriInfo)
     {
-        String scheme = isNullOrEmpty(xForwardedProto) ? uriInfo.getRequestUri().getScheme() : xForwardedProto;
         return uriInfo.getRequestUriBuilder()
-                .scheme(scheme)
                 .replacePath("")
                 .replaceQuery("")
                 .build();

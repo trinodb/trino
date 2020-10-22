@@ -16,6 +16,7 @@ package io.prestosql.eventlistener;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.NotNull;
 
@@ -30,7 +31,7 @@ public class EventListenerConfig
     private List<File> eventListenerFiles = ImmutableList.of();
 
     @NotNull
-    public List<File> getEventListenerFiles()
+    public List<@FileExists File> getEventListenerFiles()
     {
         return eventListenerFiles;
     }

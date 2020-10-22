@@ -77,11 +77,16 @@ class OutputBufferMemoryManager
         // we can also safely ignore any calls after OutputBufferMemoryManager is closed.
         // If the systemMemoryContext doesn't exist, the task is probably already
         // aborted, so we can just return (see the comment in getSystemMemoryContext()).
-        if (closed || !systemMemoryContext.isPresent()) {
+        if (closed || systemMemoryContext.isEmpty()) {
             return;
         }
 
-        long currentBufferedBytes = bufferedBytes.addAndGet(bytesAdded);
+        long currentBufferedBytes = bufferedBytes.updateAndGet(bytes -> {
+            long result = bytes + bytesAdded;
+            checkArgument(result >= 0, "bufferedBytes (%s) plus delta (%s) would be negative", bytes, bytesAdded);
+            return result;
+        });
+
         peakMemoryUsage.accumulateAndGet(currentBufferedBytes, Math::max);
         this.blockedOnMemory = systemMemoryContext.get().setBytes(currentBufferedBytes);
         if (!isBufferFull() && !isBlockedOnMemory() && !bufferBlockedFuture.isDone()) {

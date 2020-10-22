@@ -16,6 +16,7 @@ package io.prestosql.sql.analyzer;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.StandardErrorCode;
+import io.prestosql.sql.planner.ScopeAware;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
 import io.prestosql.sql.tree.ArrayConstructor;
@@ -32,6 +33,7 @@ import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Extract;
 import io.prestosql.sql.tree.FieldReference;
+import io.prestosql.sql.tree.Format;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GroupingOperation;
 import io.prestosql.sql.tree.Identifier;
@@ -49,6 +51,7 @@ import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullIfExpression;
 import io.prestosql.sql.tree.Parameter;
+import io.prestosql.sql.tree.QuantifiedComparisonExpression;
 import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.SimpleCaseExpression;
@@ -71,6 +74,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
@@ -87,6 +91,7 @@ import static io.prestosql.sql.analyzer.ScopeReferenceExtractor.getReferencesToS
 import static io.prestosql.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static io.prestosql.sql.analyzer.ScopeReferenceExtractor.isFieldFromScope;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.prestosql.sql.planner.ScopeAware.scopeAwareKey;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -97,7 +102,7 @@ class AggregationAnalyzer
 {
     // fields and expressions in the group by clause
     private final Set<FieldId> groupingFields;
-    private final List<Expression> expressions;
+    private final Set<ScopeAware<Expression>> expressions;
     private final Map<NodeRef<Expression>, FieldId> columnReferences;
 
     private final Metadata metadata;
@@ -141,9 +146,13 @@ class AggregationAnalyzer
         this.orderByScope = orderByScope;
         this.metadata = metadata;
         this.analysis = analysis;
-        this.expressions = groupByExpressions;
+        this.expressions = groupByExpressions.stream()
+                .map(expression -> scopeAwareKey(expression, analysis, sourceScope))
+                .collect(toImmutableSet());
 
-        this.columnReferences = analysis.getColumnReferenceFields();
+        this.columnReferences = analysis.getColumnReferenceFields()
+                .entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getFieldId()));
 
         this.groupingFields = groupByExpressions.stream()
                 .map(NodeRef::of)
@@ -309,10 +318,22 @@ class AggregationAnalyzer
         }
 
         @Override
+        protected Boolean visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Void context)
+        {
+            return process(node.getValue(), context) && process(node.getSubquery(), context);
+        }
+
+        @Override
+        protected Boolean visitFormat(Format node, Void context)
+        {
+            return node.getArguments().stream().allMatch(expression -> process(expression, context));
+        }
+
+        @Override
         protected Boolean visitFunctionCall(FunctionCall node, Void context)
         {
             if (metadata.isAggregationFunction(node.getName())) {
-                if (!node.getWindow().isPresent()) {
+                if (node.getWindow().isEmpty()) {
                     List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), metadata);
                     List<FunctionCall> windowFunctions = extractWindowFunctions(node.getArguments());
 
@@ -514,7 +535,7 @@ class AggregationAnalyzer
                 Field field = sourceScope.getRelationType().getFieldByIndex(node.getFieldIndex());
 
                 String column;
-                if (!field.getName().isPresent()) {
+                if (field.getName().isEmpty()) {
                     column = Integer.toString(node.getFieldIndex() + 1);
                 }
                 else if (field.getRelationAlias().isPresent()) {
@@ -590,7 +611,7 @@ class AggregationAnalyzer
                 }
             }
 
-            return !node.getDefaultValue().isPresent() || process(node.getDefaultValue().get(), context);
+            return node.getDefaultValue().isEmpty() || process(node.getDefaultValue().get(), context);
         }
 
         @Override
@@ -600,7 +621,7 @@ class AggregationAnalyzer
         }
 
         @Override
-        protected Boolean visitRow(Row node, final Void context)
+        protected Boolean visitRow(Row node, Void context)
         {
             return node.getItems().stream()
                     .allMatch(item -> process(item, context));
@@ -644,8 +665,9 @@ class AggregationAnalyzer
         @Override
         public Boolean process(Node node, @Nullable Void context)
         {
-            if (expressions.stream().anyMatch(node::equals)
-                    && (!orderByScope.isPresent() || !hasOrderByReferencesToOutputColumns(node))
+            if (node instanceof Expression
+                    && expressions.contains(scopeAwareKey(node, analysis, sourceScope))
+                    && (orderByScope.isEmpty() || !hasOrderByReferencesToOutputColumns(node))
                     && !hasFreeReferencesToLambdaArgument(node, analysis)) {
                 return true;
             }

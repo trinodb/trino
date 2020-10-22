@@ -13,14 +13,18 @@
  */
 package io.prestosql.sql.planner;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.PeekingIterator;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.block.Block;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.predicate.DiscreteValues;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Marker;
@@ -29,11 +33,12 @@ import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.Ranges;
 import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.predicate.Utils;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.InterpretedFunctionInvoker;
 import io.prestosql.sql.parser.SqlParser;
@@ -43,19 +48,24 @@ import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.InListExpression;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
+import io.prestosql.sql.tree.LikePredicate;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.SymbolReference;
+import io.prestosql.type.LikeFunctions;
 import io.prestosql.type.TypeCoercion;
 
 import javax.annotation.Nullable;
 
+import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -66,7 +76,15 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.peekingIterator;
+import static io.airlift.slice.SliceUtf8.countCodePoints;
+import static io.airlift.slice.SliceUtf8.getCodePointAt;
+import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
+import static io.airlift.slice.SliceUtf8.setCodePointAt;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.SATURATED_FLOOR_CAST;
+import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.combineDisjunctsWithDefault;
@@ -79,8 +97,6 @@ import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_O
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
-import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
@@ -274,7 +290,7 @@ public final class DomainTranslator
             predicate = new InPredicate(reference, new InListExpression(values));
         }
 
-        if (!discreteValues.isWhiteList()) {
+        if (!discreteValues.isInclusive()) {
             predicate = new NotExpression(predicate);
         }
         return ImmutableList.of(predicate);
@@ -294,17 +310,19 @@ public final class DomainTranslator
      */
     public static ExtractionResult fromPredicate(
             Metadata metadata,
+            TypeOperators typeOperators,
             Session session,
             Expression predicate,
             TypeProvider types)
     {
-        return new Visitor(metadata, session, types, new TypeAnalyzer(new SqlParser(), metadata)).process(predicate, false);
+        return new Visitor(metadata, typeOperators, session, types, new TypeAnalyzer(new SqlParser(), metadata)).process(predicate, false);
     }
 
     private static class Visitor
             extends AstVisitor<ExtractionResult, Boolean>
     {
         private final Metadata metadata;
+        private final TypeOperators typeOperators;
         private final LiteralEncoder literalEncoder;
         private final Session session;
         private final TypeProvider types;
@@ -312,10 +330,11 @@ public final class DomainTranslator
         private final TypeAnalyzer typeAnalyzer;
         private final TypeCoercion typeCoercion;
 
-        private Visitor(Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
+        private Visitor(Metadata metadata, TypeOperators typeOperators, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.literalEncoder = new LiteralEncoder(metadata);
+            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.functionInvoker = new InterpretedFunctionInvoker(metadata);
@@ -445,7 +464,7 @@ public final class DomainTranslator
         protected ExtractionResult visitComparisonExpression(ComparisonExpression node, Boolean complement)
         {
             Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(node);
-            if (!optionalNormalized.isPresent()) {
+            if (optionalNormalized.isEmpty()) {
                 return super.visitComparisonExpression(node, complement);
             }
             NormalizedSimpleComparison normalized = optionalNormalized.get();
@@ -611,8 +630,7 @@ public final class DomainTranslator
             }
 
             // Handle comparisons against NaN
-            if ((type instanceof DoubleType && Double.isNaN((double) value)) ||
-                    (type instanceof RealType && Float.isNaN(intBitsToFloat(toIntExact((long) value))))) {
+            if (isFloatingPointNaN(type, value)) {
                 switch (comparisonOperator) {
                     case EQUAL:
                     case GREATER_THAN:
@@ -814,11 +832,18 @@ public final class DomainTranslator
 
         private int compareOriginalValueToCoerced(Type originalValueType, Object originalValue, Type coercedValueType, Object coercedValue)
         {
+            requireNonNull(originalValueType, "originalValueType is null");
+            requireNonNull(coercedValue, "coercedValue is null");
             ResolvedFunction castToOriginalTypeOperator = metadata.getCoercion(coercedValueType, originalValueType);
             Object coercedValueInOriginalType = functionInvoker.invoke(castToOriginalTypeOperator, session.toConnectorSession(), coercedValue);
-            Block originalValueBlock = Utils.nativeValueToBlock(originalValueType, originalValue);
-            Block coercedValueBlock = Utils.nativeValueToBlock(originalValueType, coercedValueInOriginalType);
-            return originalValueType.compareTo(originalValueBlock, 0, coercedValueBlock, 0);
+            MethodHandle comparisonOperator = typeOperators.getComparisonOperator(originalValueType, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            try {
+                return (int) (long) comparisonOperator.invoke(originalValue, coercedValueInOriginalType);
+            }
+            catch (Throwable throwable) {
+                Throwables.throwIfUnchecked(throwable);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, throwable);
+            }
         }
 
         @Override
@@ -855,6 +880,143 @@ public final class DomainTranslator
             return process(and(
                     new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin()),
                     new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax())), complement);
+        }
+
+        @Override
+        protected ExtractionResult visitLikePredicate(LikePredicate node, Boolean complement)
+        {
+            Optional<ExtractionResult> result = tryVisitLikePredicate(node, complement);
+            if (result.isPresent()) {
+                return result.get();
+            }
+            return super.visitLikePredicate(node, complement);
+        }
+
+        private Optional<ExtractionResult> tryVisitLikePredicate(LikePredicate node, Boolean complement)
+        {
+            if (!(node.getValue() instanceof SymbolReference)) {
+                // LIKE not on a symbol
+                return Optional.empty();
+            }
+
+            if (!(node.getPattern() instanceof StringLiteral)) {
+                // dynamic pattern
+                return Optional.empty();
+            }
+
+            if (node.getEscape().isPresent() && !(node.getEscape().get() instanceof StringLiteral)) {
+                // dynamic escape
+                return Optional.empty();
+            }
+
+            Type type = typeAnalyzer.getType(session, types, node.getValue());
+            if (!(type instanceof VarcharType)) {
+                // TODO support CharType
+                return Optional.empty();
+            }
+            VarcharType varcharType = (VarcharType) type;
+
+            Symbol symbol = Symbol.from(node.getValue());
+            Slice pattern = ((StringLiteral) node.getPattern()).getSlice();
+            Optional<Slice> escape = node.getEscape()
+                    .map(StringLiteral.class::cast)
+                    .map(StringLiteral::getSlice);
+
+            int patternConstantPrefixBytes = LikeFunctions.patternConstantPrefixBytes(pattern, escape);
+            if (patternConstantPrefixBytes == pattern.length()) {
+                // This should not actually happen, constant LIKE pattern should be converted to equality predicate before DomainTranslator is invoked.
+
+                Slice literal = LikeFunctions.unescapeLiteralLikePattern(pattern, escape);
+                ValueSet valueSet;
+                if (varcharType.isUnbounded() || countCodePoints(literal) <= varcharType.getBoundedLength()) {
+                    valueSet = ValueSet.of(type, literal);
+                }
+                else {
+                    // impossible to satisfy
+                    valueSet = ValueSet.none(type);
+                }
+                Domain domain = Domain.create(complementIfNecessary(valueSet, complement), false);
+                return Optional.of(new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)), TRUE_LITERAL));
+            }
+
+            if (complement || patternConstantPrefixBytes == 0) {
+                // TODO
+                return Optional.empty();
+            }
+
+            Slice constantPrefix = LikeFunctions.unescapeLiteralLikePattern(pattern.slice(0, patternConstantPrefixBytes), escape);
+            return createRangeDomain(type, constantPrefix).map(domain -> new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)), node));
+        }
+
+        @Override
+        protected ExtractionResult visitFunctionCall(FunctionCall node, Boolean complement)
+        {
+            String name = ResolvedFunction.extractFunctionName(node.getName());
+            if (name.equals("starts_with")) {
+                Optional<ExtractionResult> result = tryVisitStartsWithFunction(node, complement);
+                if (result.isPresent()) {
+                    return result.get();
+                }
+            }
+            return visitExpression(node, complement);
+        }
+
+        private Optional<ExtractionResult> tryVisitStartsWithFunction(FunctionCall node, Boolean complement)
+        {
+            List<Expression> args = node.getArguments();
+            if (args.size() != 2) {
+                return Optional.empty();
+            }
+
+            Expression target = args.get(0);
+            if (!(target instanceof SymbolReference)) {
+                // Target is not a symbol
+                return Optional.empty();
+            }
+
+            Expression prefix = args.get(1);
+            if (!(prefix instanceof StringLiteral)) {
+                // dynamic pattern
+                return Optional.empty();
+            }
+
+            Type type = typeAnalyzer.getType(session, types, target);
+            if (!(type instanceof VarcharType)) {
+                // TODO support CharType
+                return Optional.empty();
+            }
+            if (complement) {
+                return Optional.empty();
+            }
+
+            Symbol symbol = Symbol.from(target);
+            Slice constantPrefix = ((StringLiteral) prefix).getSlice();
+
+            return createRangeDomain(type, constantPrefix).map(domain -> new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)), node));
+        }
+
+        private Optional<Domain> createRangeDomain(Type type, Slice constantPrefix)
+        {
+            int lastIncrementable = -1;
+            for (int position = 0; position < constantPrefix.length(); position += lengthOfCodePoint(constantPrefix, position)) {
+                // Get last ASCII character to increment, so that character length in bytes does not change.
+                // Also prefer not to produce non-ASCII if input is all-ASCII, to be on the safe side with connectors.
+                // TODO remove those limitations
+                if (getCodePointAt(constantPrefix, position) < 127) {
+                    lastIncrementable = position;
+                }
+            }
+
+            if (lastIncrementable == -1) {
+                return Optional.empty();
+            }
+
+            Slice lowerBound = constantPrefix;
+            Slice upperBound = Slices.copyOf(constantPrefix.slice(0, lastIncrementable + lengthOfCodePoint(constantPrefix, lastIncrementable)));
+            setCodePointAt(getCodePointAt(constantPrefix, lastIncrementable) + 1, upperBound, lastIncrementable);
+
+            Domain domain = Domain.create(ValueSet.ofRanges(Range.range(type, lowerBound, true, upperBound, false)), false);
+            return Optional.of(domain);
         }
 
         @Override

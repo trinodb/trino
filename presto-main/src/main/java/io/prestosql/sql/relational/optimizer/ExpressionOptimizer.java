@@ -14,7 +14,6 @@
 package io.prestosql.sql.relational.optimizer;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -23,6 +22,7 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.InterpretedFunctionInvoker;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.ConstantExpression;
 import io.prestosql.sql.relational.InputReferenceExpression;
@@ -33,13 +33,11 @@ import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.sql.relational.VariableReferenceExpression;
 import io.prestosql.sql.tree.QualifiedName;
 
-import java.lang.invoke.MethodHandle;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
@@ -50,7 +48,6 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.relational.Expressions.call;
 import static io.prestosql.sql.relational.Expressions.constant;
-import static io.prestosql.sql.relational.Expressions.constantNull;
 import static io.prestosql.sql.relational.SpecialForm.Form.BIND;
 import static io.prestosql.type.JsonType.JSON;
 
@@ -98,37 +95,22 @@ public class ExpressionOptimizer
 
             // TODO: optimize function calls with lambda arguments. For example, apply(x -> x + 2, 1)
             FunctionMetadata functionMetadata = metadata.getFunctionMetadata(call.getResolvedFunction());
-            if (Iterables.all(arguments, instanceOf(ConstantExpression.class)) && functionMetadata.isDeterministic()) {
-                MethodHandle method = metadata.getScalarFunctionImplementation(call.getResolvedFunction()).getMethodHandle();
-
-                if (method.type().parameterCount() > 0 && method.type().parameterType(0) == ConnectorSession.class) {
-                    method = method.bindTo(session);
-                }
-
-                int index = 0;
-                List<Object> constantArguments = new ArrayList<>();
-                for (RowExpression argument : arguments) {
-                    Object value = ((ConstantExpression) argument).getValue();
-                    // if any argument is null, return null
-                    if (value == null && !functionMetadata.getArgumentDefinitions().get(index).isNullable()) {
-                        return constantNull(call.getType());
-                    }
-                    constantArguments.add(value);
-                    index++;
-                }
+            if (arguments.stream().allMatch(ConstantExpression.class::isInstance) && functionMetadata.isDeterministic()) {
+                List<Object> constantArguments = arguments.stream()
+                        .map(ConstantExpression.class::cast)
+                        .map(ConstantExpression::getValue)
+                        .collect(Collectors.toList());
 
                 try {
-                    return constant(method.invokeWithArguments(constantArguments), call.getType());
+                    InterpretedFunctionInvoker invoker = new InterpretedFunctionInvoker(metadata);
+                    return constant(invoker.invoke(call.getResolvedFunction(), session, constantArguments), call.getType());
                 }
-                catch (Throwable e) {
-                    if (e instanceof InterruptedException) {
-                        Thread.currentThread().interrupt();
-                    }
+                catch (RuntimeException e) {
                     // Do nothing. As a result, this specific tree will be left untouched. But irrelevant expressions will continue to get evaluated and optimized.
                 }
             }
 
-            return call(call.getResolvedFunction(), metadata.getType(call.getResolvedFunction().getSignature().getReturnType()), arguments);
+            return call(call.getResolvedFunction(), arguments);
         }
 
         @Override
@@ -153,7 +135,7 @@ public class ExpressionOptimizer
                     List<RowExpression> arguments = specialForm.getArguments().stream()
                             .map(argument -> argument.accept(this, null))
                             .collect(toImmutableList());
-                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), arguments);
+                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), arguments, specialForm.getFunctionDependencies());
                 }
                 case BIND: {
                     checkState(specialForm.getArguments().size() >= 1, BIND + " function should have at least 1 argument. Got " + specialForm.getArguments().size());
@@ -172,7 +154,7 @@ public class ExpressionOptimizer
                         // It's not implemented because it would be dead code anyways because visitLambda does not produce ConstantExpression.
                         throw new UnsupportedOperationException();
                     }
-                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), optimizedArgumentsBuilder.build());
+                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), optimizedArgumentsBuilder.build(), specialForm.getFunctionDependencies());
                 }
                 case NULL_IF:
                 case SWITCH:
@@ -188,7 +170,7 @@ public class ExpressionOptimizer
                     List<RowExpression> arguments = specialForm.getArguments().stream()
                             .map(argument -> argument.accept(this, null))
                             .collect(toImmutableList());
-                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), arguments);
+                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), arguments, specialForm.getFunctionDependencies());
                 }
                 default:
                     throw new IllegalArgumentException("Unsupported special form " + specialForm.getForm());
@@ -219,19 +201,16 @@ public class ExpressionOptimizer
                     if (returnType instanceof ArrayType) {
                         return call(
                                 metadata.getCoercion(QualifiedName.of(JSON_STRING_TO_ARRAY_NAME), VARCHAR, returnType),
-                                call.getType(),
                                 innerCall.getArguments());
                     }
                     if (returnType instanceof MapType) {
                         return call(
                                 metadata.getCoercion(QualifiedName.of(JSON_STRING_TO_MAP_NAME), VARCHAR, returnType),
-                                call.getType(),
                                 innerCall.getArguments());
                     }
                     if (returnType instanceof RowType) {
                         return call(
                                 metadata.getCoercion(QualifiedName.of(JSON_STRING_TO_ROW_NAME), VARCHAR, returnType),
-                                call.getType(),
                                 innerCall.getArguments());
                     }
                 }
@@ -239,7 +218,6 @@ public class ExpressionOptimizer
 
             return call(
                     metadata.getCoercion(call.getArguments().get(0).getType(), call.getType()),
-                    call.getType(),
                     call.getArguments());
         }
     }

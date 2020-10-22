@@ -67,6 +67,6 @@ public class CassandraPageSinkProvider
                 handle.getTableName(),
                 handle.getColumnNames(),
                 handle.getColumnTypes(),
-                false);
+                handle.isGenerateUuid());
     }
 }

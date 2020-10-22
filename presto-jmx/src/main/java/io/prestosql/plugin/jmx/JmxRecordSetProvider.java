@@ -42,6 +42,8 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Objects.requireNonNull;
 
 public class JmxRecordSetProvider
@@ -74,11 +76,11 @@ public class JmxRecordSetProvider
                 row.add(objectName);
             }
             else if (jmxColumn.getColumnName().equals(JmxMetadata.TIMESTAMP_COLUMN_NAME)) {
-                row.add(entryTimestamp);
+                row.add(packDateTimeWithZone(entryTimestamp, UTC_KEY));
             }
             else {
                 Optional<Object> optionalValue = attributes.get(jmxColumn.getColumnName());
-                if (optionalValue == null || !optionalValue.isPresent()) {
+                if (optionalValue == null || optionalValue.isEmpty()) {
                     row.add(null);
                 }
                 else {

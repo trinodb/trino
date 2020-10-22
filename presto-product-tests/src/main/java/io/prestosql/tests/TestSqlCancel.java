@@ -172,7 +172,7 @@ public class TestSqlCancel
                     .setHeader("X-Presto-User", "anyUser")
                     .setUri(cancelUri)
                     .build();
-            return httpClient.execute(request, new ResponseHandler<Response, RuntimeException>()
+            return httpClient.execute(request, new ResponseHandler<>()
             {
                 @Override
                 public Response handleException(Request request, Exception exception)

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
-import io.airlift.configuration.Config;
 import org.weakref.jmx.ObjectNameBuilder;
 import org.weakref.jmx.ObjectNameGenerator;
 
@@ -44,31 +43,14 @@ public class ConnectorObjectNameGeneratorModule
     @Override
     public void configure(Binder binder)
     {
-        configBinder(binder).bindConfig(ConnectorObjectNameGeneratorConfig.class);
+        configBinder(binder).bindConfig(ObjectNameGeneratorConfig.class);
     }
 
     @Provides
-    ObjectNameGenerator createPrefixObjectNameGenerator(ConnectorObjectNameGeneratorConfig config)
+    ObjectNameGenerator createPrefixObjectNameGenerator(ObjectNameGeneratorConfig config)
     {
         String domainBase = firstNonNull(config.getDomainBase(), defaultDomainBase);
         return new ConnectorObjectNameGenerator(packageName, domainBase, catalogName);
-    }
-
-    public static class ConnectorObjectNameGeneratorConfig
-    {
-        private String domainBase;
-
-        public String getDomainBase()
-        {
-            return domainBase;
-        }
-
-        @Config("jmx.base-name")
-        public ConnectorObjectNameGeneratorConfig setDomainBase(String domainBase)
-        {
-            this.domainBase = domainBase;
-            return this;
-        }
     }
 
     public static final class ConnectorObjectNameGenerator

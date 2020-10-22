@@ -23,6 +23,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.orc.OrcWriteValidation.StatisticsValidation;
 import io.prestosql.orc.OrcWriteValidation.WriteChecksum;
 import io.prestosql.orc.OrcWriteValidation.WriteChecksumBuilder;
@@ -51,6 +52,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -107,6 +109,7 @@ public class OrcRecordReader
     private final Map<String, Slice> userMetadata;
 
     private final AggregatedMemoryContext systemMemoryUsage;
+    private final LocalMemoryContext orcDataSourceMemoryUsage;
 
     private final OrcBlockFactory blockFactory;
 
@@ -119,6 +122,7 @@ public class OrcRecordReader
     public OrcRecordReader(
             List<OrcColumn> readColumns,
             List<Type> readTypes,
+            List<OrcReader.ProjectedLayout> readLayouts,
             OrcPredicate predicate,
             long numberOfRows,
             List<StripeInformation> fileStripes,
@@ -129,8 +133,8 @@ public class OrcRecordReader
             long splitLength,
             ColumnMetadata<OrcType> orcTypes,
             Optional<OrcDecompressor> decompressor,
-            int rowsInRowGroup,
-            DateTimeZone hiveStorageTimeZone,
+            OptionalInt rowsInRowGroup,
+            DateTimeZone legacyFileTimeZone,
             HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader,
             OrcReaderOptions options,
@@ -145,13 +149,15 @@ public class OrcRecordReader
         checkArgument(readColumns.stream().distinct().count() == readColumns.size(), "readColumns contains duplicate entries");
         requireNonNull(readTypes, "readTypes is null");
         checkArgument(readColumns.size() == readTypes.size(), "readColumns and readTypes must have the same size");
+        requireNonNull(readLayouts, "readLayouts is null");
+        checkArgument(readColumns.size() == readLayouts.size(), "readColumns and readLayouts must have the same size");
         requireNonNull(predicate, "predicate is null");
         requireNonNull(fileStripes, "fileStripes is null");
         requireNonNull(stripeStats, "stripeStats is null");
         requireNonNull(orcDataSource, "orcDataSource is null");
         requireNonNull(orcTypes, "types is null");
         requireNonNull(decompressor, "decompressor is null");
-        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
+        requireNonNull(legacyFileTimeZone, "legacyFileTimeZone is null");
         requireNonNull(userMetadata, "userMetadata is null");
         requireNonNull(systemMemoryUsage, "systemMemoryUsage is null");
         requireNonNull(exceptionTransform, "exceptionTransform is null");
@@ -166,9 +172,6 @@ public class OrcRecordReader
 
         requireNonNull(options, "options is null");
         this.maxBlockBytes = options.getMaxBlockSize().toBytes();
-
-        // it is possible that old versions of orc use 0 to mean there are no row groups
-        checkArgument(rowsInRowGroup > 0, "rowsInRowGroup must be greater than zero");
 
         // sort stripes by file position
         List<StripeInfo> stripeInfos = new ArrayList<>();
@@ -186,7 +189,7 @@ public class OrcRecordReader
         long fileRowCount = 0;
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
         ImmutableList.Builder<Long> stripeFilePositions = ImmutableList.builder();
-        if (!fileStats.isPresent() || predicate.matches(numberOfRows, fileStats.get())) {
+        if (fileStats.isEmpty() || predicate.matches(numberOfRows, fileStats.get())) {
             // select stripes that start within the specified split
             for (StripeInfo info : stripeInfos) {
                 StripeInformation stripe = info.getStripe();
@@ -204,6 +207,8 @@ public class OrcRecordReader
 
         orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, options.getMaxMergeDistance(), options.getTinyStripeThreshold());
         this.orcDataSource = orcDataSource;
+        this.orcDataSourceMemoryUsage = systemMemoryUsage.newLocalMemoryContext(OrcDataSource.class.getSimpleName());
+        this.orcDataSourceMemoryUsage.setBytes(orcDataSource.getRetainedSize());
         this.splitLength = splitLength;
 
         this.fileRowCount = stripeInfos.stream()
@@ -223,7 +228,7 @@ public class OrcRecordReader
 
         stripeReader = new StripeReader(
                 orcDataSource,
-                hiveStorageTimeZone.toTimeZone().toZoneId(),
+                legacyFileTimeZone.toTimeZone().toZoneId(),
                 decompressor,
                 orcTypes,
                 ImmutableSet.copyOf(readColumns),
@@ -233,7 +238,7 @@ public class OrcRecordReader
                 metadataReader,
                 writeValidation);
 
-        columnReaders = createColumnReaders(readColumns, readTypes, streamReadersSystemMemoryContext, blockFactory);
+        columnReaders = createColumnReaders(readColumns, readTypes, readLayouts, streamReadersSystemMemoryContext, blockFactory);
         currentBytesPerCell = new long[columnReaders.length];
         maxBytesPerCell = new long[columnReaders.length];
         nextBatchSize = initialBatchSize;
@@ -260,7 +265,7 @@ public class OrcRecordReader
     @VisibleForTesting
     static OrcDataSource wrapWithCacheIfTinyStripes(OrcDataSource dataSource, List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
     {
-        if (dataSource instanceof CachingOrcDataSource) {
+        if (dataSource instanceof MemoryOrcDataSource || dataSource instanceof CachingOrcDataSource) {
             return dataSource;
         }
         for (StripeInformation stripe : stripes) {
@@ -507,15 +512,15 @@ public class OrcRecordReader
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
             ColumnMetadata<ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
             ZoneId fileTimeZone = stripe.getFileTimeZone();
-            ZoneId storageTimeZone = stripe.getStorageTimeZone();
             for (ColumnReader column : columnReaders) {
                 if (column != null) {
-                    column.startStripe(fileTimeZone, storageTimeZone, dictionaryStreamSources, columnEncodings);
+                    column.startStripe(fileTimeZone, dictionaryStreamSources, columnEncodings);
                 }
             }
 
             rowGroups = stripe.getRowGroups().iterator();
         }
+        orcDataSourceMemoryUsage.setBytes(orcDataSource.getRetainedSize());
     }
 
     private void validateWrite(Predicate<OrcWriteValidation> test, String messageFormat, Object... args)
@@ -542,19 +547,20 @@ public class OrcRecordReader
         }
     }
 
-    private ColumnReader[] createColumnReaders(
+    private static ColumnReader[] createColumnReaders(
             List<OrcColumn> columns,
             List<Type> readTypes,
+            List<OrcReader.ProjectedLayout> readLayouts,
             AggregatedMemoryContext systemMemoryContext,
             OrcBlockFactory blockFactory)
             throws OrcCorruptionException
     {
         ColumnReader[] columnReaders = new ColumnReader[columns.size()];
-        for (int i = 0; i < columns.size(); i++) {
-            int columnIndex = i;
+        for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
             Type readType = readTypes.get(columnIndex);
             OrcColumn column = columns.get(columnIndex);
-            columnReaders[columnIndex] = createColumnReader(readType, column, systemMemoryContext, blockFactory);
+            OrcReader.ProjectedLayout projectedLayout = readLayouts.get(columnIndex);
+            columnReaders[columnIndex] = createColumnReader(readType, column, projectedLayout, systemMemoryContext, blockFactory);
         }
         return columnReaders;
     }

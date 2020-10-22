@@ -21,6 +21,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.Type;
 
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAccessor;
 import java.util.Set;
@@ -29,12 +30,15 @@ import java.util.concurrent.TimeUnit;
 import static io.prestosql.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static io.prestosql.decoder.json.JsonRowDecoderFactory.throwUnsupportedColumnType;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_DATE;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
@@ -43,6 +47,7 @@ import static java.time.format.DateTimeFormatter.ISO_OFFSET_TIME;
 import static java.time.format.DateTimeFormatter.ISO_TIME;
 import static java.time.temporal.ChronoField.EPOCH_DAY;
 import static java.time.temporal.ChronoField.INSTANT_SECONDS;
+import static java.time.temporal.ChronoField.MICRO_OF_DAY;
 import static java.time.temporal.ChronoField.MILLI_OF_DAY;
 import static java.time.temporal.ChronoField.MILLI_OF_SECOND;
 import static java.util.Objects.requireNonNull;
@@ -55,7 +60,7 @@ import static java.util.Objects.requireNonNull;
 public class ISO8601JsonFieldDecoder
         implements JsonFieldDecoder
 {
-    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE);
+    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP_MILLIS, TIMESTAMP_WITH_TIME_ZONE);
 
     private final DecoderColumnHandle columnHandle;
 
@@ -103,24 +108,30 @@ public class ISO8601JsonFieldDecoder
 
             try {
                 String textValue = value.asText();
-                if (columnType == TIMESTAMP) {
+                if (columnType.equals(TIMESTAMP_MILLIS)) {
                     // Equivalent to: ISO_DATE_TIME.parse(textValue, LocalDateTime::from).toInstant(UTC).toEpochMilli();
-                    TemporalAccessor parseResult = ISO_DATE_TIME.parse(textValue);
-                    return TimeUnit.DAYS.toMillis(parseResult.getLong(EPOCH_DAY)) + parseResult.getLong(MILLI_OF_DAY);
+                    try {
+                        TemporalAccessor parseResult = ISO_OFFSET_DATE_TIME.parse(textValue);
+                        return TimeUnit.DAYS.toMicros(parseResult.getLong(EPOCH_DAY)) + parseResult.getLong(MICRO_OF_DAY);
+                    }
+                    catch (DateTimeParseException e) {
+                        TemporalAccessor parseResult = ISO_DATE_TIME.parse(textValue);
+                        return TimeUnit.DAYS.toMicros(parseResult.getLong(EPOCH_DAY)) + parseResult.getLong(MICRO_OF_DAY);
+                    }
                 }
-                if (columnType == TIMESTAMP_WITH_TIME_ZONE) {
+                if (columnType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
                     // Equivalent to:
                     // ZonedDateTime dateTime = ISO_OFFSET_DATE_TIME.parse(textValue, ZonedDateTime::from);
                     // packDateTimeWithZone(dateTime.toInstant().toEpochMilli(), getTimeZoneKey(dateTime.getZone().getId()));
                     TemporalAccessor parseResult = ISO_OFFSET_DATE_TIME.parse(textValue);
                     return packDateTimeWithZone(parseResult.getLong(INSTANT_SECONDS) * 1000 + parseResult.getLong(MILLI_OF_SECOND), getTimeZoneKey(ZoneId.from(parseResult).getId()));
                 }
-                if (columnType == TIME) {
-                    return ISO_TIME.parse(textValue).getLong(MILLI_OF_DAY);
+                if (columnType.equals(TIME)) {
+                    return ISO_TIME.parse(textValue).getLong(MILLI_OF_DAY) * PICOSECONDS_PER_MILLISECOND;
                 }
-                if (columnType == TIME_WITH_TIME_ZONE) {
+                if (columnType.equals(TIME_WITH_TIME_ZONE)) {
                     TemporalAccessor parseResult = ISO_OFFSET_TIME.parse(textValue);
-                    return packDateTimeWithZone(parseResult.get(MILLI_OF_DAY), getTimeZoneKey(ZoneId.from(parseResult).getId()));
+                    return packTimeWithTimeZone((long) (parseResult.get(MILLI_OF_DAY)) * NANOSECONDS_PER_MILLISECOND, ZoneOffset.from(parseResult).getTotalSeconds() / 60);
                 }
                 if (columnType == DATE) {
                     return ISO_DATE.parse(textValue).getLong(EPOCH_DAY);

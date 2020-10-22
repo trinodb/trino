@@ -28,18 +28,15 @@ It has a number of advantages over using the previous export-based read flow
 that should generally lead to better read performance:
 
 **Direct Streaming**
-
     It does not leave any temporary files in Google Cloud Storage. Rows are read
     directly from BigQuery servers using an Avro wire format.
 
 **Column Filtering**
-
     The new API allows column filtering to only read the data you are interested in.
     `Backed by a columnar datastore <https://cloud.google.com/blog/big-data/2016/04/inside-capacitor-bigquerys-next-generation-columnar-storage-format>`_,
     it can efficiently stream data without reading all columns.
 
 **Dynamic Sharding**
-
     The API rebalances records between readers until they all complete. This means
     that all Map phases will finish nearly concurrently. See this blog article on
     `how dynamic sharding is similarly used in Google Cloud Dataflow
@@ -62,7 +59,7 @@ Authentication
 
 * Use a service account JSON key and ``GOOGLE_APPLICATION_CREDENTIALS`` as
   described `here <https://cloud.google.com/docs/authentication/getting-started>`_.
-* Set ``bigquery.credentials`` in the catalog properties file.
+* Set ``bigquery.credentials-key`` in the catalog properties file.
   It should contain the contents of the JSON file, encoded using base64.
 * Set ``bigquery.credentials-file`` in the catalog properties file.
   It should point to the location of the JSON file.

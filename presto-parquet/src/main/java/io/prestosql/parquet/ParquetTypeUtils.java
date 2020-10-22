@@ -22,6 +22,7 @@ import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.DecimalMetadata;
+import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 
 import java.util.Arrays;
@@ -165,14 +166,14 @@ public final class ParquetTypeUtils
         }
     }
 
-    public static org.apache.parquet.schema.Type getParquetTypeByName(String columnName, MessageType messageType)
+    public static org.apache.parquet.schema.Type getParquetTypeByName(String columnName, GroupType groupType)
     {
-        if (messageType.containsField(columnName)) {
-            return messageType.getType(columnName);
+        if (groupType.containsField(columnName)) {
+            return groupType.getType(columnName);
         }
         // parquet is case-sensitive, but hive is not. all hive columns get converted to lowercase
         // check for direct match above but if no match found, try case-insensitive match
-        for (org.apache.parquet.schema.Type type : messageType.getFields()) {
+        for (org.apache.parquet.schema.Type type : groupType.getFields()) {
             if (type.getName().equalsIgnoreCase(columnName)) {
                 return type;
             }

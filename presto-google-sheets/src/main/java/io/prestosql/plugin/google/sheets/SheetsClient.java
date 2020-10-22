@@ -91,7 +91,8 @@ public class SheetsClient
         long maxCacheSize = config.getSheetsDataMaxCacheSize();
 
         this.tableSheetMappingCache = newCacheBuilder(expiresAfterWriteMillis, maxCacheSize)
-                .build(new CacheLoader<String, Optional<String>>() {
+                .build(new CacheLoader<>()
+                {
                     @Override
                     public Optional<String> load(String tableName)
                     {
@@ -154,7 +155,7 @@ public class SheetsClient
     {
         try {
             Optional<String> sheetExpression = tableSheetMappingCache.getUnchecked(tableName);
-            if (!sheetExpression.isPresent()) {
+            if (sheetExpression.isEmpty()) {
                 throw new PrestoException(SHEETS_UNKNOWN_TABLE_ERROR, "Sheet expression not found for table " + tableName);
             }
             return sheetDataCache.getUnchecked(sheetExpression.get());

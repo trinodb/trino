@@ -15,6 +15,7 @@ package io.prestosql.plugin.jdbc.credential.file;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.NotNull;
 
@@ -31,6 +32,7 @@ public class ConfigFileBasedCredentialProviderConfig
     }
 
     @NotNull
+    @FileExists
     public String getCredentialFile()
     {
         return credentialsFile;

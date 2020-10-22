@@ -19,6 +19,8 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.predicate.TupleDomain;
 
+import java.util.Objects;
+
 public class TpchTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
@@ -48,5 +50,26 @@ public class TpchTableLayoutHandle
     public String toString()
     {
         return table.toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        TpchTableLayoutHandle that = (TpchTableLayoutHandle) o;
+        return Objects.equals(table, that.table) &&
+                Objects.equals(predicate, that.predicate);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(table, predicate);
     }
 }

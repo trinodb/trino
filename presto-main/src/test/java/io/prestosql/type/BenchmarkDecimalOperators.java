@@ -73,22 +73,26 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.ZERO;
-import static java.util.stream.Collectors.toList;
 import static org.openjdk.jmh.annotations.Scope.Thread;
 
+/**
+ * This benchmark is known to produce non-deterministic results, because of the nature of JIT compiler.
+ * Using -Xbatch flag reduces the impact of this flaw while greatly increasing startup time.
+ */
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
-@Fork(3)
-@Warmup(iterations = 20, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 10, timeUnit = TimeUnit.MILLISECONDS)
+@Fork(value = 3, jvmArgsAppend = {
+        "-Xbatch",
+        "-server",
+})
+@Warmup(iterations = 30, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 50, timeUnit = TimeUnit.MILLISECONDS)
 public class BenchmarkDecimalOperators
 {
     private static final int PAGE_SIZE = 30000;
 
     private static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(10, 0);
     private static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(20, 0);
-
-    private static final SqlParser SQL_PARSER = new SqlParser();
 
     @State(Thread)
     public static class CastDoubleToDecimalBenchmarkState
@@ -110,7 +114,7 @@ public class BenchmarkDecimalOperators
                 expression = "CAST(d1 AS BIGINT)";
             }
             else {
-                setDoubleMaxValue(Math.pow(9, Integer.valueOf(precision) - SCALE));
+                setDoubleMaxValue(Math.pow(9, Integer.parseInt(precision) - SCALE));
                 expression = format("CAST(d1 AS DECIMAL(%s, %d))", precision, SCALE);
             }
             generateRandomInputPage();
@@ -144,7 +148,7 @@ public class BenchmarkDecimalOperators
         @Setup
         public void setup()
         {
-            addSymbol("v1", createDecimalType(Integer.valueOf(precision), SCALE));
+            addSymbol("v1", createDecimalType(Integer.parseInt(precision), SCALE));
 
             String expression = "CAST(v1 AS DOUBLE)";
             generateRandomInputPage();
@@ -178,7 +182,7 @@ public class BenchmarkDecimalOperators
         @Setup
         public void setup()
         {
-            addSymbol("v1", createDecimalType(Integer.valueOf(precision), SCALE));
+            addSymbol("v1", createDecimalType(Integer.parseInt(precision), SCALE));
 
             String expression = "CAST(v1 AS VARCHAR)";
             generateRandomInputPage();
@@ -210,7 +214,10 @@ public class BenchmarkDecimalOperators
                 "s1 + s2 + s3 + s4",
                 "l1 + l2",
                 "l1 + l2 + l3 + l4",
-                "s2 + l3 + l1 + s4"})
+                "s2 + l3 + l1 + s4",
+                "lz1 + lz2",
+                "lz1 + lz2 + lz3 + lz4",
+                "s2 + lz3 + lz1 + s4"})
         private String expression = "d1 + d2";
 
         @Setup
@@ -230,6 +237,11 @@ public class BenchmarkDecimalOperators
             addSymbol("l2", createDecimalType(25, 5));
             addSymbol("l3", createDecimalType(20, 6));
             addSymbol("l4", createDecimalType(25, 8));
+
+            addSymbol("lz1", createDecimalType(35, 0));
+            addSymbol("lz2", createDecimalType(25, 0));
+            addSymbol("lz3", createDecimalType(20, 0));
+            addSymbol("lz4", createDecimalType(25, 0));
 
             generateRandomInputPage();
             generateProcessor(expression);
@@ -582,7 +594,7 @@ public class BenchmarkDecimalOperators
             for (int i = 0; i < PAGE_SIZE; i++) {
                 Object[] values = types.stream()
                         .map(this::generateRandomValue)
-                        .collect(toList()).toArray();
+                        .toArray();
 
                 buildPagesBuilder.row(values);
             }

@@ -15,6 +15,7 @@ package io.prestosql.orc;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -38,10 +39,13 @@ import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -53,7 +57,11 @@ import static io.prestosql.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.prestosql.orc.metadata.PostScript.MAGIC;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toList;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcReader
 {
@@ -80,20 +88,43 @@ public class OrcReader
 
     private final Optional<OrcWriteValidation> writeValidation;
 
-    public OrcReader(OrcDataSource orcDataSource, OrcReaderOptions options)
+    public static Optional<OrcReader> createOrcReader(OrcDataSource orcDataSource, OrcReaderOptions options)
             throws IOException
     {
-        this(orcDataSource, options, Optional.empty());
+        return createOrcReader(orcDataSource, options, Optional.empty());
     }
 
-    private OrcReader(
+    private static Optional<OrcReader> createOrcReader(
             OrcDataSource orcDataSource,
             OrcReaderOptions options,
             Optional<OrcWriteValidation> writeValidation)
             throws IOException
     {
-        this.options = requireNonNull(options, "options is null");
         orcDataSource = wrapWithCacheIfTiny(orcDataSource, options.getTinyStripeThreshold());
+
+        // read the tail of the file, and check if the file is actually empty
+        long estimatedFileSize = orcDataSource.getEstimatedSize();
+        if (estimatedFileSize > 0 && estimatedFileSize <= MAGIC.length()) {
+            throw new OrcCorruptionException(orcDataSource.getId(), "Invalid file size %s", estimatedFileSize);
+        }
+
+        long expectedReadSize = min(estimatedFileSize, EXPECTED_FOOTER_SIZE);
+        Slice fileTail = orcDataSource.readTail(toIntExact(expectedReadSize));
+        if (fileTail.length() == 0) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new OrcReader(orcDataSource, options, writeValidation, fileTail));
+    }
+
+    private OrcReader(
+            OrcDataSource orcDataSource,
+            OrcReaderOptions options,
+            Optional<OrcWriteValidation> writeValidation,
+            Slice fileTail)
+            throws IOException
+    {
+        this.options = requireNonNull(options, "options is null");
         this.orcDataSource = orcDataSource;
         this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), new OrcMetadataReader());
 
@@ -107,32 +138,29 @@ public class OrcReader
         // variable: PostScript - contains length of footer and metadata
         // 1 byte: postScriptSize
 
-        // figure out the size of the file using the option or filesystem
-        long size = orcDataSource.getSize();
-        if (size <= MAGIC.length()) {
-            throw new OrcCorruptionException(orcDataSource.getId(), "Invalid file size %s", size);
-        }
-
-        // Read the tail of the file
-        int expectedBufferSize = toIntExact(min(size, EXPECTED_FOOTER_SIZE));
-        Slice buffer = orcDataSource.readFully(size - expectedBufferSize, expectedBufferSize);
-
         // get length of PostScript - last byte of the file
-        int postScriptSize = buffer.getUnsignedByte(buffer.length() - SIZE_OF_BYTE);
-        if (postScriptSize >= buffer.length()) {
+        int postScriptSize = fileTail.getUnsignedByte(fileTail.length() - SIZE_OF_BYTE);
+        if (postScriptSize >= fileTail.length()) {
             throw new OrcCorruptionException(orcDataSource.getId(), "Invalid postscript length %s", postScriptSize);
         }
 
         // decode the post script
         PostScript postScript;
         try {
-            postScript = metadataReader.readPostScript(buffer.slice(buffer.length() - SIZE_OF_BYTE - postScriptSize, postScriptSize).getInput());
+            postScript = metadataReader.readPostScript(fileTail.slice(fileTail.length() - SIZE_OF_BYTE - postScriptSize, postScriptSize).getInput());
         }
         catch (OrcCorruptionException e) {
             // check if this is an ORC file and not an RCFile or something else
-            if (!isValidHeaderMagic(orcDataSource)) {
-                throw new OrcCorruptionException(orcDataSource.getId(), "Not an ORC file");
+            try {
+                Slice headerMagic = orcDataSource.readFully(0, MAGIC.length());
+                if (!MAGIC.equals(headerMagic)) {
+                    throw new OrcCorruptionException(orcDataSource.getId(), "Not an ORC file");
+                }
             }
+            catch (IOException ignored) {
+                // throw original exception
+            }
+
             throw e;
         }
 
@@ -155,13 +183,13 @@ public class OrcReader
         // check if extra bytes need to be read
         Slice completeFooterSlice;
         int completeFooterSize = footerSize + metadataSize + postScriptSize + SIZE_OF_BYTE;
-        if (completeFooterSize > buffer.length()) {
+        if (completeFooterSize > fileTail.length()) {
             // initial read was not large enough, so just read again with the correct size
-            completeFooterSlice = orcDataSource.readFully(size - completeFooterSize, completeFooterSize);
+            completeFooterSlice = orcDataSource.readTail(completeFooterSize);
         }
         else {
-            // footer is already in the bytes in buffer, just adjust position, length
-            completeFooterSlice = buffer.slice(buffer.length() - completeFooterSize, completeFooterSize);
+            // footer is already in the bytes in fileTail, just adjust position, length
+            completeFooterSlice = fileTail.slice(fileTail.length() - completeFooterSize, completeFooterSize);
         }
 
         // read metadata
@@ -182,7 +210,7 @@ public class OrcReader
         this.rootColumn = createOrcColumn("", "", new OrcColumnId(0), footer.getTypes(), orcDataSource.getId());
 
         validateWrite(validation -> validation.getColumnNames().equals(getColumnNames()), "Unexpected column names");
-        validateWrite(validation -> validation.getRowGroupMaxRowCount() == footer.getRowsInRowGroup(), "Unexpected rows in group");
+        validateWrite(validation -> validation.getRowGroupMaxRowCount() == footer.getRowsInRowGroup().orElse(0), "Unexpected rows in group");
         if (writeValidation.isPresent()) {
             writeValidation.get().validateMetadata(orcDataSource.getId(), footer.getUserMetadata());
             writeValidation.get().validateFileStatistics(orcDataSource.getId(), footer.getFileStats());
@@ -224,7 +252,7 @@ public class OrcReader
             List<OrcColumn> readColumns,
             List<Type> readTypes,
             OrcPredicate predicate,
-            DateTimeZone hiveStorageTimeZone,
+            DateTimeZone legacyFileTimeZone,
             AggregatedMemoryContext systemMemoryUsage,
             int initialBatchSize,
             Function<Exception, RuntimeException> exceptionTransform)
@@ -235,8 +263,8 @@ public class OrcReader
                 readTypes,
                 predicate,
                 0,
-                orcDataSource.getSize(),
-                hiveStorageTimeZone,
+                orcDataSource.getEstimatedSize(),
+                legacyFileTimeZone,
                 systemMemoryUsage,
                 initialBatchSize,
                 exceptionTransform);
@@ -248,7 +276,33 @@ public class OrcReader
             OrcPredicate predicate,
             long offset,
             long length,
-            DateTimeZone hiveStorageTimeZone,
+            DateTimeZone legacyFileTimeZone,
+            AggregatedMemoryContext systemMemoryUsage,
+            int initialBatchSize,
+            Function<Exception, RuntimeException> exceptionTransform)
+            throws OrcCorruptionException
+    {
+        return createRecordReader(
+                readColumns,
+                readTypes,
+                Collections.nCopies(readColumns.size(), ProjectedLayout.fullyProjectedLayout()),
+                predicate,
+                offset,
+                length,
+                legacyFileTimeZone,
+                systemMemoryUsage,
+                initialBatchSize,
+                exceptionTransform);
+    }
+
+    public OrcRecordReader createRecordReader(
+            List<OrcColumn> readColumns,
+            List<Type> readTypes,
+            List<ProjectedLayout> readLayouts,
+            OrcPredicate predicate,
+            long offset,
+            long length,
+            DateTimeZone legacyFileTimeZone,
             AggregatedMemoryContext systemMemoryUsage,
             int initialBatchSize,
             Function<Exception, RuntimeException> exceptionTransform)
@@ -257,6 +311,7 @@ public class OrcReader
         return new OrcRecordReader(
                 requireNonNull(readColumns, "readColumns is null"),
                 requireNonNull(readTypes, "readTypes is null"),
+                requireNonNull(readLayouts, "readLayouts is null"),
                 requireNonNull(predicate, "predicate is null"),
                 footer.getNumberOfRows(),
                 footer.getStripes(),
@@ -268,7 +323,7 @@ public class OrcReader
                 footer.getTypes(),
                 decompressor,
                 footer.getRowsInRowGroup(),
-                requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null"),
+                requireNonNull(legacyFileTimeZone, "legacyFileTimeZone is null"),
                 hiveWriterVersion,
                 metadataReader,
                 options,
@@ -280,15 +335,17 @@ public class OrcReader
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
+            throws IOException
     {
-        if (dataSource instanceof CachingOrcDataSource) {
+        if (dataSource instanceof MemoryOrcDataSource || dataSource instanceof CachingOrcDataSource) {
             return dataSource;
         }
-        if (dataSource.getSize() > maxCacheSize.toBytes()) {
+        if (dataSource.getEstimatedSize() > maxCacheSize.toBytes()) {
             return dataSource;
         }
-        DiskRange diskRange = new DiskRange(0, toIntExact(dataSource.getSize()));
-        return new CachingOrcDataSource(dataSource, desiredOffset -> diskRange);
+        Slice data = dataSource.readTail(toIntExact(dataSource.getEstimatedSize()));
+        dataSource.close();
+        return new MemoryOrcDataSource(dataSource.getId(), data);
     }
 
     private static OrcColumn createOrcColumn(
@@ -320,17 +377,17 @@ public class OrcReader
                     createOrcColumn(path, "key", orcType.getFieldTypeIndex(0), types, orcDataSourceId),
                     createOrcColumn(path, "value", orcType.getFieldTypeIndex(1), types, orcDataSourceId));
         }
+        else if (orcType.getOrcTypeKind() == OrcTypeKind.UNION) {
+            nestedColumns = IntStream.range(0, orcType.getFieldCount())
+                    .mapToObj(fieldId -> createOrcColumn(
+                            path,
+                            "field" + fieldId,
+                            orcType.getFieldTypeIndex(fieldId),
+                            types,
+                            orcDataSourceId))
+                    .collect(toImmutableList());
+        }
         return new OrcColumn(path, columnId, fieldName, orcType.getOrcTypeKind(), orcDataSourceId, nestedColumns, orcType.getAttributes());
-    }
-
-    /**
-     * Does the file start with the ORC magic bytes?
-     */
-    private static boolean isValidHeaderMagic(OrcDataSource source)
-            throws IOException
-    {
-        Slice headerMagic = source.readFully(0, MAGIC.length());
-        return MAGIC.equals(headerMagic);
     }
 
     /**
@@ -368,17 +425,17 @@ public class OrcReader
     static void validateFile(
             OrcWriteValidation writeValidation,
             OrcDataSource input,
-            List<Type> readTypes,
-            DateTimeZone hiveStorageTimeZone)
+            List<Type> readTypes)
             throws OrcCorruptionException
     {
         try {
-            OrcReader orcReader = new OrcReader(input, new OrcReaderOptions(), Optional.of(writeValidation));
+            OrcReader orcReader = createOrcReader(input, new OrcReaderOptions(), Optional.of(writeValidation))
+                    .orElseThrow(() -> new OrcCorruptionException(input.getId(), "File is empty"));
             try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     readTypes,
                     OrcPredicate.TRUE,
-                    hiveStorageTimeZone,
+                    UTC,
                     newSimpleAggregatedMemoryContext(),
                     INITIAL_BATCH_SIZE,
                     exception -> {
@@ -393,6 +450,52 @@ public class OrcReader
         }
         catch (IOException e) {
             throw new OrcCorruptionException(e, input.getId(), "Validation failed");
+        }
+    }
+
+    public static class ProjectedLayout
+    {
+        private final Optional<Map<String, ProjectedLayout>> fieldLayouts;
+
+        private ProjectedLayout(Optional<Map<String, ProjectedLayout>> fieldLayouts)
+        {
+            this.fieldLayouts = requireNonNull(fieldLayouts, "fieldLayouts is null");
+        }
+
+        public ProjectedLayout getFieldLayout(String name)
+        {
+            if (fieldLayouts.isPresent()) {
+                return fieldLayouts.get().get(name);
+            }
+
+            return fullyProjectedLayout();
+        }
+
+        public static ProjectedLayout fullyProjectedLayout()
+        {
+            return new ProjectedLayout(Optional.empty());
+        }
+
+        public static ProjectedLayout createProjectedLayout(OrcColumn root, List<List<String>> dereferences)
+        {
+            if (dereferences.stream().map(List::size).anyMatch(Predicate.isEqual(0))) {
+                return fullyProjectedLayout();
+            }
+
+            Map<String, List<List<String>>> dereferencesByField = dereferences.stream().collect(
+                    Collectors.groupingBy(
+                            sequence -> sequence.get(0),
+                            mapping(sequence -> sequence.subList(1, sequence.size()), toList())));
+
+            ImmutableMap.Builder<String, ProjectedLayout> fieldLayouts = ImmutableMap.builder();
+            for (OrcColumn nestedColumn : root.getNestedColumns()) {
+                String fieldName = nestedColumn.getColumnName().toLowerCase(ENGLISH);
+                if (dereferencesByField.containsKey(fieldName)) {
+                    fieldLayouts.put(fieldName, createProjectedLayout(nestedColumn, dereferencesByField.get(fieldName)));
+                }
+            }
+
+            return new ProjectedLayout(Optional.of(fieldLayouts.build()));
         }
     }
 }

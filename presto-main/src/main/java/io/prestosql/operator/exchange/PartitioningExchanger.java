@@ -20,8 +20,8 @@ import io.prestosql.operator.HashGenerator;
 import io.prestosql.operator.InterpretedHashGenerator;
 import io.prestosql.operator.PrecomputedHashGenerator;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
@@ -45,7 +45,8 @@ class PartitioningExchanger
             LocalExchangeMemoryManager memoryManager,
             List<? extends Type> types,
             List<Integer> partitionChannels,
-            Optional<Integer> hashChannel)
+            Optional<Integer> hashChannel,
+            BlockTypeOperators blockTypeOperators)
     {
         this.buffers = ImmutableList.copyOf(requireNonNull(partitions, "partitions is null"));
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
@@ -58,7 +59,7 @@ class PartitioningExchanger
             List<Type> partitionChannelTypes = partitionChannels.stream()
                     .map(types::get)
                     .collect(toImmutableList());
-            hashGenerator = new InterpretedHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels));
+            hashGenerator = new InterpretedHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels), blockTypeOperators);
         }
         partitionGenerator = new LocalPartitionGenerator(hashGenerator, buffers.size());
 
@@ -83,15 +84,10 @@ class PartitioningExchanger
         }
 
         // build a page for each partition
-        Block[] outputBlocks = new Block[page.getChannelCount()];
         for (int partition = 0; partition < buffers.size(); partition++) {
             IntArrayList positions = partitionAssignments[partition];
             if (!positions.isEmpty()) {
-                for (int i = 0; i < page.getChannelCount(); i++) {
-                    outputBlocks[i] = page.getBlock(i).copyPositions(positions.elements(), 0, positions.size());
-                }
-
-                Page pageSplit = new Page(positions.size(), outputBlocks);
+                Page pageSplit = page.copyPositions(positions.elements(), 0, positions.size());
                 memoryManager.updateMemoryUsage(pageSplit.getRetainedSizeInBytes());
                 buffers.get(partition).accept(new PageReference(pageSplit, 1, () -> memoryManager.updateMemoryUsage(-pageSplit.getRetainedSizeInBytes())));
             }

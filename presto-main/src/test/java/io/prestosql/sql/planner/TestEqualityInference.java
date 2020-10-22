@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +51,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -340,12 +340,12 @@ public class TestEqualityInference
         }
     }
 
-    private static Predicate<Expression> matchesSymbolScope(final Predicate<Symbol> symbolScope)
+    private static Predicate<Expression> matchesSymbolScope(Predicate<Symbol> symbolScope)
     {
         return expression -> Iterables.all(SymbolsExtractor.extractUnique(expression), symbolScope);
     }
 
-    private static Predicate<Expression> matchesStraddlingScope(final Predicate<Symbol> symbolScope)
+    private static Predicate<Expression> matchesStraddlingScope(Predicate<Symbol> symbolScope)
     {
         return expression -> {
             Set<Symbol> symbols = SymbolsExtractor.extractUnique(expression);
@@ -417,7 +417,7 @@ public class TestEqualityInference
 
     private static Predicate<Symbol> matchesSymbols(Collection<String> symbols)
     {
-        final Set<Symbol> symbolSet = symbols.stream()
+        Set<Symbol> symbolSet = symbols.stream()
                 .map(Symbol::new)
                 .collect(toImmutableSet());
 
@@ -429,7 +429,7 @@ public class TestEqualityInference
         return symbolBeginsWith(Arrays.asList(prefixes));
     }
 
-    private static Predicate<Symbol> symbolBeginsWith(final Iterable<String> prefixes)
+    private static Predicate<Symbol> symbolBeginsWith(Iterable<String> prefixes)
     {
         return symbol -> {
             for (String prefix : prefixes) {
@@ -452,9 +452,9 @@ public class TestEqualityInference
 
     private static Set<Expression> equalityAsSet(Expression expression)
     {
-        Preconditions.checkArgument(expression instanceof ComparisonExpression);
+        checkArgument(expression instanceof ComparisonExpression);
         ComparisonExpression comparisonExpression = (ComparisonExpression) expression;
-        Preconditions.checkArgument(comparisonExpression.getOperator() == EQUAL);
+        checkArgument(comparisonExpression.getOperator() == EQUAL);
         return ImmutableSet.of(comparisonExpression.getLeft(), comparisonExpression.getRight());
     }
 

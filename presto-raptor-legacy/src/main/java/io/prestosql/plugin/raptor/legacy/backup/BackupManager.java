@@ -80,7 +80,7 @@ public class BackupManager
         requireNonNull(uuid, "uuid is null");
         requireNonNull(source, "source is null");
 
-        if (!backupStore.isPresent()) {
+        if (backupStore.isEmpty()) {
             return completedFuture(null);
         }
 

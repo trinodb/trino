@@ -64,7 +64,7 @@ public class QuerySessionSupplier
         this.defaultCatalog = requireNonNull(config.getDefaultCatalog(), "defaultCatalog is null");
         this.defaultSchema = requireNonNull(config.getDefaultSchema(), "defaultSchema is null");
 
-        checkArgument(defaultCatalog.isPresent() || !defaultSchema.isPresent(), "Default schema cannot be set if catalog is not set");
+        checkArgument(defaultCatalog.isPresent() || defaultSchema.isEmpty(), "Default schema cannot be set if catalog is not set");
     }
 
     @Override

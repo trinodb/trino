@@ -15,7 +15,7 @@ package io.prestosql.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -30,18 +30,23 @@ import static java.util.Objects.requireNonNull;
 public class PartitionFilter
 {
     private final HiveTableName hiveTableName;
-    private final List<String> parts;
+    private final List<String> partitionColumnNames;
+    private final TupleDomain<String> partitionKeysFilter;
 
     @JsonCreator
-    public PartitionFilter(@JsonProperty("hiveTableName") HiveTableName hiveTableName, @JsonProperty("parts") List<String> parts)
+    public PartitionFilter(
+            @JsonProperty("hiveTableName") HiveTableName hiveTableName,
+            @JsonProperty("partitionColumnNames") List<String> partitionColumnNames,
+            @JsonProperty("partitionKeysFilter") TupleDomain<String> partitionKeysFilter)
     {
         this.hiveTableName = requireNonNull(hiveTableName, "hiveTableName is null");
-        this.parts = ImmutableList.copyOf(requireNonNull(parts, "parts is null"));
+        this.partitionColumnNames = partitionColumnNames;
+        this.partitionKeysFilter = TupleDomain.fromColumnDomains(requireNonNull(partitionKeysFilter.getColumnDomains(), "parts is null"));
     }
 
-    public static PartitionFilter partitionFilter(String databaseName, String tableName, List<String> parts)
+    public static PartitionFilter partitionFilter(String databaseName, String tableName, List<String> partitionColumnNames, TupleDomain<String> partitionKeysFilter)
     {
-        return new PartitionFilter(hiveTableName(databaseName, tableName), parts);
+        return new PartitionFilter(hiveTableName(databaseName, tableName), partitionColumnNames, partitionKeysFilter);
     }
 
     @JsonProperty
@@ -51,9 +56,15 @@ public class PartitionFilter
     }
 
     @JsonProperty
-    public List<String> getParts()
+    public TupleDomain<String> getPartitionKeysFilter()
     {
-        return parts;
+        return partitionKeysFilter;
+    }
+
+    @JsonProperty
+    public List<String> getPartitionColumnNames()
+    {
+        return partitionColumnNames;
     }
 
     @Override
@@ -61,7 +72,8 @@ public class PartitionFilter
     {
         return toStringHelper(this)
                 .add("hiveTableName", hiveTableName)
-                .add("parts", parts)
+                .add("partitionColumnNames", partitionColumnNames)
+                .add("partitionKeysFilter", partitionKeysFilter)
                 .toString();
     }
 
@@ -77,12 +89,13 @@ public class PartitionFilter
 
         PartitionFilter other = (PartitionFilter) o;
         return Objects.equals(hiveTableName, other.hiveTableName) &&
-                Objects.equals(parts, other.parts);
+                Objects.equals(partitionColumnNames, other.partitionColumnNames) &&
+                Objects.equals(partitionKeysFilter, other.partitionKeysFilter);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(hiveTableName, parts);
+        return Objects.hash(hiveTableName, partitionColumnNames, partitionKeysFilter);
     }
 }

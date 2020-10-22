@@ -40,18 +40,29 @@ public class SmallintDecoder
         Object value = getter.get();
         if (value == null) {
             output.appendNull();
+            return;
         }
-        else if (value instanceof Number) {
-            long decoded = ((Number) value).longValue();
 
-            if (decoded < Short.MIN_VALUE || decoded > Short.MAX_VALUE) {
-                throw new PrestoException(TYPE_MISMATCH, format("Value out of range for field '%s' of type SMALLINT: %s", path, decoded));
+        long decoded;
+        if (value instanceof Number) {
+            decoded = ((Number) value).longValue();
+        }
+        else if (value instanceof String) {
+            try {
+                decoded = Long.parseLong((String) value);
             }
-
-            SMALLINT.writeLong(output, decoded);
+            catch (NumberFormatException e) {
+                throw new PrestoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as SMALLINT: %s", path, value));
+            }
         }
         else {
             throw new PrestoException(TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type SMALLINT: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
+
+        if (decoded < Short.MIN_VALUE || decoded > Short.MAX_VALUE) {
+            throw new PrestoException(TYPE_MISMATCH, format("Value out of range for field '%s' of type SMALLINT: %s", path, decoded));
+        }
+
+        SMALLINT.writeLong(output, decoded);
     }
 }

@@ -22,7 +22,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class Slug
 {
-    public enum Context {
+    public enum Context
+    {
         QUEUED_QUERY,
         EXECUTING_QUERY,
     }

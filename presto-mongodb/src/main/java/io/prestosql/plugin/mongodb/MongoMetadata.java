@@ -138,7 +138,7 @@ public class MongoMetadata
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        if (!prefix.getTable().isPresent()) {
+        if (prefix.getTable().isEmpty()) {
             return listTables(session, prefix.getSchema());
         }
         return ImmutableList.of(prefix.toSchemaTableName());
@@ -168,6 +168,12 @@ public class MongoMetadata
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    {
+        mongoSession.addColumn(((MongoTableHandle) tableHandle).getSchemaTableName(), column);
     }
 
     @Override
@@ -227,7 +233,7 @@ public class MongoMetadata
 
         for (MongoIndex index : tableInfo.getIndexes()) {
             for (MongodbIndexKey key : index.getKeys()) {
-                if (!key.getSortOrder().isPresent()) {
+                if (key.getSortOrder().isEmpty()) {
                     continue;
                 }
                 if (columns.get(key.getName()) != null) {

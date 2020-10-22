@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
 import io.prestosql.plugin.hive.HdfsConfig;
@@ -39,6 +40,7 @@ import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
@@ -49,6 +51,7 @@ import io.prestosql.spi.connector.ColumnNotFoundException;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
@@ -59,6 +62,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 
+import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
@@ -82,6 +86,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -90,14 +95,16 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static io.prestosql.plugin.hive.HiveMetadata.DELTA_LAKE_PROVIDER;
+import static io.prestosql.plugin.hive.HiveMetadata.SPARK_TABLE_PROVIDER_KEY;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartitionName;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.partitionKeyFilterToStringList;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
-import static io.prestosql.plugin.hive.util.HiveUtil.PRESTO_VIEW_FLAG;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -127,6 +134,8 @@ public class FileHiveMetastore
     private final HdfsEnvironment hdfsEnvironment;
     private final Path catalogDirectory;
     private final HdfsContext hdfsContext;
+    private final boolean assumeCanonicalPartitionKeys;
+    private final boolean hideDeltaLakeTables;
     private final FileSystem metadataFileSystem;
 
     private final JsonCodec<DatabaseMetadata> databaseCodec = JsonCodec.jsonCodec(DatabaseMetadata.class);
@@ -142,20 +151,24 @@ public class FileHiveMetastore
         HdfsConfig hdfsConfig = new HdfsConfig();
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
-        return new FileHiveMetastore(hdfsEnvironment, catalogDirectory.toURI().toString(), "test");
+        return new FileHiveMetastore(
+                hdfsEnvironment,
+                new MetastoreConfig(),
+                new FileHiveMetastoreConfig()
+                        .setCatalogDirectory(catalogDirectory.toURI().toString())
+                        .setMetastoreUser("test"));
     }
 
     @Inject
-    public FileHiveMetastore(HdfsEnvironment hdfsEnvironment, FileHiveMetastoreConfig config)
-    {
-        this(hdfsEnvironment, config.getCatalogDirectory(), config.getMetastoreUser());
-    }
-
-    public FileHiveMetastore(HdfsEnvironment hdfsEnvironment, String catalogDirectory, String metastoreUser)
+    public FileHiveMetastore(HdfsEnvironment hdfsEnvironment, MetastoreConfig metastoreConfig, FileHiveMetastoreConfig config)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.catalogDirectory = new Path(requireNonNull(catalogDirectory, "baseDirectory is null"));
-        this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(metastoreUser));
+        requireNonNull(metastoreConfig, "metastoreConfig is null");
+        requireNonNull(config, "config is null");
+        this.catalogDirectory = new Path(requireNonNull(config.getCatalogDirectory(), "catalogDirectory is null"));
+        this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(config.getMetastoreUser()));
+        this.assumeCanonicalPartitionKeys = config.isAssumeCanonicalPartitionKeys();
+        this.hideDeltaLakeTables = metastoreConfig.isHideDeltaLakeTables();
         try {
             metadataFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, this.catalogDirectory);
         }
@@ -403,10 +416,37 @@ public class FileHiveMetastore
     @Override
     public synchronized List<String> getAllTables(String databaseName)
     {
+        return listAllTables(databaseName).stream()
+                .filter(hideDeltaLakeTables
+                        ? Predicate.not(ImmutableSet.copyOf(getTablesWithParameter(databaseName, SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER))::contains)
+                        : tableName -> true)
+                .collect(toImmutableList());
+    }
+
+    @Override
+    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    {
+        requireNonNull(parameterKey, "parameterKey is null");
+        requireNonNull(parameterValue, "parameterValue is null");
+
+        List<String> tables = listAllTables(databaseName);
+
+        return tables.stream()
+                .map(tableName -> getTable(databaseName, tableName))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .filter(table -> parameterValue.equals(table.getParameters().get(parameterKey)))
+                .map(Table::getTableName)
+                .collect(toImmutableList());
+    }
+
+    @GuardedBy("this")
+    private List<String> listAllTables(String databaseName)
+    {
         requireNonNull(databaseName, "databaseName is null");
 
         Optional<Database> database = getDatabase(databaseName);
-        if (!database.isPresent()) {
+        if (database.isEmpty()) {
             return ImmutableList.of();
         }
 
@@ -418,26 +458,15 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public synchronized List<String> getAllViews(String databaseName)
     {
-        requireNonNull(parameterKey, "parameterKey is null");
-        requireNonNull(parameterValue, "parameterValue is null");
-
-        List<String> tables = getAllTables(databaseName);
-
-        return tables.stream()
+        return getAllTables(databaseName).stream()
                 .map(tableName -> getTable(databaseName, tableName))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .filter(table -> parameterValue.equals(table.getParameters().get(parameterKey)))
+                .filter(table -> TableType.valueOf(table.getTableType()).equals(VIRTUAL_VIEW))
                 .map(Table::getTableName)
                 .collect(toImmutableList());
-    }
-
-    @Override
-    public synchronized List<String> getAllViews(String databaseName)
-    {
-        return getTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true");
     }
 
     @Override
@@ -530,6 +559,29 @@ public class FileHiveMetastore
     }
 
     @Override
+    public synchronized void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
+    {
+        alterTable(databaseName, tableName, oldTable -> {
+            if (!oldTable.getColumn(columnName).isPresent()) {
+                SchemaTableName name = new SchemaTableName(databaseName, tableName);
+                throw new ColumnNotFoundException(name, columnName);
+            }
+
+            ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
+            for (Column fieldSchema : oldTable.getDataColumns()) {
+                if (fieldSchema.getName().equals(columnName)) {
+                    newDataColumns.add(new Column(columnName, fieldSchema.getType(), comment));
+                }
+                else {
+                    newDataColumns.add(fieldSchema);
+                }
+            }
+
+            return oldTable.withDataColumns(newDataColumns.build());
+        });
+    }
+
+    @Override
     public synchronized void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         alterTable(databaseName, tableName, oldTable -> {
@@ -551,7 +603,7 @@ public class FileHiveMetastore
             if (oldTable.getColumn(newColumnName).isPresent()) {
                 throw new PrestoException(ALREADY_EXISTS, "Column already exists: " + newColumnName);
             }
-            if (!oldTable.getColumn(oldColumnName).isPresent()) {
+            if (oldTable.getColumn(oldColumnName).isEmpty()) {
                 SchemaTableName name = new SchemaTableName(databaseName, tableName);
                 throw new ColumnNotFoundException(name, oldColumnName);
             }
@@ -580,7 +632,7 @@ public class FileHiveMetastore
     {
         alterTable(databaseName, tableName, oldTable -> {
             verifyCanDropColumn(this, identity, databaseName, tableName, columnName);
-            if (!oldTable.getColumn(columnName).isPresent()) {
+            if (oldTable.getColumn(columnName).isEmpty()) {
                 SchemaTableName name = new SchemaTableName(databaseName, tableName);
                 throw new ColumnNotFoundException(name, columnName);
             }
@@ -704,7 +756,7 @@ public class FileHiveMetastore
         requireNonNull(partitionValues, "partitionValues is null");
 
         Optional<Table> tableReference = getTable(identity, databaseName, tableName);
-        if (!tableReference.isPresent()) {
+        if (tableReference.isEmpty()) {
             return;
         }
         Table table = tableReference.get();
@@ -815,6 +867,14 @@ public class FileHiveMetastore
     }
 
     @Override
+    public synchronized Set<RoleGrant> listGrantedPrincipals(String role)
+    {
+        return listRoleGrantsSanitized().stream()
+                .filter(grant -> grant.getRoleName().equals(role))
+                .collect(toImmutableSet());
+    }
+
+    @Override
     public synchronized Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         ImmutableSet.Builder<RoleGrant> result = ImmutableSet.builder();
@@ -873,15 +933,14 @@ public class FileHiveMetastore
         writeFile("roleGrants", getRoleGrantsFile(), roleGrantsCodec, ImmutableList.copyOf(roleGrants), true);
     }
 
-    @Override
-    public synchronized Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName)
+    private synchronized Optional<List<String>> getAllPartitionNames(HiveIdentity identity, String databaseName, String tableName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(databaseName, "databaseName is null");
         requireNonNull(tableName, "tableName is null");
 
         Optional<Table> tableReference = getTable(identity, databaseName, tableName);
-        if (!tableReference.isPresent()) {
+        if (tableReference.isEmpty()) {
             return Optional.empty();
         }
         Table table = tableReference.get();
@@ -959,11 +1018,24 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Optional<List<String>> getPartitionNamesByParts(HiveIdentity identity, String databaseName, String tableName, List<String> parts)
+    public Optional<List<String>> getPartitionNamesByFilter(
+            HiveIdentity identity,
+            String databaseName,
+            String tableName,
+            List<String> columnNames,
+            TupleDomain<String> partitionKeysFilter)
     {
-        // todo this should be more efficient by selectively walking the directory tree
-        return getPartitionNames(identity, databaseName, tableName).map(partitionNames -> partitionNames.stream()
-                .filter(partitionName -> partitionMatches(partitionName, parts))
+        if (partitionKeysFilter.isNone()) {
+            return Optional.of(ImmutableList.of());
+        }
+        Optional<List<String>> parts = partitionKeyFilterToStringList(columnNames, partitionKeysFilter, assumeCanonicalPartitionKeys);
+
+        if (parts.isEmpty()) {
+            return Optional.of(ImmutableList.of());
+        }
+
+        return getAllPartitionNames(identity, databaseName, tableName).map(partitionNames -> partitionNames.stream()
+                .filter(partitionName -> partitionMatches(partitionName, parts.get()))
                 .collect(toImmutableList()));
     }
 
@@ -998,7 +1070,7 @@ public class FileHiveMetastore
     {
         Table table = getRequiredTable(databaseName, tableName);
         Path permissionsDirectory = getPermissionsDirectory(table);
-        if (!principal.isPresent()) {
+        if (principal.isEmpty()) {
             HivePrincipal owner = new HivePrincipal(USER, tableOwner);
             return ImmutableSet.<HivePrivilegeInfo>builder()
                     .addAll(readAllPermissions(permissionsDirectory))
@@ -1023,9 +1095,11 @@ public class FileHiveMetastore
     public synchronized void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(databaseName, tableName, tableOwner, Optional.of(grantee));
-        currentPrivileges.removeAll(privileges);
+        Set<HivePrivilegeInfo> privilegesToRemove = privileges.stream()
+                .map(p -> new HivePrivilegeInfo(p.getHivePrivilege(), p.isGrantOption(), p.getGrantor(), grantee))
+                .collect(toImmutableSet());
 
-        setTablePrivileges(grantee, databaseName, tableName, currentPrivileges);
+        setTablePrivileges(grantee, databaseName, tableName, Sets.difference(currentPrivileges, privilegesToRemove));
     }
 
     @Override

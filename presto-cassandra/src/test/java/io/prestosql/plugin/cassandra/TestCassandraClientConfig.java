@@ -19,7 +19,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static com.datastax.driver.core.ProtocolVersion.V2;
@@ -56,8 +58,7 @@ public class TestCassandraClientConfig
                 .setDcAwareAllowRemoteDCsForLocal(false)
                 .setUseTokenAware(false)
                 .setTokenAwareShuffleReplicas(false)
-                .setUseWhiteList(false)
-                .setWhiteListAddresses("")
+                .setAllowedAddresses("")
                 .setNoHostAvailableRetryTimeout(new Duration(1, MINUTES))
                 .setSpeculativeExecutionLimit(1)
                 .setSpeculativeExecutionDelay(new Duration(500, MILLISECONDS))
@@ -71,7 +72,11 @@ public class TestCassandraClientConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path keystoreFile = Files.createTempFile(null, null);
+        Path truststoreFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("cassandra.contact-points", "host1,host2")
                 .put("cassandra.native-protocol-port", "9999")
@@ -93,16 +98,15 @@ public class TestCassandraClientConfig
                 .put("cassandra.load-policy.dc-aware.allow-remote-dc-for-local", "true")
                 .put("cassandra.load-policy.use-token-aware", "true")
                 .put("cassandra.load-policy.token-aware.shuffle-replicas", "true")
-                .put("cassandra.load-policy.use-white-list", "true")
-                .put("cassandra.load-policy.white-list.addresses", "host1")
+                .put("cassandra.load-policy.allowed-addresses", "host1,host2")
                 .put("cassandra.no-host-available-retry-timeout", "3m")
                 .put("cassandra.speculative-execution.limit", "10")
                 .put("cassandra.speculative-execution.delay", "101s")
                 .put("cassandra.protocol-version", "V2")
                 .put("cassandra.tls.enabled", "true")
-                .put("cassandra.tls.keystore-path", "/tmp/keystore")
+                .put("cassandra.tls.keystore-path", keystoreFile.toString())
                 .put("cassandra.tls.keystore-password", "keystore-password")
-                .put("cassandra.tls.truststore-path", "/tmp/truststore")
+                .put("cassandra.tls.truststore-path", truststoreFile.toString())
                 .put("cassandra.tls.truststore-password", "truststore-password")
                 .build();
 
@@ -127,16 +131,15 @@ public class TestCassandraClientConfig
                 .setDcAwareAllowRemoteDCsForLocal(true)
                 .setUseTokenAware(true)
                 .setTokenAwareShuffleReplicas(true)
-                .setUseWhiteList(true)
-                .setWhiteListAddresses("host1")
+                .setAllowedAddresses("host1, host2")
                 .setNoHostAvailableRetryTimeout(new Duration(3, MINUTES))
                 .setSpeculativeExecutionLimit(10)
                 .setSpeculativeExecutionDelay(new Duration(101, SECONDS))
                 .setProtocolVersion(V2)
                 .setTlsEnabled(true)
-                .setKeystorePath(new File("/tmp/keystore"))
+                .setKeystorePath(keystoreFile.toFile())
                 .setKeystorePassword("keystore-password")
-                .setTruststorePath(new File("/tmp/truststore"))
+                .setTruststorePath(truststoreFile.toFile())
                 .setTruststorePassword("truststore-password");
 
         assertFullMapping(properties, expected);

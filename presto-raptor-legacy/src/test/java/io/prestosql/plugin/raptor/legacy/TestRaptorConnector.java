@@ -27,7 +27,6 @@ import io.prestosql.plugin.raptor.legacy.metadata.ShardManager;
 import io.prestosql.plugin.raptor.legacy.metadata.TableColumn;
 import io.prestosql.plugin.raptor.legacy.storage.StorageManager;
 import io.prestosql.plugin.raptor.legacy.storage.StorageManagerConfig;
-import io.prestosql.plugin.raptor.legacy.storage.organization.TemporalFunction;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -43,11 +42,11 @@ import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.TestingConnectorSession;
 import io.prestosql.testing.TestingNodeManager;
 import io.prestosql.type.InternalTypeManager;
-import org.joda.time.DateTimeZone;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.testng.annotations.AfterMethod;
@@ -61,6 +60,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.operator.scalar.timestamp.VarcharToTimestampCast.castToShortTimestamp;
 import static io.prestosql.plugin.raptor.legacy.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
 import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.prestosql.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
@@ -68,11 +68,9 @@ import static io.prestosql.plugin.raptor.legacy.storage.TestOrcStorageManager.cr
 import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.util.DateTimeUtils.parseDate;
-import static io.prestosql.util.DateTimeUtils.parseTimestampLiteral;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -87,9 +85,8 @@ public class TestRaptorConnector
 
     @BeforeMethod
     public void setup()
-            throws Exception
     {
-        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager());
+        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dbi.registerMapper(new TableColumn.Mapper(typeManager));
         dummyHandle = dbi.open();
@@ -111,7 +108,6 @@ public class TestRaptorConnector
                 new RaptorPageSourceProvider(storageManager),
                 new RaptorPageSinkProvider(storageManager,
                         new PagesIndexPageSorter(new PagesIndex.TestingFactory(false)),
-                        new TemporalFunction(DateTimeZone.forID("America/Los_Angeles")),
                         config),
                 new RaptorNodePartitioningProvider(nodeSupplier),
                 new RaptorSessionProperties(config),
@@ -200,23 +196,22 @@ public class TestRaptorConnector
             throws Exception
     {
         // Same date should be in same split
-        assertSplitShard(DATE, "2001-08-22", "2001-08-22", "UTC", 1);
+        assertSplitShard(DATE, "2001-08-22", "2001-08-22", 1);
 
-        // Date should not be affected by timezone
-        assertSplitShard(DATE, "2001-08-22", "2001-08-22", "America/Los_Angeles", 1);
+        // Same date should be in different splits
+        assertSplitShard(DATE, "2001-08-22", "2001-08-23", 2);
 
-        // User timezone is UTC, while system shard split timezone is PST
-        assertSplitShard(TIMESTAMP, "2001-08-22 00:00:01.000", "2001-08-22 23:59:01.000", "UTC", 2);
+        // Same timestamp should be in same split
+        assertSplitShard(TIMESTAMP_MILLIS, "2001-08-22 00:00:01.000", "2001-08-22 23:59:01.000", 1);
 
-        // User timezone is PST, while system shard split timezone is PST
-        assertSplitShard(TIMESTAMP, "2001-08-22 00:00:01.000", "2001-08-22 23:59:01.000", "America/Los_Angeles", 1);
+        // Same timestamp should be in different splits
+        assertSplitShard(TIMESTAMP_MILLIS, "2001-08-22 23:59:01.000", "2001-08-23 00:00:01.000", 2);
     }
 
-    private void assertSplitShard(Type temporalType, String min, String max, String userTimeZone, int expectedSplits)
+    private void assertSplitShard(Type temporalType, String min, String max, int expectedSplits)
             throws Exception
     {
         ConnectorSession session = TestingConnectorSession.builder()
-                .setTimeZoneKey(getTimeZoneKey(userTimeZone))
                 .setPropertyMetadata(new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties())
                 .build();
 
@@ -237,9 +232,9 @@ public class TestRaptorConnector
 
         Object timestamp1 = null;
         Object timestamp2 = null;
-        if (temporalType.equals(TIMESTAMP)) {
-            timestamp1 = new SqlTimestamp(parseTimestampLiteral(getTimeZoneKey(userTimeZone), min), getTimeZoneKey(userTimeZone));
-            timestamp2 = new SqlTimestamp(parseTimestampLiteral(getTimeZoneKey(userTimeZone), max), getTimeZoneKey(userTimeZone));
+        if (temporalType.equals(TIMESTAMP_MILLIS)) {
+            timestamp1 = SqlTimestamp.newInstance(3, castToShortTimestamp(TIMESTAMP_MILLIS.getPrecision(), min), 0);
+            timestamp2 = SqlTimestamp.newInstance(3, castToShortTimestamp(TIMESTAMP_MILLIS.getPrecision(), max), 0);
         }
         else if (temporalType.equals(DATE)) {
             timestamp1 = new SqlDate(parseDate(min));

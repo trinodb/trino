@@ -67,6 +67,10 @@ public class GroupIdNode
         this.aggregationArguments = ImmutableList.copyOf(aggregationArguments);
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
 
+        Set<Symbol> outputs = ImmutableSet.copyOf(source.getOutputSymbols());
+        checkArgument(outputs.containsAll(groupingColumns.values()));
+        checkArgument(outputs.containsAll(aggregationArguments));
+
         checkArgument(Sets.intersection(groupingColumns.keySet(), ImmutableSet.copyOf(aggregationArguments)).isEmpty(), "aggregation columns and grouping set columns must be a disjoint set");
     }
 

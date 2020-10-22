@@ -237,6 +237,11 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitAllRows(AllRows node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitQuerySpecification(QuerySpecification node, C context)
     {
         return visitQueryBody(node, context);
@@ -617,6 +622,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitRefreshMaterializedView(RefreshMaterializedView node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitCall(Call node, C context)
     {
         return visitStatement(node, context);
@@ -840,5 +850,15 @@ public abstract class AstVisitor<R, C>
     protected R visitDateTimeType(DateTimeDataType node, C context)
     {
         return visitDataType(node, context);
+    }
+
+    protected R visitCreateMaterializedView(CreateMaterializedView node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropMaterializedView(DropMaterializedView node, C context)
+    {
+        return visitStatement(node, context);
     }
 }

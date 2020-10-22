@@ -51,7 +51,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Test(singleThreaded = true)
 public class TestCallTask
 {
-    private static ExecutorService executor;
+    private ExecutorService executor;
 
     private static boolean invoked;
 
@@ -65,6 +65,7 @@ public class TestCallTask
     public void close()
     {
         executor.shutdownNow();
+        executor = null;
     }
 
     @BeforeMethod
@@ -144,7 +145,8 @@ public class TestCallTask
                 accessControl,
                 executor,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                Optional.empty());
     }
 
     private Session testSession(TransactionManager transactionManager)

@@ -20,7 +20,7 @@ public class TestElasticsearch7IntegrationSmokeTest
 {
     public TestElasticsearch7IntegrationSmokeTest()
     {
-        super("7.0.0");
+        super("elasticsearch:7.0.0");
     }
 
     @Override

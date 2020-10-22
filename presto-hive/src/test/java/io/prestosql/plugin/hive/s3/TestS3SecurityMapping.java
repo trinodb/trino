@@ -36,6 +36,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ACCESS_KEY;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_IAM_ROLE;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SECRET_KEY;
+import static io.prestosql.plugin.hive.s3.TestS3SecurityMapping.MappingResult.clusterDefaultRole;
 import static io.prestosql.plugin.hive.s3.TestS3SecurityMapping.MappingResult.credentials;
 import static io.prestosql.plugin.hive.s3.TestS3SecurityMapping.MappingResult.role;
 import static io.prestosql.plugin.hive.s3.TestS3SecurityMapping.MappingSelector.empty;
@@ -195,6 +196,69 @@ public class TestS3SecurityMapping
                 role("danny_hq_role"));
     }
 
+    @Test
+    public void testMappingWithFallbackToClusterDefault()
+    {
+        S3SecurityMappingConfig mappingConfig = new S3SecurityMappingConfig()
+                .setConfigFile(new File(getResource(getClass(), "security-mapping-with-fallback-to-cluster-default.json").getPath()));
+
+        DynamicConfigurationProvider provider = new S3SecurityMappingConfigurationProvider(mappingConfig);
+
+        // matches prefix - returns role from the mapping
+        assertMapping(
+                provider,
+                path("s3://bar/abc/data/test.csv"),
+                role("arn:aws:iam::123456789101:role/allow_path"));
+
+        // doesn't match any rule except default rule at the end
+        assertMapping(
+                provider,
+                empty(),
+                clusterDefaultRole());
+    }
+
+    @Test
+    public void testMappingWithoutFallback()
+    {
+        S3SecurityMappingConfig mappingConfig = new S3SecurityMappingConfig()
+                .setConfigFile(new File(getResource(getClass(), "security-mapping-without-fallback.json").getPath()));
+
+        DynamicConfigurationProvider provider = new S3SecurityMappingConfigurationProvider(mappingConfig);
+
+        // matches prefix - returns role from the mapping
+        assertMapping(
+                provider,
+                path("s3://bar/abc/data/test.csv"),
+                role("arn:aws:iam::123456789101:role/allow_path"));
+
+        // doesn't match any rule
+        assertMappingFails(
+                provider,
+                empty(),
+                "No matching S3 security mapping");
+    }
+
+    @Test
+    public void testMappingWithoutRoleCredentialsFallbackShouldFail()
+    {
+        assertThatThrownBy(() ->
+                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("must either allow useClusterDefault role or provide role and/or credentials");
+    }
+
+    @Test
+    public void testMappingWithRoleAndFallbackShouldFail()
+    {
+        Optional<String> iamRole = Optional.of("arn:aws:iam::123456789101:role/allow_path");
+        Optional<Boolean> useClusterDefault = Optional.of(true);
+
+        assertThatThrownBy(() ->
+                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), iamRole, Optional.empty(), Optional.empty(), Optional.empty(), useClusterDefault))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("must either allow useClusterDefault role or provide role and/or credentials");
+    }
+
     private static void assertMapping(DynamicConfigurationProvider provider, MappingSelector selector, MappingResult mappingResult)
     {
         Configuration configuration = new Configuration(false);
@@ -295,6 +359,11 @@ public class TestS3SecurityMapping
         public static MappingResult role(String role)
         {
             return new MappingResult(Optional.empty(), Optional.empty(), Optional.of(role));
+        }
+
+        public static MappingResult clusterDefaultRole()
+        {
+            return new MappingResult(Optional.empty(), Optional.empty(), Optional.empty());
         }
 
         private final Optional<String> accessKey;

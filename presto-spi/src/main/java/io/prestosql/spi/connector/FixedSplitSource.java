@@ -13,14 +13,14 @@
  */
 package io.prestosql.spi.connector;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toUnmodifiableList;
+import static java.util.stream.StreamSupport.stream;
 
 public class FixedSplitSource
         implements ConnectorSplitSource
@@ -31,11 +31,7 @@ public class FixedSplitSource
     public FixedSplitSource(Iterable<? extends ConnectorSplit> splits)
     {
         requireNonNull(splits, "splits is null");
-        List<ConnectorSplit> splitsList = new ArrayList<>();
-        for (ConnectorSplit split : splits) {
-            splitsList.add(split);
-        }
-        this.splits = Collections.unmodifiableList(splitsList);
+        this.splits = stream(splits.spliterator(), false).collect(toUnmodifiableList());
     }
 
     @SuppressWarnings("ObjectEquality")

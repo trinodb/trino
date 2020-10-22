@@ -28,6 +28,7 @@ import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.ExpressionInterpreter;
 import io.prestosql.sql.planner.LookupSymbolResolver;
@@ -51,6 +52,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
+import static io.prestosql.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.metadata.TableLayoutResult.computeEnforced;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
@@ -75,12 +77,14 @@ public class PushPredicateIntoTableScan
             tableScan().capturedAs(TABLE_SCAN)));
 
     private final Metadata metadata;
+    private final TypeOperators typeOperators;
     private final TypeAnalyzer typeAnalyzer;
     private final DomainTranslator domainTranslator;
 
-    public PushPredicateIntoTableScan(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public PushPredicateIntoTableScan(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.domainTranslator = new DomainTranslator(metadata);
     }
@@ -89,6 +93,12 @@ public class PushPredicateIntoTableScan
     public Pattern<FilterNode> getPattern()
     {
         return PATTERN;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isAllowPushdownIntoConnectors(session);
     }
 
     @Override
@@ -104,10 +114,11 @@ public class PushPredicateIntoTableScan
                 context.getSymbolAllocator().getTypes(),
                 context.getIdAllocator(),
                 metadata,
+                typeOperators,
                 typeAnalyzer,
                 domainTranslator);
 
-        if (!rewritten.isPresent() || arePlansSame(filterNode, tableScan, rewritten.get())) {
+        if (rewritten.isEmpty() || arePlansSame(filterNode, tableScan, rewritten.get())) {
             return Result.empty();
         }
 
@@ -131,7 +142,8 @@ public class PushPredicateIntoTableScan
 
         TableScanNode rewrittenTableScan = (TableScanNode) rewrittenFilter.getSource();
 
-        return Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint());
+        return Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint()) &&
+                Objects.equals(tableScan.getTable(), rewrittenTableScan.getTable());
     }
 
     public static Optional<PlanNode> pushFilterIntoTableScan(
@@ -142,6 +154,7 @@ public class PushPredicateIntoTableScan
             TypeProvider types,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
+            TypeOperators typeOperators,
             TypeAnalyzer typeAnalyzer,
             DomainTranslator domainTranslator)
     {
@@ -151,6 +164,7 @@ public class PushPredicateIntoTableScan
 
         DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
                 metadata,
+                typeOperators,
                 session,
                 deterministicPredicate,
                 types);
@@ -188,7 +202,7 @@ public class PushPredicateIntoTableScan
         TupleDomain<ColumnHandle> remainingFilter;
         if (!metadata.usesLegacyTableLayouts(session, node.getTable())) {
             // check if new domain is wider than domain already provided by table scan
-            if (!constraint.predicate().isPresent() && newDomain.contains(node.getEnforcedConstraint())) {
+            if (constraint.predicate().isEmpty() && newDomain.contains(node.getEnforcedConstraint())) {
                 Expression resultingPredicate = createResultingPredicate(
                         metadata,
                         TRUE_LITERAL,
@@ -211,7 +225,7 @@ public class PushPredicateIntoTableScan
 
             Optional<ConstraintApplicationResult<TableHandle>> result = metadata.applyFilter(session, node.getTable(), constraint);
 
-            if (!result.isPresent()) {
+            if (result.isEmpty()) {
                 return Optional.empty();
             }
 
@@ -232,7 +246,7 @@ public class PushPredicateIntoTableScan
                             .map(node.getAssignments()::get)
                             .collect(toImmutableSet())));
 
-            if (!layout.isPresent() || layout.get().getTableProperties().getPredicate().isNone()) {
+            if (layout.isEmpty() || layout.get().getTableProperties().getPredicate().isNone()) {
                 return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
             }
 
@@ -310,11 +324,7 @@ public class PushPredicateIntoTableScan
             Object optimized = TryFunction.evaluate(() -> evaluator.optimize(inputs), true);
 
             // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
-            if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {
-                return false;
-            }
-
-            return true;
+            return !(Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral);
         }
     }
 }

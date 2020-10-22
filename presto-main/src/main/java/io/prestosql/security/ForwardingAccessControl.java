@@ -57,6 +57,18 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanReadSystemInformation(Identity identity)
+    {
+        delegate().checkCanReadSystemInformation(identity);
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(Identity identity)
+    {
+        delegate().checkCanWriteSystemInformation(identity);
+    }
+
+    @Override
     @Deprecated
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
@@ -130,6 +142,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanShowCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
+    {
+        delegate().checkCanShowCreateSchema(context, schemaName);
+    }
+
+    @Override
     public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
     {
         delegate().checkCanShowCreateTable(context, tableName);
@@ -157,6 +175,12 @@ public abstract class ForwardingAccessControl
     public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName)
     {
         delegate().checkCanSetTableComment(context, tableName);
+    }
+
+    @Override
+    public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName)
+    {
+        delegate().checkCanSetColumnComment(context, tableName);
     }
 
     @Override
@@ -301,6 +325,12 @@ public abstract class ForwardingAccessControl
     public void checkCanSetRole(SecurityContext context, String role, String catalogName)
     {
         delegate().checkCanSetRole(context, role, catalogName);
+    }
+
+    @Override
+    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, String catalogName)
+    {
+        delegate().checkCanShowRoleAuthorizationDescriptors(context, catalogName);
     }
 
     @Override

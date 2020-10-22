@@ -49,7 +49,7 @@ public final class FreeLambdaReferenceExtractor
     }
 
     private static class Visitor
-            extends DefaultExpressionTraversalVisitor<Void, Set<String>>
+            extends DefaultExpressionTraversalVisitor<Set<String>>
     {
         private final Analysis analysis;
         private final ImmutableList.Builder<Expression> freeReferencesToLambdaArgument = ImmutableList.builder();

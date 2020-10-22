@@ -16,6 +16,7 @@ package io.prestosql.plugin.mongodb;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoClient;
+import com.mongodb.client.MongoCollection;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
@@ -30,7 +31,10 @@ import java.util.Arrays;
 
 import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoClient;
 import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
@@ -50,7 +54,7 @@ public class TestMongoIntegrationSmokeTest
     {
         this.server = new MongoServer();
         this.client = createMongoClient(server);
-        return createMongoQueryRunner(server, ORDERS);
+        return createMongoQueryRunner(server, CUSTOMER, NATION, ORDERS, REGION);
     }
 
     @AfterClass(alwaysRun = true)
@@ -94,7 +98,6 @@ public class TestMongoIntegrationSmokeTest
 
     @Test
     public void testInsertWithEveryType()
-            throws Exception
     {
         String createSql = "" +
                 "CREATE TABLE test_insert_types_table " +
@@ -170,6 +173,19 @@ public class TestMongoIntegrationSmokeTest
         assertOneNotNullResult("SELECT col[1] FROM tmp_array7");
         assertUpdate("CREATE TABLE tmp_array8 AS SELECT ARRAY[TIMESTAMP '2001-08-22 03:04:05.321'] AS col", 1);
         assertOneNotNullResult("SELECT col[1] FROM tmp_array8");
+    }
+
+    @Test
+    public void testSkipUnknownTypes()
+    {
+        Document document1 = new Document("col", Document.parse("{\"key1\": \"value1\", \"key2\": null}"));
+        client.getDatabase("test").getCollection("tmp_guess_schema1").insertOne(document1);
+        assertQuery("SHOW COLUMNS FROM test.tmp_guess_schema1", "SELECT 'col', 'row(key1 varchar)', '', ''");
+        assertQuery("SELECT col.key1 FROM test.tmp_guess_schema1", "SELECT 'value1'");
+
+        Document document2 = new Document("col", new Document("key1", null));
+        client.getDatabase("test").getCollection("tmp_guess_schema2").insertOne(document2);
+        assertQueryReturnsEmptyResult("SHOW COLUMNS FROM test.tmp_guess_schema2");
     }
 
     @Test
@@ -287,6 +303,26 @@ public class TestMongoIntegrationSmokeTest
     }
 
     @Test
+    public void testCaseInsensitive()
+            throws Exception
+    {
+        MongoCollection<Document> collection = client.getDatabase("testCase").getCollection("testInsensitive");
+        collection.insertOne(new Document(ImmutableMap.of("Name", "abc", "Value", 1)));
+
+        assertQuery("SHOW SCHEMAS IN mongodb LIKE 'testcase'", "SELECT 'testcase'");
+        assertQuery("SHOW TABLES IN testcase", "SELECT 'testinsensitive'");
+        assertQuery(
+                "SHOW COLUMNS FROM testcase.testInsensitive",
+                "VALUES ('name', 'varchar', '', ''), ('value', 'bigint', '', '')");
+
+        assertQuery("SELECT name, value FROM testcase.testinsensitive", "SELECT 'abc', 1");
+        assertUpdate("INSERT INTO testcase.testinsensitive VALUES('def', 2)", 1);
+
+        assertQuery("SELECT value FROM testcase.testinsensitive WHERE name = 'def'", "SELECT 2");
+        assertUpdate("DROP TABLE testcase.testinsensitive");
+    }
+
+    @Test
     public void testSelectView()
     {
         assertUpdate("CREATE TABLE test.view_base AS SELECT 'foo' _varchar", 1);
@@ -302,6 +338,23 @@ public class TestMongoIntegrationSmokeTest
         assertUpdate("CREATE TABLE test.drop_table(col bigint)");
         assertUpdate("DROP TABLE test.drop_table");
         assertQueryFails("SELECT * FROM test.drop_table", ".*Table 'mongodb.test.drop_table' does not exist");
+    }
+
+    @Test
+    public void testNullPredicates()
+    {
+        assertUpdate("CREATE TABLE test.null_predicates(name varchar, value integer)");
+
+        MongoCollection<Document> collection = client.getDatabase("test").getCollection("null_predicates");
+        collection.insertOne(new Document(ImmutableMap.of("name", "abc", "value", 1)));
+        collection.insertOne(new Document(ImmutableMap.of("name", "abcd")));
+        collection.insertOne(new Document(Document.parse("{\"name\": \"abcde\", \"value\": null}")));
+
+        assertQuery("SELECT count(*) FROM test.null_predicates WHERE value IS NULL OR rand() = 42", "SELECT 2");
+        assertQuery("SELECT count(*) FROM test.null_predicates WHERE value IS NULL", "SELECT 2");
+        assertQuery("SELECT count(*) FROM test.null_predicates WHERE value IS NOT NULL", "SELECT 1");
+
+        assertUpdate("DROP TABLE test.null_predicates");
     }
 
     private void assertOneNotNullResult(String query)

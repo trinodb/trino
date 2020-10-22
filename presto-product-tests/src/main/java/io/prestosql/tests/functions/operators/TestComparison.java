@@ -36,7 +36,7 @@ public class TestComparison
                 {"0", "1", "bigint"},
                 {"date '1991-01-01'", "date '1991-01-02'", "date"},
                 {"time '01:02:03.456'", "time '01:02:03.457'", "time"},
-                {"time '01:02:03.456 America/Los_Angeles'", "time '01:02:03.457 America/Los_Angeles'", "TIME WITH TIME ZONE"},
+                {"time '01:02:03.456-08:00'", "time '01:02:03.457-08:00'", "TIME WITH TIME ZONE"},
                 {"TIMESTAMP '2001-08-22 03:04:05.321'", "TIMESTAMP '2001-08-22 03:04:05.322'", "TIMESTAMP"},
                 {"TIMESTAMP '2001-08-22 03:04:05.321 America/Los_Angeles'", "TIMESTAMP '2001-08-22 03:04:05.322 America/Los_Angeles'", "TIMESTAMP WITH TIME ZONE"}
         };

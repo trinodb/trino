@@ -15,6 +15,8 @@ package io.prestosql.testing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.MoreCollectors;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.cost.CostCalculator;
@@ -26,18 +28,30 @@ import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.security.AccessDeniedException;
+import io.prestosql.operator.OperatorStats;
+import io.prestosql.spi.QueryId;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.analyzer.QueryExplainer;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.PlanFragmenter;
 import io.prestosql.sql.planner.PlanOptimizers;
+import io.prestosql.sql.planner.RuleStatsRecorder;
 import io.prestosql.sql.planner.TypeAnalyzer;
+import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
+import io.prestosql.sql.planner.plan.FilterNode;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.planner.plan.TableScanNode;
+import io.prestosql.sql.query.QueryAssertions.QueryAssert;
 import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.testing.TestingAccessControlManager.TestingPrivilege;
+import io.prestosql.util.AutoCloseableCloser;
+import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -52,30 +66,33 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.SqlFormatter.formatSql;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
-import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
+    private final AutoCloseableCloser afterClassCloser = AutoCloseableCloser.create();
+    private io.prestosql.sql.query.QueryAssertions queryAssertions;
 
     @BeforeClass
     public void init()
             throws Exception
     {
-        queryRunner = createQueryRunner();
-        h2QueryRunner = new H2QueryRunner();
+        queryRunner = afterClassCloser.register(createQueryRunner());
+        h2QueryRunner = afterClassCloser.register(new H2QueryRunner());
         sqlParser = new SqlParser();
+        queryAssertions = new io.prestosql.sql.query.QueryAssertions(queryRunner);
     }
 
     protected abstract QueryRunner createQueryRunner()
@@ -83,11 +100,13 @@ public abstract class AbstractTestQueryFramework
 
     @AfterClass(alwaysRun = true)
     public void close()
+            throws Exception
     {
-        closeAllRuntimeException(queryRunner, h2QueryRunner);
+        afterClassCloser.close();
         queryRunner = null;
         h2QueryRunner = null;
         sqlParser = null;
+        queryAssertions = null;
     }
 
     protected Session getSession()
@@ -113,6 +132,16 @@ public abstract class AbstractTestQueryFramework
     protected Object computeScalar(@Language("SQL") String sql)
     {
         return computeActual(sql).getOnlyValue();
+    }
+
+    protected AssertProvider<QueryAssert> query(@Language("SQL") String sql)
+    {
+        return queryAssertions.query(sql);
+    }
+
+    protected AssertProvider<QueryAssert> query(Session session, @Language("SQL") String sql)
+    {
+        return queryAssertions.query(session, sql);
     }
 
     protected void assertQuery(@Language("SQL") String sql)
@@ -228,12 +257,14 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQueryReturnsEmptyResult(@Language("SQL") String sql)
     {
-        QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, getSession(), sql);
+        assertThat(query(sql))
+                .returnsEmptyResult();
     }
 
     protected void assertQueryReturnsEmptyResult(Session session, @Language("SQL") String sql)
     {
-        QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, session, sql);
+        assertThat(query(session, sql))
+                .returnsEmptyResult();
     }
 
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
@@ -242,6 +273,11 @@ public abstract class AbstractTestQueryFramework
     }
 
     protected void assertAccessAllowed(Session session, @Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
+    {
+        executeExclusively(session, sql, deniedPrivileges);
+    }
+
+    private void executeExclusively(Session session, @Language("SQL") String sql, TestingPrivilege[] deniedPrivileges)
     {
         executeExclusively(() -> {
             try {
@@ -265,19 +301,14 @@ public abstract class AbstractTestQueryFramework
             @Language("RegExp") String exceptionsMessageRegExp,
             TestingPrivilege... deniedPrivileges)
     {
-        executeExclusively(() -> {
-            try {
-                queryRunner.getAccessControl().deny(deniedPrivileges);
-                queryRunner.execute(session, sql);
-                fail("Expected " + AccessDeniedException.class.getSimpleName());
-            }
-            catch (RuntimeException e) {
-                assertExceptionMessage(sql, e, ".*Access Denied: " + exceptionsMessageRegExp);
-            }
-            finally {
-                queryRunner.getAccessControl().reset();
-            }
-        });
+        assertException(session, sql, ".*Access Denied: " + exceptionsMessageRegExp, deniedPrivileges);
+    }
+
+    private void assertException(Session session, @Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingPrivilege[] deniedPrivileges)
+    {
+        assertThatThrownBy(() -> executeExclusively(session, sql, deniedPrivileges))
+                .as("Query: " + sql)
+                .hasMessageMatching(exceptionsMessageRegExp);
     }
 
     protected void assertTableColumnNames(String tableName, String... columnNames)
@@ -288,13 +319,6 @@ public abstract class AbstractTestQueryFramework
                 .map(row -> (String) row.getField(0))
                 .collect(toImmutableList());
         assertEquals(actual, expected);
-    }
-
-    private static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex)
-    {
-        if (!nullToEmpty(exception.getMessage()).matches(regex)) {
-            fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
-        }
     }
 
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
@@ -346,8 +370,10 @@ public abstract class AbstractTestQueryFramework
         boolean forceSingleNode = queryRunner.getNodeCount() == 1;
         TaskCountEstimator taskCountEstimator = new TaskCountEstimator(queryRunner::getNodeCount);
         CostCalculator costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
+        TypeOperators typeOperators = new TypeOperators();
         List<PlanOptimizer> optimizers = new PlanOptimizers(
                 metadata,
+                typeOperators,
                 new TypeAnalyzer(sqlParser, metadata),
                 new TaskManagerConfig(),
                 forceSingleNode,
@@ -358,11 +384,13 @@ public abstract class AbstractTestQueryFramework
                 costCalculator,
                 new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
                 new CostComparator(featuresConfig),
-                taskCountEstimator).get();
+                taskCountEstimator,
+                new RuleStatsRecorder()).get();
         return new QueryExplainer(
                 optimizers,
                 new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig()),
                 metadata,
+                typeOperators,
                 queryRunner.getAccessControl(),
                 sqlParser,
                 queryRunner.getStatsCalculator(),
@@ -381,5 +409,57 @@ public abstract class AbstractTestQueryFramework
     {
         checkState(queryRunner != null, "queryRunner not set");
         return queryRunner;
+    }
+
+    protected Session noJoinReordering()
+    {
+        return noJoinReordering(JoinDistributionType.PARTITIONED);
+    }
+
+    protected Session noJoinReordering(JoinDistributionType distributionType)
+    {
+        return Session.builder(getSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, distributionType.name())
+                .build();
+    }
+
+    protected OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)
+    {
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        Plan plan = runner.getQueryPlan(queryId);
+        PlanNodeId nodeId = PlanNodeSearcher.searchFrom(plan.getRoot())
+                .where(node -> {
+                    if (!(node instanceof ProjectNode)) {
+                        return false;
+                    }
+                    ProjectNode projectNode = (ProjectNode) node;
+                    if (!(projectNode.getSource() instanceof FilterNode)) {
+                        return false;
+                    }
+                    FilterNode filterNode = (FilterNode) projectNode.getSource();
+                    if (!(filterNode.getSource() instanceof TableScanNode)) {
+                        return false;
+                    }
+                    TableScanNode tableScanNode = (TableScanNode) filterNode.getSource();
+                    return tableName.equals(tableScanNode.getTable().getConnectorHandle().toString());
+                })
+                .findOnlyElement()
+                .getId();
+
+        return runner.getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(queryId)
+                .getQueryStats()
+                .getOperatorSummaries()
+                .stream()
+                .filter(summary -> nodeId.equals(summary.getPlanNodeId()) && summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
+                .collect(MoreCollectors.onlyElement());
+    }
+
+    @CanIgnoreReturnValue
+    protected final <T extends AutoCloseable> T closeAfterClass(T resource)
+    {
+        return afterClassCloser.register(resource);
     }
 }

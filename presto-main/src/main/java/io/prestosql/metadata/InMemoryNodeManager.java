@@ -44,12 +44,12 @@ public class InMemoryNodeManager
     @Inject
     public InMemoryNodeManager()
     {
-        this(URI.create("local://127.0.0.1"));
+        this(URI.create("local://127.0.0.1:8080"));
     }
 
     public InMemoryNodeManager(URI localUri)
     {
-        localNode = new InternalNode("local", localUri, NodeVersion.UNKNOWN, false);
+        localNode = new InternalNode("local", localUri, NodeVersion.UNKNOWN, true);
     }
 
     public void addCurrentNodeConnector(CatalogName catalogName)

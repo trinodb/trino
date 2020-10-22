@@ -15,21 +15,24 @@ package io.prestosql.tests.product.launcher.env;
 
 import com.github.dockerjava.api.DockerClient;
 import com.google.common.base.CaseFormat;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
-import io.prestosql.tests.product.launcher.docker.DockerUtil;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 import org.testcontainers.DockerClientFactory;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.killContainers;
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.removeNetworks;
 import static io.prestosql.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_NETWORK;
 import static io.prestosql.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME;
 import static io.prestosql.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE;
+import static java.lang.reflect.Modifier.isAbstract;
 
 public final class Environments
 {
@@ -39,17 +42,39 @@ public final class Environments
 
     public static void pruneEnvironment()
     {
+        pruneContainers();
+        pruneNetworks();
+    }
+
+    public static void pruneContainers()
+    {
         log.info("Shutting down previous containers");
         try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
-            DockerUtil.killContainers(
+            killContainers(
                     dockerClient,
                     listContainersCmd -> listContainersCmd.withLabelFilter(ImmutableMap.of(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)));
-            DockerUtil.removeNetworks(
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        catch (RuntimeException e) {
+            log.warn("Could not prune containers correctly: %s", getStackTraceAsString(e));
+        }
+    }
+
+    public static void pruneNetworks()
+    {
+        log.info("Removing previous networks");
+        try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
+            removeNetworks(
                     dockerClient,
                     listNetworksCmd -> listNetworksCmd.withNameFilter(PRODUCT_TEST_LAUNCHER_NETWORK));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+        catch (RuntimeException e) {
+            log.warn("Could not prune networks correctly: %s", getStackTraceAsString(e));
         }
     }
 
@@ -67,8 +92,42 @@ public final class Environments
         }
     }
 
+    public static List<Class<? extends EnvironmentConfig>> findConfigsByBasePackage(String packageName)
+    {
+        try {
+            return ClassPath.from(Environments.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
+                    .map(ClassPath.ClassInfo::load)
+                    .filter(clazz -> !isAbstract(clazz.getModifiers()))
+                    .filter(EnvironmentConfig.class::isAssignableFrom)
+                    .map(clazz -> (Class<? extends EnvironmentConfig>) clazz.asSubclass(EnvironmentConfig.class))
+                    .collect(toImmutableList());
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public static String nameForClass(Class<? extends EnvironmentProvider> clazz)
     {
-        return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, clazz.getSimpleName());
+        return canonicalName(clazz);
+    }
+
+    public static String nameForConfigClass(Class<? extends EnvironmentConfig> clazz)
+    {
+        return canonicalName(clazz);
+    }
+
+    private static String canonicalName(Class<?> clazz)
+    {
+        return canonicalName(clazz.getSimpleName());
+    }
+
+    /**
+     * Converts camel case name to hyphenated. Returns input if the name is already hyphenated.
+     */
+    public static String canonicalName(String name)
+    {
+        return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, name)
+                .replaceAll("-+", "-");
     }
 }

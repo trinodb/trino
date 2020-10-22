@@ -27,7 +27,9 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedSplitSource;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
@@ -37,7 +39,6 @@ import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
@@ -74,30 +75,32 @@ public class BigQuerySplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy)
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter)
     {
         log.debug("getSplits(transaction=%s, session=%s, table=%s, splitSchedulingStrategy=%s)", transaction, session, table, splitSchedulingStrategy);
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) table;
 
         TableId tableId = bigQueryTableHandle.getTableId();
         int actualParallelism = parallelism.orElse(nodeManager.getRequiredWorkerNodes().size());
-        Optional<String> filter = Optional.empty();
+        TupleDomain<ColumnHandle> constraint = bigQueryTableHandle.getConstraint();
+        Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(constraint);
         List<BigQuerySplit> splits = emptyProjectionIsRequired(bigQueryTableHandle.getProjectedColumns()) ?
                 createEmptyProjection(tableId, actualParallelism, filter) :
                 readFromBigQuery(tableId, bigQueryTableHandle.getProjectedColumns(), actualParallelism, filter);
         return new FixedSplitSource(splits);
     }
 
-    private boolean emptyProjectionIsRequired(Optional<List<ColumnHandle>> projectedColumns)
+    private static boolean emptyProjectionIsRequired(Optional<List<ColumnHandle>> projectedColumns)
     {
         return projectedColumns.isPresent() && projectedColumns.get().isEmpty();
     }
 
-    private ImmutableList<BigQuerySplit> readFromBigQuery(TableId tableId, Optional<List<ColumnHandle>> projectedColumns, int actualParallelism, Optional<String> filter)
+    private List<BigQuerySplit> readFromBigQuery(TableId tableId, Optional<List<ColumnHandle>> projectedColumns, int actualParallelism, Optional<String> filter)
     {
         log.debug("readFromBigQuery(tableId=%s, projectedColumns=%s, actualParallelism=%s, filter=[%s])", tableId, projectedColumns, actualParallelism, filter);
         List<ColumnHandle> columns = projectedColumns.orElse(ImmutableList.of());
-        ImmutableList<String> projectedColumnsNames = columns.stream()
+        List<String> projectedColumnsNames = columns.stream()
                 .map(column -> ((BigQueryColumnHandle) column).getName())
                 .collect(toImmutableList());
 
@@ -116,7 +119,7 @@ public class BigQuerySplitManager
             long numberOfRows;
             if (filter.isPresent()) {
                 // count the rows based on the filter
-                String sql = bigQueryClient.createSql(tableId, "COUNT(*)", new String[] {filter.get()});
+                String sql = bigQueryClient.selectSql(tableId, "COUNT(*)", new String[] {filter.get()});
                 TableResult result = bigQueryClient.query(sql);
                 numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
             }
@@ -134,7 +137,7 @@ public class BigQuerySplitManager
             return splits;
         }
         catch (BigQueryException e) {
-            throw new PrestoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, format("Failed to compute empty projection"), e);
+            throw new PrestoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, "Failed to compute empty projection", e);
         }
     }
 }

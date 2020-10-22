@@ -18,6 +18,9 @@ import io.airlift.units.Duration;
 import io.prestosql.plugin.atop.AtopConnectorConfig.AtopSecurity;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.TimeZone;
 
@@ -42,9 +45,12 @@ public class TestAtopConnectorConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path atopExecutable = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("atop.executable-path", "/test/atop")
+                .put("atop.executable-path", atopExecutable.toString())
                 .put("atop.concurrent-readers-per-node", "10")
                 .put("atop.executable-read-timeout", "1m")
                 .put("atop.security", "file")
@@ -53,7 +59,7 @@ public class TestAtopConnectorConfig
                 .build();
 
         AtopConnectorConfig expected = new AtopConnectorConfig()
-                .setExecutablePath("/test/atop")
+                .setExecutablePath(atopExecutable.toString())
                 .setConcurrentReadersPerNode(10)
                 .setSecurity(AtopSecurity.FILE)
                 .setReadTimeout(new Duration(1, MINUTES))

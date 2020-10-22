@@ -20,11 +20,11 @@ import java.util.List;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-enum BucketingType
+public enum BucketingType
 {
     NONE {
         @Override
-        public String getHiveClustering(String columnNames, int buckets)
+        public String getHiveClustering(String columnName, int buckets)
         {
             return "";
         }
@@ -34,13 +34,19 @@ enum BucketingType
         {
             return ImmutableList.of();
         }
+
+        @Override
+        public List<String> getPrestoTableProperties(String columnName, int buckets)
+        {
+            return ImmutableList.of();
+        }
     },
 
     BUCKETED_DEFAULT {
         @Override
-        public String getHiveClustering(String columnNames, int buckets)
+        public String getHiveClustering(String columnName, int buckets)
         {
-            return defaultHiveClustering(columnNames, buckets);
+            return defaultHiveClustering(columnName, buckets);
         }
 
         @Override
@@ -48,13 +54,21 @@ enum BucketingType
         {
             return ImmutableList.of();
         }
+
+        @Override
+        public List<String> getPrestoTableProperties(String columnName, int buckets)
+        {
+            return ImmutableList.of(
+                    "bucketed_by = ARRAY['" + columnName + "']",
+                    "bucket_count = " + buckets);
+        }
     },
 
     BUCKETED_V1 {
         @Override
-        public String getHiveClustering(String columnNames, int buckets)
+        public String getHiveClustering(String columnName, int buckets)
         {
-            return defaultHiveClustering(columnNames, buckets);
+            return defaultHiveClustering(columnName, buckets);
         }
 
         @Override
@@ -62,19 +76,37 @@ enum BucketingType
         {
             return ImmutableList.of("'bucketing_version'='1'");
         }
+
+        @Override
+        public List<String> getPrestoTableProperties(String columnName, int buckets)
+        {
+            return ImmutableList.of(
+                    "bucketing_version = 1",
+                    "bucketed_by = ARRAY['" + columnName + "']",
+                    "bucket_count = " + buckets);
+        }
     },
 
     BUCKETED_V2 {
         @Override
-        public String getHiveClustering(String columnNames, int buckets)
+        public String getHiveClustering(String columnName, int buckets)
         {
-            return defaultHiveClustering(columnNames, buckets);
+            return defaultHiveClustering(columnName, buckets);
         }
 
         @Override
         public List<String> getHiveTableProperties()
         {
             return ImmutableList.of("'bucketing_version'='2'");
+        }
+
+        @Override
+        public List<String> getPrestoTableProperties(String columnName, int buckets)
+        {
+            return ImmutableList.of(
+                    "bucketing_version = 2",
+                    "bucketed_by = ARRAY['" + columnName + "']",
+                    "bucket_count = " + buckets);
         }
     },
     /**/;
@@ -83,9 +115,11 @@ enum BucketingType
 
     public abstract List<String> getHiveTableProperties();
 
-    private static String defaultHiveClustering(String columnNames, int buckets)
+    public abstract List<String> getPrestoTableProperties(String columnName, int buckets);
+
+    private static String defaultHiveClustering(String columnName, int buckets)
     {
-        requireNonNull(columnNames, "columnNames is null");
-        return format("CLUSTERED BY(%s) INTO %s BUCKETS", columnNames, buckets);
+        requireNonNull(columnName, "columnName is null");
+        return format("CLUSTERED BY(%s) INTO %s BUCKETS", columnName, buckets);
     }
 }

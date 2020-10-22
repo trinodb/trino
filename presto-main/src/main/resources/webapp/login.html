@@ -32,7 +32,7 @@
     <![endif]-->
 
     <!-- jQuery -->
-    <script type="text/javascript" src="vendor/jquery/jquery-2.2.3.min.js"></script>
+    <script type="text/javascript" src="vendor/jquery/jquery-3.5.1.min.js"></script>
 
     <!-- Bootstrap JS -->
     <script type="text/javascript" src="vendor/bootstrap/js/bootstrap.js"></script>
@@ -96,16 +96,18 @@
 </div>
 
 <script>
+    var hidePassword = false; // This value will be replaced
+
     var redirectPath = window.location.search.substring(1);
     if (redirectPath.indexOf('&') !== -1) {
         redirectPath = redirectPath.substring(0, redirectPath.indexOf('&'));
     }
     $("#redirectPath").val(redirectPath);
 
-    if (window.location.protocol !== 'https:') {
+    if (hidePassword) {
         $("#password")
                 .prop('required', false)
-                .prop('placeholder', 'Password not allowed over HTTP')
+                .prop('placeholder', 'Password not allowed')
                 .prop('readonly', true);
     }
     $("#login").show();

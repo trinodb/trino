@@ -27,6 +27,7 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.sql.tree.ColumnDefinition;
@@ -47,6 +48,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -64,6 +66,8 @@ import static io.prestosql.sql.NodeUtils.mapFromProperties;
 import static io.prestosql.sql.ParameterUtils.parameterExtractor;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.prestosql.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
+import static io.prestosql.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 
 public class CreateTableTask
@@ -88,7 +92,7 @@ public class CreateTableTask
     }
 
     @VisibleForTesting
-    public ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
+    ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
@@ -150,7 +154,7 @@ public class CreateTableTask
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
                 QualifiedObjectName likeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
-                if (!metadata.getCatalogHandle(session, likeTableName.getCatalogName()).isPresent()) {
+                if (metadata.getCatalogHandle(session, likeTableName.getCatalogName()).isEmpty()) {
                     throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' does not exist", likeTableName.getCatalogName());
                 }
                 if (!tableName.getCatalogName().equals(likeTableName.getCatalogName())) {
@@ -168,6 +172,26 @@ public class CreateTableTask
                     }
                     includingProperties = true;
                     inheritedProperties = likeTableMetadata.getMetadata().getProperties();
+                }
+
+                try {
+                    accessControl.checkCanSelectFromColumns(
+                            session.toSecurityContext(),
+                            likeTableName,
+                            likeTableMetadata.getColumns().stream()
+                                    .map(ColumnMetadata::getName)
+                                    .collect(toImmutableSet()));
+                }
+                catch (AccessDeniedException e) {
+                    throw new AccessDeniedException("Cannot reference columns of table " + likeTableName);
+                }
+                if (propertiesOption.orElse(EXCLUDING) == INCLUDING) {
+                    try {
+                        accessControl.checkCanShowCreateTable(session.toSecurityContext(), likeTableName);
+                    }
+                    catch (AccessDeniedException e) {
+                        throw new AccessDeniedException("Cannot reference properties of table " + likeTableName);
+                    }
                 }
 
                 likeTableMetadata.getColumns().stream()

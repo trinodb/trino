@@ -45,16 +45,19 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_HOST;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.Request.Builder.prepareHead;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.airlift.testing.Closeables.closeQuietly;
+import static io.airlift.testing.Closeables.closeAll;
 import static io.prestosql.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
@@ -72,8 +75,10 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static io.prestosql.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.Response.Status.OK;
 import static javax.ws.rs.core.Response.Status.SEE_OTHER;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -87,14 +92,19 @@ public class TestServer
     @BeforeClass
     public void setup()
     {
-        server = TestingPrestoServer.create();
+        server = TestingPrestoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .put("http-server.process-forwarded", "true")
+                        .build())
+                .build();
         client = new JettyHttpClient();
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
+            throws Exception
     {
-        closeQuietly(server, client);
+        closeAll(server, client);
     }
 
     @Test
@@ -118,6 +128,37 @@ public class TestServer
         assertEquals(queryError.getErrorName(), expected.getErrorCode().getName());
         assertEquals(queryError.getErrorType(), expected.getErrorCode().getType().name());
         assertEquals(queryError.getMessage(), expected.getMessage());
+    }
+
+    @Test
+    public void testFirstResponseColumns()
+    {
+        List<QueryResults> queryResults = postQuery(request -> request
+                .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .setHeader(PRESTO_PATH, "path"))
+                .map(JsonResponse::getValue)
+                .collect(toImmutableList());
+
+        QueryResults first = queryResults.get(0);
+        QueryResults last = queryResults.get(queryResults.size() - 1);
+
+        Optional<QueryResults> data = queryResults.stream().filter(results -> results.getData() != null).findFirst();
+
+        assertNull(first.getColumns());
+        assertEquals(first.getStats().getState(), "QUEUED");
+        assertNull(first.getData());
+
+        assertThat(last.getColumns()).hasSize(1);
+        assertThat(last.getColumns().get(0).getName()).isEqualTo("Catalog");
+        assertThat(last.getColumns().get(0).getType()).isEqualTo("varchar(6)");
+        assertEquals(last.getStats().getState(), "FINISHED");
+
+        assertThat(data).isPresent();
+
+        QueryResults results = data.orElseThrow();
+        assertThat(results.getData()).containsOnly(ImmutableList.of("system"));
     }
 
     @Test
@@ -213,7 +254,7 @@ public class TestServer
         QueryError queryError = queryResults.getError();
         List<String> stackTrace = Splitter.on("\n").splitToList(getStackTraceAsString(queryError.getFailureInfo().toException()));
         long versionLines = stackTrace.stream()
-                .filter(line -> line.contains("at io.prestosql.$gen.Presto_null__testversion____"))
+                .filter(line -> line.contains("at io.prestosql.$gen.Presto_testversion____"))
                 .count();
         assertEquals(versionLines, 1, "Number of times version is embedded in stacktrace");
     }
@@ -227,6 +268,19 @@ public class TestServer
                 {"SELECT 1 / 0"}, // fails during optimization
                 {"select 1 / a from (values 0) t(a)"}, // fails during execution
         };
+    }
+
+    @Test
+    public void testStatusPing()
+    {
+        Request request = prepareHead()
+                .setUri(uriFor("/v1/status"))
+                .setHeader(PRESTO_USER, "unknown")
+                .setFollowRedirects(false)
+                .build();
+        StatusResponse response = client.execute(request, createStatusResponseHandler());
+        assertEquals(response.getStatusCode(), OK.getStatusCode(), "Status code");
+        assertEquals(response.getHeader(CONTENT_TYPE), APPLICATION_JSON, "Content Type");
     }
 
     @Test
@@ -250,7 +304,7 @@ public class TestServer
                 .build();
         response = client.execute(request, createStatusResponseHandler());
         assertEquals(response.getStatusCode(), SEE_OTHER.getStatusCode(), "Status code");
-        assertEquals(response.getHeader("Location"), "https://my-load-balancer.local:443/ui/", "Location");
+        assertEquals(response.getHeader("Location"), "https://my-load-balancer.local/ui/", "Location");
     }
 
     private Stream<JsonResponse<QueryResults>> postQuery(Function<Request.Builder, Request.Builder> requestConfigurer)

@@ -22,8 +22,6 @@ import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
 import static io.prestosql.spi.block.BlockUtil.compactArray;
 import static io.prestosql.spi.block.BlockUtil.compactOffsets;
 import static io.prestosql.spi.block.RowBlock.createRowBlockInternal;
-import static java.util.Arrays.asList;
-import static java.util.Collections.unmodifiableList;
 
 public abstract class AbstractRowBlock
         implements Block
@@ -33,7 +31,7 @@ public abstract class AbstractRowBlock
     @Override
     public final List<Block> getChildren()
     {
-        return unmodifiableList(asList(getRawFieldBlocks()));
+        return List.of(getRawFieldBlocks());
     }
 
     protected abstract Block[] getRawFieldBlocks();

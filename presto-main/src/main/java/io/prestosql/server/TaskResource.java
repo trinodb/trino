@@ -22,15 +22,16 @@ import io.airlift.stats.TimeStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskInfo;
 import io.prestosql.execution.TaskManager;
-import io.prestosql.execution.TaskState;
 import io.prestosql.execution.TaskStatus;
 import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.metadata.SessionPropertyManager;
+import io.prestosql.server.security.ResourceSecurity;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -66,12 +67,13 @@ import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.prestosql.PrestoMediaTypes.PRESTO_PAGES;
 import static io.prestosql.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
-import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_STATE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_VERSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static io.prestosql.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -105,6 +107,7 @@ public class TaskResource
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public List<TaskInfo> getAllTaskInfo(@Context UriInfo uriInfo)
@@ -116,6 +119,7 @@ public class TaskResource
         return allTaskInfo;
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
     @POST
     @Path("{taskId}")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -139,19 +143,20 @@ public class TaskResource
         return Response.ok().entity(taskInfo).build();
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
     public void getTaskInfo(
-            @PathParam("taskId") final TaskId taskId,
-            @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
+            @PathParam("taskId") TaskId taskId,
+            @HeaderParam(PRESTO_CURRENT_VERSION) Long currentVersion,
             @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
 
-        if (currentState == null || maxWait == null) {
+        if (currentVersion == null || maxWait == null) {
             TaskInfo taskInfo = taskManager.getTaskInfo(taskId);
             if (shouldSummarize(uriInfo)) {
                 taskInfo = taskInfo.summarize();
@@ -162,7 +167,7 @@ public class TaskResource
 
         Duration waitTime = randomizeWaitTime(maxWait);
         ListenableFuture<TaskInfo> futureTaskInfo = addTimeout(
-                taskManager.getTaskInfo(taskId, currentState),
+                taskManager.getTaskInfo(taskId, currentVersion),
                 () -> taskManager.getTaskInfo(taskId),
                 waitTime,
                 timeoutExecutor);
@@ -177,19 +182,20 @@ public class TaskResource
                 .withTimeout(timeout);
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/status")
     @Produces(MediaType.APPLICATION_JSON)
     public void getTaskStatus(
             @PathParam("taskId") TaskId taskId,
-            @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
+            @HeaderParam(PRESTO_CURRENT_VERSION) Long currentVersion,
             @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
 
-        if (currentState == null || maxWait == null) {
+        if (currentVersion == null || maxWait == null) {
             TaskStatus taskStatus = taskManager.getTaskStatus(taskId);
             asyncResponse.resume(taskStatus);
             return;
@@ -200,7 +206,7 @@ public class TaskResource
         // leading to a slight delay of approx 1 second, which is not a major issue for any query that are heavy weight enough
         // to justify group-by-group execution. In order to fix this, REST endpoint /v1/{task}/status will need change.
         ListenableFuture<TaskStatus> futureTaskStatus = addTimeout(
-                taskManager.getTaskStatus(taskId, currentState),
+                taskManager.getTaskStatus(taskId, currentVersion),
                 () -> taskManager.getTaskStatus(taskId),
                 waitTime,
                 timeoutExecutor);
@@ -211,6 +217,21 @@ public class TaskResource
                 .withTimeout(timeout);
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
+    @GET
+    @Path("{taskId}/dynamicfilters")
+    @Produces(MediaType.APPLICATION_JSON)
+    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(
+            @PathParam("taskId") TaskId taskId,
+            @HeaderParam(PRESTO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
+            @Context UriInfo uriInfo)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(currentDynamicFiltersVersion, "currentDynamicFiltersVersion is null");
+        return taskManager.acknowledgeAndGetNewDynamicFilterDomains(taskId, currentDynamicFiltersVersion);
+    }
+
+    @ResourceSecurity(INTERNAL_ONLY)
     @DELETE
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -235,13 +256,14 @@ public class TaskResource
         return taskInfo;
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/results/{bufferId}/{token}")
     @Produces(PRESTO_PAGES)
     public void getResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") OutputBufferId bufferId,
-            @PathParam("token") final long token,
+            @PathParam("token") long token,
             @HeaderParam(PRESTO_MAX_SIZE) DataSize maxSize,
             @Suspended AsyncResponse asyncResponse)
     {
@@ -294,12 +316,13 @@ public class TaskResource
         asyncResponse.register((CompletionCallback) throwable -> resultsRequestTime.add(Duration.nanosSince(start)));
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/results/{bufferId}/{token}/acknowledge")
     public void acknowledgeResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") OutputBufferId bufferId,
-            @PathParam("token") final long token)
+            @PathParam("token") long token)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
@@ -307,6 +330,7 @@ public class TaskResource
         taskManager.acknowledgeTaskResults(taskId, bufferId, token);
     }
 
+    @ResourceSecurity(INTERNAL_ONLY)
     @DELETE
     @Path("{taskId}/results/{bufferId}")
     @Produces(MediaType.APPLICATION_JSON)

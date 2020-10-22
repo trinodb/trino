@@ -62,7 +62,7 @@ public class S3SecurityMappingConfigurationProvider
     {
         File configFile = config.getConfigFile().orElseThrow(() -> new IllegalArgumentException("config file not set"));
         Supplier<S3SecurityMappings> supplier = () -> parseJson(configFile.toPath(), S3SecurityMappings.class);
-        if (!config.getRefreshPeriod().isPresent()) {
+        if (config.getRefreshPeriod().isEmpty()) {
             return Suppliers.memoize(supplier::get);
         }
         return Suppliers.memoizeWithExpiration(
@@ -90,6 +90,9 @@ public class S3SecurityMappingConfigurationProvider
 
         S3SecurityMapping mapping = mappings.get().getMapping(context.getIdentity(), uri)
                 .orElseThrow(() -> new AccessDeniedException("No matching S3 security mapping"));
+        if (mapping.isUseClusterDefault()) {
+            return;
+        }
 
         Hasher hasher = Hashing.sha256().newHasher();
 
@@ -112,8 +115,8 @@ public class S3SecurityMappingConfigurationProvider
     {
         Optional<String> optionalSelected = getRoleFromExtraCredential(context);
 
-        if (!optionalSelected.isPresent()) {
-            if (!mapping.getAllowedIamRoles().isEmpty() && !mapping.getIamRole().isPresent()) {
+        if (optionalSelected.isEmpty()) {
+            if (!mapping.getAllowedIamRoles().isEmpty() && mapping.getIamRole().isEmpty()) {
                 throw new AccessDeniedException("No S3 role selected and mapping has no default role");
             }
             verify(mapping.getIamRole().isPresent() || mapping.getCredentials().isPresent(), "mapping must have role or credential");

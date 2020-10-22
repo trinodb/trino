@@ -1,15 +1,10 @@
 Accumulo Connector
 ==================
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Overview
 --------
 
-The Accumulo connector supports reading and writing data from 
+The Accumulo connector supports reading and writing data from
 `Apache Accumulo <https://accumulo.apache.org/>`_.
 Please read this page thoroughly to understand the capabilities and features of the connector.
 
@@ -19,20 +14,15 @@ Installing the Iterator Dependency
 The Accumulo connector uses custom Accumulo iterators in
 order to push various information in a SQL predicate clause to Accumulo for
 server-side filtering, known as *predicate pushdown*. In order
-for the server-side iterators to work, you need to add the ``presto-accumulo``
-jar file to Accumulo's ``lib/ext`` directory on each TabletServer node.
+for the server-side iterators to work, you need to add the ``presto-accumulo-iterators``
+JAR file to Accumulo's ``lib/ext`` directory on each TabletServer node.
 
 .. code-block:: bash
 
     # For each TabletServer node:
-    scp $PRESTO_HOME/plugins/accumulo/presto-accumulo-*.jar [tabletserver_address]:$ACCUMULO_HOME/lib/ext
+    scp $PRESTO_HOME/plugins/accumulo/presto-accumulo-iterators-*.jar [tabletserver_address]:$ACCUMULO_HOME/lib/ext
 
     # TabletServer should pick up new JAR files in ext directory, but may require restart
-
-Note that this uses Java 8.  If your Accumulo cluster is using Java 7,
-you'll receive an ``Unsupported major.minor version 52.0`` error in your TabletServer logs when you
-attempt to create an indexed table.  You'll instead need to use the *presto-accumulo-iterators* jar file
-that is located at `https://github.com/bloomberg/presto-accumulo <https://github.com/bloomberg/presto-accumulo>`_.
 
 Connector Configuration
 -----------------------
@@ -616,7 +606,7 @@ Metadata for the Presto/Accumulo tables is stored in ZooKeeper. You can,
 and should, issue SQL statements in Presto to create and drop tables.
 This is the easiest method of creating the metadata required to make the
 connector work. It is best to not mess with the metadata, but here are
-the details of how it is stored. 
+the details of how it is stored.
 
 A root node in ZooKeeper holds all the mappings, and the format is as
 follows:

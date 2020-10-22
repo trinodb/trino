@@ -32,6 +32,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.FutureStateChange;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.NodeTaskMap.PartitionedSplitCountTracker;
@@ -48,6 +49,7 @@ import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.execution.buffer.PageBufferInfo;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.TaskStats;
+import io.prestosql.server.DynamicFilterService;
 import io.prestosql.server.TaskUpdateRequest;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -114,6 +116,7 @@ public final class HttpRemoteTask
     private final RemoteTaskStats stats;
     private final TaskInfoFetcher taskInfoFetcher;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
+    private final DynamicFiltersFetcher dynamicFiltersFetcher;
 
     @GuardedBy("this")
     private Future<?> currentRequest;
@@ -174,10 +177,12 @@ public final class HttpRemoteTask
             Duration taskInfoUpdateInterval,
             boolean summarizeTaskInfo,
             JsonCodec<TaskStatus> taskStatusCodec,
+            JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
-            RemoteTaskStats stats)
+            RemoteTaskStats stats,
+            DynamicFilterService dynamicFilterService)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -227,11 +232,25 @@ public final class HttpRemoteTask
 
             TaskInfo initialTask = createInitialTask(taskId, location, nodeId, bufferStates, new TaskStats(DateTime.now(), null));
 
+            this.dynamicFiltersFetcher = new DynamicFiltersFetcher(
+                    this::failTask,
+                    taskId,
+                    location,
+                    taskStatusRefreshMaxWait,
+                    dynamicFilterDomainsCodec,
+                    executor,
+                    httpClient,
+                    maxErrorDuration,
+                    errorScheduledExecutor,
+                    stats,
+                    dynamicFilterService);
+
             this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
                     this::failTask,
                     initialTask.getTaskStatus(),
                     taskStatusRefreshMaxWait,
                     taskStatusCodec,
+                    dynamicFiltersFetcher,
                     executor,
                     httpClient,
                     maxErrorDuration,
@@ -298,6 +317,7 @@ public final class HttpRemoteTask
             // to start we just need to trigger an update
             scheduleUpdate();
 
+            dynamicFiltersFetcher.start();
             taskStatusFetcher.start();
             taskInfoFetcher.start();
         }
@@ -432,7 +452,7 @@ public final class HttpRemoteTask
 
     private synchronized void updateSplitQueueSpace()
     {
-        if (!whenSplitQueueHasSpaceThreshold.isPresent()) {
+        if (whenSplitQueueHasSpaceThreshold.isEmpty()) {
             return;
         }
         splitQueueHasSpace = getQueuedPartitionedSplitCount() < whenSplitQueueHasSpaceThreshold.getAsInt();
@@ -502,7 +522,8 @@ public final class HttpRemoteTask
 
         List<TaskSource> sources = getSources();
 
-        Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment) : Optional.empty();
+        // Workers don't need the embedded JSON representation when the fragment is sent
+        Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment.withoutEmbeddedJsonRepresentation()) : Optional.empty();
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),
                 session.getIdentity().getExtraCredentials(),
@@ -596,6 +617,7 @@ public final class HttpRemoteTask
         }
 
         taskStatusFetcher.stop();
+        dynamicFiltersFetcher.stop();
 
         // The remote task is likely to get a delete from the PageBufferClient first.
         // We send an additional delete anyway to get the final TaskInfo
@@ -645,7 +667,7 @@ public final class HttpRemoteTask
 
     private void doScheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
     {
-        Futures.addCallback(httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec)), new FutureCallback<JsonResponse<TaskInfo>>()
+        Futures.addCallback(httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec)), new FutureCallback<>()
         {
             @Override
             public void onSuccess(JsonResponse<TaskInfo> result)

@@ -16,6 +16,7 @@ package io.prestosql.elasticsearch;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
@@ -27,7 +28,6 @@ import org.apache.http.nio.entity.NStringEntity;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -41,30 +41,33 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public abstract class BaseElasticsearchSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final String elasticVersion;
+    private final String image;
     private ElasticsearchServer elasticsearch;
     private RestHighLevelClient client;
 
-    BaseElasticsearchSmokeTest(String elasticVersion)
+    BaseElasticsearchSmokeTest(String image)
     {
-        this.elasticVersion = elasticVersion;
+        this.image = image;
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        elasticsearch = new ElasticsearchServer(elasticVersion);
+        elasticsearch = new ElasticsearchServer(image, ImmutableMap.of());
 
         HostAndPort address = elasticsearch.getAddress();
         client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
 
-        return createElasticsearchQueryRunner(elasticsearch.getAddress(), TpchTable.getTables(), ImmutableMap.of());
+        return createElasticsearchQueryRunner(elasticsearch.getAddress(), TpchTable.getTables(), ImmutableMap.of(), ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)
@@ -91,7 +94,7 @@ public abstract class BaseElasticsearchSmokeTest
                 .row("clerk", "varchar", "", "")
                 .row("comment", "varchar", "", "")
                 .row("custkey", "bigint", "", "")
-                .row("orderdate", "timestamp", "", "")
+                .row("orderdate", "timestamp(3)", "", "")
                 .row("orderkey", "bigint", "", "")
                 .row("orderpriority", "varchar", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -105,10 +108,18 @@ public abstract class BaseElasticsearchSmokeTest
     @Override
     public void testShowCreateTable()
     {
-        // TODO (https://github.com/prestosql/presto/issues/3385) Fix SHOW CREATE TABLE
-        assertThatThrownBy(super::testShowCreateTable)
-                .hasMessage("No PropertyMetadata for property: original-name");
-        throw new SkipException("Fix SHOW CREATE TABLE");
+        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .isEqualTo("CREATE TABLE elasticsearch.tpch.orders (\n" +
+                        "   clerk varchar,\n" +
+                        "   comment varchar,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderdate timestamp(3),\n" +
+                        "   orderkey bigint,\n" +
+                        "   orderpriority varchar,\n" +
+                        "   orderstatus varchar,\n" +
+                        "   shippriority bigint,\n" +
+                        "   totalprice real\n" +
+                        ")");
     }
 
     @Test
@@ -376,6 +387,96 @@ public abstract class BaseElasticsearchSmokeTest
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
                 .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
                         LocalDateTime.of(1970, 1, 1, 0, 0), "1.2.3.4", "2001:db8::1:0:0:1")
+                .build();
+
+        assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testBoolean()
+            throws IOException
+    {
+        String indexName = "booleans";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"boolean_column\":   { \"type\": \"boolean\" }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("boolean_column", true)
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("boolean_column", "true")
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("boolean_column", false)
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("boolean_column", "false")
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("boolean_column", "")
+                .build());
+
+        MaterializedResult rows = computeActual("SELECT boolean_column FROM booleans");
+
+        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+                .row(true)
+                .row(true)
+                .row(false)
+                .row(false)
+                .row(false)
+                .build();
+
+        assertThat(rows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testCoercions()
+            throws IOException
+    {
+        String indexName = "coercions";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"float_column\":     { \"type\": \"float\" }," +
+                "    \"double_column\":    { \"type\": \"double\" }," +
+                "    \"integer_column\":   { \"type\": \"integer\" }," +
+                "    \"long_column\":      { \"type\": \"long\" }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("float_column", "1.0")
+                .put("double_column", "1.0")
+                .put("integer_column", "1")
+                .put("long_column", "1")
+                .build());
+
+        MaterializedResult rows = computeActual("" +
+                "SELECT " +
+                "float_column, " +
+                "double_column, " +
+                "integer_column, " +
+                "long_column " +
+                "FROM coercions");
+
+        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+                .row(1.0f, 1.0d, 1, 1L)
                 .build();
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
@@ -713,6 +814,7 @@ public abstract class BaseElasticsearchSmokeTest
     @Test
     public void testQueryStringError()
     {
+        assertQueryFails("SELECT orderkey FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
         assertQueryFails("SELECT count(*) FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
     }
 
@@ -727,7 +829,7 @@ public abstract class BaseElasticsearchSmokeTest
                 "SELECT count(*) FROM orders");
     }
 
-    @Test
+    @Test(enabled = false) // TODO (https://github.com/prestosql/presto/issues/2428)
     public void testMultiIndexAlias()
             throws IOException
     {
@@ -737,6 +839,84 @@ public abstract class BaseElasticsearchSmokeTest
         assertQuery(
                 "SELECT count(*) FROM multi_alias",
                 "SELECT (SELECT count(*) FROM region) + (SELECT count(*) FROM nation)");
+    }
+
+    @Test
+    public void testPassthroughQuery()
+    {
+        @Language("JSON")
+        String query = "{\n" +
+                "    \"size\": 0,\n" +
+                "    \"aggs\" : {\n" +
+                "        \"max_orderkey\" : { \"max\" : { \"field\" : \"orderkey\" } },\n" +
+                "        \"sum_orderkey\" : { \"sum\" : { \"field\" : \"orderkey\" } }\n" +
+                "    }\n" +
+                "}";
+
+        assertQuery(
+                format("WITH data(r) AS (" +
+                        "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
+                        "   FROM \"orders$query:%s\") " +
+                        "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
+                        "FROM data", BaseEncoding.base32().encode(query.getBytes(UTF_8))),
+                "VALUES (60000, 449872500)");
+
+        assertQueryFails(
+                "SELECT * FROM \"orders$query:invalid-base32-encoding\"",
+                "Elasticsearch query for 'orders' is not base32-encoded correctly");
+        assertQueryFails(
+                format("SELECT * FROM \"orders$query:%s\"", BaseEncoding.base32().encode("invalid json".getBytes(UTF_8))),
+                "Elasticsearch query for 'orders' is not valid JSON");
+    }
+
+    @Test
+    public void testEmptyIndexWithMappings()
+            throws IOException
+    {
+        String indexName = "test_empty_index_with_mappings";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"dummy_column\":     { \"type\": \"long\" }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        assertQuery(format("SELECT column_name FROM information_schema.columns WHERE table_name = '%s'", indexName), "VALUES ('dummy_column')");
+        assertTrue(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(indexName));
+        assertQueryReturnsEmptyResult("SELECT * FROM " + indexName);
+    }
+
+    @Test
+    public void testEmptyIndexNoMappings()
+            throws IOException
+    {
+        String indexName = "test_empty_index";
+
+        createIndex(indexName);
+        assertTableDoesNotExist(indexName);
+    }
+
+    @Test
+    public void testEmptyAliasNoMappings()
+            throws IOException
+    {
+        String indexName = "test_empty_index_for_alias";
+        String aliasName = "test_empty_alias";
+
+        createIndex(indexName);
+        addAlias(indexName, aliasName);
+        assertTableDoesNotExist(aliasName);
+    }
+
+    private void assertTableDoesNotExist(String name)
+    {
+        assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));
+        assertFalse(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(name));
+        assertQueryFails("SELECT * FROM " + name, ".*Table 'elasticsearch.tpch." + name + "' does not exist");
     }
 
     protected abstract String indexEndpoint(String index, String docId);
@@ -760,6 +940,12 @@ public abstract class BaseElasticsearchSmokeTest
     }
 
     protected abstract String indexMapping(@Language("JSON") String properties);
+
+    private void createIndex(String indexName)
+            throws IOException
+    {
+        client.getLowLevelClient().performRequest("PUT", "/" + indexName);
+    }
 
     private void createIndex(String indexName, @Language("JSON") String properties)
             throws IOException

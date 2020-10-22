@@ -55,6 +55,7 @@ import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.list
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableTablePrivileges;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
@@ -81,7 +82,9 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSess
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
@@ -94,6 +97,7 @@ public class SqlStandardAccessControl
     public static final String ADMIN_ROLE_NAME = "admin";
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
     private static final SchemaTableName ROLES = new SchemaTableName(INFORMATION_SCHEMA_NAME, "roles");
+    private static final SchemaTableName ROLE_AUHTORIZATION_DESCRIPTORS = new SchemaTableName(INFORMATION_SCHEMA_NAME, "role_authorization_descriptors");
 
     private final String catalogName;
     private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
@@ -160,6 +164,14 @@ public class SqlStandardAccessControl
     }
 
     @Override
+    public void checkCanShowCreateSchema(ConnectorSecurityContext context, String schemaName)
+    {
+        if (!isDatabaseOwner(context, schemaName)) {
+            denyShowCreateSchema(schemaName);
+        }
+    }
+
+    @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         if (!isDatabaseOwner(context, tableName.getSchemaName())) {
@@ -188,6 +200,14 @@ public class SqlStandardAccessControl
     {
         if (!isTableOwner(context, tableName)) {
             denyCommentTable(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        if (!isTableOwner(context, tableName)) {
+            denyCommentColumn(tableName.toString());
         }
     }
 
@@ -389,6 +409,14 @@ public class SqlStandardAccessControl
     }
 
     @Override
+    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
+    {
+        if (!isAdmin(context)) {
+            denyShowRoleAuthorizationDescriptors(catalogName);
+        }
+    }
+
+    @Override
     public void checkCanShowRoles(ConnectorSecurityContext context, String catalogName)
     {
         if (!isAdmin(context)) {
@@ -442,7 +470,7 @@ public class SqlStandardAccessControl
 
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle()));
         Optional<Database> databaseMetadata = metastore.getDatabase(databaseName);
-        if (!databaseMetadata.isPresent()) {
+        if (databaseMetadata.isEmpty()) {
             return false;
         }
 
@@ -474,7 +502,7 @@ public class SqlStandardAccessControl
             return true;
         }
 
-        if (tableName.equals(ROLES)) {
+        if (tableName.equals(ROLES) || tableName.equals(ROLE_AUHTORIZATION_DESCRIPTORS)) {
             return false;
         }
 

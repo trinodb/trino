@@ -17,7 +17,6 @@ import com.google.common.base.VerifyException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.Type;
@@ -31,8 +30,8 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordCursor
@@ -46,7 +45,7 @@ public class JdbcRecordCursor
     private final DoubleReadFunction[] doubleReadFunctions;
     private final LongReadFunction[] longReadFunctions;
     private final SliceReadFunction[] sliceReadFunctions;
-    private final BlockReadFunction[] blockReadFunctions;
+    private final ObjectReadFunction[] objectReadFunctions;
 
     private final JdbcClient jdbcClient;
     private final Connection connection;
@@ -65,14 +64,19 @@ public class JdbcRecordCursor
         doubleReadFunctions = new DoubleReadFunction[columnHandles.size()];
         longReadFunctions = new LongReadFunction[columnHandles.size()];
         sliceReadFunctions = new SliceReadFunction[columnHandles.size()];
-        blockReadFunctions = new BlockReadFunction[columnHandles.size()];
+        objectReadFunctions = new ObjectReadFunction[columnHandles.size()];
 
         try {
             connection = jdbcClient.getConnection(JdbcIdentity.from(session), split);
 
             for (int i = 0; i < this.columnHandles.length; i++) {
-                ColumnMapping columnMapping = jdbcClient.toPrestoType(session, connection, columnHandles.get(i).getJdbcTypeHandle())
+                JdbcColumnHandle columnHandle = columnHandles.get(i);
+                ColumnMapping columnMapping = jdbcClient.toPrestoType(session, connection, columnHandle.getJdbcTypeHandle())
                         .orElseThrow(() -> new VerifyException("Unsupported column type"));
+                verify(
+                        columnHandle.getColumnType().equals(columnMapping.getType()),
+                        "Type mismatch: column handle has type %s but %s is mapped to %s",
+                        columnHandle.getColumnType(), columnHandle.getJdbcTypeHandle(), columnMapping.getType());
                 Class<?> javaType = columnMapping.getType().getJavaType();
                 ReadFunction readFunction = columnMapping.getReadFunction();
                 readFunctions[i] = readFunction;
@@ -89,11 +93,8 @@ public class JdbcRecordCursor
                 else if (javaType == Slice.class) {
                     sliceReadFunctions[i] = (SliceReadFunction) readFunction;
                 }
-                else if (javaType == Block.class) {
-                    blockReadFunctions[i] = (BlockReadFunction) readFunction;
-                }
                 else {
-                    throw new IllegalStateException(format("Unsupported java type %s", javaType));
+                    objectReadFunctions[i] = (ObjectReadFunction) readFunction;
                 }
             }
 
@@ -192,7 +193,7 @@ public class JdbcRecordCursor
     {
         checkState(!closed, "cursor is closed");
         try {
-            return blockReadFunctions[field].readBlock(resultSet, field + 1);
+            return objectReadFunctions[field].readObject(resultSet, field + 1);
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);

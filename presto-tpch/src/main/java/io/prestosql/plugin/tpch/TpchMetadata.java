@@ -25,7 +25,6 @@ import io.prestosql.plugin.tpch.statistics.ColumnStatisticsData;
 import io.prestosql.plugin.tpch.statistics.StatisticsEstimator;
 import io.prestosql.plugin.tpch.statistics.TableStatisticsData;
 import io.prestosql.plugin.tpch.statistics.TableStatisticsDataRepository;
-import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -39,6 +38,7 @@ import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LocalProperty;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.connector.SortingProperty;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
@@ -191,7 +191,7 @@ public class TpchMetadata
     {
         return nullableValues.stream()
                 .filter(convertToPredicate(constraint.getSummary(), toColumnHandle(column)))
-                .filter(value -> !constraint.predicate().isPresent() || constraint.predicate().get().test(ImmutableMap.of(toColumnHandle(column), value)))
+                .filter(value -> constraint.predicate().isEmpty() || constraint.predicate().get().test(ImmutableMap.of(toColumnHandle(column), value)))
                 .collect(toSet());
     }
 
@@ -334,7 +334,7 @@ public class TpchMetadata
         if (columnType instanceof VarcharType) {
             return Optional.empty();
         }
-        if (!min.isPresent() || !max.isPresent()) {
+        if (min.isEmpty() || max.isEmpty()) {
             return Optional.empty();
         }
         return Optional.of(new DoubleRange(toDouble(min.get(), columnType), toDouble(max.get(), columnType)));
@@ -517,7 +517,7 @@ public class TpchMetadata
 
     private List<String> getSchemaNames(ConnectorSession session, Optional<String> schemaName)
     {
-        if (!schemaName.isPresent()) {
+        if (schemaName.isEmpty()) {
             return listSchemaNames(session);
         }
         if (schemaNameToScaleFactor(schemaName.get()) > 0) {

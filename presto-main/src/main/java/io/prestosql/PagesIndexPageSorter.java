@@ -16,7 +16,7 @@ package io.prestosql;
 import io.prestosql.operator.PagesIndex;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageSorter;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
 
 import javax.inject.Inject;

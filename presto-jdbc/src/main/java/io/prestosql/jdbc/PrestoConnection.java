@@ -59,6 +59,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.fromProperties;
+import static io.prestosql.jdbc.ClientInfoProperty.APPLICATION_NAME;
+import static io.prestosql.jdbc.ClientInfoProperty.CLIENT_INFO;
+import static io.prestosql.jdbc.ClientInfoProperty.CLIENT_TAGS;
+import static io.prestosql.jdbc.ClientInfoProperty.TRACE_TOKEN;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
@@ -77,6 +81,7 @@ public class PrestoConnection
     private final AtomicReference<String> schema = new AtomicReference<>();
     private final AtomicReference<String> path = new AtomicReference<>();
     private final AtomicReference<ZoneId> timeZoneId = new AtomicReference<>();
+    private final AtomicBoolean useSessionTimeZone = new AtomicBoolean();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
     private final AtomicReference<ServerInfo> serverInfo = new AtomicReference<>();
@@ -87,7 +92,8 @@ public class PrestoConnection
     private final String user;
     private final Map<String, String> extraCredentials;
     private final Optional<String> applicationNamePrefix;
-    private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
+    private final Optional<String> source;
+    private final Map<ClientInfoProperty, String> clientInfo = new ConcurrentHashMap<>();
     private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
     private final Map<String, String> preparedStatements = new ConcurrentHashMap<>();
     private final Map<String, ClientSelectedRole> roles = new ConcurrentHashMap<>();
@@ -104,14 +110,16 @@ public class PrestoConnection
         this.catalog.set(uri.getCatalog());
         this.user = uri.getUser();
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
+        this.source = uri.getSource();
         this.extraCredentials = uri.getExtraCredentials();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
-        uri.getClientInfo().ifPresent(tags -> clientInfo.put("ClientInfo", tags));
-        uri.getClientTags().ifPresent(tags -> clientInfo.put("ClientTags", tags));
-        uri.getTraceToken().ifPresent(tags -> clientInfo.put("TraceToken", tags));
+        uri.getClientInfo().ifPresent(tags -> clientInfo.put(CLIENT_INFO, tags));
+        uri.getClientTags().ifPresent(tags -> clientInfo.put(CLIENT_TAGS, tags));
+        uri.getTraceToken().ifPresent(tags -> clientInfo.put(TRACE_TOKEN, tags));
 
         roles.putAll(uri.getRoles());
         timeZoneId.set(ZoneId.systemDefault());
+        useSessionTimeZone.set(uri.useSessionTimezone().orElse(false));
         locale.set(Locale.getDefault());
         sessionProperties.putAll(uri.getSessionProperties());
     }
@@ -470,11 +478,18 @@ public class PrestoConnection
             throws SQLClientInfoException
     {
         requireNonNull(name, "name is null");
+
+        Optional<ClientInfoProperty> clientInfoProperty = ClientInfoProperty.forName(name);
+        if (!clientInfoProperty.isPresent()) {
+            // TODO generate a warning
+            return;
+        }
+
         if (value != null) {
-            clientInfo.put(name, value);
+            clientInfo.put(clientInfoProperty.get(), value);
         }
         else {
-            clientInfo.remove(name);
+            clientInfo.remove(clientInfoProperty.get());
         }
     }
 
@@ -482,14 +497,19 @@ public class PrestoConnection
     public void setClientInfo(Properties properties)
             throws SQLClientInfoException
     {
-        clientInfo.putAll(fromProperties(properties));
+        for (Map.Entry<String, String> entry : fromProperties(properties).entrySet()) {
+            setClientInfo(entry.getKey(), entry.getValue());
+        }
     }
 
     @Override
     public String getClientInfo(String name)
             throws SQLException
     {
-        return clientInfo.get(name);
+        return Optional.ofNullable(name)
+                .flatMap(ClientInfoProperty::forName)
+                .map(clientInfo::get)
+                .orElse(null);
     }
 
     @Override
@@ -497,8 +517,8 @@ public class PrestoConnection
             throws SQLException
     {
         Properties properties = new Properties();
-        for (Map.Entry<String, String> entry : clientInfo.entrySet()) {
-            properties.setProperty(entry.getKey(), entry.getValue());
+        for (Map.Entry<ClientInfoProperty, String> entry : clientInfo.entrySet()) {
+            properties.setProperty(entry.getKey().getPropertyName(), entry.getValue());
         }
         return properties;
     }
@@ -533,9 +553,14 @@ public class PrestoConnection
         return schema.get();
     }
 
+    ZoneId getTimeZone()
+    {
+        return timeZoneId.get();
+    }
+
     public String getTimeZoneId()
     {
-        return timeZoneId.get().getId();
+        return getTimeZone().getId();
     }
 
     public void setTimeZoneId(String timeZoneId)
@@ -672,20 +697,10 @@ public class PrestoConnection
 
     StatementClient startQuery(String sql, Map<String, String> sessionPropertiesOverride)
     {
-        String source = "presto-jdbc";
-        String applicationName = clientInfo.get("ApplicationName");
-        if (applicationNamePrefix.isPresent()) {
-            source = applicationNamePrefix.get();
-            if (applicationName != null) {
-                source += applicationName;
-            }
-        }
-        else if (applicationName != null) {
-            source = applicationName;
-        }
+        String source = getActualSource();
 
         Iterable<String> clientTags = Splitter.on(',').trimResults().omitEmptyStrings()
-                .split(nullToEmpty(clientInfo.get("ClientTags")));
+                .split(nullToEmpty(clientInfo.get(CLIENT_TAGS)));
 
         Map<String, String> allProperties = new HashMap<>(sessionProperties);
         allProperties.putAll(sessionPropertiesOverride);
@@ -698,13 +713,14 @@ public class PrestoConnection
                 httpUri,
                 user,
                 source,
-                Optional.ofNullable(clientInfo.get("TraceToken")),
+                Optional.ofNullable(clientInfo.get(TRACE_TOKEN)),
                 ImmutableSet.copyOf(clientTags),
-                clientInfo.get("ClientInfo"),
+                clientInfo.get(CLIENT_INFO),
                 catalog.get(),
                 schema.get(),
                 path.get(),
                 timeZoneId.get(),
+                useSessionTimeZone.get(),
                 locale.get(),
                 ImmutableMap.of(),
                 ImmutableMap.copyOf(allProperties),
@@ -780,5 +796,24 @@ public class PrestoConnection
                 return "SERIALIZABLE";
         }
         throw new SQLException("Invalid transaction isolation level: " + level);
+    }
+
+    private String getActualSource()
+    {
+        if (source.isPresent()) {
+            return source.get();
+        }
+        String source = "presto-jdbc";
+        String applicationName = clientInfo.get(APPLICATION_NAME);
+        if (applicationNamePrefix.isPresent()) {
+            source = applicationNamePrefix.get();
+            if (applicationName != null) {
+                source += applicationName;
+            }
+        }
+        else if (applicationName != null) {
+            source = applicationName;
+        }
+        return source;
     }
 }

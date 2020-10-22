@@ -18,13 +18,12 @@ import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
-import io.prestosql.server.ServerConfig;
+import io.prestosql.client.NodeVersion;
 import io.prestosql.spi.VersionEmbedder;
 
 import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Objects;
 import java.util.concurrent.Callable;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -47,18 +46,23 @@ public class EmbedVersion
     private final MethodHandle callableConstructor;
 
     @Inject
-    public EmbedVersion(ServerConfig serverConfig)
+    public EmbedVersion(NodeVersion version)
     {
-        Class<?> generatedClass = createClass(serverConfig);
+        this(version.getVersion());
+    }
+
+    public EmbedVersion(String version)
+    {
+        Class<?> generatedClass = createClass(format("Presto_%s___", version));
         this.runnableConstructor = constructorMethodHandle(generatedClass, Runnable.class);
         this.callableConstructor = constructorMethodHandle(generatedClass, Callable.class);
     }
 
-    private static Class<?> createClass(ServerConfig serverConfig)
+    private static Class<?> createClass(String baseClassName)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(baseClassName(serverConfig)),
+                makeClassName(baseClassName),
                 type(Object.class),
                 type(Runnable.class),
                 type(Callable.class));
@@ -117,18 +121,6 @@ public class EmbedVersion
                 .ret(Object.class);
     }
 
-    private static String baseClassName(ServerConfig serverConfig)
-    {
-        String builtInVersion = new ServerConfig().getPrestoVersion();
-        String configuredVersion = serverConfig.getPrestoVersion();
-
-        String version = configuredVersion;
-        if (!Objects.equals(builtInVersion, configuredVersion)) {
-            version = format("%s__%s", builtInVersion, configuredVersion);
-        }
-        return format("Presto_%s___", version);
-    }
-
     @Override
     public Runnable embedVersion(Runnable runnable)
     {
@@ -155,5 +147,10 @@ public class EmbedVersion
             throwIfUnchecked(throwable);
             throw new RuntimeException(throwable);
         }
+    }
+
+    public static EmbedVersion testingVersionEmbedder()
+    {
+        return new EmbedVersion("testversion");
     }
 }

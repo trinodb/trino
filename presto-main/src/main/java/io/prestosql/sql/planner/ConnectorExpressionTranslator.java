@@ -160,7 +160,7 @@ public final class ConnectorExpressionTranslator
         protected Optional<ConnectorExpression> visitDereferenceExpression(DereferenceExpression node, Void context)
         {
             Optional<ConnectorExpression> translatedBase = process(node.getBase());
-            if (!translatedBase.isPresent()) {
+            if (translatedBase.isEmpty()) {
                 return Optional.empty();
             }
 

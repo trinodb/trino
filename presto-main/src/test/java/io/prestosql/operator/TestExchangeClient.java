@@ -14,9 +14,14 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.http.client.HttpStatus;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
+import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -25,17 +30,24 @@ import io.prestosql.execution.buffer.PagesSerde;
 import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.memory.context.SimpleLocalMemoryContext;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
@@ -46,6 +58,7 @@ import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggre
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -63,7 +76,7 @@ public class TestExchangeClient
     @BeforeClass
     public void setUp()
     {
-        scheduler = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
+        scheduler = newScheduledThreadPool(4, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
     }
 
@@ -94,6 +107,8 @@ public class TestExchangeClient
 
         @SuppressWarnings("resource")
         ExchangeClient exchangeClient = new ExchangeClient(
+                "localhost",
+                DataIntegrityVerification.ABORT,
                 DataSize.of(32, Unit.MEGABYTE),
                 maxResponseSize,
                 1,
@@ -133,12 +148,14 @@ public class TestExchangeClient
 
         @SuppressWarnings("resource")
         ExchangeClient exchangeClient = new ExchangeClient(
+                "localhost",
+                DataIntegrityVerification.ABORT,
                 DataSize.of(32, Unit.MEGABYTE),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
                 true,
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
+                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-testAddLocation-%s"))),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
@@ -205,12 +222,14 @@ public class TestExchangeClient
 
         @SuppressWarnings("resource")
         ExchangeClient exchangeClient = new ExchangeClient(
+                "localhost",
+                DataIntegrityVerification.ABORT,
                 DataSize.ofBytes(1),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
                 true,
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
+                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-testBufferLimit-%s"))),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
@@ -274,6 +293,109 @@ public class TestExchangeClient
     }
 
     @Test
+    public void testAbortOnDataCorruption()
+    {
+        URI location = URI.create("http://localhost:8080");
+        ExchangeClient exchangeClient = setUpDataCorruption(DataIntegrityVerification.ABORT, location);
+
+        assertFalse(exchangeClient.isClosed());
+        assertThatThrownBy(() -> getNextPage(exchangeClient))
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("Checksum verification failure on localhost when reading from http://localhost:8080/0: Data corruption, read checksum: 0xf91cfe5d2bc6e1c2, calculated checksum: 0x3c51297c7b78052f");
+
+        assertThatThrownBy(exchangeClient::isFinished)
+                .isInstanceOf(PrestoException.class)
+                .hasMessageMatching("Checksum verification failure on localhost when reading from http://localhost:8080/0: Data corruption, read checksum: 0xf91cfe5d2bc6e1c2, calculated checksum: 0x3c51297c7b78052f");
+
+        exchangeClient.close();
+    }
+
+    @Test
+    public void testRetryDataCorruption()
+    {
+        URI location = URI.create("http://localhost:8080");
+        ExchangeClient exchangeClient = setUpDataCorruption(DataIntegrityVerification.RETRY, location);
+
+        assertFalse(exchangeClient.isClosed());
+        assertPageEquals(getNextPage(exchangeClient), createPage(1));
+        assertFalse(exchangeClient.isClosed());
+        assertPageEquals(getNextPage(exchangeClient), createPage(2));
+        assertNull(getNextPage(exchangeClient));
+        assertTrue(exchangeClient.isClosed());
+
+        ExchangeClientStatus status = exchangeClient.getStatus();
+        assertEquals(status.getBufferedPages(), 0);
+        assertEquals(status.getBufferedBytes(), 0);
+
+        assertStatus(status.getPageBufferClientStatuses().get(0), location, "closed", 2, 4, 4, "not scheduled");
+    }
+
+    private ExchangeClient setUpDataCorruption(DataIntegrityVerification dataIntegrityVerification, URI location)
+    {
+        DataSize maxResponseSize = DataSize.of(10, Unit.MEGABYTE);
+
+        MockExchangeRequestProcessor delegate = new MockExchangeRequestProcessor(maxResponseSize);
+        delegate.addPage(location, createPage(1));
+        delegate.addPage(location, createPage(2));
+        delegate.setComplete(location);
+
+        TestingHttpClient.Processor processor = new TestingHttpClient.Processor()
+        {
+            private int completedRequests;
+            private TestingResponse savedResponse;
+
+            @Override
+            public synchronized Response handle(Request request)
+                    throws Exception
+            {
+                if (completedRequests == 0) {
+                    verify(savedResponse == null);
+                    TestingResponse response = (TestingResponse) delegate.handle(request);
+                    checkState(response.getStatusCode() == HttpStatus.OK.code(), "Unexpected status code: %s", response.getStatusCode());
+                    ListMultimap<String, String> headers = response.getHeaders().entries().stream()
+                            .collect(toImmutableListMultimap(entry -> entry.getKey().toString(), Map.Entry::getValue));
+                    byte[] bytes = toByteArray(response.getInputStream());
+                    checkState(bytes.length > 42, "too short");
+                    savedResponse = new TestingResponse(HttpStatus.OK, headers, bytes.clone());
+                    // corrupt
+                    bytes[42]++;
+                    completedRequests++;
+                    return new TestingResponse(HttpStatus.OK, headers, bytes);
+                }
+
+                if (completedRequests == 1) {
+                    verify(savedResponse != null);
+                    Response response = savedResponse;
+                    savedResponse = null;
+                    completedRequests++;
+                    return response;
+                }
+
+                completedRequests++;
+                return delegate.handle(request);
+            }
+        };
+
+        ExchangeClient exchangeClient = new ExchangeClient(
+                "localhost",
+                dataIntegrityVerification,
+                DataSize.of(32, Unit.MEGABYTE),
+                maxResponseSize,
+                1,
+                new Duration(1, TimeUnit.MINUTES),
+                true,
+                new TestingHttpClient(processor, scheduler),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                pageBufferClientCallbackExecutor);
+
+        exchangeClient.addLocation(location);
+        exchangeClient.noMoreLocations();
+
+        return exchangeClient;
+    }
+
+    @Test
     public void testClose()
             throws Exception
     {
@@ -287,12 +409,14 @@ public class TestExchangeClient
 
         @SuppressWarnings("resource")
         ExchangeClient exchangeClient = new ExchangeClient(
+                "localhost",
+                DataIntegrityVerification.ABORT,
                 DataSize.ofBytes(1),
                 maxResponseSize,
                 1,
                 new Duration(1, TimeUnit.MINUTES),
                 true,
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
+                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-testClose-%s"))),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);

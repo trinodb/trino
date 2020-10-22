@@ -24,7 +24,6 @@ import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
 import static java.util.Collections.nCopies;
 
@@ -54,7 +53,7 @@ public abstract class SqlOperator
                 true,
                 "",
                 SCALAR));
-        if (operatorType == EQUAL || operatorType == NOT_EQUAL || operatorType == SUBSCRIPT) {
+        if (operatorType == EQUAL || operatorType == SUBSCRIPT) {
             checkArgument(nullable, "%s operator for %s must be nullable", operatorType, argumentTypes.get(0));
         }
     }

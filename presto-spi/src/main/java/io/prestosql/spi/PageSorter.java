@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi;
 
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
 
 import java.util.List;

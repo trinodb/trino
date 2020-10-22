@@ -55,10 +55,10 @@ import static io.prestosql.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static io.prestosql.spi.type.QuantileDigestParametricType.QDIGEST;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimeParametricType.TIME;
+import static io.prestosql.spi.type.TimeWithTimeZoneParametricType.TIME_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampParametricType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneParametricType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
@@ -75,6 +75,7 @@ import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.LikePatternType.LIKE_PATTERN;
 import static io.prestosql.type.MapParametricType.MAP;
 import static io.prestosql.type.RowParametricType.ROW;
+import static io.prestosql.type.TDigestType.TDIGEST;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.type.UuidType.UUID;
 import static io.prestosql.type.setdigest.SetDigestType.SET_DIGEST;
@@ -106,10 +107,6 @@ final class TypeRegistry
         addType(REAL);
         addType(VARBINARY);
         addType(DATE);
-        addType(TIME);
-        addType(TIME_WITH_TIME_ZONE);
-        addType(TIMESTAMP);
-        addType(TIMESTAMP_WITH_TIME_ZONE);
         addType(INTERVAL_YEAR_MONTH);
         addType(INTERVAL_DAY_TIME);
         addType(HYPER_LOG_LOG);
@@ -124,6 +121,7 @@ final class TypeRegistry
         addType(CODE_POINTS);
         addType(IPADDRESS);
         addType(UUID);
+        addType(TDIGEST);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
@@ -132,6 +130,10 @@ final class TypeRegistry
         addParametricType(MAP);
         addParametricType(FUNCTION);
         addParametricType(QDIGEST);
+        addParametricType(TIMESTAMP);
+        addParametricType(TIMESTAMP_WITH_TIME_ZONE);
+        addParametricType(TIME);
+        addParametricType(TIME_WITH_TIME_ZONE);
 
         parametricTypeCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)

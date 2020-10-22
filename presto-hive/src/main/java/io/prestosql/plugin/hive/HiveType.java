@@ -16,10 +16,13 @@ package io.prestosql.plugin.hive;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.hive.metastore.StorageFormat;
+import io.prestosql.plugin.hive.util.HiveTypeTranslator;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RowFieldName;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
@@ -31,6 +34,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.UnionTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
 
 import java.util.List;
@@ -39,6 +43,8 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.hive.HiveStorageFormat.AVRO;
+import static io.prestosql.plugin.hive.HiveStorageFormat.ORC;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -49,7 +55,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -115,9 +121,20 @@ public final class HiveType
         return getTypeSignature(typeInfo);
     }
 
+    @Deprecated
     public Type getType(TypeManager typeManager)
     {
         return typeManager.getType(getTypeSignature());
+    }
+
+    public Type getType(TypeManager typeManager, int timestampPrecision)
+    {
+        Type tentativeType = typeManager.getType(getTypeSignature());
+        // TODO: handle timestamps in structural types (https://github.com/prestosql/presto/issues/5195)
+        if (tentativeType instanceof TimestampType) {
+            return TimestampType.createTimestampType(timestampPrecision);
+        }
+        return tentativeType;
     }
 
     @Override
@@ -148,26 +165,38 @@ public final class HiveType
         return hiveTypeName.toString();
     }
 
-    public boolean isSupportedType()
+    public boolean isSupportedType(StorageFormat storageFormat)
     {
-        return isSupportedType(getTypeInfo());
+        return isSupportedType(getTypeInfo(), storageFormat);
     }
 
-    public static boolean isSupportedType(TypeInfo typeInfo)
+    public static boolean isSupportedType(TypeInfo typeInfo, StorageFormat storageFormat)
     {
         switch (typeInfo.getCategory()) {
             case PRIMITIVE:
                 return getPrimitiveType((PrimitiveTypeInfo) typeInfo) != null;
             case MAP:
                 MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
-                return isSupportedType(mapTypeInfo.getMapKeyTypeInfo()) && isSupportedType(mapTypeInfo.getMapValueTypeInfo());
+                return isSupportedType(mapTypeInfo.getMapKeyTypeInfo(), storageFormat) && isSupportedType(mapTypeInfo.getMapValueTypeInfo(), storageFormat);
             case LIST:
                 ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
-                return isSupportedType(listTypeInfo.getListElementTypeInfo());
+                return isSupportedType(listTypeInfo.getListElementTypeInfo(), storageFormat);
             case STRUCT:
                 StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
                 return structTypeInfo.getAllStructFieldTypeInfos().stream()
-                        .allMatch(HiveType::isSupportedType);
+                        .allMatch(fieldTypeInfo -> isSupportedType(fieldTypeInfo, storageFormat));
+            case UNION:
+                // This feature (reading uniontypes as structs) has only been verified against Avro and ORC tables. Here's a discussion:
+                //   1. Avro tables are supported and verified.
+                //   2. ORC tables are supported and verified.
+                //   3. The Parquet format doesn't support uniontypes itself so there's no need to add support for it in Presto.
+                //   4. TODO: RCFile tables are not supported yet.
+                //   5. TODO: The support for Avro is done in SerDeUtils so it's possible that formats other than Avro are also supported. But verification is needed.
+                if (storageFormat.getSerDe().equalsIgnoreCase(AVRO.getSerDe()) || storageFormat.getSerDe().equalsIgnoreCase(ORC.getSerDe())) {
+                    UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
+                    return unionTypeInfo.getAllUnionObjectTypeInfos().stream()
+                            .allMatch(fieldTypeInfo -> isSupportedType(fieldTypeInfo, storageFormat));
+                }
         }
         return false;
     }
@@ -193,11 +222,9 @@ public final class HiveType
         return new HiveType(typeInfo);
     }
 
-    public static HiveType toHiveType(TypeTranslator typeTranslator, Type type)
+    public static HiveType toHiveType(Type type)
     {
-        requireNonNull(typeTranslator, "typeTranslator is null");
-        requireNonNull(type, "type is null");
-        return new HiveType(typeTranslator.translate(type));
+        return new HiveType(HiveTypeTranslator.translate(type));
     }
 
     private static TypeSignature getTypeSignature(TypeInfo typeInfo)
@@ -240,6 +267,17 @@ public final class HiveType
                     typeSignatureBuilder.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(rowFieldName)), typeSignature)));
                 }
                 return new TypeSignature(StandardTypes.ROW, typeSignatureBuilder.build());
+            case UNION:
+                // Use a row type to represent a union type in Hive for reading
+                UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
+                List<TypeInfo> unionObjectTypeInfos = unionTypeInfo.getAllUnionObjectTypeInfos();
+                ImmutableList.Builder<TypeSignatureParameter> typeSignatures = ImmutableList.builder();
+                typeSignatures.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName("tag")), TINYINT.getTypeSignature())));
+                for (int i = 0; i < unionObjectTypeInfos.size(); i++) {
+                    TypeSignature typeSignature = getTypeSignature(unionObjectTypeInfos.get(i));
+                    typeSignatures.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName("field" + i)), typeSignature)));
+                }
+                return new TypeSignature(StandardTypes.ROW, typeSignatures.build());
         }
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
     }
@@ -270,7 +308,7 @@ public final class HiveType
             case DATE:
                 return DATE;
             case TIMESTAMP:
-                return TIMESTAMP;
+                return TIMESTAMP_MILLIS;
             case BINARY:
                 return VARBINARY;
             case DECIMAL:

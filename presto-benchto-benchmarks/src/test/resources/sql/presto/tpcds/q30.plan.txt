@@ -26,23 +26,23 @@ local exchange (GATHER, SINGLE, [])
                                         scan customer_address
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPLICATE, BROADCAST, [])
-                        final aggregation over (ca_state_90)
+                        final aggregation over (ca_state_73)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["ca_state_90"])
-                                    partial aggregation over (ca_state_90)
-                                        final aggregation over (ca_state_90, wr_returning_customer_sk_37)
+                                remote exchange (REPARTITION, HASH, ["ca_state_73"])
+                                    partial aggregation over (ca_state_73)
+                                        final aggregation over (ca_state_73, wr_returning_customer_sk_20)
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["ca_state_90", "wr_returning_customer_sk_37"])
-                                                    partial aggregation over (ca_state_90, wr_returning_customer_sk_37)
+                                                remote exchange (REPARTITION, HASH, ["ca_state_73", "wr_returning_customer_sk_20"])
+                                                    partial aggregation over (ca_state_73, wr_returning_customer_sk_20)
                                                         join (INNER, PARTITIONED):
-                                                            remote exchange (REPARTITION, HASH, ["wr_returning_addr_sk_40"])
+                                                            remote exchange (REPARTITION, HASH, ["wr_returning_addr_sk_23"])
                                                                 join (INNER, REPLICATED):
                                                                     scan web_returns
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                                             scan date_dim
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPARTITION, HASH, ["ca_address_sk_82"])
+                                                                remote exchange (REPARTITION, HASH, ["ca_address_sk_65"])
                                                                     scan customer_address
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPLICATE, BROADCAST, [])

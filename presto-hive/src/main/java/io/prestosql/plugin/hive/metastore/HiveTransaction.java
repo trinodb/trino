@@ -60,7 +60,7 @@ public class HiveTransaction
                 identity,
                 queryId,
                 transactionId,
-                !tableHandle.getPartitions().isPresent() ? ImmutableList.of(tableHandle.getSchemaTableName()) : ImmutableList.of(),
+                tableHandle.getPartitions().isEmpty() ? ImmutableList.of(tableHandle.getSchemaTableName()) : ImmutableList.of(),
                 tableHandle.getPartitions().orElse(ImmutableList.of()));
 
         // For repeatable reads within a query, use the same list of valid transactions for a table which have once been used

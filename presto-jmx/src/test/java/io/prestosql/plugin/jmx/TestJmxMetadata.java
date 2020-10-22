@@ -36,7 +36,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
 import static io.prestosql.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
@@ -88,7 +88,7 @@ public class TestJmxMetadata
         assertEquals(handle.getObjectNames(), ImmutableList.of(RUNTIME_OBJECT));
 
         List<JmxColumnHandle> columns = handle.getColumnHandles();
-        assertTrue(columns.contains(new JmxColumnHandle("timestamp", TIMESTAMP)));
+        assertTrue(columns.contains(new JmxColumnHandle("timestamp", createTimestampWithTimeZoneType(3))));
         assertTrue(columns.contains(new JmxColumnHandle("node", createUnboundedVarcharType())));
         assertTrue(columns.contains(new JmxColumnHandle("Name", createUnboundedVarcharType())));
         assertTrue(columns.contains(new JmxColumnHandle("StartTime", BIGINT)));
@@ -121,7 +121,7 @@ public class TestJmxMetadata
         assertTrue(handle.getObjectNames().size() > 1);
 
         List<JmxColumnHandle> columns = handle.getColumnHandles();
-        assertTrue(columns.contains(new JmxColumnHandle("timestamp", TIMESTAMP)));
+        assertTrue(columns.contains(new JmxColumnHandle("timestamp", createTimestampWithTimeZoneType(3))));
         assertTrue(columns.contains(new JmxColumnHandle("node", createUnboundedVarcharType())));
         assertTrue(columns.contains(new JmxColumnHandle("object_name", createUnboundedVarcharType())));
         assertTrue(columns.contains(new JmxColumnHandle("Name", createUnboundedVarcharType())));

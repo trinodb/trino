@@ -69,7 +69,7 @@ public class BenchmarkOrcDecimalReader
 
     @Benchmark
     public Object readDecimal(BenchmarkData data)
-            throws Throwable
+            throws Exception
     {
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
@@ -81,7 +81,7 @@ public class BenchmarkOrcDecimalReader
 
     @Test
     public void testReadDecimal()
-            throws Throwable
+            throws Exception
     {
         BenchmarkData data = new BenchmarkData();
         data.setup();
@@ -115,7 +115,8 @@ public class BenchmarkOrcDecimalReader
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(dataPath, READER_OPTIONS);
-            OrcReader orcReader = new OrcReader(dataSource, READER_OPTIONS);
+            OrcReader orcReader = OrcReader.createOrcReader(dataSource, READER_OPTIONS)
+                    .orElseThrow(() -> new RuntimeException("File is empty"));
             return orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     ImmutableList.of(DECIMAL_TYPE),
@@ -138,7 +139,7 @@ public class BenchmarkOrcDecimalReader
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();

@@ -32,10 +32,10 @@ import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.planner.plan.Patterns.distinctLimit;
 
 /**
- *  Replace DistinctLimit node
- *  1. With a empty ValuesNode when count is 0
- *  2. With a Distinct node when the subplan is guaranteed to produce fewer rows than count
- *  3. With its source when the subplan produces only one row
+ * Replace DistinctLimit node
+ * 1. With a empty ValuesNode when count is 0
+ * 2. With a Distinct node when the subplan is guaranteed to produce fewer rows than count
+ * 3. With its source when the subplan produces only one row
  */
 public class RemoveRedundantDistinctLimit
         implements Rule<DistinctLimitNode>
@@ -51,7 +51,7 @@ public class RemoveRedundantDistinctLimit
     @Override
     public Result apply(DistinctLimitNode node, Captures captures, Context context)
     {
-        checkArgument(!node.getHashSymbol().isPresent(), "HashSymbol should be empty");
+        checkArgument(node.getHashSymbol().isEmpty(), "HashSymbol should be empty");
         if (node.getLimit() == 0) {
             return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
         }

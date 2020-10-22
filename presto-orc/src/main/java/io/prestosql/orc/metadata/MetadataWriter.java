@@ -14,6 +14,7 @@
 package io.prestosql.orc.metadata;
 
 import io.airlift.slice.SliceOutput;
+import io.prestosql.orc.metadata.statistics.BloomFilter;
 
 import java.io.IOException;
 import java.util.List;
@@ -35,5 +36,8 @@ public interface MetadataWriter
             throws IOException;
 
     int writeRowIndexes(SliceOutput output, List<RowGroupIndex> rowGroupIndexes)
+            throws IOException;
+
+    int writeBloomFilters(SliceOutput output, List<BloomFilter> bloomFilters)
             throws IOException;
 }

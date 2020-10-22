@@ -1,0 +1,95 @@
+{
+    "type": "index",
+    "spec": {
+        "dataSchema": {
+            "dataSource": "part",
+            "parser": {
+                "type": "string",
+                "parseSpec": {
+                    "format": "tsv",
+                    "timestampSpec": {
+                        "column": "part_druid_dummy_ts",
+                        "format": "auto"
+                    },
+                    "columns": [
+                        "partkey",
+                        "name",
+                        "mfgr",
+                        "brand",
+                        "type",
+                        "size",
+                        "container",
+                        "retailprice",
+                        "comment",
+                        "part_druid_dummy_ts"
+                    ],
+                    "dimensionsSpec": {
+                        "dimensions": [
+                            {
+                                "name": "partkey",
+                                "type": "long"
+                            },
+                            {
+                                "name": "name",
+                                "type": "string"
+                            },
+                            {
+                                "name": "mfgr",
+                                "type": "string"
+                            },
+                            {
+                                "name": "brand",
+                                "type": "string"
+                            },
+                            {
+                                "name": "type",
+                                "type": "string"
+                            },
+                            {
+                                "name": "size",
+                                "type": "long"
+                            },
+                            {
+                                "name": "container",
+                                "type": "string"
+                            },
+                            {
+                                "name": "retailprice",
+                                "type": "double"
+                            },
+                            {
+                                "name": "comment",
+                                "type": "string"
+                            }
+                        ]
+                    }
+                }
+            },
+            "granularitySpec": {
+                "type": "uniform",
+                "intervals": [
+                    "1992-01-02/1998-12-01"
+                ],
+                "segmentGranularity": "year",
+                "queryGranularity": "day"
+            }
+        },
+        "ioConfig": {
+            "type": "index",
+            "firehose": {
+                "type": "local",
+                "baseDir": "/opt/druid/var/",
+                "filter": "part.tsv"
+            },
+            "appendToExisting": false
+        },
+        "tuningConfig": {
+            "type": "index",
+            "maxRowsPerSegment": 5000000,
+            "maxRowsInMemory": 250000,
+            "segmentWriteOutMediumFactory": {
+                "type": "offHeapMemory"
+            }
+        }
+    }
+}

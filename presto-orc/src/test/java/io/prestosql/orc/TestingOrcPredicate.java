@@ -23,11 +23,14 @@ import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.LongTimestamp;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestamp;
+import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
@@ -37,16 +40,24 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertNull;
@@ -69,28 +80,13 @@ public final class TestingOrcPredicate
             return new BooleanOrcPredicate(expectedValues);
         }
         if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type) || BIGINT.equals(type)) {
-            return new LongOrcPredicate(true,
-                    expectedValues.stream()
-                            .map(value -> value == null ? null : ((Number) value).longValue())
-                            .collect(toList()));
-        }
-        if (TIMESTAMP.equals(type)) {
-            return new LongOrcPredicate(false,
-                    expectedValues.stream()
-                            .map(value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc())
-                            .collect(toList()));
+            return new LongOrcPredicate(true, transform(expectedValues, value -> ((Number) value).longValue()));
         }
         if (DATE.equals(type)) {
-            return new DateOrcPredicate(
-                    expectedValues.stream()
-                            .map(value -> value == null ? null : (long) ((SqlDate) value).getDays())
-                            .collect(toList()));
+            return new DateOrcPredicate(transform(expectedValues, value -> (long) ((SqlDate) value).getDays()));
         }
         if (REAL.equals(type) || DOUBLE.equals(type)) {
-            return new DoubleOrcPredicate(
-                    expectedValues.stream()
-                            .map(value -> value == null ? null : ((Number) value).doubleValue())
-                            .collect(toList()));
+            return new DoubleOrcPredicate(transform(expectedValues, value -> ((Number) value).doubleValue()));
         }
         if (type instanceof VarbinaryType) {
             // binary does not have stats
@@ -106,10 +102,44 @@ public final class TestingOrcPredicate
             return new DecimalOrcPredicate(expectedValues);
         }
 
+        if (TIMESTAMP_MILLIS.equals(type)) {
+            return new LongOrcPredicate(false, transform(expectedValues, value -> ((SqlTimestamp) value).getMillis()));
+        }
+        if (TIMESTAMP_MICROS.equals(type)) {
+            return new LongOrcPredicate(false, transform(expectedValues, value -> ((SqlTimestamp) value).getEpochMicros()));
+        }
+        if (TIMESTAMP_NANOS.equals(type)) {
+            return new BasicOrcPredicate<>(
+                    transform(expectedValues, value -> {
+                        SqlTimestamp timestamp = (SqlTimestamp) value;
+                        return new LongTimestamp(timestamp.getEpochMicros(), timestamp.getPicosOfMicros());
+                    }),
+                    LongTimestamp.class);
+        }
+        if (TIMESTAMP_TZ_MILLIS.equals(type)) {
+            return new LongOrcPredicate(false, transform(expectedValues, value ->
+                    packDateTimeWithZone(((SqlTimestampWithTimeZone) value).getEpochMillis(), UTC_KEY)));
+        }
+        if (TIMESTAMP_TZ_MICROS.equals(type) || TIMESTAMP_TZ_NANOS.equals(type)) {
+            return new BasicOrcPredicate<>(
+                    transform(expectedValues, value -> {
+                        SqlTimestampWithTimeZone ts = (SqlTimestampWithTimeZone) value;
+                        return LongTimestampWithTimeZone.fromEpochMillisAndFraction(ts.getEpochMillis(), ts.getPicosOfMilli(), ts.getTimeZoneKey());
+                    }),
+                    LongTimestampWithTimeZone.class);
+        }
+
         if (type instanceof ArrayType || type instanceof MapType || type instanceof RowType) {
             return new BasicOrcPredicate<>(expectedValues, Object.class);
         }
         throw new IllegalArgumentException("Unsupported type " + type);
+    }
+
+    private static <T> List<T> transform(List<Object> list, Function<Object, T> function)
+    {
+        return list.stream()
+                .map(value -> (value == null) ? null : function.apply(value))
+                .collect(toList());
     }
 
     public static class BasicOrcPredicate<T>
@@ -149,11 +179,6 @@ public final class TestingOrcPredicate
                 List<T> chunk = expectedValues.subList((int) (expectedValues.size() - numberOfRows), expectedValues.size());
                 assertChunkStats(chunk, columnStatistics);
             }
-            else if (numberOfRows == expectedValues.size() % ORC_STRIPE_SIZE) {
-                // tail section
-                List<T> chunk = expectedValues.subList((int) (expectedValues.size() - numberOfRows), expectedValues.size());
-                assertChunkStats(chunk, columnStatistics);
-            }
             else {
                 fail("Unexpected number of rows: " + numberOfRows);
             }
@@ -180,11 +205,7 @@ public final class TestingOrcPredicate
         protected boolean chunkMatchesStats(List<T> chunk, ColumnStatistics columnStatistics)
         {
             // verify non null count
-            if (columnStatistics.getNumberOfValues() != chunk.stream().filter(Objects::nonNull).count()) {
-                return false;
-            }
-
-            return true;
+            return columnStatistics.getNumberOfValues() == chunk.stream().filter(Objects::nonNull).count();
         }
     }
 

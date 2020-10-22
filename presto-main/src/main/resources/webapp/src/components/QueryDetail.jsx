@@ -793,7 +793,7 @@ export class QueryDetail extends React.Component {
             }
             this.resetTimer();
         }.bind(this))
-            .error(() => {
+            .fail(() => {
                 this.setState({
                     initialized: true,
                 });
@@ -1338,14 +1338,6 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
-                                            Blocked Time
-                                        </td>
-                                        <td className="info-text">
-                                            {query.queryStats.totalBlockedTime}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
                                             Input Rows
                                         </td>
                                         <td className="info-text">
@@ -1381,7 +1373,7 @@ export class QueryDetail extends React.Component {
                                             Physical Input Read Time
                                         </td>
                                         <td className="info-text">
-                                            {parseAndFormatDataSize(query.queryStats.physicalInputReadTime)}
+                                            {query.queryStats.physicalInputReadTime}
                                         </td>
                                     </tr>
                                     <tr>

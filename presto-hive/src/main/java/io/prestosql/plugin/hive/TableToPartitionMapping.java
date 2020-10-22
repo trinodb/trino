@@ -24,7 +24,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.slice.SizeOf.sizeOfObjectArray;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class TableToPartitionMapping
@@ -94,7 +95,7 @@ public class TableToPartitionMapping
 
     private Optional<Integer> getPartitionColumnIndex(int tableColumnIndex)
     {
-        if (!tableToPartitionColumns.isPresent()) {
+        if (tableToPartitionColumns.isEmpty()) {
             return Optional.of(tableColumnIndex);
         }
         return Optional.ofNullable(tableToPartitionColumns.get().get(tableColumnIndex));
@@ -102,16 +103,13 @@ public class TableToPartitionMapping
 
     public int getEstimatedSizeInBytes()
     {
-        int result = INSTANCE_SIZE;
-        result += sizeOfObjectArray(partitionColumnCoercions.size());
-        for (HiveTypeName hiveTypeName : partitionColumnCoercions.values()) {
-            result += INTEGER_INSTANCE_SIZE + hiveTypeName.getEstimatedSizeInBytes();
-        }
-        result += OPTIONAL_INSTANCE_SIZE;
-        if (tableToPartitionColumns.isPresent()) {
-            result += sizeOfObjectArray(tableToPartitionColumns.get().size()) + 2 * tableToPartitionColumns.get().size() * INTEGER_INSTANCE_SIZE;
-        }
-        return result;
+        long result = INSTANCE_SIZE +
+                estimatedSizeOf(partitionColumnCoercions, (Integer key) -> INTEGER_INSTANCE_SIZE, HiveTypeName::getEstimatedSizeInBytes) +
+                OPTIONAL_INSTANCE_SIZE +
+                tableToPartitionColumns
+                        .map(tableToPartitionColumns -> estimatedSizeOf(tableToPartitionColumns, (Integer key) -> INTEGER_INSTANCE_SIZE, (Integer value) -> INTEGER_INSTANCE_SIZE))
+                        .orElse(0L);
+        return toIntExact(result);
     }
 
     @Override

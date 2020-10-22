@@ -132,3 +132,17 @@ Presto query::
 
     date_diff('day', startdate, enddate)
 
+Overwriting data on insert
+--------------------------
+
+By default, ``INSERT`` queries are not allowed to overwrite existing data. You
+can use the catalog session property ``insert_existing_partitions_behavior`` to
+allow overwrites. Prepend the name of the catalog using the Hive connector, for
+example ``hdfs``, and set the property in the session before you run the insert
+query::
+
+    SET SESSION hdfs.insert_existing_partitions_behavior = 'OVERWRITE';
+    INSERT INTO hdfs.schema.table ...
+
+The resulting behavior is equivalent to using `INSERT OVERWRITE
+<https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML>`_ in Hive.

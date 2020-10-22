@@ -66,6 +66,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareHead;
 import static io.prestosql.failuredetector.FailureDetector.State.ALIVE;
 import static io.prestosql.failuredetector.FailureDetector.State.GONE;
@@ -130,18 +131,13 @@ public class HeartbeatFailureDetector
     public void start()
     {
         if (isEnabled && started.compareAndSet(false, true)) {
-            executor.scheduleWithFixedDelay(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    try {
-                        updateMonitoredServices();
-                    }
-                    catch (Throwable e) {
-                        // ignore to avoid getting unscheduled
-                        log.warn(e, "Error updating services");
-                    }
+            executor.scheduleWithFixedDelay(() -> {
+                try {
+                    updateMonitoredServices();
+                }
+                catch (Throwable e) {
+                    // ignore to avoid getting unscheduled
+                    log.warn(e, "Error updating services");
                 }
             }, 0, 5, TimeUnit.SECONDS);
         }
@@ -257,7 +253,7 @@ public class HeartbeatFailureDetector
                 URI uri = getHttpUri(service);
 
                 if (uri != null) {
-                    tasks.put(service.getId(), new MonitoringTask(service, uri));
+                    tasks.put(service.getId(), new MonitoringTask(service, uriBuilderFrom(uri).appendPath("/v1/status").build()));
                 }
             }
 
@@ -317,19 +313,14 @@ public class HeartbeatFailureDetector
         public synchronized void enable()
         {
             if (future == null) {
-                future = executor.scheduleAtFixedRate(new Runnable()
-                {
-                    @Override
-                    public void run()
-                    {
-                        try {
-                            ping();
-                            updateState();
-                        }
-                        catch (Throwable e) {
-                            // ignore to avoid getting unscheduled
-                            log.warn(e, "Error pinging service %s (%s)", service.getId(), uri);
-                        }
+                future = executor.scheduleAtFixedRate(() -> {
+                    try {
+                        ping();
+                        updateState();
+                    }
+                    catch (Throwable e) {
+                        // ignore to avoid getting unscheduled
+                        log.warn(e, "Error pinging service %s (%s)", service.getId(), uri);
                     }
                 }, heartbeat.toMillis(), heartbeat.toMillis(), TimeUnit.MILLISECONDS);
                 disabledTimestamp = null;

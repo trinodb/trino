@@ -75,6 +75,7 @@ import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
+import io.prestosql.plugin.hive.metastore.MetastoreUtil;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
@@ -88,6 +89,7 @@ import io.prestosql.spi.connector.ColumnNotFoundException;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
@@ -112,6 +114,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -122,7 +125,6 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURI
 import static io.prestosql.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
-import static io.prestosql.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
@@ -145,10 +147,9 @@ public class GlueHiveMetastore
 
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String DEFAULT_METASTORE_USER = "presto";
-    private static final String WILDCARD_EXPRESSION = "";
     private static final int BATCH_GET_PARTITION_MAX_PAGE_SIZE = 1000;
     private static final int BATCH_CREATE_PARTITION_MAX_PAGE_SIZE = 100;
-    private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 128;
+    private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 1000;
     private static final Comparator<Partition> PARTITION_COMPARATOR =
             comparing(Partition::getValues, lexicographical(String.CASE_INSENSITIVE_ORDER));
 
@@ -161,6 +162,8 @@ public class GlueHiveMetastore
     private final Executor executor;
     private final GlueMetastoreStats stats = new GlueMetastoreStats();
     private final GlueColumnStatisticsProvider columnStatisticsProvider;
+    private final boolean assumeCanonicalPartitionKeys;
+    private final Predicate<com.amazonaws.services.glue.model.Table> tableFilter;
 
     @Inject
     public GlueHiveMetastore(
@@ -168,7 +171,8 @@ public class GlueHiveMetastore
             GlueHiveMetastoreConfig glueConfig,
             GlueColumnStatisticsProvider columnStatisticsProvider,
             @ForGlueHiveMetastore Executor executor,
-            @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler)
+            @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler,
+            @ForGlueHiveMetastore Predicate<com.amazonaws.services.glue.model.Table> tableFilter)
     {
         requireNonNull(glueConfig, "glueConfig is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -179,11 +183,15 @@ public class GlueHiveMetastore
         this.partitionSegments = glueConfig.getPartitionSegments();
         this.executor = requireNonNull(executor, "executor is null");
         this.columnStatisticsProvider = requireNonNull(columnStatisticsProvider, "columnStatisticsProvider is null");
+        this.assumeCanonicalPartitionKeys = glueConfig.isAssumeCanonicalPartitionKeys();
+        this.tableFilter = requireNonNull(tableFilter, "tableFilter is null");
     }
 
     private static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config, Optional<RequestHandler2> requestHandler)
     {
-        ClientConfiguration clientConfig = new ClientConfiguration().withMaxConnections(config.getMaxGlueConnections());
+        ClientConfiguration clientConfig = new ClientConfiguration()
+                .withMaxConnections(config.getMaxGlueConnections())
+                .withMaxErrorRetry(config.getMaxGlueErrorRetries());
         AWSGlueAsyncClientBuilder asyncGlueClientBuilder = AWSGlueAsyncClientBuilder.standard()
                 .withClientConfiguration(clientConfig);
 
@@ -399,7 +407,10 @@ public class GlueHiveMetastore
                             .withCatalogId(catalogId)
                             .withDatabaseName(databaseName)
                             .withNextToken(nextToken));
-                    result.getTableList().forEach(table -> tableNames.add(table.getName()));
+                    result.getTableList().stream()
+                            .filter(tableFilter)
+                            .map(com.amazonaws.services.glue.model.Table::getName)
+                            .forEach(tableNames::add);
                     nextToken = result.getNextToken();
                 }
                 while (nextToken != null);
@@ -458,7 +469,7 @@ public class GlueHiveMetastore
     @Override
     public void createDatabase(HiveIdentity identity, Database database)
     {
-        if (!database.getLocation().isPresent() && defaultDir.isPresent()) {
+        if (database.getLocation().isEmpty() && defaultDir.isPresent()) {
             String databaseLocation = new Path(defaultDir.get(), database.getDatabaseName()).toString();
             database = Database.builder(database)
                     .setLocation(Optional.of(databaseLocation))
@@ -612,6 +623,12 @@ public class GlueHiveMetastore
     }
 
     @Override
+    public void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "Column comment is not yet supported by Glue service");
+    }
+
+    @Override
     public void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         Table oldTable = getExistingTable(identity, databaseName, tableName);
@@ -651,7 +668,7 @@ public class GlueHiveMetastore
         verifyCanDropColumn(this, identity, databaseName, tableName, columnName);
         Table oldTable = getExistingTable(identity, databaseName, tableName);
 
-        if (!oldTable.getColumn(columnName).isPresent()) {
+        if (oldTable.getColumn(columnName).isEmpty()) {
             SchemaTableName name = new SchemaTableName(databaseName, tableName);
             throw new ColumnNotFoundException(name, columnName);
         }
@@ -688,29 +705,22 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName)
+    public Optional<List<String>> getPartitionNamesByFilter(
+            HiveIdentity identity,
+            String databaseName,
+            String tableName,
+            List<String> columnNames,
+            TupleDomain<String> partitionKeysFilter)
     {
-        Table table = getExistingTable(identity, databaseName, tableName);
-        List<Partition> partitions = getPartitions(table, WILDCARD_EXPRESSION);
-        return Optional.of(buildPartitionNames(table.getPartitionColumns(), partitions));
-    }
+        if (partitionKeysFilter.isNone()) {
+            return Optional.of(ImmutableList.of());
+        }
+        if (MetastoreUtil.isPartitionKeyFilterFalse(partitionKeysFilter)) {
+            return Optional.of(ImmutableList.of());
+        }
 
-    /**
-     * <pre>
-     * Ex: Partition keys = ['a', 'b', 'c']
-     *     Valid partition values:
-     *     ['1','2','3'] or
-     *     ['', '2', '']
-     * </pre>
-     *
-     * @param parts Full or partial list of partition values to filter on. Keys without filter will be empty strings.
-     * @return a list of partition names.
-     */
-    @Override
-    public Optional<List<String>> getPartitionNamesByParts(HiveIdentity identity, String databaseName, String tableName, List<String> parts)
-    {
         Table table = getExistingTable(identity, databaseName, tableName);
-        String expression = buildGlueExpression(table.getPartitionColumns(), parts);
+        String expression = GlueExpressionUtil.buildGlueExpression(columnNames, partitionKeysFilter, assumeCanonicalPartitionKeys);
         List<Partition> partitions = getPartitions(table, expression);
         return Optional.of(buildPartitionNames(table.getPartitionColumns(), partitions));
     }
@@ -982,6 +992,12 @@ public class GlueHiveMetastore
     public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         throw new PrestoException(NOT_SUPPORTED, "revokeRoles is not supported by Glue");
+    }
+
+    @Override
+    public Set<RoleGrant> listGrantedPrincipals(String role)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "listPrincipals is not supported by Glue");
     }
 
     @Override

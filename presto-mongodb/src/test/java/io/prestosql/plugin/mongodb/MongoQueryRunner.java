@@ -55,6 +55,7 @@ public final class MongoQueryRunner
             queryRunner.createCatalog("tpch", "tpch");
 
             Map<String, String> properties = ImmutableMap.of(
+                    "mongodb.case-insensitive-name-matching", "true",
                     "mongodb.seeds", server.getAddress().toString(),
                     "mongodb.socket-keep-alive", "true");
 

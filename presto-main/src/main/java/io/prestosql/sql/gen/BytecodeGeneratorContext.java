@@ -14,16 +14,21 @@
 package io.prestosql.sql.gen;
 
 import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
+import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.sql.relational.RowExpression;
 
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.sql.gen.BytecodeUtils.generateFullInvocation;
 import static io.prestosql.sql.gen.BytecodeUtils.generateInvocation;
 import static java.util.Objects.requireNonNull;
 
@@ -69,30 +74,37 @@ public class BytecodeGeneratorContext
 
     public BytecodeNode generate(RowExpression expression)
     {
-        return generate(expression, Optional.empty());
+        return rowExpressionCompiler.compile(expression, scope);
     }
 
-    public BytecodeNode generate(RowExpression expression, Optional<Class<?>> lambdaInterface)
+    public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction,
+            Optional<InvocationConvention> invocationConvention)
     {
-        return rowExpressionCompiler.compile(expression, scope, lambdaInterface);
-    }
-
-    public Metadata getMetadata()
-    {
-        return metadata;
+        return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
     }
 
     /**
      * Generates a function call with null handling, automatic binding of session parameter, etc.
      */
-    public BytecodeNode generateCall(String name, ScalarFunctionImplementation function, List<BytecodeNode> arguments)
+    public BytecodeNode generateCall(ResolvedFunction resolvedFunction, List<BytecodeNode> arguments)
     {
-        Optional<BytecodeNode> instance = Optional.empty();
-        if (function.getInstanceFactory().isPresent()) {
-            FieldDefinition field = cachedInstanceBinder.getCachedInstance(function.getInstanceFactory().get());
-            instance = Optional.of(scope.getThis().getField(field));
-        }
-        return generateInvocation(scope, name, function, instance, arguments, callSiteBinder);
+        return generateInvocation(scope, resolvedFunction, metadata, arguments, callSiteBinder);
+    }
+
+    public BytecodeNode generateFullCall(ResolvedFunction resolvedFunction, List<RowExpression> arguments)
+    {
+        List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers = arguments.stream()
+                .map(this::argumentCompiler)
+                .collect(toImmutableList());
+
+        Function<MethodHandle, BytecodeNode> instance = instanceFactory -> scope.getThis().getField(cachedInstanceBinder.getCachedInstance(instanceFactory));
+
+        return generateFullInvocation(scope, resolvedFunction, metadata, instance, argumentCompilers, callSiteBinder);
+    }
+
+    private Function<Optional<Class<?>>, BytecodeNode> argumentCompiler(RowExpression argument)
+    {
+        return lambdaInterface -> rowExpressionCompiler.compile(argument, scope, lambdaInterface);
     }
 
     public Variable wasNull()

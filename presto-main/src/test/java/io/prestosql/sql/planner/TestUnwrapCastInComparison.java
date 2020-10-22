@@ -37,6 +37,12 @@ public class TestUnwrapCastInComparison
                         filter("A = SMALLINT '1'",
                                 values("A"))));
 
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a = DOUBLE '1'",
+                anyTree(
+                        filter("A = BIGINT '1'",
+                                values("A"))));
+
         // non-representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '1.1'",
@@ -45,6 +51,12 @@ public class TestUnwrapCastInComparison
                                 values("A"))));
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '1.9'",
+                anyTree(
+                        filter("A IS NULL AND NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a = DOUBLE '1.1'",
                 anyTree(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
@@ -104,6 +116,12 @@ public class TestUnwrapCastInComparison
                 anyTree(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a = DOUBLE '-18446744073709551616'", // -2^64 constant
+                anyTree(
+                        filter("A IS NULL AND NULL",
+                                values("A"))));
     }
 
     @Test
@@ -116,6 +134,12 @@ public class TestUnwrapCastInComparison
                         filter("A <> SMALLINT '1'",
                                 values("A"))));
 
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <> DOUBLE '1'",
+                anyTree(
+                        filter("A <> BIGINT '1'",
+                                values("A"))));
+
         // non-representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '1.1'",
@@ -124,6 +148,12 @@ public class TestUnwrapCastInComparison
                                 values("A"))));
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '1.9'",
+                anyTree(
+                        filter("NOT (A IS NULL) OR NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <> DOUBLE '1.1'",
                 anyTree(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
@@ -152,6 +182,12 @@ public class TestUnwrapCastInComparison
         // above range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '32768.1'",
+                anyTree(
+                        filter("NOT (A IS NULL) OR NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <> DOUBLE '18446744073709551616'", // 2^64 constant
                 anyTree(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
@@ -195,11 +231,23 @@ public class TestUnwrapCastInComparison
                         filter("A < SMALLINT '1'",
                                 values("A"))));
 
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a < DOUBLE '1'",
+                anyTree(
+                        filter("A < BIGINT '1'",
+                                values("A"))));
+
         // non-representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '1.1'",
                 anyTree(
                         filter("A <= SMALLINT '1'",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a < DOUBLE '1.1'",
+                anyTree(
+                        filter("A <= BIGINT '1'",
                                 values("A"))));
 
         assertPlan(
@@ -263,6 +311,12 @@ public class TestUnwrapCastInComparison
                 anyTree(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a < DOUBLE '-18446744073709551616'", // -2^64 constant
+                anyTree(
+                        filter("A IS NULL AND NULL",
+                                values("A"))));
     }
 
     @Test
@@ -275,11 +329,23 @@ public class TestUnwrapCastInComparison
                         filter("A <= SMALLINT '1'",
                                 values("A"))));
 
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <= DOUBLE '1'",
+                anyTree(
+                        filter("A <= BIGINT '1'",
+                                values("A"))));
+
         // non-representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '1.1'",
                 anyTree(
                         filter("A <= SMALLINT '1'",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <= DOUBLE '1.1'",
+                anyTree(
+                        filter("A <= BIGINT '1'",
                                 values("A"))));
 
         assertPlan(
@@ -312,6 +378,12 @@ public class TestUnwrapCastInComparison
         // above range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '32768.1'",
+                anyTree(
+                        filter("NOT (A IS NULL) OR NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <= DOUBLE '18446744073709551616'", // 2^64 constant
                 anyTree(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
@@ -355,6 +427,12 @@ public class TestUnwrapCastInComparison
                         filter("A > SMALLINT '1'",
                                 values("A"))));
 
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a > DOUBLE '1'",
+                anyTree(
+                        filter("A > BIGINT '1'",
+                                values("A"))));
+
         // non-representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '1.1'",
@@ -366,6 +444,12 @@ public class TestUnwrapCastInComparison
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '1.9'",
                 anyTree(
                         filter("A >= SMALLINT '2'",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a > DOUBLE '1.9'",
+                anyTree(
+                        filter("A >= BIGINT '2'",
                                 values("A"))));
 
         // below top of range
@@ -392,6 +476,12 @@ public class TestUnwrapCastInComparison
         // above range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '32768.1'",
+                anyTree(
+                        filter("A IS NULL AND NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a > DOUBLE '18446744073709551616'", // 2^64 constant
                 anyTree(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
@@ -435,11 +525,23 @@ public class TestUnwrapCastInComparison
                         filter("A >= SMALLINT '1'",
                                 values("A"))));
 
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a >= DOUBLE '1'",
+                anyTree(
+                        filter("A >= BIGINT '1'",
+                                values("A"))));
+
         // non-representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '1.1'",
                 anyTree(
                         filter("A > SMALLINT '1'",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a >= DOUBLE '1.1'",
+                anyTree(
+                        filter("A > BIGINT '1'",
                                 values("A"))));
 
         assertPlan(
@@ -503,6 +605,12 @@ public class TestUnwrapCastInComparison
                 anyTree(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a >= DOUBLE '-18446744073709551616'", // -2^64 constant
+                anyTree(
+                        filter("NOT (A IS NULL) OR NULL",
+                                values("A"))));
     }
 
     @Test
@@ -515,6 +623,12 @@ public class TestUnwrapCastInComparison
                         filter("A IS DISTINCT FROM SMALLINT '1'",
                                 values("A"))));
 
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '1'",
+                anyTree(
+                        filter("A IS DISTINCT FROM BIGINT '1'",
+                                values("A"))));
+
         // non-representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '1.1'",
@@ -523,6 +637,11 @@ public class TestUnwrapCastInComparison
 
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '1.9'",
+                output(
+                        values("A")));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '1.9'",
                 output(
                         values("A")));
 
@@ -549,6 +668,11 @@ public class TestUnwrapCastInComparison
         // above range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '32768.1'",
+                output(
+                        values("A")));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a IS DISTINCT FROM DOUBLE '18446744073709551616'", // 2^64 constant
                 output(
                         values("A")));
 
@@ -589,6 +713,12 @@ public class TestUnwrapCastInComparison
                                 values("A"))));
 
         assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a = CAST(NULL AS DOUBLE)",
+                output(
+                        filter("CAST(NULL AS BOOLEAN)",
+                                values("A"))));
+
+        assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> CAST(NULL AS DOUBLE)",
                 output(
                         filter("CAST(NULL AS BOOLEAN)",
@@ -622,6 +752,74 @@ public class TestUnwrapCastInComparison
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM CAST(NULL AS DOUBLE)",
                 output(
                         filter("NOT (CAST(A AS DOUBLE) IS NULL)",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a IS DISTINCT FROM CAST(NULL AS DOUBLE)",
+                output(
+                        filter("NOT (CAST(A AS DOUBLE) IS NULL)",
+                                values("A"))));
+    }
+
+    @Test
+    public void testNaN()
+    {
+        assertPlan(
+                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = nan()",
+                output(
+                        filter("A IS NULL AND NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a = nan()",
+                output(
+                        filter("A IS NULL AND NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < nan()",
+                output(
+                        filter("A IS NULL AND NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> nan()",
+                output(
+                        filter("NOT (A IS NULL) OR NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM nan()",
+                output(
+                        values("A")));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a IS DISTINCT FROM nan()",
+                output(
+                        values("A")));
+
+        assertPlan(
+                "SELECT * FROM (VALUES REAL '0.0') t(a) WHERE a = nan()",
+                output(
+                        filter("A IS NULL AND NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES REAL '0.0') t(a) WHERE a < nan()",
+                output(
+                        filter("A IS NULL AND NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES REAL '0.0') t(a) WHERE a <> nan()",
+                output(
+                        filter("NOT (A IS NULL) OR NULL",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES REAL '0.0') t(a) WHERE a IS DISTINCT FROM nan()",
+                output(
+                        filter("A IS DISTINCT FROM CAST(nan() AS REAL)",
                                 values("A"))));
     }
 
@@ -673,25 +871,82 @@ public class TestUnwrapCastInComparison
     @Test
     public void testNoEffect()
     {
-        // BIGINT->DOUBLE implicit cast is not injective
+        // BIGINT->DOUBLE implicit cast is not injective if the double constant is >= 2^53 and <= double(2^63 - 1)
         assertPlan(
-                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = DOUBLE '1'",
+                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = DOUBLE '9007199254740992'",
                 anyTree(
-                        filter("CAST(A AS DOUBLE) = 1e0",
+                        filter("CAST(A AS DOUBLE) = 9.007199254740992E15",
                                 values("A"))));
 
-        // BIGINT->REAL implicit cast is not injective
         assertPlan(
-                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = REAL '1'",
+                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = DOUBLE '9223372036854775807'",
                 anyTree(
-                        filter("CAST(A AS REAL) = REAL '1.0'",
+                        filter("CAST(A AS DOUBLE) = 9.223372036854776E18",
                                 values("A"))));
 
-        // INTEGER->REAL implicit cast is not injective
+        // BIGINT->DOUBLE implicit cast is not injective if the double constant is <= -2^53 and >= double(-2^63 + 1)
         assertPlan(
-                "SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = REAL '1'",
+                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = DOUBLE '-9007199254740992'",
                 anyTree(
-                        filter("CAST(A AS REAL) = REAL '1.0'",
+                        filter("CAST(A AS DOUBLE) = -9.007199254740992E15",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = DOUBLE '-9223372036854775807'",
+                anyTree(
+                        filter("CAST(A AS DOUBLE) = -9.223372036854776E18",
+                                values("A"))));
+
+        // BIGINT->REAL implicit cast is not injective if the real constant is >= 2^23 and <= real(2^63 - 1)
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = REAL '8388608'",
+                anyTree(
+                        filter("CAST(A AS REAL) = REAL '8388608.0'",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = REAL '9223372036854775807'",
+                anyTree(
+                        filter("CAST(A AS REAL) = REAL '9.223372E18'",
+                                values("A"))));
+
+        // BIGINT->REAL implicit cast is not injective if the real constant is <= -2^23 and >= real(-2^63 + 1)
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = REAL '-8388608'",
+                anyTree(
+                        filter("CAST(A AS REAL) = REAL '-8388608.0'",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = REAL '-9223372036854775807'",
+                anyTree(
+                        filter("CAST(A AS REAL) = REAL '-9.223372E18'",
+                                values("A"))));
+
+        // INTEGER->REAL implicit cast is not injective if the real constant is >= 2^23 and <= 2^31 - 1
+        assertPlan(
+                "SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = REAL '8388608'",
+                anyTree(
+                        filter("CAST(A AS REAL) = REAL '8388608.0'",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = REAL '2147483647'",
+                anyTree(
+                        filter("CAST(A AS REAL) = REAL '2.14748365E9'",
+                                values("A"))));
+
+        // INTEGER->REAL implicit cast is not injective if the real constant is <= -2^23 and >= -2^31 + 1
+        assertPlan(
+                "SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = REAL '-8388608'",
+                anyTree(
+                        filter("CAST(A AS REAL) = REAL '-8388608.0'",
+                                values("A"))));
+
+        assertPlan(
+                "SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = REAL '-2147483647'",
+                anyTree(
+                        filter("CAST(A AS REAL) = REAL '-2.14748365E9'",
                                 values("A"))));
 
         // DECIMAL(p)->DOUBLE not injective for p > 15

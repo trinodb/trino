@@ -14,97 +14,321 @@
 package io.prestosql.plugin.hive.rubix;
 
 import com.codahale.metrics.MetricRegistry;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.io.Closer;
 import com.qubole.rubix.bookkeeper.BookKeeper;
 import com.qubole.rubix.bookkeeper.BookKeeperServer;
 import com.qubole.rubix.bookkeeper.LocalDataTransferServer;
 import com.qubole.rubix.core.CachingFileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoAdlFileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoAzureBlobFileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoGoogleHadoopFileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoNativeAzureFileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoS3FileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoSecureAzureBlobFileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoSecureNativeAzureFileSystem;
+import com.qubole.rubix.prestosql.PrestoClusterManager;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.prestosql.plugin.base.CatalogName;
-import io.prestosql.plugin.hive.ConfigurationInitializer;
+import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
+import io.prestosql.plugin.hive.util.RetryDriver;
+import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
 
+import javax.annotation.Nullable;
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
-import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.io.IOException;
+import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.propagateIfPossible;
+import static com.qubole.rubix.spi.CacheConfig.enableHeartbeat;
+import static com.qubole.rubix.spi.CacheConfig.setBookKeeperServerPort;
+import static com.qubole.rubix.spi.CacheConfig.setCacheDataDirPrefix;
+import static com.qubole.rubix.spi.CacheConfig.setCacheDataEnabled;
+import static com.qubole.rubix.spi.CacheConfig.setCacheDataExpirationAfterWrite;
+import static com.qubole.rubix.spi.CacheConfig.setCacheDataFullnessPercentage;
+import static com.qubole.rubix.spi.CacheConfig.setCacheDataOnMasterEnabled;
+import static com.qubole.rubix.spi.CacheConfig.setClusterNodeRefreshTime;
+import static com.qubole.rubix.spi.CacheConfig.setCoordinatorHostName;
+import static com.qubole.rubix.spi.CacheConfig.setDataTransferServerPort;
+import static com.qubole.rubix.spi.CacheConfig.setEmbeddedMode;
+import static com.qubole.rubix.spi.CacheConfig.setIsParallelWarmupEnabled;
+import static com.qubole.rubix.spi.CacheConfig.setOnMaster;
+import static io.prestosql.plugin.hive.DynamicConfigurationProvider.setCacheKey;
+import static io.prestosql.plugin.hive.rubix.RubixInitializer.Owner.PRESTO;
+import static io.prestosql.plugin.hive.rubix.RubixInitializer.Owner.RUBIX;
+import static io.prestosql.plugin.hive.util.ConfigurationUtils.getInitialConfiguration;
+import static io.prestosql.plugin.hive.util.RetryDriver.DEFAULT_SCALE_FACTOR;
+import static io.prestosql.plugin.hive.util.RetryDriver.retry;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.lang.Integer.MAX_VALUE;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /*
  * Responsibilities of this initializer:
- * 1. Lazily setup RubixConfigurationInitializer with information about master when it is available
+ * 1. Wait for master and setup RubixConfigurationInitializer with information about master when it becomes available
  * 2. Start Rubix Servers.
  * 3. Inject BookKeeper object into CachingFileSystem class
+ * 4. Update HDFS configuration
  */
 public class RubixInitializer
 {
+    private static final String RUBIX_S3_FS_CLASS_NAME = CachingPrestoS3FileSystem.class.getName();
+
+    private static final String RUBIX_NATIVE_AZURE_FS_CLASS_NAME = CachingPrestoNativeAzureFileSystem.class.getName();
+    private static final String RUBIX_SECURE_NATIVE_AZURE_FS_CLASS_NAME = CachingPrestoSecureNativeAzureFileSystem.class.getName();
+    private static final String RUBIX_AZURE_BLOB_FS_CLASS_NAME = CachingPrestoAzureBlobFileSystem.class.getName();
+    private static final String RUBIX_SECURE_AZURE_BLOB_FS_CLASS_NAME = CachingPrestoSecureAzureBlobFileSystem.class.getName();
+    private static final String RUBIX_SECURE_ADL_CLASS_NAME = CachingPrestoAdlFileSystem.class.getName();
+
+    private static final String RUBIX_GS_FS_CLASS_NAME = CachingPrestoGoogleHadoopFileSystem.class.getName();
+    private static final String FILESYSTEM_OWNED_BY_RUBIX_CONFIG_PROPETY = "presto.fs.owned.by.rubix";
+
+    private static final RetryDriver DEFAULT_COORDINATOR_RETRY_DRIVER = retry()
+            // unlimited attempts
+            .maxAttempts(MAX_VALUE)
+            .exponentialBackoff(
+                    new Duration(1, SECONDS),
+                    new Duration(1, SECONDS),
+                    // wait for 10 minutes
+                    new Duration(10, MINUTES),
+                    DEFAULT_SCALE_FACTOR);
+
     private static final Logger log = Logger.get(RubixInitializer.class);
 
+    private final RetryDriver coordinatorRetryDriver;
+    private final boolean startServerOnCoordinator;
+    private final boolean parallelWarmupEnabled;
+    private final Optional<String> cacheLocation;
+    private final long cacheTtlMillis;
+    private final int diskUsagePercentage;
+    private final int bookKeeperServerPort;
+    private final int dataTransferServerPort;
+    private final NodeManager nodeManager;
     private final CatalogName catalogName;
-    private final RubixConfigurationInitializer rubixConfigurationInitializer;
-    private final Set<ConfigurationInitializer> configurationInitializers;
+    private final HdfsConfigurationInitializer hdfsConfigurationInitializer;
+    private final RubixHdfsInitializer rubixHdfsInitializer;
+
+    private volatile boolean cacheReady;
+    @Nullable
+    private HostAddress masterAddress;
+    @Nullable
+    private BookKeeperServer bookKeeperServer;
 
     @Inject
-    public RubixInitializer(CatalogName catalogName, RubixConfigurationInitializer rubixConfigurationInitializer, Set<ConfigurationInitializer> configurationInitializers)
+    public RubixInitializer(
+            RubixConfig rubixConfig,
+            NodeManager nodeManager,
+            CatalogName catalogName,
+            HdfsConfigurationInitializer hdfsConfigurationInitializer,
+            RubixHdfsInitializer rubixHdfsInitializer)
     {
-        this.catalogName = catalogName;
-        this.rubixConfigurationInitializer = rubixConfigurationInitializer;
-        this.configurationInitializers = configurationInitializers;
+        this(DEFAULT_COORDINATOR_RETRY_DRIVER, rubixConfig, nodeManager, catalogName, hdfsConfigurationInitializer, rubixHdfsInitializer);
     }
 
-    public void initializeRubix(NodeManager nodeManager)
+    @VisibleForTesting
+    RubixInitializer(
+            RetryDriver coordinatorRetryDriver,
+            RubixConfig rubixConfig,
+            NodeManager nodeManager,
+            CatalogName catalogName,
+            HdfsConfigurationInitializer hdfsConfigurationInitializer,
+            RubixHdfsInitializer rubixHdfsInitializer)
     {
-        ExecutorService initializerService = Executors.newSingleThreadExecutor();
-        ListenableFuture<Boolean> nodeJoinFuture = MoreExecutors.listeningDecorator(initializerService).submit(() ->
-        {
-            while (!(nodeManager.getAllNodes().contains(nodeManager.getCurrentNode()) &&
-                nodeManager.getAllNodes().stream().anyMatch(Node::isCoordinator))) {
-                try {
-                    Thread.sleep(100);
+        this.coordinatorRetryDriver = coordinatorRetryDriver;
+        this.startServerOnCoordinator = rubixConfig.isStartServerOnCoordinator();
+        this.parallelWarmupEnabled = rubixConfig.getReadMode().isParallelWarmupEnabled();
+        this.cacheLocation = rubixConfig.getCacheLocation();
+        this.cacheTtlMillis = rubixConfig.getCacheTtl().toMillis();
+        this.diskUsagePercentage = rubixConfig.getDiskUsagePercentage();
+        this.bookKeeperServerPort = rubixConfig.getBookKeeperServerPort();
+        this.dataTransferServerPort = rubixConfig.getDataTransferServerPort();
+        this.nodeManager = nodeManager;
+        this.catalogName = catalogName;
+        this.hdfsConfigurationInitializer = hdfsConfigurationInitializer;
+        this.rubixHdfsInitializer = rubixHdfsInitializer;
+    }
+
+    void initializeRubix()
+    {
+        if (nodeManager.getCurrentNode().isCoordinator() && !startServerOnCoordinator) {
+            // setup JMX metrics on master (instead of starting server) so that JMX connector can be used
+            // TODO: remove once https://github.com/prestosql/presto/issues/3821 is fixed
+            setupRubixMetrics();
+
+            // enable caching on coordinator so that cached block locations can be obtained
+            cacheReady = true;
+            return;
+        }
+
+        if (cacheLocation.isEmpty()) {
+            throw new IllegalArgumentException("caching directories were not provided");
+        }
+
+        waitForCoordinator();
+        startRubix();
+    }
+
+    @PreDestroy
+    public void stopRubix()
+            throws IOException
+    {
+        try (Closer closer = Closer.create()) {
+            closer.register(() -> {
+                if (bookKeeperServer != null) {
+                    // This might throw NPE if Thrift server hasn't started yet (it's initialized
+                    // asynchronously from BookKeeperServer thread).
+                    // TODO: improve stopping of BookKeeperServer server in Rubix
+                    bookKeeperServer.stopServer();
+                    bookKeeperServer = null;
                 }
-                catch (InterruptedException e) {
-                    return false;
-                }
-            }
-            return true;
-        });
+            });
+            closer.register(LocalDataTransferServer::stopServer);
+        }
+    }
 
-        Futures.transform(nodeJoinFuture,
-                nodeJoined ->
-                {
-                    if (nodeJoined) {
-                        Node master = nodeManager.getAllNodes().stream().filter(node -> node.isCoordinator()).findFirst().get();
-                        boolean isMaster = nodeManager.getCurrentNode().isCoordinator();
+    public void enableRubix(Configuration configuration)
+    {
+        if (!cacheReady) {
+            disableRubix(configuration);
+            return;
+        }
 
-                        rubixConfigurationInitializer.setMaster(isMaster);
-                        rubixConfigurationInitializer.setMasterAddress(master.getHostAndPort());
-                        rubixConfigurationInitializer.setCurrentNodeAddress(nodeManager.getCurrentNode().getHost());
+        updateRubixConfiguration(configuration, PRESTO);
+        setCacheKey(configuration, "rubix_enabled");
+    }
 
-                        Configuration configuration = new Configuration(false);
-                        for (ConfigurationInitializer configurationInitializer : configurationInitializers) {
-                            configurationInitializer.initializeConfiguration(configuration);
+    public void disableRubix(Configuration configuration)
+    {
+        setCacheDataEnabled(configuration, false);
+        setCacheKey(configuration, "rubix_disabled");
+    }
+
+    public enum Owner
+    {
+        PRESTO,
+        RUBIX,
+    }
+
+    public static Owner getConfigurationOwner(Configuration configuration)
+    {
+        if (configuration.get(FILESYSTEM_OWNED_BY_RUBIX_CONFIG_PROPETY, "").equals("true")) {
+            return RUBIX;
+        }
+        return PRESTO;
+    }
+
+    @VisibleForTesting
+    boolean isServerUp()
+    {
+        return LocalDataTransferServer.isServerUp() && bookKeeperServer != null && bookKeeperServer.isServerUp();
+    }
+
+    private void waitForCoordinator()
+    {
+        try {
+            coordinatorRetryDriver.run(
+                    "waitForCoordinator",
+                    () -> {
+                        if (nodeManager.getAllNodes().stream().noneMatch(Node::isCoordinator)) {
+                            // This exception will only be propagated when timeout is reached.
+                            throw new PrestoException(GENERIC_INTERNAL_ERROR, "No coordinator node available");
                         }
+                        return null;
+                    });
+        }
+        catch (Exception exception) {
+            propagateIfPossible(exception, PrestoException.class);
+            throw new RuntimeException(exception);
+        }
+    }
 
-                        // RubixConfigurationInitializer.initializeConfiguration will not update configurations yet as it has not been fully initialized
-                        // Apply configurations from it by skipping init check
-                        rubixConfigurationInitializer.updateConfiguration(configuration);
-                        MetricRegistry metricRegistry = new MetricRegistry();
-                        BookKeeperServer bookKeeperServer = new BookKeeperServer();
-                        BookKeeper bookKeeper = bookKeeperServer.startServer(configuration, metricRegistry);
-                        LocalDataTransferServer.startServer(configuration, metricRegistry, bookKeeper);
+    private void startRubix()
+    {
+        Configuration configuration = getRubixServerConfiguration();
 
-                        CachingFileSystem.setLocalBookKeeper(bookKeeper, "catalog=" + catalogName);
-                        log.info("Rubix initialized successfully");
-                        rubixConfigurationInitializer.initializationDone();
-                    }
+        MetricRegistry metricRegistry = new MetricRegistry();
+        bookKeeperServer = new BookKeeperServer();
+        BookKeeper bookKeeper = bookKeeperServer.startServer(configuration, metricRegistry);
+        LocalDataTransferServer.startServer(configuration, metricRegistry, bookKeeper);
 
-                    // In case of node join failing, let the Rubix cache be in default disabled state
-                    return null;
-                },
-                initializerService);
+        CachingFileSystem.setLocalBookKeeper(configuration, bookKeeper, "catalog=" + catalogName);
+        PrestoClusterManager.setNodeManager(nodeManager);
+        log.info("Rubix initialized successfully");
+        cacheReady = true;
+    }
+
+    private void setupRubixMetrics()
+    {
+        Configuration configuration = getRubixServerConfiguration();
+        new BookKeeperServer().setupServer(configuration, new MetricRegistry());
+        CachingFileSystem.setLocalBookKeeper(configuration, new DummyBookKeeper(), "catalog=" + catalogName);
+        PrestoClusterManager.setNodeManager(nodeManager);
+    }
+
+    private Configuration getRubixServerConfiguration()
+    {
+        Node master = nodeManager.getAllNodes().stream().filter(Node::isCoordinator).findFirst().get();
+        masterAddress = master.getHostAndPort();
+
+        Configuration configuration = getInitialConfiguration();
+        // Perform standard HDFS configuration initialization.
+        hdfsConfigurationInitializer.initializeConfiguration(configuration);
+        updateRubixConfiguration(configuration, RUBIX);
+        setCacheKey(configuration, "rubix_internal");
+
+        return configuration;
+    }
+
+    private void updateRubixConfiguration(Configuration config, Owner owner)
+    {
+        checkState(masterAddress != null, "masterAddress is not set");
+        setCacheDataEnabled(config, true);
+        setOnMaster(config, nodeManager.getCurrentNode().isCoordinator());
+        setCoordinatorHostName(config, masterAddress.getHostText());
+
+        setIsParallelWarmupEnabled(config, parallelWarmupEnabled);
+        setCacheDataExpirationAfterWrite(config, cacheTtlMillis);
+        setCacheDataFullnessPercentage(config, diskUsagePercentage);
+        setBookKeeperServerPort(config, bookKeeperServerPort);
+        setDataTransferServerPort(config, dataTransferServerPort);
+
+        setEmbeddedMode(config, true);
+        enableHeartbeat(config, false);
+        setClusterNodeRefreshTime(config, 10);
+
+        if (nodeManager.getCurrentNode().isCoordinator() && !startServerOnCoordinator) {
+            // disable initialization of cache directories on master which hasn't got cache explicitly enabled
+            setCacheDataOnMasterEnabled(config, false);
+        }
+        else {
+            setCacheDataDirPrefix(config, cacheLocation.get());
+        }
+
+        config.set("fs.s3.impl", RUBIX_S3_FS_CLASS_NAME);
+        config.set("fs.s3a.impl", RUBIX_S3_FS_CLASS_NAME);
+        config.set("fs.s3n.impl", RUBIX_S3_FS_CLASS_NAME);
+
+        config.set("fs.wasb.impl", RUBIX_NATIVE_AZURE_FS_CLASS_NAME);
+        config.set("fs.wasbs.impl", RUBIX_SECURE_NATIVE_AZURE_FS_CLASS_NAME);
+        config.set("fs.abfs.impl", RUBIX_AZURE_BLOB_FS_CLASS_NAME);
+        config.set("fs.abfss.impl", RUBIX_SECURE_AZURE_BLOB_FS_CLASS_NAME);
+        config.set("fs.adl.impl", RUBIX_SECURE_ADL_CLASS_NAME);
+
+        config.set("fs.gs.impl", RUBIX_GS_FS_CLASS_NAME);
+
+        if (owner == RUBIX) {
+            config.set(FILESYSTEM_OWNED_BY_RUBIX_CONFIG_PROPETY, "true");
+        }
+
+        rubixHdfsInitializer.initializeConfiguration(config);
     }
 }

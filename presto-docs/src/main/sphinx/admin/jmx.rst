@@ -4,7 +4,20 @@ Monitoring with JMX
 
 Presto exposes a large number of different metrics via the Java Management Extensions (JMX).
 
-You can configure the ports used by JMX in ``jvm.config`` as described in :ref:`config_properties`.
+You have to enable JMX by setting the ports used by the RMI registry and server
+in the :ref:`config.properties file <config_properties>`:
+
+.. code-block:: none
+
+    jmx.rmiregistry.port=9080
+    jmx.rmiserver.port=9081
+
+* ``jmx.rmiregistry.port``:
+  Specifies the port for the JMX RMI registry. JMX clients should connect to this port.
+
+* ``jmx.rmiserver.port``:
+  Specifies the port for the JMX RMI server. Presto exports many metrics,
+  that are useful for monitoring via JMX.
 
 JConsole (supplied with the JDK), `VisualVM <https://visualvm.github.io/>`_, and
 many other tools can be used to access the metrics in a client application.

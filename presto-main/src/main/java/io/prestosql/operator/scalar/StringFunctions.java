@@ -33,6 +33,7 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.type.CodePointsType;
 import io.prestosql.type.Constraint;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 
 import java.text.Normalizer;
 import java.util.OptionalInt;
@@ -42,6 +43,7 @@ import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePointSafe;
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
+import static io.airlift.slice.SliceUtf8.setCodePointAt;
 import static io.airlift.slice.SliceUtf8.toLowerCase;
 import static io.airlift.slice.SliceUtf8.toUpperCase;
 import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
@@ -269,10 +271,10 @@ public final class StringFunctions
     }
 
     @Description("Suffix starting at given index")
-    @ScalarFunction
+    @ScalarFunction(alias = "substr")
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice substr(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
+    public static Slice substring(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
     {
         if ((start == 0) || utf8.length() == 0) {
             return Slices.EMPTY_SLICE;
@@ -307,19 +309,19 @@ public final class StringFunctions
     }
 
     @Description("Suffix starting at given index")
-    @ScalarFunction("substr")
+    @ScalarFunction(value = "substring", alias = "substr")
     @LiteralParameters("x")
-    @SqlType("char(x)")
-    public static Slice charSubstr(@SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
+    @SqlType("varchar(x)")
+    public static Slice charSubstring(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
     {
-        return substr(utf8, start);
+        return substring(padSpaces(utf8, x.intValue()), start);
     }
 
     @Description("Substring of given length starting at an index")
-    @ScalarFunction
+    @ScalarFunction(alias = "substr")
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice substr(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    public static Slice substring(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
         if (start == 0 || (length <= 0) || (utf8.length() == 0)) {
             return Slices.EMPTY_SLICE;
@@ -365,12 +367,12 @@ public final class StringFunctions
     }
 
     @Description("Substring of given length starting at an index")
-    @ScalarFunction("substr")
+    @ScalarFunction(value = "substring", alias = "substr")
     @LiteralParameters("x")
-    @SqlType("char(x)")
-    public static Slice charSubstr(@SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    @SqlType("varchar(x)")
+    public static Slice charSubstr(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
-        return trimTrailingSpaces(substr(utf8, start, length));
+        return substring(padSpaces(utf8, x.intValue()), start, length);
     }
 
     @ScalarFunction
@@ -910,5 +912,46 @@ public final class StringFunctions
             return false;
         }
         return source.compareTo(0, prefix.length(), prefix, 0, prefix.length()) == 0;
+    }
+
+    @Description("Translate characters from the source string based on original and translations strings")
+    @ScalarFunction
+    @LiteralParameters({"x", "y", "z"})
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice translate(@SqlType("varchar(x)") Slice source, @SqlType("varchar(y)") Slice from, @SqlType("varchar(z)") Slice to)
+    {
+        int[] fromCodePoints = castToCodePoints(from);
+        int[] toCodePoints = castToCodePoints(to);
+
+        Int2IntOpenHashMap map = new Int2IntOpenHashMap(fromCodePoints.length);
+        for (int index = 0; index < fromCodePoints.length; index++) {
+            int fromCodePoint = fromCodePoints[index];
+            map.putIfAbsent(fromCodePoint, index < toCodePoints.length ? toCodePoints[index] : -1);
+        }
+
+        int[] sourceCodePoints = castToCodePoints(source);
+        int[] targetCodePoints = new int[sourceCodePoints.length];
+        int targetPositions = 0;
+        int targetBytes = 0;
+        for (int index = 0; index < sourceCodePoints.length; index++) {
+            int codePoint = sourceCodePoints[index];
+            if (map.containsKey(codePoint)) {
+                int translatedCodePoint = map.get(codePoint);
+                if (translatedCodePoint == -1) {
+                    continue;
+                }
+                codePoint = translatedCodePoint;
+            }
+            targetCodePoints[targetPositions++] = codePoint;
+            targetBytes += lengthOfCodePoint(codePoint);
+        }
+
+        Slice target = Slices.allocate(targetBytes);
+        int offset = 0;
+        for (int index = 0; index < targetPositions; index++) {
+            offset += setCodePointAt(targetCodePoints[index], target, offset);
+        }
+
+        return target;
     }
 }

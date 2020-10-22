@@ -72,7 +72,7 @@ public class ScheduledSplit
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final ScheduledSplit other = (ScheduledSplit) obj;
+        ScheduledSplit other = (ScheduledSplit) obj;
         return this.sequenceId == other.sequenceId;
     }
 

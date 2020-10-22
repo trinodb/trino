@@ -23,7 +23,9 @@ import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
+import io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.prestosql.plugin.hive.testing.TestingHivePlugin;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.security.Identity;
@@ -90,7 +92,13 @@ public final class HiveQueryRunner
         private List<TpchTable<?>> initialTables = ImmutableList.of();
         private Function<DistributedQueryRunner, HiveMetastore> metastore = queryRunner -> {
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
-            return new FileHiveMetastore(HDFS_ENVIRONMENT, baseDir.toURI().toString(), "test");
+            return new FileHiveMetastore(
+                    HDFS_ENVIRONMENT,
+                    new MetastoreConfig(),
+                    new FileHiveMetastoreConfig()
+                            .setCatalogDirectory(baseDir.toURI().toString())
+                            .setMetastoreUser("test")
+                            .setAssumeCanonicalPartitionKeys(true));
         };
         private Module module = EMPTY_MODULE;
 
@@ -140,10 +148,9 @@ public final class HiveQueryRunner
                 queryRunner.installPlugin(new TestingHivePlugin(metastore, module));
 
                 Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
-                        .put("hive.time-zone", TIME_ZONE.getID())
+                        .put("hive.rcfile.time-zone", TIME_ZONE.getID())
+                        .put("hive.parquet.time-zone", TIME_ZONE.getID())
                         .put("hive.max-partitions-per-scan", "1000")
-                        // TODO why is this default?
-                        .put("hive.assume-canonical-partition-keys", "true")
                         .build();
 
                 hiveProperties = new HashMap<>(hiveProperties);
@@ -175,12 +182,12 @@ public final class HiveQueryRunner
         private void populateData(DistributedQueryRunner queryRunner, HiveMetastore metastore)
         {
             HiveIdentity identity = new HiveIdentity(SESSION);
-            if (!metastore.getDatabase(TPCH_SCHEMA).isPresent()) {
+            if (metastore.getDatabase(TPCH_SCHEMA).isEmpty()) {
                 metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_SCHEMA));
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), initialTables);
             }
 
-            if (!metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isPresent()) {
+            if (metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isEmpty()) {
                 metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
                 copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), initialTables);
             }
@@ -289,7 +296,6 @@ public final class HiveQueryRunner
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setHiveProperties(ImmutableMap.of())
                 .setInitialTables(TpchTable.getTables())
-                .setNodeCount(4)
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .setBaseDataDir(baseDataDir)
                 .build();

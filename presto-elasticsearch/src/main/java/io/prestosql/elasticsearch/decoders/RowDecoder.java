@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import static io.prestosql.elasticsearch.ElasticsearchPageSource.getField;
+import static io.prestosql.elasticsearch.ScanQueryPageSource.getField;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

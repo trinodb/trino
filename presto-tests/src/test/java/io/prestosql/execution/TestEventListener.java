@@ -29,9 +29,11 @@ import io.prestosql.spi.eventlistener.ColumnInfo;
 import io.prestosql.spi.eventlistener.QueryCompletedEvent;
 import io.prestosql.spi.eventlistener.QueryCreatedEvent;
 import io.prestosql.spi.eventlistener.QueryFailureInfo;
+import io.prestosql.spi.eventlistener.QueryStatistics;
 import io.prestosql.spi.eventlistener.RoutineInfo;
 import io.prestosql.spi.eventlistener.SplitCompletedEvent;
 import io.prestosql.spi.eventlistener.TableInfo;
+import io.prestosql.spi.resourcegroups.QueryType;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import org.intellij.lang.annotations.Language;
@@ -126,6 +128,7 @@ public class TestEventListener
         assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
         assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
+        assertEquals(queryCreatedEvent.getContext().getQueryType().get(), QueryType.SELECT);
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), "SELECT 1");
         assertFalse(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
 
@@ -136,6 +139,7 @@ public class TestEventListener
         assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
         assertFalse(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
+        assertEquals(queryCompletedEvent.getContext().getQueryType().get(), QueryType.SELECT);
 
         List<SplitCompletedEvent> splitCompletedEvents = generatedEvents.getSplitCompletedEvents();
         assertEquals(splitCompletedEvents.get(0).getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
@@ -214,9 +218,39 @@ public class TestEventListener
 
         MaterializedResult result = runQueryAndWaitForEvents("SELECT count(*) FROM lineitem", expectedEvents);
         long expectedCompletedPositions = (long) result.getMaterializedRows().get(0).getField(0);
-
         assertEquals(actualCompletedPositions, expectedCompletedPositions);
-        assertEquals(queryCompletedEvent.getStatistics().getTotalRows(), expectedCompletedPositions);
+
+        QueryStatistics statistics = queryCompletedEvent.getStatistics();
+        // Aggregation can have memory pool usage
+        assertTrue(statistics.getPeakUserMemoryBytes() >= 0);
+        assertTrue(statistics.getPeakTaskUserMemory() >= 0);
+        assertTrue(statistics.getPeakTaskTotalMemory() >= 0);
+        assertTrue(statistics.getCumulativeMemory() >= 0);
+
+        // Not a write query
+        assertEquals(statistics.getWrittenBytes(), 0);
+        assertEquals(statistics.getWrittenRows(), 0);
+        assertEquals(statistics.getStageGcStatistics().size(), 2);
+
+        // Deterministic statistics
+        assertEquals(statistics.getPhysicalInputBytes(), 0);
+        assertEquals(statistics.getPhysicalInputRows(), expectedCompletedPositions);
+        assertEquals(statistics.getInternalNetworkBytes(), 369);
+        assertEquals(statistics.getInternalNetworkRows(), 3);
+        assertEquals(statistics.getTotalBytes(), 0);
+        assertEquals(statistics.getOutputBytes(), 9);
+        assertEquals(statistics.getOutputRows(), 1);
+        assertTrue(statistics.isComplete());
+
+        // Check only the presence because they are non-deterministic.
+        assertTrue(statistics.getResourceWaitingTime().isPresent());
+        assertTrue(statistics.getAnalysisTime().isPresent());
+        assertTrue(statistics.getExecutionTime().isPresent());
+        assertTrue(statistics.getPlanNodeStatsAndCosts().isPresent());
+        assertTrue(statistics.getCpuTime().getSeconds() >= 0);
+        assertTrue(statistics.getWallTime().getSeconds() >= 0);
+        assertTrue(statistics.getCpuTimeDistribution().size() > 0);
+        assertTrue(statistics.getOperatorSummaries().size() > 0);
     }
 
     @Test
@@ -336,5 +370,31 @@ public class TestEventListener
         assertTrue(queryCompletedEvent.getStatistics().getOutputBytes() > 0L);
         assertEquals(1L, queryStats.getOutputPositions());
         assertEquals(1L, queryCompletedEvent.getStatistics().getOutputRows());
+
+        // Ensure the proper conversion in QueryMonitor#createQueryStatistics
+        QueryStatistics statistics = queryCompletedEvent.getStatistics();
+        assertEquals(statistics.getCpuTime().toMillis(), queryStats.getTotalCpuTime().toMillis());
+        assertEquals(statistics.getWallTime().toMillis(), queryStats.getElapsedTime().toMillis());
+        assertEquals(statistics.getQueuedTime().toMillis(), queryStats.getQueuedTime().toMillis());
+        assertEquals(statistics.getResourceWaitingTime().get().toMillis(), queryStats.getResourceWaitingTime().toMillis());
+        assertEquals(statistics.getAnalysisTime().get().toMillis(), queryStats.getAnalysisTime().toMillis());
+        assertEquals(statistics.getExecutionTime().get().toMillis(), queryStats.getExecutionTime().toMillis());
+        assertEquals(statistics.getPeakUserMemoryBytes(), queryStats.getPeakUserMemoryReservation().toBytes());
+        assertEquals(statistics.getPeakTotalNonRevocableMemoryBytes(), queryStats.getPeakNonRevocableMemoryReservation().toBytes());
+        assertEquals(statistics.getPeakTaskUserMemory(), queryStats.getPeakTaskUserMemory().toBytes());
+        assertEquals(statistics.getPeakTaskTotalMemory(), queryStats.getPeakTaskTotalMemory().toBytes());
+        assertEquals(statistics.getPhysicalInputBytes(), queryStats.getPhysicalInputDataSize().toBytes());
+        assertEquals(statistics.getPhysicalInputRows(), queryStats.getPhysicalInputPositions());
+        assertEquals(statistics.getInternalNetworkBytes(), queryStats.getInternalNetworkInputDataSize().toBytes());
+        assertEquals(statistics.getInternalNetworkRows(), queryStats.getInternalNetworkInputPositions());
+        assertEquals(statistics.getTotalBytes(), queryStats.getRawInputDataSize().toBytes());
+        assertEquals(statistics.getTotalRows(), queryStats.getRawInputPositions());
+        assertEquals(statistics.getOutputBytes(), queryStats.getOutputDataSize().toBytes());
+        assertEquals(statistics.getOutputRows(), queryStats.getOutputPositions());
+        assertEquals(statistics.getWrittenBytes(), queryStats.getLogicalWrittenDataSize().toBytes());
+        assertEquals(statistics.getWrittenRows(), queryStats.getWrittenPositions());
+        assertEquals(statistics.getCumulativeMemory(), queryStats.getCumulativeUserMemory());
+        assertEquals(statistics.getStageGcStatistics(), queryStats.getStageGcStatistics());
+        assertEquals(statistics.getCompletedSplits(), queryStats.getCompletedDrivers());
     }
 }

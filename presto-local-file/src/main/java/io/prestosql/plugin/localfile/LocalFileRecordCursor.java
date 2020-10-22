@@ -35,9 +35,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.io.UncheckedIOException;
-import java.time.Instant;
-import java.time.ZoneId;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -52,13 +52,16 @@ import static io.prestosql.plugin.localfile.LocalFileColumnHandle.SERVER_ADDRESS
 import static io.prestosql.plugin.localfile.LocalFileErrorCode.LOCAL_FILE_READ_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static java.util.zip.GZIPInputStream.GZIP_MAGIC;
 
@@ -68,7 +71,7 @@ public class LocalFileRecordCursor
     private static final Splitter LINE_SPLITTER = Splitter.on("\t").trimResults();
 
     // TODO This should be a config option as it may be different for different log files
-    public static final DateTimeFormatter ISO_FORMATTER = ISO_OFFSET_DATE_TIME.withZone(ZoneId.systemDefault());
+    public static final DateTimeFormatter ISO_FORMATTER = ISO_OFFSET_DATE_TIME;
 
     private final int[] fieldToColumnIndex;
     private final HostAddress address;
@@ -94,12 +97,12 @@ public class LocalFileRecordCursor
 
     private static boolean isThisServerIncluded(HostAddress address, TupleDomain<LocalFileColumnHandle> predicate, LocalFileTableHandle table)
     {
-        if (!table.getServerAddressColumn().isPresent()) {
+        if (table.getServerAddressColumn().isEmpty()) {
             return true;
         }
 
         Optional<Map<LocalFileColumnHandle, Domain>> domains = predicate.getDomains();
-        if (!domains.isPresent()) {
+        if (domains.isEmpty()) {
             return true;
         }
 
@@ -191,8 +194,8 @@ public class LocalFileRecordCursor
     @Override
     public long getLong(int field)
     {
-        if (getType(field).equals(TIMESTAMP)) {
-            return Instant.from(ISO_FORMATTER.parse(getFieldValue(field))).toEpochMilli();
+        if (getType(field).equals(createTimestampWithTimeZoneType(3))) {
+            return parseTimestamp(getFieldValue(field));
         }
         else {
             checkFieldType(field, BIGINT, INTEGER);
@@ -244,6 +247,16 @@ public class LocalFileRecordCursor
     public void close()
     {
         reader.close();
+    }
+
+    private static long parseTimestamp(String value)
+    {
+        OffsetDateTime time = OffsetDateTime.parse(value, ISO_FORMATTER)
+                .plus(500, ChronoUnit.MICROS)
+                .truncatedTo(ChronoUnit.MILLIS);
+        long epochMillis = time.toInstant().toEpochMilli();
+        int offsetMinutes = toIntExact(SECONDS.toMinutes(time.getOffset().getTotalSeconds()));
+        return packDateTimeWithZone(epochMillis, offsetMinutes);
     }
 
     private static class FilesReader
@@ -336,12 +349,11 @@ public class LocalFileRecordCursor
 
         private boolean meetsPredicate(List<String> fields)
         {
-            if (!timestampOrdinalPosition.isPresent() || !domain.isPresent()) {
+            if (timestampOrdinalPosition.isEmpty() || domain.isEmpty()) {
                 return true;
             }
-
-            long millis = Instant.from(ISO_FORMATTER.parse(fields.get(timestampOrdinalPosition.getAsInt()))).toEpochMilli();
-            return domain.get().includesNullableValue(millis);
+            long timestamp = parseTimestamp(fields.get(timestampOrdinalPosition.getAsInt()));
+            return domain.get().includesNullableValue(timestamp);
         }
 
         public void close()

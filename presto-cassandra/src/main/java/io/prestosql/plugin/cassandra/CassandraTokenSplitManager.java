@@ -86,7 +86,7 @@ public class CassandraTokenSplitManager
             List<String> endpoints = getEndpoints(keyspace, tokenRange);
             checkState(!endpoints.isEmpty(), "endpoints is empty for token range: %s", tokenRange);
 
-            if (!tokenRing.isPresent()) {
+            if (tokenRing.isEmpty()) {
                 checkState(!tokenRange.isWrappedAround(), "all token ranges must be unwrapped at this step");
                 splits.add(createSplit(tokenRange, endpoints));
                 continue;

@@ -26,6 +26,6 @@ public class DecimalModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(DecimalConfig.class);
-        bindSessionPropertiesProvider(binder, DecimalSessionPropertiesProvider.class);
+        bindSessionPropertiesProvider(binder, DecimalSessionSessionProperties.class);
     }
 }

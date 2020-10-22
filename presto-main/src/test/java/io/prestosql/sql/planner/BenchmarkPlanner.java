@@ -38,6 +38,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
+import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.URL;
@@ -51,6 +52,7 @@ import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_P
 import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Benchmark)
@@ -65,9 +67,6 @@ public class BenchmarkPlanner
     @State(Scope.Benchmark)
     public static class BenchmarkData
     {
-        @Param({"true", "false"})
-        private String iterativeOptimizerEnabled = "true";
-
         @Param({"optimized", "created"})
         private String stage = OPTIMIZED.toString();
 
@@ -83,7 +82,6 @@ public class BenchmarkPlanner
             session = testSessionBuilder()
                     .setCatalog(tpch)
                     .setSchema("sf1")
-                    .setSystemProperty("iterative_optimizer_enabled", iterativeOptimizerEnabled)
                     .build();
 
             queryRunner = LocalQueryRunner.create(session);
@@ -92,7 +90,7 @@ public class BenchmarkPlanner
             queries = IntStream.rangeClosed(1, 22)
                     .boxed()
                     .filter(i -> i != 15) // q15 has two queries in it
-                    .map(i -> readResource(format("/io/airlift/tpch/queries/q%d.sql", i)))
+                    .map(i -> readResource(format("/io/prestosql/tpch/queries/q%d.sql", i)))
                     .collect(toImmutableList());
         }
 
@@ -126,8 +124,17 @@ public class BenchmarkPlanner
         });
     }
 
+    @Test
+    public void verify()
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        BenchmarkPlanner benchmark = new BenchmarkPlanner();
+        assertEquals(benchmark.planQueries(data).size(), 21);
+    }
+
     public static void main(String[] args)
-            throws Throwable
+            throws Exception
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();

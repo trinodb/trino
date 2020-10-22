@@ -14,12 +14,12 @@
 package io.prestosql.operator.annotations;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
@@ -27,7 +27,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.SATURATED_FLOOR_CAST;
@@ -39,9 +38,9 @@ public final class OperatorImplementationDependency
     private final OperatorType operator;
     private final List<TypeSignature> argumentTypes;
 
-    public OperatorImplementationDependency(OperatorType operator, List<TypeSignature> argumentTypes, Optional<InvocationConvention> invocationConvention)
+    public OperatorImplementationDependency(OperatorType operator, List<TypeSignature> argumentTypes, Optional<InvocationConvention> invocationConvention, Class<?> type)
     {
-        super(invocationConvention);
+        super(invocationConvention, type);
         this.operator = requireNonNull(operator, "operator is null");
         checkArgument(operator != CAST && operator != SATURATED_FLOOR_CAST);
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
@@ -58,12 +57,16 @@ public final class OperatorImplementationDependency
     }
 
     @Override
-    protected ResolvedFunction getResolvedFunction(BoundVariables boundVariables, Metadata metadata)
+    public void declareDependencies(FunctionDependencyDeclarationBuilder builder)
     {
-        List<Type> argumentTypes = applyBoundVariables(this.argumentTypes, boundVariables).stream()
-                .map(metadata::getType)
-                .collect(toImmutableList());
-        return metadata.resolveOperator(operator, argumentTypes);
+        builder.addOperatorSignature(operator, argumentTypes);
+    }
+
+    @Override
+    protected FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, Optional<InvocationConvention> invocationConvention)
+    {
+        List<TypeSignature> types = applyBoundVariables(argumentTypes, functionBinding);
+        return functionDependencies.getOperatorSignatureInvoker(operator, types, invocationConvention);
     }
 
     @Override

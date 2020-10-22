@@ -13,23 +13,37 @@
  */
 package io.prestosql.connector.system.jdbc;
 
+import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.prestosql.FullConnectorSession;
 import io.prestosql.Session;
+import io.prestosql.connector.system.SystemColumnHandle;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedTablePrefix;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.InMemoryRecordSet;
 import io.prestosql.spi.connector.InMemoryRecordSet.Builder;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimeWithTimeZoneType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
@@ -37,18 +51,30 @@ import javax.inject.Inject;
 
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
+import java.time.ZoneId;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
-import static io.prestosql.connector.system.jdbc.FilterUtil.filter;
-import static io.prestosql.connector.system.jdbc.FilterUtil.stringFilter;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
+import static io.prestosql.connector.system.jdbc.FilterUtil.tablePrefix;
+import static io.prestosql.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
+import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataListing.listTableColumns;
+import static io.prestosql.metadata.MetadataListing.listTables;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
@@ -56,18 +82,27 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
+import static io.prestosql.type.TypeUtils.getDisplayLabel;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnJdbcTable
         extends JdbcTable
 {
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "columns");
+
+    private static final int MAX_DOMAIN_SIZE = 100;
+    private static final int MAX_TIMEZONE_LENGTH = ZoneId.getAvailableZoneIds().stream()
+            .map(String::length)
+            .max(Integer::compareTo)
+            .get();
+
+    private static final ColumnHandle TABLE_CATALOG_COLUMN = new SystemColumnHandle("table_cat");
+    private static final ColumnHandle TABLE_SCHEMA_COLUMN = new SystemColumnHandle("table_schem");
+    private static final ColumnHandle TABLE_NAME_COLUMN = new SystemColumnHandle("table_name");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
             .column("table_cat", createUnboundedVarcharType())
@@ -113,24 +148,151 @@ public class ColumnJdbcTable
     }
 
     @Override
+    public TupleDomain<ColumnHandle> applyFilter(ConnectorSession connectorSession, Constraint constraint)
+    {
+        TupleDomain<ColumnHandle> tupleDomain = constraint.getSummary();
+        if (tupleDomain.isNone() || constraint.predicate().isEmpty()) {
+            return tupleDomain;
+        }
+        Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate().get();
+        Set<ColumnHandle> predicateColumns = constraint.getColumns().orElseThrow(() -> new VerifyException("columns not present for a predicate"));
+
+        boolean hasSchemaPredicate = predicateColumns.contains(TABLE_SCHEMA_COLUMN);
+        boolean hasTablePredicate = predicateColumns.contains(TABLE_NAME_COLUMN);
+        if (!hasSchemaPredicate && !hasTablePredicate) {
+            // No filter on schema name and table name at all.
+            return tupleDomain;
+        }
+
+        Session session = ((FullConnectorSession) connectorSession).getSession();
+
+        Optional<String> catalogFilter = tryGetSingleVarcharValue(tupleDomain, TABLE_CATALOG_COLUMN);
+        Optional<String> schemaFilter = tryGetSingleVarcharValue(tupleDomain, TABLE_SCHEMA_COLUMN);
+        Optional<String> tableFilter = tryGetSingleVarcharValue(tupleDomain, TABLE_NAME_COLUMN);
+
+        if (schemaFilter.isPresent() && tableFilter.isPresent()) {
+            // No need to narrow down the domain.
+            return tupleDomain;
+        }
+
+        List<String> catalogs = listCatalogs(session, metadata, accessControl, catalogFilter).keySet().stream()
+                .filter(catalogName -> predicate.test(ImmutableMap.of(TABLE_CATALOG_COLUMN, toNullableValue(catalogName))))
+                .collect(toImmutableList());
+
+        List<CatalogSchemaName> schemas = catalogs.stream()
+                .flatMap(catalogName ->
+                        listSchemas(session, metadata, accessControl, catalogName, schemaFilter).stream()
+                                .filter(schemaName -> !hasSchemaPredicate || predicate.test(ImmutableMap.of(
+                                        TABLE_CATALOG_COLUMN, toNullableValue(catalogName),
+                                        TABLE_SCHEMA_COLUMN, toNullableValue(schemaName))))
+                                .map(schemaName -> new CatalogSchemaName(catalogName, schemaName)))
+                .collect(toImmutableList());
+
+        if (!hasTablePredicate) {
+            return TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
+                    .put(TABLE_CATALOG_COLUMN, schemas.stream()
+                            .map(CatalogSchemaName::getCatalogName)
+                            .collect(toVarcharDomain())
+                            .simplify(MAX_DOMAIN_SIZE))
+                    .put(TABLE_SCHEMA_COLUMN, schemas.stream()
+                            .map(CatalogSchemaName::getSchemaName)
+                            .collect(toVarcharDomain())
+                            .simplify(MAX_DOMAIN_SIZE))
+                    .build());
+        }
+
+        List<CatalogSchemaTableName> tables = schemas.stream()
+                .flatMap(schema -> {
+                    QualifiedTablePrefix tablePrefix = tableFilter.isPresent()
+                            ? new QualifiedTablePrefix(schema.getCatalogName(), schema.getSchemaName(), tableFilter.get())
+                            : new QualifiedTablePrefix(schema.getCatalogName(), schema.getSchemaName());
+                    return listTables(session, metadata, accessControl, tablePrefix).stream()
+                            .filter(schemaTableName -> predicate.test(ImmutableMap.of(
+                                    TABLE_CATALOG_COLUMN, toNullableValue(schema.getCatalogName()),
+                                    TABLE_SCHEMA_COLUMN, toNullableValue(schemaTableName.getSchemaName()),
+                                    TABLE_NAME_COLUMN, toNullableValue(schemaTableName.getTableName()))))
+                            .map(schemaTableName -> new CatalogSchemaTableName(schema.getCatalogName(), schemaTableName.getSchemaName(), schemaTableName.getTableName()));
+                })
+                .collect(toImmutableList());
+
+        return TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
+                .put(TABLE_CATALOG_COLUMN, tables.stream()
+                        .map(CatalogSchemaTableName::getCatalogName)
+                        .collect(toVarcharDomain())
+                        .simplify(MAX_DOMAIN_SIZE))
+                .put(TABLE_SCHEMA_COLUMN, tables.stream()
+                        .map(catalogSchemaTableName -> catalogSchemaTableName.getSchemaTableName().getSchemaName())
+                        .collect(toVarcharDomain())
+                        .simplify(MAX_DOMAIN_SIZE))
+                .put(TABLE_NAME_COLUMN, tables.stream()
+                        .map(catalogSchemaTableName -> catalogSchemaTableName.getSchemaTableName().getTableName())
+                        .collect(toVarcharDomain())
+                        .simplify(MAX_DOMAIN_SIZE))
+                .build());
+    }
+
+    @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        Session session = ((FullConnectorSession) connectorSession).getSession();
-        Optional<String> catalogFilter = stringFilter(constraint, 0);
-        Optional<String> schemaFilter = stringFilter(constraint, 1);
-        Optional<String> tableFilter = stringFilter(constraint, 2);
-
         Builder table = InMemoryRecordSet.builder(METADATA);
-        for (String catalog : filter(listCatalogs(session, metadata, accessControl).keySet(), catalogFilter)) {
-            QualifiedTablePrefix prefix = FilterUtil.tablePrefix(catalog, schemaFilter, tableFilter);
-            for (Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
-                addColumnRows(table, catalog, entry.getKey(), entry.getValue());
+        if (constraint.isNone()) {
+            return table.build().cursor();
+        }
+
+        Session session = ((FullConnectorSession) connectorSession).getSession();
+        boolean omitDateTimeTypePrecision = isOmitDateTimeTypePrecision(session);
+        Optional<String> catalogFilter = tryGetSingleVarcharValue(constraint, 0);
+        Optional<String> schemaFilter = tryGetSingleVarcharValue(constraint, 1);
+        Optional<String> tableFilter = tryGetSingleVarcharValue(constraint, 2);
+
+        Domain catalogDomain = constraint.getDomains().get().getOrDefault(0, Domain.all(createUnboundedVarcharType()));
+        Domain schemaDomain = constraint.getDomains().get().getOrDefault(1, Domain.all(createUnboundedVarcharType()));
+        Domain tableDomain = constraint.getDomains().get().getOrDefault(2, Domain.all(createUnboundedVarcharType()));
+
+        for (String catalog : listCatalogs(session, metadata, accessControl, catalogFilter).keySet()) {
+            if (!catalogDomain.includesNullableValue(utf8Slice(catalog))) {
+                continue;
+            }
+
+            if ((schemaDomain.isAll() && tableDomain.isAll()) || (schemaFilter.isPresent() && tableFilter.isPresent())) {
+                QualifiedTablePrefix tablePrefix = tablePrefix(catalog, schemaFilter, tableFilter);
+                Map<SchemaTableName, List<ColumnMetadata>> tableColumns = listTableColumns(session, metadata, accessControl, tablePrefix);
+                addColumnsRow(table, catalog, tableColumns, omitDateTimeTypePrecision);
+            }
+            else {
+                Collection<String> schemas = listSchemas(session, metadata, accessControl, catalog, schemaFilter);
+                for (String schema : schemas) {
+                    if (!schemaDomain.includesNullableValue(utf8Slice(schema))) {
+                        continue;
+                    }
+
+                    QualifiedTablePrefix tablePrefix = tableFilter.isPresent()
+                            ? new QualifiedTablePrefix(catalog, schema, tableFilter.get())
+                            : new QualifiedTablePrefix(catalog, schema);
+                    Set<SchemaTableName> tables = listTables(session, metadata, accessControl, tablePrefix);
+                    for (SchemaTableName schemaTableName : tables) {
+                        String tableName = schemaTableName.getTableName();
+                        if (!tableDomain.includesNullableValue(utf8Slice(tableName))) {
+                            continue;
+                        }
+
+                        Map<SchemaTableName, List<ColumnMetadata>> tableColumns = listTableColumns(session, metadata, accessControl, new QualifiedTablePrefix(catalog, schema, tableName));
+                        addColumnsRow(table, catalog, tableColumns, omitDateTimeTypePrecision);
+                    }
+                }
             }
         }
         return table.build().cursor();
     }
 
-    private static void addColumnRows(Builder builder, String catalog, SchemaTableName tableName, List<ColumnMetadata> columns)
+    private static void addColumnsRow(Builder builder, String catalog, Map<SchemaTableName, List<ColumnMetadata>> columns, boolean isOmitTimestampPrecision)
+    {
+        for (Entry<SchemaTableName, List<ColumnMetadata>> entry : columns.entrySet()) {
+            addColumnRows(builder, catalog, entry.getKey(), entry.getValue(), isOmitTimestampPrecision);
+        }
+    }
+
+    private static void addColumnRows(Builder builder, String catalog, SchemaTableName tableName, List<ColumnMetadata> columns, boolean isOmitTimestampPrecision)
     {
         int ordinalPosition = 1;
         for (ColumnMetadata column : columns) {
@@ -143,7 +305,7 @@ public class ColumnJdbcTable
                     tableName.getTableName(),
                     column.getName(),
                     jdbcDataType(column.getType()),
-                    column.getType().getDisplayName(),
+                    getDisplayLabel(column.getType(), isOmitTimestampPrecision),
                     columnSize(column.getType()),
                     0,
                     decimalDigits(column.getType()),
@@ -192,10 +354,10 @@ public class ColumnJdbcTable
         if (type instanceof DecimalType) {
             return Types.DECIMAL;
         }
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return Types.VARCHAR;
         }
-        if (isCharType(type)) {
+        if (type instanceof CharType) {
             return Types.CHAR;
         }
         if (type.equals(VARBINARY)) {
@@ -207,10 +369,10 @@ public class ColumnJdbcTable
         if (type.equals(TIME_WITH_TIME_ZONE)) {
             return Types.TIME_WITH_TIMEZONE;
         }
-        if (type.equals(TIMESTAMP)) {
+        if (type instanceof TimestampType) {
             return Types.TIMESTAMP;
         }
-        if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+        if (type instanceof TimestampWithTimeZoneType) {
             return Types.TIMESTAMP_WITH_TIMEZONE;
         }
         if (type.equals(DATE)) {
@@ -245,29 +407,52 @@ public class ColumnJdbcTable
         if (type.equals(DOUBLE)) {
             return 53; // IEEE 754
         }
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return ((VarcharType) type).getLength().orElse(VarcharType.UNBOUNDED_LENGTH);
         }
-        if (isCharType(type)) {
+        if (type instanceof CharType) {
             return ((CharType) type).getLength();
         }
         if (type.equals(VARBINARY)) {
             return Integer.MAX_VALUE;
         }
-        if (type.equals(TIME)) {
-            return 8; // 00:00:00
+        if (type instanceof TimeType) {
+            // 8 characters for "HH:MM:SS"
+            // min(p, 1) for the fractional second period (i.e., no period if p == 0)
+            // p for the fractional digits
+            int precision = ((TimeType) type).getPrecision();
+            return 8 + min(precision, 1) + precision;
         }
-        if (type.equals(TIME_WITH_TIME_ZONE)) {
-            return 8 + 6; // 00:00:00+00:00
+        if (type instanceof TimeWithTimeZoneType) {
+            // 8 characters for "HH:MM:SS"
+            // min(p, 1) for the fractional second period (i.e., no period if p == 0)
+            // p for the fractional digits
+            // 6 for timezone offset
+            int precision = ((TimeWithTimeZoneType) type).getPrecision();
+            return 8 + min(precision, 1) + precision + 6;
         }
         if (type.equals(DATE)) {
             return 14; // +5881580-07-11 (2**31-1 days)
         }
-        if (type.equals(TIMESTAMP)) {
-            return 15 + 8;
+        if (type instanceof TimestampType) {
+            // 1 digit for year sign
+            // 5 digits for year
+            // 15 characters for "-MM-DD HH:MM:SS"
+            // min(p, 1) for the fractional second period (i.e., no period if p == 0)
+            // p for the fractional digits
+            int precision = ((TimestampType) type).getPrecision();
+            return 1 + 5 + 15 + min(precision, 1) + precision;
         }
-        if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-            return 15 + 8 + 6;
+        if (type instanceof TimestampWithTimeZoneType) {
+            // 1 digit for year sign
+            // 6 digits for year
+            // 15 characters for "-MM-DD HH:MM:SS"
+            // min(p, 1) for the fractional second period (i.e., no period if p == 0)
+            // p for the fractional digits
+            // 1 for space after timestamp
+            // MAX_TIMEZONE_LENGTH for timezone
+            int precision = ((TimestampWithTimeZoneType) type).getPrecision();
+            return 1 + 6 + 15 + min(precision, 1) + precision + 1 + MAX_TIMEZONE_LENGTH;
         }
         return null;
     }
@@ -283,10 +468,10 @@ public class ColumnJdbcTable
 
     private static Integer charOctetLength(Type type)
     {
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return ((VarcharType) type).getLength().orElse(VarcharType.UNBOUNDED_LENGTH);
         }
-        if (isCharType(type)) {
+        if (type instanceof CharType) {
             return ((CharType) type).getLength();
         }
         if (type.equals(VARBINARY)) {
@@ -308,5 +493,22 @@ public class ColumnJdbcTable
             return 2;
         }
         return null;
+    }
+
+    private static NullableValue toNullableValue(String varcharValue)
+    {
+        return NullableValue.of(createUnboundedVarcharType(), utf8Slice(varcharValue));
+    }
+
+    private static Collector<String, ?, Domain> toVarcharDomain()
+    {
+        return Collectors.collectingAndThen(toImmutableSet(), set -> {
+            if (set.isEmpty()) {
+                return Domain.none(createUnboundedVarcharType());
+            }
+            return Domain.multipleValues(createUnboundedVarcharType(), set.stream()
+                    .map(Slices::utf8Slice)
+                    .collect(toImmutableList()));
+        });
     }
 }

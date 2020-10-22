@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
+import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
@@ -27,10 +29,8 @@ import java.util.Set;
 
 import static io.prestosql.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static io.prestosql.decoder.json.JsonRowDecoderFactory.throwUnsupportedColumnType;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -43,12 +43,16 @@ import static java.util.Objects.requireNonNull;
 public class RFC2822JsonFieldDecoder
         implements JsonFieldDecoder
 {
-    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE);
+    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(TIMESTAMP_MILLIS, TIMESTAMP_WITH_TIME_ZONE);
 
     /**
      * Todo - configurable time zones and locales.
      */
-    private static final DateTimeFormatter FORMATTER = DateTimeFormat.forPattern("EEE MMM dd HH:mm:ss Z yyyy").withLocale(Locale.ENGLISH).withZoneUTC();
+    private static final DateTimeFormatter FORMATTER = DateTimeFormat.forPattern("EEE MMM dd HH:mm:ss Z yyyy")
+            .withLocale(Locale.ENGLISH)
+            .withChronology(ISOChronology.getInstanceUTC())
+            .withOffsetParsed();
+
     private final DecoderColumnHandle columnHandle;
 
     public RFC2822JsonFieldDecoder(DecoderColumnHandle columnHandle)
@@ -79,6 +83,24 @@ public class RFC2822JsonFieldDecoder
             if (value.isValueNode()) {
                 try {
                     return FORMATTER.parseMillis(value.asText());
+                }
+                catch (IllegalArgumentException e) {
+                    throw new PrestoException(
+                            DECODER_CONVERSION_NOT_SUPPORTED,
+                            format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
+                }
+            }
+            throw new PrestoException(
+                    DECODER_CONVERSION_NOT_SUPPORTED,
+                    format("could not parse non-value node as '%s' for column '%s'", columnHandle.getType(), columnHandle.getName()));
+        }
+
+        @Override
+        protected TimeZoneKey getTimeZone()
+        {
+            if (value.isValueNode()) {
+                try {
+                    return getTimeZoneKey(FORMATTER.parseDateTime(value.asText()).getZone().getID());
                 }
                 catch (IllegalArgumentException e) {
                     throw new PrestoException(

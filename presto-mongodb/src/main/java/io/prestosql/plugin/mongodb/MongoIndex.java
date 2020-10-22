@@ -15,7 +15,7 @@ package io.prestosql.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.mongodb.client.ListIndexesIterable;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import org.bson.Document;
 
 import java.util.List;

@@ -43,7 +43,8 @@ import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
 import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static io.prestosql.spi.predicate.TupleDomain.extractFixedValues;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.stream.Collectors.toList;
@@ -59,8 +60,8 @@ public class TableStatsSystemTable
             ImmutableList.<ColumnMetadata>builder()
                     .add(new ColumnMetadata(SCHEMA_NAME, createUnboundedVarcharType()))
                     .add(new ColumnMetadata(TABLE_NAME, createUnboundedVarcharType()))
-                    .add(new ColumnMetadata("create_time", TIMESTAMP))
-                    .add(new ColumnMetadata("update_time", TIMESTAMP))
+                    .add(new ColumnMetadata("create_time", TIMESTAMP_MILLIS))
+                    .add(new ColumnMetadata("update_time", TIMESTAMP_MILLIS))
                     .add(new ColumnMetadata("table_version", BIGINT))
                     .add(new ColumnMetadata("shard_count", BIGINT))
                     .add(new ColumnMetadata("row_count", BIGINT))
@@ -108,8 +109,8 @@ public class TableStatsSystemTable
             pageBuilder.beginRow();
             VARCHAR.writeSlice(pageBuilder.nextBlockBuilder(), utf8Slice(row.getSchemaName()));
             VARCHAR.writeSlice(pageBuilder.nextBlockBuilder(), utf8Slice(row.getTableName()));
-            TIMESTAMP.writeLong(pageBuilder.nextBlockBuilder(), row.getCreateTime());
-            TIMESTAMP.writeLong(pageBuilder.nextBlockBuilder(), row.getUpdateTime());
+            TIMESTAMP_MILLIS.writeLong(pageBuilder.nextBlockBuilder(), row.getCreateTime() * MICROSECONDS_PER_MILLISECOND);
+            TIMESTAMP_MILLIS.writeLong(pageBuilder.nextBlockBuilder(), row.getUpdateTime() * MICROSECONDS_PER_MILLISECOND);
             BIGINT.writeLong(pageBuilder.nextBlockBuilder(), row.getTableVersion());
             BIGINT.writeLong(pageBuilder.nextBlockBuilder(), row.getShardCount());
             BIGINT.writeLong(pageBuilder.nextBlockBuilder(), row.getRowCount());

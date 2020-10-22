@@ -38,17 +38,16 @@ public abstract class AbstractOrcDataSource
         implements OrcDataSource
 {
     private final OrcDataSourceId id;
-    private final long size;
+    private final long estimatedSize;
     private final OrcReaderOptions options;
     private long readTimeNanos;
     private long readBytes;
 
-    public AbstractOrcDataSource(OrcDataSourceId id, long size, OrcReaderOptions options)
+    public AbstractOrcDataSource(OrcDataSourceId id, long estimatedSize, OrcReaderOptions options)
     {
         this.id = requireNonNull(id, "id is null");
 
-        this.size = size;
-        checkArgument(size > 0, "size must be at least 1");
+        this.estimatedSize = estimatedSize;
         this.options = requireNonNull(options, "options is null");
     }
 
@@ -74,9 +73,22 @@ public abstract class AbstractOrcDataSource
     }
 
     @Override
-    public final long getSize()
+    public final long getEstimatedSize()
     {
-        return size;
+        return estimatedSize;
+    }
+
+    @Override
+    public Slice readTail(int length)
+            throws IOException
+    {
+        return readFully(estimatedSize - length, length);
+    }
+
+    @Override
+    public long getRetainedSize()
+    {
+        return 0;
     }
 
     @Override
@@ -110,7 +122,7 @@ public abstract class AbstractOrcDataSource
         }
 
         //
-        // Note: this code does not use the Java 8 stream APIs to avoid any extra object allocation
+        // Note: this code does not use the stream APIs to avoid any extra object allocation
         //
 
         // split disk ranges into "big" and "small"

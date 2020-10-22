@@ -13,63 +13,66 @@
  */
 package io.prestosql.spi.type;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.PrestoException;
 
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static java.lang.String.format;
 
-public final class TimeWithTimeZoneType
-        extends AbstractLongType
+public abstract class TimeWithTimeZoneType
+        extends AbstractType
+        implements FixedWidthType
 {
-    public static final TimeWithTimeZoneType TIME_WITH_TIME_ZONE = new TimeWithTimeZoneType();
+    public static final int MAX_PRECISION = 12;
+    public static final int MAX_SHORT_PRECISION = 9;
 
-    private TimeWithTimeZoneType()
-    {
-        super(new TypeSignature(StandardTypes.TIME_WITH_TIME_ZONE));
-    }
+    public static final int DEFAULT_PRECISION = 3; // TODO: should be 6 per SQL spec
 
-    @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    /**
+     * @deprecated Use {@link #createTimeWithTimeZoneType} instead.
+     */
+    @Deprecated
+    public static final TimeWithTimeZoneType TIME_WITH_TIME_ZONE = new ShortTimeWithTimeZoneType(DEFAULT_PRECISION);
+
+    private final int precision;
+
+    public static TimeWithTimeZoneType createTimeWithTimeZoneType(int precision)
     {
-        if (block.isNull(position)) {
-            return null;
+        if (precision == DEFAULT_PRECISION) {
+            // Use singleton for backwards compatibility with code checking `type == TIME_WITH_TIME_ZONE`
+            return TIME_WITH_TIME_ZONE;
         }
 
-        return new SqlTimeWithTimeZone(block.getLong(position, 0));
+        if (precision < 0 || precision > MAX_PRECISION) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIME WITH TIME ZONE precision must be in range [0, %s]: %s", MAX_PRECISION, precision));
+        }
+
+        if (precision <= MAX_SHORT_PRECISION) {
+            return new ShortTimeWithTimeZoneType(precision);
+        }
+
+        return new LongTimeWithTimeZoneType(precision);
+    }
+
+    protected TimeWithTimeZoneType(int precision, Class<?> javaType)
+    {
+        super(new TypeSignature(StandardTypes.TIME_WITH_TIME_ZONE, TypeSignatureParameter.numericParameter(precision)), javaType);
+        this.precision = precision;
+    }
+
+    public int getPrecision()
+    {
+        return precision;
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    public final boolean isComparable()
     {
-        long leftValue = unpackMillisUtc(leftBlock.getLong(leftPosition, 0));
-        long rightValue = unpackMillisUtc(rightBlock.getLong(rightPosition, 0));
-        return leftValue == rightValue;
+        return true;
     }
 
     @Override
-    public long hash(Block block, int position)
+    public final boolean isOrderable()
     {
-        return AbstractLongType.hash(unpackMillisUtc(block.getLong(position, 0)));
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long leftValue = unpackMillisUtc(leftBlock.getLong(leftPosition, 0));
-        long rightValue = unpackMillisUtc(rightBlock.getLong(rightPosition, 0));
-        return Long.compare(leftValue, rightValue);
-    }
-
-    @Override
-    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
-    public boolean equals(Object other)
-    {
-        return other == TIME_WITH_TIME_ZONE;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return getClass().hashCode();
+        return true;
     }
 }

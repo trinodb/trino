@@ -13,10 +13,9 @@
  */
 package io.prestosql.plugin.jdbc;
 
+import io.prestosql.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.type.Type;
-
-import java.util.function.UnaryOperator;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -24,68 +23,90 @@ import static java.util.Objects.requireNonNull;
 
 public final class ColumnMapping
 {
-    public static final UnaryOperator<Domain> DISABLE_PUSHDOWN = domain -> Domain.all(domain.getType());
+    public static final PredicatePushdownController FULL_PUSHDOWN = domain -> new DomainPushdownResult(domain, Domain.all(domain.getType()));
+    public static final PredicatePushdownController PUSHDOWN_AND_KEEP = domain -> new DomainPushdownResult(domain, domain);
+    public static final PredicatePushdownController DISABLE_PUSHDOWN = domain -> new DomainPushdownResult(Domain.all(domain.getType()), domain);
 
     public static ColumnMapping booleanMapping(Type prestoType, BooleanReadFunction readFunction, BooleanWriteFunction writeFunction)
     {
-        return booleanMapping(prestoType, readFunction, writeFunction, UnaryOperator.identity());
+        return booleanMapping(prestoType, readFunction, writeFunction, FULL_PUSHDOWN);
     }
 
-    public static ColumnMapping booleanMapping(Type prestoType, BooleanReadFunction readFunction, BooleanWriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
+    public static ColumnMapping booleanMapping(
+            Type prestoType,
+            BooleanReadFunction readFunction,
+            BooleanWriteFunction writeFunction,
+            PredicatePushdownController predicatePushdownController)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
+        return new ColumnMapping(prestoType, readFunction, writeFunction, predicatePushdownController);
     }
 
     public static ColumnMapping longMapping(Type prestoType, LongReadFunction readFunction, LongWriteFunction writeFunction)
     {
-        return longMapping(prestoType, readFunction, writeFunction, UnaryOperator.identity());
+        return longMapping(prestoType, readFunction, writeFunction, FULL_PUSHDOWN);
     }
 
-    public static ColumnMapping longMapping(Type prestoType, LongReadFunction readFunction, LongWriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
+    public static ColumnMapping longMapping(
+            Type prestoType,
+            LongReadFunction readFunction,
+            LongWriteFunction writeFunction,
+            PredicatePushdownController predicatePushdownController)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
+        return new ColumnMapping(prestoType, readFunction, writeFunction, predicatePushdownController);
     }
 
     public static ColumnMapping doubleMapping(Type prestoType, DoubleReadFunction readFunction, DoubleWriteFunction writeFunction)
     {
-        return doubleMapping(prestoType, readFunction, writeFunction, UnaryOperator.identity());
+        return doubleMapping(prestoType, readFunction, writeFunction, FULL_PUSHDOWN);
     }
 
-    public static ColumnMapping doubleMapping(Type prestoType, DoubleReadFunction readFunction, DoubleWriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
+    public static ColumnMapping doubleMapping(
+            Type prestoType,
+            DoubleReadFunction readFunction,
+            DoubleWriteFunction writeFunction,
+            PredicatePushdownController predicatePushdownController)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
+        return new ColumnMapping(prestoType, readFunction, writeFunction, predicatePushdownController);
     }
 
     public static ColumnMapping sliceMapping(Type prestoType, SliceReadFunction readFunction, SliceWriteFunction writeFunction)
     {
-        return sliceMapping(prestoType, readFunction, writeFunction, UnaryOperator.identity());
+        return sliceMapping(prestoType, readFunction, writeFunction, FULL_PUSHDOWN);
     }
 
-    public static ColumnMapping sliceMapping(Type prestoType, SliceReadFunction readFunction, SliceWriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
+    public static ColumnMapping sliceMapping(
+            Type prestoType,
+            SliceReadFunction readFunction,
+            SliceWriteFunction writeFunction,
+            PredicatePushdownController predicatePushdownController)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
+        return new ColumnMapping(prestoType, readFunction, writeFunction, predicatePushdownController);
     }
 
-    public static ColumnMapping blockMapping(Type prestoType, BlockReadFunction readFunction, BlockWriteFunction writeFunction)
+    public static <T> ColumnMapping objectMapping(Type prestoType, ObjectReadFunction readFunction, ObjectWriteFunction writeFunction)
     {
-        return blockMapping(prestoType, readFunction, writeFunction, UnaryOperator.identity());
+        return objectMapping(prestoType, readFunction, writeFunction, FULL_PUSHDOWN);
     }
 
-    public static ColumnMapping blockMapping(Type prestoType, BlockReadFunction readFunction, BlockWriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
+    public static <T> ColumnMapping objectMapping(
+            Type prestoType,
+            ObjectReadFunction readFunction,
+            ObjectWriteFunction writeFunction,
+            PredicatePushdownController predicatePushdownController)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
+        return new ColumnMapping(prestoType, readFunction, writeFunction, predicatePushdownController);
     }
 
     private final Type type;
     private final ReadFunction readFunction;
     private final WriteFunction writeFunction;
-    private final UnaryOperator<Domain> pushdownConverter;
+    private final PredicatePushdownController predicatePushdownController;
 
     /**
      * @deprecated Prefer factory methods instead over calling constructor directly.
      */
     @Deprecated
-    public ColumnMapping(Type type, ReadFunction readFunction, WriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
+    public ColumnMapping(Type type, ReadFunction readFunction, WriteFunction writeFunction, PredicatePushdownController predicatePushdownController)
     {
         this.type = requireNonNull(type, "type is null");
         this.readFunction = requireNonNull(readFunction, "readFunction is null");
@@ -102,7 +123,7 @@ public final class ColumnMapping
                 type,
                 writeFunction,
                 writeFunction.getJavaType());
-        this.pushdownConverter = requireNonNull(pushdownConverter, "pushdownConverter is null");
+        this.predicatePushdownController = requireNonNull(predicatePushdownController, "pushdownController is null");
     }
 
     public Type getType()
@@ -120,9 +141,9 @@ public final class ColumnMapping
         return writeFunction;
     }
 
-    public UnaryOperator<Domain> getPushdownConverter()
+    public PredicatePushdownController getPredicatePushdownController()
     {
-        return pushdownConverter;
+        return predicatePushdownController;
     }
 
     @Override

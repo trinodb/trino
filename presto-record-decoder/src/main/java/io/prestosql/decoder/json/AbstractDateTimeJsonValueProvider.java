@@ -17,17 +17,24 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
 
 public abstract class AbstractDateTimeJsonValueProvider
@@ -55,7 +62,7 @@ public abstract class AbstractDateTimeJsonValueProvider
 
         Type type = columnHandle.getType();
 
-        if (type == TIME || type == TIME_WITH_TIME_ZONE) {
+        if (type.equals(TIME) || type.equals(TIME_WITH_TIME_ZONE)) {
             if (millis < 0 || millis >= TimeUnit.DAYS.toMillis(1)) {
                 throw new PrestoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
@@ -66,18 +73,30 @@ public abstract class AbstractDateTimeJsonValueProvider
         if (type.equals(DATE)) {
             return TimeUnit.MILLISECONDS.toDays(millis);
         }
-        if (type.equals(TIMESTAMP) || type.equals(TIME)) {
-            return millis;
+        if (type.equals(TIME)) {
+            return millis * PICOSECONDS_PER_MILLISECOND;
         }
-        if (type.equals(TIMESTAMP_WITH_TIME_ZONE) || type.equals(TIME_WITH_TIME_ZONE)) {
-            return packDateTimeWithZone(millis, 0);
+        if (type.equals(TIMESTAMP_MILLIS)) {
+            return millis * MICROSECONDS_PER_MILLISECOND;
+        }
+        if (type.equals(TIMESTAMP_TZ_MILLIS)) {
+            return packDateTimeWithZone(millis, getTimeZone());
+        }
+        if (type.equals(TIME_WITH_TIME_ZONE)) {
+            int offsetMinutes = getTimeZone().getZoneId().getRules().getOffset(Instant.ofEpochMilli(millis)).getTotalSeconds() / 60;
+            return packTimeWithTimeZone((millis + (offsetMinutes * 60 * MILLISECONDS_PER_SECOND)) * NANOSECONDS_PER_MILLISECOND, offsetMinutes);
         }
 
-        return millis;
+        throw new IllegalStateException("Unsupported type: " + type);
     }
 
     /**
      * @return epoch milliseconds in UTC
      */
     protected abstract long getMillis();
+
+    /**
+     * @return TimeZoneKey for value
+     */
+    protected abstract TimeZoneKey getTimeZone();
 }

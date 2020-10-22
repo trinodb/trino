@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.cassandra;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
@@ -21,10 +22,13 @@ import io.prestosql.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 
+import java.util.Optional;
+
 import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestCassandraDistributedQueries
         extends AbstractTestDistributedQueries
@@ -36,7 +40,7 @@ public class TestCassandraDistributedQueries
             throws Exception
     {
         this.server = new CassandraServer();
-        return createCassandraQueryRunner(server, TpchTable.getTables());
+        return createCassandraQueryRunner(server, ImmutableMap.of(), TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
@@ -46,7 +50,25 @@ public class TestCassandraDistributedQueries
     }
 
     @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
     {
         return false;
     }
@@ -82,43 +104,21 @@ public class TestCassandraDistributedQueries
     }
 
     @Override
-    public void testInsert()
-    {
-        // Cassandra connector currently does not support create table
-        // TODO test inserts
-    }
-
-    @Override
     public void testInsertWithCoercion()
     {
-        // Cassandra connector currently does not support create table
-        // TODO test inserts
-    }
-
-    @Override
-    public void testInsertUnicode()
-    {
-        // Cassandra connector currently does not support create table
-        // TODO test inserts
+        // TODO
+        assertThatThrownBy(super::testInsertWithCoercion)
+                .hasMessage("unsupported type: decimal(5,3)");
+        throw new SkipException("TODO change test to use supported types");
     }
 
     @Override
     public void testInsertArray()
     {
-        // Cassandra connector currently does not support create table
-        // TODO test inserts
-    }
-
-    @Override
-    public void testCreateTable()
-    {
-        // Cassandra connector currently does not support create table
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // Cassandra connector currently does not support delete
+        // TODO
+        assertThatThrownBy(super::testInsertArray)
+                .hasMessage("unsupported type: array(double)");
+        throw new SkipException("Unsupported");
     }
 
     @Override
@@ -131,7 +131,7 @@ public class TestCassandraDistributedQueries
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
                 .row("totalprice", "double", "", "")
-                .row("orderdate", "varchar", "", "")
+                .row("orderdate", "date", "", "")
                 .row("orderpriority", "varchar", "", "")
                 .row("clerk", "varchar", "", "")
                 .row("shippriority", "integer", "", "")
@@ -142,27 +142,29 @@ public class TestCassandraDistributedQueries
     }
 
     @Override
-    public void testWrittenStats()
-    {
-        // TODO Cassandra connector supports CTAS and inserts, but the test would fail
-    }
-
-    @Override
-    public void testCommentTable()
-    {
-        // Cassandra connector currently does not support comment on table
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
-    }
-
-    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Cassandra connector does not support column default values");
     }
 
     @Override
-    public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        // Cassandra connector currently does not support create table
+        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        if (typeName.equals("time")
+                || typeName.equals("timestamp")
+                || typeName.equals("decimal(5,3)")
+                || typeName.equals("decimal(15,3)")
+                || typeName.equals("char(3)")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected String dataMappingTableName(String prestoTypeName)
+    {
+        return "presto_tmp_" + System.nanoTime();
     }
 }

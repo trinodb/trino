@@ -323,7 +323,7 @@ public class CassandraSession
     private Optional<CassandraColumnHandle> buildColumnHandle(AbstractTableMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
     {
         Optional<CassandraType> cassandraType = toCassandraType(columnMeta.getType().getName());
-        if (!cassandraType.isPresent()) {
+        if (cassandraType.isEmpty()) {
             log.debug("Unsupported column type: %s", columnMeta.getType().getName());
             return Optional.empty();
         }
@@ -352,9 +352,9 @@ public class CassandraSession
     /**
      * Get the list of partitions matching the given filters on partition keys.
      *
-     * @param table          the table to get partitions from
+     * @param table the table to get partitions from
      * @param filterPrefixes the list of possible values for each partition key.
-     *                       Order of values should match {@link CassandraTable#getPartitionKeyColumns()}
+     * Order of values should match {@link CassandraTable#getPartitionKeyColumns()}
      * @return list of {@link CassandraPartition}
      */
     public List<CassandraPartition> getPartitions(CassandraTable table, List<Set<Object>> filterPrefixes)
@@ -426,13 +426,15 @@ public class CassandraSession
         return partitions.build();
     }
 
-    public ResultSet execute(String cql, Object... values)
+    public ResultSet execute(String cql)
     {
-        return executeWithSession(session -> session.execute(cql, values));
+        log.debug("Execute cql: %s", cql);
+        return executeWithSession(session -> session.execute(cql));
     }
 
     public PreparedStatement prepare(RegularStatement statement)
     {
+        log.debug("Execute RegularStatement: %s", statement);
         return executeWithSession(session -> session.prepare(statement));
     }
 
@@ -449,6 +451,7 @@ public class CassandraSession
         Select partitionKeys = selectDistinctFrom(tableHandle, partitionKeyColumns);
         addWhereInClauses(partitionKeys.where(), partitionKeyColumns, filterPrefixes);
 
+        log.debug("Execute cql for partition keys with IN clauses: %s", partitionKeys);
         return execute(partitionKeys).all();
     }
 
@@ -464,6 +467,7 @@ public class CassandraSession
             Select partitionKeys = selectDistinctFrom(tableHandle, partitionKeyColumns);
             addWhereClause(partitionKeys.where(), partitionKeyColumns, combination);
 
+            log.debug("Execute cql for partition keys with multiple queries: %s", partitionKeys);
             List<Row> resultRows = execute(partitionKeys).all();
             if (resultRows != null && !resultRows.isEmpty()) {
                 rowList.addAll(resultRows);

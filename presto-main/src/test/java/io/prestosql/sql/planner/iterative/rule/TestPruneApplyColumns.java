@@ -223,7 +223,7 @@ public class TestPruneApplyColumns
     }
 
     @Test
-    public void testPruneUnreferencedCorrelationSymbol()
+    public void testDoNotPruneUnreferencedCorrelationSymbol()
     {
         tester().assertThat(new PruneApplyColumns())
                 .on(p -> {
@@ -239,16 +239,7 @@ public class TestPruneApplyColumns
                                     p.values(a, correlationSymbol),
                                     p.values(subquerySymbol)));
                 })
-                .matches(
-                        project(
-                                ImmutableMap.of("a", PlanMatchPattern.expression("a"), "in_result", PlanMatchPattern.expression("in_result")),
-                                apply(
-                                        ImmutableList.of(),
-                                        ImmutableMap.of("in_result", ExpressionMatcher.inPredicate(new SymbolReference("a"), new SymbolReference("subquery_symbol"))),
-                                        project(
-                                                ImmutableMap.of("a", PlanMatchPattern.expression("a")),
-                                                values("a", "correlation_symbol")),
-                                        values("subquery_symbol"))));
+                .doesNotFire();
     }
 
     @Test

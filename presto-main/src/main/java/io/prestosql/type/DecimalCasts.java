@@ -22,6 +22,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.prestosql.annotation.UsedByGeneratedCode;
+import io.prestosql.metadata.PolymorphicScalarFunctionBuilder;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PrestoException;
@@ -37,9 +38,10 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.operator.scalar.JsonOperators.JSON_FACTORY;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -97,12 +99,11 @@ public final class DecimalCasts
     private static SqlScalarFunction castFunctionFromDecimalTo(TypeSignature to, String... methodNames)
     {
         Signature signature = Signature.builder()
-                .kind(SCALAR)
                 .operatorType(CAST)
                 .argumentTypes(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                 .returnType(to)
                 .build();
-        return SqlScalarFunction.builder(DecimalCasts.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -131,17 +132,16 @@ public final class DecimalCasts
     private static SqlScalarFunction castFunctionToDecimalFromBuilder(TypeSignature from, boolean nullableResult, String... methodNames)
     {
         Signature signature = Signature.builder()
-                .kind(SCALAR)
                 .operatorType(CAST)
                 .argumentTypes(from)
                 .returnType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                 .build();
-        return SqlScalarFunction.builder(DecimalCasts.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
                 .signature(signature)
                 .nullableResult(nullableResult)
                 .deterministic(true)
                 .choice(choice -> choice
-                        .nullableResult(nullableResult)
+                        .returnConvention(nullableResult ? NULLABLE_RETURN : FAIL_ON_NULL)
                         .implementation(methodsGroup -> methodsGroup
                                 .methods(methodNames)
                                 .withExtraParameters((context) -> {
@@ -223,7 +223,7 @@ public final class DecimalCasts
     public static Slice bigintToLongDecimal(long value, long precision, long scale, BigInteger tenToScale)
     {
         try {
-            Slice decimal = multiply(unscaledDecimal(value), unscaledDecimal(tenToScale));
+            Slice decimal = multiply(unscaledDecimal(tenToScale), value);
             if (overflows(decimal, DecimalConversions.intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
@@ -281,7 +281,7 @@ public final class DecimalCasts
     public static Slice integerToLongDecimal(long value, long precision, long scale, BigInteger tenToScale)
     {
         try {
-            Slice decimal = multiply(unscaledDecimal(value), unscaledDecimal(tenToScale));
+            Slice decimal = multiply(unscaledDecimal(tenToScale), value);
             if (overflows(decimal, DecimalConversions.intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
@@ -339,7 +339,7 @@ public final class DecimalCasts
     public static Slice smallintToLongDecimal(long value, long precision, long scale, BigInteger tenToScale)
     {
         try {
-            Slice decimal = multiply(unscaledDecimal(value), unscaledDecimal(tenToScale));
+            Slice decimal = multiply(unscaledDecimal(tenToScale), value);
             if (overflows(decimal, DecimalConversions.intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
@@ -397,7 +397,7 @@ public final class DecimalCasts
     public static Slice tinyintToLongDecimal(long value, long precision, long scale, BigInteger tenToScale)
     {
         try {
-            Slice decimal = multiply(unscaledDecimal(value), unscaledDecimal(tenToScale));
+            Slice decimal = multiply(unscaledDecimal(tenToScale), value);
             if (overflows(decimal, DecimalConversions.intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }

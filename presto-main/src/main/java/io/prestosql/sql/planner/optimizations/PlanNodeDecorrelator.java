@@ -22,7 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
@@ -57,6 +57,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.planner.optimizations.SymbolMapper.symbolMapper;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.lang.Math.toIntExact;
@@ -135,7 +136,7 @@ public class PlanNodeDecorrelator
                 childDecorrelationResultOptional = node.getSource().accept(this, null);
             }
 
-            if (!childDecorrelationResultOptional.isPresent()) {
+            if (childDecorrelationResultOptional.isEmpty()) {
                 return Optional.empty();
             }
 
@@ -174,7 +175,7 @@ public class PlanNodeDecorrelator
             }
 
             Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
-            if (!childDecorrelationResultOptional.isPresent()) {
+            if (childDecorrelationResultOptional.isEmpty()) {
                 return Optional.empty();
             }
 
@@ -255,6 +256,7 @@ public class PlanNodeDecorrelator
                     node.getId(),
                     decorrelatedChildNode,
                     ImmutableList.copyOf(childDecorrelationResult.symbolsToPropagate),
+                    false,
                     symbolAllocator.newSymbol("row_number", BIGINT),
                     Optional.of(toIntExact(node.getCount())),
                     Optional.empty());
@@ -275,7 +277,7 @@ public class PlanNodeDecorrelator
             }
 
             Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
-            if (!childDecorrelationResultOptional.isPresent()) {
+            if (childDecorrelationResultOptional.isEmpty()) {
                 return Optional.empty();
             }
 
@@ -291,14 +293,14 @@ public class PlanNodeDecorrelator
             // no partitioning needed (no symbols to partition by)
             if (childDecorrelationResult.symbolsToPropagate.isEmpty()) {
                 return decorrelatedOrderingScheme
-                        .map(orderingScheme -> Optional.of(new DecorrelationResult(
+                        .map(orderingScheme -> new DecorrelationResult(
                                 // ordering symbols are present - return decorrelated TopNNode
                                 new TopNNode(node.getId(), decorrelatedChildNode, node.getCount(), orderingScheme, node.getStep()),
                                 childDecorrelationResult.symbolsToPropagate,
                                 childDecorrelationResult.correlatedPredicates,
                                 childDecorrelationResult.correlatedSymbolsMapping,
-                                node.getCount() == 1)))
-                        .orElseGet(() -> Optional.of(new DecorrelationResult(
+                                node.getCount() == 1))
+                        .or(() -> Optional.of(new DecorrelationResult(
                                 // no ordering symbols are left - convert to LimitNode
                                 new LimitNode(node.getId(), decorrelatedChildNode, node.getCount(), false),
                                 childDecorrelationResult.symbolsToPropagate,
@@ -338,6 +340,7 @@ public class PlanNodeDecorrelator
                                 node.getId(),
                                 decorrelatedChildNode,
                                 ImmutableList.copyOf(childDecorrelationResult.symbolsToPropagate),
+                                false,
                                 symbolAllocator.newSymbol("row_number", BIGINT),
                                 Optional.of(toIntExact(node.getCount())),
                                 Optional.empty());
@@ -387,7 +390,7 @@ public class PlanNodeDecorrelator
             }
 
             Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
-            if (!childDecorrelationResultOptional.isPresent()) {
+            if (childDecorrelationResultOptional.isEmpty()) {
                 return Optional.empty();
             }
 
@@ -431,7 +434,7 @@ public class PlanNodeDecorrelator
         public Optional<DecorrelationResult> visitProject(ProjectNode node, Void context)
         {
             Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
-            if (!childDecorrelationResultOptional.isPresent()) {
+            if (childDecorrelationResultOptional.isEmpty()) {
                 return Optional.empty();
             }
 
@@ -514,7 +517,7 @@ public class PlanNodeDecorrelator
 
         SymbolMapper getCorrelatedSymbolMapper()
         {
-            return new SymbolMapper(correlatedSymbolsMapping.asMap().entrySet().stream()
+            return symbolMapper(correlatedSymbolsMapping.asMap().entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, symbols -> Iterables.getLast(symbols.getValue()))));
         }
 

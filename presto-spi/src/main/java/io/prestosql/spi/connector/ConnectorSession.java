@@ -16,6 +16,7 @@ package io.prestosql.spi.connector;
 import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.type.TimeZoneKey;
 
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -38,9 +39,16 @@ public interface ConnectorSession
 
     Optional<String> getTraceToken();
 
-    long getStartTime();
+    /**
+     * @deprecated use {@link #getStart()} instead
+     */
+    @Deprecated
+    default long getStartTime()
+    {
+        return getStart().toEpochMilli();
+    }
 
-    boolean isLegacyTimestamp();
+    Instant getStart();
 
     <T> T getProperty(String name, Class<T> type);
 }

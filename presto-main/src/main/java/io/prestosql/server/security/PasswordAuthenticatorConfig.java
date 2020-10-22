@@ -14,6 +14,7 @@
 package io.prestosql.server.security;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.validation.FileExists;
 
 import java.io.File;
 import java.util.Optional;
@@ -35,7 +36,7 @@ public class PasswordAuthenticatorConfig
         return this;
     }
 
-    public Optional<File> getUserMappingFile()
+    public Optional<@FileExists File> getUserMappingFile()
     {
         return userMappingFile;
     }

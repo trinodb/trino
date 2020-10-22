@@ -13,21 +13,29 @@
  */
 package io.prestosql.sql;
 
-import com.google.common.base.Defaults;
+import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.FunctionInvoker;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
+import io.prestosql.type.FunctionType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.type.FunctionType.NAME;
 import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
 
@@ -52,36 +60,47 @@ public class InterpretedFunctionInvoker
      */
     public Object invoke(ResolvedFunction function, ConnectorSession session, List<Object> arguments)
     {
-        ScalarFunctionImplementation implementation = metadata.getScalarFunctionImplementation(function);
-        MethodHandle method = implementation.getMethodHandle();
+        FunctionMetadata functionMetadata = metadata.getFunctionMetadata(function);
+        FunctionInvoker invoker = metadata.getScalarFunctionInvoker(function, Optional.of(getInvocationConvention(function, functionMetadata)));
+        return invoke(functionMetadata, invoker, session, arguments);
+    }
+
+    public static Object invoke(FunctionMetadata functionMetadata, FunctionInvoker invoker, ConnectorSession session, List<Object> arguments)
+    {
+        MethodHandle method = invoker.getMethodHandle();
+
+        List<Object> actualArguments = new ArrayList<>();
 
         // handle function on instance method, to allow use of fields
-        method = bindInstanceFactory(method, implementation);
-
-        if (method.type().parameterCount() > 0 && method.type().parameterType(0) == ConnectorSession.class) {
-            method = method.bindTo(session);
+        if (invoker.getInstanceFactory().isPresent()) {
+            try {
+                actualArguments.add(invoker.getInstanceFactory().get().invoke());
+            }
+            catch (Throwable throwable) {
+                throw propagate(throwable);
+            }
         }
-        List<Object> actualArguments = new ArrayList<>();
+
+        // add session
+        if (method.type().parameterCount() > actualArguments.size() && method.type().parameterType(actualArguments.size()) == ConnectorSession.class) {
+            actualArguments.add(session);
+        }
+
+        int lambdaArgumentIndex = 0;
         for (int i = 0; i < arguments.size(); i++) {
             Object argument = arguments.get(i);
-            ArgumentProperty argumentProperty = implementation.getArgumentProperty(i);
-            if (argumentProperty.getArgumentType() == VALUE_TYPE) {
-                if (implementation.getArgumentProperty(i).getNullConvention() == USE_NULL_FLAG) {
-                    boolean isNull = argument == null;
-                    if (isNull) {
-                        argument = Defaults.defaultValue(method.type().parameterType(actualArguments.size()));
-                    }
-                    actualArguments.add(argument);
-                    actualArguments.add(isNull);
-                }
-                else {
-                    actualArguments.add(argument);
-                }
+
+            // if argument is null and function does not handle nulls, result is null
+            if (argument == null && !functionMetadata.getArgumentDefinitions().get(i).isNullable()) {
+                return null;
             }
-            else {
-                argument = asInterfaceInstance(argumentProperty.getLambdaInterface(), (MethodHandle) argument);
-                actualArguments.add(argument);
+
+            if (functionMetadata.getSignature().getArgumentTypes().get(i).getBase().equals(NAME)) {
+                argument = asInterfaceInstance(invoker.getLambdaInterfaces().get(lambdaArgumentIndex), (MethodHandle) argument);
+                lambdaArgumentIndex++;
             }
+
+            actualArguments.add(argument);
         }
 
         try {
@@ -92,18 +111,26 @@ public class InterpretedFunctionInvoker
         }
     }
 
-    private static MethodHandle bindInstanceFactory(MethodHandle method, ScalarFunctionImplementation implementation)
+    private static InvocationConvention getInvocationConvention(ResolvedFunction function, FunctionMetadata functionMetadata)
     {
-        if (!implementation.getInstanceFactory().isPresent()) {
-            return method;
+        ImmutableList.Builder<InvocationArgumentConvention> argumentConventions = ImmutableList.builder();
+        for (int i = 0; i < functionMetadata.getArgumentDefinitions().size(); i++) {
+            if (function.getSignature().getArgumentTypes().get(i) instanceof FunctionType) {
+                argumentConventions.add(FUNCTION);
+            }
+            else if (functionMetadata.getArgumentDefinitions().get(i).isNullable()) {
+                argumentConventions.add(BOXED_NULLABLE);
+            }
+            else {
+                argumentConventions.add(NEVER_NULL);
+            }
         }
 
-        try {
-            return method.bindTo(implementation.getInstanceFactory().get().invoke());
-        }
-        catch (Throwable throwable) {
-            throw propagate(throwable);
-        }
+        return new InvocationConvention(
+                argumentConventions.build(),
+                functionMetadata.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL,
+                true,
+                true);
     }
 
     private static RuntimeException propagate(Throwable throwable)

@@ -27,6 +27,7 @@ import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.procedure.Procedure.Argument;
 import io.prestosql.spi.type.ArrayType;
@@ -49,7 +50,7 @@ import static org.apache.hadoop.hive.metastore.utils.FileUtils.makePartName;
 /**
  * A procedure that drops statistics.  It can be invoked for a subset of partitions (e.g.
  * {@code CALL system.drop_stats('system', 'some_table', ARRAY[ARRAY['x', '7']])}) or
- * for the entire table ({@code CALL system.drop_stats('system', 'some_table', NULL)})).
+ * for the entire table ({@code CALL system.drop_stats('system', 'some_table')})).
  */
 public class DropStatsProcedure
         implements Provider<Procedure>
@@ -81,7 +82,7 @@ public class DropStatsProcedure
                 ImmutableList.of(
                         new Argument("schema_name", VARCHAR),
                         new Argument("table_name", VARCHAR),
-                        new Argument("partition_values", new ArrayType(new ArrayType(VARCHAR)))),
+                        new Argument("partition_values", new ArrayType(new ArrayType(VARCHAR)), false, null)),
                 DROP_STATS.bindTo(this));
     }
 
@@ -132,7 +133,7 @@ public class DropStatsProcedure
             }
             else {
                 // the table is partitioned; remove stats for every partition
-                metastore.getPartitionNames(new HiveIdentity(session.getIdentity()), handle.getSchemaName(), handle.getTableName())
+                metastore.getPartitionNamesByFilter(new HiveIdentity(session.getIdentity()), handle.getSchemaName(), handle.getTableName(), partitionColumns, TupleDomain.all())
                         .ifPresent(partitions -> partitions.forEach(partitionName -> metastore.updatePartitionStatistics(
                                 new HiveIdentity(session.getIdentity()),
                                 schema,

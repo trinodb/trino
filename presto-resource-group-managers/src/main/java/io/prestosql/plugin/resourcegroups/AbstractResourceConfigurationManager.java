@@ -79,7 +79,7 @@ public abstract class AbstractResourceConfigurationManager
                     case QUERY_PRIORITY:
                     case FAIR:
                         for (ResourceGroupSpec subGroup : subGroups) {
-                            checkArgument(!subGroup.getSchedulingWeight().isPresent(), "Must use 'weighted' or 'weighted_fair' scheduling policy if specifying scheduling weight for '%s'", group.getName());
+                            checkArgument(subGroup.getSchedulingWeight().isEmpty(), "Must use 'weighted' or 'weighted_fair' scheduling policy if specifying scheduling weight for '%s'", group.getName());
                         }
                         break;
                     default:
@@ -116,7 +116,7 @@ public abstract class AbstractResourceConfigurationManager
                     .stream()
                     .filter(groupSpec -> groupSpec.getName().equals(groupName))
                     .findFirst();
-            if (!match.isPresent()) {
+            if (match.isEmpty()) {
                 throw new IllegalArgumentException(format("Selector refers to nonexistent group: %s", fullyQualifiedGroupName.toString()));
             }
             fullyQualifiedGroupName.append(".");

@@ -16,6 +16,8 @@ package io.prestosql.plugin.bigquery;
 import com.google.auth.oauth2.GoogleCredentials;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Min;
@@ -47,7 +49,7 @@ public class BigQueryConfig
             return false;
         }
         // if no credentials were supplied, let's check if we can create the default ones
-        if (!credentialsKey.isPresent() && !credentialsFile.isPresent()) {
+        if (credentialsKey.isEmpty() && credentialsFile.isEmpty()) {
             try {
                 GoogleCredentials.getApplicationDefault();
             }
@@ -65,13 +67,14 @@ public class BigQueryConfig
 
     @Config("bigquery.credentials-key")
     @ConfigDescription("The base64 encoded credentials key")
+    @ConfigSecuritySensitive
     public BigQueryConfig setCredentialsKey(String credentialsKey)
     {
         this.credentialsKey = Optional.of(credentialsKey);
         return this;
     }
 
-    public Optional<String> getCredentialsFile()
+    public Optional<@FileExists String> getCredentialsFile()
     {
         return credentialsFile;
     }

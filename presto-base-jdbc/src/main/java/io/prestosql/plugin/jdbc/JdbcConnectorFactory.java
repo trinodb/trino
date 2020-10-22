@@ -16,7 +16,6 @@ package io.prestosql.plugin.jdbc;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
-import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.VersionEmbedder;
 import io.prestosql.spi.connector.Connector;
@@ -39,9 +38,14 @@ public class JdbcConnectorFactory
 
     public JdbcConnectorFactory(String name, Module module)
     {
-        this(name, JdbcModuleProvider.of(module));
+        this(name, catalogName -> module);
     }
 
+    /**
+     * @deprecated Prefer {@link JdbcConnectorFactory#JdbcConnectorFactory(String, Module)} instead.
+     * Notice that {@link io.prestosql.plugin.base.CatalogName} is available in guice context.
+     */
+    @Deprecated
     public JdbcConnectorFactory(String name, JdbcModuleProvider moduleProvider)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
@@ -71,7 +75,6 @@ public class JdbcConnectorFactory
                 binder -> binder.bind(NodeManager.class).toInstance(context.getNodeManager()),
                 binder -> binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder()),
                 new JdbcModule(catalogName),
-                new CredentialProviderModule(),
                 moduleProvider.getModule(catalogName));
 
         Injector injector = app
@@ -83,14 +86,13 @@ public class JdbcConnectorFactory
         return injector.getInstance(JdbcConnector.class);
     }
 
+    /**
+     * @deprecated Prefer {@link JdbcConnectorFactory#JdbcConnectorFactory(String, Module)} instead.
+     * Notice that {@link io.prestosql.plugin.base.CatalogName} is available in guice context.
+     */
+    @Deprecated
     public interface JdbcModuleProvider
     {
         Module getModule(String catalogName);
-
-        static JdbcModuleProvider of(Module module)
-        {
-            requireNonNull(module, "module is null");
-            return catalogName -> module;
-        }
     }
 }

@@ -13,15 +13,15 @@
  */
 package io.prestosql.operator.aggregation.minmaxby;
 
+import io.prestosql.type.BlockTypeOperators;
+
 public class MaxByNAggregationFunction
         extends AbstractMinMaxByNAggregationFunction
 {
     private static final String NAME = "max_by";
 
-    public static final MaxByNAggregationFunction MAX_BY_N_AGGREGATION = new MaxByNAggregationFunction();
-
-    public MaxByNAggregationFunction()
+    public MaxByNAggregationFunction(BlockTypeOperators blockTypeOperators)
     {
-        super(NAME, t -> t::compareTo, "Returns the values of the first argument associated with the maximum values of the second argument");
+        super(NAME, blockTypeOperators::getComparisonOperator, "Returns the values of the first argument associated with the maximum values of the second argument");
     }
 }

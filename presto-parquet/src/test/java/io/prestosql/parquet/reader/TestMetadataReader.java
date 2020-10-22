@@ -124,82 +124,112 @@ public class TestMetadataReader
     }
 
     /**
+     * Stats written potentially before https://issues.apache.org/jira/browse/PARQUET-251
+     */
+    @Test
+    public void testReadStatsBinaryUtf8PotentiallyCorrupted()
+    {
+        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, null, null, null, null);
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, null, null, null, null);
+
+        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "", "abc", null, null);
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "", "abc", null, null);
+
+        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "abc", "def", null, null);
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "abc", "def", null, null);
+
+        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "abc", "abc", null, null);
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "abc", "abc", null, null);
+
+        testReadStatsBinaryUtf8OldWriter(NO_CREATED_BY, "abcéM", "abcé\u00f7", null, null);
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR, "abcéM", "abcé\u00f7", null, null);
+    }
+
+    /**
      * Stats written by Parquet before https://issues.apache.org/jira/browse/PARQUET-1025
      */
-    @Test(dataProvider = "testReadStatsBinaryUtf8OldWriterDataProvider")
-    public void testReadStatsBinaryUtf8OldWriter(Optional<String> fileCreatedBy, int nullCount, byte[] min, byte[] max, int expectedNullCount, byte[] expectedMin, byte[] expectedMax)
+    @Test
+    public void testReadStatsBinaryUtf8OldWriter()
+    {
+        // null
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, null, null, null, null);
+
+        // [, bcé]: min is empty, max starts with ASCII
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "", "bcé", null, null);
+
+        // [, ébc]: min is empty, max starts with non-ASCII
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "", "ébc", null, null);
+
+        // [aa, bé]: no common prefix, first different are both ASCII, min is all ASCII
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "aa", "bé", "aa", "c");
+
+        // [abcd, abcdN]: common prefix, not only ASCII, one prefix of the other, last common ASCII
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "abcd", "abcdN", "abcd", "abce");
+
+        // [abcé, abcéN]: common prefix, not only ASCII, one prefix of the other, last common non ASCII
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "abcé", "abcéN", "abcé", "abd");
+
+        // [abcéM, abcéN]: common prefix, not only ASCII, first different are both ASCII
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "abcéM", "abcéN", "abcéM", "abcéO");
+
+        // [abcéMab, abcéNxy]: common prefix, not only ASCII, first different are both ASCII, more characters afterwards
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "abcéMab", "abcéNxy", "abcéMab", "abcéO");
+
+        // [abcéM, abcé\u00f7]: common prefix, not only ASCII, first different are both ASCII, but need to be chopped off (127)
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "abcéM", "abcé\u00f7", "abcéM", "abd");
+
+        // [abc\u007fé, bcd\u007fé]: no common prefix, first different are both ASCII
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "abc\u007fé", "bcd\u007fé", "abc\u007f", "c");
+
+        // [é, a]: no common prefix, first different are not both ASCII
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "é", "a", null, null);
+
+        // [é, ê]: no common prefix, first different are both not ASCII
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "é", "ê", null, null);
+
+        // [aé, aé]: min = max (common prefix, first different are both not ASCII)
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "aé", "aé", "aé", "aé");
+
+        // [aé, bé]: no common prefix, first different are both ASCII
+        testReadStatsBinaryUtf8OldWriter(PARQUET_MR_1_8, "aé", "bé", "a", "c");
+    }
+
+    private void testReadStatsBinaryUtf8OldWriter(Optional<String> fileCreatedBy, String min, String max, String expectedMin, String expectedMax)
     {
         Statistics statistics = new Statistics();
-        statistics.setNull_count(nullCount);
-        statistics.setMin(min);
-        statistics.setMax(max);
+        statistics.setNull_count(13);
+        if (min != null) {
+            statistics.setMin(min.getBytes(UTF_8));
+        }
+        if (max != null) {
+            statistics.setMax(max.getBytes(UTF_8));
+        }
         assertThat(MetadataReader.readStats(fileCreatedBy, Optional.of(statistics), new PrimitiveType(OPTIONAL, BINARY, "Test column", OriginalType.UTF8)))
                 .isInstanceOfSatisfying(BinaryStatistics.class, columnStatistics -> {
-                    assertEquals(columnStatistics.getNumNulls(), expectedNullCount);
+                    assertEquals(columnStatistics.getNumNulls(), 13);
 
-                    assertEquals(columnStatistics.getMinBytes(), expectedMin);
-                    if (expectedMin != null) {
-                        assertEquals(columnStatistics.getMin().getBytes(), expectedMin);
-                        assertEquals(columnStatistics.genericGetMin().getBytes(), expectedMin);
+                    byte[] expectedMinBytes = expectedMin != null ? expectedMin.getBytes(UTF_8) : null;
+                    assertThat(columnStatistics.getMinBytes()).isEqualTo(expectedMinBytes);
+                    if (expectedMinBytes != null) {
+                        assertThat(columnStatistics.getMin().getBytes()).isEqualTo(expectedMinBytes);
+                        assertThat(columnStatistics.genericGetMin().getBytes()).isEqualTo(expectedMinBytes);
                     }
                     else {
                         assertNull(columnStatistics.getMin());
                         assertNull(columnStatistics.genericGetMin());
                     }
 
-                    assertEquals(columnStatistics.getMaxBytes(), expectedMax);
-                    if (expectedMax != null) {
-                        assertEquals(columnStatistics.getMax().getBytes(), expectedMax);
-                        assertEquals(columnStatistics.genericGetMax().getBytes(), expectedMax);
+                    byte[] expectedMaxBytes = expectedMax != null ? expectedMax.getBytes(UTF_8) : null;
+                    assertThat(columnStatistics.getMaxBytes()).isEqualTo(expectedMaxBytes);
+                    if (expectedMaxBytes != null) {
+                        assertThat(columnStatistics.getMax().getBytes()).isEqualTo(expectedMaxBytes);
+                        assertThat(columnStatistics.genericGetMax().getBytes()).isEqualTo(expectedMaxBytes);
                     }
                     else {
                         assertNull(columnStatistics.getMax());
                         assertNull(columnStatistics.genericGetMax());
                     }
                 });
-    }
-
-    @DataProvider
-    public Object[][] testReadStatsBinaryUtf8OldWriterDataProvider()
-    {
-        return new Object[][] {
-                // [aa, bé]
-                {NO_CREATED_BY, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, null, null},
-                {PARQUET_MR, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, null, null},
-                {PARQUET_MR_1_8, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, "aa".getBytes(UTF_8), "c".getBytes(UTF_8)},
-                {PARQUET_MR_1_10, 13, "aa".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, "aa".getBytes(UTF_8), "c".getBytes(UTF_8)}, // however, 1.10 won't fill old min/max
-
-                // [abc\u007fé, bcd\u007fé]; \u007f is retained in min value, but removed from max
-                {NO_CREATED_BY, 13, "abc\u007fé".getBytes(UTF_8), "bcd\u007fé".getBytes(UTF_8), 13, null, null},
-                {PARQUET_MR, 13, "abc\u007fé".getBytes(UTF_8), "bcd\u007fé".getBytes(UTF_8), 13, null, null},
-                {PARQUET_MR_1_8, 13, "abc\u007fé".getBytes(UTF_8), "bcd\u007fé".getBytes(UTF_8), 13, "abc\u007f".getBytes(UTF_8), "bce".getBytes(UTF_8)},
-                // however, 1.10 won't fill old min/max
-                {PARQUET_MR_1_10, 13, "abc\u007fé".getBytes(UTF_8), "bcd\u007fé".getBytes(UTF_8), 13, "abc\u007f".getBytes(UTF_8), "bce".getBytes(UTF_8)},
-
-                // [é, a] or [a, é]
-                {NO_CREATED_BY, 13, "é".getBytes(UTF_8), "a".getBytes(UTF_8), 13, null, null},
-                {PARQUET_MR, 13, "é".getBytes(UTF_8), "a".getBytes(UTF_8), 13, null, null},
-                {PARQUET_MR_1_8, 13, "é".getBytes(UTF_8), "a".getBytes(UTF_8), 13, new byte[0], "b".getBytes(UTF_8)},
-                {PARQUET_MR_1_10, 13, "a".getBytes(UTF_8), "é".getBytes(UTF_8), 13, null, null}, // however, 1.10 won't fill old min/max
-
-                // [é, ê]; both, before PARQUET-1025 and after than, Parquet writer would order them this way
-                {NO_CREATED_BY, 13, "é".getBytes(UTF_8), "ê".getBytes(UTF_8), 13, null, null},
-                {PARQUET_MR, 13, "é".getBytes(UTF_8), "ê".getBytes(UTF_8), 13, null, null},
-                {PARQUET_MR_1_8, 13, "é".getBytes(UTF_8), "ê".getBytes(UTF_8), 13, null, null},
-                {PARQUET_MR_1_10, 13, "é".getBytes(UTF_8), "ê".getBytes(UTF_8), 13, null, null}, // however, 1.10 won't fill old min/max
-
-                // [aé, aé]
-                {NO_CREATED_BY, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), 13, null, null},
-                {PARQUET_MR, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), 13, null, null},
-                {PARQUET_MR_1_8, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8)},
-                {PARQUET_MR_1_10, 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8), 13, "aé".getBytes(UTF_8), "aé".getBytes(UTF_8)}, // however, 1.10 won't fill old min/max
-
-                // [aé, bé]
-                {NO_CREATED_BY, 13, "aé".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, null, null},
-                {PARQUET_MR, 13, "aé".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, null, null},
-                {PARQUET_MR_1_8, 13, "aé".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, "a".getBytes(UTF_8), "c".getBytes(UTF_8)},
-                {PARQUET_MR_1_10, 13, "aé".getBytes(UTF_8), "bé".getBytes(UTF_8), 13, "a".getBytes(UTF_8), "c".getBytes(UTF_8)}, // however, 1.10 won't fill old min/max
-        };
     }
 
     @Test(dataProvider = "allCreatedBy")

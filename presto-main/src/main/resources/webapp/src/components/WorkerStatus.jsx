@@ -73,7 +73,7 @@ export class WorkerStatus extends React.Component {
 
             this.resetTimer();
         }.bind(this))
-            .error(function () {
+            .fail(function () {
                 this.setState({
                     initialized: true,
                 });
@@ -104,7 +104,7 @@ export class WorkerStatus extends React.Component {
         const reserved = pool.reservedBytes;
         const revocable = pool.reservedRevocableBytes;
 
-        const percentageReservedNonRevocable = (reserved - revocable) === 0 ? 0 : Math.max(Math.round((reserved - revocable) * 100.0 / size), 15);
+        const percentageReservedNonRevocable = reserved === 0 ? 0 : Math.max(Math.round(reserved * 100.0 / size), 15);
         const percentageRevocable = revocable === 0 ? 0 : Math.max(Math.round(revocable * 100.0 / size), 15);
         const percentageFree = 100 - (percentageRevocable + percentageReservedNonRevocable);
 
@@ -129,14 +129,14 @@ export class WorkerStatus extends React.Component {
                             <div className="progress">
                                 <div className="progress-bar memory-progress-bar progress-bar-warning progress-bar-striped active" role="progressbar"
                                      style={{width: percentageReservedNonRevocable + "%"}}>
-                                    {formatDataSize(reserved - revocable)}
+                                    {formatDataSize(reserved)}
                                 </div>
                                 <div className="progress-bar memory-progress-bar progress-bar-danger progress-bar-striped active" role="progressbar"
                                      style={{width: percentageRevocable + "%"}}>
                                     {formatDataSize(revocable)}
                                 </div>
                                 <div className="progress-bar memory-progress-bar progress-bar-success" role="progressbar" style={{width: percentageFree + "%"}}>
-                                    {formatDataSize(size - reserved)}
+                                    {formatDataSize(size - reserved - revocable)}
                                 </div>
                             </div>
                         </div>

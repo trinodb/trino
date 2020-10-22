@@ -57,7 +57,7 @@ public final class ExpressionTreeUtils
     private static boolean isAggregation(FunctionCall functionCall, Metadata metadata)
     {
         return ((metadata.isAggregationFunction(functionCall.getName()) || functionCall.getFilter().isPresent())
-                && !functionCall.getWindow().isPresent())
+                && functionCall.getWindow().isEmpty())
                 || functionCall.getOrderBy().isPresent();
     }
 
@@ -86,14 +86,14 @@ public final class ExpressionTreeUtils
     private static List<Node> linearizeNodes(Node node)
     {
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
-        new DefaultExpressionTraversalVisitor<Node, Void>()
+        new DefaultExpressionTraversalVisitor<Void>()
         {
             @Override
-            public Node process(Node node, Void context)
+            public Void process(Node node, Void context)
             {
-                Node result = super.process(node, context);
+                super.process(node, context);
                 nodes.add(node);
-                return result;
+                return null;
             }
         }.process(node, null);
         return nodes.build();

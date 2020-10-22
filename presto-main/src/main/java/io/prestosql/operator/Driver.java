@@ -128,11 +128,11 @@ public class Driver
         Optional<DeleteOperator> deleteOperator = Optional.empty();
         for (Operator operator : operators) {
             if (operator instanceof SourceOperator) {
-                checkArgument(!sourceOperator.isPresent(), "There must be at most one SourceOperator");
+                checkArgument(sourceOperator.isEmpty(), "There must be at most one SourceOperator");
                 sourceOperator = Optional.of((SourceOperator) operator);
             }
             else if (operator instanceof DeleteOperator) {
-                checkArgument(!deleteOperator.isPresent(), "There must be at most one DeleteOperator");
+                checkArgument(deleteOperator.isEmpty(), "There must be at most one DeleteOperator");
                 deleteOperator = Optional.of((DeleteOperator) operator);
             }
         }
@@ -374,7 +374,7 @@ public class Driver
                 }
 
                 // if the current operator is not finished and next operator isn't blocked and needs input...
-                if (!current.isFinished() && !getBlockedFuture(next).isPresent() && next.needsInput()) {
+                if (!current.isFinished() && getBlockedFuture(next).isEmpty() && next.needsInput()) {
                     // get an output page from current operator
                     Page page = current.getOutput();
                     current.getOperatorContext().recordGetOutput(operationTimer, page);

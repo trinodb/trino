@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,7 +25,6 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
@@ -63,15 +63,16 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.prestosql.sql.tree.ExplainType.Type.IO;
 import static io.prestosql.sql.tree.ExplainType.Type.LOGICAL;
+import static io.prestosql.testing.DataProviders.toDataProvider;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
-import static io.prestosql.testing.TestngUtils.toDataProvider;
 import static io.prestosql.tests.QueryTemplate.parameter;
 import static io.prestosql.tests.QueryTemplate.queryTemplate;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
@@ -84,7 +85,7 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestEngineOnlyQueries
         extends AbstractTestQueryFramework
 {
-    private static final DateTimeFormatter ZONED_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern(SqlTimestampWithTimeZone.JSON_FORMAT);
+    private static final DateTimeFormatter ZONED_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss[.SSS] VV");
 
     @Test
     public void testTimeLiterals()
@@ -105,11 +106,10 @@ public abstract class AbstractTestEngineOnlyQueries
         // TODO assertQuery(chicago, "SELECT TIME '3:04:05'");
         // TODO assertQuery(kathmandu, "SELECT TIME '3:04:05'");
 
-        assertEquals(computeScalar("SELECT TIME '01:02:03.400 Z'"), OffsetTime.of(1, 2, 3, 400_000_000, ZoneOffset.UTC));
-        assertEquals(computeScalar("SELECT TIME '01:02:03.400 UTC'"), OffsetTime.of(1, 2, 3, 400_000_000, ZoneOffset.UTC));
+        assertEquals(computeScalar("SELECT TIME '01:02:03.400+00:00'"), OffsetTime.of(1, 2, 3, 400_000_000, ZoneOffset.ofHoursMinutes(0, 0)));
         assertEquals(computeScalar("SELECT TIME '3:04:05 +06:00'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(6, 0)));
-        assertEquals(computeScalar("SELECT TIME '3:04:05 +0507'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(5, 7)));
-        assertEquals(computeScalar("SELECT TIME '3:04:05 +03'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(3, 0)));
+        assertEquals(computeScalar("SELECT TIME '3:04:05 +05:07'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(5, 7)));
+        assertEquals(computeScalar("SELECT TIME '3:04:05 +03:00'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(3, 0)));
 
         assertEquals(computeScalar("SELECT TIMESTAMP '1960-01-22 3:04:05'"), LocalDateTime.of(1960, 1, 22, 3, 4, 5));
         assertEquals(computeScalar("SELECT TIMESTAMP '1960-01-22 3:04:05.123'"), LocalDateTime.of(1960, 1, 22, 3, 4, 5, 123_000_000));
@@ -128,7 +128,7 @@ public abstract class AbstractTestEngineOnlyQueries
         LocalDateTime localTimeThatDidNotExist = LocalDateTime.of(2017, 4, 2, 2, 10);
         checkState(ZoneId.systemDefault().getRules().getValidOffsets(localTimeThatDidNotExist).isEmpty(), "This test assumes certain JVM time zone");
         // This tests that both Presto runner and H2 can return TIMESTAMP value that never happened in JVM's zone (e.g. is not representable using java.sql.Timestamp)
-        @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIMESTAMP '''uuuu-MM-dd HH:mm:ss''").format(localTimeThatDidNotExist);
+        @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIMESTAMP '''uuuu-MM-dd HH:mm:ss.SSS''").format(localTimeThatDidNotExist);
         assertEquals(computeScalar(sql), localTimeThatDidNotExist); // this tests Presto and the QueryRunner
         assertQuery(sql); // this tests H2QueryRunner
 
@@ -211,6 +211,12 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testLargeQuerySuccess()
+    {
+        assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(500, "1 = 1")), "SELECT true");
+    }
+
+    @Test
     public void testLargeInArray()
     {
         String arrayValues = range(0, 5000)
@@ -287,6 +293,8 @@ public abstract class AbstractTestEngineOnlyQueries
                 ImmutableList.of(zonedDateTime("1970-01-01 00:01:00.000 UTC"), zonedDateTime("1970-01-01 08:01:00.000 +08:00")));
         assertQuery("SELECT COUNT(*) FROM (values 1) t(x) WHERE x IN (null, 0)", "SELECT 0");
         assertQuery("SELECT d IN (DECIMAL '2.0', DECIMAL '30.0') FROM (VALUES (2.0E0)) t(d)", "SELECT true"); // coercion with type only coercion inside IN list
+        assertQuery("SELECT REAL '-0.0' IN (VALUES REAL '1.0', REAL '0.0')", "SELECT true");
+        assertQuery("SELECT -0e0 IN (VALUES 1e0, 0e0)", "SELECT true");
     }
 
     @Test
@@ -340,7 +348,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testChecksum()
     {
-        assertQuery("SELECT to_hex(checksum(0))", "SELECT '0000000000000000'");
+        assertQuery("SELECT to_hex(checksum(0))", "SELECT '9D2D16796C5091EA'");
     }
 
     @Test
@@ -532,6 +540,18 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testComplexCast()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .build();
+        // This is optimized using CAST(null AS interval day to second) which may be problematic to deserialize on worker
+        assertQuery(session, "WITH t(a, b) AS (VALUES (1, INTERVAL '1' SECOND)) " +
+                        "SELECT count(DISTINCT a), CAST(max(b) AS VARCHAR) FROM t",
+                "VALUES (1, '0 00:00:01.000')");
+    }
+
+    @Test
     public void testInvalidCast()
     {
         assertQueryFails(
@@ -664,6 +684,209 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testExecuteWithParametersInLimit()
+    {
+        String query = "SELECT a FROM (VALUES 1, 2, 2, 3) t(a) where a = ? LIMIT ?";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+
+        assertQuery(
+                session,
+                "EXECUTE my_query USING 2, 1",
+                "SELECT 2");
+
+        assertQuery(
+                session,
+                "EXECUTE my_query USING 2, 4 - 3",
+                "SELECT 2");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 'one'",
+                "\\Qline 1:27: Cannot cast type varchar(3) to bigint\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 1.0",
+                "\\Qline 1:27: Cannot cast type decimal(2,1) to bigint\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 1 + t.a",
+                "\\Qline 1:29: Constant expression cannot contain column references\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, null",
+                "\\Qline 1:58: Parameter value provided for LIMIT is NULL: null\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 1 + null",
+                "\\Qline 1:58: Parameter value provided for LIMIT is NULL: (1 + null)\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, ?",
+                "\\Qline 1:27: No value provided for parameter\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, -2",
+                "\\Qline 1:52: LIMIT row count must be greater or equal to 0 (actual value: -2)\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 99999999999999999999",
+                "\\Qline 1:1: Invalid numeric literal: 99999999999999999999\\E");
+    }
+
+    @Test
+    public void testExecuteWithParametersInFetchFirst()
+    {
+        String query = "SELECT a FROM (VALUES 1, 2, 2, 3) t(a) where a = ? FETCH FIRST ? ROW ONLY";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+
+        assertQuery(
+                session,
+                "EXECUTE my_query USING 2, 1",
+                "SELECT 2");
+
+        assertQuery(
+                session,
+                "EXECUTE my_query USING 2, 4 - 3",
+                "SELECT 2");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 'one'",
+                "\\Qline 1:27: Cannot cast type varchar(3) to bigint\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 1.0",
+                "\\Qline 1:27: Cannot cast type decimal(2,1) to bigint\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 1 + t.a",
+                "\\Qline 1:29: Constant expression cannot contain column references\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, null",
+                "\\Qline 1:64: Parameter value provided for FETCH FIRST is NULL: null\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 1 + null",
+                "\\Qline 1:64: Parameter value provided for FETCH FIRST is NULL: (1 + null)\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, ?",
+                "\\Qline 1:27: No value provided for parameter\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, -2",
+                "\\Qline 1:52: FETCH FIRST row count must be positive (actual value: -2)\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 0",
+                "\\Qline 1:52: FETCH FIRST row count must be positive (actual value: 0)\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 99999999999999999999",
+                "\\Qline 1:1: Invalid numeric literal: 99999999999999999999\\E");
+    }
+
+    @Test
+    public void testExecuteWithParametersInOffset()
+    {
+        String query = "SELECT a FROM (VALUES 1, 2, 2, 3) t(a) where a = ? OFFSET ? ROWS";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+
+        assertQuery(
+                session,
+                "EXECUTE my_query USING 2, 1",
+                "SELECT 2");
+
+        assertQuery(
+                session,
+                "EXECUTE my_query USING 2, 4 - 3",
+                "SELECT 2");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 'one'",
+                "\\Qline 1:27: Cannot cast type varchar(3) to bigint\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 1.0",
+                "\\Qline 1:27: Cannot cast type decimal(2,1) to bigint\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 1 + t.a",
+                "\\Qline 1:29: Constant expression cannot contain column references\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, null",
+                "\\Qline 1:59: Parameter value provided for OFFSET is NULL: null\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 1 + null",
+                "\\Qline 1:59: Parameter value provided for OFFSET is NULL: (1 + null)\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, ?",
+                "\\Qline 1:27: No value provided for parameter\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, -2",
+                "\\Qline 1:52: OFFSET row count must be greater or equal to 0 (actual value: -2)\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 99999999999999999999",
+                "\\Qline 1:1: Invalid numeric literal: 99999999999999999999\\E");
+    }
+
+    @Test
+    public void testExecuteWithParametersInDifferentClauses()
+    {
+        String query1 = "SELECT a FROM (VALUES 1, 2, 2, 2, 2, 2) t(a) where a = ? OFFSET ? ROWS LIMIT ?";
+        String query2 = "SELECT a FROM (VALUES 1, 2, 2, 2, 2, 2) t(a) where a = ? ORDER BY a OFFSET ? ROWS FETCH FIRST ? ROWS WITH TIES";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query_1", query1)
+                .addPreparedStatement("my_query_2", query2)
+                .build();
+
+        assertQuery(
+                session,
+                "EXECUTE my_query_1 USING 2, 1, 3",
+                "VALUES 2, 2, 2");
+
+        assertQuery(
+                session,
+                "EXECUTE my_query_2 USING 2, 1, 3",
+                "VALUES 2, 2, 2, 2");
+    }
+
+    @Test
     public void testExecuteUsingWithWithClause()
     {
         String query = "WITH src AS (SELECT * FROM (VALUES (1, 4),(2, 5), (3, 6)) AS t(id1, id2) WHERE id2 = ?)" +
@@ -699,6 +922,20 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testParameterInParameter()
+    {
+        String query = "SELECT a FROM (VALUES 1) t(a) where a = ?";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING ?",
+                "\\Qline 1:24: No value provided for parameter\\E");
+    }
+
+    @Test
     public void testDescribeInput()
     {
         Session session = Session.builder(getSession())
@@ -708,7 +945,79 @@ public abstract class AbstractTestEngineOnlyQueries
         MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR)
                 .row(0, "unknown")
                 .row(1, "bigint")
-                .row(2, "varchar")
+                .row(2, "varchar(25)")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+
+        session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "SELECT ? FROM nation WHERE nationkey = ? and name < ? OFFSET ?")
+                .build();
+        actual = computeActual(session, "DESCRIBE INPUT my_query");
+        expected = resultBuilder(session, BIGINT, VARCHAR)
+                .row(0, "unknown")
+                .row(1, "bigint")
+                .row(2, "varchar(25)")
+                .row(3, "bigint")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+
+        session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "SELECT ? FROM nation WHERE nationkey = ? and name < ? LIMIT ?")
+                .build();
+        actual = computeActual(session, "DESCRIBE INPUT my_query");
+        expected = resultBuilder(session, BIGINT, VARCHAR)
+                .row(0, "unknown")
+                .row(1, "bigint")
+                .row(2, "varchar(25)")
+                .row(3, "bigint")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+
+        session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "SELECT ? FROM nation WHERE nationkey = ? and name < ? FETCH FIRST ? ROWS ONLY")
+                .build();
+        actual = computeActual(session, "DESCRIBE INPUT my_query");
+        expected = resultBuilder(session, BIGINT, VARCHAR)
+                .row(0, "unknown")
+                .row(1, "bigint")
+                .row(2, "varchar(25)")
+                .row(3, "bigint")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+
+        session = Session.builder(getSession())
+                .setSystemProperty("omit_datetime_type_precision", "false")
+                .addPreparedStatement(
+                        "my_query",
+                        "SELECT 1 " +
+                                "FROM" +
+                                "  (" +
+                                " VALUES " +
+                                "     (CHAR 'Pi', CAST('PI' AS VARCHAR), TIMESTAMP '2012-03-14 1:59:26.535', TIMESTAMP '2012-03-14 1:59:26.535897', DECIMAL '3.14')" +
+                                ")  AS t (t_char, t_varchar, t_timestamp, t_timestamp_2, t_decimal)" +
+                                "WHERE t_char = ? AND t_varchar = ? AND t_timestamp = ? AND t_timestamp_2 = ? AND t_decimal = ?")
+                .build();
+        actual = computeActual(session, "DESCRIBE INPUT my_query");
+        expected = resultBuilder(session, BIGINT, VARCHAR)
+                .row(0, "char(2)")
+                .row(1, "varchar")
+                .row(2, "timestamp(3)")
+                .row(3, "timestamp(6)")
+                .row(4, "decimal(3,2)")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+
+        session = Session.builder(session)
+                .setSystemProperty("omit_datetime_type_precision", "true")
+                .build();
+
+        actual = computeActual(session, "DESCRIBE INPUT my_query");
+        expected = resultBuilder(session, BIGINT, VARCHAR)
+                .row(0, "char(2)")
+                .row(1, "varchar")
+                .row(2, "timestamp")
+                .row(3, "timestamp(6)")
+                .row(4, "decimal(3,2)")
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }
@@ -761,6 +1070,35 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testDescribeOutputDateTimeTypes()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty("omit_datetime_type_precision", "true")
+                .addPreparedStatement("my_query", "SELECT localtimestamp a, current_timestamp b, localtime c")
+                .build();
+
+        MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
+        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+                .row("a", "", "", "", "timestamp", 8, true)
+                .row("b", "", "", "", "timestamp with time zone", 8, true)
+                .row("c", "", "", "", "time", 8, true)
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+
+        session = Session.builder(getSession())
+                .setSystemProperty("omit_datetime_type_precision", "false")
+                .addPreparedStatement("my_query", "SELECT localtimestamp a, current_timestamp b")
+                .build();
+
+        actual = computeActual(session, "DESCRIBE OUTPUT my_query");
+        expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+                .row("a", "", "", "", "timestamp(3)", 8, true)
+                .row("b", "", "", "", "timestamp(3) with time zone", 8, true)
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
     public void testDescribeOutputNamedAndUnnamed()
     {
         Session session = Session.builder(getSession())
@@ -780,7 +1118,6 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testDescribeOutputNonSelect()
     {
         assertDescribeOutputRowCount("CREATE TABLE foo AS SELECT * FROM nation");
-        assertDescribeOutputRowCount("DELETE FROM orders");
 
         assertDescribeOutputEmpty("CALL foo()");
         assertDescribeOutputEmpty("SET SESSION optimize_hash_generation=false");
@@ -908,7 +1245,24 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testTypeMismatch()
     {
-        assertQueryFails("SELECT 1 <> 'x'", "\\Qline 1:10: '<>' cannot be applied to integer, varchar(1)\\E");
+        assertQueryFails("SELECT 8 + 'x'", "\\Qline 1:10: Cannot apply operator: integer + varchar(1)\\E");
+        assertQueryFails("SELECT 8 - 'x'", "\\Qline 1:10: Cannot apply operator: integer - varchar(1)\\E");
+        assertQueryFails("SELECT 8 * 'x'", "\\Qline 1:10: Cannot apply operator: integer * varchar(1)\\E");
+        assertQueryFails("SELECT 8 / 'x'", "\\Qline 1:10: Cannot apply operator: integer / varchar(1)\\E");
+        assertQueryFails("SELECT 8 % 'x'", "\\Qline 1:10: Cannot apply operator: integer % varchar(1)\\E");
+        assertQueryFails("SELECT 8 = 'x'", "\\Qline 1:10: Cannot apply operator: integer = varchar(1)\\E");
+        assertQueryFails("SELECT 8 <> 'x'", "\\Qline 1:10: Cannot apply operator: integer = varchar(1)\\E");
+        assertQueryFails("SELECT 8 != 'x'", "\\Qline 1:10: Cannot apply operator: integer = varchar(1)\\E");
+        assertQueryFails("SELECT 8 < 'x'", "\\Qline 1:10: Cannot apply operator: integer < varchar(1)\\E");
+        assertQueryFails("SELECT 8 <= 'x'", "\\Qline 1:10: Cannot apply operator: integer <= varchar(1)\\E");
+        assertQueryFails("SELECT 8 > 'x'", "\\Qline 1:10: Cannot apply operator: integer < varchar(1)\\E");
+        assertQueryFails("SELECT 8 >= 'x'", "\\Qline 1:10: Cannot apply operator: integer <= varchar(1)\\E");
+        assertQueryFails("SELECT -'x'", "\\Qline 1:8: Cannot negate varchar(1)\\E");
+        assertQueryFails("SELECT ARRAY[42]['x']", "\\Qline 1:8: Cannot use varchar(1) for subscript of array(integer)\\E");
+        assertQueryFails("SELECT 'a' BETWEEN 3 AND 'z'", "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN integer and varchar(1)\\E");
+        assertQueryFails("SELECT 'a' NOT BETWEEN 3 AND 'z'", "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN integer and varchar(1)\\E");
+        assertQueryFails("SELECT 8 IS DISTINCT FROM 'x'", "\\Qline 1:10: Cannot check if integer is distinct from varchar(1)\\E");
+        assertQueryFails("SELECT 8 IS NOT DISTINCT FROM 'x'", "\\Qline 1:10: Cannot check if integer is distinct from varchar(1)\\E");
     }
 
     @Test
@@ -923,7 +1277,7 @@ public abstract class AbstractTestEngineOnlyQueries
         // Comment on why error message references varchar(214783647) instead of varchar(2) which seems expected result type for concatenation in expression.
         // Currently variable argument functions do not play well with arguments using parametrized types.
         // The variable argument functions mechanism requires that all the arguments are of exactly same type. We cannot enforce that base must match but parameters may differ.
-        assertQueryFails("SELECT ('a' || 'z') + (3 * 4) / 5", "\\Qline 1:21: '+' cannot be applied to varchar, integer\\E");
+        assertQueryFails("SELECT ('a' || 'z') + (3 * 4) / 5", "\\Qline 1:21: Cannot apply operator: varchar + integer\\E");
     }
 
     @Test
@@ -2016,9 +2370,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testWithRecursive()
     {
-        assertQueryFails(
-                "WITH RECURSIVE a AS (SELECT 123) SELECT * FROM a",
-                "line 1:1: Recursive WITH queries are not supported");
+        assertQuery("WITH RECURSIVE a(x) AS (SELECT 123) SELECT * FROM a");
     }
 
     @Test
@@ -2537,12 +2889,12 @@ public abstract class AbstractTestEngineOnlyQueries
 
         MaterializedResult actual = computeActual("" +
                 "SELECT orderstatus, " +
-                "   approx_percentile(orderkey, 0.5), " +
-                "   approx_percentile(totalprice, 0.5)," +
-                "   approx_percentile(orderkey, 2, 0.5)," +
-                "   approx_percentile(totalprice, 2, 0.5)," +
-                "   approx_percentile(orderkey, .2, 0.5)," +
-                "   approx_percentile(totalprice, .2, 0.5)\n" +
+                "   approx_percentile(orderkey, 5, 0.999), " +
+                "   approx_percentile(totalprice, 5, 0.999)," +
+                "   approx_percentile(orderkey, 10, 0.999)," +
+                "   approx_percentile(totalprice, 10, 0.999)," +
+                "   approx_percentile(orderkey, 0.999)," +
+                "   approx_percentile(totalprice, 0.999)\n" +
                 "FROM orders\n" +
                 "GROUP BY orderstatus");
 
@@ -2558,24 +2910,24 @@ public abstract class AbstractTestEngineOnlyQueries
             List<Long> orderKeys = Ordering.natural().sortedCopy(orderKeyByStatus.get(status));
             List<Double> totalPrices = Ordering.natural().sortedCopy(totalPriceByStatus.get(status));
 
-            // verify real rank of returned value is within 1% of requested rank
-            assertTrue(orderKey >= orderKeys.get((int) (0.49 * orderKeys.size())));
-            assertTrue(orderKey <= orderKeys.get((int) (0.51 * orderKeys.size())));
+            // verify real rank of returned value is within 0.05% of requested rank
+            assertTrue(orderKey >= orderKeys.get((int) (0.9985 * orderKeys.size())));
+            assertTrue(orderKey <= orderKeys.get((int) (0.9995 * orderKeys.size())));
 
-            assertTrue(orderKeyWeighted >= orderKeys.get((int) (0.49 * orderKeys.size())));
-            assertTrue(orderKeyWeighted <= orderKeys.get((int) (0.51 * orderKeys.size())));
+            assertTrue(orderKeyWeighted >= orderKeys.get((int) (0.9985 * orderKeys.size())));
+            assertTrue(orderKeyWeighted <= orderKeys.get((int) (0.9995 * orderKeys.size())));
 
-            assertTrue(orderKeyFractionalWeighted >= orderKeys.get((int) (0.49 * orderKeys.size())));
-            assertTrue(orderKeyFractionalWeighted <= orderKeys.get((int) (0.51 * orderKeys.size())));
+            assertTrue(orderKeyFractionalWeighted >= orderKeys.get((int) (0.9985 * orderKeys.size())));
+            assertTrue(orderKeyFractionalWeighted <= orderKeys.get((int) (0.9995 * orderKeys.size())));
 
-            assertTrue(totalPrice >= totalPrices.get((int) (0.49 * totalPrices.size())));
-            assertTrue(totalPrice <= totalPrices.get((int) (0.51 * totalPrices.size())));
+            assertTrue(totalPrice >= totalPrices.get((int) (0.9985 * totalPrices.size())));
+            assertTrue(totalPrice <= totalPrices.get((int) (0.9995 * totalPrices.size())));
 
-            assertTrue(totalPriceWeighted >= totalPrices.get((int) (0.49 * totalPrices.size())));
-            assertTrue(totalPriceWeighted <= totalPrices.get((int) (0.51 * totalPrices.size())));
+            assertTrue(totalPriceWeighted >= totalPrices.get((int) (0.9985 * totalPrices.size())));
+            assertTrue(totalPriceWeighted <= totalPrices.get((int) (0.9995 * totalPrices.size())));
 
-            assertTrue(totalPriceFractionalWeighted >= totalPrices.get((int) (0.49 * totalPrices.size())));
-            assertTrue(totalPriceFractionalWeighted <= totalPrices.get((int) (0.51 * totalPrices.size())));
+            assertTrue(totalPriceFractionalWeighted >= totalPrices.get((int) (0.9985 * totalPrices.size())));
+            assertTrue(totalPriceFractionalWeighted <= totalPrices.get((int) (0.9995 * totalPrices.size())));
         }
     }
 
@@ -2904,7 +3256,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 getSession().getClientTags(),
                 getSession().getClientCapabilities(),
                 getSession().getResourceEstimates(),
-                getSession().getStartTime(),
+                getSession().getStart(),
                 ImmutableMap.<String, String>builder()
                         .put("test_string", "foo string")
                         .put("test_long", "424242")
@@ -3353,7 +3705,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, DISTRIBUTED));
     }
 
     @Test
@@ -3361,7 +3713,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (FORMAT GRAPHVIZ) " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getGraphvizExplainPlan(query, LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getGraphvizExplainPlan(query, DISTRIBUTED));
     }
 
     @Test
@@ -3370,6 +3722,17 @@ public abstract class AbstractTestEngineOnlyQueries
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL) " + query);
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
+    }
+
+    @Test
+    public void testExplainJoinDistribution()
+    {
+        //  This test makes sure that the query plan includes the distribution info for joins.
+        //  The webui live plan displays the distribution type for joins, and the plan details
+        //  need to be structured like 'Distribution: <type>' for this feature to work.
+
+        MaterializedResult result = computeActual("EXPLAIN (FORMAT TEXT) SELECT c.custkey FROM customer c JOIN nation n ON n.nationkey = c.nationkey");
+        assertThat((String) result.getOnlyValue()).matches("(?s).*Distribution:.*");
     }
 
     @Test
@@ -3425,7 +3788,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         String query = "EXPLAIN SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, DISTRIBUTED));
     }
 
     @Test
@@ -3433,7 +3796,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         String query = "EXPLAIN ANALYZE SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, DISTRIBUTED));
     }
 
     @Test
@@ -3452,6 +3815,12 @@ public abstract class AbstractTestEngineOnlyQueries
         assertExplainDdl("START TRANSACTION");
         assertExplainDdl("COMMIT");
         assertExplainDdl("ROLLBACK");
+    }
+
+    @Test
+    public void testExplainAnalyzeDDL()
+    {
+        assertQueryFails("EXPLAIN ANALYZE DROP TABLE orders", "EXPLAIN ANALYZE doesn't support statement type: DropTable");
     }
 
     private void assertExplainDdl(String query)

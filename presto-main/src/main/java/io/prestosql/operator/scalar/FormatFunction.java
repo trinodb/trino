@@ -16,12 +16,12 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.OperatorNotFoundException;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PrestoException;
@@ -29,21 +29,21 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.tree.QualifiedName;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.IllegalFormatException;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -51,16 +51,12 @@ import static com.google.common.collect.Streams.mapWithIndex;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.withVariadicBound;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.padSpaces;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.decodeUnscaledValue;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
@@ -69,13 +65,12 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.Timestamps.roundDiv;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
+import static io.prestosql.type.DateTimes.toLocalDateTime;
+import static io.prestosql.type.DateTimes.toZonedDateTime;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.Failures.internalError;
@@ -83,7 +78,6 @@ import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class FormatFunction
         extends SqlScalarFunction
@@ -111,26 +105,57 @@ public final class FormatFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
     {
-        Type rowType = boundVariables.getTypeVariable("T");
+        FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
+        functionBinding.getTypeVariable("T").getTypeParameters()
+                .forEach(type -> addDependencies(builder, type));
+        return builder.build();
+    }
+
+    private static void addDependencies(FunctionDependencyDeclarationBuilder builder, Type type)
+    {
+        if (type.equals(UNKNOWN) ||
+                type.equals(BOOLEAN) ||
+                type.equals(TINYINT) ||
+                type.equals(SMALLINT) ||
+                type.equals(INTEGER) ||
+                type.equals(BIGINT) ||
+                type.equals(REAL) ||
+                type.equals(DOUBLE) ||
+                type.equals(DATE) ||
+                type instanceof TimestampWithTimeZoneType ||
+                type instanceof TimestampType ||
+                type instanceof TimeType ||
+                isShortDecimal(type) ||
+                isLongDecimal(type) ||
+                type instanceof VarcharType ||
+                type instanceof CharType) {
+            return;
+        }
+
+        if (type.equals(JSON)) {
+            builder.addFunction(QualifiedName.of("json_format"), ImmutableList.of(JSON));
+            return;
+        }
+        builder.addCast(type, VARCHAR);
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        Type rowType = functionBinding.getTypeVariable("T");
 
         List<BiFunction<ConnectorSession, Block, Object>> converters = mapWithIndex(
                 rowType.getTypeParameters().stream(),
-                (type, index) -> converter(metadata, type, toIntExact(index)))
+                (type, index) -> converter(functionDependencies, type, toIntExact(index)))
                 .collect(toImmutableList());
 
-        return new ScalarFunctionImplementation(
-                false,
-                ImmutableList.of(
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 METHOD_HANDLE.bindTo(converters));
-    }
-
-    public static void validateType(Metadata metadata, Type type)
-    {
-        valueConverter(metadata, type, 0);
     }
 
     @UsedByGeneratedCode
@@ -155,13 +180,13 @@ public final class FormatFunction
         }
     }
 
-    private static BiFunction<ConnectorSession, Block, Object> converter(Metadata metadata, Type type, int position)
+    private static BiFunction<ConnectorSession, Block, Object> converter(FunctionDependencies functionDependencies, Type type, int position)
     {
-        BiFunction<ConnectorSession, Block, Object> converter = valueConverter(metadata, type, position);
+        BiFunction<ConnectorSession, Block, Object> converter = valueConverter(functionDependencies, type, position);
         return (session, block) -> block.isNull(position) ? null : converter.apply(session, block);
     }
 
-    private static BiFunction<ConnectorSession, Block, Object> valueConverter(Metadata metadata, Type type, int position)
+    private static BiFunction<ConnectorSession, Block, Object> valueConverter(FunctionDependencies functionDependencies, Type type, int position)
     {
         if (type.equals(UNKNOWN)) {
             return (session, block) -> null;
@@ -181,19 +206,18 @@ public final class FormatFunction
         if (type.equals(DATE)) {
             return (session, block) -> LocalDate.ofEpochDay(type.getLong(block, position));
         }
-        if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-            return (session, block) -> toZonedDateTime(type.getLong(block, position));
+        if (type instanceof TimestampWithTimeZoneType) {
+            return (session, block) -> toZonedDateTime(((TimestampWithTimeZoneType) type), block, position);
         }
-        if (type.equals(TIMESTAMP)) {
-            return (session, block) -> toLocalDateTime(session, type.getLong(block, position));
+        if (type instanceof TimestampType) {
+            return (session, block) -> toLocalDateTime(((TimestampType) type), block, position);
         }
-        if (type.equals(TIME)) {
-            return (session, block) -> toLocalTime(session, type.getLong(block, position));
+        if (type instanceof TimeType) {
+            return (session, block) -> toLocalTime(type.getLong(block, position));
         }
         // TODO: support TIME WITH TIME ZONE by https://github.com/prestosql/presto/issues/191 + mapping to java.time.OffsetTime
         if (type.equals(JSON)) {
-            ResolvedFunction function = metadata.resolveFunction(QualifiedName.of("json_format"), fromTypes(JSON));
-            MethodHandle handle = metadata.getScalarFunctionImplementation(function).getMethodHandle();
+            MethodHandle handle = functionDependencies.getFunctionInvoker(QualifiedName.of("json_format"), ImmutableList.of(JSON), Optional.empty()).getMethodHandle();
             return (session, block) -> convertToString(handle, type.getSlice(block, position));
         }
         if (isShortDecimal(type)) {
@@ -204,10 +228,10 @@ public final class FormatFunction
             int scale = ((DecimalType) type).getScale();
             return (session, block) -> new BigDecimal(decodeUnscaledValue(type.getSlice(block, position)), scale);
         }
-        if (isVarcharType(type)) {
+        if (type instanceof VarcharType) {
             return (session, block) -> type.getSlice(block, position).toStringUtf8();
         }
-        if (isCharType(type)) {
+        if (type instanceof CharType) {
             CharType charType = (CharType) type;
             return (session, block) -> padSpaces(type.getSlice(block, position), charType).toStringUtf8();
         }
@@ -229,50 +253,14 @@ public final class FormatFunction
             function = (session, block) -> type.getObject(block, position);
         }
 
-        MethodHandle handle = castToVarchar(metadata, type);
-        if ((handle == null) || (handle.type().parameterCount() != 1)) {
-            throw new PrestoException(NOT_SUPPORTED, "Type not supported for formatting: " + type.getDisplayName());
-        }
-
+        MethodHandle handle = functionDependencies.getCastInvoker(type, VARCHAR, Optional.empty()).getMethodHandle();
         return (session, block) -> convertToString(handle, function.apply(session, block));
     }
 
-    private static MethodHandle castToVarchar(Metadata metadata, Type type)
+    private static LocalTime toLocalTime(long value)
     {
-        try {
-            ResolvedFunction cast = metadata.getCoercion(type, VARCHAR);
-            return metadata.getScalarFunctionImplementation(cast).getMethodHandle();
-        }
-        catch (OperatorNotFoundException e) {
-            return null;
-        }
-    }
-
-    private static ZonedDateTime toZonedDateTime(long value)
-    {
-        Instant instant = Instant.ofEpochMilli(unpackMillisUtc(value));
-        ZoneId zoneId = ZoneId.of(unpackZoneKey(value).getId());
-        return ZonedDateTime.ofInstant(instant, zoneId);
-    }
-
-    private static LocalDateTime toLocalDateTime(ConnectorSession session, long value)
-    {
-        Instant instant = Instant.ofEpochMilli(value);
-        if (session.isLegacyTimestamp()) {
-            ZoneId zoneId = ZoneId.of(session.getTimeZoneKey().getId());
-            return LocalDateTime.ofInstant(instant, zoneId);
-        }
-        return LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
-    }
-
-    private static LocalTime toLocalTime(ConnectorSession session, long value)
-    {
-        if (session.isLegacyTimestamp()) {
-            Instant instant = Instant.ofEpochMilli(value);
-            ZoneId zoneId = ZoneId.of(session.getTimeZoneKey().getId());
-            return ZonedDateTime.ofInstant(instant, zoneId).toLocalTime();
-        }
-        return LocalTime.ofNanoOfDay(MILLISECONDS.toNanos(value));
+        long nanoOfDay = roundDiv(value, PICOSECONDS_PER_NANOSECOND);
+        return LocalTime.ofNanoOfDay(nanoOfDay);
     }
 
     private static Object convertToString(MethodHandle handle, Object value)

@@ -18,7 +18,9 @@ import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -35,14 +37,17 @@ public class TestTopologyFileConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path networkTopologyFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("node-scheduler.network-topology.file", "/etc/topology.txt")
+                .put("node-scheduler.network-topology.file", networkTopologyFile.toString())
                 .put("node-scheduler.network-topology.refresh-period", "27m")
                 .build();
 
         TopologyFileConfig expected = new TopologyFileConfig()
-                .setNetworkTopologyFile(new File("/etc/topology.txt"))
+                .setNetworkTopologyFile(networkTopologyFile.toFile())
                 .setRefreshPeriod(new Duration(27, MINUTES));
 
         ConfigAssertions.assertFullMapping(properties, expected);

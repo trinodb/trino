@@ -27,8 +27,8 @@ import io.prestosql.operator.project.CursorProcessor;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedPageSource;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
@@ -132,8 +132,8 @@ public class BenchmarkScanFilterAndProjectOperator
         @Setup
         public void setup()
         {
-            executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+            executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
 
             Type type = TYPE_MAP.get(this.type);
 
@@ -175,7 +175,7 @@ public class BenchmarkScanFilterAndProjectOperator
                     () -> pageProcessor,
                     TEST_TABLE_HANDLE,
                     columnHandles,
-                    TupleDomain::all,
+                    DynamicFilter.EMPTY,
                     types,
                     FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE,
                     FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT);

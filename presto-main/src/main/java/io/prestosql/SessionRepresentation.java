@@ -27,6 +27,7 @@ import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.sql.SqlPath;
 import io.prestosql.transaction.TransactionId;
 
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -56,7 +57,7 @@ public final class SessionRepresentation
     private final Optional<String> clientInfo;
     private final Set<String> clientTags;
     private final Set<String> clientCapabilities;
-    private final long startTime;
+    private final Instant start;
     private final ResourceEstimates resourceEstimates;
     private final Map<String, String> systemProperties;
     private final Map<CatalogName, Map<String, String>> catalogProperties;
@@ -85,7 +86,7 @@ public final class SessionRepresentation
             @JsonProperty("clientTags") Set<String> clientTags,
             @JsonProperty("clientCapabilities") Set<String> clientCapabilities,
             @JsonProperty("resourceEstimates") ResourceEstimates resourceEstimates,
-            @JsonProperty("startTime") long startTime,
+            @JsonProperty("start") Instant start,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
             @JsonProperty("catalogProperties") Map<CatalogName, Map<String, String>> catalogProperties,
             @JsonProperty("unprocessedCatalogProperties") Map<String, Map<String, String>> unprocessedCatalogProperties,
@@ -111,7 +112,7 @@ public final class SessionRepresentation
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
         this.clientCapabilities = requireNonNull(clientCapabilities, "clientCapabilities is null");
         this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
-        this.startTime = startTime;
+        this.start = start;
         this.systemProperties = ImmutableMap.copyOf(systemProperties);
         this.roles = ImmutableMap.copyOf(roles);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
@@ -238,9 +239,9 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
-    public long getStartTime()
+    public Instant getStart()
     {
-        return startTime;
+        return start;
     }
 
     @JsonProperty
@@ -309,7 +310,7 @@ public final class SessionRepresentation
                 clientTags,
                 clientCapabilities,
                 resourceEstimates,
-                startTime,
+                start,
                 systemProperties,
                 catalogProperties,
                 unprocessedCatalogProperties,

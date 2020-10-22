@@ -403,7 +403,7 @@ public class HashBuilderOperator
 
     private ListenableFuture<?> spillIndex()
     {
-        checkState(!spiller.isPresent(), "Spiller already created");
+        checkState(spiller.isEmpty(), "Spiller already created");
         spiller = Optional.of(singleStreamSpillerFactory.create(
                 index.getTypes(),
                 operatorContext.getSpillContext().newLocalSpillContext(),
@@ -530,7 +530,7 @@ public class HashBuilderOperator
         }
 
         verify(spiller.isPresent());
-        verify(!unspillInProgress.isPresent());
+        verify(unspillInProgress.isEmpty());
 
         localUserMemoryContext.setBytes(getSpiller().getSpilledPagesInMemorySize() + index.getEstimatedSize().toBytes());
         unspillInProgress = Optional.of(getSpiller().getAllSpilledPages());

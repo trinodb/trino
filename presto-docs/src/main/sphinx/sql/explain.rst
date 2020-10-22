@@ -18,7 +18,7 @@ Description
 -----------
 
 Show the logical or distributed execution plan of a statement, or validate the statement.
-Use ``TYPE DISTRIBUTED`` option to display fragmented plan. Each plan fragment is executed by
+The distributed plan is shown by default. Each plan fragment of the distributed plan is executed by
 a single or multiple Presto nodes. Fragments separation represent the data exchange between Presto nodes.
 Fragment type specifies how the fragment is executed by Presto nodes and how the data is
 distributed between fragments:
@@ -44,11 +44,14 @@ distributed between fragments:
 Examples
 --------
 
+EXPLAIN (TYPE LOGICAL)
+^^^^^^^^^^^^^^^^^^^^^^
+
 Logical plan:
 
 .. code-block:: none
 
-    presto:tiny> EXPLAIN SELECT regionkey, count(*) FROM nation GROUP BY 1;
+    presto:tiny> EXPLAIN (TYPE LOGICAL) SELECT regionkey, count(*) FROM nation GROUP BY 1;
                                                        Query Plan
     -----------------------------------------------------------------------------------------------------------------
      Output[regionkey, _col1]
@@ -79,6 +82,9 @@ Logical plan:
                               Layout: [regionkey:bigint]
                               Estimates: {rows: 25 (225B), cpu: 225, memory: 0B, network: 0B}
                               regionkey := tpch:regionkey
+
+EXPLAIN (TYPE DISTRIBUTED)
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Distributed plan:
 
@@ -128,6 +134,9 @@ Distributed plan:
                    Estimates: {rows: 25 (225B), cpu: 225, memory: 0B, network: 0B}
                    regionkey := tpch:regionkey
 
+EXPLAIN (TYPE VALIDATE)
+^^^^^^^^^^^^^^^^^^^^^^^
+
 Validate:
 
 .. code-block:: none
@@ -136,6 +145,9 @@ Validate:
      Valid
     -------
      true
+
+EXPLAIN (TYPE IO)
+^^^^^^^^^^^^^^^^^
 
 IO:
 

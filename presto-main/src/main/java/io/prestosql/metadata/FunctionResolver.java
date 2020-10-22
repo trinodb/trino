@@ -50,18 +50,14 @@ public class FunctionResolver
         this.metadata = metadata;
     }
 
-    ResolvedFunction resolveCoercion(Collection<FunctionMetadata> allCandidates, Signature signature)
+    FunctionBinding resolveCoercion(Collection<FunctionMetadata> allCandidates, Signature signature)
     {
-        List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
-
         List<FunctionMetadata> exactCandidates = allCandidates.stream()
                 .filter(function -> possibleExactCastMatch(signature, function.getSignature()))
                 .collect(Collectors.toList());
         for (FunctionMetadata candidate : exactCandidates) {
-            Optional<BoundVariables> boundVariables = new SignatureBinder(metadata, candidate.getSignature(), false)
-                    .bindVariables(argumentTypeSignatureProviders, signature.getReturnType());
-            if (boundVariables.isPresent()) {
-                return new ResolvedFunction(signature, candidate.getFunctionId());
+            if (canBindSignature(candidate.getSignature(), signature)) {
+                return toFunctionBinding(candidate, signature);
             }
         }
 
@@ -70,14 +66,32 @@ public class FunctionResolver
                 .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
         for (FunctionMetadata candidate : genericCandidates) {
-            Optional<BoundVariables> boundVariables = new SignatureBinder(metadata, candidate.getSignature(), false)
-                    .bindVariables(argumentTypeSignatureProviders, signature.getReturnType());
-            if (boundVariables.isPresent()) {
-                return new ResolvedFunction(signature, candidate.getFunctionId());
+            if (canBindSignature(candidate.getSignature(), signature)) {
+                return toFunctionBinding(candidate, signature);
             }
         }
 
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
+    }
+
+    private boolean canBindSignature(Signature declaredSignature, Signature actualSignature)
+    {
+        return new SignatureBinder(metadata, declaredSignature, false)
+                .canBind(fromTypeSignatures(actualSignature.getArgumentTypes()), actualSignature.getReturnType());
+    }
+
+    private FunctionBinding toFunctionBinding(FunctionMetadata functionMetadata, Signature signature)
+    {
+        BoundSignature boundSignature = new BoundSignature(
+                signature.getName(),
+                metadata.getType(signature.getReturnType()),
+                signature.getArgumentTypes().stream()
+                        .map(metadata::getType)
+                        .collect(toImmutableList()));
+        return SignatureBinder.bindFunction(
+                functionMetadata.getFunctionId(),
+                functionMetadata.getSignature(),
+                boundSignature);
     }
 
     private static boolean possibleExactCastMatch(Signature signature, Signature declaredSignature)
@@ -94,13 +108,13 @@ public class FunctionResolver
         return true;
     }
 
-    ResolvedFunction resolveFunction(Collection<FunctionMetadata> allCandidates, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    FunctionBinding resolveFunction(Collection<FunctionMetadata> allCandidates, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         List<FunctionMetadata> exactCandidates = allCandidates.stream()
                 .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
 
-        Optional<ResolvedFunction> match = matchFunctionExact(exactCandidates, parameterTypes);
+        Optional<FunctionBinding> match = matchFunctionExact(exactCandidates, parameterTypes);
         if (match.isPresent()) {
             return match.get();
         }
@@ -136,17 +150,17 @@ public class FunctionResolver
         throw new PrestoException(FUNCTION_NOT_FOUND, message);
     }
 
-    private Optional<ResolvedFunction> matchFunctionExact(List<FunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)
+    private Optional<FunctionBinding> matchFunctionExact(List<FunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)
     {
         return matchFunction(candidates, actualParameters, false);
     }
 
-    private Optional<ResolvedFunction> matchFunctionWithCoercion(Collection<FunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)
+    private Optional<FunctionBinding> matchFunctionWithCoercion(Collection<FunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)
     {
         return matchFunction(candidates, actualParameters, true);
     }
 
-    private Optional<ResolvedFunction> matchFunction(Collection<FunctionMetadata> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed)
+    private Optional<FunctionBinding> matchFunction(Collection<FunctionMetadata> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed)
     {
         List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(candidates, parameters, coercionAllowed);
         if (applicableFunctions.isEmpty()) {
@@ -159,7 +173,8 @@ public class FunctionResolver
         }
 
         if (applicableFunctions.size() == 1) {
-            return Optional.of(getOnlyElement(applicableFunctions).getResolvedFunction());
+            ApplicableFunction applicableFunction = getOnlyElement(applicableFunctions);
+            return Optional.of(toFunctionBinding(applicableFunction.getFunction(), applicableFunction.getBoundSignature()));
         }
 
         StringBuilder errorMessageBuilder = new StringBuilder();
@@ -194,7 +209,7 @@ public class FunctionResolver
         }
 
         Optional<List<Type>> optionalParameterTypes = toTypes(parameters);
-        if (!optionalParameterTypes.isPresent()) {
+        if (optionalParameterTypes.isEmpty()) {
             // give up and return all remaining matches
             return mostSpecificFunctions;
         }
@@ -329,14 +344,15 @@ public class FunctionResolver
     private boolean isMoreSpecificThan(ApplicableFunction left, ApplicableFunction right)
     {
         List<TypeSignatureProvider> resolvedTypes = fromTypeSignatures(left.getBoundSignature().getArgumentTypes());
-        Optional<BoundVariables> boundVariables = new SignatureBinder(metadata, right.getDeclaredSignature(), true)
-                .bindVariables(resolvedTypes);
-        return boundVariables.isPresent();
+        return new SignatureBinder(metadata, right.getDeclaredSignature(), true)
+                .canBind(resolvedTypes);
     }
 
     private static class ApplicableFunction
     {
         private final FunctionMetadata function;
+        // Ideally this would be a real bound signature, but the resolver algorithm considers functions with illegal types (e.g., char(large_number))
+        // We could just not consider these applicable functions, but there are tests that depend on the specific error messages for these failures.
         private final Signature boundSignature;
 
         private ApplicableFunction(FunctionMetadata function, Signature boundSignature)
@@ -358,11 +374,6 @@ public class FunctionResolver
         public Signature getBoundSignature()
         {
             return boundSignature;
-        }
-
-        public ResolvedFunction getResolvedFunction()
-        {
-            return new ResolvedFunction(boundSignature, function.getFunctionId());
         }
 
         @Override

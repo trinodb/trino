@@ -26,9 +26,11 @@ import static java.lang.String.format;
 public class AccessDeniedException
         extends PrestoException
 {
+    public static final String PREFIX = "Access Denied: ";
+
     public AccessDeniedException(String message)
     {
-        super(PERMISSION_DENIED, "Access Denied: " + message);
+        super(PERMISSION_DENIED, PREFIX + message);
     }
 
     public static void denyImpersonateUser(String originalUser, String newUser)
@@ -49,6 +51,26 @@ public class AccessDeniedException
     public static void denySetUser(Optional<Principal> principal, String userName, String extraInfo)
     {
         throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal.orElse(null), userName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyReadSystemInformationAccess()
+    {
+        denyReadSystemInformationAccess(null);
+    }
+
+    public static void denyReadSystemInformationAccess(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot read system information%s", formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyWriteSystemInformationAccess()
+    {
+        denyWriteSystemInformationAccess(null);
+    }
+
+    public static void denyWriteSystemInformationAccess(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot write system information%s", formatExtraInfo(extraInfo)));
     }
 
     public static void denyExecuteQuery()
@@ -136,6 +158,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot show schemas%s", formatExtraInfo(extraInfo)));
     }
 
+    public static void denyShowCreateSchema(String schemaName)
+    {
+        throw new AccessDeniedException(format("Cannot show create schema for %s", schemaName));
+    }
+
     public static void denyShowCreateTable(String tableName)
     {
         denyShowCreateTable(tableName, null);
@@ -184,6 +211,16 @@ public class AccessDeniedException
     public static void denyCommentTable(String tableName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot comment table to %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyCommentColumn(String tableName)
+    {
+        denyCommentColumn(tableName, null);
+    }
+
+    public static void denyCommentColumn(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot comment column to %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyShowTables(String schemaName)
@@ -349,6 +386,11 @@ public class AccessDeniedException
     public static void denyShowRoles(String catalogName)
     {
         throw new AccessDeniedException(format("Cannot show roles from catalog %s", catalogName));
+    }
+
+    public static void denyShowRoleAuthorizationDescriptors(String catalogName)
+    {
+        throw new AccessDeniedException(format("Cannot show role authorizatin descriptors from catalog %s", catalogName));
     }
 
     public static void denyShowCurrentRoles(String catalogName)

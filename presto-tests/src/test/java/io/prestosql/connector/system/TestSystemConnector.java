@@ -15,6 +15,7 @@ package io.prestosql.connector.system;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
@@ -25,11 +26,14 @@ import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -46,6 +50,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -98,6 +103,78 @@ public class TestSystemConnector
     public void tearDown()
     {
         executor.shutdownNow();
+    }
+
+    // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/prestosql/presto/issues/5608
+    @Test(invocationCount = 10, successPercentage = 80)
+    public void testRuntimeQueriesTimestamps()
+    {
+        ZonedDateTime timeBefore = ZonedDateTime.now();
+        computeActual("SELECT 1");
+        MaterializedResult result = computeActual("" +
+                "SELECT max(created), max(started), max(last_heartbeat), max(\"end\") " +
+                "FROM system.runtime.queries");
+        ZonedDateTime timeAfter = ZonedDateTime.now();
+
+        MaterializedRow row = Iterables.getOnlyElement(result.toTestTypes().getMaterializedRows());
+        List<Object> fields = row.getFields();
+        assertThat(fields).hasSize(4);
+        for (int i = 0; i < fields.size(); i++) {
+            Object value = fields.get(i);
+            assertThat((ZonedDateTime) value)
+                    .as("value for field " + i)
+                    .isNotNull()
+                    .isAfterOrEqualTo(timeBefore)
+                    .isBeforeOrEqualTo(timeAfter);
+        }
+    }
+
+    // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/prestosql/presto/issues/5608
+    @Test(invocationCount = 10, successPercentage = 80)
+    public void testRuntimeTasksTimestamps()
+    {
+        ZonedDateTime timeBefore = ZonedDateTime.now();
+        computeActual("SELECT 1");
+        MaterializedResult result = computeActual("" +
+                "SELECT max(created), max(start), max(last_heartbeat), max(\"end\") " +
+                "FROM system.runtime.tasks");
+        ZonedDateTime timeAfter = ZonedDateTime.now();
+
+        MaterializedRow row = Iterables.getOnlyElement(result.toTestTypes().getMaterializedRows());
+        List<Object> fields = row.getFields();
+        assertThat(fields).hasSize(4);
+        for (int i = 0; i < fields.size(); i++) {
+            Object value = fields.get(i);
+            assertThat((ZonedDateTime) value)
+                    .as("value for field " + i)
+                    .isNotNull()
+                    .isAfterOrEqualTo(timeBefore)
+                    .isBeforeOrEqualTo(timeAfter);
+        }
+    }
+
+    // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/prestosql/presto/issues/5608
+    @Test(invocationCount = 10, successPercentage = 80)
+    public void testRuntimeTransactionsTimestamps()
+    {
+        ZonedDateTime timeBefore = ZonedDateTime.now();
+        computeActual("START TRANSACTION");
+        MaterializedResult result = computeActual("" +
+                "SELECT max(create_time) " +
+                "FROM system.runtime.transactions");
+        ZonedDateTime timeAfter = ZonedDateTime.now();
+
+        MaterializedRow row = Iterables.getOnlyElement(result.toTestTypes().getMaterializedRows());
+        List<Object> fields = row.getFields();
+        assertThat(fields).hasSize(1);
+        for (int i = 0; i < fields.size(); i++) {
+            Object value = fields.get(i);
+            assertThat((ZonedDateTime) value)
+                    .as("value for field " + i)
+                    .isNotNull()
+                    .isAfterOrEqualTo(timeBefore)
+                    .isBeforeOrEqualTo(timeAfter);
+        }
     }
 
     @Test

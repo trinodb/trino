@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
@@ -51,7 +52,10 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSess
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCurrentRoles;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
@@ -123,11 +127,24 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to execute SHOW CREATE TABLE or SHOW CREATE VIEW.
+     * Check if identity is allowed to execute SHOW CREATE SCHEMA.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName);
+    default void checkCanShowCreateSchema(ConnectorSecurityContext context, String schemaName)
+    {
+        denyShowCreateSchema(schemaName);
+    }
+
+    /**
+     * Check if identity is allowed to execute SHOW CREATE TABLE, SHOW CREATE VIEW or SHOW CREATE MATERIALIZED VIEW
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        denyShowCreateTable(tableName.toString(), null);
+    }
 
     /**
      * Check if identity is allowed to create the specified table in this catalog.
@@ -167,6 +184,16 @@ public interface ConnectorAccessControl
     default void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyCommentTable(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to comment the column in the specified table in this catalog.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        denyCommentColumn(tableName.toString());
     }
 
     /**
@@ -369,6 +396,16 @@ public interface ConnectorAccessControl
     }
 
     /**
+     * Check if identity is allowed to show role authorization descriptors (i.e. RoleGrants).
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
+    {
+        denyShowRoleAuthorizationDescriptors(catalogName);
+    }
+
+    /**
      * Check if identity is allowed to show roles on the specified catalog.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
@@ -405,7 +442,7 @@ public interface ConnectorAccessControl
 
     /**
      * Get a row filter associated with the given table and identity.
-     *
+     * <p>
      * The filter must be a scalar SQL expression of boolean type over the columns in the table.
      *
      * @return the filter, or {@link Optional#empty()} if not applicable
@@ -417,7 +454,7 @@ public interface ConnectorAccessControl
 
     /**
      * Get a column mask associated with the given table, column and identity.
-     *
+     * <p>
      * The mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
      * must be written in terms of columns in the table.
      *

@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
-import static org.testng.Assert.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDoubleStatistics
         extends AbstractRangeStatisticsTest<DoubleStatistics, Double>
@@ -46,9 +46,15 @@ public class TestDoubleStatistics
     @Test
     public void testNaN()
     {
-        assertThrows(() -> new DoubleStatistics(0.0, NaN));
-        assertThrows(() -> new DoubleStatistics(NaN, 0.0));
-        assertThrows(() -> new DoubleStatistics(NaN, NaN));
+        assertThatThrownBy(() -> new DoubleStatistics(0.0, NaN))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("maximum is NaN");
+        assertThatThrownBy(() -> new DoubleStatistics(NaN, 0.0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("minimum is NaN");
+        assertThatThrownBy(() -> new DoubleStatistics(NaN, NaN))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("minimum is NaN");
     }
 
     @Test

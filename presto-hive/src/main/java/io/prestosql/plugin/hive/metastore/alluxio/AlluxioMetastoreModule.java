@@ -33,7 +33,7 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
  * Module for an Alluxio metastore implementation of the {@link HiveMetastore} interface.
  */
 public class AlluxioMetastoreModule
-         extends AbstractConfigurationAwareModule
+        extends AbstractConfigurationAwareModule
 {
     @Override
     protected void setup(Binder binder)
@@ -60,7 +60,7 @@ public class AlluxioMetastoreModule
             conf.set(PropertyKey.MASTER_RPC_PORT, parts[1]);
         }
         MasterClientContext context = MasterClientContext
-                .newBuilder(ClientContext.create(new InstancedConfiguration(ConfigurationUtils.defaults()))).build();
+                .newBuilder(ClientContext.create(conf)).build();
         return new RetryHandlingTableMasterClient(context);
     }
 }

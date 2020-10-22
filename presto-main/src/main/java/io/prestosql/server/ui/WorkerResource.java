@@ -24,6 +24,7 @@ import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.NodeState;
 import io.prestosql.security.AccessControl;
 import io.prestosql.server.ForWorkerInfo;
+import io.prestosql.server.security.ResourceSecurity;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.GroupProvider;
@@ -50,6 +51,7 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.prestosql.security.AccessControlUtil.checkCanViewQueryOwnedBy;
 import static io.prestosql.server.HttpRequestSessionContext.extractAuthorizedIdentity;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
@@ -79,6 +81,7 @@ public class WorkerResource
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
     }
 
+    @ResourceSecurity(WEB_UI)
     @GET
     @Path("{nodeId}/status")
     public Response getStatus(@PathParam("nodeId") String nodeId)
@@ -86,6 +89,7 @@ public class WorkerResource
         return proxyJsonResponse(nodeId, "v1/status");
     }
 
+    @ResourceSecurity(WEB_UI)
     @GET
     @Path("{nodeId}/thread")
     public Response getThreads(@PathParam("nodeId") String nodeId)
@@ -93,10 +97,11 @@ public class WorkerResource
         return proxyJsonResponse(nodeId, "v1/thread");
     }
 
+    @ResourceSecurity(WEB_UI)
     @GET
     @Path("{nodeId}/task/{taskId}")
     public Response getThreads(
-            @PathParam("taskId") final TaskId task,
+            @PathParam("taskId") TaskId task,
             @PathParam("nodeId") String nodeId,
             @Context HttpServletRequest servletRequest,
             @Context HttpHeaders httpHeaders)

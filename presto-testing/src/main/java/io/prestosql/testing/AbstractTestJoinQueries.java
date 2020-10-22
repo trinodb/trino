@@ -22,8 +22,6 @@ import io.prestosql.tests.QueryTemplate;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -827,13 +825,6 @@ public abstract class AbstractTestJoinQueries
         QueryTemplate.Parameter left = type.of("left");
         QueryTemplate.Parameter right = type.of("right");
         QueryTemplate.Parameter full = type.of("full");
-        for (QueryTemplate.Parameter joinType : ImmutableList.of(left, right, full)) {
-            for (String joinCondition : ImmutableList.of("x IN (VALUES 1)", "y in (VALUES 1)")) {
-                assertQueryFails(
-                        queryTemplate.replace(joinType, condition.of(joinCondition)),
-                        ".*IN with subquery predicate in join condition is not supported");
-            }
-        }
 
         assertQuery(
                 queryTemplate.replace(left, twoDuplicatedInSubqueriesCondition),
@@ -868,14 +859,6 @@ public abstract class AbstractTestJoinQueries
         assertQuery(
                 queryTemplate.replace(condition.of("(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))")),
                 "VALUES (4,1)");
-
-        for (QueryTemplate.Parameter joinType : type.of("left", "right", "full")) {
-            assertQueryFails(
-                    queryTemplate.replace(
-                            joinType,
-                            condition.of("(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))")),
-                    ".*IN with subquery predicate in join condition is not supported");
-        }
     }
 
     @Test
@@ -889,7 +872,7 @@ public abstract class AbstractTestJoinQueries
                 condition);
 
         queryTemplate.replaceAll(
-                (query) -> assertQueryFails(query, "line .*: .* is not supported"),
+                (query) -> assertQueryFails(query, "line .*: Reference to column 'x' from outer scope not allowed in this context"),
                 ImmutableList.of(type.of("left"), type.of("right"), type.of("full")),
                 ImmutableList.of(
                         condition.of("EXISTS(SELECT 1 WHERE x = y)"),
@@ -2295,13 +2278,5 @@ public abstract class AbstractTestJoinQueries
                         "WHERE lineitem.orderkey = 31718 " +
                         "AND customer.name >= 'Customer#000001463' ",
                 "VALUES 3");
-    }
-
-    private Session noJoinReordering()
-    {
-        return Session.builder(getSession())
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.PARTITIONED.name())
-                .build();
     }
 }

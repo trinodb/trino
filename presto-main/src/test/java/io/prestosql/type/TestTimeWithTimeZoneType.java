@@ -17,10 +17,10 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.SqlTimeWithTimeZone;
 
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackOffsetMinutes;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackTimeNanos;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 
 public class TestTimeWithTimeZoneType
         extends AbstractTestType
@@ -33,24 +33,23 @@ public class TestTimeWithTimeZoneType
     public static Block createTestBlock()
     {
         BlockBuilder blockBuilder = TIME_WITH_TIME_ZONE.createBlockBuilder(null, 15);
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(0)));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(1)));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(2)));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(3)));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(4)));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(5)));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(6)));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(2222, getTimeZoneKeyForOffset(7)));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(3333, getTimeZoneKeyForOffset(8)));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(3333, getTimeZoneKeyForOffset(9)));
-        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(4444, getTimeZoneKeyForOffset(10)));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(1111, 0));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(1111, 1));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(1111, 2));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(2222, 3));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(2222, 4));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(2222, 5));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(2222, 6));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(2222, 7));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(3333, 8));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(3333, 9));
+        TIME_WITH_TIME_ZONE.writeLong(blockBuilder, packTimeWithTimeZone(4444, 10));
         return blockBuilder.build();
     }
 
     @Override
     protected Object getGreaterValue(Object value)
     {
-        // time zone doesn't matter for ordering
-        return packDateTimeWithZone(unpackMillisUtc((Long) value) + 10, getTimeZoneKeyForOffset(33));
+        return packTimeWithTimeZone(unpackTimeNanos((Long) value) + 10, unpackOffsetMinutes((Long) value));
     }
 }

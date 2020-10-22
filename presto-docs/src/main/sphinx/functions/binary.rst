@@ -10,11 +10,6 @@ The ``||`` operator performs concatenation.
 Binary Functions
 ----------------
 
-.. function:: length(binary) -> bigint
-    :noindex:
-
-    Returns the length of ``binary`` in bytes.
-
 .. function:: concat(binary1, ..., binaryN) -> varbinary
     :noindex:
 
@@ -22,76 +17,10 @@ Binary Functions
     This function provides the same functionality as the
     SQL-standard concatenation operator (``||``).
 
-.. function:: substr(binary, start) -> varbinary
+.. function:: length(binary) -> bigint
     :noindex:
 
-    Returns the rest of ``binary`` from the starting position ``start``,
-    measured in bytes. Positions start with ``1``. A negative starting position
-    is interpreted as being relative to the end of the string.
-
-.. function:: substr(binary, start, length) -> varbinary
-    :noindex:
-
-    Returns a substring from ``binary`` of length ``length`` from the starting
-    position ``start``, measured in bytes. Positions start with ``1``. A
-    negative starting position is interpreted as being relative to the end of
-    the string.
-
-.. function:: to_base64(binary) -> varchar
-
-    Encodes ``binary`` into a base64 string representation.
-
-.. function:: from_base64(string) -> varbinary
-
-    Decodes binary data from the base64 encoded ``string``.
-
-.. function:: to_base64url(binary) -> varchar
-
-    Encodes ``binary`` into a base64 string representation using the URL safe alphabet.
-
-.. function:: from_base64url(string) -> varbinary
-
-    Decodes binary data from the base64 encoded ``string`` using the URL safe alphabet.
-
-.. function:: to_hex(binary) -> varchar
-
-    Encodes ``binary`` into a hex string representation.
-
-.. function:: from_hex(string) -> varbinary
-
-    Decodes binary data from the hex encoded ``string``.
-
-.. function:: to_big_endian_64(bigint) -> varbinary
-
-    Encodes ``bigint`` in a 64-bit 2's complement big endian format.
-
-.. function:: from_big_endian_64(binary) -> bigint
-
-    Decodes ``bigint`` value from a 64-bit 2's complement big endian ``binary``.
-
-.. function:: to_big_endian_32(integer) -> varbinary
-
-    Encodes ``integer`` in a 32-bit 2's complement big endian format.
-
-.. function:: from_big_endian_32(binary) -> integer
-
-    Decodes ``integer`` value from a 32-bit 2's complement big endian ``binary``.
-
-.. function:: to_ieee754_32(real) -> varbinary
-
-    Encodes ``real`` in a 32-bit big-endian binary according to IEEE 754 single-precision floating-point format.
-
-.. function:: from_ieee754_32(binary) -> real
-
-    Decodes the 32-bit big-endian ``binary`` in IEEE 754 single-precision floating-point format.
-
-.. function:: to_ieee754_64(double) -> varbinary
-
-    Encodes ``double`` in a 64-bit big-endian binary according to IEEE 754 double-precision floating-point format.
-
-.. function:: from_ieee754_64(binary) -> double
-
-    Decodes the 64-bit big-endian ``binary`` in IEEE 754 double-precision floating-point format.
+    Returns the length of ``binary`` in bytes.
 
 .. function:: lpad(binary, size, padbinary) -> varbinary
     :noindex:
@@ -109,6 +38,105 @@ Binary Functions
     truncated to ``size`` characters. ``size`` must not be negative
     and ``padbinary`` must be non-empty.
 
+.. function:: substr(binary, start) -> varbinary
+    :noindex:
+
+    Returns the rest of ``binary`` from the starting position ``start``,
+    measured in bytes. Positions start with ``1``. A negative starting position
+    is interpreted as being relative to the end of the string.
+
+.. function:: substr(binary, start, length) -> varbinary
+    :noindex:
+
+    Returns a substring from ``binary`` of length ``length`` from the starting
+    position ``start``, measured in bytes. Positions start with ``1``. A
+    negative starting position is interpreted as being relative to the end of
+    the string.
+
+.. _function_reverse_varbinary:
+
+.. function:: reverse(binary) -> varbinary
+    :noindex:
+
+    Returns ``binary`` with the bytes in reverse order.
+
+Base64 Encoding Functions
+-------------------------
+
+The Base64 functions implement the encoding specified in :rfc:`4648`.
+
+.. function:: from_base64(string) -> varbinary
+
+    Decodes binary data from the base64 encoded ``string``.
+
+.. function:: to_base64(binary) -> varchar
+
+    Encodes ``binary`` into a base64 string representation.
+
+.. function:: from_base64url(string) -> varbinary
+
+    Decodes binary data from the base64 encoded ``string`` using the URL safe alphabet.
+
+.. function:: to_base64url(binary) -> varchar
+
+    Encodes ``binary`` into a base64 string representation using the URL safe alphabet.
+
+Hex Encoding Functions
+----------------------
+
+.. function:: from_hex(string) -> varbinary
+
+    Decodes binary data from the hex encoded ``string``.
+
+.. function:: to_hex(binary) -> varchar
+
+    Encodes ``binary`` into a hex string representation.
+
+Integer Encoding Functions
+--------------------------
+
+.. function:: from_big_endian_32(binary) -> integer
+
+    Decodes the 32-bit two's complement big-endian ``binary``.
+    The input must be exactly 4 bytes.
+
+.. function:: to_big_endian_32(integer) -> varbinary
+
+    Encodes ``integer`` into a 32-bit two's complement big-endian format.
+
+.. function:: from_big_endian_64(binary) -> bigint
+
+    Decodes the 64-bit two's complement big-endian ``binary``.
+    The input must be exactly 8 bytes.
+
+.. function:: to_big_endian_64(bigint) -> varbinary
+
+    Encodes ``bigint`` into a 64-bit two's complement big-endian format.
+
+Floating-Point Encoding Functions
+---------------------------------
+
+.. function:: from_ieee754_32(binary) -> real
+
+    Decodes the 32-bit big-endian ``binary`` in IEEE 754 single-precision floating-point format.
+    The input must be exactly 4 bytes.
+
+.. function:: to_ieee754_32(real) -> varbinary
+
+    Encodes ``real`` into a 32-bit big-endian binary according to IEEE 754 single-precision floating-point format.
+
+.. function:: from_ieee754_64(binary) -> double
+
+    Decodes the 64-bit big-endian ``binary`` in IEEE 754 double-precision floating-point format.
+    The input must be exactly 8 bytes.
+
+.. function:: to_ieee754_64(double) -> varbinary
+
+    Encodes ``double`` into a 64-bit big-endian binary according to IEEE 754 double-precision floating-point format.
+
+Hashing Functions
+-----------------
+
 .. function:: crc32(binary) -> bigint
 
     Computes the CRC-32 of ``binary``. For general purpose hashing, use
@@ -116,23 +144,19 @@ Binary Functions
 
 .. function:: md5(binary) -> varbinary
 
-    Computes the md5 hash of ``binary``.
+    Computes the MD5 hash of ``binary``.
 
 .. function:: sha1(binary) -> varbinary
 
-    Computes the sha1 hash of ``binary``.
+    Computes the SHA1 hash of ``binary``.
 
 .. function:: sha256(binary) -> varbinary
 
-    Computes the sha256 hash of ``binary``.
+    Computes the SHA256 hash of ``binary``.
 
 .. function:: sha512(binary) -> varbinary
 
-    Computes the sha512 hash of ``binary``.
-
-.. function:: xxhash64(binary) -> varbinary
-
-    Computes the xxhash64 hash of ``binary``.
+    Computes the SHA512 hash of ``binary``.
 
 .. function:: spooky_hash_v2_32(binary) -> varbinary
 
@@ -142,18 +166,29 @@ Binary Functions
 
     Computes the 64-bit SpookyHashV2 hash of ``binary``.
 
+.. function:: xxhash64(binary) -> varbinary
+
+    Computes the xxHash64 hash of ``binary``.
+
+.. function:: murmur3(binary) -> varbinary
+
+    Computes the 128-bit murmur3 hash of ``binary``.
+
+HMAC Functions
+--------------
+
 .. function:: hmac_md5(binary, key) -> varbinary
 
-    Computes HMAC with md5 of ``binary`` with the given ``key``.
+    Computes HMAC with MD5 of ``binary`` with the given ``key``.
 
 .. function:: hmac_sha1(binary, key) -> varbinary
 
-    Computes HMAC with sha1 of ``binary`` with the given ``key``.
+    Computes HMAC with SHA1 of ``binary`` with the given ``key``.
 
 .. function:: hmac_sha256(binary, key) -> varbinary
 
-    Computes HMAC with sha256 of ``binary`` with the given ``key``.
+    Computes HMAC with SHA256 of ``binary`` with the given ``key``.
 
 .. function:: hmac_sha512(binary, key) -> varbinary
 
-    Computes HMAC with sha512 of ``binary`` with the given ``key``.
+    Computes HMAC with SHA512 of ``binary`` with the given ``key``.

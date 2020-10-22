@@ -19,21 +19,16 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
+import io.prestosql.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.lang.invoke.MethodHandle;
-import java.util.Optional;
-
-import static com.google.common.base.Defaults.defaultValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
-import static io.prestosql.spi.type.TypeUtils.readNativeValue;
-import static io.prestosql.type.TypeUtils.hashPosition;
-import static io.prestosql.type.TypeUtils.positionEqualsPosition;
-import static io.prestosql.util.Failures.internalError;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -48,16 +43,18 @@ public class TypedSet
     private static final float FILL_RATIO = 0.75f;
 
     private final Type elementType;
-    private final Optional<MethodHandle> elementIsDistinctFrom;
+    private final BlockPositionEqual elementEqualOperator;
+    private final BlockPositionIsDistinctFrom elementDistinctFromOperator;
+    private final BlockPositionHashCode elementHashCodeOperator;
     private final IntArrayList blockPositionByHash;
     private final BlockBuilder elementBlock;
     private final String functionName;
     private final long maxBlockMemoryInBytes;
 
-    private int initialElementBlockOffset;
-    private long initialElementBlockSizeInBytes;
+    private final int initialElementBlockOffset;
+    private final long initialElementBlockSizeInBytes;
     // size is the number of elements added to the TypedSet (including null).
-    // It equals to elementBlock.size() - initialElementBlockOffset
+    // It is equal to elementBlock.size() - initialElementBlockOffset
     private int size;
     private int hashCapacity;
     private int maxFill;
@@ -66,30 +63,99 @@ public class TypedSet
 
     private boolean containsNullElement;
 
-    public TypedSet(Type elementType, int expectedSize, String functionName)
+    public static TypedSet createEqualityTypedSet(
+            Type elementType,
+            BlockPositionEqual elementEqualOperator,
+            BlockPositionHashCode elementHashCodeOperator,
+            int expectedSize,
+            String functionName)
     {
-        // TODO revise other usages of TypedSet and determine whether they should use equality or distinctness semantics
-        this(elementType, Optional.empty(), elementType.createBlockBuilder(null, expectedSize), expectedSize, functionName);
+        return createEqualityTypedSet(
+                elementType,
+                elementEqualOperator,
+                elementHashCodeOperator,
+                elementType.createBlockBuilder(null, expectedSize),
+                expectedSize,
+                functionName,
+                false);
     }
 
-    public TypedSet(Type elementType, MethodHandle elementIsDistinctFrom, int expectedSize, String functionName)
+    public static TypedSet createEqualityTypedSet(
+            Type elementType,
+            BlockPositionEqual elementEqualOperator,
+            BlockPositionHashCode elementHashCodeOperator,
+            BlockBuilder blockBuilder,
+            int expectedSize,
+            String functionName,
+            boolean unboundedMemory)
     {
-        this(elementType, Optional.of(elementIsDistinctFrom), elementType.createBlockBuilder(null, expectedSize), expectedSize, functionName);
+        return new TypedSet(
+                elementType,
+                elementEqualOperator,
+                null,
+                elementHashCodeOperator,
+                blockBuilder,
+                expectedSize,
+                functionName,
+                unboundedMemory);
     }
 
-    public TypedSet(Type elementType, Optional<MethodHandle> elementIsDistinctFrom, BlockBuilder blockBuilder, int expectedSize, String functionName)
+    public static TypedSet createDistinctTypedSet(
+            Type elementType,
+            BlockPositionIsDistinctFrom elementDistinctFromOperator,
+            BlockPositionHashCode elementHashCodeOperator,
+            int expectedSize,
+            String functionName)
     {
-        this(elementType, elementIsDistinctFrom, blockBuilder, expectedSize, functionName, Optional.of(MAX_FUNCTION_MEMORY));
+        return createDistinctTypedSet(
+                elementType,
+                elementDistinctFromOperator,
+                elementHashCodeOperator,
+                elementType.createBlockBuilder(null, expectedSize),
+                expectedSize,
+                functionName);
     }
 
-    public TypedSet(Type elementType, Optional<MethodHandle> elementIsDistinctFrom, BlockBuilder blockBuilder, int expectedSize, String functionName, Optional<DataSize> maxBlockMemory)
+    public static TypedSet createDistinctTypedSet(
+            Type elementType,
+            BlockPositionIsDistinctFrom elementDistinctFromOperator,
+            BlockPositionHashCode elementHashCodeOperator,
+            BlockBuilder blockBuilder,
+            int expectedSize,
+            String functionName)
+    {
+        return new TypedSet(
+                elementType,
+                null,
+                elementDistinctFromOperator,
+                elementHashCodeOperator,
+                blockBuilder,
+                expectedSize,
+                functionName,
+                false);
+    }
+
+    public TypedSet(
+            Type elementType,
+            BlockPositionEqual elementEqualOperator,
+            BlockPositionIsDistinctFrom elementDistinctFromOperator,
+            BlockPositionHashCode elementHashCodeOperator,
+            BlockBuilder blockBuilder,
+            int expectedSize,
+            String functionName,
+            boolean unboundedMemory)
     {
         checkArgument(expectedSize >= 0, "expectedSize must not be negative");
-        this.elementType = requireNonNull(elementType, "elementType must not be null");
-        this.elementIsDistinctFrom = requireNonNull(elementIsDistinctFrom, "elementIsDistinctFrom is null");
+        this.elementType = requireNonNull(elementType, "elementType is null");
+
+        checkArgument(elementEqualOperator == null ^ elementDistinctFromOperator == null, "Element equal or distinct_from operator must be provided");
+        this.elementEqualOperator = elementEqualOperator;
+        this.elementDistinctFromOperator = elementDistinctFromOperator;
+        this.elementHashCodeOperator = requireNonNull(elementHashCodeOperator, "elementHashCodeOperator is null");
+
         this.elementBlock = requireNonNull(blockBuilder, "blockBuilder must not be null");
         this.functionName = functionName;
-        this.maxBlockMemoryInBytes = maxBlockMemory.map(value -> value.toBytes()).orElse(Long.MAX_VALUE);
+        this.maxBlockMemoryInBytes = unboundedMemory ? Long.MAX_VALUE : MAX_FUNCTION_MEMORY.toBytes();
 
         initialElementBlockOffset = elementBlock.getPositionCount();
         initialElementBlockSizeInBytes = elementBlock.getSizeInBytes();
@@ -122,7 +188,7 @@ public class TypedSet
             return containsNullElement;
         }
         else {
-            return blockPositionByHash.get(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
+            return blockPositionByHash.getInt(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
         }
     }
 
@@ -137,7 +203,7 @@ public class TypedSet
         }
 
         int hashPosition = getHashPositionOfElement(block, position);
-        if (blockPositionByHash.get(hashPosition) == EMPTY_SLOT) {
+        if (blockPositionByHash.getInt(hashPosition) == EMPTY_SLOT) {
             addNewElement(hashPosition, block, position);
         }
     }
@@ -149,7 +215,7 @@ public class TypedSet
 
     public int positionOf(Block block, int position)
     {
-        return blockPositionByHash.get(getHashPositionOfElement(block, position));
+        return blockPositionByHash.getInt(getHashPositionOfElement(block, position));
     }
 
     /**
@@ -157,14 +223,14 @@ public class TypedSet
      */
     private int getHashPositionOfElement(Block block, int position)
     {
-        int hashPosition = getMaskedHash(hashPosition(elementType, block, position));
+        int hashPosition = getMaskedHash(elementHashCodeOperator.hashCodeNullSafe(block, position));
         while (true) {
-            int blockPosition = blockPositionByHash.get(hashPosition);
+            int blockPosition = blockPositionByHash.getInt(hashPosition);
             if (blockPosition == EMPTY_SLOT) {
                 // Doesn't have this element
                 return hashPosition;
             }
-            if (isContainedAt(block, position, blockPosition)) {
+            if (isNotDistinct(elementBlock, blockPosition, block, position)) {
                 // Already has this element
                 return hashPosition;
             }
@@ -173,21 +239,12 @@ public class TypedSet
         }
     }
 
-    private boolean isContainedAt(Block block, int position, int atPosition)
+    private boolean isNotDistinct(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        if (elementIsDistinctFrom.isPresent()) {
-            boolean firstValueNull = elementBlock.isNull(atPosition);
-            Object firstValue = firstValueNull ? defaultValue(elementType.getJavaType()) : readNativeValue(elementType, elementBlock, atPosition);
-            boolean secondValueNull = block.isNull(position);
-            Object secondValue = secondValueNull ? defaultValue(elementType.getJavaType()) : readNativeValue(elementType, block, position);
-            try {
-                return !(boolean) elementIsDistinctFrom.get().invoke(firstValue, firstValueNull, secondValue, secondValueNull);
-            }
-            catch (Throwable t) {
-                throw internalError(t);
-            }
+        if (elementDistinctFromOperator != null) {
+            return !elementDistinctFromOperator.isDistinctFrom(leftBlock, leftPosition, rightBlock, rightPosition);
         }
-        return positionEqualsPosition(elementType, elementBlock, atPosition, block, position);
+        return elementEqualOperator.equalNullSafe(leftBlock, leftPosition, rightBlock, rightPosition);
     }
 
     private void addNewElement(int hashPosition, Block block, int position)

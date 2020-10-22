@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -24,6 +25,7 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 @DefunctConfig({
@@ -60,6 +62,7 @@ public class QueryManagerConfig
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
+    private Optional<DataSize> queryMaxScanPhysicalBytes = Optional.empty();
 
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
@@ -292,6 +295,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryMaxCpuTime(Duration queryMaxCpuTime)
     {
         this.queryMaxCpuTime = queryMaxCpuTime;
+        return this;
+    }
+
+    @NotNull
+    public Optional<DataSize> getQueryMaxScanPhysicalBytes()
+    {
+        return queryMaxScanPhysicalBytes;
+    }
+
+    @Config("query.max-scan-physical-bytes")
+    public QueryManagerConfig setQueryMaxScanPhysicalBytes(DataSize queryMaxScanPhysicalBytes)
+    {
+        this.queryMaxScanPhysicalBytes = Optional.ofNullable(queryMaxScanPhysicalBytes);
         return this;
     }
 

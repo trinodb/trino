@@ -55,7 +55,7 @@ public class DereferenceExpression
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of(base);
+        return ImmutableList.of(base, field);
     }
 
     public Expression getBase()
@@ -125,5 +125,11 @@ public class DereferenceExpression
     public int hashCode()
     {
         return Objects.hash(base, field);
+    }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
     }
 }

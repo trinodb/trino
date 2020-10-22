@@ -29,6 +29,7 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
+import io.airlift.jmx.CacheStatsMBean;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.InternalJoinFilterFunction;
 import io.prestosql.operator.JoinFilterFunction;
@@ -251,12 +252,12 @@ public class JoinFilterFunctionCompiler
     }
 
     private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(
-            final CallSiteBinder callSiteBinder,
-            final Variable leftPosition,
-            final Variable leftPage,
-            final Variable rightPosition,
-            final Variable rightPage,
-            final int leftBlocksSize)
+            CallSiteBinder callSiteBinder,
+            Variable leftPosition,
+            Variable leftPage,
+            Variable rightPosition,
+            Variable rightPage,
+            int leftBlocksSize)
     {
         return new InputReferenceCompiler(
                 (scope, field) -> {

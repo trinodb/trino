@@ -22,9 +22,9 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.AbstractLongType;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.type.BigintOperators;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -152,7 +152,7 @@ public class BigintGroupByHash
                 BIGINT.writeLong(hashBlockBuilder, NULL_HASH_CODE);
             }
             else {
-                BIGINT.writeLong(hashBlockBuilder, BigintOperators.hashCode(valuesByGroupId.get(groupId)));
+                BIGINT.writeLong(hashBlockBuilder, AbstractLongType.hash(valuesByGroupId.get(groupId)));
             }
         }
     }

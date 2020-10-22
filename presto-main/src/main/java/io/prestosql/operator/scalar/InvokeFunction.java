@@ -16,10 +16,9 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.type.Type;
@@ -27,10 +26,12 @@ import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.lambda.LambdaFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.util.Reflection.methodHandle;
 
@@ -63,15 +64,18 @@ public final class InvokeFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        Type returnType = boundVariables.getTypeVariable("T");
-        return new ScalarFunctionImplementation(
-                true,
-                ImmutableList.of(functionTypeArgumentProperty(InvokeLambda.class)),
+        Type returnType = functionBinding.getTypeVariable("T");
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
+                NULLABLE_RETURN,
+                ImmutableList.of(FUNCTION),
+                ImmutableList.of(InvokeLambda.class),
                 METHOD_HANDLE.asType(
                         METHOD_HANDLE.type()
-                                .changeReturnType(Primitives.wrap(returnType.getJavaType()))));
+                                .changeReturnType(Primitives.wrap(returnType.getJavaType()))),
+                Optional.empty());
     }
 
     public static Object invoke(InvokeLambda function)

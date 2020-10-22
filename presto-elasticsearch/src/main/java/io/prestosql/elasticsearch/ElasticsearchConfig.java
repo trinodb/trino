@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -48,7 +49,8 @@ public class ElasticsearchConfig
 {
     public enum Security
     {
-        AWS
+        AWS,
+        PASSWORD,
     }
 
     private String host;
@@ -60,6 +62,8 @@ public class ElasticsearchConfig
     private Duration connectTimeout = new Duration(1, SECONDS);
     private Duration maxRetryTime = new Duration(30, SECONDS);
     private Duration nodeRefreshInterval = new Duration(1, MINUTES);
+    private int maxHttpConnections = 25;
+    private int httpThreadCount = Runtime.getRuntime().availableProcessors();
 
     private boolean tlsEnabled;
     private File keystorePath;
@@ -196,6 +200,34 @@ public class ElasticsearchConfig
         return this;
     }
 
+    @Config("elasticsearch.max-http-connections")
+    @ConfigDescription("Maximum number of persistent HTTP connections to Elasticsearch")
+    public ElasticsearchConfig setMaxHttpConnections(int size)
+    {
+        this.maxHttpConnections = size;
+        return this;
+    }
+
+    @NotNull
+    public int getMaxHttpConnections()
+    {
+        return maxHttpConnections;
+    }
+
+    @Config("elasticsearch.http-thread-count")
+    @ConfigDescription("Number of threads handling HTTP connections to Elasticsearch")
+    public ElasticsearchConfig setHttpThreadCount(int count)
+    {
+        this.httpThreadCount = count;
+        return this;
+    }
+
+    @NotNull
+    public int getHttpThreadCount()
+    {
+        return httpThreadCount;
+    }
+
     public boolean isTlsEnabled()
     {
         return tlsEnabled;
@@ -208,7 +240,7 @@ public class ElasticsearchConfig
         return this;
     }
 
-    public Optional<File> getKeystorePath()
+    public Optional<@FileExists File> getKeystorePath()
     {
         return Optional.ofNullable(keystorePath);
     }
@@ -233,7 +265,7 @@ public class ElasticsearchConfig
         return this;
     }
 
-    public Optional<File> getTrustStorePath()
+    public Optional<@FileExists File> getTrustStorePath()
     {
         return Optional.ofNullable(trustStorePath);
     }

@@ -16,6 +16,9 @@ package io.prestosql.plugin.hive.authentication;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -34,15 +37,18 @@ public class TestHdfsKerberosConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path keytab = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.hdfs.presto.principal", "presto@EXAMPLE.COM")
-                .put("hive.hdfs.presto.keytab", "/tmp/presto.keytab")
+                .put("hive.hdfs.presto.keytab", keytab.toString())
                 .build();
 
         HdfsKerberosConfig expected = new HdfsKerberosConfig()
                 .setHdfsPrestoPrincipal("presto@EXAMPLE.COM")
-                .setHdfsPrestoKeytab("/tmp/presto.keytab");
+                .setHdfsPrestoKeytab(keytab.toString());
 
         assertFullMapping(properties, expected);
     }

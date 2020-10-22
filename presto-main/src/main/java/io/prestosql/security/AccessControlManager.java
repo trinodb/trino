@@ -19,14 +19,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
-import io.prestosql.FullConnectorSecurityContext;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
+import io.prestosql.plugin.base.security.DefaultSystemAccessControl;
 import io.prestosql.plugin.base.security.FileBasedSystemAccessControl;
 import io.prestosql.plugin.base.security.ForwardingSystemAccessControl;
 import io.prestosql.plugin.base.security.ReadOnlySystemAccessControl;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -60,7 +62,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -82,21 +83,23 @@ public class AccessControlManager
     private static final String NAME_PROPERTY = "access-control.name";
 
     private final TransactionManager transactionManager;
+    private final EventListenerManager eventListenerManager;
     private final List<File> configFiles;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
     private final Map<CatalogName, CatalogAccessControlEntry> connectorAccessControl = new ConcurrentHashMap<>();
 
-    private final AtomicReference<List<SystemAccessControl>> systemAccessControls = new AtomicReference<>(ImmutableList.of(new InitializingSystemAccessControl()));
-    private final AtomicBoolean systemAccessControlLoading = new AtomicBoolean();
+    private final AtomicReference<List<SystemAccessControl>> systemAccessControls = new AtomicReference<>();
 
     private final CounterStat authorizationSuccess = new CounterStat();
     private final CounterStat authorizationFail = new CounterStat();
 
     @Inject
-    public AccessControlManager(TransactionManager transactionManager, AccessControlConfig config)
+    public AccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager, AccessControlConfig config)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.configFiles = ImmutableList.copyOf(config.getAccessControlFiles());
+        addSystemAccessControlFactory(new DefaultSystemAccessControl.Factory());
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
         addSystemAccessControlFactory(new ReadOnlySystemAccessControl.Factory());
         addSystemAccessControlFactory(new FileBasedSystemAccessControl.Factory());
@@ -129,19 +132,23 @@ public class AccessControlManager
         List<File> configFiles = this.configFiles;
         if (configFiles.isEmpty()) {
             if (!CONFIG_FILE.exists()) {
-                setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
-                log.info("Using system access control %s", AllowAllSystemAccessControl.NAME);
+                setSystemAccessControl(DefaultSystemAccessControl.NAME, ImmutableMap.of());
+                log.info("Using system access control %s", DefaultSystemAccessControl.NAME);
                 return;
             }
             configFiles = ImmutableList.of(CONFIG_FILE);
         }
-        checkState(systemAccessControlLoading.compareAndSet(false, true), "System access control already initialized");
 
         List<SystemAccessControl> systemAccessControls = configFiles.stream()
                 .map(this::createSystemAccessControl)
                 .collect(toImmutableList());
 
-        this.systemAccessControls.set(systemAccessControls);
+        systemAccessControls.stream()
+                .map(SystemAccessControl::getEventListeners)
+                .flatMap(listeners -> ImmutableSet.copyOf(listeners).stream())
+                .forEach(eventListenerManager::addEventListener);
+
+        setSystemAccessControls(systemAccessControls);
     }
 
     private SystemAccessControl createSystemAccessControl(File configFile)
@@ -174,13 +181,27 @@ public class AccessControlManager
         requireNonNull(name, "name is null");
         requireNonNull(properties, "properties is null");
 
-        checkState(systemAccessControlLoading.compareAndSet(false, true), "System access control already initialized");
-
         SystemAccessControlFactory systemAccessControlFactory = systemAccessControlFactories.get(name);
         checkState(systemAccessControlFactory != null, "Access control '%s' is not registered", name);
 
         SystemAccessControl systemAccessControl = systemAccessControlFactory.create(ImmutableMap.copyOf(properties));
-        this.systemAccessControls.set(ImmutableList.of(systemAccessControl));
+        setSystemAccessControls(ImmutableList.of(systemAccessControl));
+    }
+
+    @VisibleForTesting
+    public void addSystemAccessControl(SystemAccessControl systemAccessControl)
+    {
+        systemAccessControls.updateAndGet(currentControls ->
+                ImmutableList.<SystemAccessControl>builder()
+                        .addAll(currentControls)
+                        .add(systemAccessControl)
+                        .build());
+    }
+
+    @VisibleForTesting
+    public void setSystemAccessControls(List<SystemAccessControl> systemAccessControls)
+    {
+        checkState(this.systemAccessControls.compareAndSet(null, systemAccessControls), "System access control already initialized");
     }
 
     @Override
@@ -189,7 +210,7 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(userName, "userName is null");
 
-        systemAuthorizationCheck(control -> control.checkCanImpersonateUser(new SystemSecurityContext(identity), userName));
+        systemAuthorizationCheck(control -> control.checkCanImpersonateUser(new SystemSecurityContext(identity, Optional.empty()), userName));
     }
 
     @Override
@@ -203,11 +224,27 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanReadSystemInformation(Identity identity)
+    {
+        requireNonNull(identity, "identity is null");
+
+        systemAuthorizationCheck(control -> control.checkCanReadSystemInformation(new SystemSecurityContext(identity, Optional.empty())));
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(Identity identity)
+    {
+        requireNonNull(identity, "identity is null");
+
+        systemAuthorizationCheck(control -> control.checkCanWriteSystemInformation(new SystemSecurityContext(identity, Optional.empty())));
+    }
+
+    @Override
     public void checkCanExecuteQuery(Identity identity)
     {
         requireNonNull(identity, "identity is null");
 
-        systemAuthorizationCheck(control -> control.checkCanExecuteQuery(new SystemSecurityContext(identity)));
+        systemAuthorizationCheck(control -> control.checkCanExecuteQuery(new SystemSecurityContext(identity, Optional.empty())));
     }
 
     @Override
@@ -215,14 +252,14 @@ public class AccessControlManager
     {
         requireNonNull(identity, "identity is null");
 
-        systemAuthorizationCheck(control -> control.checkCanViewQueryOwnedBy(new SystemSecurityContext(identity), queryOwner));
+        systemAuthorizationCheck(control -> control.checkCanViewQueryOwnedBy(new SystemSecurityContext(identity, Optional.empty()), queryOwner));
     }
 
     @Override
     public Set<String> filterQueriesOwnedBy(Identity identity, Set<String> queryOwners)
     {
-        for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
-            queryOwners = systemAccessControl.filterViewQueryOwnedBy(new SystemSecurityContext(identity), queryOwners);
+        for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
+            queryOwners = systemAccessControl.filterViewQueryOwnedBy(new SystemSecurityContext(identity, Optional.empty()), queryOwners);
         }
         return queryOwners;
     }
@@ -233,7 +270,7 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(queryOwner, "queryOwner is null");
 
-        systemAuthorizationCheck(control -> control.checkCanKillQueryOwnedBy(new SystemSecurityContext(identity), queryOwner));
+        systemAuthorizationCheck(control -> control.checkCanKillQueryOwnedBy(new SystemSecurityContext(identity, Optional.empty()), queryOwner));
     }
 
     @Override
@@ -242,8 +279,8 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(catalogs, "catalogs is null");
 
-        for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
-            catalogs = systemAccessControl.filterCatalogs(new SystemSecurityContext(identity), catalogs);
+        for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
+            catalogs = systemAccessControl.filterCatalogs(new SystemSecurityContext(identity, Optional.empty()), catalogs);
         }
         return catalogs;
     }
@@ -324,7 +361,7 @@ public class AccessControlManager
             return ImmutableSet.of();
         }
 
-        for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+        for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
             schemaNames = systemAccessControl.filterSchemas(securityContext.toSystemSecurityContext(), catalogName, schemaNames);
         }
 
@@ -333,6 +370,19 @@ public class AccessControlManager
             schemaNames = entry.getAccessControl().filterSchemas(entry.toConnectorSecurityContext(securityContext), schemaNames);
         }
         return schemaNames;
+    }
+
+    @Override
+    public void checkCanShowCreateSchema(SecurityContext securityContext, CatalogSchemaName schemaName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(schemaName, "schemaName is null");
+
+        checkCanAccessCatalog(securityContext, schemaName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanShowCreateSchema(securityContext.toSystemSecurityContext(), schemaName));
+
+        catalogAuthorizationCheck(schemaName.getCatalogName(), securityContext, (control, context) -> control.checkCanShowCreateSchema(context, schemaName.getSchemaName()));
     }
 
     @Override
@@ -402,6 +452,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanSetColumnComment(SecurityContext securityContext, QualifiedObjectName tableName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+
+        checkCanAccessCatalog(securityContext, tableName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanSetColumnComment(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
+
+        catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanSetColumnComment(context, tableName.asSchemaTableName()));
+    }
+
+    @Override
     public void checkCanShowTables(SecurityContext securityContext, CatalogSchemaName schema)
     {
         requireNonNull(securityContext, "securityContext is null");
@@ -425,7 +488,7 @@ public class AccessControlManager
             return ImmutableSet.of();
         }
 
-        for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+        for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
             tableNames = systemAccessControl.filterTables(securityContext.toSystemSecurityContext(), catalogName, tableNames);
         }
 
@@ -459,7 +522,7 @@ public class AccessControlManager
             return ImmutableList.of();
         }
 
-        for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+        for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
             columns = systemAccessControl.filterColumns(securityContext.toSystemSecurityContext(), table, columns);
         }
 
@@ -635,7 +698,7 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(propertyName, "propertyName is null");
 
-        systemAuthorizationCheck(control -> control.checkCanSetSystemSessionProperty(new SystemSecurityContext(identity), propertyName));
+        systemAuthorizationCheck(control -> control.checkCanSetSystemSessionProperty(new SystemSecurityContext(identity, Optional.empty()), propertyName));
     }
 
     @Override
@@ -732,6 +795,17 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext securityContext, String catalogName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(catalogName, "catalogName is null");
+
+        checkCanAccessCatalog(securityContext, catalogName);
+
+        catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanShowRoleAuthorizationDescriptors(context, catalogName));
+    }
+
+    @Override
     public void checkCanShowRoles(SecurityContext securityContext, String catalogName)
     {
         requireNonNull(securityContext, "securityContext is null");
@@ -803,7 +877,7 @@ public class AccessControlManager
                     .ifPresent(filters::add);
         }
 
-        for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+        for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
             systemAccessControl.getRowFilter(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName())
                     .ifPresent(filters::add);
         }
@@ -826,7 +900,7 @@ public class AccessControlManager
                     .ifPresent(masks::add);
         }
 
-        for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+        for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
             systemAccessControl.getColumnMask(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columnName, type)
                     .ifPresent(masks::add);
         }
@@ -858,7 +932,7 @@ public class AccessControlManager
     private void checkCanAccessCatalog(SecurityContext securityContext, String catalogName)
     {
         try {
-            for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+            for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
                 systemAccessControl.checkCanAccessCatalog(securityContext.toSystemSecurityContext(), catalogName);
             }
             authorizationSuccess.update(1);
@@ -872,7 +946,7 @@ public class AccessControlManager
     private void systemAuthorizationCheck(Consumer<SystemAccessControl> check)
     {
         try {
-            for (SystemAccessControl systemAccessControl : systemAccessControls.get()) {
+            for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
                 check.accept(systemAccessControl);
             }
             authorizationSuccess.update(1);
@@ -898,6 +972,12 @@ public class AccessControlManager
             authorizationFail.update(1);
             throw e;
         }
+    }
+
+    private List<SystemAccessControl> getSystemAccessControls()
+    {
+        return Optional.ofNullable(systemAccessControls.get())
+                .orElse(ImmutableList.of(new InitializingSystemAccessControl()));
     }
 
     private class CatalogAccessControlEntry
@@ -928,14 +1008,15 @@ public class AccessControlManager
 
         public ConnectorSecurityContext toConnectorSecurityContext(SecurityContext securityContext)
         {
-            return toConnectorSecurityContext(securityContext.getTransactionId(), securityContext.getIdentity());
+            return toConnectorSecurityContext(securityContext.getTransactionId(), securityContext.getIdentity(), securityContext.getQueryId());
         }
 
-        public ConnectorSecurityContext toConnectorSecurityContext(TransactionId requiredTransactionId, Identity identity)
+        public ConnectorSecurityContext toConnectorSecurityContext(TransactionId requiredTransactionId, Identity identity, QueryId queryId)
         {
-            return new FullConnectorSecurityContext(
+            return new ConnectorSecurityContext(
                     transactionManager.getConnectorTransaction(requiredTransactionId, catalogName),
-                    identity.toConnectorIdentity(catalogName.getCatalogName()));
+                    identity.toConnectorIdentity(catalogName.getCatalogName()),
+                    queryId);
         }
     }
 

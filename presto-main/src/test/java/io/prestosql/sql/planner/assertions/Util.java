@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
@@ -28,6 +27,7 @@ import io.prestosql.sql.planner.assertions.PlanMatchPattern.Ordering;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -79,7 +79,7 @@ final class Util
             return false;
         }
 
-        if (!expectedDomains.isPresent()) {
+        if (expectedDomains.isEmpty()) {
             return true;
         }
 

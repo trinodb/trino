@@ -15,11 +15,9 @@ package io.prestosql.spi.connector;
 
 import io.prestosql.spi.Node;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -55,7 +53,7 @@ public class ConnectorTablePartitioning
     public ConnectorTablePartitioning(ConnectorPartitioningHandle partitioningHandle, List<ColumnHandle> partitioningColumns)
     {
         this.partitioningHandle = requireNonNull(partitioningHandle, "partitioningHandle is null");
-        this.partitioningColumns = unmodifiableList(new ArrayList<>(requireNonNull(partitioningColumns, "partitioningColumns is null")));
+        this.partitioningColumns = List.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
     }
 
     /**

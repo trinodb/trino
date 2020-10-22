@@ -53,7 +53,8 @@ public class TestSheetsPlugin
         Plugin plugin = new SheetsPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         Builder<String, String> propertiesMap = new Builder<String, String>().put("credentials-path", getTestCredentialsPath()).put("metadata-sheet-id", TEST_METADATA_SHEET_ID);
-        Connector c = factory.create(GOOGLE_SHEETS, propertiesMap.build(), new TestingConnectorContext());
-        assertNotNull(c);
+        Connector connector = factory.create(GOOGLE_SHEETS, propertiesMap.build(), new TestingConnectorContext());
+        assertNotNull(connector);
+        connector.shutdown();
     }
 }

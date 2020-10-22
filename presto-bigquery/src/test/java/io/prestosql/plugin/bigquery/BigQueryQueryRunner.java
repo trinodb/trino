@@ -13,6 +13,9 @@
  */
 package io.prestosql.plugin.bigquery;
 
+import com.google.auth.oauth2.ServiceAccountCredentials;
+import com.google.cloud.bigquery.BigQuery;
+import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -20,6 +23,11 @@ import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.util.Base64;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -51,6 +59,20 @@ public class BigQueryQueryRunner
         catch (Throwable e) {
             closeAllSuppress(e, queryRunner);
             throw e;
+        }
+    }
+
+    public static BigQuery createBigQueryClient()
+    {
+        try {
+            InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(System.getProperty("bigquery.credentials-key")));
+            return BigQueryOptions.newBuilder()
+                    .setCredentials(ServiceAccountCredentials.fromStream(jsonKey))
+                    .build()
+                    .getService();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 

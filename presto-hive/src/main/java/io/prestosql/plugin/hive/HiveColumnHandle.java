@@ -30,6 +30,7 @@ import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -58,8 +59,13 @@ public class HiveColumnHandle
 
     public static final int FILE_MODIFIED_TIME_COLUMN_INDEX = -14;
     public static final String FILE_MODIFIED_TIME_COLUMN_NAME = "$file_modified_time";
-    public static final HiveType FILE_MODIFIED_TIME_TYPE = HIVE_LONG;
-    public static final Type FILE_MODIFIED_TIME_TYPE_SIGNATURE = BIGINT;
+    public static final HiveType FILE_MODIFIED_TIME_TYPE = HiveType.HIVE_TIMESTAMP;
+    public static final Type FILE_MODIFIED_TIME_TYPE_SIGNATURE = TIMESTAMP_TZ_MILLIS;
+
+    public static final int PARTITION_COLUMN_INDEX = -15;
+    public static final String PARTITION_COLUMN_NAME = "$partition";
+    public static final HiveType PARTITION_HIVE_TYPE = HIVE_STRING;
+    public static final Type PARTITION_TYPE_SIGNATURE = VARCHAR;
 
     private static final String UPDATE_ROW_ID_COLUMN_NAME = "$shard_row_id";
 
@@ -201,7 +207,7 @@ public class HiveColumnHandle
 
     public boolean isBaseColumn()
     {
-        return !hiveColumnProjectionInfo.isPresent();
+        return hiveColumnProjectionInfo.isEmpty();
     }
 
     @Override
@@ -272,6 +278,11 @@ public class HiveColumnHandle
         return createBaseColumn(FILE_MODIFIED_TIME_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_INDEX, FILE_MODIFIED_TIME_TYPE, FILE_MODIFIED_TIME_TYPE_SIGNATURE, SYNTHESIZED, Optional.empty());
     }
 
+    public static HiveColumnHandle partitionColumnHandle()
+    {
+        return createBaseColumn(PARTITION_COLUMN_NAME, PARTITION_COLUMN_INDEX, PARTITION_HIVE_TYPE, PARTITION_TYPE_SIGNATURE, SYNTHESIZED, Optional.empty());
+    }
+
     public static boolean isPathColumnHandle(HiveColumnHandle column)
     {
         return column.getBaseHiveColumnIndex() == PATH_COLUMN_INDEX;
@@ -290,5 +301,10 @@ public class HiveColumnHandle
     public static boolean isFileModifiedTimeColumnHandle(HiveColumnHandle column)
     {
         return column.getBaseHiveColumnIndex() == FILE_MODIFIED_TIME_COLUMN_INDEX;
+    }
+
+    public static boolean isPartitionColumnHandle(HiveColumnHandle column)
+    {
+        return column.getBaseHiveColumnIndex() == PARTITION_COLUMN_INDEX;
     }
 }

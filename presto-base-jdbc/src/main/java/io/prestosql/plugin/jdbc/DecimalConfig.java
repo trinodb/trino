@@ -22,7 +22,7 @@ import javax.validation.constraints.NotNull;
 
 import java.math.RoundingMode;
 
-import static io.prestosql.plugin.jdbc.DecimalSessionPropertiesProvider.DECIMAL_MAPPING;
+import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_MAPPING;
 import static java.math.RoundingMode.UNNECESSARY;
 
 public class DecimalConfig
@@ -31,7 +31,8 @@ public class DecimalConfig
     private int decimalDefaultScale;
     private RoundingMode decimalRoundingMode = UNNECESSARY;
 
-    public enum DecimalMapping {
+    public enum DecimalMapping
+    {
         STRICT,
         ALLOW_OVERFLOW,
         /**/;

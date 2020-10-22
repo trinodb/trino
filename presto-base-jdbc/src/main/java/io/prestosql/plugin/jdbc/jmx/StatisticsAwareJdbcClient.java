@@ -16,12 +16,15 @@ package io.prestosql.plugin.jdbc.jmx;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
+import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.RemoteTableName;
 import io.prestosql.plugin.jdbc.WriteMapping;
+import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -39,6 +42,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -104,9 +108,27 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public List<ColumnMapping> getColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles)
+    {
+        return stats.getGetColumnMappings().wrap(() -> delegate.getColumnMappings(session, typeHandles));
+    }
+
+    @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         return stats.getToWriteMapping().wrap(() -> delegate().toWriteMapping(session, type));
+    }
+
+    @Override
+    public boolean supportsGroupingSets()
+    {
+        return delegate().supportsGroupingSets();
+    }
+
+    @Override
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        return stats.getImplementAggregation().wrap(() -> delegate().implementAggregation(session, aggregate, assignments));
     }
 
     @Override
@@ -134,6 +156,12 @@ public final class StatisticsAwareJdbcClient
             throws SQLException
     {
         return stats.getBuildSql().wrap(() -> delegate().buildSql(session, connection, split, tableHandle, columnHandles));
+    }
+
+    @Override
+    public void setColumnComment(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        stats.getSetColumnComment().wrap(() -> delegate().setColumnComment(identity, handle, column, comment));
     }
 
     @Override
@@ -235,9 +263,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public boolean isLimitGuaranteed()
+    public boolean isLimitGuaranteed(ConnectorSession session)
     {
-        return delegate().isLimitGuaranteed();
+        return delegate().isLimitGuaranteed(session);
     }
 
     @Override
@@ -256,5 +284,23 @@ public final class StatisticsAwareJdbcClient
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         return delegate().getSystemTable(session, tableName);
+    }
+
+    @Override
+    public String quoted(String name)
+    {
+        return delegate().quoted(name);
+    }
+
+    @Override
+    public String quoted(RemoteTableName remoteTableName)
+    {
+        return delegate().quoted(remoteTableName);
+    }
+
+    @Override
+    public Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle tableHandle)
+    {
+        return delegate().getTableProperties(identity, tableHandle);
     }
 }

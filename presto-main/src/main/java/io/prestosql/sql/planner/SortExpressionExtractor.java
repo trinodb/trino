@@ -118,7 +118,7 @@ public final class SortExpressionExtractor
                 case LESS_THAN_OR_EQUAL:
                     Optional<SymbolReference> sortChannel = asBuildSymbolReference(buildSymbols, comparison.getRight());
                     boolean hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.getLeft());
-                    if (!sortChannel.isPresent()) {
+                    if (sortChannel.isEmpty()) {
                         sortChannel = asBuildSymbolReference(buildSymbols, comparison.getLeft());
                         hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.getRight());
                     }

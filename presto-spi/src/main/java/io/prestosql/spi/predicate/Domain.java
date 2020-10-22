@@ -24,7 +24,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static java.lang.String.format;
-import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -42,6 +41,8 @@ import static java.util.Objects.requireNonNull;
  */
 public final class Domain
 {
+    public static final int DEFAULT_COMPACTION_THRESHOLD = 32;
+
     private final ValueSet values;
     private final boolean nullAllowed;
 
@@ -181,14 +182,17 @@ public final class Domain
         }
 
         return new DiscreteSet(
-                values.isNone() ? unmodifiableList(new ArrayList<>()) : values.getDiscreteSet(),
+                values.isNone() ? List.of() : values.getDiscreteSet(),
                 nullAllowed);
     }
 
     public boolean overlaps(Domain other)
     {
         checkCompatibility(other);
-        return !this.intersect(other).isNone();
+        if (this.isNullAllowed() && other.isNullAllowed()) {
+            return true;
+        }
+        return values.overlaps(other.getValues());
     }
 
     public boolean contains(Domain other)
@@ -276,12 +280,12 @@ public final class Domain
      */
     public Domain simplify()
     {
-        return simplify(32);
+        return simplify(DEFAULT_COMPACTION_THRESHOLD);
     }
 
     public Domain simplify(int threshold)
     {
-        ValueSet simplifiedValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
+        Optional<ValueSet> simplifiedValueSet = values.getValuesProcessor().transform(
                 ranges -> {
                     if (ranges.getRangeCount() <= threshold) {
                         return Optional.empty();
@@ -294,9 +298,17 @@ public final class Domain
                     }
                     return Optional.of(ValueSet.all(values.getType()));
                 },
-                allOrNone -> Optional.empty())
-                .orElse(values);
-        return Domain.create(simplifiedValueSet, nullAllowed);
+                allOrNone -> Optional.empty());
+        if (simplifiedValueSet.isEmpty()) {
+            return this;
+        }
+        return Domain.create(simplifiedValueSet.get(), nullAllowed);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "[ " + (nullAllowed ? "NULL, " : "") + values.toString() + " ]";
     }
 
     public String toString(ConnectorSession session)

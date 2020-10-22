@@ -17,10 +17,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.operator.PagesIndex;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
@@ -36,8 +37,6 @@ public final class InternalAggregationFunction
     private final List<Type> intermediateType;
     private final Type finalType;
     private final List<Class<?>> lambdaInterfaces;
-    private final boolean decomposable;
-    private final boolean orderSensitive;
     private final AccumulatorFactoryBinder factory;
 
     public InternalAggregationFunction(
@@ -45,8 +44,6 @@ public final class InternalAggregationFunction
             List<Type> parameterTypes,
             List<Type> intermediateType,
             Type finalType,
-            boolean decomposable,
-            boolean orderSensitive,
             AccumulatorFactoryBinder factory)
     {
         this(
@@ -54,8 +51,6 @@ public final class InternalAggregationFunction
                 parameterTypes,
                 intermediateType,
                 finalType,
-                decomposable,
-                orderSensitive,
                 factory,
                 ImmutableList.of());
     }
@@ -65,8 +60,6 @@ public final class InternalAggregationFunction
             List<Type> parameterTypes,
             List<Type> intermediateType,
             Type finalType,
-            boolean decomposable,
-            boolean orderSensitive,
             AccumulatorFactoryBinder factory,
             List<Class<?>> lambdaInterfaces)
     {
@@ -75,8 +68,6 @@ public final class InternalAggregationFunction
         this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "parameterTypes is null"));
         this.intermediateType = requireNonNull(intermediateType, "intermediateType is null");
         this.finalType = requireNonNull(finalType, "finalType is null");
-        this.decomposable = decomposable;
-        this.orderSensitive = orderSensitive;
         this.factory = requireNonNull(factory, "factory is null");
         this.lambdaInterfaces = ImmutableList.copyOf(lambdaInterfaces);
     }
@@ -111,22 +102,6 @@ public final class InternalAggregationFunction
         return lambdaInterfaces;
     }
 
-    /**
-     * Indicates that the aggregation can be decomposed, and run as partial aggregations followed by a final aggregation to combine the intermediate results
-     */
-    public boolean isDecomposable()
-    {
-        return decomposable;
-    }
-
-    /**
-     * Indicates that the aggregation is sensitive to input order
-     */
-    public boolean isOrderSensitive()
-    {
-        return orderSensitive;
-    }
-
     public AccumulatorFactory bind(List<Integer> inputChannels, Optional<Integer> maskChannel)
     {
         return factory.bind(
@@ -137,6 +112,7 @@ public final class InternalAggregationFunction
                 ImmutableList.of(),
                 null,
                 false,
+                null,
                 null,
                 ImmutableList.of(),
                 null);
@@ -151,10 +127,11 @@ public final class InternalAggregationFunction
             PagesIndex.Factory pagesIndexFactory,
             boolean distinct,
             JoinCompiler joinCompiler,
+            BlockTypeOperators blockTypeOperators,
             List<LambdaProvider> lambdaProviders,
             Session session)
     {
-        return factory.bind(inputChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory, distinct, joinCompiler, lambdaProviders, session);
+        return factory.bind(inputChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory, distinct, joinCompiler, blockTypeOperators, lambdaProviders, session);
     }
 
     @VisibleForTesting

@@ -15,13 +15,10 @@ package io.prestosql.spi.statistics;
 
 import io.prestosql.spi.block.Block;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static java.util.Collections.unmodifiableList;
-import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public class ComputedStatistics
@@ -37,16 +34,16 @@ public class ComputedStatistics
             Map<TableStatisticType, Block> tableStatistics,
             Map<ColumnStatisticMetadata, Block> columnStatistics)
     {
-        this.groupingColumns = unmodifiableList(new ArrayList<>(requireNonNull(groupingColumns, "groupingColumns is null")));
-        this.groupingValues = unmodifiableList(new ArrayList<>(requireNonNull(groupingValues, "groupingValues is null")));
+        this.groupingColumns = List.copyOf(requireNonNull(groupingColumns, "groupingColumns is null"));
+        this.groupingValues = List.copyOf(requireNonNull(groupingValues, "groupingValues is null"));
         if (!groupingValues.stream().allMatch(ComputedStatistics::isSingleValueBlock)) {
             throw new IllegalArgumentException("grouping value blocks are expected to be single value blocks");
         }
-        this.tableStatistics = unmodifiableMap(new HashMap<>(requireNonNull(tableStatistics, "tableStatistics is null")));
+        this.tableStatistics = Map.copyOf(requireNonNull(tableStatistics, "tableStatistics is null"));
         if (!tableStatistics.values().stream().allMatch(ComputedStatistics::isSingleValueBlock)) {
             throw new IllegalArgumentException("computed table statistics blocks are expected to be single value blocks");
         }
-        this.columnStatistics = unmodifiableMap(new HashMap<>(requireNonNull(columnStatistics, "columnStatistics is null")));
+        this.columnStatistics = Map.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
         if (!columnStatistics.values().stream().allMatch(ComputedStatistics::isSingleValueBlock)) {
             throw new IllegalArgumentException("computed column statistics blocks are expected to be single value blocks");
         }

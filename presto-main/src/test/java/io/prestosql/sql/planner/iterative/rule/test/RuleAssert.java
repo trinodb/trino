@@ -180,7 +180,7 @@ public class RuleAssert
                 .collect(toOptional());
 
         Rule.Result result;
-        if (!rule.isEnabled(context.getSession()) || !match.isPresent()) {
+        if (!rule.isEnabled(context.getSession()) || match.isEmpty()) {
             result = Rule.Result.empty();
         }
         else {

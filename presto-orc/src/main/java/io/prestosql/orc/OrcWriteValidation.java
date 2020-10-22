@@ -34,24 +34,26 @@ import io.prestosql.orc.metadata.statistics.DoubleStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.IntegerStatistics;
 import io.prestosql.orc.metadata.statistics.IntegerStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.LongDecimalStatisticsBuilder;
+import io.prestosql.orc.metadata.statistics.NoOpBloomFilterBuilder;
 import io.prestosql.orc.metadata.statistics.ShortDecimalStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.StatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.StatisticsHasher;
 import io.prestosql.orc.metadata.statistics.StringStatistics;
 import io.prestosql.orc.metadata.statistics.StringStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.StripeStatistics;
+import io.prestosql.orc.metadata.statistics.TimestampStatisticsBuilder;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.ColumnarMap;
 import io.prestosql.spi.block.ColumnarRow;
-import io.prestosql.spi.type.AbstractLongType;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.LongTimestamp;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import org.openjdk.jol.info.ClassLayout;
@@ -85,14 +87,22 @@ import static io.prestosql.spi.block.ColumnarArray.toColumnarArray;
 import static io.prestosql.spi.block.ColumnarMap.toColumnarMap;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -197,13 +207,13 @@ public class OrcWriteValidation
             throws OrcCorruptionException
     {
         // file stats will be absent when no rows are written
-        if (!fileStatistics.isPresent()) {
+        if (fileStatistics.isEmpty()) {
             if (actualFileStatistics.isPresent()) {
                 throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected file statistics");
             }
             return;
         }
-        if (!actualFileStatistics.isPresent()) {
+        if (actualFileStatistics.isEmpty()) {
             throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: expected file statistics");
         }
 
@@ -452,9 +462,7 @@ public class OrcWriteValidation
 
     public static class WriteChecksumBuilder
     {
-        private static final long NULL_HASH_CODE = 0x6e3efbd56c16a0cbL;
-
-        private final List<Type> types;
+        private final List<ValidationHash> validationHashes;
         private long totalRowCount;
         private final List<XxHash64> columnHashes;
         private final XxHash64 stripeHash = new XxHash64();
@@ -464,7 +472,9 @@ public class OrcWriteValidation
 
         private WriteChecksumBuilder(List<Type> types)
         {
-            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.validationHashes = requireNonNull(types, "types is null").stream()
+                    .map(ValidationHash::createValidationHash)
+                    .collect(toImmutableList());
 
             ImmutableList.Builder<XxHash64> columnHashes = ImmutableList.builder();
             for (Type ignored : types) {
@@ -491,69 +501,16 @@ public class OrcWriteValidation
             checkArgument(page.getChannelCount() == columnHashes.size(), "invalid page");
 
             for (int channel = 0; channel < columnHashes.size(); channel++) {
-                Type type = types.get(channel);
+                ValidationHash validationHash = validationHashes.get(channel);
                 Block block = page.getBlock(channel);
                 XxHash64 xxHash64 = columnHashes.get(channel);
                 for (int position = 0; position < block.getPositionCount(); position++) {
-                    long hash = hashPositionSkipNullMapKeys(type, block, position);
+                    long hash = validationHash.hash(block, position);
                     longSlice.setLong(0, hash);
                     xxHash64.update(longBuffer);
                 }
             }
             totalRowCount += page.getPositionCount();
-        }
-
-        private static long hashPositionSkipNullMapKeys(Type type, Block block, int position)
-        {
-            if (block.isNull(position)) {
-                return NULL_HASH_CODE;
-            }
-
-            if (type instanceof MapType) {
-                Type keyType = type.getTypeParameters().get(0);
-                Type valueType = type.getTypeParameters().get(1);
-                Block mapBlock = (Block) type.getObject(block, position);
-                long hash = 0;
-                for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-                    if (!mapBlock.isNull(i)) {
-                        hash += hashPositionSkipNullMapKeys(keyType, mapBlock, i);
-                        hash += hashPositionSkipNullMapKeys(valueType, mapBlock, i + 1);
-                    }
-                }
-                return hash;
-            }
-
-            if (type instanceof ArrayType) {
-                Type elementType = type.getTypeParameters().get(0);
-                Block array = (Block) type.getObject(block, position);
-                long hash = 0;
-                for (int i = 0; i < array.getPositionCount(); i++) {
-                    hash = 31 * hash + hashPositionSkipNullMapKeys(elementType, array, i);
-                }
-                return hash;
-            }
-
-            if (type instanceof RowType) {
-                Block row = (Block) type.getObject(block, position);
-                long hash = 0;
-                for (int i = 0; i < row.getPositionCount(); i++) {
-                    Type elementType = type.getTypeParameters().get(i);
-                    hash = 31 * hash + hashPositionSkipNullMapKeys(elementType, row, i);
-                }
-                return hash;
-            }
-
-            if (type instanceof TimestampType) {
-                // A flaw in ORC encoding makes it impossible to represent timestamp
-                // between 1969-12-31 23:59:59.000, exclusive, and 1970-01-01 00:00:00.000, exclusive.
-                // Therefore, such data won't round trip. The data read back is expected to be 1 second later than the original value.
-                long mills = TIMESTAMP.getLong(block, position);
-                if (mills > -1000 && mills < 0) {
-                    return AbstractLongType.hash(mills + 1000);
-                }
-            }
-
-            return type.hash(block, position);
         }
 
         public WriteChecksum build()
@@ -603,7 +560,7 @@ public class OrcWriteValidation
                 return Optional.empty();
             }
             ImmutableList.Builder<ColumnStatistics> statisticsBuilders = ImmutableList.builder();
-            statisticsBuilders.add(new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null));
+            statisticsBuilders.add(new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null, null));
             columnStatisticsValidations.forEach(validation -> validation.build(statisticsBuilders));
             return Optional.of(new ColumnMetadata<>(statisticsBuilders.build()));
         }
@@ -631,37 +588,37 @@ public class OrcWriteValidation
                 fieldBuilders = ImmutableList.of();
             }
             else if (SMALLINT.equals(type)) {
-                statisticsBuilder = new IntegerStatisticsBuilder();
+                statisticsBuilder = new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (INTEGER.equals(type)) {
-                statisticsBuilder = new IntegerStatisticsBuilder();
+                statisticsBuilder = new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (BIGINT.equals(type)) {
-                statisticsBuilder = new IntegerStatisticsBuilder();
+                statisticsBuilder = new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (DOUBLE.equals(type)) {
-                statisticsBuilder = new DoubleStatisticsBuilder();
+                statisticsBuilder = new DoubleStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (REAL.equals(type)) {
-                statisticsBuilder = new DoubleStatisticsBuilder();
+                statisticsBuilder = new DoubleStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (type instanceof VarcharType) {
-                statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes);
+                statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes, new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
             else if (type instanceof CharType) {
-                statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes);
+                statisticsBuilder = new StringStatisticsBuilder(stringStatisticsLimitInBytes, new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
@@ -671,12 +628,27 @@ public class OrcWriteValidation
                 fieldBuilders = ImmutableList.of();
             }
             else if (DATE.equals(type)) {
-                statisticsBuilder = new DateStatisticsBuilder();
+                statisticsBuilder = new DateStatisticsBuilder(new NoOpBloomFilterBuilder());
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (TIMESTAMP.equals(type)) {
-                statisticsBuilder = new CountStatisticsBuilder();
+            else if (TIMESTAMP_MILLIS.equals(type) || TIMESTAMP_MICROS.equals(type)) {
+                statisticsBuilder = new TimestampStatisticsBuilder(this::timestampMicrosToMillis);
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (TIMESTAMP_NANOS.equals(type)) {
+                statisticsBuilder = new TimestampStatisticsBuilder(this::timestampNanosToMillis);
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
+                statisticsBuilder = new TimestampStatisticsBuilder(this::timestampTzShortToMillis);
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (TIMESTAMP_TZ_MICROS.equals(type) || TIMESTAMP_TZ_NANOS.equals(type)) {
+                statisticsBuilder = new TimestampStatisticsBuilder(this::timestampTzLongToMillis);
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
@@ -725,6 +697,26 @@ public class OrcWriteValidation
             }
         }
 
+        private long timestampMicrosToMillis(Type blockType, Block block, int position)
+        {
+            return floorDiv(blockType.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
+        }
+
+        private long timestampNanosToMillis(Type blockType, Block block, int position)
+        {
+            return floorDiv(((LongTimestamp) blockType.getObject(block, position)).getEpochMicros(), MICROSECONDS_PER_MILLISECOND);
+        }
+
+        private long timestampTzShortToMillis(Type blockType, Block block, int position)
+        {
+            return unpackMillisUtc(blockType.getLong(block, position));
+        }
+
+        private long timestampTzLongToMillis(Type blockType, Block block, int position)
+        {
+            return ((LongTimestampWithTimeZone) blockType.getObject(block, position)).getEpochMillis();
+        }
+
         private void addBlock(Block block)
         {
             statisticsBuilder.addBlock(type, block);
@@ -760,7 +752,7 @@ public class OrcWriteValidation
         @Override
         public ColumnStatistics buildColumnStatistics()
         {
-            return new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null);
+            return new ColumnStatistics(rowCount, 0, null, null, null, null, null, null, null, null, null);
         }
     }
 

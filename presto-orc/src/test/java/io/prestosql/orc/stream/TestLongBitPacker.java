@@ -31,7 +31,7 @@ public class TestLongBitPacker
 
     @Test
     public void testBasic()
-            throws Throwable
+            throws Exception
     {
         LongBitPacker packer = new LongBitPacker();
         for (int length = 0; length < LENGTHS; length++) {

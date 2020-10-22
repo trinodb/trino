@@ -14,12 +14,9 @@
 package io.prestosql.spi.connector;
 
 import io.prestosql.spi.expression.ConnectorExpression;
-import io.prestosql.spi.type.Type;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public class ProjectionApplicationResult<T>
@@ -30,13 +27,9 @@ public class ProjectionApplicationResult<T>
 
     public ProjectionApplicationResult(T handle, List<ConnectorExpression> projections, List<Assignment> assignments)
     {
-        requireNonNull(projections, "projections is null");
-        requireNonNull(assignments, "assignments is null");
-
         this.handle = requireNonNull(handle, "handle is null");
-
-        this.projections = unmodifiableList(new ArrayList<>(projections));
-        this.assignments = unmodifiableList(new ArrayList<>(assignments));
+        this.projections = List.copyOf(requireNonNull(projections, "projections is null"));
+        this.assignments = List.copyOf(requireNonNull(assignments, "assignments is null"));
     }
 
     public T getHandle()
@@ -52,34 +45,5 @@ public class ProjectionApplicationResult<T>
     public List<Assignment> getAssignments()
     {
         return assignments;
-    }
-
-    public static class Assignment
-    {
-        private final String variable;
-        private final ColumnHandle column;
-        private final Type type;
-
-        public Assignment(String variable, ColumnHandle column, Type type)
-        {
-            this.variable = requireNonNull(variable, "variable is null");
-            this.column = requireNonNull(column, "column is null");
-            this.type = requireNonNull(type, "type is null");
-        }
-
-        public String getVariable()
-        {
-            return variable;
-        }
-
-        public ColumnHandle getColumn()
-        {
-            return column;
-        }
-
-        public Type getType()
-        {
-            return type;
-        }
     }
 }

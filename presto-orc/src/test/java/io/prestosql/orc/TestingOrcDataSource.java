@@ -65,9 +65,22 @@ class TestingOrcDataSource
     }
 
     @Override
-    public long getSize()
+    public long getEstimatedSize()
     {
-        return delegate.getSize();
+        return delegate.getEstimatedSize();
+    }
+
+    @Override
+    public Slice readTail(int length)
+            throws IOException
+    {
+        return readFully(delegate.getEstimatedSize() - length, length);
+    }
+
+    @Override
+    public long getRetainedSize()
+    {
+        return 0;
     }
 
     @Override

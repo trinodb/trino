@@ -21,6 +21,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.type.TimeZoneKey;
 
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -39,7 +40,6 @@ public class FullConnectorSession
     private final CatalogName catalogName;
     private final String catalog;
     private final SessionPropertyManager sessionPropertyManager;
-    private final boolean isLegacyTimestamp;
 
     public FullConnectorSession(Session session, ConnectorIdentity identity)
     {
@@ -49,7 +49,6 @@ public class FullConnectorSession
         this.catalogName = null;
         this.catalog = null;
         this.sessionPropertyManager = null;
-        this.isLegacyTimestamp = SystemSessionProperties.isLegacyTimestamp(session);
     }
 
     public FullConnectorSession(
@@ -66,7 +65,6 @@ public class FullConnectorSession
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        this.isLegacyTimestamp = SystemSessionProperties.isLegacyTimestamp(session);
     }
 
     public Session getSession()
@@ -105,21 +103,15 @@ public class FullConnectorSession
     }
 
     @Override
-    public long getStartTime()
+    public Instant getStart()
     {
-        return session.getStartTime();
+        return session.getStart();
     }
 
     @Override
     public Optional<String> getTraceToken()
     {
         return session.getTraceToken();
-    }
-
-    @Override
-    public boolean isLegacyTimestamp()
-    {
-        return isLegacyTimestamp;
     }
 
     @Override
@@ -142,7 +134,7 @@ public class FullConnectorSession
                 .add("traceToken", getTraceToken().orElse(null))
                 .add("timeZoneKey", getTimeZoneKey())
                 .add("locale", getLocale())
-                .add("startTime", getStartTime())
+                .add("start", getStart())
                 .add("properties", properties)
                 .omitNullValues()
                 .toString();

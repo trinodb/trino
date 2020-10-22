@@ -21,12 +21,14 @@ import io.prestosql.operator.HashAggregationOperator.HashAggregationOperatorFact
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spiller.SpillerFactory;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.testing.TestingTaskContext;
+import io.prestosql.type.BlockTypeOperators;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -80,6 +82,9 @@ import static org.testng.Assert.assertEquals;
 public class BenchmarkHashAndStreamingAggregationOperators
 {
     private static final Metadata metadata = createTestMetadataManager();
+    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
+    private static final BlockTypeOperators BLOCK_TYPE_OPERATORS = new BlockTypeOperators(TYPE_OPERATORS);
+    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
 
     private static final InternalAggregationFunction LONG_SUM = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(BIGINT)));
     private static final InternalAggregationFunction COUNT = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of()));
@@ -104,8 +109,8 @@ public class BenchmarkHashAndStreamingAggregationOperators
         @Setup
         public void setup()
         {
-            executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+            executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
 
             int groupsPerPage = ROWS_PER_PAGE / rowsPerGroup;
 
@@ -149,12 +154,11 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     AggregationNode.Step.SINGLE,
                     ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
                             LONG_SUM.bind(ImmutableList.of(1), Optional.empty())),
-                    new JoinCompiler(createTestMetadataManager()));
+                    JOIN_COMPILER);
         }
 
         private OperatorFactory createHashAggregationOperatorFactory(Optional<Integer> hashChannel)
         {
-            JoinCompiler joinCompiler = new JoinCompiler(createTestMetadataManager());
             SpillerFactory spillerFactory = (types, localSpillContext, aggregatedMemoryContext) -> null;
 
             return new HashAggregationOperatorFactory(
@@ -175,7 +179,8 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     succinctBytes(8),
                     succinctBytes(Integer.MAX_VALUE),
                     spillerFactory,
-                    joinCompiler,
+                    JOIN_COMPILER,
+                    BLOCK_TYPE_OPERATORS,
                     false);
         }
 

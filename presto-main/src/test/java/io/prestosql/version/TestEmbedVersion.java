@@ -13,7 +13,6 @@
  */
 package io.prestosql.version;
 
-import io.prestosql.server.ServerConfig;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -32,7 +31,7 @@ public class TestEmbedVersion
     @BeforeClass
     public void setUp()
     {
-        embedVersion = new EmbedVersion(new ServerConfig().setPrestoVersion("123-some-test-version"));
+        embedVersion = new EmbedVersion("123-some-test-version");
     }
 
     @AfterClass(alwaysRun = true)
@@ -54,7 +53,7 @@ public class TestEmbedVersion
                 }).run())
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Zonky zonk")
-                .hasStackTraceContaining("at io.prestosql.$gen.Presto_null__123_some_test_version____");
+                .hasStackTraceContaining("at io.prestosql.$gen.Presto_123_some_test_version____");
     }
 
     @Test
@@ -74,7 +73,7 @@ public class TestEmbedVersion
                 }).call())
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Zonky zonk")
-                .hasStackTraceContaining("at io.prestosql.$gen.Presto_null__123_some_test_version____")
+                .hasStackTraceContaining("at io.prestosql.$gen.Presto_123_some_test_version____")
                 .hasNoCause();
 
         assertThatThrownBy(() ->
@@ -83,7 +82,7 @@ public class TestEmbedVersion
                 }).call())
                 .isInstanceOf(IOException.class)
                 .hasMessage("a checked exception")
-                .hasStackTraceContaining("at io.prestosql.$gen.Presto_null__123_some_test_version____")
+                .hasStackTraceContaining("at io.prestosql.$gen.Presto_123_some_test_version____")
                 .hasNoCause();
     }
 }

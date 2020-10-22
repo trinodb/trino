@@ -81,11 +81,11 @@ public class TableDeleteOptimizer
         public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Void> context)
         {
             Optional<DeleteNode> delete = findNode(node.getSource(), DeleteNode.class);
-            if (!delete.isPresent()) {
+            if (delete.isEmpty()) {
                 return context.defaultRewrite(node);
             }
             Optional<TableScanNode> tableScan = findNode(delete.get().getSource(), TableScanNode.class);
-            if (!tableScan.isPresent()) {
+            if (tableScan.isEmpty()) {
                 return context.defaultRewrite(node);
             }
             TableScanNode tableScanNode = tableScan.get();

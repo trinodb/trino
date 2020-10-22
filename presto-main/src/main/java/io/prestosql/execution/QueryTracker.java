@@ -226,7 +226,7 @@ public class QueryTracker<T extends TrackedQuery>
             // expirationQueue is FIFO based on query end time. Stop when we see the
             // first query that's too young to expire
             Optional<DateTime> endTime = query.getEndTime();
-            if (!endTime.isPresent()) {
+            if (endTime.isEmpty()) {
                 // this shouldn't happen but it is better to be safe here
                 continue;
             }

@@ -20,6 +20,8 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionXxHash64;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.wrappedLongArray;
@@ -44,6 +46,7 @@ import static java.util.Arrays.asList;
 public class TestChecksumAggregation
 {
     private static final Metadata metadata = createTestMetadataManager();
+    private static BlockTypeOperators blockTypeOperators = new BlockTypeOperators();
 
     @Test
     public void testEmpty()
@@ -116,13 +119,14 @@ public class TestChecksumAggregation
 
     private static SqlVarbinary expectedChecksum(Type type, Block block)
     {
+        BlockPositionXxHash64 xxHash64Operator = blockTypeOperators.getXxHash64Operator(type);
         long result = 0;
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (block.isNull(i)) {
                 result += PRIME64;
             }
             else {
-                result += type.hash(block, i) * PRIME64;
+                result += xxHash64Operator.xxHash64(block, i) * PRIME64;
             }
         }
         return new SqlVarbinary(wrappedLongArray(result).getBytes());

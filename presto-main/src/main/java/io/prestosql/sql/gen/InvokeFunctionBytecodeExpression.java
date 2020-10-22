@@ -17,14 +17,16 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodGenerationContext;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.metadata.FunctionInvoker;
+import io.prestosql.metadata.FunctionMetadata;
+import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.ParameterizedType.type;
@@ -34,22 +36,24 @@ import static java.util.Objects.requireNonNull;
 public class InvokeFunctionBytecodeExpression
         extends BytecodeExpression
 {
-    public static BytecodeExpression invokeFunction(Scope scope, CachedInstanceBinder cachedInstanceBinder, String name, ScalarFunctionImplementation function, BytecodeExpression... parameters)
-    {
-        return invokeFunction(scope, cachedInstanceBinder, name, function, ImmutableList.copyOf(parameters));
-    }
-
-    public static BytecodeExpression invokeFunction(Scope scope, CachedInstanceBinder cachedInstanceBinder, String name, ScalarFunctionImplementation function, List<BytecodeExpression> parameters)
+    public static BytecodeExpression invokeFunction(Scope scope,
+            CachedInstanceBinder cachedInstanceBinder,
+            Type type,
+            FunctionMetadata functionMetadata,
+            Function<InvocationConvention, FunctionInvoker> functionInvokerProvider,
+            BytecodeExpression... parameters)
     {
         requireNonNull(scope, "scope is null");
-        requireNonNull(function, "function is null");
+        requireNonNull(functionMetadata, "functionMetadata is null");
+        requireNonNull(functionInvokerProvider, "functionInvokerProvider is null");
 
-        Optional<BytecodeNode> instance = Optional.empty();
-        if (function.getInstanceFactory().isPresent()) {
-            FieldDefinition field = cachedInstanceBinder.getCachedInstance(function.getInstanceFactory().get());
-            instance = Optional.of(scope.getThis().getField(field));
-        }
-        return new InvokeFunctionBytecodeExpression(scope, cachedInstanceBinder.getCallSiteBinder(), name, function, instance, parameters);
+        return new InvokeFunctionBytecodeExpression(
+                scope,
+                cachedInstanceBinder.getCallSiteBinder(),
+                type,
+                functionMetadata,
+                functionInvokerProvider,
+                ImmutableList.copyOf(parameters));
     }
 
     private final BytecodeNode invocation;
@@ -58,15 +62,15 @@ public class InvokeFunctionBytecodeExpression
     private InvokeFunctionBytecodeExpression(
             Scope scope,
             CallSiteBinder binder,
-            String name,
-            ScalarFunctionImplementation function,
-            Optional<BytecodeNode> instance,
+            Type type,
+            FunctionMetadata functionMetadata,
+            Function<InvocationConvention, FunctionInvoker> functionInvokerProvider,
             List<BytecodeExpression> parameters)
     {
-        super(type(Primitives.unwrap(function.getMethodHandle().type().returnType())));
+        super(type(Primitives.unwrap(type.getJavaType())));
 
-        this.invocation = generateInvocation(scope, name, function, instance, parameters.stream().map(BytecodeNode.class::cast).collect(toImmutableList()), binder);
-        this.oneLineDescription = name + "(" + Joiner.on(", ").join(parameters) + ")";
+        this.invocation = generateInvocation(scope, functionMetadata, functionInvokerProvider, parameters.stream().map(BytecodeNode.class::cast).collect(toImmutableList()), binder);
+        this.oneLineDescription = functionMetadata.getSignature().getName() + "(" + Joiner.on(", ").join(parameters) + ")";
     }
 
     @Override

@@ -90,7 +90,7 @@ public class TpchIndexedData
         return Optional.ofNullable(indexedTables.get(indexColumns));
     }
 
-    private static <T> List<T> extractPositionValues(final List<T> values, List<Integer> positions)
+    private static <T> List<T> extractPositionValues(List<T> values, List<Integer> positions)
     {
         return Lists.transform(positions, position -> {
             checkPositionIndex(position, values.size());
@@ -98,7 +98,7 @@ public class TpchIndexedData
         });
     }
 
-    private static IndexedTable indexTable(RecordSet recordSet, final List<String> outputColumns, List<String> keyColumns)
+    private static IndexedTable indexTable(RecordSet recordSet, List<String> outputColumns, List<String> keyColumns)
     {
         List<Integer> keyPositions = keyColumns.stream()
                 .map(columnName -> {
@@ -203,9 +203,9 @@ public class TpchIndexedData
             return new MaterializedTupleRecordSet(keyToValues.get(tupleKey), outputTypes);
         }
 
-        private static Iterable<MaterializedTuple> tupleIterable(final RecordSet recordSet)
+        private static Iterable<MaterializedTuple> tupleIterable(RecordSet recordSet)
         {
-            return () -> new AbstractIterator<MaterializedTuple>()
+            return () -> new AbstractIterator<>()
             {
                 private final RecordCursor cursor = recordSet.cursor();
 
@@ -247,7 +247,7 @@ public class TpchIndexedData
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-            final TpchScaledColumn other = (TpchScaledColumn) obj;
+            TpchScaledColumn other = (TpchScaledColumn) obj;
             return Objects.equals(this.table, other.table) && Objects.equals(this.columnName, other.columnName);
         }
     }

@@ -15,29 +15,38 @@ package io.prestosql.metadata;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.connector.AggregateFunction;
+import io.prestosql.spi.connector.AggregationApplicationResult;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorCapabilities;
+import io.prestosql.spi.connector.ConnectorMaterializedViewDefinition;
 import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
+import io.prestosql.spi.connector.MaterializedViewFreshness;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SampleType;
+import io.prestosql.spi.connector.SortItem;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.connector.TopNApplicationResult;
 import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
@@ -74,6 +83,8 @@ public abstract class AbstractMockMetadata
     {
         return new AbstractMockMetadata() {};
     }
+
+    private final ResolvedFunctionDecoder functionDecoder = new ResolvedFunctionDecoder(this::getType);
 
     @Override
     public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName)
@@ -226,6 +237,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
         throw new UnsupportedOperationException();
@@ -322,6 +339,23 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+            Session session,
+            InsertTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<TableHandle> sourceTableHandles)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
@@ -388,6 +422,18 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Map<String, Object> getSchemaProperties(Session session, CatalogSchemaName schemaName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<PrestoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void createView(Session session, QualifiedObjectName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         throw new UnsupportedOperationException();
@@ -431,6 +477,17 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<AggregationApplicationResult<TableHandle>> applyAggregation(
+            Session session,
+            TableHandle table,
+            List<AggregateFunction> aggregations,
+            Map<String, ColumnHandle> assignments,
+            List<List<ColumnHandle>> groupingSets)
     {
         return Optional.empty();
     }
@@ -482,6 +539,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Set<RoleGrant> listAllRoleGrants(Session session, String catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal)
     {
         throw new UnsupportedOperationException();
@@ -528,7 +591,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void verifyComparableOrderableContract()
+    public void verifyTypes()
     {
         throw new UnsupportedOperationException();
     }
@@ -562,9 +625,10 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public FunctionInvokerProvider getFunctionInvokerProvider()
+    public ResolvedFunction decodeFunction(QualifiedName name)
     {
-        throw new UnsupportedOperationException();
+        return functionDecoder.fromQualifiedName(name)
+                .orElseThrow(() -> new IllegalArgumentException("Function is not resolved: " + name));
     }
 
     @Override
@@ -572,8 +636,8 @@ public abstract class AbstractMockMetadata
     {
         String nameSuffix = name.getSuffix();
         if (nameSuffix.equals("rand") && parameterTypes.isEmpty()) {
-            Signature boundSignature = new Signature(nameSuffix, DOUBLE.getTypeSignature(), ImmutableList.of());
-            return new ResolvedFunction(boundSignature, toFunctionId(boundSignature));
+            BoundSignature boundSignature = new BoundSignature(nameSuffix, DOUBLE, ImmutableList.of());
+            return new ResolvedFunction(boundSignature, toFunctionId(boundSignature.toSignature()), ImmutableMap.of(), ImmutableSet.of());
         }
         throw new PrestoException(FUNCTION_NOT_FOUND, name + "(" + Joiner.on(", ").join(parameterTypes) + ")");
     }
@@ -606,9 +670,9 @@ public abstract class AbstractMockMetadata
     @Override
     public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
     {
-        Signature signature = resolvedFunction.getSignature();
+        BoundSignature signature = resolvedFunction.getSignature();
         if (signature.getName().equals("rand") && signature.getArgumentTypes().isEmpty()) {
-            return new FunctionMetadata(signature, false, ImmutableList.of(), false, false, "", SCALAR);
+            return new FunctionMetadata(signature.toSignature(), false, ImmutableList.of(), false, false, "", SCALAR);
         }
         throw new PrestoException(FUNCTION_NOT_FOUND, signature.toString());
     }
@@ -632,7 +696,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction)
+    public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention)
     {
         throw new UnsupportedOperationException();
     }
@@ -697,5 +761,35 @@ public abstract class AbstractMockMetadata
     public Optional<ProjectionApplicationResult<TableHandle>> applyProjection(Session session, TableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<TopNApplicationResult<TableHandle>> applyTopN(Session session, TableHandle handle, long topNFunctions, List<SortItem> sortItems, Map<String, ColumnHandle> assignments)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public void createMaterializedView(Session session, QualifiedObjectName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
     }
 }

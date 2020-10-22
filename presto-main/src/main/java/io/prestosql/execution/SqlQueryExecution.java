@@ -39,9 +39,11 @@ import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.ForScheduler;
 import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.DynamicFilterService;
 import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.split.SplitManager;
 import io.prestosql.split.SplitSource;
 import io.prestosql.sql.analyzer.Analysis;
@@ -79,11 +81,14 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.prestosql.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler;
+import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.sql.ParameterUtils.parameterExtractor;
 import static java.util.Objects.requireNonNull;
@@ -100,6 +105,7 @@ public class SqlQueryExecution
     private final QueryStateMachine stateMachine;
     private final Slug slug;
     private final Metadata metadata;
+    private final TypeOperators typeOperators;
     private final SqlParser sqlParser;
     private final SplitManager splitManager;
     private final NodePartitioningManager nodePartitioningManager;
@@ -107,7 +113,6 @@ public class SqlQueryExecution
     private final List<PlanOptimizer> planOptimizers;
     private final PlanFragmenter planFragmenter;
     private final RemoteTaskFactory remoteTaskFactory;
-    private final LocationFactory locationFactory;
     private final int scheduleSplitBatchSize;
     private final ExecutorService queryExecutor;
     private final ScheduledExecutorService schedulerExecutor;
@@ -121,13 +126,14 @@ public class SqlQueryExecution
     private final Analysis analysis;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
+    private final DynamicFilterService dynamicFilterService;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
             QueryStateMachine stateMachine,
             Slug slug,
             Metadata metadata,
-            AccessControl accessControl,
+            TypeOperators typeOperators, AccessControl accessControl,
             SqlParser sqlParser,
             SplitManager splitManager,
             NodePartitioningManager nodePartitioningManager,
@@ -135,7 +141,6 @@ public class SqlQueryExecution
             List<PlanOptimizer> planOptimizers,
             PlanFragmenter planFragmenter,
             RemoteTaskFactory remoteTaskFactory,
-            LocationFactory locationFactory,
             int scheduleSplitBatchSize,
             ExecutorService queryExecutor,
             ScheduledExecutorService schedulerExecutor,
@@ -146,18 +151,19 @@ public class SqlQueryExecution
             SplitSchedulerStats schedulerStats,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
+            DynamicFilterService dynamicFilterService,
             WarningCollector warningCollector)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
-            this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
             this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
@@ -166,6 +172,7 @@ public class SqlQueryExecution
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+            this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
@@ -174,6 +181,14 @@ public class SqlQueryExecution
 
             // analyze query
             this.analysis = analyze(preparedQuery, stateMachine, metadata, accessControl, sqlParser, queryExplainer, warningCollector);
+
+            stateMachine.addStateChangeListener(state -> {
+                if (!state.isDone()) {
+                    return;
+                }
+                unregisterDynamicFilteringQuery(
+                        dynamicFilterService.getDynamicFilteringStats(stateMachine.getQueryId(), stateMachine.getSession()));
+            });
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             AtomicReference<SqlQueryScheduler> queryScheduler = this.queryScheduler;
@@ -191,6 +206,31 @@ public class SqlQueryExecution
 
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
         }
+    }
+
+    private synchronized void registerDynamicFilteringQuery(PlanRoot plan)
+    {
+        if (!isEnableDynamicFiltering(stateMachine.getSession())) {
+            return;
+        }
+
+        if (isDone()) {
+            // query has finished or was cancelled asynchronously
+            return;
+        }
+
+        dynamicFilterService.registerQuery(this, plan.getRoot());
+        stateMachine.setDynamicFiltersStatsSupplier(
+                () -> dynamicFilterService.getDynamicFilteringStats(
+                        stateMachine.getQueryId(),
+                        stateMachine.getSession()));
+    }
+
+    private synchronized void unregisterDynamicFilteringQuery(DynamicFiltersStats finalDynamicFiltersStats)
+    {
+        checkState(isDone(), "Expected query to be in done state");
+        stateMachine.setDynamicFiltersStatsSupplier(() -> finalDynamicFiltersStats);
+        dynamicFilterService.removeQuery(stateMachine.getQueryId());
     }
 
     private Analysis analyze(
@@ -334,6 +374,9 @@ public class SqlQueryExecution
                 }
 
                 PlanRoot plan = planQuery();
+                // DynamicFilterService needs plan for query to be registered.
+                // Query should be registered before dynamic filter suppliers are requested in distribution planning.
+                registerDynamicFilteringQuery(plan);
                 planDistribution(plan);
 
                 if (!stateMachine.transitionToStarting()) {
@@ -389,7 +432,15 @@ public class SqlQueryExecution
     {
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, new TypeAnalyzer(sqlParser, metadata), statsCalculator, costCalculator, stateMachine.getWarningCollector());
+        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(),
+                planOptimizers,
+                idAllocator,
+                metadata,
+                typeOperators,
+                new TypeAnalyzer(sqlParser, metadata),
+                statsCalculator,
+                costCalculator,
+                stateMachine.getWarningCollector());
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
 
@@ -409,7 +460,7 @@ public class SqlQueryExecution
     private void planDistribution(PlanRoot plan)
     {
         // plan the execution on the active nodes
-        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager, metadata);
+        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager, metadata, dynamicFilterService);
         StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(plan.getRoot(), stateMachine.getSession());
 
         // ensure split sources are closed
@@ -435,7 +486,6 @@ public class SqlQueryExecution
         // build the stage execution objects (this doesn't schedule execution)
         SqlQueryScheduler scheduler = createSqlQueryScheduler(
                 stateMachine,
-                locationFactory,
                 outputStageExecutionPlan,
                 nodePartitioningManager,
                 nodeScheduler,
@@ -449,7 +499,8 @@ public class SqlQueryExecution
                 rootOutputBuffers,
                 nodeTaskMap,
                 executionPolicy,
-                schedulerStats);
+                schedulerStats,
+                dynamicFilterService);
 
         queryScheduler.set(scheduler);
 
@@ -627,6 +678,7 @@ public class SqlQueryExecution
         private final SplitSchedulerStats schedulerStats;
         private final int scheduleSplitBatchSize;
         private final Metadata metadata;
+        private final TypeOperators typeOperators;
         private final AccessControl accessControl;
         private final SqlParser sqlParser;
         private final SplitManager splitManager;
@@ -636,7 +688,6 @@ public class SqlQueryExecution
         private final PlanFragmenter planFragmenter;
         private final RemoteTaskFactory remoteTaskFactory;
         private final QueryExplainer queryExplainer;
-        private final LocationFactory locationFactory;
         private final ExecutorService queryExecutor;
         private final ScheduledExecutorService schedulerExecutor;
         private final FailureDetector failureDetector;
@@ -644,14 +695,15 @@ public class SqlQueryExecution
         private final Map<String, ExecutionPolicy> executionPolicies;
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
+        private final DynamicFilterService dynamicFilterService;
 
         @Inject
         SqlQueryExecutionFactory(
                 QueryManagerConfig config,
                 Metadata metadata,
+                TypeOperators typeOperators,
                 AccessControl accessControl,
                 SqlParser sqlParser,
-                LocationFactory locationFactory,
                 SplitManager splitManager,
                 NodePartitioningManager nodePartitioningManager,
                 NodeScheduler nodeScheduler,
@@ -666,15 +718,16 @@ public class SqlQueryExecution
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
                 StatsCalculator statsCalculator,
-                CostCalculator costCalculator)
+                CostCalculator costCalculator,
+                DynamicFilterService dynamicFilterService)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-            this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
@@ -689,6 +742,7 @@ public class SqlQueryExecution
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null").get();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+            this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         }
 
         @Override
@@ -707,6 +761,7 @@ public class SqlQueryExecution
                     stateMachine,
                     slug,
                     metadata,
+                    typeOperators,
                     accessControl,
                     sqlParser,
                     splitManager,
@@ -715,7 +770,6 @@ public class SqlQueryExecution
                     planOptimizers,
                     planFragmenter,
                     remoteTaskFactory,
-                    locationFactory,
                     scheduleSplitBatchSize,
                     queryExecutor,
                     schedulerExecutor,
@@ -726,6 +780,7 @@ public class SqlQueryExecution
                     schedulerStats,
                     statsCalculator,
                     costCalculator,
+                    dynamicFilterService,
                     warningCollector);
         }
     }

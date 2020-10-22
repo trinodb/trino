@@ -34,6 +34,7 @@ import java.util.Map;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.SystemSessionProperties.isPushTableWriteThroughUnion;
 import static io.prestosql.matching.Capture.newCapture;
+import static io.prestosql.sql.planner.optimizations.SymbolMapper.symbolMapper;
 import static io.prestosql.sql.planner.plan.Patterns.source;
 import static io.prestosql.sql.planner.plan.Patterns.tableWriterNode;
 import static io.prestosql.sql.planner.plan.Patterns.union;
@@ -49,7 +50,7 @@ public class PushTableWriteThroughUnion
             // guaranteed regardless of this optimizer. The level of local parallelism will be
             // determined by LocalExecutionPlanner separately, and shouldn't be a concern of
             // this optimizer.
-            .matching(tableWriter -> !tableWriter.getPartitioningScheme().isPresent())
+            .matching(tableWriter -> tableWriter.getPartitioningScheme().isEmpty())
             .with(source().matching(union().capturedAs(CHILD)));
 
     @Override
@@ -107,7 +108,7 @@ public class PushTableWriteThroughUnion
             }
         }
         sourceMappings.add(outputMappings.build());
-        SymbolMapper symbolMapper = new SymbolMapper(mappings.build());
+        SymbolMapper symbolMapper = symbolMapper(mappings.build());
         return symbolMapper.map(writerNode, unionNode.getSources().get(source), context.getIdAllocator().getNextId());
     }
 

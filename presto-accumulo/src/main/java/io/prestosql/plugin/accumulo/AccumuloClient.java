@@ -40,6 +40,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Marker.Bound;
+import io.prestosql.spi.type.TimestampType;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
@@ -183,6 +184,10 @@ public class AccumuloClient
                 }
             }
 
+            if (column.getType() instanceof TimestampType && ((TimestampType) column.getType()).getPrecision() != 3) {
+                throw new PrestoException(NOT_SUPPORTED, format("%s type not supported", column.getType()));
+            }
+
             columnNameBuilder.add(column.getName().toLowerCase(Locale.ENGLISH));
         }
 
@@ -218,7 +223,7 @@ public class AccumuloClient
     {
         // Validate any configured locality groups
         Optional<Map<String, Set<String>>> groups = AccumuloTableProperties.getLocalityGroups(meta.getProperties());
-        if (!groups.isPresent()) {
+        if (groups.isEmpty()) {
             return;
         }
 
@@ -336,7 +341,7 @@ public class AccumuloClient
     private void setLocalityGroups(Map<String, Object> tableProperties, AccumuloTable table)
     {
         Optional<Map<String, Set<String>>> groups = AccumuloTableProperties.getLocalityGroups(tableProperties);
-        if (!groups.isPresent()) {
+        if (groups.isEmpty()) {
             LOG.debug("No locality groups to set");
             return;
         }
@@ -568,7 +573,7 @@ public class AccumuloClient
 
     public void renameColumn(AccumuloTable table, String source, String target)
     {
-        if (!table.getColumns().stream().anyMatch(columnHandle -> columnHandle.getName().equalsIgnoreCase(source))) {
+        if (table.getColumns().stream().noneMatch(columnHandle -> columnHandle.getName().equalsIgnoreCase(source))) {
             throw new PrestoException(NOT_FOUND, format("Failed to find source column %s to rename to %s", source, target));
         }
 
@@ -896,7 +901,7 @@ public class AccumuloClient
             throws TableNotFoundException
     {
         // if we have no predicate pushdown, use the full range
-        if (!domain.isPresent()) {
+        if (domain.isEmpty()) {
             return ImmutableSet.of(new Range());
         }
 

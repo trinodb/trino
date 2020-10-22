@@ -16,10 +16,9 @@ package io.prestosql.operator.aggregation.multimapagg;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.prestosql.array.ObjectBigArray;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AccumulatorCompiler;
@@ -31,12 +30,14 @@ import io.prestosql.operator.aggregation.TypedSet;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.Optional;
 
@@ -50,22 +51,43 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.prestosql.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.type.TypeUtils.expectedValueSize;
 import static io.prestosql.util.Reflection.methodHandle;
+import static java.util.Objects.requireNonNull;
 
 public class MultimapAggregationFunction
         extends SqlAggregationFunction
 {
     public static final String NAME = "multimap_agg";
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(MultimapAggregationFunction.class, "output", Type.class, Type.class, MultimapAggregationState.class, BlockBuilder.class);
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(MultimapAggregationFunction.class, "combine", MultimapAggregationState.class, MultimapAggregationState.class);
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(MultimapAggregationFunction.class, "input", MultimapAggregationState.class, Block.class, Block.class, int.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(
+            MultimapAggregationFunction.class,
+            "output",
+            Type.class,
+            BlockPositionEqual.class,
+            BlockPositionHashCode.class,
+            Type.class,
+            MultimapAggregationState.class,
+            BlockBuilder.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(
+            MultimapAggregationFunction.class,
+            "combine",
+            MultimapAggregationState.class,
+            MultimapAggregationState.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(
+            MultimapAggregationFunction.class,
+            "input",
+            MultimapAggregationState.class,
+            Block.class,
+            Block.class,
+            int.class);
     private static final int EXPECTED_ENTRY_SIZE = 100;
     private final MultimapAggGroupImplementation groupMode;
+    private final BlockTypeOperators blockTypeOperators;
 
-    public MultimapAggregationFunction(MultimapAggGroupImplementation groupMode)
+    public MultimapAggregationFunction(MultimapAggGroupImplementation groupMode, BlockTypeOperators blockTypeOperators)
     {
         super(
                 new FunctionMetadata(
@@ -86,21 +108,31 @@ public class MultimapAggregationFunction
                         AGGREGATE),
                 true,
                 true);
-        this.groupMode = groupMode;
+        this.groupMode = requireNonNull(groupMode, "groupMode is null");
+        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
     {
-        Type keyType = boundVariables.getTypeVariable("K");
-        Type valueType = boundVariables.getTypeVariable("V");
-        Type outputType = metadata.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
-                TypeSignatureParameter.typeParameter(new ArrayType(valueType).getTypeSignature())));
-        return generateAggregation(keyType, valueType, outputType);
+        Type keyType = functionBinding.getTypeVariable("K");
+        Type valueType = functionBinding.getTypeVariable("V");
+        return ImmutableList.of(new MultimapAggregationStateSerializer(keyType, valueType).getSerializedType().getTypeSignature());
     }
 
-    private InternalAggregationFunction generateAggregation(Type keyType, Type valueType, Type outputType)
+    @Override
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    {
+        Type keyType = functionBinding.getTypeVariable("K");
+        BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(keyType);
+        BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
+
+        Type valueType = functionBinding.getTypeVariable("V");
+        Type outputType = functionBinding.getBoundSignature().getReturnType();
+        return generateAggregation(keyType, keyEqual, keyHashCode, valueType, outputType);
+    }
+
+    private InternalAggregationFunction generateAggregation(Type keyType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Type valueType, Type outputType)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(MultimapAggregationFunction.class.getClassLoader());
         List<Type> inputTypes = ImmutableList.of(keyType, valueType);
@@ -113,7 +145,7 @@ public class MultimapAggregationFunction
                 INPUT_FUNCTION,
                 Optional.empty(),
                 COMBINE_FUNCTION,
-                OUTPUT_FUNCTION.bindTo(keyType).bindTo(valueType),
+                MethodHandles.insertArguments(OUTPUT_FUNCTION, 0, keyType, keyEqual, keyHashCode, valueType),
                 ImmutableList.of(new AccumulatorStateDescriptor(
                         MultimapAggregationState.class,
                         stateSerializer,
@@ -121,7 +153,7 @@ public class MultimapAggregationFunction
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, true, true, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type keyType, Type valueType)
@@ -142,7 +174,7 @@ public class MultimapAggregationFunction
         state.merge(otherState);
     }
 
-    public static void output(Type keyType, Type valueType, MultimapAggregationState state, BlockBuilder out)
+    public static void output(Type keyType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Type valueType, MultimapAggregationState state, BlockBuilder out)
     {
         if (state.isEmpty()) {
             out.appendNull();
@@ -152,7 +184,7 @@ public class MultimapAggregationFunction
             ObjectBigArray<BlockBuilder> valueArrayBlockBuilders = new ObjectBigArray<>();
             valueArrayBlockBuilders.ensureCapacity(state.getEntryCount());
             BlockBuilder distinctKeyBlockBuilder = keyType.createBlockBuilder(null, state.getEntryCount(), expectedValueSize(keyType, 100));
-            TypedSet keySet = new TypedSet(keyType, state.getEntryCount(), MultimapAggregationFunction.NAME);
+            TypedSet keySet = createEqualityTypedSet(keyType, keyEqual, keyHashCode, state.getEntryCount(), NAME);
 
             state.forEach((key, value, keyValueIndex) -> {
                 // Merge values of the same key into an array

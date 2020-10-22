@@ -31,11 +31,12 @@ public class TestingPostgreSqlServer
     private static final String PASSWORD = "test";
     private static final String DATABASE = "tpch";
 
-    private final PostgreSQLContainer dockerContainer;
+    private final PostgreSQLContainer<?> dockerContainer;
 
     public TestingPostgreSqlServer()
     {
-        dockerContainer = new PostgreSQLContainer("postgres:10.3")
+        // Use the oldest supported PostgreSQL version
+        dockerContainer = new PostgreSQLContainer<>("postgres:9.5")
                 .withDatabaseName(DATABASE)
                 .withUsername(USER)
                 .withPassword(PASSWORD);
@@ -59,7 +60,7 @@ public class TestingPostgreSqlServer
 
     public String getJdbcUrl()
     {
-        // TODO we should encode user and password in JDBC url, instead connection-user and connection-password catalog properties should be used
+        // TODO we should not encode user and password in JDBC url, instead connection-user and connection-password catalog properties should be used
         return format("jdbc:postgresql://%s:%s/%s?user=%s&password=%s", dockerContainer.getContainerIpAddress(), dockerContainer.getMappedPort(POSTGRESQL_PORT), DATABASE, USER, PASSWORD);
     }
 

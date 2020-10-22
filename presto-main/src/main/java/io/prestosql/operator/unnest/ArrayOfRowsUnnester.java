@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
  * It maintains {@link ColumnarArray} and {@link ColumnarRow} objects to get underlying elements. The two
  * different columnar structures are required because there are two layers of translation involved. One
  * from {@code ArrayBlock} to {@code RowBlock}, and then from {@code RowBlock} to individual element blocks.
- *
+ * <p>
  * All protected methods implemented here assume that they are invoked when {@code columnarArray} and
  * {@code columnarRow} are non-null.
  */

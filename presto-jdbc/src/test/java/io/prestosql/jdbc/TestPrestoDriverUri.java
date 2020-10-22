@@ -17,6 +17,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.Properties;
 
 import static io.prestosql.jdbc.ConnectionProperties.CLIENT_TAGS;
@@ -29,6 +30,7 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestPrestoDriverUri
@@ -76,8 +78,14 @@ public class TestPrestoDriverUri
         // ssl key store password without path
         assertInvalid("jdbc:presto://localhost:8080?SSL=true&SSLKeyStorePassword=password", "Connection property 'SSLKeyStorePassword' is not allowed");
 
+        // ssl key store type without path
+        assertInvalid("jdbc:presto://localhost:8080?SSL=true&SSLKeyStoreType=type", "Connection property 'SSLKeyStoreType' is not allowed");
+
         // ssl trust store password without path
         assertInvalid("jdbc:presto://localhost:8080?SSL=true&SSLTrustStorePassword=password", "Connection property 'SSLTrustStorePassword' is not allowed");
+
+        // ssl trust store type without path
+        assertInvalid("jdbc:presto://localhost:8080?SSL=true&SSLTrustStoreType=type", "Connection property 'SSLTrustStoreType' is not allowed");
 
         // key store path without ssl
         assertInvalid("jdbc:presto://localhost:8080?SSLKeyStorePath=keystore.jks", "Connection property 'SSLKeyStorePath' is not allowed");
@@ -244,6 +252,14 @@ public class TestPrestoDriverUri
         PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?clientTags=" + clientTags);
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(CLIENT_TAGS.getKey()), clientTags);
+    }
+
+    @Test
+    public void testUriWithUseSessionTimeZone()
+            throws SQLException
+    {
+        Optional<Boolean> property = createDriverUri("presto://localhost:8080?useSessionTimeZone=true").useSessionTimezone();
+        assertTrue(property.isPresent() && property.get());
     }
 
     private static void assertUriPortScheme(PrestoDriverUri parameters, int port, String scheme)

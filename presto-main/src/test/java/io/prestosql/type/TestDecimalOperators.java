@@ -167,8 +167,8 @@ public class TestDecimalOperators
         assertDecimalFunction("DECIMAL '.1234567890123456789' * DECIMAL '.1234567890123456789'", decimal(".01524157875323883675019051998750190521"));
 
         // scale exceeds max precision
-        assertInvalidFunction("DECIMAL '.1234567890123456789' * DECIMAL '.12345678901234567890'", "DECIMAL scale must be in range [0, precision]");
-        assertInvalidFunction("DECIMAL '.1' * DECIMAL '.12345678901234567890123456789012345678'", "DECIMAL scale must be in range [0, precision]");
+        assertInvalidFunction("DECIMAL '.1234567890123456789' * DECIMAL '.12345678901234567890'", "DECIMAL scale must be in range [0, precision (38)]: 39");
+        assertInvalidFunction("DECIMAL '.1' * DECIMAL '.12345678901234567890123456789012345678'", "DECIMAL scale must be in range [0, precision (38)]: 39");
 
         // runtime overflow tests
         assertInvalidFunction("DECIMAL '12345678901234567890123456789012345678' * DECIMAL '9'", NUMERIC_VALUE_OUT_OF_RANGE);

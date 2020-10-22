@@ -14,19 +14,10 @@
 package io.prestosql.server.ui;
 
 import io.airlift.configuration.Config;
-import io.airlift.units.Duration;
-
-import javax.validation.constraints.NotNull;
-
-import java.util.Optional;
-
-import static java.util.concurrent.TimeUnit.DAYS;
 
 public class WebUiConfig
 {
     private boolean enabled = true;
-    private Optional<String> sharedSecret = Optional.empty();
-    private Duration sessionTimeout = new Duration(1, DAYS);
 
     public boolean isEnabled()
     {
@@ -37,32 +28,6 @@ public class WebUiConfig
     public WebUiConfig setEnabled(boolean enabled)
     {
         this.enabled = enabled;
-        return this;
-    }
-
-    @NotNull
-    public Optional<String> getSharedSecret()
-    {
-        return sharedSecret;
-    }
-
-    @Config("web-ui.shared-secret")
-    public WebUiConfig setSharedSecret(String sharedSecret)
-    {
-        this.sharedSecret = Optional.ofNullable(sharedSecret);
-        return this;
-    }
-
-    @NotNull
-    public Duration getSessionTimeout()
-    {
-        return sessionTimeout;
-    }
-
-    @Config("web-ui.session-timeout")
-    public WebUiConfig setSessionTimeout(Duration sessionTimeout)
-    {
-        this.sessionTimeout = sessionTimeout;
         return this;
     }
 }

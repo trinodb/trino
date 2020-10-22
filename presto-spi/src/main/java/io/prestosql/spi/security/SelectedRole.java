@@ -40,7 +40,7 @@ public class SelectedRole
     {
         this.type = requireNonNull(type, "type is null");
         this.role = requireNonNull(role, "role is null");
-        if (type == Type.ROLE && !role.isPresent()) {
+        if (type == Type.ROLE && role.isEmpty()) {
             throw new IllegalArgumentException("Role must be present for the selected role type: " + type);
         }
     }

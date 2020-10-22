@@ -27,7 +27,7 @@ public class TestTable
         implements AutoCloseable
 {
     private static final SecureRandom random = new SecureRandom();
-    private static final int RANDOM_SUFFIX_LENGTH = 12;
+    private static final int RANDOM_SUFFIX_LENGTH = 5;
 
     private final SqlExecutor sqlExecutor;
     private final String name;

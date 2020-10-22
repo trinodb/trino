@@ -27,6 +27,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -56,11 +57,13 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.builder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.partitionKeyFilterToStringList;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
@@ -90,10 +93,12 @@ public class InMemoryThriftMetastore
     private final Map<PrincipalTableKey, Set<HivePrivilegeInfo>> tablePrivileges = new HashMap<>();
 
     private final File baseDirectory;
+    private final boolean assumeCanonicalPartitionKeys;
 
-    public InMemoryThriftMetastore(File baseDirectory)
+    public InMemoryThriftMetastore(File baseDirectory, ThriftMetastoreConfig metastoreConfig)
     {
         this.baseDirectory = requireNonNull(baseDirectory, "baseDirectory is null");
+        this.assumeCanonicalPartitionKeys = requireNonNull(metastoreConfig).isAssumeCanonicalPartitionKeys();
         checkArgument(!baseDirectory.exists(), "Base directory already exists");
         checkArgument(baseDirectory.mkdirs(), "Could not create base directory");
     }
@@ -229,7 +234,7 @@ public class InMemoryThriftMetastore
 
     private static List<String> listAllDataPaths(HiveIdentity identity, ThriftMetastore metastore, String schemaName, String tableName)
     {
-        ImmutableList.Builder<String> locations = ImmutableList.builder();
+        ImmutableList.Builder<String> locations = builder();
         Table table = metastore.getTable(identity, schemaName, tableName).get();
         if (table.getSd().getLocation() != null) {
             // For unpartitioned table, there should be nothing directly under this directory.
@@ -237,8 +242,10 @@ public class InMemoryThriftMetastore
             // extensive, which is desirable.
             locations.add(table.getSd().getLocation());
         }
-
-        Optional<List<String>> partitionNames = metastore.getPartitionNames(identity, schemaName, tableName);
+        List<String> partitionColumnNames = table.getPartitionKeys().stream()
+                .map(FieldSchema::getName)
+                .collect(toImmutableList());
+        Optional<List<String>> partitionNames = metastore.getPartitionNamesByFilter(identity, schemaName, tableName, partitionColumnNames, TupleDomain.all());
         if (partitionNames.isPresent()) {
             metastore.getPartitionsByNames(identity, schemaName, tableName, partitionNames.get()).stream()
                     .map(partition -> partition.getSd().getLocation())
@@ -352,15 +359,6 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName)
-    {
-        return Optional.of(ImmutableList.copyOf(partitions.entrySet().stream()
-                .filter(entry -> entry.getKey().matches(databaseName, tableName))
-                .map(entry -> entry.getKey().getPartitionName())
-                .collect(toImmutableList())));
-    }
-
-    @Override
     public synchronized Optional<Partition> getPartition(HiveIdentity identity, String databaseName, String tableName, List<String> partitionValues)
     {
         PartitionName name = PartitionName.partition(databaseName, tableName, partitionValues);
@@ -372,10 +370,15 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized Optional<List<String>> getPartitionNamesByParts(HiveIdentity identity, String databaseName, String tableName, List<String> parts)
+    public synchronized Optional<List<String>> getPartitionNamesByFilter(HiveIdentity identity, String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter)
     {
+        Optional<List<String>> parts = partitionKeyFilterToStringList(columnNames, partitionKeysFilter, assumeCanonicalPartitionKeys);
+
+        if (parts.isEmpty()) {
+            return Optional.of(ImmutableList.of());
+        }
         return Optional.of(partitions.entrySet().stream()
-                .filter(entry -> partitionMatches(entry.getValue(), databaseName, tableName, parts))
+                .filter(entry -> partitionMatches(entry.getValue(), databaseName, tableName, parts.get()))
                 .map(entry -> entry.getKey().getPartitionName())
                 .collect(toImmutableList()));
     }
@@ -402,7 +405,7 @@ public class InMemoryThriftMetastore
     @Override
     public synchronized List<Partition> getPartitionsByNames(HiveIdentity identity, String databaseName, String tableName, List<String> partitionNames)
     {
-        ImmutableList.Builder<Partition> builder = ImmutableList.builder();
+        ImmutableList.Builder<Partition> builder = builder();
         for (String name : partitionNames) {
             PartitionName partitionName = PartitionName.partition(databaseName, tableName, name);
             Partition partition = partitions.get(partitionName);
@@ -508,6 +511,12 @@ public class InMemoryThriftMetastore
 
     @Override
     public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<RoleGrant> listGrantedPrincipals(String role)
     {
         throw new UnsupportedOperationException();
     }

@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.metastore.thrift;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
@@ -27,6 +28,7 @@ import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.TxnToWriteId;
 import org.apache.thrift.TException;
 
 import java.util.List;
@@ -136,10 +138,10 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public void alterTable(String databaseName, String tableName, Table newTable)
+    public void alterTableWithEnvironmentContext(String databaseName, String tableName, Table newTable, EnvironmentContext context)
             throws TException
     {
-        runWithHandle(() -> delegate.alterTable(databaseName, tableName, newTable));
+        runWithHandle(() -> delegate.alterTableWithEnvironmentContext(databaseName, tableName, newTable, context));
     }
 
     @Override
@@ -318,6 +320,13 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
+    public List<RolePrincipalGrant> listGrantedPrincipals(String role)
+            throws TException
+    {
+        return runWithHandle(() -> delegate.listGrantedPrincipals(role));
+    }
+
+    @Override
     public List<RolePrincipalGrant> listRoleGrants(String name, PrincipalType principalType)
             throws TException
     {
@@ -385,6 +394,20 @@ public class FailureAwareThriftMetastoreClient
             throws TException
     {
         return runWithHandle(() -> delegate.getDelegationToken(userName));
+    }
+
+    @Override
+    public void abortTransaction(long transactionId)
+            throws TException
+    {
+        runWithHandle(() -> delegate.abortTransaction(transactionId));
+    }
+
+    @Override
+    public List<TxnToWriteId> allocateTableWriteIds(String database, String tableName, List<Long> transactionIds)
+            throws TException
+    {
+        return runWithHandle(() -> delegate.allocateTableWriteIds(database, tableName, transactionIds));
     }
 
     private <T> T runWithHandle(ThrowingSupplier<T> supplier)

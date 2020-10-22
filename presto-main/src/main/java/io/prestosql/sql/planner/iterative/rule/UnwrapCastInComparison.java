@@ -13,15 +13,19 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
+import com.google.common.base.Throwables;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.predicate.Utils;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.InterpretedFunctionInvoker;
 import io.prestosql.sql.planner.ExpressionInterpreter;
 import io.prestosql.sql.planner.LiteralEncoder;
@@ -37,13 +41,18 @@ import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.type.TypeCoercion;
 
+import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.or;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -54,6 +63,8 @@ import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_O
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -63,53 +74,58 @@ import static java.util.Objects.requireNonNull;
  * <pre>
  * CAST(s as T) = t
  * </pre>
- *
+ * <p>
  * into
  *
  * <pre>
  * s = CAST(t as S)
  * </pre>
- *
+ * <p>
  * For example:
  *
  * <pre>
  * CAST(x AS bigint) = bigint '1'
- *</pre>
- *
+ * </pre>
+ * <p>
  * turns into
  *
  * <pre>
  * x = smallint '1'
  * </pre>
- *
+ * <p>
  * It can simplify expressions that are known to be true or false, and
  * remove the comparisons altogether. For example, give x::smallint,
  * for an expression like:
  *
  * <pre>
  * CAST(x AS bigint) > bigint '10000000'
- *</pre>
+ * </pre>
  */
 public class UnwrapCastInComparison
         extends ExpressionRewriteRuleSet
 {
-    public UnwrapCastInComparison(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public UnwrapCastInComparison(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer)
     {
-        super(createRewrite(metadata, typeAnalyzer));
+        super(createRewrite(metadata, typeOperators, typeAnalyzer));
     }
 
-    private static ExpressionRewriter createRewrite(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    private static ExpressionRewriter createRewrite(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer)
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
-        return (expression, context) -> unwrapCasts(context.getSession(), metadata, typeAnalyzer, context.getSymbolAllocator().getTypes(), expression);
+        return (expression, context) -> unwrapCasts(context.getSession(), metadata, typeOperators, typeAnalyzer, context.getSymbolAllocator().getTypes(), expression);
     }
 
-    public static Expression unwrapCasts(Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, Expression expression)
+    public static Expression unwrapCasts(Session session,
+            Metadata metadata,
+            TypeOperators typeOperators,
+            TypeAnalyzer typeAnalyzer,
+            TypeProvider types,
+            Expression expression)
     {
         if (SystemSessionProperties.isUnwrapCasts(session)) {
-            return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, typeAnalyzer, session, types), expression);
+            return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, typeOperators, typeAnalyzer, session, types), expression);
         }
 
         return expression;
@@ -119,15 +135,17 @@ public class UnwrapCastInComparison
             extends io.prestosql.sql.tree.ExpressionRewriter<Void>
     {
         private final Metadata metadata;
+        private final TypeOperators typeOperators;
         private final TypeAnalyzer typeAnalyzer;
         private final Session session;
         private final TypeProvider types;
         private final InterpretedFunctionInvoker functionInvoker;
         private final LiteralEncoder literalEncoder;
 
-        public Visitor(Metadata metadata, TypeAnalyzer typeAnalyzer, Session session, TypeProvider types)
+        public Visitor(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer, Session session, TypeProvider types)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
@@ -178,8 +196,33 @@ public class UnwrapCastInComparison
             Type sourceType = typeAnalyzer.getType(session, types, cast.getExpression());
             Type targetType = typeAnalyzer.getType(session, types, expression.getRight());
 
-            if (!hasInjectiveImplicitCoercion(sourceType, targetType)) {
+            if (!hasInjectiveImplicitCoercion(sourceType, targetType, right)) {
                 return expression;
+            }
+
+            // Handle comparison against NaN.
+            // It must be done before source type range bounds are compared to target value.
+            if (isFloatingPointNaN(targetType, right)) {
+                switch (operator) {
+                    case EQUAL:
+                    case GREATER_THAN:
+                    case GREATER_THAN_OR_EQUAL:
+                    case LESS_THAN:
+                    case LESS_THAN_OR_EQUAL:
+                        return falseIfNotNull(cast.getExpression());
+                    case NOT_EQUAL:
+                        return trueIfNotNull(cast.getExpression());
+                    case IS_DISTINCT_FROM:
+                        if (!typeHasNaN(sourceType)) {
+                            return TRUE_LITERAL;
+                        }
+                        else {
+                            // NaN on the right of comparison will be cast to source type later
+                            break;
+                        }
+                    default:
+                        throw new UnsupportedOperationException("Not yet implemented: " + operator);
+                }
             }
 
             ResolvedFunction sourceToTarget = metadata.getCoercion(sourceType, targetType);
@@ -189,6 +232,8 @@ public class UnwrapCastInComparison
                 Object max = sourceRange.get().getMax();
                 Object maxInTargetType = coerce(max, sourceToTarget);
 
+                // NaN values of `right` are excluded at this point. Otherwise, NaN would be recognized as
+                // greater than source type upper bound, and incorrect expression might be derived.
                 int upperBoundComparison = compare(targetType, right, maxInTargetType);
                 if (upperBoundComparison > 0) {
                     // larger than maximum representable value
@@ -351,14 +396,27 @@ public class UnwrapCastInComparison
             return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
         }
 
-        private boolean hasInjectiveImplicitCoercion(Type source, Type target)
+        private boolean hasInjectiveImplicitCoercion(Type source, Type target, Object value)
         {
             if ((source.equals(BIGINT) && target.equals(DOUBLE)) ||
                     (source.equals(BIGINT) && target.equals(REAL)) ||
                     (source.equals(INTEGER) && target.equals(REAL))) {
                 // Not every BIGINT fits in DOUBLE/REAL due to 64 bit vs 53-bit/23-bit mantissa. Similarly,
                 // not every INTEGER fits in a REAL (32-bit vs 23-bit mantissa)
-                return false;
+                if (target.equals(DOUBLE)) {
+                    double doubleValue = (double) value;
+                    return doubleValue > Long.MAX_VALUE ||
+                            doubleValue < Long.MIN_VALUE ||
+                            Double.isNaN(doubleValue) ||
+                            (doubleValue > -1L << 53 && doubleValue < 1L << 53); // in (-2^53, 2^53), bigint follows an injective implicit coercion w.r.t double
+                }
+                else {
+                    float realValue = intBitsToFloat(toIntExact((long) value));
+                    return (source.equals(BIGINT) && (realValue > Long.MAX_VALUE || realValue < Long.MIN_VALUE)) ||
+                            (source.equals(INTEGER) && (realValue > Integer.MAX_VALUE || realValue < Integer.MIN_VALUE)) ||
+                            Float.isNaN(realValue) ||
+                            (realValue > -1L << 23 && realValue < 1L << 23); // in (-2^23, 2^23), bigint (and integer) follows an injective implicit coercion w.r.t real
+                }
             }
 
             if (source instanceof DecimalType) {
@@ -383,15 +441,25 @@ public class UnwrapCastInComparison
         {
             return functionInvoker.invoke(coercion, session.toConnectorSession(), value);
         }
-    }
 
-    private static int compare(Type type, Object first, Object second)
-    {
-        return type.compareTo(
-                Utils.nativeValueToBlock(type, first),
-                0,
-                Utils.nativeValueToBlock(type, second),
-                0);
+        private boolean typeHasNaN(Type type)
+        {
+            return type instanceof DoubleType || type instanceof RealType;
+        }
+
+        private int compare(Type type, Object first, Object second)
+        {
+            requireNonNull(first, "first is null");
+            requireNonNull(second, "second is null");
+            MethodHandle comparisonOperator = typeOperators.getComparisonOperator(type, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            try {
+                return (int) (long) comparisonOperator.invoke(first, second);
+            }
+            catch (Throwable throwable) {
+                Throwables.throwIfUnchecked(throwable);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, throwable);
+            }
+        }
     }
 
     private static Expression falseIfNotNull(Expression argument)

@@ -28,6 +28,7 @@ import io.prestosql.security.AccessControlConfig;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.resourcegroups.QueryType;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.Output;
@@ -46,6 +47,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.execution.QueryState.DISPATCHING;
 import static io.prestosql.execution.QueryState.FAILED;
@@ -60,6 +62,7 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.USER_CANCELED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -87,13 +90,15 @@ public class TestQueryStateMachine
             .put("drink", "coffee")
             .build();
     private static final List<String> RESET_SESSION_PROPERTIES = ImmutableList.of("candy");
+    private static final Optional<QueryType> QUERY_TYPE = Optional.of(QueryType.SELECT);
 
-    private final ExecutorService executor = newCachedThreadPool();
+    private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "=%s"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
+        executor = null;
     }
 
     @Test
@@ -438,6 +443,8 @@ public class TestQueryStateMachine
         assertEquals(queryInfo.getFieldNames(), OUTPUT_FIELD_NAMES);
         assertEquals(queryInfo.getUpdateType(), UPDATE_TYPE);
         assertEquals(queryInfo.getMemoryPool(), MEMORY_POOL.getId());
+        assertTrue(queryInfo.getQueryType().isPresent());
+        assertEquals(queryInfo.getQueryType().get(), QUERY_TYPE.get());
 
         QueryStats queryStats = queryInfo.getQueryStats();
         assertNotNull(queryStats.getElapsedTime());
@@ -492,7 +499,10 @@ public class TestQueryStateMachine
     {
         Metadata metadata = createTestMetadataManager();
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControl accessControl = new AccessControlManager(transactionManager, new AccessControlConfig());
+        AccessControl accessControl = new AccessControlManager(
+                transactionManager,
+                emptyEventListenerManager(),
+                new AccessControlConfig());
         QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
                 QUERY,
                 Optional.empty(),
@@ -505,7 +515,8 @@ public class TestQueryStateMachine
                 executor,
                 ticker,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                QUERY_TYPE);
         stateMachine.setInputs(INPUTS);
         stateMachine.setOutput(OUTPUT);
         stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);
@@ -529,7 +540,7 @@ public class TestQueryStateMachine
         assertEquals(actual.getLocale(), expected.getLocale());
         assertEquals(actual.getRemoteUserAddress(), expected.getRemoteUserAddress());
         assertEquals(actual.getUserAgent(), expected.getUserAgent());
-        assertEquals(actual.getStartTime(), expected.getStartTime());
+        assertEquals(actual.getStart(), expected.getStart());
         assertEquals(actual.getSystemProperties(), expected.getSystemProperties());
         assertEquals(actual.getConnectorProperties(), expected.getConnectorProperties());
     }

@@ -17,6 +17,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -38,22 +41,23 @@ public class TestSheetsConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path credentialsFile = Files.createTempFile(null, null);
+
+        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("credentials-path", credentialsFile.toString())
+                .put("metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
+                .put("sheets-data-max-cache-size", "2000")
+                .put("sheets-data-expire-after-write", "10m")
+                .build();
+
         SheetsConfig expected = new SheetsConfig()
-                .setCredentialsFilePath("/foo/bar/credentials.json")
+                .setCredentialsFilePath(credentialsFile.toString())
                 .setMetadataSheetId("foo_bar_sheet_id#Sheet1")
                 .setSheetsDataMaxCacheSize(2000)
                 .setSheetsDataExpireAfterWrite(new Duration(10, TimeUnit.MINUTES));
-        assertFullMapping(getProperties("/foo/bar/credentials.json", "foo_bar_sheet_id#Sheet1", 2000, "10m"), expected);
-    }
 
-    static Map<String, String> getProperties(String credentialsPath, String metadataSheetId, int cacheSize, String cacheDuration)
-    {
-        return new ImmutableMap.Builder<String, String>()
-                .put("credentials-path", credentialsPath)
-                .put("metadata-sheet-id", metadataSheetId)
-                .put("sheets-data-max-cache-size", String.valueOf(cacheSize))
-                .put("sheets-data-expire-after-write", cacheDuration)
-                .build();
+        assertFullMapping(properties, expected);
     }
 }

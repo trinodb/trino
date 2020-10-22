@@ -67,7 +67,7 @@ public final class SelectorResourceEstimate
         if (executionTime.isPresent()) {
             Optional<Duration> executionTimeEstimate = resourceEstimates.getExecutionTime()
                     .map(value -> new Duration(value.toMillis(), MILLISECONDS));
-            if (!executionTimeEstimate.isPresent() || !executionTime.get().contains(executionTimeEstimate.get())) {
+            if (executionTimeEstimate.isEmpty() || !executionTime.get().contains(executionTimeEstimate.get())) {
                 return false;
             }
         }
@@ -75,15 +75,15 @@ public final class SelectorResourceEstimate
         if (cpuTime.isPresent()) {
             Optional<Duration> cpuTimeEstimate = resourceEstimates.getCpuTime()
                     .map(value -> new Duration(value.toMillis(), MILLISECONDS));
-            if (!cpuTimeEstimate.isPresent() || !cpuTime.get().contains(cpuTimeEstimate.get())) {
+            if (cpuTimeEstimate.isEmpty() || !cpuTime.get().contains(cpuTimeEstimate.get())) {
                 return false;
             }
         }
 
         if (peakMemory.isPresent()) {
             Optional<DataSize> peakMemoryEstimate = resourceEstimates.getPeakMemoryBytes()
-                    .map(value -> DataSize.ofBytes(value));
-            if (!peakMemoryEstimate.isPresent() || !peakMemory.get().contains(peakMemoryEstimate.get())) {
+                    .map(DataSize::ofBytes);
+            if (peakMemoryEstimate.isEmpty() || !peakMemory.get().contains(peakMemoryEstimate.get())) {
                 return false;
             }
         }
@@ -143,8 +143,8 @@ public final class SelectorResourceEstimate
 
         boolean contains(T value)
         {
-            return (!min.isPresent() || min.get().compareTo(value) <= 0) &&
-                    (!max.isPresent() || max.get().compareTo(value) >= 0);
+            return (min.isEmpty() || min.get().compareTo(value) <= 0) &&
+                    (max.isEmpty() || max.get().compareTo(value) >= 0);
         }
 
         @JsonProperty

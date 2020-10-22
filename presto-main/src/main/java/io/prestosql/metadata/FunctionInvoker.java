@@ -13,21 +13,46 @@
  */
 package io.prestosql.metadata;
 
+import com.google.common.collect.ImmutableList;
+
 import java.lang.invoke.MethodHandle;
+import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class FunctionInvoker
 {
     private final MethodHandle methodHandle;
+    private final Optional<MethodHandle> instanceFactory;
+    private final List<Class<?>> lambdaInterfaces;
 
-    public FunctionInvoker(MethodHandle methodHandle)
+    public FunctionInvoker(MethodHandle methodHandle, Optional<MethodHandle> instanceFactory)
     {
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
+        this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
+        this.lambdaInterfaces = ImmutableList.of();
     }
 
-    public MethodHandle methodHandle()
+    public FunctionInvoker(MethodHandle methodHandle, Optional<MethodHandle> instanceFactory, List<Class<?>> lambdaInterfaces)
+    {
+        this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
+        this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
+        this.lambdaInterfaces = requireNonNull(lambdaInterfaces, "lambdaInterfaces is null");
+    }
+
+    public MethodHandle getMethodHandle()
     {
         return methodHandle;
+    }
+
+    public Optional<MethodHandle> getInstanceFactory()
+    {
+        return instanceFactory;
+    }
+
+    public List<Class<?>> getLambdaInterfaces()
+    {
+        return lambdaInterfaces;
     }
 }

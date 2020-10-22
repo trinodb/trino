@@ -19,7 +19,6 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Optional;
@@ -39,7 +38,6 @@ public interface HiveRecordCursorProvider
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             boolean s3SelectPushdownEnabled);
 
@@ -47,7 +45,7 @@ public interface HiveRecordCursorProvider
      * A wrapper class for
      * - delegate reader record cursor and
      * - projection information for columns to be returned by the delegate
-     *
+     * <p>
      * Empty {@param projectedReaderColumns} indicates that the delegate cursor reads the exact same columns provided to
      * it in {@link HiveRecordCursorProvider#createRecordCursor}
      */

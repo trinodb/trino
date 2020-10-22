@@ -19,6 +19,7 @@ import io.airlift.units.Duration;
 import io.prestosql.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
 import io.prestosql.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
+import io.prestosql.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import org.testng.annotations.Test;
@@ -53,7 +54,6 @@ public class TestFeaturesConfig
                 .setGroupedExecutionEnabled(false)
                 .setDynamicScheduleForGroupedExecutionEnabled(false)
                 .setConcurrentLifespansPerTask(0)
-                .setFastInequalityJoins(true)
                 .setColocatedJoinsEnabled(false)
                 .setSpatialJoinsEnabled(true)
                 .setJoinReorderingStrategy(JoinReorderingStrategy.AUTOMATIC)
@@ -80,7 +80,6 @@ public class TestFeaturesConfig
                 .setMemoryRevokingTarget(0.5)
                 .setOptimizeMixedDistinctAggregations(false)
                 .setUnwrapCasts(true)
-                .setIterativeOptimizerEnabled(true)
                 .setIterativeOptimizerTimeout(new Duration(3, MINUTES))
                 .setEnableStatsCalculator(true)
                 .setCollectPlanStatisticsForAllQueries(false)
@@ -88,7 +87,7 @@ public class TestFeaturesConfig
                 .setDefaultFilterFactorEnabled(false)
                 .setEnableForcedExchangeBelowGroupId(true)
                 .setExchangeCompressionEnabled(false)
-                .setLegacyTimestamp(true)
+                .setExchangeDataIntegrityVerification(DataIntegrityVerification.ABORT)
                 .setEnableIntermediateAggregations(false)
                 .setPushAggregationThroughOuterJoin(true)
                 .setPushPartialAggregationThoughJoin(false)
@@ -104,14 +103,14 @@ public class TestFeaturesConfig
                 .setArrayAggGroupImplementation(ArrayAggGroupImplementation.NEW)
                 .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.NEW)
                 .setDistributedSortEnabled(true)
+                .setMaxRecursionDepth(10)
                 .setMaxGroupingSets(2048)
                 .setLateMaterializationEnabled(false)
                 .setSkipRedundantSort(true)
                 .setPredicatePushdownUseTableProperties(true)
-                .setEnableDynamicFiltering(true)
-                .setDynamicFilteringMaxPerDriverRowCount(100)
-                .setDynamicFilteringMaxPerDriverSize(DataSize.of(10, KILOBYTE))
-                .setIgnoreDownstreamPreferences(false));
+                .setIgnoreDownstreamPreferences(false)
+                .setOmitDateTimeTypePrecision(false)
+                .setIterativeRuleBasedColumnPruning(true));
     }
 
     @Test
@@ -121,7 +120,6 @@ public class TestFeaturesConfig
                 .put("cpu-cost-weight", "0.4")
                 .put("memory-cost-weight", "0.3")
                 .put("network-cost-weight", "0.2")
-                .put("iterative-optimizer-enabled", "false")
                 .put("iterative-optimizer-timeout", "10s")
                 .put("enable-stats-calculator", "false")
                 .put("collect-plan-statistics-for-all-queries", "true")
@@ -134,7 +132,6 @@ public class TestFeaturesConfig
                 .put("grouped-execution-enabled", "true")
                 .put("dynamic-schedule-for-grouped-execution", "true")
                 .put("concurrent-lifespans-per-task", "1")
-                .put("fast-inequality-joins", "false")
                 .put("colocated-joins-enabled", "true")
                 .put("spatial-joins-enabled", "false")
                 .put("optimizer.join-reordering-strategy", "NONE")
@@ -164,7 +161,7 @@ public class TestFeaturesConfig
                 .put("memory-revoking-threshold", "0.2")
                 .put("memory-revoking-target", "0.8")
                 .put("exchange.compression-enabled", "true")
-                .put("deprecated.legacy-timestamp", "false")
+                .put("exchange.data-integrity-verification", "RETRY")
                 .put("optimizer.enable-intermediate-aggregations", "true")
                 .put("parse-decimal-literals-as-double", "true")
                 .put("optimizer.force-single-node-output", "false")
@@ -178,21 +175,20 @@ public class TestFeaturesConfig
                 .put("optimizer.prefer-partial-aggregation", "false")
                 .put("optimizer.optimize-top-n-row-number", "false")
                 .put("distributed-sort", "false")
+                .put("max-recursion-depth", "8")
                 .put("analyzer.max-grouping-sets", "2047")
                 .put("experimental.late-materialization.enabled", "true")
                 .put("optimizer.skip-redundant-sort", "false")
                 .put("optimizer.predicate-pushdown-use-table-properties", "false")
-                .put("enable-dynamic-filtering", "false")
-                .put("dynamic-filtering-max-per-driver-row-count", "256")
-                .put("dynamic-filtering-max-per-driver-size", "64kB")
                 .put("optimizer.ignore-downstream-preferences", "true")
+                .put("deprecated.omit-datetime-type-precision", "true")
+                .put("optimizer.iterative-rule-based-column-pruning", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
                 .setCpuCostWeight(0.4)
                 .setMemoryCostWeight(0.3)
                 .setNetworkCostWeight(0.2)
-                .setIterativeOptimizerEnabled(false)
                 .setIterativeOptimizerTimeout(new Duration(10, SECONDS))
                 .setEnableStatsCalculator(false)
                 .setCollectPlanStatisticsForAllQueries(true)
@@ -204,7 +200,6 @@ public class TestFeaturesConfig
                 .setGroupedExecutionEnabled(true)
                 .setDynamicScheduleForGroupedExecutionEnabled(true)
                 .setConcurrentLifespansPerTask(1)
-                .setFastInequalityJoins(false)
                 .setColocatedJoinsEnabled(true)
                 .setSpatialJoinsEnabled(false)
                 .setJoinReorderingStrategy(NONE)
@@ -234,7 +229,7 @@ public class TestFeaturesConfig
                 .setMemoryRevokingThreshold(0.2)
                 .setMemoryRevokingTarget(0.8)
                 .setExchangeCompressionEnabled(true)
-                .setLegacyTimestamp(false)
+                .setExchangeDataIntegrityVerification(DataIntegrityVerification.RETRY)
                 .setEnableIntermediateAggregations(true)
                 .setParseDecimalLiteralsAsDouble(true)
                 .setForceSingleNodeOutput(false)
@@ -248,15 +243,15 @@ public class TestFeaturesConfig
                 .setArrayAggGroupImplementation(ArrayAggGroupImplementation.LEGACY)
                 .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.LEGACY)
                 .setDistributedSortEnabled(false)
+                .setMaxRecursionDepth(8)
                 .setMaxGroupingSets(2047)
                 .setDefaultFilterFactorEnabled(true)
                 .setLateMaterializationEnabled(true)
                 .setSkipRedundantSort(false)
                 .setPredicatePushdownUseTableProperties(false)
-                .setEnableDynamicFiltering(false)
-                .setDynamicFilteringMaxPerDriverRowCount(256)
-                .setDynamicFilteringMaxPerDriverSize(DataSize.of(64, KILOBYTE))
-                .setIgnoreDownstreamPreferences(true);
+                .setIgnoreDownstreamPreferences(true)
+                .setOmitDateTimeTypePrecision(true)
+                .setIterativeRuleBasedColumnPruning(false);
         assertFullMapping(properties, expected);
     }
 }

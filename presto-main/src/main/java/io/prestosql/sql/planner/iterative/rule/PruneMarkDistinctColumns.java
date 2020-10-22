@@ -20,7 +20,6 @@ import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.planner.iterative.rule.Util.restrictChildOutputs;
@@ -45,7 +44,7 @@ public class PruneMarkDistinctColumns
                 referencedOutputs.stream()
                         .filter(symbol -> !symbol.equals(markDistinctNode.getMarkerSymbol())),
                 markDistinctNode.getDistinctSymbols().stream(),
-                markDistinctNode.getHashSymbol().map(Stream::of).orElse(Stream.empty()))
+                markDistinctNode.getHashSymbol().stream())
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(context.getIdAllocator(), markDistinctNode, requiredInputs);

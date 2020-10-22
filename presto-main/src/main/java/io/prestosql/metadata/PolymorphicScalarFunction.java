@@ -18,12 +18,12 @@ import com.google.common.primitives.Primitives;
 import io.prestosql.metadata.PolymorphicScalarFunctionBuilder.MethodAndNativeContainerTypes;
 import io.prestosql.metadata.PolymorphicScalarFunctionBuilder.MethodsGroup;
 import io.prestosql.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
+import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation;
+import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
+import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
+import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.util.Reflection;
 
 import java.lang.invoke.MethodHandle;
@@ -33,10 +33,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
@@ -52,38 +48,32 @@ class PolymorphicScalarFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
         ImmutableList.Builder<ScalarImplementationChoice> implementationChoices = ImmutableList.builder();
 
         for (PolymorphicScalarFunctionChoice choice : choices) {
-            implementationChoices.add(getScalarFunctionImplementationChoice(boundVariables, metadata, choice));
+            implementationChoices.add(getScalarFunctionImplementationChoice(functionBinding, choice));
         }
 
-        return new ScalarFunctionImplementation(implementationChoices.build());
+        return new ChoicesScalarFunctionImplementation(functionBinding, implementationChoices.build());
     }
 
     private ScalarImplementationChoice getScalarFunctionImplementationChoice(
-            BoundVariables boundVariables,
-            Metadata metadata,
+            FunctionBinding functionBinding,
             PolymorphicScalarFunctionChoice choice)
     {
-        Signature signature = getFunctionMetadata().getSignature();
-        List<TypeSignature> resolvedParameterTypeSignatures = applyBoundVariables(signature.getArgumentTypes(), boundVariables);
-        List<Type> resolvedParameterTypes = resolvedParameterTypeSignatures.stream()
-                .map(metadata::getType)
-                .collect(toImmutableList());
-        TypeSignature resolvedReturnTypeSignature = applyBoundVariables(signature.getReturnType(), boundVariables);
-        Type resolvedReturnType = metadata.getType(resolvedReturnTypeSignature);
-        SpecializeContext context = new SpecializeContext(boundVariables, resolvedParameterTypes, resolvedReturnType);
+        List<Type> argumentTypes = functionBinding.getBoundSignature().getArgumentTypes();
+        Type returnType = functionBinding.getBoundSignature().getReturnType();
+        SpecializeContext context = new SpecializeContext(functionBinding, argumentTypes, returnType);
         Optional<MethodAndNativeContainerTypes> matchingMethod = Optional.empty();
 
         Optional<MethodsGroup> matchingMethodsGroup = Optional.empty();
         for (MethodsGroup candidateMethodsGroup : choice.getMethodsGroups()) {
             for (MethodAndNativeContainerTypes candidateMethod : candidateMethodsGroup.getMethods()) {
-                if (matchesParameterAndReturnTypes(candidateMethod, resolvedParameterTypes, resolvedReturnType, choice.getArgumentProperties(), choice.isNullableResult())) {
+                if (matchesParameterAndReturnTypes(candidateMethod, argumentTypes, returnType, choice.getArgumentConventions(), choice.getReturnConvention())) {
                     if (matchingMethod.isPresent()) {
-                        throw new IllegalStateException("two matching methods (" + matchingMethod.get().getMethod().getName() + " and " + candidateMethod.getMethod().getName() + ") for parameter types " + resolvedParameterTypeSignatures);
+                        throw new IllegalStateException("two matching methods (" + matchingMethod.get().getMethod().getName() + " and " + candidateMethod.getMethod().getName() + ") for parameter types " + argumentTypes);
                     }
 
                     matchingMethod = Optional.of(candidateMethod);
@@ -91,55 +81,63 @@ class PolymorphicScalarFunction
                 }
             }
         }
-        checkState(matchingMethod.isPresent(), "no matching method for parameter types %s", resolvedParameterTypes);
+        checkState(matchingMethod.isPresent(), "no matching method for parameter types %s", argumentTypes);
 
         List<Object> extraParameters = computeExtraParameters(matchingMethodsGroup.get(), context);
-        MethodHandle methodHandle = applyExtraParameters(matchingMethod.get().getMethod(), extraParameters, choice.getArgumentProperties());
-        return new ScalarImplementationChoice(choice.isNullableResult(), choice.getArgumentProperties(), methodHandle, Optional.empty());
+        MethodHandle methodHandle = applyExtraParameters(matchingMethod.get().getMethod(), extraParameters, choice.getArgumentConventions());
+        return new ScalarImplementationChoice(
+                choice.getReturnConvention(),
+                choice.getArgumentConventions(),
+                ImmutableList.of(),
+                methodHandle,
+                Optional.empty());
     }
 
     private static boolean matchesParameterAndReturnTypes(
             MethodAndNativeContainerTypes methodAndNativeContainerTypes,
             List<Type> resolvedTypes,
             Type returnType,
-            List<ArgumentProperty> argumentProperties,
-            boolean nullableResult)
+            List<InvocationArgumentConvention> argumentConventions,
+            InvocationReturnConvention returnConvention)
     {
         Method method = methodAndNativeContainerTypes.getMethod();
         checkState(method.getParameterCount() >= resolvedTypes.size(),
                 "method %s has not enough arguments: %s (should have at least %s)", method.getName(), method.getParameterCount(), resolvedTypes.size());
 
         Class<?>[] methodParameterJavaTypes = method.getParameterTypes();
-        for (int i = 0, methodParameterIndex = 0; i < resolvedTypes.size(); i++) {
-            NullConvention nullConvention = argumentProperties.get(i).getNullConvention();
+        int methodParameterIndex = 0;
+        for (int i = 0; i < resolvedTypes.size(); i++) {
+            Type resolvedType = resolvedTypes.get(i);
+            InvocationArgumentConvention argumentConvention = argumentConventions.get(i);
+
             Class<?> expectedType = null;
             Class<?> actualType;
-            switch (nullConvention) {
-                case RETURN_NULL_ON_NULL:
-                case USE_NULL_FLAG:
+            switch (argumentConvention) {
+                case NEVER_NULL:
+                case NULL_FLAG:
                     expectedType = methodParameterJavaTypes[methodParameterIndex];
-                    actualType = getNullAwareContainerType(resolvedTypes.get(i).getJavaType(), false);
+                    actualType = resolvedType.getJavaType();
                     break;
-                case USE_BOXED_TYPE:
+                case BOXED_NULLABLE:
                     expectedType = methodParameterJavaTypes[methodParameterIndex];
-                    actualType = getNullAwareContainerType(resolvedTypes.get(i).getJavaType(), true);
+                    actualType = Primitives.wrap(resolvedType.getJavaType());
                     break;
-                case BLOCK_AND_POSITION:
+                case BLOCK_POSITION:
                     Optional<Class<?>> explicitNativeContainerTypes = methodAndNativeContainerTypes.getExplicitNativeContainerTypes().get(i);
                     if (explicitNativeContainerTypes.isPresent()) {
                         expectedType = explicitNativeContainerTypes.get();
                     }
-                    actualType = getNullAwareContainerType(resolvedTypes.get(i).getJavaType(), false);
+                    actualType = resolvedType.getJavaType();
                     break;
                 default:
-                    throw new UnsupportedOperationException("unknown NullConvention");
+                    throw new UnsupportedOperationException("Unknown argument convention: " + argumentConvention);
             }
             if (!actualType.equals(expectedType)) {
                 return false;
             }
-            methodParameterIndex += nullConvention.getParameterCount();
+            methodParameterIndex += argumentConvention.getParameterCount();
         }
-        return method.getReturnType().equals(getNullAwareContainerType(returnType.getJavaType(), nullableResult));
+        return method.getReturnType().equals(getNullAwareContainerType(returnType.getJavaType(), returnConvention));
     }
 
     private static List<Object> computeExtraParameters(MethodsGroup methodsGroup, SpecializeContext context)
@@ -147,24 +145,11 @@ class PolymorphicScalarFunction
         return methodsGroup.getExtraParametersFunction().map(function -> function.apply(context)).orElse(emptyList());
     }
 
-    private static int getNullFlagsCount(List<ArgumentProperty> argumentProperties)
+    private MethodHandle applyExtraParameters(Method matchingMethod, List<Object> extraParameters, List<InvocationArgumentConvention> argumentConventions)
     {
-        return (int) argumentProperties.stream()
-                .filter(argumentProperty -> argumentProperty.getNullConvention() == USE_NULL_FLAG)
-                .count();
-    }
-
-    private static int getBlockPositionCount(List<ArgumentProperty> argumentProperties)
-    {
-        return (int) argumentProperties.stream()
-                .filter(argumentProperty -> argumentProperty.getNullConvention() == BLOCK_AND_POSITION)
-                .count();
-    }
-
-    private MethodHandle applyExtraParameters(Method matchingMethod, List<Object> extraParameters, List<ArgumentProperty> argumentProperties)
-    {
-        Signature signature = getFunctionMetadata().getSignature();
-        int expectedArgumentsCount = signature.getArgumentTypes().size() + getNullFlagsCount(argumentProperties) + getBlockPositionCount(argumentProperties) + extraParameters.size();
+        int expectedArgumentsCount = extraParameters.size() + argumentConventions.stream()
+                .mapToInt(InvocationArgumentConvention::getParameterCount)
+                .sum();
         int matchingMethodArgumentCount = matchingMethod.getParameterCount();
         checkState(matchingMethodArgumentCount == expectedArgumentsCount,
                 "method %s has invalid number of arguments: %s (should have %s)", matchingMethod.getName(), matchingMethodArgumentCount, expectedArgumentsCount);
@@ -177,33 +162,37 @@ class PolymorphicScalarFunction
         return matchingMethodHandle;
     }
 
-    private static Class<?> getNullAwareContainerType(Class<?> clazz, boolean nullable)
+    private static Class<?> getNullAwareContainerType(Class<?> clazz, InvocationReturnConvention returnConvention)
     {
-        if (nullable) {
-            return Primitives.wrap(clazz);
+        switch (returnConvention) {
+            case NULLABLE_RETURN:
+                return Primitives.wrap(clazz);
+            case FAIL_ON_NULL:
+                return clazz;
+            default:
+                throw new UnsupportedOperationException("Unknown return convention: " + returnConvention);
         }
-        return clazz;
     }
 
     static final class PolymorphicScalarFunctionChoice
     {
-        private final boolean nullableResult;
-        private final List<ArgumentProperty> argumentProperties;
+        private final InvocationReturnConvention returnConvention;
+        private final List<InvocationArgumentConvention> argumentConventions;
         private final List<MethodsGroup> methodsGroups;
 
         PolymorphicScalarFunctionChoice(
-                boolean nullableResult,
-                List<ArgumentProperty> argumentProperties,
+                InvocationReturnConvention returnConvention,
+                List<InvocationArgumentConvention> argumentConventions,
                 List<MethodsGroup> methodsGroups)
         {
-            this.nullableResult = nullableResult;
-            this.argumentProperties = ImmutableList.copyOf(requireNonNull(argumentProperties, "argumentProperties is null"));
-            this.methodsGroups = ImmutableList.copyOf(requireNonNull(methodsGroups, "methodsWithExtraParametersFunctions is null"));
+            this.returnConvention = requireNonNull(returnConvention, "returnConvention is null");
+            this.argumentConventions = ImmutableList.copyOf(requireNonNull(argumentConventions, "argumentConventions is null"));
+            this.methodsGroups = ImmutableList.copyOf(requireNonNull(methodsGroups, "methodsGroups is null"));
         }
 
-        boolean isNullableResult()
+        InvocationReturnConvention getReturnConvention()
         {
-            return nullableResult;
+            return returnConvention;
         }
 
         List<MethodsGroup> getMethodsGroups()
@@ -211,9 +200,9 @@ class PolymorphicScalarFunction
             return methodsGroups;
         }
 
-        List<ArgumentProperty> getArgumentProperties()
+        List<InvocationArgumentConvention> getArgumentConventions()
         {
-            return argumentProperties;
+            return argumentConventions;
         }
     }
 }

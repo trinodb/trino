@@ -14,6 +14,7 @@
 package io.prestosql.testing;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
@@ -23,6 +24,8 @@ import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.testing.QueryRunner.MaterializedResultWithPlan;
 import io.prestosql.tpch.TpchTable;
@@ -34,12 +37,13 @@ import java.util.OptionalLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.fail;
@@ -75,13 +79,13 @@ public final class QueryAssertions
             planAssertion.get().accept(queryPlan);
         }
 
-        if (!results.getUpdateType().isPresent()) {
+        if (results.getUpdateType().isEmpty()) {
             fail("update type is not set");
         }
 
         if (results.getUpdateCount().isPresent()) {
-            if (!count.isPresent()) {
-                fail("update count should be present");
+            if (count.isEmpty()) {
+                fail("expected no update count, but got " + results.getUpdateCount().getAsLong());
             }
             assertEquals(results.getUpdateCount().getAsLong(), count.getAsLong(), "update count");
         }
@@ -165,7 +169,7 @@ public final class QueryAssertions
         }
 
         if (actualResults.getUpdateType().isPresent() || actualResults.getUpdateCount().isPresent()) {
-            if (!actualResults.getUpdateType().isPresent()) {
+            if (actualResults.getUpdateType().isEmpty()) {
                 fail("update count present without update type for query: \n" + actual);
             }
             if (!compareUpdate) {
@@ -177,10 +181,10 @@ public final class QueryAssertions
         List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
 
         if (compareUpdate) {
-            if (!actualResults.getUpdateType().isPresent()) {
+            if (actualResults.getUpdateType().isEmpty()) {
                 fail("update type not present for query: \n" + actual);
             }
-            if (!actualResults.getUpdateCount().isPresent()) {
+            if (actualResults.getUpdateCount().isEmpty()) {
                 fail("update count not present for query: \n" + actual);
             }
             assertEquals(actualRows.size(), 1, "For query: \n " + actual + "\n:");
@@ -286,8 +290,11 @@ public final class QueryAssertions
             queryRunner.execute(session, sql);
             fail(format("Expected query to fail: %s", sql));
         }
-        catch (RuntimeException ex) {
-            assertExceptionMessage(sql, ex, expectedMessageRegExp);
+        catch (RuntimeException exception) {
+            exception.addSuppressed(new Exception("Query: " + sql));
+            assertThat(exception)
+                    .hasMessageMatching(expectedMessageRegExp)
+                    .satisfies(e -> assertThat(getPrestoExceptionCause(e)).hasMessageMatching(expectedMessageRegExp));
         }
     }
 
@@ -300,13 +307,6 @@ public final class QueryAssertions
         }
         catch (RuntimeException ex) {
             fail("Execution of query failed: " + sql, ex);
-        }
-    }
-
-    private static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex)
-    {
-        if (!nullToEmpty(exception.getMessage()).matches(regex)) {
-            fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
         }
     }
 
@@ -338,5 +338,37 @@ public final class QueryAssertions
         @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
         log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+    }
+
+    static RuntimeException getPrestoExceptionCause(Throwable e)
+    {
+        return Throwables.getCausalChain(e).stream()
+                .filter(QueryAssertions::isPrestoException)
+                .findFirst() // TODO .collect(toOptional()) -- should be exactly one in the causal chain
+                .map(RuntimeException.class::cast)
+                .orElseThrow(() -> new IllegalArgumentException("Exception does not have PrestoException cause", e));
+    }
+
+    private static boolean isPrestoException(Throwable exception)
+    {
+        requireNonNull(exception, "exception is null");
+
+        if (exception instanceof PrestoException || exception instanceof ParsingException) {
+            return true;
+        }
+
+        if (exception.getClass().getName().equals("io.prestosql.client.FailureInfo$FailureException")) {
+            try {
+                String originalClassName = exception.toString().split(":", 2)[0];
+                Class<? extends Throwable> originalClass = Class.forName(originalClassName).asSubclass(Throwable.class);
+                return PrestoException.class.isAssignableFrom(originalClass) ||
+                        ParsingException.class.isAssignableFrom(originalClass);
+            }
+            catch (ClassNotFoundException e) {
+                return false;
+            }
+        }
+
+        return false;
     }
 }

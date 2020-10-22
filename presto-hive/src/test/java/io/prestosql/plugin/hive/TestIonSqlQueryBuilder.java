@@ -21,6 +21,7 @@ import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.type.InternalTypeManager;
 import io.prestosql.util.DateTimeUtils;
 import org.testng.annotations.Test;
@@ -44,13 +45,13 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestIonSqlQueryBuilder
 {
-    private final TypeManager typeManager = new InternalTypeManager(createTestMetadataManager());
+    private final TypeManager typeManager = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
 
     @Test
     public void testBuildSQL()
@@ -102,7 +103,7 @@ public class TestIonSqlQueryBuilder
     {
         IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
         List<HiveColumnHandle> columns = ImmutableList.of(
-                createBaseColumn("t1", 0, HIVE_TIMESTAMP, TIMESTAMP, REGULAR, Optional.empty()),
+                createBaseColumn("t1", 0, HIVE_TIMESTAMP, TIMESTAMP_MILLIS, REGULAR, Optional.empty()),
                 createBaseColumn("t2", 1, HIVE_DATE, DATE, REGULAR, Optional.empty()));
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
                 columns.get(1), Domain.create(SortedRangeSet.copyOf(DATE, ImmutableList.of(Range.equal(DATE, (long) DateTimeUtils.parseDate("2001-08-22")))), false)));

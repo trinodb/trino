@@ -24,25 +24,30 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.kafka.util.CodecSupplier;
 import io.prestosql.plugin.kafka.util.TestUtils;
-import io.prestosql.plugin.kafka.util.TestingKafka;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.TestingPrestoClient;
+import io.prestosql.testing.kafka.TestingKafka;
 import io.prestosql.tpch.TpchTable;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.plugin.kafka.ConfigurationAwareModules.combine;
 import static io.prestosql.plugin.kafka.KafkaPlugin.DEFAULT_EXTENSION;
 import static io.prestosql.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -129,14 +134,29 @@ public final class KafkaQueryRunner
             testingKafka.start();
 
             for (TpchTable<?> table : tables) {
-                testingKafka.createTopics(kafkaTopicName(table));
+                testingKafka.createTopic(kafkaTopicName(table));
             }
 
             Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables);
 
+            List<SchemaTableName> tableNames = new ArrayList<>();
+            tableNames.add(new SchemaTableName("read_test", "all_datatypes_json"));
+            tableNames.add(new SchemaTableName("write_test", "all_datatypes_avro"));
+            tableNames.add(new SchemaTableName("write_test", "all_datatypes_csv"));
+            tableNames.add(new SchemaTableName("write_test", "all_datatypes_raw"));
+            tableNames.add(new SchemaTableName("write_test", "all_datatypes_json"));
+
+            JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, queryRunner.getMetadata()).get();
+
+            ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> testTopicDescriptions = ImmutableMap.builder();
+            for (SchemaTableName tableName : tableNames) {
+                testTopicDescriptions.put(tableName, createTable(tableName, testingKafka, topicDescriptionJsonCodec));
+            }
+
             Map<SchemaTableName, KafkaTopicDescription> topicDescriptions = ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
                     .putAll(extraTopicDescription)
                     .putAll(tpchTopicDescriptions)
+                    .putAll(testTopicDescriptions.build())
                     .build();
             KafkaPlugin kafkaPlugin = new KafkaPlugin(combine(
                     extensions,
@@ -147,9 +167,9 @@ public final class KafkaQueryRunner
 
             Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
             kafkaProperties.putIfAbsent("kafka.nodes", testingKafka.getConnectString());
-            kafkaProperties.putIfAbsent("kafka.connect-timeout", "120s");
             kafkaProperties.putIfAbsent("kafka.default-schema", "default");
             kafkaProperties.putIfAbsent("kafka.messages-per-split", "1000");
+            kafkaProperties.putIfAbsent("kafka.table-description-dir", "write-test");
             queryRunner.createCatalog("kafka", "kafka", kafkaProperties);
 
             TestingPrestoClient prestoClient = queryRunner.getClient();
@@ -167,6 +187,33 @@ public final class KafkaQueryRunner
             closeAllSuppress(e, queryRunner);
             throw e;
         }
+    }
+
+    private static KafkaTopicDescription createTable(SchemaTableName table, TestingKafka testingKafka, JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec)
+            throws IOException
+    {
+        testingKafka.createTopic(table.toString());
+        String fileName = format("/%s/%s.json", table.getSchemaName(), table.getTableName());
+        KafkaTopicDescription tableTemplate = topicDescriptionJsonCodec.fromJson(toByteArray(KafkaQueryRunner.class.getResourceAsStream(fileName)));
+
+        Optional<KafkaTopicFieldGroup> key = tableTemplate.getKey()
+                .map(keyTemplate -> new KafkaTopicFieldGroup(
+                        keyTemplate.getDataFormat(),
+                        keyTemplate.getDataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
+                        keyTemplate.getFields()));
+
+        Optional<KafkaTopicFieldGroup> message = tableTemplate.getMessage()
+                .map(keyTemplate -> new KafkaTopicFieldGroup(
+                        keyTemplate.getDataFormat(),
+                        keyTemplate.getDataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
+                        keyTemplate.getFields()));
+
+        return new KafkaTopicDescription(
+                table.getTableName(),
+                Optional.of(table.getSchemaName()),
+                table.toString(),
+                key,
+                message);
     }
 
     private static void loadTpchTopic(TestingKafka testingKafka, TestingPrestoClient prestoClient, TpchTable<?> table)

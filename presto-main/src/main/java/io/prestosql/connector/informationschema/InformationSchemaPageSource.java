@@ -33,11 +33,11 @@ import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.type.Type;
 
-import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Queue;
 import java.util.Set;
@@ -50,6 +50,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.union;
+import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.connector.informationschema.InformationSchemaMetadata.defaultPrefixes;
 import static io.prestosql.connector.informationschema.InformationSchemaMetadata.isTablesEnumeratingTable;
 import static io.prestosql.metadata.MetadataListing.getViews;
@@ -60,6 +61,7 @@ import static io.prestosql.metadata.MetadataListing.listTables;
 import static io.prestosql.metadata.MetadataListing.listViews;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
+import static io.prestosql.type.TypeUtils.getDisplayLabel;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaPageSource
@@ -79,6 +81,8 @@ public class InformationSchemaPageSource
     private final PageBuilder pageBuilder;
     private final Function<Page, Page> projection;
 
+    private final Optional<Set<String>> roles;
+    private final Optional<Set<String>> grantees;
     private long recordCount;
     private long completedBytes;
     private long memoryUsageBytes;
@@ -101,7 +105,7 @@ public class InformationSchemaPageSource
         table = tableHandle.getTable();
         prefixIterator = Suppliers.memoize(() -> {
             Set<QualifiedTablePrefix> prefixes = tableHandle.getPrefixes();
-            if (!tableHandle.getLimit().isPresent()) {
+            if (tableHandle.getLimit().isEmpty()) {
                 // no limit is used, therefore it doesn't make sense to split information schema query into smaller ones
                 return prefixes.iterator();
             }
@@ -119,6 +123,9 @@ public class InformationSchemaPageSource
             return prefixes.iterator();
         });
         limit = tableHandle.getLimit();
+
+        roles = tableHandle.getRoles();
+        grantees = tableHandle.getGrantees();
 
         List<ColumnMetadata> columnMetadata = table.getTableMetadata().getColumns();
 
@@ -196,7 +203,6 @@ public class InformationSchemaPageSource
 
     @Override
     public void close()
-            throws IOException
     {
         closed = true;
     }
@@ -230,6 +236,9 @@ public class InformationSchemaPageSource
                 case ENABLED_ROLES:
                     addEnabledRolesRecords();
                     break;
+                case ROLE_AUTHORIZATION_DESCRIPTORS:
+                    addRoleAuthorizationDescriptorRecords();
+                    break;
             }
         }
         if (!prefixIterator.get().hasNext() || isLimitExhausted()) {
@@ -242,6 +251,7 @@ public class InformationSchemaPageSource
         for (Map.Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
             SchemaTableName tableName = entry.getKey();
             int ordinalPosition = 1;
+
             for (ColumnMetadata column : entry.getValue()) {
                 if (column.isHidden()) {
                     continue;
@@ -254,7 +264,7 @@ public class InformationSchemaPageSource
                         ordinalPosition,
                         null,
                         "YES",
-                        column.getType().getDisplayName(),
+                        getDisplayLabel(column.getType(), isOmitDateTimeTypePrecision(session)),
                         column.getComment(),
                         column.getExtraInfo(),
                         column.getComment());
@@ -348,13 +358,35 @@ public class InformationSchemaPageSource
         }
     }
 
+    private void addRoleAuthorizationDescriptorRecords()
+    {
+        try {
+            accessControl.checkCanShowRoleAuthorizationDescriptors(session.toSecurityContext(), catalogName);
+        }
+        catch (AccessDeniedException exception) {
+            return;
+        }
+
+        for (RoleGrant grant : metadata.listAllRoleGrants(session, catalogName, roles, grantees, limit)) {
+            addRecord(
+                    grant.getRoleName(),
+                    null, // grantor
+                    null, // grantor type
+                    grant.getGrantee().getName(),
+                    grant.getGrantee().getType().toString(),
+                    grant.isGrantable() ? "YES" : "NO");
+            if (isLimitExhausted()) {
+                return;
+            }
+        }
+    }
+
     private void addApplicableRolesRecords()
     {
         for (RoleGrant grant : metadata.listApplicableRoles(session, new PrestoPrincipal(USER, session.getUser()), catalogName)) {
-            PrestoPrincipal grantee = grant.getGrantee();
             addRecord(
-                    grantee.getName(),
-                    grantee.getType().toString(),
+                    grant.getGrantee().getName(),
+                    grant.getGrantee().getType().toString(),
                     grant.getRoleName(),
                     grant.isGrantable() ? "YES" : "NO");
             if (isLimitExhausted()) {

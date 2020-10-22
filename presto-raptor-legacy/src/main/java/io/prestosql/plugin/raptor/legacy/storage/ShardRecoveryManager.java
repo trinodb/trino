@@ -124,7 +124,7 @@ public class ShardRecoveryManager
     @PostConstruct
     public void start()
     {
-        if (!backupStore.isPresent()) {
+        if (backupStore.isEmpty()) {
             return;
         }
         if (started.compareAndSet(false, true)) {
@@ -416,7 +416,7 @@ public class ShardRecoveryManager
         public MissingShardsQueue(PrioritizedFifoExecutor<MissingShardRunnable> shardRecoveryExecutor)
         {
             requireNonNull(shardRecoveryExecutor, "shardRecoveryExecutor is null");
-            this.queuedMissingShards = CacheBuilder.newBuilder().build(new CacheLoader<MissingShard, ListenableFuture<?>>()
+            this.queuedMissingShards = CacheBuilder.newBuilder().build(new CacheLoader<>()
             {
                 @Override
                 public ListenableFuture<?> load(MissingShard missingShard)
@@ -463,7 +463,7 @@ public class ShardRecoveryManager
 
     private static <T> FutureCallback<T> failureCallback(Consumer<Throwable> callback)
     {
-        return new FutureCallback<T>()
+        return new FutureCallback<>()
         {
             @Override
             public void onSuccess(T result) {}

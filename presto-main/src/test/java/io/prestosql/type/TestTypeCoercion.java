@@ -37,7 +37,7 @@ import static io.prestosql.spi.type.RowType.rowType;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -118,10 +118,10 @@ public class TestTypeCoercion
         assertThat(UNKNOWN, BIGINT).hasCommonSuperType(BIGINT).canCoerceFirstToSecondOnly();
 
         assertThat(BIGINT, DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
-        assertThat(DATE, TIMESTAMP).hasCommonSuperType(TIMESTAMP).canCoerceFirstToSecondOnly();
+        assertThat(DATE, TIMESTAMP_MILLIS).hasCommonSuperType(TIMESTAMP_MILLIS).canCoerceFirstToSecondOnly();
         assertThat(DATE, TIMESTAMP_WITH_TIME_ZONE).hasCommonSuperType(TIMESTAMP_WITH_TIME_ZONE).canCoerceFirstToSecondOnly();
         assertThat(TIME, TIME_WITH_TIME_ZONE).hasCommonSuperType(TIME_WITH_TIME_ZONE).canCoerceFirstToSecondOnly();
-        assertThat(TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE).hasCommonSuperType(TIMESTAMP_WITH_TIME_ZONE).canCoerceFirstToSecondOnly();
+        assertThat(TIMESTAMP_MILLIS, TIMESTAMP_WITH_TIME_ZONE).hasCommonSuperType(TIMESTAMP_WITH_TIME_ZONE).canCoerceFirstToSecondOnly();
         assertThat(VARCHAR, JONI_REGEXP).hasCommonSuperType(JONI_REGEXP).canCoerceFirstToSecondOnly();
         assertThat(VARCHAR, re2jType).hasCommonSuperType(re2jType).canCoerceFirstToSecondOnly();
         assertThat(VARCHAR, JSON_PATH).hasCommonSuperType(JSON_PATH).canCoerceFirstToSecondOnly();
@@ -132,7 +132,7 @@ public class TestTypeCoercion
         assertThat(REAL, INTEGER).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
         assertThat(REAL, BIGINT).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
 
-        assertThat(TIMESTAMP, TIME_WITH_TIME_ZONE).isIncompatible();
+        assertThat(TIMESTAMP_MILLIS, TIME_WITH_TIME_ZONE).isIncompatible();
         assertThat(VARBINARY, VARCHAR).isIncompatible();
 
         assertThat(UNKNOWN, new ArrayType(BIGINT)).hasCommonSuperType(new ArrayType(BIGINT)).canCoerceFirstToSecondOnly();
@@ -353,7 +353,7 @@ public class TestTypeCoercion
 
         public void isIncompatible()
         {
-            assertTrue(!commonSuperType.isPresent(), "Expected to be incompatible");
+            assertTrue(commonSuperType.isEmpty(), "Expected to be incompatible");
         }
 
         public CompatibilityAssertion hasCommonSuperType(Type expected)

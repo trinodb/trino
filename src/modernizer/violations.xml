@@ -50,6 +50,18 @@
     </violation>
 
     <violation>
+        <name>org/testng/Assert.assertThrows:(Lorg/testng/Assert$ThrowingRunnable;)V</name>
+        <version>1.8</version>
+        <comment>Use AssertJ's assertThatThrownBy, see https://github.com/prestosql/presto/issues/5320 for rationale</comment>
+    </violation>
+
+    <violation>
+        <name>org/testng/Assert.assertThrows:(Ljava/lang/Class;Lorg/testng/Assert$ThrowingRunnable;)V</name>
+        <version>1.8</version>
+        <comment>Use AssertJ's assertThatThrownBy, see https://github.com/prestosql/presto/issues/5320 for rationale</comment>
+    </violation>
+
+    <violation>
         <name>org/apache/hadoop/conf/Configuration."&lt;init&gt;":()V</name>
         <version>1.1</version>
         <comment>Prefer new Configuration(false)</comment>
@@ -107,5 +119,23 @@
         <name>io/airlift/units/DataSize.convertToMostSuccinctDataSize:()Lio/airlift/units/DataSize;</name>
         <version>1.8</version>
         <comment>Use io.airlift.units.DataSize.succinct()</comment>
+    </violation>
+
+    <violation>
+        <name>io/airlift/testing/Closeables.closeQuietly:([Ljava/io/Closeable;)V</name>
+        <version>1.0</version>
+        <comment>Use Closeables.closeAll() or Closer.</comment>
+    </violation>
+
+    <violation>
+        <name>com/google/inject/util/Modules.combine:(Ljava/lang/Iterable;)Lcom/google/inject/Module;</name>
+        <version>1.8</version>
+        <comment>Use io.airlift.configuration.ConfigurationAwareModule.combine</comment>
+    </violation>
+
+    <violation>
+        <name>com/google/inject/util/Modules.combine:([Lcom/google/inject/Module;)Lcom/google/inject/Module;</name>
+        <version>1.8</version>
+        <comment>Use io.airlift.configuration.ConfigurationAwareModule.combine</comment>
     </violation>
 </modernizer>

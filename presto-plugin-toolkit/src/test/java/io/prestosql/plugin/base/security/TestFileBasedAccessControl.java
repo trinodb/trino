@@ -15,6 +15,7 @@ package io.prestosql.plugin.base.security;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
@@ -24,16 +25,17 @@ import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.PrincipalType;
+import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.type.VarcharType;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertThrows;
 
 public class TestFileBasedAccessControl
 {
@@ -42,6 +44,66 @@ public class TestFileBasedAccessControl
     private static final ConnectorSecurityContext BOB = user("bob", ImmutableSet.of("staff"));
     private static final ConnectorSecurityContext CHARLIE = user("charlie", ImmutableSet.of("guests"));
     private static final ConnectorSecurityContext JOE = user("joe", ImmutableSet.of());
+    private static final ConnectorSecurityContext UNKNOWN = user("unknown", ImmutableSet.of());
+
+    @Test
+    public void testEmptyFile()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("empty.json");
+
+        accessControl.checkCanCreateSchema(UNKNOWN, "unknown");
+        accessControl.checkCanDropSchema(UNKNOWN, "unknown");
+        accessControl.checkCanRenameSchema(UNKNOWN, "unknown", "new_unknown");
+        accessControl.checkCanSetSchemaAuthorization(UNKNOWN, "unknown", new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanShowCreateSchema(UNKNOWN, "unknown");
+
+        accessControl.checkCanSelectFromColumns(UNKNOWN, new SchemaTableName("unknown", "unknown"), ImmutableSet.of());
+        accessControl.checkCanShowColumns(UNKNOWN, new SchemaTableName("unknown", "unknown"));
+        accessControl.checkCanInsertIntoTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
+        accessControl.checkCanDeleteFromTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
+
+        accessControl.checkCanCreateTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
+        accessControl.checkCanDropTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
+        accessControl.checkCanRenameTable(UNKNOWN,
+                new SchemaTableName("unknown", "unknown"),
+                new SchemaTableName("unknown", "new_unknown"));
+
+        accessControl.checkCanSetCatalogSessionProperty(UNKNOWN, "anything");
+
+        Set<SchemaTableName> tables = ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("secret", "any"))
+                .add(new SchemaTableName("any", "any"))
+                .build();
+        assertEquals(accessControl.filterTables(UNKNOWN, tables), tables);
+
+        // permissions management APIs are hard coded to deny
+        PrestoPrincipal someUser = new PrestoPrincipal(PrincipalType.USER, "some_user");
+        assertDenied(() -> accessControl.checkCanGrantTablePrivilege(ADMIN, Privilege.SELECT, new SchemaTableName("any", "any"), someUser, false));
+        assertDenied(() -> accessControl.checkCanRevokeTablePrivilege(ADMIN, Privilege.SELECT, new SchemaTableName("any", "any"), someUser, false));
+        assertDenied(() -> accessControl.checkCanCreateRole(ADMIN, "role", Optional.empty()));
+        assertDenied(() -> accessControl.checkCanDropRole(ADMIN, "role"));
+        assertDenied(() -> accessControl.checkCanGrantRoles(
+                ADMIN,
+                ImmutableSet.of("test"),
+                ImmutableSet.of(someUser),
+                false,
+                Optional.empty(),
+                "any"));
+        assertDenied(() -> accessControl.checkCanRevokeRoles(
+                ADMIN,
+                ImmutableSet.of("test"),
+                ImmutableSet.of(someUser),
+                false,
+                Optional.empty(),
+                "any"));
+        assertDenied(() -> accessControl.checkCanSetRole(ADMIN, "role", "any"));
+
+        // showing roles and permissions is hard coded to allow
+        accessControl.checkCanShowRoleAuthorizationDescriptors(UNKNOWN, "any");
+        accessControl.checkCanShowRoles(UNKNOWN, "any");
+        accessControl.checkCanShowCurrentRoles(UNKNOWN, "any");
+        accessControl.checkCanShowRoleGrants(UNKNOWN, "any");
+    }
 
     @Test
     public void testSchemaRules()
@@ -94,27 +156,27 @@ public class TestFileBasedAccessControl
         accessControl.checkCanRenameSchema(CHARLIE, "authenticated", "authenticated");
         assertDenied(() -> accessControl.checkCanRenameSchema(CHARLIE, "test", "new_schema"));
 
-        accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("bob", "test"));
-        accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("test", "test"));
-        accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("authenticated", "test"));
-        assertDenied(() -> accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("secret", "test")));
-
-        accessControl.checkCanCreateTable(BOB, new SchemaTableName("bob", "test"));
-        assertDenied(() -> accessControl.checkCanCreateTable(BOB, new SchemaTableName("test", "test")));
-        accessControl.checkCanCreateTable(BOB, new SchemaTableName("authenticated", "test"));
-        assertDenied(() -> accessControl.checkCanCreateTable(BOB, new SchemaTableName("secret", "test")));
-
-        assertDenied(() -> accessControl.checkCanCreateTable(CHARLIE, new SchemaTableName("bob", "test")));
-        assertDenied(() -> accessControl.checkCanCreateTable(CHARLIE, new SchemaTableName("test", "test")));
-        accessControl.checkCanCreateTable(CHARLIE, new SchemaTableName("authenticated", "test"));
-        assertDenied(() -> accessControl.checkCanCreateTable(CHARLIE, new SchemaTableName("secret", "test")));
-
         accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
         accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new PrestoPrincipal(PrincipalType.USER, "some_user"));
         accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
         accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new PrestoPrincipal(PrincipalType.USER, "some_user"));
         assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new PrestoPrincipal(PrincipalType.ROLE, "some_role")));
         assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new PrestoPrincipal(PrincipalType.USER, "some_user")));
+
+        accessControl.checkCanShowCreateSchema(ADMIN, "bob");
+        accessControl.checkCanShowCreateSchema(ADMIN, "staff");
+        accessControl.checkCanShowCreateSchema(ADMIN, "authenticated");
+        accessControl.checkCanShowCreateSchema(ADMIN, "test");
+
+        accessControl.checkCanShowCreateSchema(BOB, "bob");
+        accessControl.checkCanShowCreateSchema(BOB, "staff");
+        accessControl.checkCanShowCreateSchema(BOB, "authenticated");
+        assertDenied(() -> accessControl.checkCanShowCreateSchema(BOB, "test"));
+
+        assertDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, "bob"));
+        assertDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, "staff"));
+        accessControl.checkCanShowCreateSchema(CHARLIE, "authenticated");
+        assertDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, "test"));
     }
 
     @Test
@@ -124,6 +186,7 @@ public class TestFileBasedAccessControl
         accessControl.checkCanSelectFromColumns(ALICE, new SchemaTableName("test", "test"), ImmutableSet.of());
         accessControl.checkCanSelectFromColumns(ALICE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanSelectFromColumns(ALICE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of("bobcolumn"));
+
         accessControl.checkCanShowColumns(ALICE, new SchemaTableName("bobschema", "bobtable"));
         assertEquals(
                 accessControl.filterColumns(ALICE, new SchemaTableName("bobschema", "bobtable"), ImmutableList.of(column("a"))),
@@ -133,18 +196,32 @@ public class TestFileBasedAccessControl
         assertEquals(
                 accessControl.filterColumns(BOB, new SchemaTableName("bobschema", "bobtable"), ImmutableList.of(column("a"))),
                 ImmutableList.of(column("a")));
+
         accessControl.checkCanInsertIntoTable(BOB, new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanDeleteFromTable(BOB, new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanSelectFromColumns(CHARLIE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanSelectFromColumns(CHARLIE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of("bobcolumn"));
         accessControl.checkCanInsertIntoTable(CHARLIE, new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanSelectFromColumns(JOE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
+
+        accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("bob", "test"));
+        accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("test", "test"));
+        accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("authenticated", "test"));
+        assertDenied(() -> accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("secret", "test")));
+
+        accessControl.checkCanCreateTable(ALICE, new SchemaTableName("aliceschema", "test"));
+        assertDenied(() -> accessControl.checkCanCreateTable(ALICE, new SchemaTableName("test", "test")));
+        assertDenied(() -> accessControl.checkCanCreateTable(CHARLIE, new SchemaTableName("aliceschema", "test")));
+        assertDenied(() -> accessControl.checkCanCreateTable(CHARLIE, new SchemaTableName("test", "test")));
+
         accessControl.checkCanCreateViewWithSelectFromColumns(BOB, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanDropTable(ADMIN, new SchemaTableName("bobschema", "bobtable"));
+
         accessControl.checkCanRenameTable(ADMIN, new SchemaTableName("bobschema", "bobtable"), new SchemaTableName("aliceschema", "newbobtable"));
         accessControl.checkCanRenameTable(ALICE, new SchemaTableName("aliceschema", "alicetable"), new SchemaTableName("aliceschema", "newalicetable"));
         accessControl.checkCanRenameView(ADMIN, new SchemaTableName("bobschema", "bobview"), new SchemaTableName("aliceschema", "newbobview"));
         accessControl.checkCanRenameView(ALICE, new SchemaTableName("aliceschema", "aliceview"), new SchemaTableName("aliceschema", "newaliceview"));
+
         assertDenied(() -> accessControl.checkCanInsertIntoTable(ALICE, new SchemaTableName("bobschema", "bobtable")));
         assertDenied(() -> accessControl.checkCanDropTable(BOB, new SchemaTableName("bobschema", "bobtable")));
         assertDenied(() -> accessControl.checkCanRenameTable(BOB, new SchemaTableName("bobschema", "bobtable"), new SchemaTableName("bobschema", "newbobtable")));
@@ -158,14 +235,53 @@ public class TestFileBasedAccessControl
     }
 
     @Test
+    public void testTableFilter()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("table-filter.json");
+        Set<SchemaTableName> tables = ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("restricted", "any"))
+                .add(new SchemaTableName("secret", "any"))
+                .add(new SchemaTableName("aliceschema", "any"))
+                .add(new SchemaTableName("aliceschema", "bobtable"))
+                .add(new SchemaTableName("bobschema", "bob_any"))
+                .add(new SchemaTableName("bobschema", "any"))
+                .add(new SchemaTableName("any", "any"))
+                .build();
+        assertEquals(accessControl.filterTables(ALICE, tables), ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("aliceschema", "any"))
+                .add(new SchemaTableName("aliceschema", "bobtable"))
+                .build());
+        assertEquals(accessControl.filterTables(BOB, tables), ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("aliceschema", "bobtable"))
+                .add(new SchemaTableName("bobschema", "bob_any"))
+                .build());
+        assertEquals(accessControl.filterTables(ADMIN, tables), ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("secret", "any"))
+                .add(new SchemaTableName("aliceschema", "any"))
+                .add(new SchemaTableName("aliceschema", "bobtable"))
+                .add(new SchemaTableName("bobschema", "bob_any"))
+                .add(new SchemaTableName("bobschema", "any"))
+                .add(new SchemaTableName("any", "any"))
+                .build());
+    }
+
+    @Test
     public void testNoTableRules()
     {
         ConnectorAccessControl accessControl = createAccessControl("no-access.json");
         assertDenied(() -> accessControl.checkCanShowColumns(BOB, new SchemaTableName("bobschema", "bobtable")));
-        accessControl.checkCanShowTables(BOB, "bobschema");
+        assertDenied(() -> accessControl.checkCanShowTables(BOB, "bobschema"));
         assertEquals(
                 accessControl.filterColumns(BOB, new SchemaTableName("bobschema", "bobtable"), ImmutableList.of(column("a"))),
                 ImmutableList.of());
+
+        Set<SchemaTableName> tables = ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("restricted", "any"))
+                .add(new SchemaTableName("secret", "any"))
+                .add(new SchemaTableName("any", "any"))
+                .build();
+        assertEquals(accessControl.filterTables(ALICE, tables), ImmutableSet.of());
+        assertEquals(accessControl.filterTables(BOB, tables), ImmutableSet.of());
     }
 
     @Test
@@ -193,6 +309,44 @@ public class TestFileBasedAccessControl
     }
 
     @Test
+    public void testFilterSchemas()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("visibility.json");
+
+        ImmutableSet<String> allSchemas = ImmutableSet.of("specific-schema", "alice-schema", "bob-schema", "unknown");
+        assertEquals(accessControl.filterSchemas(ADMIN, allSchemas), allSchemas);
+        assertEquals(accessControl.filterSchemas(ALICE, allSchemas), ImmutableSet.of("specific-schema", "alice-schema"));
+        assertEquals(accessControl.filterSchemas(BOB, allSchemas), ImmutableSet.of("specific-schema", "bob-schema"));
+        assertEquals(accessControl.filterSchemas(CHARLIE, allSchemas), ImmutableSet.of("specific-schema"));
+    }
+
+    @Test
+    public void testSchemaRulesForCheckCanShowTables()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("visibility.json");
+        accessControl.checkCanShowTables(ADMIN, "specific-schema");
+        accessControl.checkCanShowTables(ADMIN, "bob-schema");
+        accessControl.checkCanShowTables(ADMIN, "alice-schema");
+        accessControl.checkCanShowTables(ADMIN, "secret");
+        accessControl.checkCanShowTables(ADMIN, "any");
+        accessControl.checkCanShowTables(ALICE, "specific-schema");
+        accessControl.checkCanShowTables(ALICE, "alice-schema");
+        assertDenied(() -> accessControl.checkCanShowTables(ALICE, "bob-schema"));
+        assertDenied(() -> accessControl.checkCanShowTables(ALICE, "secret"));
+        assertDenied(() -> accessControl.checkCanShowTables(ALICE, "any"));
+        accessControl.checkCanShowTables(BOB, "specific-schema");
+        accessControl.checkCanShowTables(BOB, "bob-schema");
+        assertDenied(() -> accessControl.checkCanShowTables(BOB, "alice-schema"));
+        assertDenied(() -> accessControl.checkCanShowTables(BOB, "secret"));
+        assertDenied(() -> accessControl.checkCanShowTables(BOB, "any"));
+        accessControl.checkCanShowTables(CHARLIE, "specific-schema");
+        assertDenied(() -> accessControl.checkCanShowTables(CHARLIE, "bob-schema"));
+        assertDenied(() -> accessControl.checkCanShowTables(CHARLIE, "alice-schema"));
+        assertDenied(() -> accessControl.checkCanShowTables(CHARLIE, "secret"));
+        assertDenied(() -> accessControl.checkCanShowTables(CHARLIE, "any"));
+    }
+
+    @Test
     public void testEverythingImplemented()
     {
         assertAllMethodsOverridden(ConnectorAccessControl.class, FileBasedAccessControl.class);
@@ -200,20 +354,10 @@ public class TestFileBasedAccessControl
 
     private static ConnectorSecurityContext user(String name, Set<String> groups)
     {
-        return new ConnectorSecurityContext()
-        {
-            @Override
-            public ConnectorTransactionHandle getTransactionHandle()
-            {
-                return new ConnectorTransactionHandle() {};
-            }
-
-            @Override
-            public ConnectorIdentity getIdentity()
-            {
-                return ConnectorIdentity.forUser(name).withGroups(groups).build();
-            }
-        };
+        return new ConnectorSecurityContext(
+                new ConnectorTransactionHandle() {},
+                ConnectorIdentity.forUser(name).withGroups(groups).build(),
+                new QueryId("query_id"));
     }
 
     private ConnectorAccessControl createAccessControl(String fileName)
@@ -221,12 +365,15 @@ public class TestFileBasedAccessControl
         String path = this.getClass().getClassLoader().getResource(fileName).getPath();
         FileBasedAccessControlConfig config = new FileBasedAccessControlConfig();
         config.setConfigFile(path);
-        return new FileBasedAccessControl(config);
+        return new FileBasedAccessControl("test_catalog", config);
     }
 
     private static void assertDenied(ThrowingRunnable runnable)
     {
-        assertThrows(AccessDeniedException.class, runnable);
+        assertThatThrownBy(runnable::run)
+                .isInstanceOf(AccessDeniedException.class)
+                // TODO test expected message precisely, as in TestFileBasedSystemAccessControl
+                .hasMessageStartingWith("Access Denied");
     }
 
     private static ColumnMetadata column(String columnName)

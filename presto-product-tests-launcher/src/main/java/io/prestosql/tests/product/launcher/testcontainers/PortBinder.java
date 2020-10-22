@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests.product.launcher.testcontainers;
 
+import io.prestosql.tests.product.launcher.docker.ContainerUtil;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 
@@ -33,7 +34,7 @@ public class PortBinder
     public void exposePort(DockerContainer container, int port)
     {
         if (bindPorts) {
-            TestcontainersUtil.exposePort(container, port);
+            ContainerUtil.exposePort(container, port);
         }
         else {
             // Still export port, at a random free number, as certain startup checks require this.

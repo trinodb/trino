@@ -23,6 +23,7 @@ import org.testng.annotations.AfterClass;
 
 import java.util.Optional;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
@@ -56,6 +57,12 @@ public class TestMySqlDistributedQueries
     }
 
     @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean supportsViews()
     {
         return false;
@@ -63,6 +70,18 @@ public class TestMySqlDistributedQueries
 
     @Override
     protected boolean supportsArrays()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
     {
         return false;
     }
@@ -107,16 +126,9 @@ public class TestMySqlDistributedQueries
     }
 
     @Override
-    public void testCommentTable()
+    protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
-        // MySQL connector currently does not support comment on table
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // delete is not supported
+        return nullToEmpty(exception.getMessage()).matches(".*(Incorrect column name).*");
     }
 
     @Override
@@ -124,7 +136,7 @@ public class TestMySqlDistributedQueries
     {
         String typeName = dataMappingTestSetup.getPrestoTypeName();
         if (typeName.equals("time")
-                || typeName.equals("timestamp with time zone")) {
+                || typeName.equals("timestamp(3) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 

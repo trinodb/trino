@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.hive.s3select;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
@@ -28,7 +27,6 @@ import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
-import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -68,7 +66,6 @@ public class S3SelectRecordCursorProvider
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             boolean s3SelectPushdownEnabled)
     {
@@ -85,19 +82,19 @@ public class S3SelectRecordCursorProvider
 
         Optional<ReaderProjections> projectedReaderColumns = projectBaseColumns(columns);
         // Ignore predicates on partial columns for now.
-        effectivePredicate = effectivePredicate.transform(column -> column.isBaseColumn() ? column : null);
+        effectivePredicate = effectivePredicate.filter((column, domain) -> column.isBaseColumn());
 
         String serdeName = getDeserializerClassName(schema);
         if (CSV_SERDES.contains(serdeName)) {
             List<HiveColumnHandle> readerColumns = projectedReaderColumns
                     .map(ReaderProjections::getReaderColumns)
-                    .orElse(ImmutableList.of());
+                    .orElse(columns);
 
             IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
             String ionSqlQuery = queryBuilder.buildSql(readerColumns, effectivePredicate);
             S3SelectLineRecordReader recordReader = new S3SelectCsvRecordReader(configuration, path, start, length, schema, ionSqlQuery, s3ClientFactory);
 
-            RecordCursor cursor = new S3SelectRecordCursor<>(configuration, path, recordReader, length, schema, readerColumns, hiveStorageTimeZone);
+            RecordCursor cursor = new S3SelectRecordCursor<>(configuration, path, recordReader, length, schema, readerColumns);
             return Optional.of(new ReaderRecordCursorWithProjections(cursor, projectedReaderColumns));
         }
 

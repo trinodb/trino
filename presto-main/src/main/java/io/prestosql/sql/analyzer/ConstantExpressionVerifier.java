@@ -35,7 +35,7 @@ public final class ConstantExpressionVerifier
     }
 
     private static class ConstantExpressionVerifierVisitor
-            extends DefaultTraversalVisitor<Void, Void>
+            extends DefaultTraversalVisitor<Void>
     {
         private final Set<NodeRef<Expression>> columnReferences;
         private final Expression expression;

@@ -31,6 +31,7 @@ public class TestMongoClientConfig
     {
         assertRecordedDefaults(recordDefaults(MongoClientConfig.class)
                 .setSchemaCollection("_schema")
+                .setCaseInsensitiveNameMatching(false)
                 .setSeeds("")
                 .setCredentials("")
                 .setMinConnectionsPerHost(0)
@@ -40,6 +41,7 @@ public class TestMongoClientConfig
                 .setSocketTimeout(0)
                 .setSocketKeepAlive(false)
                 .setSslEnabled(false)
+                .setMaxConnectionIdleTime(0)
                 .setCursorBatchSize(0)
                 .setReadPreference(ReadPreferenceType.PRIMARY)
                 .setWriteConcern(WriteConcernType.ACKNOWLEDGED)
@@ -52,6 +54,7 @@ public class TestMongoClientConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("mongodb.schema-collection", "_my_schema")
+                .put("mongodb.case-insensitive-name-matching", "true")
                 .put("mongodb.seeds", "host1,host2:27016")
                 .put("mongodb.credentials", "username:password@collection")
                 .put("mongodb.min-connections-per-host", "1")
@@ -61,6 +64,7 @@ public class TestMongoClientConfig
                 .put("mongodb.socket-timeout", "1")
                 .put("mongodb.socket-keep-alive", "true")
                 .put("mongodb.ssl.enabled", "true")
+                .put("mongodb.max-connection-idle-time", "180000")
                 .put("mongodb.cursor-batch-size", "1")
                 .put("mongodb.read-preference", "NEAREST")
                 .put("mongodb.write-concern", "UNACKNOWLEDGED")
@@ -70,6 +74,7 @@ public class TestMongoClientConfig
 
         MongoClientConfig expected = new MongoClientConfig()
                 .setSchemaCollection("_my_schema")
+                .setCaseInsensitiveNameMatching(true)
                 .setSeeds("host1", "host2:27016")
                 .setCredentials("username:password@collection")
                 .setMinConnectionsPerHost(1)
@@ -79,6 +84,7 @@ public class TestMongoClientConfig
                 .setSocketTimeout(1)
                 .setSocketKeepAlive(true)
                 .setSslEnabled(true)
+                .setMaxConnectionIdleTime(180_000)
                 .setCursorBatchSize(1)
                 .setReadPreference(ReadPreferenceType.NEAREST)
                 .setWriteConcern(WriteConcernType.UNACKNOWLEDGED)

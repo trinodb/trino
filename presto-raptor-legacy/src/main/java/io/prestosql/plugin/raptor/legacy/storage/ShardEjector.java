@@ -117,7 +117,7 @@ public class ShardEjector
     @PostConstruct
     public void start()
     {
-        if (!backupStore.isPresent()) {
+        if (backupStore.isEmpty()) {
             return;
         }
         if (!started.getAndSet(true)) {
@@ -206,7 +206,7 @@ public class ShardEjector
 
         // get non-bucketed node shards by size, largest to smallest
         List<ShardMetadata> shards = shardManager.getNodeShards(currentNode).stream()
-                .filter(shard -> !shard.getBucketNumber().isPresent())
+                .filter(shard -> shard.getBucketNumber().isEmpty())
                 .sorted(comparingLong(ShardMetadata::getCompressedSize).reversed())
                 .collect(toList());
 

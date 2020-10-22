@@ -25,29 +25,41 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.Signature;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
+import io.prestosql.metadata.BoundSignature;
+import io.prestosql.metadata.FunctionInvoker;
+import io.prestosql.metadata.FunctionMetadata;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.InputReferenceCompiler.InputReferenceNode;
+import io.prestosql.type.FunctionType;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.OpCode.NOP;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static java.lang.String.format;
 
@@ -159,16 +171,112 @@ public final class BytecodeUtils
                 binding.getType().returnType());
     }
 
-    public static BytecodeNode generateInvocation(Scope scope, String name, ScalarFunctionImplementation function, Optional<BytecodeNode> instance, List<BytecodeNode> arguments, CallSiteBinder binder)
+    public static BytecodeNode generateInvocation(
+            Scope scope,
+            ResolvedFunction resolvedFunction,
+            Metadata metadata,
+            List<BytecodeNode> arguments,
+            CallSiteBinder binder)
     {
+        return generateInvocation(
+                scope,
+                metadata.getFunctionMetadata(resolvedFunction),
+                invocationConvention -> metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(invocationConvention)),
+                arguments,
+                binder);
+    }
+
+    public static BytecodeNode generateInvocation(
+            Scope scope,
+            FunctionMetadata functionMetadata,
+            Function<InvocationConvention, FunctionInvoker> functionInvokerProvider,
+            List<BytecodeNode> arguments,
+            CallSiteBinder binder)
+    {
+        return generateFullInvocation(
+                scope,
+                functionMetadata,
+                functionInvokerProvider,
+                instanceFactory -> {
+                    throw new IllegalArgumentException("Simple method invocation can not be used with functions that require an instance factory");
+                },
+                arguments.stream()
+                        .map(BytecodeUtils::simpleArgument)
+                        .collect(toImmutableList()),
+                binder);
+    }
+
+    private static Function<Optional<Class<?>>, BytecodeNode> simpleArgument(BytecodeNode argument)
+    {
+        return lambdaInterface -> {
+            checkArgument(!lambdaInterface.isPresent(), "Simple method invocation can not be used with functions that have lambda arguments");
+            return argument;
+        };
+    }
+
+    public static BytecodeNode generateFullInvocation(
+            Scope scope,
+            ResolvedFunction resolvedFunction,
+            Metadata metadata,
+            Function<MethodHandle, BytecodeNode> instanceFactory,
+            List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
+            CallSiteBinder binder)
+    {
+        return generateFullInvocation(
+                scope,
+                metadata.getFunctionMetadata(resolvedFunction),
+                invocationConvention -> metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(invocationConvention)),
+                instanceFactory,
+                argumentCompilers,
+                binder);
+    }
+
+    public static BytecodeNode generateFullInvocation(
+            Scope scope,
+            FunctionMetadata functionMetadata,
+            Function<InvocationConvention, FunctionInvoker> functionInvokerProvider,
+            Function<MethodHandle, BytecodeNode> instanceFactory,
+            List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
+            CallSiteBinder binder)
+    {
+        List<InvocationArgumentConvention> argumentConventions = new ArrayList<>();
+        List<BytecodeNode> arguments = new ArrayList<>();
+        for (int i = 0; i < functionMetadata.getSignature().getArgumentTypes().size(); i++) {
+            if (functionMetadata.getSignature().getArgumentTypes().get(i).getBase().equalsIgnoreCase(FunctionType.NAME)) {
+                argumentConventions.add(FUNCTION);
+                arguments.add(null);
+            }
+            else {
+                BytecodeNode argument = argumentCompilers.get(i).apply(Optional.empty());
+                if (argument instanceof InputReferenceNode) {
+                    argumentConventions.add(BLOCK_POSITION);
+                }
+                else if (functionMetadata.getArgumentDefinitions().get(i).isNullable()) {
+                    // a Java function can only have 255 arguments, so if the count is high use boxed nullable instead of the more efficient null flag
+                    argumentConventions.add(argumentCompilers.size() > 100 ? BOXED_NULLABLE : NULL_FLAG);
+                }
+                else {
+                    argumentConventions.add(NEVER_NULL);
+                }
+                arguments.add(argument);
+            }
+        }
+
+        InvocationConvention invocationConvention = new InvocationConvention(
+                argumentConventions,
+                functionMetadata.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL,
+                true,
+                true);
+        FunctionInvoker functionInvoker = functionInvokerProvider.apply(invocationConvention);
+
+        Binding binding = binder.bind(functionInvoker.getMethodHandle());
+
         LabelNode end = new LabelNode("end");
         BytecodeBlock block = new BytecodeBlock()
-                .setDescription("invoke " + name);
+                .setDescription("invoke " + functionMetadata.getSignature().getName());
 
-        List<Class<?>> stackTypes = new ArrayList<>();
-        if (function.getInstanceFactory().isPresent()) {
-            checkArgument(instance.isPresent());
-        }
+        Optional<BytecodeNode> instance = functionInvoker.getInstanceFactory()
+                .map(instanceFactory);
 
         // Index of current parameter in the MethodHandle
         int currentParameterIndex = 0;
@@ -176,38 +284,20 @@ public final class BytecodeUtils
         // Index of parameter (without @IsNull) in Presto function
         int realParameterIndex = 0;
 
-        // Go through all the choices in the function and then pick the best one
-        List<ScalarImplementationChoice> choices = function.getAllChoices();
-        ScalarImplementationChoice bestChoice = null;
-        for (ScalarImplementationChoice currentChoice : choices) {
-            boolean isValid = true;
-            for (int i = 0; i < arguments.size(); i++) {
-                if (currentChoice.getArgumentProperty(i).getArgumentType() != VALUE_TYPE) {
-                    continue;
-                }
-                if (!(arguments.get(i) instanceof InputReferenceNode) && currentChoice.getArgumentProperty(i).getNullConvention() == NullConvention.BLOCK_AND_POSITION) {
-                    isValid = false;
-                    break;
-                }
-            }
-            if (isValid) {
-                bestChoice = currentChoice;
-            }
-        }
-
-        checkState(bestChoice != null, "None of the scalar function implementation choices are valid");
-        Binding binding = binder.bind(bestChoice.getMethodHandle());
+        // Index of function argument types
+        int lambdaArgumentIndex = 0;
 
         MethodType methodType = binding.getType();
         Class<?> returnType = methodType.returnType();
         Class<?> unboxedReturnType = Primitives.unwrap(returnType);
 
+        List<Class<?>> stackTypes = new ArrayList<>();
         boolean boundInstance = false;
         while (currentParameterIndex < methodType.parameterArray().length) {
             Class<?> type = methodType.parameterArray()[currentParameterIndex];
             stackTypes.add(type);
-            if (bestChoice.getInstanceFactory().isPresent() && !boundInstance) {
-                checkState(type.equals(bestChoice.getInstanceFactory().get().type().returnType()), "Mismatched type for instance parameter");
+            if (instance.isPresent() && !boundInstance) {
+                checkState(type.equals(functionInvoker.getInstanceFactory().get().type().returnType()), "Mismatched type for instance parameter");
                 block.append(instance.get());
                 boundInstance = true;
             }
@@ -215,51 +305,49 @@ public final class BytecodeUtils
                 block.append(scope.getVariable("session"));
             }
             else {
-                ArgumentProperty argumentProperty = bestChoice.getArgumentProperty(realParameterIndex);
-                switch (argumentProperty.getArgumentType()) {
-                    case VALUE_TYPE:
-                        // Apply null convention for value type argument
-                        switch (argumentProperty.getNullConvention()) {
-                            case RETURN_NULL_ON_NULL:
-                                block.append(arguments.get(realParameterIndex));
-                                checkArgument(!Primitives.isWrapperType(type), "Non-nullable argument must not be primitive wrapper type");
-                                block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
-                                break;
-                            case USE_NULL_FLAG:
-                                block.append(arguments.get(realParameterIndex));
-                                block.append(scope.getVariable("wasNull"));
-                                block.append(scope.getVariable("wasNull").set(constantFalse()));
-                                stackTypes.add(boolean.class);
-                                currentParameterIndex++;
-                                break;
-                            case USE_BOXED_TYPE:
-                                block.append(arguments.get(realParameterIndex));
-                                block.append(boxPrimitiveIfNecessary(scope, type));
-                                block.append(scope.getVariable("wasNull").set(constantFalse()));
-                                break;
-                            case BLOCK_AND_POSITION:
-                                InputReferenceNode inputReferenceNode = (InputReferenceNode) arguments.get(realParameterIndex);
-                                block.append(inputReferenceNode.produceBlockAndPosition());
-                                stackTypes.add(int.class);
-                                currentParameterIndex++;
-                                break;
-                            default:
-                                throw new UnsupportedOperationException(format("Unsupported null convention: %s", argumentProperty.getNullConvention()));
-                        }
-                        break;
-                    case FUNCTION_TYPE:
+                switch (invocationConvention.getArgumentConvention(realParameterIndex)) {
+                    case NEVER_NULL:
                         block.append(arguments.get(realParameterIndex));
+                        checkArgument(!Primitives.isWrapperType(type), "Non-nullable argument must not be primitive wrapper type");
+                        block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
+                        break;
+                    case NULL_FLAG:
+                        block.append(arguments.get(realParameterIndex));
+                        block.append(scope.getVariable("wasNull"));
+                        block.append(scope.getVariable("wasNull").set(constantFalse()));
+                        stackTypes.add(boolean.class);
+                        currentParameterIndex++;
+                        break;
+                    case BOXED_NULLABLE:
+                        block.append(arguments.get(realParameterIndex));
+                        block.append(boxPrimitiveIfNecessary(scope, type));
+                        block.append(scope.getVariable("wasNull").set(constantFalse()));
+                        break;
+                    case BLOCK_POSITION:
+                        InputReferenceNode inputReferenceNode = (InputReferenceNode) arguments.get(realParameterIndex);
+                        block.append(inputReferenceNode.produceBlockAndPosition());
+                        stackTypes.add(int.class);
+                        if (!functionMetadata.getArgumentDefinitions().get(realParameterIndex).isNullable()) {
+                            block.append(scope.getVariable("wasNull").set(inputReferenceNode.blockAndPositionIsNull()));
+                            block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
+                        }
+                        currentParameterIndex++;
+                        break;
+                    case FUNCTION:
+                        Class<?> lambdaInterface = functionInvoker.getLambdaInterfaces().get(lambdaArgumentIndex);
+                        block.append(argumentCompilers.get(realParameterIndex).apply(Optional.of(lambdaInterface)));
+                        lambdaArgumentIndex++;
                         break;
                     default:
-                        throw new UnsupportedOperationException(format("Unsupported argument type: %s", argumentProperty.getArgumentType()));
+                        throw new UnsupportedOperationException(format("Unsupported argument conventsion type: %s", invocationConvention.getArgumentConvention(realParameterIndex)));
                 }
                 realParameterIndex++;
             }
             currentParameterIndex++;
         }
-        block.append(invoke(binding, name));
+        block.append(invoke(binding, functionMetadata.getSignature().getName()));
 
-        if (function.isNullable()) {
+        if (functionMetadata.isNullable()) {
             block.append(unboxPrimitiveIfNecessary(scope, returnType));
         }
         block.visitLabel(end);
@@ -336,12 +424,20 @@ public final class BytecodeUtils
     public static BytecodeExpression invoke(Binding binding, String name)
     {
         // ensure that name doesn't have a special characters
-        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), name.replaceAll("[^(A-Za-z0-9_$)]", "_"), binding.getType());
+        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), sanitizeName(name), binding.getType());
     }
 
-    public static BytecodeExpression invoke(Binding binding, Signature signature)
+    public static BytecodeExpression invoke(Binding binding, BoundSignature signature)
     {
         return invoke(binding, signature.getName());
+    }
+
+    /**
+     * Replace characters that are not safe to use in a JVM identifier.
+     */
+    public static String sanitizeName(String name)
+    {
+        return name.replaceAll("[^A-Za-z0-9_$]", "_");
     }
 
     public static BytecodeNode generateWrite(CallSiteBinder callSiteBinder, Scope scope, Variable wasNullVariable, Type type)

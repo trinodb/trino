@@ -55,18 +55,26 @@ statement
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
     | INSERT INTO qualifiedName columnAliases? query                   #insertInto
     | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
-    | ALTER TABLE from=qualifiedName RENAME TO to=qualifiedName        #renameTable
+    | ALTER TABLE (IF EXISTS)? from=qualifiedName RENAME TO to=qualifiedName        #renameTable
     | COMMENT ON TABLE qualifiedName IS (string | NULL)                #commentTable
-    | ALTER TABLE tableName=qualifiedName
-        RENAME COLUMN from=identifier TO to=identifier                 #renameColumn
-    | ALTER TABLE tableName=qualifiedName
-        DROP COLUMN column=qualifiedName                               #dropColumn
-    | ALTER TABLE tableName=qualifiedName
-        ADD COLUMN column=columnDefinition                             #addColumn
+    | COMMENT ON COLUMN qualifiedName IS (string | NULL)               #commentColumn
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        RENAME COLUMN (IF EXISTS)? from=identifier TO to=identifier    #renameColumn
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ADD COLUMN (IF NOT EXISTS)? column=columnDefinition            #addColumn
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
+    | CREATE (OR REPLACE)?  MATERIALIZED VIEW
+        (IF NOT EXISTS)?
+        qualifiedName
+        (COMMENT string)?
+        (WITH properties)? AS query                                    #createMaterializedView
     | CREATE (OR REPLACE)? VIEW qualifiedName
         (COMMENT string)?
         (SECURITY (DEFINER | INVOKER))? AS query                       #createView
+    | REFRESH MATERIALIZED VIEW qualifiedName                          #refreshMaterializedView
+    | DROP MATERIALIZED VIEW (IF EXISTS)? qualifiedName                #dropMaterializedView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | ALTER VIEW from=qualifiedName RENAME TO to=qualifiedName         #renameView
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
@@ -97,14 +105,17 @@ statement
     | EXPLAIN ANALYZE? VERBOSE?
         ('(' explainOption (',' explainOption)* ')')? statement        #explain
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
+    | SHOW CREATE SCHEMA qualifiedName                                 #showCreateSchema
     | SHOW CREATE VIEW qualifiedName                                   #showCreateView
+    | SHOW CREATE MATERIALIZED VIEW qualifiedName                      #showCreateMaterializedView
     | SHOW TABLES ((FROM | IN) qualifiedName)?
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showTables
     | SHOW SCHEMAS ((FROM | IN) identifier)?
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showSchemas
     | SHOW CATALOGS
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showCatalogs
-    | SHOW COLUMNS (FROM | IN) qualifiedName                           #showColumns
+    | SHOW COLUMNS (FROM | IN) qualifiedName?
+        (LIKE pattern=string (ESCAPE escape=string)?)?                 #showColumns
     | SHOW STATS FOR qualifiedName                                     #showStats
     | SHOW STATS FOR '(' querySpecification ')'                        #showStatsForQuery
     | SHOW CURRENT? ROLES ((FROM | IN) identifier)?                    #showRoles
@@ -160,8 +171,18 @@ property
 queryNoWith:
       queryTerm
       (ORDER BY sortItem (',' sortItem)*)?
-      (OFFSET offset=INTEGER_VALUE (ROW | ROWS)?)?
-      ((LIMIT limit=(INTEGER_VALUE | ALL)) | (FETCH (FIRST | NEXT) (fetchFirst=INTEGER_VALUE)? (ROW | ROWS) (ONLY | WITH TIES)))?
+      (OFFSET offset=rowCount (ROW | ROWS)?)?
+      ((LIMIT limit=limitRowCount) | (FETCH (FIRST | NEXT) (fetchFirst=rowCount)? (ROW | ROWS) (ONLY | WITH TIES)))?
+      ;
+
+limitRowCount
+    : ALL
+    | rowCount
+    ;
+
+rowCount
+    : INTEGER_VALUE
+    | PARAMETER
     ;
 
 queryTerm
@@ -309,7 +330,7 @@ primaryExpression
     | booleanValue                                                                        #booleanLiteral
     | string                                                                              #stringLiteral
     | BINARY_LITERAL                                                                      #binaryLiteral
-    | '?'                                                                                 #parameter
+    | PARAMETER                                                                           #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
     | '(' expression (',' expression)+ ')'                                                #rowConstructor
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
@@ -385,10 +406,10 @@ normalForm
 type
     : ROW '(' rowField (',' rowField)* ')'                                         #rowType
     | INTERVAL from=intervalField (TO to=intervalField)?                           #intervalType
-    | base=TIMESTAMP ('(' precision = INTEGER_VALUE ')')? (WITHOUT TIME ZONE)?     #dateTimeType
-    | base=TIMESTAMP ('(' precision = INTEGER_VALUE ')')? WITH TIME ZONE           #dateTimeType
-    | base=TIME ('(' precision = INTEGER_VALUE ')')? (WITHOUT TIME ZONE)?          #dateTimeType
-    | base=TIME ('(' precision = INTEGER_VALUE ')')? WITH TIME ZONE                #dateTimeType
+    | base=TIMESTAMP ('(' precision = typeParameter ')')? (WITHOUT TIME ZONE)?     #dateTimeType
+    | base=TIMESTAMP ('(' precision = typeParameter ')')? WITH TIME ZONE           #dateTimeType
+    | base=TIME ('(' precision = typeParameter ')')? (WITHOUT TIME ZONE)?          #dateTimeType
+    | base=TIME ('(' precision = typeParameter ')')? WITH TIME ZONE                #dateTimeType
     | DOUBLE PRECISION                                                             #doublePrecisionType
     | ARRAY '<' type '>'                                                           #legacyArrayType
     | MAP '<' keyType=type ',' valueType=type '>'                                  #legacyMapType
@@ -397,7 +418,8 @@ type
     ;
 
 rowField
-    : identifier? type;
+    : type
+    | identifier type;
 
 typeParameter
     : INTEGER_VALUE | type
@@ -516,11 +538,11 @@ nonReserved
     | IF | IGNORE | INCLUDING | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
     | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
-    | MAP | MINUTE | MONTH
+    | MAP | MATERIALIZED | MINUTE | MONTH
     | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OFFSET | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
     | PARTITION | PARTITIONS | PATH | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES
-    | RANGE | READ | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
+    | RANGE | READ | REFRESH | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM
     | TABLES | TABLESAMPLE | TEXT | TIES | TIME | TIMESTAMP | TO | TRANSACTION | TRY_CAST | TYPE
@@ -632,6 +654,7 @@ LOCALTIME: 'LOCALTIME';
 LOCALTIMESTAMP: 'LOCALTIMESTAMP';
 LOGICAL: 'LOGICAL';
 MAP: 'MAP';
+MATERIALIZED: 'MATERIALIZED';
 MINUTE: 'MINUTE';
 MONTH: 'MONTH';
 NATURAL: 'NATURAL';
@@ -669,6 +692,7 @@ PROPERTIES: 'PROPERTIES';
 RANGE: 'RANGE';
 READ: 'READ';
 RECURSIVE: 'RECURSIVE';
+REFRESH: 'REFRESH';
 RENAME: 'RENAME';
 REPEATABLE: 'REPEATABLE';
 REPLACE: 'REPLACE';
@@ -814,6 +838,11 @@ BRACKETED_COMMENT
 WS
     : [ \r\n\t]+ -> channel(HIDDEN)
     ;
+
+PARAMETER
+    : '?'
+    ;
+
 
 // Catch-all for anything we can't recognize.
 // We use this to be able to ignore and recover all the text

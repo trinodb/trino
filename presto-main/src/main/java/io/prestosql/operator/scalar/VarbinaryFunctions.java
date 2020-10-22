@@ -16,6 +16,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Murmur3Hash128;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.SpookyHashV2;
@@ -279,6 +280,14 @@ public final class VarbinaryFunctions
         return computeHash(Hashing.sha512(), slice);
     }
 
+    @Description("Compute murmur3 hash")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice murmur3(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return Murmur3Hash128.hash(slice, 0, slice.length());
+    }
+
     private static int hexDigitCharToInt(byte b)
     {
         if (b >= '0' && b <= '9') {
@@ -446,5 +455,21 @@ public final class VarbinaryFunctions
     public static Slice rightPad(@SqlType("varbinary") Slice inputSlice, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varbinary") Slice padBytes)
     {
         return pad(inputSlice, targetLength, padBytes, inputSlice.length());
+    }
+
+    @Description("Reverse a given varbinary")
+    @ScalarFunction("reverse")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice reverse(@SqlType("varbinary") Slice inputSlice)
+    {
+        if (inputSlice.length() == 0) {
+            return EMPTY_SLICE;
+        }
+        int length = inputSlice.length();
+        Slice reverse = Slices.allocate(length);
+        for (int i = 0; i < length; i++) {
+            reverse.setByte(i, inputSlice.getByte((length - 1) - i));
+        }
+        return reverse;
     }
 }

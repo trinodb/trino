@@ -23,8 +23,10 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.GrantorSpecification;
+import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.PrincipalSpecification;
 import io.prestosql.sql.tree.QualifiedName;
@@ -54,7 +56,7 @@ public final class MetadataUtil
         schemaName.ifPresent(name -> checkLowerCase(name, "schemaName"));
         tableName.ifPresent(name -> checkLowerCase(name, "tableName"));
 
-        checkArgument(schemaName.isPresent() || !tableName.isPresent(), "tableName specified but schemaName is missing");
+        checkArgument(schemaName.isPresent() || tableName.isEmpty(), "tableName specified but schemaName is missing");
     }
 
     public static String checkCatalogName(String catalogName)
@@ -103,7 +105,7 @@ public final class MetadataUtil
         String catalog = session.getCatalog().orElseThrow(() ->
                 semanticException(MISSING_CATALOG_NAME, node, "Session catalog must be set"));
 
-        if (!metadata.getCatalogHandle(session, catalog).isPresent()) {
+        if (metadata.getCatalogHandle(session, catalog).isEmpty()) {
             throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
         }
 
@@ -184,9 +186,22 @@ public final class MetadataUtil
         }
     }
 
+    public static PrincipalSpecification createPrincipal(PrestoPrincipal principal)
+    {
+        PrincipalType type = principal.getType();
+        switch (type) {
+            case USER:
+                return new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(principal.getName()));
+            case ROLE:
+                return new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(principal.getName()));
+            default:
+                throw new IllegalArgumentException("Unsupported type: " + type);
+        }
+    }
+
     public static boolean tableExists(Metadata metadata, Session session, String table)
     {
-        if (!session.getCatalog().isPresent() || !session.getSchema().isPresent()) {
+        if (session.getCatalog().isEmpty() || session.getSchema().isEmpty()) {
             return false;
         }
         QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), table);

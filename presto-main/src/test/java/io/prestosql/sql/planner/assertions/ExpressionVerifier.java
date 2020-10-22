@@ -43,6 +43,7 @@ import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.SimpleCaseExpression;
 import io.prestosql.sql.tree.StringLiteral;
+import io.prestosql.sql.tree.SubscriptExpression;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.TryExpression;
 import io.prestosql.sql.tree.WhenClause;
@@ -51,7 +52,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.ExpressionTestUtils.getFunctionName;
+import static io.prestosql.metadata.ResolvedFunction.extractFunctionName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -102,7 +103,8 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return getValueFromLiteral(actual).equals(getValueFromLiteral(expectedExpression));
+        return getValueFromLiteral(actual).equals(getValueFromLiteral(expectedExpression)) &&
+                actual.getType().equals(((GenericLiteral) expectedExpression).getType());
     }
 
     @Override
@@ -484,7 +486,7 @@ public final class ExpressionVerifier
         FunctionCall expected = (FunctionCall) expectedExpression;
 
         return actual.isDistinct() == expected.isDistinct() &&
-                getFunctionName(actual).equals(getFunctionName(expected)) &&
+                extractFunctionName(actual.getName()).equals(extractFunctionName(expected.getName())) &&
                 process(actual.getArguments(), expected.getArguments()) &&
                 process(actual.getFilter(), expected.getFilter()) &&
                 process(actual.getWindow(), expected.getWindow());
@@ -543,6 +545,17 @@ public final class ExpressionVerifier
         return process(actual.getValue(), expected.getValue())
                 && process(actual.getPattern(), expected.getPattern())
                 && process(actual.getEscape(), expected.getEscape());
+    }
+
+    @Override
+    protected Boolean visitSubscriptExpression(SubscriptExpression actual, Node expectedExpression)
+    {
+        if (!(expectedExpression instanceof SubscriptExpression)) {
+            return false;
+        }
+
+        SubscriptExpression expected = (SubscriptExpression) expectedExpression;
+        return process(actual.getBase(), expected.getBase()) && process(actual.getIndex(), expected.getIndex());
     }
 
     private <T extends Node> boolean process(List<T> actuals, List<T> expecteds)
