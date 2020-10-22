@@ -114,9 +114,7 @@ public final class ExpressionVerifier
             return false;
         }
 
-        StringLiteral expected = (StringLiteral) expectedExpression;
-
-        return actual.getValue().equals(expected.getValue());
+        return actual.equals(expectedExpression);
     }
 
     @Override
