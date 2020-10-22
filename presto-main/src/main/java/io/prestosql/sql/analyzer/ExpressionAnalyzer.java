@@ -1170,7 +1170,7 @@ public class ExpressionAnalyzer
                 throw semanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract must be DATE, TIME, TIMESTAMP, or INTERVAL (actual %s)", type);
             }
             Extract.Field field = node.getField();
-            if ((field == TIMEZONE_HOUR || field == TIMEZONE_MINUTE) && !(type.equals(TIME_WITH_TIME_ZONE) || type instanceof TimestampWithTimeZoneType)) {
+            if ((field == TIMEZONE_HOUR || field == TIMEZONE_MINUTE) && !(type instanceof TimeWithTimeZoneType || type instanceof TimestampWithTimeZoneType)) {
                 throw semanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract time zone field must have a time zone (actual %s)", type);
             }
 

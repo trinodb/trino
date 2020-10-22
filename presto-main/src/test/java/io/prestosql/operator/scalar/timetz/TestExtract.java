@@ -156,4 +156,68 @@ public class TestExtract
         assertThat(assertions.expression("millisecond(TIME '12:34:56.12345678901+08:35')")).matches("BIGINT '123'");
         assertThat(assertions.expression("millisecond(TIME '12:34:56.123456789012+08:35')")).matches("BIGINT '123'");
     }
+
+    @Test
+    public void testTimeZoneHour()
+    {
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.1+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.12+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.123+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.1234+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.12345+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.123456+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.1234567+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.12345678+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.123456789+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.1234567890+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.12345678901+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.123456789012+08:35')")).matches("BIGINT '8'");
+
+        assertThat(assertions.expression("timezone_hour(TIME '12:34:56+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("timezone_hour(TIME '12:34:56.1+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("timezone_hour(TIME '12:34:56.12+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("timezone_hour(TIME '12:34:56.123+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("timezone_hour(TIME '12:34:56.1234+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("timezone_hour(TIME '12:34:56.12345+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("timezone_hour(TIME '12:34:56.123456+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("timezone_hour(TIME '12:34:56.1234567+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("timezone_hour(TIME '12:34:56.12345678+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("timezone_hour(TIME '12:34:56.123456789+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("timezone_hour(TIME '12:34:56.1234567890+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("timezone_hour(TIME '12:34:56.12345678901+08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("timezone_hour(TIME '12:34:56.123456789012+08:35')")).matches("BIGINT '8'");
+    }
+
+    @Test
+    public void testTimeZoneMinute()
+    {
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.1+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.12+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.123+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.1234+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.12345+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.123456+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.1234567+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.12345678+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.123456789+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.1234567890+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.12345678901+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.123456789012+08:35')")).matches("BIGINT '35'");
+
+        assertThat(assertions.expression("timezone_minute(TIME '12:34:56+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("timezone_minute(TIME '12:34:56.1+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("timezone_minute(TIME '12:34:56.12+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("timezone_minute(TIME '12:34:56.123+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("timezone_minute(TIME '12:34:56.1234+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("timezone_minute(TIME '12:34:56.12345+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("timezone_minute(TIME '12:34:56.123456+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("timezone_minute(TIME '12:34:56.1234567+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("timezone_minute(TIME '12:34:56.12345678+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("timezone_minute(TIME '12:34:56.123456789+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("timezone_minute(TIME '12:34:56.1234567890+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("timezone_minute(TIME '12:34:56.12345678901+08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("timezone_minute(TIME '12:34:56.123456789012+08:35')")).matches("BIGINT '35'");
+    }
 }
