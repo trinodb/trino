@@ -24,6 +24,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.Re2JCastToRegexpFunction;
+import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
@@ -31,13 +32,16 @@ import io.prestosql.sql.analyzer.ExpressionAnalyzer;
 import io.prestosql.sql.analyzer.Scope;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.transaction.TestingTransactionManager;
 import io.prestosql.type.Re2JRegexp;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Map;
 import java.util.function.BiPredicate;
 
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreCase;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
@@ -56,6 +60,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.SqlFormatter.formatSql;
 import static io.prestosql.sql.planner.ExpressionInterpreter.expressionInterpreter;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static io.prestosql.type.CodePointsType.CODE_POINTS;
 import static io.prestosql.type.JoniRegexpType.JONI_REGEXP;
 import static io.prestosql.type.JsonPathType.JSON_PATH;
@@ -63,6 +68,7 @@ import static io.prestosql.type.LikePatternType.LIKE_PATTERN;
 import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.emptyMap;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -112,6 +118,7 @@ public class TestLiteralEncoder
     private void assertEncode(Object value, Type type, String expected)
     {
         Expression expression = encoder.toExpression(value, type);
+        assertEquals(getExpressionType(expression), type);
         assertEquals(formatSql(expression), expected);
     }
 
@@ -122,15 +129,45 @@ public class TestLiteralEncoder
     private void assertEncodeCaseInsensitively(Object value, Type type, String expected)
     {
         Expression expression = encoder.toExpression(value, type);
+        assertEquals(getExpressionType(expression), type);
         assertEqualsIgnoreCase(formatSql(expression), expected);
     }
 
     private <T> void assertRoundTrip(T value, Type type, BiPredicate<T, T> predicate)
     {
         Expression expression = encoder.toExpression(value, type);
+        assertEquals(getExpressionType(expression), type);
         @SuppressWarnings("unchecked")
         T decodedValue = (T) expressionInterpreter(expression, metadata, TEST_SESSION, ImmutableMap.of(NodeRef.of(expression), type)).evaluate();
         assertTrue(predicate.test(value, decodedValue));
+    }
+
+    private Type getExpressionType(Expression expression)
+    {
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(expression);
+        Type expressionType = expressionTypes.get(NodeRef.of(expression));
+        verify(expressionType != null, "No type found");
+        return expressionType;
+    }
+
+    private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
+    {
+        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+                .singleStatement()
+                .execute(TEST_SESSION, transactionSession -> {
+                    ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
+                            metadata,
+                            new AllowAllAccessControl(),
+                            transactionSession,
+                            TypeProvider.empty(),
+                            emptyMap(),
+                            node -> new IllegalStateException("Unexpected node: " + node),
+                            WarningCollector.NOOP,
+                            false);
+                    expressionAnalyzer.analyze(expression, Scope.create());
+                    Map<NodeRef<Expression>, Type> expressionTypes = expressionAnalyzer.getExpressionTypes();
+                    return expressionTypes;
+                });
     }
 
     private String literalVarbinary(byte[] value)
