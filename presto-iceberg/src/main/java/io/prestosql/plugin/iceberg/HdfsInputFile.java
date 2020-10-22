@@ -23,6 +23,7 @@ import org.apache.iceberg.io.SeekableInputStream;
 
 import java.io.IOException;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -69,5 +70,14 @@ public class HdfsInputFile
     public boolean exists()
     {
         return environment.doAs(user, delegate::exists);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("delegate", delegate)
+                .add("user", user)
+                .toString();
     }
 }
