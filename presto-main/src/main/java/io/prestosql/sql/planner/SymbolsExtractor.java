@@ -24,6 +24,7 @@ import io.prestosql.sql.tree.DefaultTraversalVisitor;
 import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SubqueryExpression;
@@ -157,6 +158,13 @@ public final class SymbolsExtractor
         protected Void visitSymbolReference(SymbolReference node, ImmutableList.Builder<Symbol> builder)
         {
             builder.add(Symbol.from(node));
+            return null;
+        }
+
+        @Override
+        protected Void visitLambdaExpression(LambdaExpression node, ImmutableList.Builder<Symbol> context)
+        {
+            // Symbols in lambda expression are bound to lambda arguments, so no need to extract them
             return null;
         }
     }
