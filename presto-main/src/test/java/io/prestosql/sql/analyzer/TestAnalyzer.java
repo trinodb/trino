@@ -735,6 +735,10 @@ public class TestAnalyzer
     {
         // TODO: validate output
         analyze("SELECT t1.* FROM t1 ORDER BY a");
+
+        analyze("SELECT DISTINCT t1.* FROM t1 ORDER BY a");
+        analyze("SELECT DISTINCT t1.* FROM t1 ORDER BY t1.a");
+        analyze("SELECT DISTINCT t1.* AS (w, x, y, z) FROM t1 ORDER BY w");
     }
 
     @Test
