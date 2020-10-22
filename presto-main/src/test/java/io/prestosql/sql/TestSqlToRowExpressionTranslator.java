@@ -113,7 +113,7 @@ public class TestSqlToRowExpressionTranslator
                 TEST_SESSION,
                 TypeProvider.empty(),
                 emptyMap(),
-                node -> new IllegalStateException("Unexpected node: %s" + node),
+                node -> new IllegalStateException("Unexpected node: " + node),
                 WarningCollector.NOOP,
                 false);
         expressionAnalyzer.analyze(expression, Scope.create());
