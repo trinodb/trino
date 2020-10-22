@@ -17,6 +17,7 @@ import io.airlift.log.Logger;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.server.security.SecurityConfig;
 import io.prestosql.spi.security.AccessDeniedException;
+import io.prestosql.spi.security.PasswordAuthenticator;
 
 import javax.inject.Inject;
 
@@ -65,8 +66,9 @@ public class PasswordManagerFormAuthenticator
             return insecureAuthenticationOverHttpAllowed && password == null;
         }
 
+        PasswordAuthenticator authenticator = passwordAuthenticatorManager.getAuthenticator();
         try {
-            passwordAuthenticatorManager.getAuthenticator().createAuthenticatedPrincipal(username, password);
+            authenticator.createAuthenticatedPrincipal(username, password);
             return true;
         }
         catch (AccessDeniedException e) {
