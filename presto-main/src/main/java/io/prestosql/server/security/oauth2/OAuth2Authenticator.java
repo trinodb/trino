@@ -36,7 +36,9 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static io.prestosql.server.security.oauth2.OAuth2Resource.OAUTH2_API_PREFIX;
 import static io.prestosql.server.security.oauth2.OAuth2Resource.OAUTH2_COOKIE;
+import static io.prestosql.server.security.oauth2.OAuth2Resource.TOKENS_ENDPOINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
@@ -68,9 +70,10 @@ public class OAuth2Authenticator
                     Challenge.Started challenge = service.startChallenge(request.getUriInfo().getBaseUri());
                     return new RedirectAuthenticationException(
                             "Unauthorized",
-                            format("Bearer realm=\"Presto\", authorizationUrl=\"%s\", status=\"%s\"",
+                            format("External-Bearer redirectUrl=\"%s\", tokenUrl=\"%s?state=%s\"",
                                     challenge.getAuthorizationUrl(),
-                                    challenge.getStatus()),
+                                    OAUTH2_API_PREFIX + TOKENS_ENDPOINT,
+                                    challenge.getState()),
                             challenge.getAuthorizationUrl());
                 });
         try {

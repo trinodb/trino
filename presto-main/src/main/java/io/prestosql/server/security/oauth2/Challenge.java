@@ -17,9 +17,11 @@ import com.github.scribejava.core.model.OAuth2AccessToken;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
-class Challenge
+abstract class Challenge
 {
     private final State state;
     private final Status status;
@@ -38,6 +40,17 @@ class Challenge
     Status getStatus()
     {
         return status;
+    }
+
+    boolean isPending()
+    {
+        return !status.isFinal();
+    }
+
+    <T extends Challenge> Optional<T> isInStatus(Status<T> status)
+    {
+        return status
+                .toStatus(this);
     }
 
     static class Started

@@ -25,6 +25,9 @@ import java.io.File;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 public class OAuth2Config
 {
     private String serverUrl;
@@ -35,6 +38,7 @@ public class OAuth2Config
     private Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
+    private Duration maxSinglePollDuration = Duration.succinctDuration(3, SECONDS);
 
     @NotNull
     public String getServerUrl()
@@ -138,6 +142,26 @@ public class OAuth2Config
     public OAuth2Config setUserMappingFile(File userMappingFile)
     {
         this.userMappingFile = Optional.ofNullable(userMappingFile);
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("3s")
+    public Duration getMaxSinglePollDuration()
+    {
+        return maxSinglePollDuration;
+    }
+
+    public long getMaxSinglePollMs()
+    {
+        return maxSinglePollDuration.roundTo(MILLISECONDS);
+    }
+
+    @Config("http-server.authentication.oauth2.token.polling.max-single-duration")
+    @ConfigDescription("Maximum duration of a single poll token request - when token is not ready yet")
+    public OAuth2Config setMaxSinglePollDuration(Duration duration)
+    {
+        this.maxSinglePollDuration = duration;
         return this;
     }
 }

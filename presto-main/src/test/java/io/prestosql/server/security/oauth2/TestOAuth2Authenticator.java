@@ -16,6 +16,7 @@ package io.prestosql.server.security.oauth2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.testing.Closeables;
 import io.jsonwebtoken.Claims;
@@ -23,12 +24,15 @@ import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.impl.DefaultClaims;
+import io.prestosql.client.auth.external.RedirectException;
+import io.prestosql.client.auth.external.RedirectHandler;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.server.ui.WebUiModule;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import org.assertj.core.api.SoftAssertions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Cookie;
 import org.openqa.selenium.WebDriver;
@@ -38,6 +42,7 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.testcontainers.Testcontainers;
 import org.testcontainers.containers.BrowserWebDriverContainer;
+import org.testcontainers.containers.Network;
 import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -56,13 +61,18 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.prestosql.client.OkHttpUtil.setupInsecureSsl;
+import static io.prestosql.client.auth.external.ExternalAuthenticator.setupExternalAuthenticator;
 import static io.prestosql.server.security.oauth2.TestingHydraService.TTL_ACCESS_TOKEN_IN_SECONDS;
 import static java.lang.String.format;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static javax.ws.rs.core.HttpHeaders.AUTHORIZATION;
 import static javax.ws.rs.core.HttpHeaders.LOCATION;
@@ -225,6 +235,31 @@ public class TestOAuth2Authenticator
         });
     }
 
+    @Test(enabled = false)//This test is still failing, looking for a reason why.
+    public void testSuccessfulFlowWithExternalAuthorizer()
+            throws Exception
+    {
+        try (ExternalBrowserRedirectHandler handler = new ExternalBrowserRedirectHandler(testingHydraService.getNetwork())) {
+            OkHttpClient.Builder builder = httpClient.newBuilder();
+            setupExternalAuthenticator(builder, serverUri, Duration.ofSeconds(20), handler);
+            OkHttpClient client = builder.build();
+
+            SoftAssertions assertions = new SoftAssertions();
+            assertions.assertThat(client.newCall(
+                    apiCall()
+                            .url(UriBuilder
+                                    .fromUri(serverUri.resolve("/v1/query"))
+                                    .build()
+                                    .toURL())
+                            .build())
+                    .execute()
+                    .code())
+                    .isEqualTo(OK.getStatusCode());
+            assertions.assertAlso(handler.assertThatNoExceptionHasBeenThrownWhenLoggingIn());
+            assertions.assertAll();
+        }
+    }
+
     @Test
     public void testExpiredAccessToken()
             throws Exception
@@ -252,7 +287,7 @@ public class TestOAuth2Authenticator
                         "-g authorization_code,refresh_token " +
                         "-r token,code,id_token " +
                         "--scope openid,offline " +
-                        "--callbacks https://host.testcontainers.internal:%d/oauth2/callback", HTTPS_PORT))
+                        "--callbacks https://host.testcontainers.internal:%d/oauth2/callback,https://127.0.0.1:%d/oauth2/callback", HTTPS_PORT, HTTPS_PORT))
                 .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofSeconds(30)))
                 .start();
     }
@@ -288,16 +323,21 @@ public class TestOAuth2Authenticator
 
     private BrowserWebDriverContainer<?> createChromeContainer()
     {
+        return createChromeContainer(testingHydraService.getNetwork());
+    }
+
+    private static BrowserWebDriverContainer<?> createChromeContainer(Network network)
+    {
         ChromeOptions options = new ChromeOptions();
         options.setAcceptInsecureCerts(true);
         BrowserWebDriverContainer<?> chromeContainer = new BrowserWebDriverContainer<>()
-                .withNetwork(testingHydraService.getNetwork())
+                .withNetwork(network)
                 .withCapabilities(options);
         chromeContainer.start();
         return chromeContainer;
     }
 
-    private void submitCredentials(WebDriver driver, String email, String password, WebDriverWait wait)
+    private static void submitCredentials(WebDriver driver, String email, String password, WebDriverWait wait)
     {
         By emailElementLocator = By.id("email");
         wait.until(elementToBeClickable(emailElementLocator));
@@ -309,7 +349,7 @@ public class TestOAuth2Authenticator
         passwordElement.sendKeys(password + "\n");
     }
 
-    private void giveConsent(WebDriver driver, WebDriverWait wait)
+    private static void giveConsent(WebDriver driver, WebDriverWait wait)
     {
         By openIdCheckboxLocator = By.id("openid");
         wait.until(elementToBeClickable(openIdCheckboxLocator));
@@ -370,10 +410,11 @@ public class TestOAuth2Authenticator
         assertThat(response.code()).isEqualTo(UNAUTHORIZED.getStatusCode());
         String authenticateHeader = response.header(WWW_AUTHENTICATE);
         assertThat(authenticateHeader).isNotNull();
-        Matcher authenticateHeaderMatcher = Pattern.compile("^Bearer realm=\"Presto\", authorizationUrl=\"(.*)\", status=\"STARTED\"$")
-                .matcher(authenticateHeader);
-        assertThat(authenticateHeaderMatcher.matches()).isTrue();
-        assertRedirectUrl(authenticateHeaderMatcher.group(1));
+        Pattern authHeaderPattern = Pattern.compile("^External-Bearer redirectUrl=\"(.*)\", tokenUrl=\"(.*)\"$");
+        assertThat(authenticateHeader).matches(authHeaderPattern);
+        Matcher authHeaderMatcher = authHeaderPattern.matcher(authenticateHeader);
+        authHeaderMatcher.find();
+        assertRedirectUrl(authHeaderMatcher.group(1)); 
     }
 
     private static void assertRedirectUrl(String redirectUrl)
@@ -398,5 +439,70 @@ public class TestOAuth2Authenticator
     {
         void assertWith(WebDriver driver, WebDriverWait wait)
                 throws Exception;
+    }
+
+    private static class ExternalBrowserRedirectHandler
+            implements RedirectHandler, AutoCloseable
+    {
+        private static final Logger log = Logger.get(ExternalBrowserRedirectHandler.class);
+
+        private final BrowserWebDriverContainer<?> browser;
+        private final ExecutorService userActions = newSingleThreadExecutor();
+        private final AtomicReference<Throwable> userActionException = new AtomicReference<>(null);
+        private final AtomicReference<String> lastWebPageSource = new AtomicReference<>("");
+
+        ExternalBrowserRedirectHandler(Network network)
+        {
+            this.browser = createChromeContainer(network);
+        }
+
+        @Override
+        public void redirectTo(String uri)
+                throws RedirectException
+        {
+            try {
+                HttpUrl redirectUrl = HttpUrl.parse(uri
+                        .replaceAll("%3A", ":")
+                        .replaceAll("%2F", "/"));
+                WebDriver driver = browser.getWebDriver();
+                log.info("redirecting to %s", redirectUrl);
+                CompletableFuture
+                        .runAsync(() -> {
+                            driver.get(redirectUrl.toString());
+                            updateLatestPageSource(driver);
+                            WebDriverWait wait = new WebDriverWait(driver, 5);
+                            submitCredentials(driver, "foo@bar.com", "foobar", wait);
+                            updateLatestPageSource(driver);
+                            giveConsent(driver, wait);
+                            updateLatestPageSource(driver);
+                        }, userActions)
+                        .whenComplete((ignoredResult, exception) -> userActionException.set(exception));
+            }
+            catch (Throwable th) {
+                throw new RedirectException("redirection failed", th);
+            }
+        }
+
+        private void updateLatestPageSource(WebDriver driver)
+        {
+            lastWebPageSource.set(driver.getPageSource());
+        }
+
+        public SoftAssertions assertThatNoExceptionHasBeenThrownWhenLoggingIn()
+        {
+            SoftAssertions assertions = new SoftAssertions();
+            assertions.assertThat(userActionException.get())
+                    .as("exception occurred during action on web page: \n" + lastWebPageSource.get())
+                    .isNull();
+            return assertions;
+        }
+
+        @Override
+        public void close()
+                throws Exception
+        {
+            browser.close();
+            userActions.shutdownNow();
+        }
     }
 }

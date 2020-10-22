@@ -19,18 +19,25 @@ import com.github.scribejava.core.model.OAuthConstants;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.prestosql.server.security.oauth2.Challenge.Started;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
+import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -42,7 +49,8 @@ public class OAuth2Service
 {
     private final DynamicCallbackOAuth2Service service;
     private final JwtParser jwtParser;
-    private final Cache<State, Started> authorizationChallenges;
+    private final Cache<State, Challenge> authorizationChallenges;
+    private final Duration maxPollDuration;
 
     @Inject
     public OAuth2Service(OAuth2Config oauth2Config)
@@ -58,6 +66,7 @@ public class OAuth2Service
         this.authorizationChallenges = CacheBuilder.newBuilder()
                 .expireAfterWrite(oauth2Config.getChallengeTimeout().toMillis(), TimeUnit.MILLISECONDS)
                 .build();
+        this.maxPollDuration = Duration.ofMillis(oauth2Config.getMaxSinglePollMs());
     }
 
     Started startChallenge(URI serverUri)
@@ -72,25 +81,49 @@ public class OAuth2Service
         return challenge;
     }
 
+    CompletableFuture<Challenge> pollForFinish(State state, ExecutorService executor)
+            throws ChallengeNotFoundException
+    {
+        return Failsafe.with(new RetryPolicy<Challenge>()
+                .handleResultIf(Challenge::isPending)
+                .withMaxAttempts(-1)
+                .withMaxDuration(maxPollDuration)
+                .withDelay(maxPollDuration.dividedBy(10)))
+                .with(executor)
+                .getAsync(() -> Optional.ofNullable(authorizationChallenges.getIfPresent(state))
+                        .orElseThrow(() -> new ChallengeNotFoundException(state)));
+    }
+
     Challenge finishChallenge(
             URI serverUri,
             State state,
             Optional<String> code,
             Optional<OAuth2ErrorResponse> error)
-            throws InterruptedException, ExecutionException, IOException
+            throws ChallengeNotFoundException
     {
         requireNonNull(state, "state is null");
         requireNonNull(code, "code is null");
         requireNonNull(error, "error is null");
         checkArgument(code.isPresent() || error.isPresent(), "Either code or error should be present");
         checkArgument(code.isEmpty() || error.isEmpty(), "Either code or error should be empty");
-        Started challenge = getStartedChallenge(state);
-        authorizationChallenges.invalidate(state);
-        if (error.isPresent()) {
-            return challenge.fail(error.get());
-        }
+
+        return authorizationChallenges.asMap()
+                .compute(state, (key, challenge) -> {
+                    Started started = Optional.ofNullable(challenge)
+                            .flatMap(c -> c.isInStatus(Status.STARTED))
+                            .orElseThrow(() -> new ChallengeNotFoundException(state));
+                    if (error.isPresent()) {
+                        return error.map(started::fail)
+                                .orElseThrow();
+                    }
+                    return finishChallenge(started, code.orElseThrow(), serverUri);
+                });
+    }
+
+    private Challenge finishChallenge(Started challenge, String code, URI serverUri)
+    {
         try {
-            OAuth2AccessToken token = service.getAccessToken(code.get(), serverUri.resolve(OAUTH2_API_PREFIX + CALLBACK_ENDPOINT).toString());
+            OAuth2AccessToken token = getToken(code, serverUri);
             return challenge.succeed(token, parseClaimsJws(token.getAccessToken()));
         }
         catch (OAuth2AccessTokenErrorResponse e) {
@@ -102,15 +135,25 @@ public class OAuth2Service
         }
     }
 
+    private OAuth2AccessToken getToken(String code, URI serverUri)
+    {
+        try {
+            return service.getAccessToken(code, serverUri.resolve(OAUTH2_API_PREFIX + CALLBACK_ENDPOINT).toString());
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            throw new UncheckedExecutionException(e);
+        }
+    }
+
     Jws<Claims> parseClaimsJws(String token)
     {
         return jwtParser.parseClaimsJws(token);
-    }
-
-    private Started getStartedChallenge(State state)
-    {
-        return Optional
-                .ofNullable(authorizationChallenges.getIfPresent(state))
-                .orElseThrow(() -> new ChallengeNotFoundException(state));
     }
 }

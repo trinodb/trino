@@ -13,7 +13,54 @@
  */
 package io.prestosql.server.security.oauth2;
 
-enum Status
+import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
+
+class Status<T extends Challenge>
 {
-    STARTED, SUCCEEDED, FAILED
+    static final Status<Challenge.Started> STARTED = new Status(Challenge.Started.class, false);
+    static final Status<Challenge.Succeeded> SUCCEEDED = new Status(Challenge.Succeeded.class, true);
+    static final Status<Challenge.Failed> FAILED = new Status(Challenge.Failed.class, true);
+
+    private final Class<T> correspondingChallengeClass;
+    private final boolean isFinal;
+
+    private Status(Class<T> correspondingChallengeClass, boolean isFinal)
+    {
+        this.correspondingChallengeClass = requireNonNull(correspondingChallengeClass, "correspondingChallengeClass is null");
+        this.isFinal = isFinal;
+    }
+
+    public Optional<T> toStatus(Challenge challenge)
+    {
+        return Optional.of(challenge)
+                .filter(correspondingChallengeClass::isInstance)
+                .map(correspondingChallengeClass::cast);
+    }
+
+    boolean isFinal()
+    {
+        return isFinal;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof Status)) {
+            return false;
+        }
+        Status<?> status = (Status<?>) o;
+        return Objects.equals(correspondingChallengeClass, status.correspondingChallengeClass);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(correspondingChallengeClass);
+    }
 }

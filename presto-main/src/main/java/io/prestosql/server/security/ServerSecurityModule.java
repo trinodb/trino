@@ -31,6 +31,7 @@ import io.prestosql.server.security.oauth2.OAuth2Config;
 import io.prestosql.server.security.oauth2.OAuth2ErrorResponse;
 import io.prestosql.server.security.oauth2.OAuth2Resource;
 import io.prestosql.server.security.oauth2.OAuth2Service;
+import io.prestosql.server.security.oauth2.TokenPollingExecutors;
 
 import java.util.List;
 import java.util.Map;
@@ -80,6 +81,7 @@ public class ServerSecurityModule
         install(authenticatorModule("oauth2", OAuth2Authenticator.class, oauth2Binder -> {
             configBinder(oauth2Binder).bindConfig(OAuth2Config.class);
             binder.bind(OAuth2Service.class).in(Scopes.SINGLETON);
+            binder.bind(TokenPollingExecutors.class).in(Scopes.SINGLETON);
             jaxrsBinder(binder).bind(OAuth2Resource.class);
             jsonCodecBinder(binder).bindJsonCodec(OAuth2ErrorResponse.class);
         }));
