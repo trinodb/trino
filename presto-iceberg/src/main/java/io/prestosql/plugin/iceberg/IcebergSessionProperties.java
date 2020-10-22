@@ -57,7 +57,6 @@ public final class IcebergSessionProperties
     private static final String ORC_WRITER_MAX_STRIPE_SIZE = "orc_writer_max_stripe_size";
     private static final String ORC_WRITER_MAX_STRIPE_ROWS = "orc_writer_max_stripe_rows";
     private static final String ORC_WRITER_MAX_DICTIONARY_MEMORY = "orc_writer_max_dictionary_memory";
-    private static final String PARQUET_FAIL_WITH_CORRUPTED_STATISTICS = "parquet_fail_with_corrupted_statistics";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
@@ -161,11 +160,6 @@ public final class IcebergSessionProperties
                         ORC_WRITER_MAX_DICTIONARY_MEMORY,
                         "ORC: Max dictionary memory",
                         orcWriterConfig.getDictionaryMaxMemory(),
-                        false))
-                .add(booleanProperty(
-                        PARQUET_FAIL_WITH_CORRUPTED_STATISTICS,
-                        "Parquet: Fail when scanning Parquet files with corrupted statistics",
-                        parquetReaderConfig.isFailOnCorruptedStatistics(),
                         false))
                 .add(dataSizeProperty(
                         PARQUET_MAX_READ_BLOCK_SIZE,
@@ -275,11 +269,6 @@ public final class IcebergSessionProperties
     public static HiveCompressionCodec getCompressionCodec(ConnectorSession session)
     {
         return session.getProperty(COMPRESSION_CODEC, HiveCompressionCodec.class);
-    }
-
-    public static boolean isFailOnCorruptedParquetStatistics(ConnectorSession session)
-    {
-        return session.getProperty(PARQUET_FAIL_WITH_CORRUPTED_STATISTICS, Boolean.class);
     }
 
     public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
