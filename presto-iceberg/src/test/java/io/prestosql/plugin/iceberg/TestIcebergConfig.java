@@ -15,6 +15,7 @@ package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.HiveCompressionCodec;
+import org.apache.hadoop.hive.metastore.TableType;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -33,7 +34,8 @@ public class TestIcebergConfig
     {
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
                 .setFileFormat(ORC)
-                .setCompressionCodec(GZIP));
+                .setCompressionCodec(GZIP)
+                .setTableType(TableType.EXTERNAL_TABLE));
     }
 
     @Test
@@ -42,11 +44,13 @@ public class TestIcebergConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("iceberg.file-format", "Parquet")
                 .put("iceberg.compression-codec", "NONE")
+                .put("iceberg.table-type", "MANAGED_TABLE")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
                 .setFileFormat(PARQUET)
-                .setCompressionCodec(HiveCompressionCodec.NONE);
+                .setCompressionCodec(HiveCompressionCodec.NONE)
+                .setTableType(TableType.MANAGED_TABLE);
 
         assertFullMapping(properties, expected);
     }

@@ -99,6 +99,7 @@ import static io.prestosql.plugin.iceberg.IcebergTableProperties.PARTITIONING_PR
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.getFileFormat;
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.getTableLocation;
+import static io.prestosql.plugin.iceberg.IcebergTableProperties.getTableType;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getColumns;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getDataPath;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getFileFormat;
@@ -396,7 +397,8 @@ public class IcebergMetadata
             targetPath = getTableDefaultLocation(database, hdfsContext, hdfsEnvironment, schemaName, tableName).toString();
         }
 
-        TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, schemaName, tableName, session.getUser(), targetPath);
+        org.apache.hadoop.hive.metastore.TableType tableType = getTableType(tableMetadata.getProperties());
+        TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, schemaName, tableName, session.getUser(), targetPath, tableType);
         if (operations.current() != null) {
             throw new TableAlreadyExistsException(schemaTableName);
         }

@@ -14,7 +14,9 @@
 package io.prestosql.plugin.iceberg;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.prestosql.plugin.hive.HiveCompressionCodec;
+import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.iceberg.FileFormat;
 
 import javax.validation.constraints.NotNull;
@@ -26,6 +28,7 @@ public class IcebergConfig
 {
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = GZIP;
+    private TableType tableType = TableType.EXTERNAL_TABLE;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -50,6 +53,20 @@ public class IcebergConfig
     public IcebergConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
     {
         this.compressionCodec = compressionCodec;
+        return this;
+    }
+
+    @NotNull
+    public TableType getTableType()
+    {
+        return tableType;
+    }
+
+    @Config("iceberg.table-type")
+    @ConfigDescription("Type of the table: MANAGED_TABLE or EXTERNAL_TABLE")
+    public IcebergConfig setTableType(TableType tableType)
+    {
+        this.tableType = tableType;
         return this;
     }
 }
