@@ -95,9 +95,9 @@ public abstract class BaseTestJdbcResultSet
             });
 
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR, (rs, column) -> {
-                        assertEquals(rs.getDouble(column), 12.3);
-                        assertEquals(rs.getLong(column), 12);
-                        assertEquals(rs.getFloat(column), 12.3f);
+                assertEquals(rs.getDouble(column), 12.3);
+                assertEquals(rs.getLong(column), 12);
+                assertEquals(rs.getFloat(column), 12.3f);
             });
 
             checkRepresentation(connectedStatement.getStatement(), "DOUBLE '123.456'", Types.DOUBLE, (rs, column) -> {
