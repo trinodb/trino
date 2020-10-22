@@ -270,6 +270,7 @@ public class QueryMonitor
         return new QueryContext(
                 session.getUser(),
                 session.getPrincipal(),
+                session.getGroups(),
                 session.getTraceToken(),
                 session.getRemoteUserAddress(),
                 session.getUserAgent(),
