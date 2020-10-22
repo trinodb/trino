@@ -87,26 +87,29 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR ''", Types.VARCHAR, (rs, column) -> {
                 assertThatThrownBy(() -> rs.getLong(column))
                         .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a number: java.lang.String");
+                        .hasMessage("Value is not a number: ");
 
                 assertThatThrownBy(() -> rs.getDouble(column))
                         .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a number: java.lang.String");
+                        .hasMessage("Value is not a number: ");
             });
 
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR, (rs, column) -> {
-                        assertEquals(rs.getDouble(column), 12.3D);
+                        assertEquals(rs.getDouble(column), 12.3);
                         assertEquals(rs.getLong(column), 12);
+                        assertEquals(rs.getFloat(column), 12.3f);
             });
 
             checkRepresentation(connectedStatement.getStatement(), "DOUBLE '123.456'", Types.DOUBLE, (rs, column) -> {
-                assertEquals(rs.getDouble(column), 123.456D);
+                assertEquals(rs.getDouble(column), 123.456);
                 assertEquals(rs.getLong(column), 123);
+                assertEquals(rs.getFloat(column), 123.456f);
             });
 
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123'", Types.VARCHAR, (rs, column) -> {
-                assertEquals(rs.getDouble(column), 123D);
+                assertEquals(rs.getDouble(column), 123.0);
                 assertEquals(rs.getLong(column), 123);
+                assertEquals(rs.getFloat(column), 123f);
             });
         }
     }
@@ -117,13 +120,12 @@ public abstract class BaseTestJdbcResultSet
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "0.1", Types.DECIMAL, new BigDecimal("0.1"));
-            checkRepresentation(connectedStatement.getStatement(), "DECIMAL '0.1'", Types.DECIMAL, new BigDecimal("0.1"));
-            checkRepresentation(connectedStatement.getStatement(), "0.12", Types.DECIMAL,
-                    (rs, column) -> assertEquals(rs.getDouble(column), 0.12D));
-            checkRepresentation(connectedStatement.getStatement(), "DECIMAL '0.1'", Types.DECIMAL,
-                    (rs, column) -> assertEquals(rs.getDouble(column), 0.1D));
-            checkRepresentation(connectedStatement.getStatement(), "DECIMAL '0.1'", Types.DECIMAL,
-                    (rs, column) -> assertEquals(rs.getLong(column), 0));
+            checkRepresentation(connectedStatement.getStatement(), "DECIMAL '0.12'", Types.DECIMAL, (rs, column) -> {
+                assertEquals(rs.getBigDecimal(column), new BigDecimal("0.12"));
+                assertEquals(rs.getDouble(column), 0.12);
+                assertEquals(rs.getLong(column), 0);
+                assertEquals(rs.getFloat(column), 0.12f);
+            });
 
             long outsideOfDoubleExactRange = 9223372036854775774L;
             //noinspection ConstantConditions

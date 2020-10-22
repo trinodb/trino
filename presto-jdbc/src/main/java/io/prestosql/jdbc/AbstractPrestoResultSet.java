@@ -1757,7 +1757,7 @@ abstract class AbstractPrestoResultSet
                 return bigDecimal.get();
             }
         }
-        throw new SQLException("Value is not a number: " + value.getClass().getCanonicalName());
+        throw new SQLException("Value is not a number: " + value);
     }
 
     private static Optional<BigDecimal> toBigDecimal(String value)
