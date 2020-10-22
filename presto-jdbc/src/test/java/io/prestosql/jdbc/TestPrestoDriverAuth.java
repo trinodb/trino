@@ -44,6 +44,7 @@ import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Base64.getMimeDecoder;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -230,6 +231,95 @@ public class TestPrestoDriverAuth
         }
     }
 
+    @Test
+    public void testSuccessFullSslVerification()
+            throws Exception
+    {
+        String accessToken = Jwts.builder()
+                .setSubject("test")
+                .setHeaderParam(KEY_ID, "33")
+                .signWith(SignatureAlgorithm.RS256, privateKey33)
+                .compact();
+
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken, "SSLVerification", "FULL"))) {
+            try (Statement statement = connection.createStatement()) {
+                assertTrue(statement.execute("SELECT 123"));
+                ResultSet rs = statement.getResultSet();
+                assertTrue(rs.next());
+                assertEquals(rs.getLong(1), 123);
+                assertFalse(rs.next());
+            }
+        }
+    }
+
+    @Test
+    public void testSuccessCaSslVerification()
+            throws Exception
+    {
+        String accessToken = Jwts.builder()
+                .setSubject("test")
+                .setHeaderParam(KEY_ID, "33")
+                .signWith(SignatureAlgorithm.RS256, privateKey33)
+                .compact();
+
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken, "SSLVerification", "CA"))) {
+            try (Statement statement = connection.createStatement()) {
+                assertTrue(statement.execute("SELECT 123"));
+                ResultSet rs = statement.getResultSet();
+                assertTrue(rs.next());
+                assertEquals(rs.getLong(1), 123);
+                assertFalse(rs.next());
+            }
+        }
+    }
+
+    // TODO: testSuccessCaSslVerificationMismatchedHostnameValidCA()
+
+    // TODO: testSuccessNoneSslVerificationMismatchedHostname()
+
+    // TODO: testSuccessNoneSslVerificationInvalidCA()
+
+    @Test
+    public void testFailedFullSslVerificationWithoutSSL()
+    {
+        assertThatThrownBy(() -> createBasicConnection(ImmutableMap.of("SSLVerification", "FULL")))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'SSLVerification' is not allowed");
+    }
+
+    // TODO: testFailedFullSslVerificationMismatchedHostname()
+
+    // TODO: testFailedFullSslVerificationInvalidCA()
+
+    @Test
+    public void testFailedCaSslVerificationWithoutSSL()
+    {
+        assertThatThrownBy(() -> createBasicConnection(ImmutableMap.of("SSLVerification", "CA")))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'SSLVerification' is not allowed");
+    }
+
+    // TODO: testFailedCaSslVerificationInvalidCA()
+
+    @Test
+    public void testFailedNoneSslVerificationWithSSL()
+    {
+        assertThatThrownBy(() -> createConnection(ImmutableMap.of("SSLVerification", "NONE")))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'SSLTrustStorePath' is not allowed");
+    }
+
+    @Test
+    public void testFailedNoneSslVerificationWithSSLUnsigned()
+            throws Exception
+    {
+        Connection connection = createBasicConnection(ImmutableMap.of("SSL", "true", "SSLVerification", "NONE"));
+        Statement statement = connection.createStatement();
+        assertThatThrownBy(() -> statement.execute("SELECT 123"))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Authentication failed: Unauthorized");
+    }
+
     private Connection createConnection(Map<String, String> additionalProperties)
             throws SQLException
     {
@@ -239,6 +329,16 @@ public class TestPrestoDriverAuth
         properties.setProperty("SSL", "true");
         properties.setProperty("SSLTrustStorePath", getResource("localhost.truststore").getPath());
         properties.setProperty("SSLTrustStorePassword", "changeit");
+        additionalProperties.forEach(properties::setProperty);
+        return DriverManager.getConnection(url, properties);
+    }
+
+    private Connection createBasicConnection(Map<String, String> additionalProperties)
+            throws SQLException
+    {
+        String url = format("jdbc:presto://localhost:%s", server.getHttpsAddress().getPort());
+        Properties properties = new Properties();
+        properties.setProperty("user", "test");
         additionalProperties.forEach(properties::setProperty);
         return DriverManager.getConnection(url, properties);
     }
