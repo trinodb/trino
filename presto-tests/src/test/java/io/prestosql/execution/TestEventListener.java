@@ -245,6 +245,7 @@ public class TestEventListener
         // Check only the presence because they are non-deterministic.
         assertTrue(statistics.getResourceWaitingTime().isPresent());
         assertTrue(statistics.getAnalysisTime().isPresent());
+        assertTrue(statistics.getPlanningTime().isPresent());
         assertTrue(statistics.getExecutionTime().isPresent());
         assertTrue(statistics.getPlanNodeStatsAndCosts().isPresent());
         assertTrue(statistics.getCpuTime().getSeconds() >= 0);
@@ -378,6 +379,7 @@ public class TestEventListener
         assertEquals(statistics.getQueuedTime().toMillis(), queryStats.getQueuedTime().toMillis());
         assertEquals(statistics.getResourceWaitingTime().get().toMillis(), queryStats.getResourceWaitingTime().toMillis());
         assertEquals(statistics.getAnalysisTime().get().toMillis(), queryStats.getAnalysisTime().toMillis());
+        assertEquals(statistics.getPlanningTime().get().toMillis(), queryStats.getPlanningTime().toMillis());
         assertEquals(statistics.getExecutionTime().get().toMillis(), queryStats.getExecutionTime().toMillis());
         assertEquals(statistics.getPeakUserMemoryBytes(), queryStats.getPeakUserMemoryReservation().toBytes());
         assertEquals(statistics.getPeakTotalNonRevocableMemoryBytes(), queryStats.getPeakNonRevocableMemoryReservation().toBytes());
