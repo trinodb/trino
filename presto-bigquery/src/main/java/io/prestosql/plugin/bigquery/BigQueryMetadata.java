@@ -267,7 +267,10 @@ public class BigQueryMetadata
                 session, handle, projections, assignments);
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) handle;
 
-        if (bigQueryTableHandle.getProjectedColumns().isPresent()) {
+        List<ColumnHandle> newColumns = assignments.values().stream()
+                .collect(toImmutableList());
+
+        if (bigQueryTableHandle.getProjectedColumns().isPresent() && containSameElements(newColumns, bigQueryTableHandle.getProjectedColumns().get())) {
             return Optional.empty();
         }
 
@@ -302,5 +305,10 @@ public class BigQueryMetadata
         BigQueryTableHandle updatedHandle = bigQueryTableHandle.withConstraint(newDomain);
 
         return Optional.of(new ConstraintApplicationResult<>(updatedHandle, constraint.getSummary()));
+    }
+
+    private static boolean containSameElements(Iterable<? extends ColumnHandle> first, Iterable<? extends ColumnHandle> second)
+    {
+        return ImmutableSet.copyOf(first).equals(ImmutableSet.copyOf(second));
     }
 }

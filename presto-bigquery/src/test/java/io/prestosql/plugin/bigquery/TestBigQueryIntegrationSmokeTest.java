@@ -87,6 +87,24 @@ public class TestBigQueryIntegrationSmokeTest
         assertEquals((long) actualValues.getOnlyValue(), 1L);
     }
 
+    @Test(description = "regression test for https://github.com/prestosql/presto/issues/5618")
+    public void testPredicatePushdownPrunnedColumns()
+    {
+        BigQuery client = createBigQueryClient();
+
+        String tableName = "test.predicate_pushdown_prunned_columns";
+
+        executeBigQuerySql(client, "DROP TABLE IF EXISTS " + tableName);
+        executeBigQuerySql(client, "CREATE TABLE " + tableName + " (a INT64, b INT64, c INT64)");
+        executeBigQuerySql(client, "INSERT INTO " + tableName + " VALUES (1,2,3)");
+
+        assertQuery(
+                "SELECT 1 FROM " + tableName + " WHERE " +
+                        "    ((NULL IS NULL) OR a = 100) AND " +
+                        "    b = 2",
+                "VALUES (1)");
+    }
+
     private static void executeBigQuerySql(BigQuery bigquery, String query)
     {
         QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(query)
