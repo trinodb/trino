@@ -229,7 +229,7 @@ public class OrcRecordReader
 
         stripeReader = new StripeReader(
                 orcDataSource,
-                legacyFileTimeZone.toTimeZone().toZoneId(),
+                ZoneId.of(legacyFileTimeZone.getID()),
                 decompressor,
                 orcTypes,
                 ImmutableSet.copyOf(readColumns),

@@ -68,6 +68,12 @@
     </violation>
 
     <violation>
+        <name>org/joda/time/DateTimeZone.toTimeZone:()Ljava/util/TimeZone;</name>
+        <version>1.8</version>
+        <comment>Avoid DateTimeZone.toTimeZone as it returns GMT for a zone not supported by the JVM. Use TimeZone.getTimeZone(ZoneId.of(dtz.getId())) instead.</comment>
+    </violation>
+
+    <violation>
         <name>com/esri/core/geometry/ogc/OGCGeometry.equals:(Lcom/esri/core/geometry/ogc/OGCGeometry;)Z</name>
         <version>1.6</version>
         <comment>Prefer OGCGeometry.Equals(OGCGeometry)</comment>
