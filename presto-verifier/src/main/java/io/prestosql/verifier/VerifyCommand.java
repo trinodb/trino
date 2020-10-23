@@ -28,7 +28,6 @@ import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
 import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.parser.SqlParserOptions;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.Comment;
 import io.prestosql.sql.tree.CreateMaterializedView;
@@ -156,12 +155,12 @@ public class VerifyCommand
 
             List<QueryPair> queries = queriesBuilder.build();
             queries = applyOverrides(config, queries);
-            queries = filterQueryTypes(new SqlParser(getParserOptions()), config, queries);
+            queries = filterQueryTypes(new SqlParser(), config, queries);
             queries = filterQueries(queries);
             if (config.getShadowWrites()) {
                 Sets.SetView<QueryType> allowedTypes = Sets.union(config.getTestQueryTypes(), config.getControlQueryTypes());
                 checkArgument(!Sets.intersection(allowedTypes, ImmutableSet.of(CREATE, MODIFY)).isEmpty(), "CREATE or MODIFY queries must be allowed in test or control to use write shadowing");
-                queries = rewriteQueries(new SqlParser(getParserOptions()), config, queries);
+                queries = rewriteQueries(new SqlParser(), config, queries);
             }
 
             // Load jdbc drivers if needed
@@ -239,14 +238,6 @@ public class VerifyCommand
     {
         VerifierConfig config = injector.getInstance(VerifierConfig.class);
         return () -> DriverManager.getConnection(config.getQueryDatabase());
-    }
-
-    /**
-     * Override this method to change the parser options used when parsing queries to decide if they match the allowed query types
-     */
-    protected SqlParserOptions getParserOptions()
-    {
-        return new SqlParserOptions();
     }
 
     /**
