@@ -66,7 +66,7 @@ public class HiveUpdatablePageSource
     public static final Block DELETE_OPERATION_BLOCK = nativeValueToBlock(INTEGER, Long.valueOf(DELETE.getOperationNumber()));
 
     // The bucketPath looks like .../delta_nnnnnnn_mmmmmmm_ssss/bucket_bbbbb(_aaaa)?
-    public static final Pattern BUCKET_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<dirStart>delta_[\\d]+_[\\d]+)_(?<statementId>[\\d]+)/(?<filename>bucket_(?<bucketNumber>[\\d]+)(?<attemptId>_[\\d]+)?)$");
+    public static final Pattern BUCKET_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<dirStart>delta_[\\d]+_[\\d]+)_(?<statementId>[\\d]+)/(?<filenameBase>bucket_(?<bucketNumber>[\\d]+))(?<attemptId>_[\\d]+)?$");
     // The orignal file path looks like .../nnnnnnn_m(_copy_ccc)?
     public static final Pattern ORIGINAL_FILE_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<filename>(?<bucketNumber>[\\d]+)_(?<rest>.*)?)$");
 
@@ -125,7 +125,8 @@ public class HiveUpdatablePageSource
         else {
             Matcher matcher = BUCKET_PATH_MATCHER.matcher(bucketPath.toString());
             checkArgument(matcher.matches(), "bucketPath doesn't have the required format: " + bucketPath);
-            this.bucketFilename = matcher.group("filename");
+            // delete_delta bucket files should not have attemptId suffix
+            this.bucketFilename = matcher.group("filenameBase");
             this.deleteDeltaDirectory = new Path(format("%s/%s", matcher.group("rootDir"), deleteDeltaSubdir(writeId, writeId, statementId)));
         }
     }
