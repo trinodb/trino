@@ -376,7 +376,7 @@ public class OracleClient
     public static LongWriteFunction oracleTimestampWriteFunction()
     {
         return (statement, index, utcMillis) -> {
-            statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(epochMicrosToMillisWithRounding(utcMillis)), Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
+            statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(epochMicrosToMillisWithRounding(utcMillis)), Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("UTC")))));
         };
     }
 
