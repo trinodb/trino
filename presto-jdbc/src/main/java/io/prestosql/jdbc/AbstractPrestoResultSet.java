@@ -274,7 +274,7 @@ abstract class AbstractPrestoResultSet
             // are not compatible with java.sql.Date.
             LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
             Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthOfYear() - 1, localDate.getDayOfMonth());
-            calendar.setTimeZone(TimeZone.getTimeZone(localTimeZone.getID()));
+            calendar.setTimeZone(TimeZone.getTimeZone(ZoneId.of(localTimeZone.getID())));
 
             return new Date(calendar.getTimeInMillis());
         }
