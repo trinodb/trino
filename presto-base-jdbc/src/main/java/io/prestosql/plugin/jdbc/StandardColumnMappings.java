@@ -268,9 +268,14 @@ public final class StandardColumnMappings
     {
         return ColumnMapping.sliceMapping(
                 VARBINARY,
-                (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex)),
+                varbinaryReadFunction(),
                 varbinaryWriteFunction(),
                 DISABLE_PUSHDOWN);
+    }
+
+    public static SliceReadFunction varbinaryReadFunction()
+    {
+        return (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex));
     }
 
     public static SliceWriteFunction varbinaryWriteFunction()
