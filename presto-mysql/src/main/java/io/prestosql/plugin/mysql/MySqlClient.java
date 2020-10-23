@@ -67,8 +67,10 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.mysql.jdbc.SQLError.SQL_STATE_ER_TABLE_EXISTS_ERROR;
 import static com.mysql.jdbc.SQLError.SQL_STATE_SYNTAX_ERROR;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
+import static io.prestosql.plugin.jdbc.ColumnMapping.FULL_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.ColumnMapping.PUSHDOWN_AND_KEEP;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
@@ -245,6 +247,11 @@ public class MySqlClient
                     int scale = min(decimalDigits, getDecimalDefaultScale(session));
                     return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                 }
+                break;
+            case Types.BINARY:
+            case Types.VARBINARY:
+            case Types.LONGVARBINARY:
+                return Optional.of(ColumnMapping.sliceMapping(VARBINARY, (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex)), varbinaryWriteFunction(), FULL_PUSHDOWN));
         }
 
         // TODO add explicit mappings

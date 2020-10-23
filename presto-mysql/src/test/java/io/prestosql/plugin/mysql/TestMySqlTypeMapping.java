@@ -47,6 +47,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.io.BaseEncoding.base16;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
 import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_DEFAULT_SCALE;
@@ -57,6 +58,7 @@ import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHA
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.datatype.DataType.bigintDataType;
@@ -71,11 +73,14 @@ import static io.prestosql.testing.datatype.DataType.realDataType;
 import static io.prestosql.testing.datatype.DataType.smallintDataType;
 import static io.prestosql.testing.datatype.DataType.stringDataType;
 import static io.prestosql.testing.datatype.DataType.tinyintDataType;
+import static io.prestosql.testing.datatype.DataType.varbinaryDataType;
 import static io.prestosql.testing.datatype.DataType.varcharDataType;
 import static io.prestosql.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
+import static java.nio.charset.StandardCharsets.UTF_16LE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.function.Function.identity;
 
@@ -371,6 +376,27 @@ public class TestMySqlTypeMapping
         }
     }
 
+    @Test
+    public void testVarbinary()
+    {
+        varbinaryTestCases(binaryDataType())
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases(varbinaryDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
+    }
+
+    private DataTypeTest varbinaryTestCases(DataType<byte[]> varbinaryDataType)
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(varbinaryDataType, "hello".getBytes(UTF_8))
+                .addRoundTrip(varbinaryDataType, "Piękna łąka w 東京都".getBytes(UTF_8))
+                .addRoundTrip(varbinaryDataType, "Bag full of 💰".getBytes(UTF_16LE))
+                .addRoundTrip(varbinaryDataType, null)
+                .addRoundTrip(varbinaryDataType, new byte[] {})
+                .addRoundTrip(varbinaryDataType, new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 13, -7, 54, 122, -89, 0, 0, 0});
+    }
+
     @DataProvider
     public Object[][] testDecimalExceedingPrecisionMaxProvider()
     {
@@ -576,5 +602,15 @@ public class TestMySqlTypeMapping
     private static DataType<Double> mysqlDoubleDataType()
     {
         return dataType("double precision", DoubleType.DOUBLE, Object::toString);
+    }
+
+    private static DataType<byte[]> binaryDataType()
+    {
+        return dataType(
+                "varbinary(50)",
+                VARBINARY,
+                bytes -> "X'" + base16().encode(bytes) + "'",
+                DataType::binaryLiteral,
+                identity());
     }
 }
