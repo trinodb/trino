@@ -13,48 +13,62 @@
  */
 package io.prestosql.plugin.geospatial;
 
-import io.prestosql.spi.PrestoException;
+import io.airlift.slice.Slice;
+import io.prestosql.geospatial.KdbTree;
+import io.prestosql.geospatial.KdbTreeUtils;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.AbstractType;
+import io.prestosql.spi.type.AbstractVariableWidthType;
 import io.prestosql.spi.type.TypeSignature;
 
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public final class KdbTreeType
-        extends AbstractType
+        extends AbstractVariableWidthType
 {
     public static final KdbTreeType KDB_TREE = new KdbTreeType();
     public static final String NAME = "KdbTree";
 
     private KdbTreeType()
     {
-        super(new TypeSignature(NAME), Object.class);
+        super(new TypeSignature(NAME), KdbTree.class);
     }
 
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
-        throw new UnsupportedOperationException();
+        return getObject(block, position);
     }
 
     @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
-        throw new UnsupportedOperationException();
+        if (block.isNull(position)) {
+            blockBuilder.appendNull();
+        }
+        else {
+            block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
+            blockBuilder.closeEntry();
+        }
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "KdbTree type cannot be serialized");
+        String json = KdbTreeUtils.toJson(((KdbTree) value));
+        Slice bytes = utf8Slice(json);
+        blockBuilder.writeBytes(bytes, 0, bytes.length()).closeEntry();
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public Object getObject(Block block, int position)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "KdbTree type cannot be serialized");
+        if (block.isNull(position)) {
+            return null;
+        }
+        Slice bytes = block.getSlice(position, 0, block.getSliceLength(position));
+        KdbTree kdbTree = KdbTreeUtils.fromJson(bytes.toStringUtf8());
+        return kdbTree;
     }
 }
