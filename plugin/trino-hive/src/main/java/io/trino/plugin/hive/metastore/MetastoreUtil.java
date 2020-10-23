@@ -58,10 +58,9 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
 import static io.trino.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
-import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.SERDES_USING_METASTORE_FOR_SCHEMA;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -213,11 +212,9 @@ public final class MetastoreUtil
         return getProtectMode(table.getParameters());
     }
 
-    public static boolean isAvroTableWithSchemaSet(Table table)
+    public static boolean isTableSerdesUsingMetastoreForSchema(Table table)
     {
-        return AVRO.getSerDe().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
-                (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
-                        (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null));
+        return SERDES_USING_METASTORE_FOR_SCHEMA.contains(table.getStorage().getStorageFormat().getSerDeNullable());
     }
 
     public static String makePartitionName(Table table, Partition partition)

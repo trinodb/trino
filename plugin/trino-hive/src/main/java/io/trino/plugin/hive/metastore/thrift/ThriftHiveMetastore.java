@@ -136,7 +136,7 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMeta
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromRolePrincipalGrants;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromTrinoPrincipalType;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isTableSerdesUsingMetastoreForSchema;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.parsePrivilege;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
@@ -535,8 +535,8 @@ public class ThriftHiveMetastore
         List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.getColumnStatistics().entrySet().stream()
                 .flatMap(entry -> {
                     Optional<Column> column = table.getColumn(entry.getKey());
-                    if (column.isEmpty() && isAvroTableWithSchemaSet(modifiedTable)) {
-                        // Avro table can have different effective schema than declared in metastore. Still, metastore does not allow
+                    if (column.isEmpty() && !isTableSerdesUsingMetastoreForSchema(modifiedTable)) {
+                        // Some tables can have different effective schema than declared in metastore. Still, metastore does not allow
                         // to store statistics for a column it does not know about.
                         return Stream.of();
                     }

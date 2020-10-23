@@ -67,6 +67,7 @@ import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.StringColumnStatsData;
+import org.apache.hadoop.hive.metastore.conf.MetastoreConf;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
@@ -97,8 +98,6 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
-import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
-import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.CSV;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
@@ -152,6 +151,12 @@ public final class ThriftMetastoreUtil
     private static final String RAW_DATA_SIZE = "rawDataSize";
     private static final String TOTAL_SIZE = "totalSize";
     private static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE);
+    // "org.apache.hive.hcatalog.data.JsonSerDe" is included here because it's in hive-hcatalog-core.jar rather than hive-serde.jar. Metastore call
+    // getFields doesn't work with it.
+    public static final Set<String> SERDES_USING_METASTORE_FOR_SCHEMA = ImmutableSet.<String>builder()
+            .addAll(Arrays.asList(((String) MetastoreConf.ConfVars.SERDES_USING_METASTORE_FOR_SCHEMA.getDefaultVal()).split(",")))
+            .add("org.apache.hive.hcatalog.data.JsonSerDe")
+            .build();
 
     private ThriftMetastoreUtil() {}
 
@@ -436,17 +441,9 @@ public final class ThriftMetastoreUtil
         return tableBuilder.build();
     }
 
-    public static boolean isAvroTableWithSchemaSet(org.apache.hadoop.hive.metastore.api.Table table)
+    public static boolean isTableSerdesUsingMetastoreForSchema(org.apache.hadoop.hive.metastore.api.Table table)
     {
-        if (table.getParameters() == null) {
-            return false;
-        }
-        SerDeInfo serdeInfo = getSerdeInfo(table);
-
-        return serdeInfo.getSerializationLib() != null &&
-                (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
-                        (serdeInfo.getParameters() != null && serdeInfo.getParameters().get(AVRO_SCHEMA_URL_KEY) != null)) &&
-                serdeInfo.getSerializationLib().equals(AVRO.getSerDe());
+        return SERDES_USING_METASTORE_FOR_SCHEMA.contains(getSerdeInfo(table).getSerializationLib());
     }
 
     public static boolean isCsvTable(org.apache.hadoop.hive.metastore.api.Table table)

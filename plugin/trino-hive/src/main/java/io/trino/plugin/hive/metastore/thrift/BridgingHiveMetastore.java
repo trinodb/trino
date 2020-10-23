@@ -53,13 +53,13 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
-import static io.trino.plugin.hive.metastore.MetastoreUtil.isAvroTableWithSchemaSet;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.isTableSerdesUsingMetastoreForSchema;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.csvSchemaFields;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiDatabase;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isCsvTable;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isTableSerdesUsingMetastoreForSchema;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -94,11 +94,11 @@ public class BridgingHiveMetastore
     public Optional<Table> getTable(HiveIdentity identity, String databaseName, String tableName)
     {
         return delegate.getTable(identity, databaseName, tableName).map(table -> {
-            if (isAvroTableWithSchemaSet(table)) {
-                return fromMetastoreApiTable(table, delegate.getFields(identity, databaseName, tableName).orElseThrow());
-            }
             if (isCsvTable(table)) {
                 return fromMetastoreApiTable(table, csvSchemaFields(table.getSd().getCols()));
+            }
+            if (!isTableSerdesUsingMetastoreForSchema(table)) {
+                return fromMetastoreApiTable(table, delegate.getFields(identity, databaseName, tableName).orElseThrow());
             }
             return fromMetastoreApiTable(table);
         });
@@ -381,7 +381,7 @@ public class BridgingHiveMetastore
 
     private Partition fromMetastoreApiPartition(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
-        if (isAvroTableWithSchemaSet(table)) {
+        if (!isTableSerdesUsingMetastoreForSchema(table)) {
             List<FieldSchema> schema = table.getDataColumns().stream()
                     .map(ThriftMetastoreUtil::toMetastoreApiFieldSchema)
                     .collect(toImmutableList());
