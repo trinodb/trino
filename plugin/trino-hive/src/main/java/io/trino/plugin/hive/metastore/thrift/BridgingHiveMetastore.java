@@ -53,12 +53,12 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
-import static io.trino.plugin.hive.metastore.MetastoreUtil.isTableSerdesUsingMetastoreForSchema;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.csvSchemaFields;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiDatabase;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isCsvTable;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isPartitionSerdesUsingMetastoreForSchema;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isTableSerdesUsingMetastoreForSchema;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
@@ -381,7 +381,10 @@ public class BridgingHiveMetastore
 
     private Partition fromMetastoreApiPartition(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
-        if (!isTableSerdesUsingMetastoreForSchema(table)) {
+        // If a partition's Serde doesn't use metastore for schema (like Avro), we use table-level schema, instead of
+        // fetching the schema from the partition's Serde. Data publishers are responsible for making sure that table-level
+        // schema is workable for these partitions.
+        if (!isPartitionSerdesUsingMetastoreForSchema(partition)) {
             List<FieldSchema> schema = table.getDataColumns().stream()
                     .map(ThriftMetastoreUtil::toMetastoreApiFieldSchema)
                     .collect(toImmutableList());

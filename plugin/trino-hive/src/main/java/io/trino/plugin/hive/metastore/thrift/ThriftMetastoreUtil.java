@@ -446,6 +446,12 @@ public final class ThriftMetastoreUtil
         return SERDES_USING_METASTORE_FOR_SCHEMA.contains(getSerdeInfo(table).getSerializationLib());
     }
 
+    public static boolean isPartitionSerdesUsingMetastoreForSchema(org.apache.hadoop.hive.metastore.api.Partition partition)
+    {
+        SerDeInfo serDeInfo = getSerdeInfo(partition);
+        return serDeInfo != null && SERDES_USING_METASTORE_FOR_SCHEMA.contains(serDeInfo.getSerializationLib());
+    }
+
     public static boolean isCsvTable(org.apache.hadoop.hive.metastore.api.Table table)
     {
         return CSV.getSerDe().equals(getSerdeInfo(table).getSerializationLib());
@@ -506,6 +512,15 @@ public final class ThriftMetastoreUtil
                 format("%s.%s", partition.getTableName(), partition.getValues()));
 
         return partitionBuilder.build();
+    }
+
+    private static SerDeInfo getSerdeInfo(org.apache.hadoop.hive.metastore.api.Partition partition)
+    {
+        StorageDescriptor storageDescriptor = partition.getSd();
+        if (storageDescriptor == null) {
+            throw new TrinoException(HIVE_INVALID_METADATA, "Partition does not contain a storage descriptor: " + partition);
+        }
+        return storageDescriptor.getSerdeInfo();
     }
 
     public static HiveColumnStatistics fromMetastoreApiColumnStatistics(ColumnStatisticsObj columnStatistics, OptionalLong rowCount)

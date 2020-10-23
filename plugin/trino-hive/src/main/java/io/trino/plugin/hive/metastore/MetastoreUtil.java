@@ -60,7 +60,6 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.SERDES_USING_METASTORE_FOR_SCHEMA;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -210,11 +209,6 @@ public final class MetastoreUtil
     public static ProtectMode getProtectMode(Table table)
     {
         return getProtectMode(table.getParameters());
-    }
-
-    public static boolean isTableSerdesUsingMetastoreForSchema(Table table)
-    {
-        return SERDES_USING_METASTORE_FOR_SCHEMA.contains(table.getStorage().getStorageFormat().getSerDeNullable());
     }
 
     public static String makePartitionName(Table table, Partition partition)
