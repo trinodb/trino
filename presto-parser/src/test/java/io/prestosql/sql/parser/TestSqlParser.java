@@ -802,8 +802,8 @@ public class TestSqlParser
         assertStatement("SHOW COLUMNS FROM \"awesome table\"", new ShowColumns(QualifiedName.of("awesome table"), Optional.empty(), Optional.empty()));
         assertStatement("SHOW COLUMNS FROM \"awesome schema\".\"awesome table\"", new ShowColumns(QualifiedName.of("awesome schema", "awesome table"), Optional.empty(), Optional.empty()));
         assertStatement("SHOW COLUMNS FROM a.b LIKE '%$_%' ESCAPE '$'", new ShowColumns(QualifiedName.of("a", "b"), Optional.of("%$_%"), Optional.of("$")));
-        assertInvalidStatemennt("SHOW COLUMNS FROM a.b LIKE null", "mismatched input 'null'. Expecting: <string>");
-        assertInvalidStatemennt("SHOW COLUMNS FROM a.b LIKE 'a' ESCAPE null'", "mismatched input 'null'. Expecting: <string>");
+        assertInvalidStatement("SHOW COLUMNS FROM a.b LIKE null", "mismatched input 'null'. Expecting: <string>");
+        assertInvalidStatement("SHOW COLUMNS FROM a.b LIKE 'a' ESCAPE null'", "mismatched input 'null'. Expecting: <string>");
     }
 
     @Test
@@ -2693,7 +2693,7 @@ public class TestSqlParser
         assertFormattedSql(SQL_PARSER, expected);
     }
 
-    private static void assertInvalidStatemennt(String statement, String expectedErrorMessageRegex)
+    private static void assertInvalidStatement(String statement, String expectedErrorMessageRegex)
     {
         try {
             Statement result = SQL_PARSER.createStatement(statement, new ParsingOptions());
