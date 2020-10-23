@@ -439,6 +439,20 @@ public class TestVarbinaryFunctions
         assertFunction("REVERSE(CAST('racecar' AS VARBINARY))", VARBINARY, sqlVarbinary("racecar"));
     }
 
+    @Test
+    public void testReplicate()
+    {
+        assertFunction("REPLICATE(CAST('hello' AS VARBINARY), 1)", VARBINARY, sqlVarbinary("hello"));
+        assertFunction("REPLICATE(CAST('hello' AS VARBINARY), 2)", VARBINARY, sqlVarbinary("hellohello"));
+        assertFunction("REPLICATE(CAST('' AS VARBINARY), 2)", VARBINARY, sqlVarbinary(""));
+        assertFunction("REPLICATE(CAST('hello' AS VARBINARY), 1000)", VARBINARY, sqlVarbinary("hello".repeat(1000)));
+
+        assertInvalidFunction("REPLICATE(CAST('hello' AS VARBINARY), 0)", INVALID_FUNCTION_ARGUMENT, "Invalid number of varbinary repetitions: 0");
+        assertInvalidFunction("REPLICATE(CAST('hello' AS VARBINARY), -1)", INVALID_FUNCTION_ARGUMENT, "Invalid number of varbinary repetitions: -1");
+        int overflowTimes = 1024 * 1024 / 5 + 1; // default maximum page size is 1 MB
+        assertInvalidFunction("REPLICATE(CAST('hello' AS VARBINARY), " + overflowTimes + ")", INVALID_FUNCTION_ARGUMENT, "Repeated varbinary is too large");
+    }
+
     private static String encodeBase64(byte[] value)
     {
         return Base64.getEncoder().encodeToString(value);

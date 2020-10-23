@@ -53,6 +53,10 @@ Binary Functions
     negative starting position is interpreted as being relative to the end of
     the string.
 
+.. function:: replicate(binary, times) -> varbinary
+
+    Returns a ``varbinary`` that repeats a ``binary`` given number of ``times``.
+
 .. _function_reverse_varbinary:
 
 .. function:: reverse(binary) -> varbinary

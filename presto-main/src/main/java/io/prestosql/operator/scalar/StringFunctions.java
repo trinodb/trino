@@ -49,6 +49,7 @@ import static io.airlift.slice.SliceUtf8.toUpperCase;
 import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.prestosql.spi.type.Chars.byteCountWithoutTrailingSpace;
 import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.Chars.trimTrailingSpaces;
@@ -724,6 +725,26 @@ public final class StringFunctions
     public static Slice rightPad(@SqlType("varchar(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
     {
         return pad(text, targetLength, padString, text.length());
+    }
+
+    @Description("Repeats a string given number of times")
+    @ScalarFunction
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice replicate(@SqlType("varchar(x)") Slice inputSlice, @SqlType(StandardTypes.BIGINT) long times)
+    {
+        int repeatTimes = Ints.saturatedCast(times);
+        checkCondition(repeatTimes > 0, INVALID_FUNCTION_ARGUMENT, "Invalid number of string repetitions: " + times);
+
+        int length = inputSlice.length();
+        int size = length * repeatTimes;
+        checkCondition(size <= DEFAULT_MAX_PAGE_SIZE_IN_BYTES, INVALID_FUNCTION_ARGUMENT, "Repeated string is too large");
+
+        Slice buffer = Slices.allocate(size);
+        for (int i = 0; i < times; i++) {
+            buffer.setBytes(i * length, inputSlice, 0, length);
+        }
+        return buffer;
     }
 
     @Description("Computes Levenshtein distance between two strings")

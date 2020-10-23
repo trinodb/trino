@@ -1073,4 +1073,20 @@ public class TestStringFunctions
         assertFunction("translate('abcd', 'ac', 'z')", VARCHAR, "zbd");
         assertFunction("translate('abcd', 'aac', 'zq')", VARCHAR, "zbd");
     }
+
+    @Test
+    public void testReplicate()
+    {
+        assertFunction("replicate('abcd', 1)", VARCHAR, "abcd");
+        assertFunction("replicate('abcd', 3)", VARCHAR, "abcdabcdabcd");
+        assertFunction("replicate('abcd', NULL)", VARCHAR, null);
+        assertFunction("replicate(CAST(NULL AS VARCHAR), 1)", VARCHAR, null);
+        assertFunction("replicate(CAST(NULL AS VARCHAR), NULL)", VARCHAR, null);
+        assertFunction("replicate('abcde', 1000)", VARCHAR, "abcde".repeat(1000));
+
+        assertInvalidFunction("replicate('abcd', -1)", INVALID_FUNCTION_ARGUMENT, "Invalid number of string repetitions: -1");
+        assertInvalidFunction("replicate('abcd', 0)", INVALID_FUNCTION_ARGUMENT, "Invalid number of string repetitions: 0");
+        int overflowTimes = 1024 * 1024 / 4 + 1; // default maximum page size is 1 MB
+        assertInvalidFunction("replicate('abcd', " + overflowTimes + ")", INVALID_FUNCTION_ARGUMENT, "Repeated string is too large");
+    }
 }

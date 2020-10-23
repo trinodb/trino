@@ -118,6 +118,11 @@ String Functions
 
     Replaces all instances of ``search`` with ``replace`` in ``string``.
 
+.. function:: replicate(string, times) -> varchar
+    :noindex:
+
+    Returns a ``varchar`` that repeats a ``string`` given number of ``times``.
+
 .. function:: reverse(string) -> varchar
 
     Returns ``string`` with the characters in reverse order.
