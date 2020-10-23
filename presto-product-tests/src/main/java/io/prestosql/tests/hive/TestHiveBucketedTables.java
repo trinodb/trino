@@ -320,7 +320,7 @@ public class TestHiveBucketedTables
     {
         String queryStatement = "INSERT INTO TABLE " + destination +
                 (partition.isPresent() ? format(" PARTITION (%s) ", partition.get()) : " ") +
-                "SELECT " + join(",", values);
+                "SELECT " + join(",", values) + " FROM (SELECT 'foo') x";
 
         onHive().executeQuery("set hive.enforce.bucketing = true");
         onHive().executeQuery("set hive.enforce.sorting = true");
