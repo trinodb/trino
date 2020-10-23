@@ -1236,6 +1236,6 @@ public class TestDateTimeFunctions
 
     private static SqlTimestampWithTimeZone toTimestampWithTimeZone(DateTime dateTime)
     {
-        return SqlTimestampWithTimeZone.newInstance(3, dateTime.getMillis(), 0, getTimeZoneKey(dateTime.getZone().toTimeZone().getID()));
+        return SqlTimestampWithTimeZone.newInstance(3, dateTime.getMillis(), 0, getTimeZoneKey(dateTime.getZone().getID()));
     }
 }

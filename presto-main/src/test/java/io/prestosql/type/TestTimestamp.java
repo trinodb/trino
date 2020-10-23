@@ -228,7 +228,7 @@ public class TestTimestamp
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as timestamp with time zone)",
                 TIMESTAMP_TZ_MILLIS,
-                SqlTimestampWithTimeZone.newInstance(3, new DateTime(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), 0, TimeZoneKey.getTimeZoneKey(DATE_TIME_ZONE.toTimeZone().getID())));
+                SqlTimestampWithTimeZone.newInstance(3, new DateTime(2001, 1, 22, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), 0, TimeZoneKey.getTimeZoneKey(DATE_TIME_ZONE.getID())));
         functionAssertions.assertFunctionString("cast(TIMESTAMP '2001-1-22 03:04:05.321' as timestamp with time zone)",
                 TIMESTAMP_TZ_MILLIS,
                 "2001-01-22 03:04:05.321 " + DATE_TIME_ZONE.getID());
