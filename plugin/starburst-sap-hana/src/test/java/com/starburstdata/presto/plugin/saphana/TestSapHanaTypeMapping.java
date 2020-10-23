@@ -587,102 +587,84 @@ public class TestSapHanaTypeMapping
     @Test
     public void testTimeCoercion()
     {
-        testTimeCoercion("TIME '00:00:00'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '12:34:56'", "TIME '12:34:56'");
-        testTimeCoercion("TIME '23:59:59'", "TIME '23:59:59'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '12:34:56'", "TIME '12:34:56'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59'", "TIME '23:59:59'");
 
         // round down
-        testTimeCoercion("TIME '00:00:00.000000000001'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '00:00:00.1'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '00:00:00.123456'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.000000000001'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.1'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.123456'", "TIME '00:00:00'");
 
         // round down, maximal value
-        testTimeCoercion("TIME '00:00:00.4'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '00:00:00.49'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '00:00:00.449'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '00:00:00.4449'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '00:00:00.44449'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '00:00:00.444449'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '00:00:00.4444449'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '00:00:00.44444449'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '00:00:00.444444449'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '00:00:00.4444444449'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '00:00:00.44444444449'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '00:00:00.444444444449'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.4'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.49'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.449'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.4449'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.44449'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.444449'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.4444449'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.44444449'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.444444449'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.4444444449'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.44444444449'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.444444444449'", "TIME '00:00:00'");
 
         // round up, minimal value
-        testTimeCoercion("TIME '00:00:00.5'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.50'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.500'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.5000'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.50000'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.500000'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.5000000'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.50000000'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.500000000'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.5000000000'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.50000000000'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.500000000000'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.5'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.50'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.500'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.5000'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.50000'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.500000'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.5000000'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.50000000'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.500000000'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.5000000000'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.50000000000'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.500000000000'", "TIME '00:00:01'");
 
         // round up, maximal value
-        testTimeCoercion("TIME '00:00:00.9'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.99'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.999'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.9999'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.99999'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.999999'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.9999999'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.99999999'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.999999999'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.9999999999'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.99999999999'", "TIME '00:00:01'");
-        testTimeCoercion("TIME '00:00:00.999999999999'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.9'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.99'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.999'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.9999'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.99999'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.999999'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.9999999'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.99999999'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.999999999'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.9999999999'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.99999999999'", "TIME '00:00:01'");
+        testCreateTableAsAndInsertConsistency("TIME '00:00:00.999999999999'", "TIME '00:00:01'");
 
         // round up to next day, minimal value
-        testTimeCoercion("TIME '23:59:59.5'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.50'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.500'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.5000'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.50000'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.500000'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.5000000'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.50000000'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.500000000'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.5000000000'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.50000000000'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.500000000000'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.5'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.50'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.500'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.5000'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.50000'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.500000'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.5000000'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.50000000'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.500000000'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.5000000000'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.50000000000'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.500000000000'", "TIME '00:00:00'");
 
         // round up to next day, maximal value
-        testTimeCoercion("TIME '23:59:59.9'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.99'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.999'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.9999'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.99999'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.999999'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.9999999'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.99999999'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.999999999'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.9999999999'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.99999999999'", "TIME '00:00:00'");
-        testTimeCoercion("TIME '23:59:59.999999999999'", "TIME '00:00:00'");
-    }
-
-    private void testTimeCoercion(String inputLiteral, String expectedResult)
-    {
-        String tableName = "test_ctas_time_" + randomTableSuffix();
-
-        // CTAS
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT " + inputLiteral + " a", 1);
-        assertThat(query("SELECT a FROM " + tableName))
-                .matches("VALUES " + expectedResult);
-
-        // INSERT as a control query, where the coercion is done by the engine
-        server.execute("DELETE FROM tpch." + tableName);
-        assertUpdate("INSERT INTO " + tableName + " (a) VALUES (" + inputLiteral + ")", 1);
-        assertThat(query("SELECT a FROM " + tableName))
-                .matches("VALUES " + expectedResult);
-
-        assertUpdate("DROP TABLE " + tableName);
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.9'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.99'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.999'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.9999'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.99999'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.999999'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.9999999'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.99999999'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.999999999'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.9999999999'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.99999999999'", "TIME '00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIME '23:59:59.999999999999'", "TIME '00:00:00'");
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")
@@ -808,64 +790,46 @@ public class TestSapHanaTypeMapping
     public void testTimestampCoercion()
     {
         // precision 0 ends up as precision 0
-        testTimestampCoercion("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'");
 
-        testTimestampCoercion("TIMESTAMP '1970-01-01 00:00:00.1'", "TIMESTAMP '1970-01-01 00:00:00.1000000'");
-        testTimestampCoercion("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.9000000'");
-        testTimestampCoercion("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 00:00:00.1230000'");
-        testTimestampCoercion("TIMESTAMP '1970-01-01 00:00:00.999'", "TIMESTAMP '1970-01-01 00:00:00.9990000'");
-        testTimestampCoercion("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 00:00:00.1234560'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.1'", "TIMESTAMP '1970-01-01 00:00:00.1000000'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.9000000'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 00:00:00.1230000'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.999'", "TIMESTAMP '1970-01-01 00:00:00.9990000'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 00:00:00.1234560'");
 
-        testTimestampCoercion("TIMESTAMP '2020-09-27 12:34:56.1'", "TIMESTAMP '2020-09-27 12:34:56.1000000'");
-        testTimestampCoercion("TIMESTAMP '2020-09-27 12:34:56.9'", "TIMESTAMP '2020-09-27 12:34:56.9000000'");
-        testTimestampCoercion("TIMESTAMP '2020-09-27 12:34:56.123'", "TIMESTAMP '2020-09-27 12:34:56.1230000'");
-        testTimestampCoercion("TIMESTAMP '2020-09-27 12:34:56.999'", "TIMESTAMP '2020-09-27 12:34:56.9990000'");
-        testTimestampCoercion("TIMESTAMP '2020-09-27 12:34:56.123456'", "TIMESTAMP '2020-09-27 12:34:56.1234560'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.1'", "TIMESTAMP '2020-09-27 12:34:56.1000000'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.9'", "TIMESTAMP '2020-09-27 12:34:56.9000000'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.123'", "TIMESTAMP '2020-09-27 12:34:56.1230000'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.999'", "TIMESTAMP '2020-09-27 12:34:56.9990000'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.123456'", "TIMESTAMP '2020-09-27 12:34:56.1234560'");
 
         // max supported precision
-        testTimestampCoercion("TIMESTAMP '1970-01-01 00:00:00.1234567'", "TIMESTAMP '1970-01-01 00:00:00.1234567'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.1234567'", "TIMESTAMP '1970-01-01 00:00:00.1234567'");
 
         // round down
-        testTimestampCoercion("TIMESTAMP '1970-01-01 00:00:00.12345671'", "TIMESTAMP '1970-01-01 00:00:00.1234567'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.12345671'", "TIMESTAMP '1970-01-01 00:00:00.1234567'");
 
         // picos round up, end result rounds down
-        testTimestampCoercion("TIMESTAMP '1970-01-01 00:00:00.123456749'", "TIMESTAMP '1970-01-01 00:00:00.1234567'");
-        testTimestampCoercion("TIMESTAMP '1970-01-01 00:00:00.123456749999'", "TIMESTAMP '1970-01-01 00:00:00.1234567'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456749'", "TIMESTAMP '1970-01-01 00:00:00.1234567'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456749999'", "TIMESTAMP '1970-01-01 00:00:00.1234567'");
 
         // round up
-        testTimestampCoercion("TIMESTAMP '1970-01-01 00:00:00.12345675'", "TIMESTAMP '1970-01-01 00:00:00.1234568'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.12345675'", "TIMESTAMP '1970-01-01 00:00:00.1234568'");
 
         // max precision
-        testTimestampCoercion("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "TIMESTAMP '1970-01-01 00:00:00.1112223'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "TIMESTAMP '1970-01-01 00:00:00.1112223'");
 
         // round up to next second
-        testTimestampCoercion("TIMESTAMP '1970-01-01 00:00:00.99999995'", "TIMESTAMP '1970-01-01 00:00:01.0000000'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.99999995'", "TIMESTAMP '1970-01-01 00:00:01.0000000'");
 
         // round up to next day
-        testTimestampCoercion("TIMESTAMP '1970-01-01 23:59:59.99999995'", "TIMESTAMP '1970-01-02 00:00:00.0000000'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 23:59:59.99999995'", "TIMESTAMP '1970-01-02 00:00:00.0000000'");
 
         // negative epoch
-        testTimestampCoercion("TIMESTAMP '1969-12-31 23:59:59.99999995'", "TIMESTAMP '1970-01-01 00:00:00.0000000'");
-        testTimestampCoercion("TIMESTAMP '1969-12-31 23:59:59.999999949999'", "TIMESTAMP '1969-12-31 23:59:59.9999999'");
-        testTimestampCoercion("TIMESTAMP '1969-12-31 23:59:59.99999994'", "TIMESTAMP '1969-12-31 23:59:59.9999999'");
-    }
-
-    private void testTimestampCoercion(String inputLiteral, String expectedResult)
-    {
-        String tableName = "test_ctas_timestamp_" + randomTableSuffix();
-
-        // CTAS
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT " + inputLiteral + " a", 1);
-        assertThat(query("SELECT a FROM " + tableName))
-                .matches("VALUES " + expectedResult);
-
-        // INSERT as a control query, where the coercion is done by the engine
-        server.execute("DELETE FROM tpch." + tableName);
-        assertUpdate("INSERT INTO " + tableName + " (a) VALUES (" + inputLiteral + ")", 1);
-        assertThat(query("SELECT a FROM " + tableName))
-                .matches("VALUES " + expectedResult);
-
-        assertUpdate("DROP TABLE " + tableName);
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.99999995'", "TIMESTAMP '1970-01-01 00:00:00.0000000'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.999999949999'", "TIMESTAMP '1969-12-31 23:59:59.9999999'");
+        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.99999994'", "TIMESTAMP '1969-12-31 23:59:59.9999999'");
     }
 
     @DataProvider
@@ -890,6 +854,24 @@ public class TestSapHanaTypeMapping
                     format("CREATE TABLE " + tableName + " (a timestamp(%s) with time zone)", precision),
                     format("Unsupported column type: timestamp\\(%s\\) with time zone", precision));
         }
+    }
+
+    private void testCreateTableAsAndInsertConsistency(String inputLiteral, String expectedResult)
+    {
+        String tableName = "test_ctas_and_insert_" + randomTableSuffix();
+
+        // CTAS
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT " + inputLiteral + " a", 1);
+        assertThat(query("SELECT a FROM " + tableName))
+                .matches("VALUES " + expectedResult);
+
+        // INSERT as a control query, where the coercion is done by the engine
+        server.execute("DELETE FROM tpch." + tableName);
+        assertUpdate("INSERT INTO " + tableName + " (a) VALUES (" + inputLiteral + ")", 1);
+        assertThat(query("SELECT a FROM " + tableName))
+                .matches("VALUES " + expectedResult);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
