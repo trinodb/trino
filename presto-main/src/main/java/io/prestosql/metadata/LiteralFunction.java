@@ -14,7 +14,6 @@
 package io.prestosql.metadata;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation;
@@ -27,7 +26,6 @@ import io.prestosql.spi.type.VarcharType;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -46,7 +44,6 @@ public class LiteralFunction
         extends SqlScalarFunction
 {
     public static final String LITERAL_FUNCTION_NAME = "$literal$";
-    private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.of(long.class, double.class, Slice.class, boolean.class);
 
     private final Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier;
 
@@ -100,11 +97,6 @@ public class LiteralFunction
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 methodHandle);
-    }
-
-    public static boolean isSupportedLiteralType(Type type)
-    {
-        return SUPPORTED_LITERAL_TYPES.contains(type.getJavaType());
     }
 
     public static Type typeForMagicLiteral(Type type)
