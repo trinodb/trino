@@ -27,7 +27,9 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.SqlDate;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
@@ -42,6 +44,7 @@ import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.StringLiteral;
 
+import java.time.ZoneId;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -50,15 +53,19 @@ import static io.prestosql.metadata.LiteralFunction.typeForMagicLiteral;
 import static io.prestosql.spi.predicate.Utils.nativeValueToBlock;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.isShortDecimal;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.prestosql.type.DateTimes.formatTimestampWithTimeZone;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -208,6 +215,26 @@ public final class LiteralEncoder
 
         if (type.equals(DATE)) {
             return new GenericLiteral("DATE", new SqlDate(toIntExact((Long) object)).toString());
+        }
+
+        if (type instanceof TimestampWithTimeZoneType) {
+            TimestampWithTimeZoneType timestampType = (TimestampWithTimeZoneType) type;
+            if (timestampType.isShort()) {
+                long epochMillis = unpackMillisUtc((Long) object);
+                ZoneId zoneId = unpackZoneKey((Long) object).getZoneId();
+                return new GenericLiteral("TIMESTAMP(" + timestampType.getPrecision() + ") WITH TIME ZONE", formatTimestampWithTimeZone(
+                        timestampType.getPrecision(),
+                        epochMillis,
+                        0,
+                        zoneId));
+            } else {
+                LongTimestampWithTimeZone value = (LongTimestampWithTimeZone) object;
+                return new GenericLiteral("TIMESTAMP(" + timestampType.getPrecision() + ") WITH TIME ZONE", formatTimestampWithTimeZone(
+                        timestampType.getPrecision(),
+                        value.getEpochMillis(),
+                        value.getPicosOfMilli(),
+                        getTimeZoneKey(value.getTimeZoneKey()).getZoneId()));
+            }
         }
 
         // There is no automatic built in encoding for this Presto type, so instead the stack type is

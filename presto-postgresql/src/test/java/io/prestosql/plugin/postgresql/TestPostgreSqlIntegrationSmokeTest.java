@@ -419,6 +419,22 @@ public class TestPostgreSqlIntegrationSmokeTest
         execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
     }
 
+    @Test
+    public void testTimestampWithTimeZoneUnwrapCast()
+            throws Exception
+    {
+        try (AutoCloseable ignoreTable = withTable("tpch.test_timestamptz_unwrap_cast",
+                "(timestamp_1 timestamp(3))")) {
+            execute("INSERT INTO tpch. (id, ts_col) values " +
+                    "(1, timestamp '2020-01-01 01:01:01.000')," +
+                    "(2, timestamp '2019-01-01 01:01:01.000')");
+        }
+
+        assertThat(query("SELECT id FROM postgresql.public.tab " +
+                "WHERE ts_col >= CAST('2019-01-01 00:00:00.000000 UTC' AS TIMESTAMP(6) WITH TIME ZONE)"))
+                .matches("VALUES (1)").isCorrectlyPushedDown();
+    }
+
     private String getLongInClause(int start, int length)
     {
         String longValues = range(start, start + length)

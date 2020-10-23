@@ -25,6 +25,9 @@ import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.Re2JCastToRegexpFunction;
 import io.prestosql.security.AllowAllAccessControl;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
+import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
@@ -105,6 +108,10 @@ public class TestLiteralEncoder
         assertEncode(utf8Slice("hello"), createVarcharType(5), "'hello'");
         assertEncode(utf8Slice("hello"), createVarcharType(13), "CAST('hello' AS varchar(13))");
         assertEncode(utf8Slice("hello"), VARCHAR, "CAST('hello' AS varchar)");
+
+        LongTimestampWithTimeZone timestamp = LongTimestampWithTimeZone.fromEpochSecondsAndFraction(0, 0, TimeZoneKey.UTC_KEY);
+        assertEncode(timestamp, TimestampWithTimeZoneType.createTimestampWithTimeZoneType(6), "TIMESTAMP(6) WITH TIME ZONE '1970-01-01 00:00:00.000000 UTC'");
+        assertRoundTrip(timestamp, TimestampWithTimeZoneType.createTimestampWithTimeZoneType(6), LongTimestampWithTimeZone::equals);
 
         assertEncodeCaseInsensitively(utf8Slice("hello"), VARBINARY, literalVarbinary("hello".getBytes(UTF_8)));
 
