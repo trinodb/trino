@@ -31,6 +31,8 @@ import java.util.Properties;
 
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PASSWORD_PASS_THROUGH;
+import static com.starburstdata.presto.plugin.toolkit.PasswordPassThroughs.PASSWORD_PASSTHROUGH_CREDENTIAL;
+import static com.starburstdata.presto.plugin.toolkit.PasswordPassThroughs.USERNAME_PASSTHROUGH_CREDENTIAL;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -43,9 +45,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class OraclePoolingConnectionFactory
         implements ConnectionFactory
 {
-    private static final String PASSWORD_PASSTHROUGH = "starburst.password.passthrough";
-    private static final String USERNAME_PASSTHROUGH = "starburst.username.passthrough";
-
     private static final Logger log = Logger.get(OraclePoolingConnectionFactory.class);
 
     private final UniversalConnectionPoolManager poolManager;
@@ -138,8 +137,8 @@ public class OraclePoolingConnectionFactory
     private Connection getPassThroughConnection(JdbcIdentity identity)
             throws SQLException
     {
-        String username = identity.getExtraCredentials().getOrDefault(USERNAME_PASSTHROUGH, "");
-        String password = identity.getExtraCredentials().getOrDefault(PASSWORD_PASSTHROUGH, "");
+        String username = identity.getExtraCredentials().getOrDefault(USERNAME_PASSTHROUGH_CREDENTIAL, "");
+        String password = identity.getExtraCredentials().getOrDefault(PASSWORD_PASSTHROUGH_CREDENTIAL, "");
 
         if (username.isEmpty() || password.isEmpty()) {
             throw new PrestoException(GENERIC_USER_ERROR, "Password pass-through authentication requires user credentials");
