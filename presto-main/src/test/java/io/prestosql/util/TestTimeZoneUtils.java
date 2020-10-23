@@ -31,7 +31,7 @@ import static org.testng.Assert.assertEquals;
 public class TestTimeZoneUtils
 {
     @Test
-    public void test()
+    public void testNamedZones()
     {
         TreeSet<String> jdkZones = new TreeSet<>(ZoneId.getAvailableZoneIds());
         for (String zoneId : jdkZones) {
@@ -45,7 +45,11 @@ public class TestTimeZoneUtils
             assertDateTimeZoneEquals(zoneId, indexedZone);
             assertTimeZone(zoneId, dateTimeZone);
         }
+    }
 
+    @Test
+    public void testOffsets()
+    {
         for (int offsetHours = -13; offsetHours < 14; offsetHours++) {
             for (int offsetMinutes = 0; offsetMinutes < 60; offsetMinutes++) {
                 DateTimeZone dateTimeZone = DateTimeZone.forOffsetHoursMinutes(offsetHours, offsetMinutes);
