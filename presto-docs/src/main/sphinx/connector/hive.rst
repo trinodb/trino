@@ -306,6 +306,8 @@ Property Name                                      Description                  
 ``hive.temporary-staging-directory-path``          Controls the location of temporary staging directory that    ``/tmp/${USER}``
                                                    is used for write operations. The ``${USER}`` placeholder
                                                    can be used to use a different location for each user.
+
+``hive.translate-hive-views``                      Enable translation for Hive views. (experimental)            ``false``
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties
