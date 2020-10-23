@@ -65,7 +65,7 @@ public class TestTimeZoneUtils
     public static void assertTimeZone(String zoneId, DateTimeZone dateTimeZone)
     {
         long packWithDateTime = packDateTimeWithZone(new DateTime(42, dateTimeZone));
-        long packWithZoneId = packDateTimeWithZone(42L, dateTimeZone.toTimeZone().getID());
+        long packWithZoneId = packDateTimeWithZone(42L, ZoneId.of(dateTimeZone.getID()).getId());
         if (packWithDateTime != packWithZoneId) {
             fail(format(
                     "packWithDateTime and packWithZoneId differ for zone [%s] / [%s]: %s [%s %s] and %s [%s %s]",
